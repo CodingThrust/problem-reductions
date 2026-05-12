@@ -59,6 +59,27 @@ run_agent() {
     fi
 }
 
+watch_emit_outcome() {
+    outcome=$1
+    if [ -n "${WATCH_MODE:-}" ]; then
+        printf '__WATCH_OUTCOME__=%s\n' "$outcome"
+    fi
+}
+
+run_agent_with_watch_outcome() {
+    output_file=$1
+    prompt=$2
+
+    if run_agent "$output_file" "$prompt"; then
+        watch_emit_outcome processed
+        return 0
+    fi
+
+    rc=$?
+    watch_emit_outcome agent-failed
+    return "$rc"
+}
+
 # --- Project board ---
 
 # Detect the next eligible item from the current board snapshot.
@@ -212,7 +233,44 @@ cleanup_pipeline_worktree() {
     python3 scripts/pipeline_worktree.py cleanup --worktree "$worktree" --format json
 }
 
-# Poll a board column and dispatch a make target when new items appear.
+# Run a make target from watch_and_dispatch and capture any explicit outcome marker.
+dispatch_watch_target() {
+    make_target=$1
+    number=$2
+    output_file=$(mktemp)
+
+    if WATCH_MODE=1 ${MAKE:-make} "$make_target" N="$number" >"$output_file" 2>&1; then
+        rc=0
+    else
+        rc=$?
+    fi
+
+    outcome=
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            __WATCH_OUTCOME__=*)
+                outcome=${line#__WATCH_OUTCOME__=}
+                ;;
+            *)
+                printf '%s\n' "$line"
+                ;;
+        esac
+    done <"$output_file"
+    rm -f "$output_file"
+
+    if [ -z "$outcome" ]; then
+        if [ "$rc" -eq 0 ]; then
+            outcome=processed
+        else
+            outcome=agent-failed
+        fi
+    fi
+
+    WATCH_DISPATCH_OUTCOME=$outcome
+    WATCH_DISPATCH_RC=$rc
+}
+
+# Poll a board column and dispatch a make target until the eligible queue is drained.
 #   watch_and_dispatch <mode> <make-target> <label> [repo]
 # Example:
 #   watch_and_dispatch ready  run-pipeline "Ready issues"
@@ -223,50 +281,39 @@ watch_and_dispatch() {
     label=$3
     repo=${4-}
     interval=${POLL_INTERVAL:-1800}
-    max_retries=${MAX_RETRIES:-3}
 
     state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}
 
     trap 'exit 130' INT TERM
-    echo "Watching for new ${label} (polling every $((interval / 60))m, max retries ${max_retries})..."
+    echo "Watching ${label} (polling every $((interval / 60))m when idle)..."
     while true; do
         next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text)
         status=$?
         if [ "$status" -eq 0 ]; then
             item_id=$(printf '%s\n' "$next_item" | cut -f1)
             number=$(printf '%s\n' "$next_item" | cut -f2)
-            echo "$(date '+%Y-%m-%d %H:%M:%S') New ${label}: item $number ($item_id)"
-            if ${MAKE:-make} "$make_target" N="$number"; then
-                ack_polled_item "$state_file" "$item_id" || exit $?
-                echo "$(date '+%Y-%m-%d %H:%M:%S') Processed ${label} item $number; sleeping $((interval / 60))m..."
-                sleep "$interval"
-            else
-                # Track retries in state file; move to On Hold after max_retries
-                retry_count=$(python3 -c "
-import json, sys
-state_file, item_id = sys.argv[1], sys.argv[2]
-try:
-    state = json.load(open(state_file))
-except (FileNotFoundError, json.JSONDecodeError, ValueError):
-    state = {}
-retries = state.get('retries', {})
-retries[item_id] = retries.get(item_id, 0) + 1
-state['retries'] = retries
-json.dump(state, open(state_file, 'w'), indent=2, sort_keys=True)
-print(retries[item_id])
-" "$state_file" "$item_id" 2>/dev/null || echo 1)
-                if [ "$retry_count" -ge "$max_retries" ]; then
-                    echo "$(date '+%Y-%m-%d %H:%M:%S') Item $number ($item_id) failed ${retry_count} times; moving to On Hold." >&2
-                    move_board_item "$item_id" "on-hold" 2>/dev/null || true
-                    ack_polled_item "$state_file" "$item_id" 2>/dev/null || true
-                else
-                    echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch failed for ${label} item $number (attempt ${retry_count}/${max_retries}); will retry after sleep." >&2
-                fi
-                sleep "$interval"
-                continue
-            fi
+            echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatching ${label} item $number ($item_id)"
+            dispatch_watch_target "$make_target" "$number"
+            dispatch_outcome=$WATCH_DISPATCH_OUTCOME
+            dispatch_rc=$WATCH_DISPATCH_RC
+            case "$dispatch_outcome" in
+                processed)
+                    ack_polled_item "$state_file" "$item_id" || exit $?
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') Processed ${label} item $number; rechecking queue immediately..."
+                    continue
+                    ;;
+                gone)
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') ${label} item $number is no longer eligible; rechecking queue immediately..."
+                    continue
+                    ;;
+                *)
+                    echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch for ${label} item $number ended with outcome '$dispatch_outcome' (rc=${dispatch_rc}); sleeping $((interval / 60))m before retrying..." >&2
+                    sleep "$interval"
+                    continue
+                    ;;
+            esac
         elif [ "$status" -eq 1 ]; then
-            echo "$(date '+%Y-%m-%d %H:%M:%S') No new ${label}, sleeping $((interval / 60))m..."
+            echo "$(date '+%Y-%m-%d %H:%M:%S') No eligible ${label}, sleeping $((interval / 60))m..."
             sleep "$interval"
         else
             exit "$status"

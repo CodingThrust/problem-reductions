@@ -77,10 +77,10 @@ make run-plan      # Execute a plan with Codex or Claude
 make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
 make run-pipeline  # Pick next Ready issue from project board, implement, move to Review pool
 make run-pipeline N=97 # Process a specific issue from the project board
-make run-pipeline-forever # Poll Ready column, run-pipeline when new issues appear
+make run-pipeline-forever # Drain eligible Ready issues forever; poll only while idle
 make run-review    # Pick next PR from Review pool column, run agentic review, move to Final review
 make run-review N=570 # Process a specific PR from the Review pool column
-make run-review-forever # Poll Review pool for eligible PRs, dispatch run-review
+make run-review-forever # Drain eligible Review pool PRs forever; poll only while idle
 make copilot-review # (Optional) Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 make papers        # Full paper fetch: lookup + download + scihub
