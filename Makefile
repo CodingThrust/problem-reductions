@@ -36,9 +36,9 @@ help:
 	@echo "  run-plan   - Execute a plan with Codex or Claude (latest plan in docs/plans/)"
 	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
 	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
-	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
+	@echo "  run-pipeline-forever - Loop: drain eligible Ready issues forever; poll only when the queue is empty"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
-	@echo "  run-review-forever - Loop: poll Review pool for eligible PRs, dispatch run-review"
+	@echo "  run-review-forever - Loop: drain eligible Review pool PRs forever; poll only when the queue is empty"
 	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
 	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
@@ -396,8 +396,23 @@ cli-demo: cli
 #        make run-pipeline N=97     (processes specific issue)
 run-pipeline:
 	@. scripts/make_helpers.sh; \
+	selection=""; \
 	if [ -n "$(N)" ]; then \
 		issue="$(N)"; \
+		if [ -n "$$WATCH_MODE" ]; then \
+			status=0; \
+			tmp_state=$$(mktemp); \
+			selection=$$(board_next_json ready "" "$(N)" "$$tmp_state") || status=$$?; \
+			rm -f "$$tmp_state"; \
+			if [ "$$status" -eq 1 ]; then \
+				echo "Ready issue #$(N) is no longer eligible."; \
+				watch_emit_outcome gone; \
+				exit 0; \
+			elif [ "$$status" -ne 0 ]; then \
+				exit "$$status"; \
+			fi; \
+			issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
+		fi; \
 	else \
 		status=0; \
 		tmp_state=$$(mktemp); \
@@ -412,10 +427,10 @@ run-pipeline:
 		issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
 	fi; \
 	PROMPT=$$(skill_prompt_with_context project-pipeline "/project-pipeline $$issue" "process GitHub issue $$issue" "Selected queue item" "$$selection"); \
-	run_agent "pipeline-output.log" "$$PROMPT"
+	run_agent_with_watch_outcome "pipeline-output.log" "$$PROMPT"
 
-# Poll Ready column for new issues and run-pipeline when new ones appear
-# Checks every 30 minutes; triggers make run-pipeline when the eligible Ready-item set gains new members
+# Drain Ready issues forever, polling only when the eligible queue is empty
+# Checks every 30 minutes while idle; successful dispatches immediately re-check the queue
 run-pipeline-forever:
 	@. scripts/make_helpers.sh; \
 	MAKE=$(MAKE) watch_and_dispatch ready run-pipeline "Ready issues"
@@ -575,6 +590,11 @@ run-review:
 	selection=$$(review_pipeline_context "$$repo" "$$pr"); \
 	status_name=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])"); \
 	if [ "$$status_name" = "empty" ]; then \
+		if [ -n "$$WATCH_MODE" ]; then \
+			echo "Review item for PR #$$pr is no longer eligible."; \
+			watch_emit_outcome gone; \
+			exit 0; \
+		fi; \
 		echo "No Review pool PRs are currently eligible."; \
 		exit 1; \
 	fi; \
@@ -587,9 +607,9 @@ run-review:
 		codex_desc="inspect the review pipeline bundle and resolve the next action"; \
 	fi; \
 	PROMPT=$$(skill_prompt_with_context review-pipeline "$$slash_cmd" "$$codex_desc" "Review pipeline context" "$$selection"); \
-	run_agent "review-output.log" "$$PROMPT"
+	run_agent_with_watch_outcome "review-output.log" "$$PROMPT"
 
-# Poll Review pool column for eligible PRs and dispatch run-review
+# Drain Review pool PRs forever, polling only when the eligible queue is empty
 run-review-forever:
 	@. scripts/make_helpers.sh; \
 	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner) || { echo "Failed to detect repo (gh repo view failed)"; exit 1; }; \

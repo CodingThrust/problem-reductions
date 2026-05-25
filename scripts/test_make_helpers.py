@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import shutil
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -371,6 +372,17 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertIn('review_pipeline_context "$repo"', proc.stdout)
         self.assertIn('skill_prompt_with_context review-pipeline', proc.stdout)
 
+    def test_make_run_review_watch_mode_emits_outcome_markers(self) -> None:
+        proc = subprocess.run(
+            ["make", "-n", "run-review", "WATCH_MODE=1", "N=570"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("watch_emit_outcome gone", proc.stdout)
+        self.assertIn('run_agent_with_watch_outcome "review-output.log" "$PROMPT"', proc.stdout)
+
     def test_make_run_pipeline_uses_scripted_board_selection(self) -> None:
         proc = subprocess.run(
             ["make", "-n", "run-pipeline"],
@@ -381,6 +393,17 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn('board_next_json ready "" "" "$tmp_state"', proc.stdout)
         self.assertIn('skill_prompt_with_context project-pipeline', proc.stdout)
+
+    def test_make_run_pipeline_watch_mode_emits_outcome_markers(self) -> None:
+        proc = subprocess.run(
+            ["make", "-n", "run-pipeline", "WATCH_MODE=1", "N=42"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("watch_emit_outcome gone", proc.stdout)
+        self.assertIn('run_agent_with_watch_outcome "pipeline-output.log" "$PROMPT"', proc.stdout)
 
     def test_watch_and_dispatch_uses_persistent_default_state_file(self) -> None:
         if shutil.which("dash") is None:
@@ -406,7 +429,7 @@ class MakeHelpersTests(unittest.TestCase):
             proc.stderr,
         )
 
-    def test_watch_and_dispatch_sleeps_after_successful_dispatch(self) -> None:
+    def test_watch_and_dispatch_rechecks_immediately_after_successful_dispatch(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")
 
@@ -437,7 +460,92 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2, proc.stderr)
         self.assertIn("make:run-pipeline N=42", proc.stdout)
         self.assertIn("ack:PVTI_1", proc.stdout)
-        self.assertIn("sleep:600", proc.stdout)
+        self.assertNotIn("sleep:600", proc.stdout)
+
+    def test_watch_and_dispatch_drains_ready_items_before_sleeping(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "counter_file=/tmp/test-watch-drain-$$.count; "
+                    "rm -f \"$counter_file\"; "
+                    "date() { printf '2026-03-16 00:00:00'; }; "
+                    "poll_project_items() { "
+                    "  count=$(cat \"$counter_file\" 2>/dev/null || printf '0'); "
+                    "  count=$((count + 1)); "
+                    "  printf '%s' \"$count\" > \"$counter_file\"; "
+                    "  case \"$count\" in "
+                    "    1) printf 'PVTI_1\\t42\\n'; return 0 ;; "
+                    "    2) printf 'PVTI_2\\t43\\n'; return 0 ;; "
+                    "    3) return 1 ;; "
+                    "    *) return 2 ;; "
+                    "  esac; "
+                    "}; "
+                    "make() { printf 'make:%s %s\\n' \"$1\" \"$2\"; return 0; }; "
+                    "ack_polled_item() { printf 'ack:%s\\n' \"$2\"; }; "
+                    "sleep() { printf 'sleep:%s\\n' \"$1\"; return 0; }; "
+                    "MAKE=make POLL_INTERVAL=600 "
+                    "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertIn("make:run-pipeline N=42", proc.stdout)
+        self.assertIn("ack:PVTI_1", proc.stdout)
+        self.assertIn("make:run-pipeline N=43", proc.stdout)
+        self.assertIn("ack:PVTI_2", proc.stdout)
+        self.assertEqual(proc.stdout.count("sleep:600"), 1)
+        self.assertLess(
+            proc.stdout.index("make:run-pipeline N=43"),
+            proc.stdout.index("sleep:600"),
+        )
+
+    def test_watch_and_dispatch_skips_retry_state_for_explicit_gone_outcome(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "gone-state.json"
+            counter_file = Path(tmpdir) / "gone-counter.txt"
+            proc = subprocess.run(
+                [
+                    "dash",
+                    "-c",
+                    (
+                        ". scripts/make_helpers.sh; "
+                        f"state_file={state_file}; "
+                        f"counter_file={counter_file}; "
+                        "rm -f \"$state_file\" \"$counter_file\"; "
+                        "poll_project_items() { "
+                        "  count=$(cat \"$counter_file\" 2>/dev/null || printf '0'); "
+                        "  count=$((count + 1)); "
+                        "  printf '%s' \"$count\" > \"$counter_file\"; "
+                        "  if [ \"$count\" -eq 1 ]; then printf 'PVTI_1\\t42\\n'; return 0; fi; "
+                        "  return 2; "
+                        "}; "
+                        "make() { printf '__WATCH_OUTCOME__=gone\\n'; return 3; }; "
+                        "move_board_item() { printf 'move:%s %s\\n' \"$1\" \"$2\"; }; "
+                        "sleep() { printf 'sleep:%s\\n' \"$1\"; return 0; }; "
+                        "STATE_FILE=\"$state_file\" MAKE=make POLL_INTERVAL=600 "
+                        "watch_and_dispatch ready run-pipeline 'Ready issues'"
+                    ),
+                ],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+            )
+            state_file_exists = state_file.exists()
+        self.assertEqual(proc.returncode, 2, proc.stderr)
+        self.assertNotIn("move:PVTI_1 on-hold", proc.stdout)
+        self.assertFalse(state_file_exists)
 
     def test_watch_and_dispatch_calls_poll_with_correct_args(self) -> None:
         if shutil.which("dash") is None:
