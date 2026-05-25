@@ -283,6 +283,7 @@
   "MinimumWeightSolutionToLinearEquations": [Minimum Weight Solution to Linear Equations],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "MinimumEdgeCostFlow": [Minimum Edge-Cost Flow],
+  "MinimumCostMaximumFlow": [Minimum-Cost Maximum-Flow],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
@@ -10187,6 +10188,37 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         }),
         caption: [Minimum Edge-Cost Flow: optimal flow (blue) has total edge cost #cost. Arc labels show prices.],
       ) <fig:mecf>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCostMaximumFlow")
+  let arcs-j = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let caps = x.instance.capacities
+  let costs-j = x.instance.costs
+  let src = x.instance.source
+  let snk = x.instance.sink
+  let flow = x.optimal_config
+  [
+    #problem-def("MinimumCostMaximumFlow")[
+      Given a directed graph $G = (V, A)$ with non-negative arc capacities $c: A -> ZZ_(>= 0)$, non-negative arc costs $"cost": A -> ZZ_(>= 0)$, a source vertex $s in V$, and a sink vertex $t in V$ with $s != t$, find an integral flow $f: A -> ZZ_(>= 0)$ with $0 <= f(a) <= c(a)$ that conserves flow at every $v in V backslash {s, t}$ and that lexicographically (1) maximizes the flow value $|f| = sum_(a in delta^+(s)) f(a) - sum_(a in delta^-(s)) f(a)$, and (2) among all maximum-value flows, minimizes the total arc cost $sum_(a in A) "cost"(a) dot f(a)$.
+    ][
+      Minimum-Cost Maximum-Flow is the standard lexicographic combination underlying network design and routing applications. The continuous version is polynomial-time solvable via successive-shortest-paths or network-simplex algorithms (see, e.g., the MIT 6.854 lecture notes @mit6854MinCostFlow); when capacities and costs are integral, the totally-unimodular constraint matrix guarantees an integral optimum, so restricting $f$ to integers does not change the optimal value. This formulation is the optimization target adopted by the CellRouter pipeline for single-cell trajectory reconstruction @LummertzDaRocha2018CellRouter, where the lexicographic objective first commits maximum biological throughput between progenitor and target cell states and then chooses the cheapest realization of that throughput.
+
+      *Lexicographic scalarization.* The catalog encodes the lex objective as the single Min-objective
+      $ "score"(f) = M dot (B - |f|) + sum_(a in A) "cost"(a) f(a), $
+      where $B = sum_(a in A) c(a)$ upper-bounds any feasible flow value and $M = sum_(a in A) c(a) dot "cost"(a) + 1$ strictly exceeds any feasible cost. Minimizing $"score"(f)$ therefore picks a maximum-value flow first and breaks ties by minimum cost; on infeasible configurations the value is $bot$.
+
+      The registered polynomial bound $(|V| + |A|)^6$ is a conservative placeholder honoring the polynomial-time solvability via the linear-programming formulation; sharper strongly-polynomial bounds are available for specific algorithms (e.g., Orlin's enhanced capacity-scaling minimum-cost flow algorithm).
+
+      *Example.* On the canonical instance ($n = 4$ vertices, source $s = v_#src$, sink $t = v_#snk$, $|A| = #{arcs-j.len()}$ arcs with capacities $(#caps.map(str).join(", "))$ and costs $(#costs-j.map(str).join(", "))$), the source out-capacity bounds the flow value at $|f| <= 2 + 1 = 3$, and this is achievable: routing 2 units along $v_0 -> v_1$ and 1 unit along $v_0 -> v_2$, balanced by 1 unit through the lateral $v_1 -> v_2$ and 1 unit on $v_1 -> v_3$, gives $f = (#flow.map(str).join(", "))$ with $|f| = 3$ and total cost $2 dot 1 + 1 dot 0 + 1 dot 0 + 1 dot 1 + 2 dot 2 = 7$. The scalar score is $M dot (B - 3) + 7 = 8 dot 4 + 7 = 39$ where $B = 7$ and $M = 8$.
+
+      #pred-commands(
+        "pred create --example MinimumCostMaximumFlow -o mcmf.json",
+        "pred solve mcmf.json",
+        "pred evaluate mcmf.json --config " + flow.map(str).join(","),
+      )
     ]
   ]
 }

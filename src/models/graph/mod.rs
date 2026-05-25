@@ -17,6 +17,7 @@
 //! - [`MinimumCapacitatedSpanningTree`]: Minimum weight spanning tree with subtree capacity constraints
 //! - [`MinimumDominatingSet`]: Minimum dominating set
 //! - [`MinimumMetricDimension`]: Minimum resolving set (metric dimension)
+//! - [`MinimumCostMaximumFlow`]: Lex (max-value, min-cost) integral flow on a directed graph
 //! - [`MinimumEdgeCostFlow`]: Minimum edge-cost integral flow
 //! - [`MinimumGeometricConnectedDominatingSet`]: Minimum connected dominating set in a geometric point set
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
@@ -122,6 +123,7 @@ pub(crate) mod maximum_leaf_spanning_tree;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
 pub(crate) mod minimum_capacitated_spanning_tree;
+pub(crate) mod minimum_cost_maximum_flow;
 pub(crate) mod minimum_covering_by_cliques;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
@@ -203,6 +205,7 @@ pub use maximum_leaf_spanning_tree::MaximumLeafSpanningTree;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
 pub use minimum_capacitated_spanning_tree::MinimumCapacitatedSpanningTree;
+pub use minimum_cost_maximum_flow::MinimumCostMaximumFlow;
 pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
@@ -320,6 +323,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
     specs.extend(minimum_capacitated_spanning_tree::canonical_model_example_specs());
+    specs.extend(minimum_cost_maximum_flow::canonical_model_example_specs());
     specs.extend(minimum_edge_cost_flow::canonical_model_example_specs());
     specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());

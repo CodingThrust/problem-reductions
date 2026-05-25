@@ -252,6 +252,7 @@ Flags by problem type:
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
+  MinimumCostMaximumFlow          --arcs, --capacities, --costs, --source, --sink
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
   MaximumLeafSpanningTree         --graph
