@@ -5,6 +5,7 @@
 //! - [`Betweenness`]: Find a linear ordering satisfying betweenness constraints on triples
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`Clustering`]: Partition elements into bounded-diameter clusters
+//! - [`ClosestString`]: Find a center string minimizing the maximum Hamming distance to a set of equal-length input strings
 //! - [`CyclicOrdering`]: Find a permutation satisfying cyclic ordering constraints on triples
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
@@ -115,6 +116,7 @@ pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
+pub(crate) mod closest_string;
 pub(crate) mod clustering;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
@@ -186,6 +188,7 @@ pub use betweenness::Betweenness;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
 pub use capacity_assignment::CapacityAssignment;
+pub use closest_string::ClosestString;
 pub use clustering::Clustering;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
@@ -260,6 +263,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     let mut specs = Vec::new();
     specs.extend(boyce_codd_normal_form_violation::canonical_model_example_specs());
     specs.extend(capacity_assignment::canonical_model_example_specs());
+    specs.extend(closest_string::canonical_model_example_specs());
     specs.extend(consistency_of_database_frequency_tables::canonical_model_example_specs());
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(conjunctive_query_foldability::canonical_model_example_specs());

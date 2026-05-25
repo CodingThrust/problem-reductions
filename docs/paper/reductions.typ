@@ -257,6 +257,7 @@
   "MixedChinesePostman": [Mixed Chinese Postman],
   "StackerCrane": [Stacker Crane],
   "LongestCommonSubsequence": [Longest Common Subsequence],
+  "ClosestString": [Closest String],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "ThreeDimensionalMatching": [Three-Dimensional Matching],
   "ThreeMatroidIntersection": [Three-Matroid Intersection],
@@ -7478,6 +7479,48 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         ))
       },
       caption: [Longest Common Subsequence: the highlighted positions show a left-to-right embedding of $w = $ #fmt-str(witness) (length #witness.len()) in each input string.],
+      )
+    ]
+  ]
+}
+
+#{
+  // Hand-authored canonical example mirroring the in-repo example_db fixture
+  // (load-model-example is not used here because the corresponding example
+  // entry is shipped via the model file's canonical_model_example_specs rather
+  // than the docs/paper/data/examples.json bundle).
+  let alphabet-size = 2
+  let strings = (
+    (0, 0, 0),
+    (0, 1, 1),
+    (1, 0, 1),
+    (1, 1, 0),
+  )
+  let center = (0, 0, 0)
+  let m = center.len()
+  let n = strings.len()
+  let fmt-str(s) = s.map(c => str(c)).join("")
+  let hamming(a, b) = range(a.len()).filter(i => a.at(i) != b.at(i)).len()
+  let distances = strings.map(s => hamming(center, s))
+  let radius = distances.fold(0, (a, b) => calc.max(a, b))
+  [
+    #problem-def("ClosestString")[
+      Given a finite alphabet $Sigma = {0, dots, q - 1}$ and a list of input strings $s_1, dots, s_n in Sigma^m$ all of common length $m$, find a center string $c in Sigma^m$ minimizing the maximum Hamming distance from $c$ to any input:
+      $ min_(c in Sigma^m) max_(1 lt.eq i lt.eq n) d_H (c, s_i), $
+      where $d_H (x, y) = |{j : x[j] != y[j]}|$ is the Hamming distance.
+    ][
+      A central problem in computational biology, coding theory, and consensus-pattern discovery. #cite(<lima2002closeststring>, form: "prose") showed that the decision version is NP-complete and gave the first polynomial-time approximation scheme; the problem remains NP-hard even over the binary alphabet $|Sigma| = 2$. Closest String is fixed-parameter tractable when parameterized by either the radius or the number of input strings, but the registered exact baseline simply enumerates every center string in $|Sigma|^m$ time and reports the smallest worst-case Hamming distance.
+
+      *Example.* Let $Sigma = {0, 1}$ ($q = #alphabet-size$) and consider the $n = #n$ binary strings of length $m = #m$:
+      $s_1 = #fmt-str(strings.at(0))$, $s_2 = #fmt-str(strings.at(1))$, $s_3 = #fmt-str(strings.at(2))$, $s_4 = #fmt-str(strings.at(3))$.
+      The center $c = #fmt-str(center)$ achieves Hamming distances
+      $d_H (c, s_1) = #distances.at(0)$, $d_H (c, s_2) = #distances.at(1)$, $d_H (c, s_3) = #distances.at(2)$, $d_H (c, s_4) = #distances.at(3)$,
+      so its worst-case distance is $#radius$. No center attains radius $1$: any binary length-$3$ string differs from at least one of $s_1, dots, s_4$ in at least two positions, so the optimum radius is exactly $#radius$.
+
+      #pred-commands(
+        "pred create --example ClosestString -o closest-string.json",
+        "pred solve closest-string.json --solver brute-force",
+        "pred evaluate closest-string.json --config " + center.map(str).join(","),
       )
     ]
   ]

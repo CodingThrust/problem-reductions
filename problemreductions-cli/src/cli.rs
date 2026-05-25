@@ -333,6 +333,7 @@ Flags by problem type:
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   GroupingBySwapping             --string, --bound [--alphabet-size]
   LCS                             --strings [--alphabet-size]
+  ClosestString                   --alphabet-size, --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers

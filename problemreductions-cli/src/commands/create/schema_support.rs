@@ -1879,6 +1879,9 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
         }
+        "ClosestString" => {
+            "--alphabet-size 2 --strings \"0,0,0;0,1,1;1,0,1;1,1,0\""
+        }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumExternalMacroDataCompression" | "MinimumInternalMacroDataCompression" => {
             "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
@@ -2065,6 +2068,9 @@ pub(super) fn help_flag_hint(
         }
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
+        }
+        ("ClosestString", "strings") => {
+            "semicolon-separated equal-length symbol lists: \"0,0,0;0,1,1;1,0,1;1,1,0\""
         }
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("MinimumExternalMacroDataCompression", "string")
