@@ -5,6 +5,7 @@
 //! - [`BoundedDiameterSpanningTree`]: Spanning tree with bounded weight and diameter
 //! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum vertex degree at most K
 //! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
+//! - [`EulerianPath`]: Directed Eulerian trail (uses every arc exactly once)
 //! - [`HighlyConnectedDeletion`]: Minimum-edge deletion so every component is an isolated vertex or a highly connected graph on >=3 vertices
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximumLeafSpanningTree`]: Spanning tree maximizing number of leaves
@@ -89,6 +90,7 @@ pub(crate) mod degree_constrained_spanning_tree;
 pub(crate) mod directed_hamiltonian_path;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
+pub(crate) mod eulerian_path;
 pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
@@ -168,6 +170,7 @@ pub use degree_constrained_spanning_tree::DegreeConstrainedSpanningTree;
 pub use directed_hamiltonian_path::DirectedHamiltonianPath;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
+pub use eulerian_path::EulerianPath;
 pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
@@ -243,6 +246,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bounded_diameter_spanning_tree::canonical_model_example_specs());
     specs.extend(degree_constrained_spanning_tree::canonical_model_example_specs());
     specs.extend(directed_hamiltonian_path::canonical_model_example_specs());
+    specs.extend(eulerian_path::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(maximum_leaf_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());

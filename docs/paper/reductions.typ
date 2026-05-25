@@ -208,6 +208,7 @@
   "MaximumCommonEdgeSubgraph": [Maximum Common Edge Subgraph],
   "MaximumEdgeWeightedKClique": [Maximum Edge-Weighted $k$-Clique],
   "HighlyConnectedDeletion": [Highly Connected Deletion],
+  "EulerianPath": [Eulerian Path],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -1013,6 +1014,96 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The triangle-with-leaf graph from the issue ($n = #nv$, $|E| = #ne$). The deleted edge ${#deleted.at(0).at(0), #deleted.at(0).at(1)}$ is shown in bold blue. The surviving triangle ${#cluster.map(i => $v_#i$).join(", ")}$ (blue nodes) is highly connected ($lambda = 2 > 3/2$); vertex $v_3$ remains as an allowed isolated leftover. Deletion budget $|F| = #opt-val$.],
     ) <fig:hcd-triangle-leaf>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("EulerianPath")
+  let nv = x.instance.graph.num_vertices
+  let arcs = x.instance.graph.arcs
+  let m = arcs.len()
+  // Witness ordering from the issue: a_0 -> a_2 -> a_3 -> a_1, tracing 0->1->2->0->1.
+  let pi = x.optimal_config
+  let trail = (arcs.at(pi.at(0)).at(0),) + pi.map(j => arcs.at(j).at(1))
+  [
+    #problem-def("EulerianPath")[
+      Given a finite directed multigraph $D = (V, A)$ — with loops and parallel arcs permitted — decide whether there exists a directed trail $T = a_(i_1) a_(i_2) dots.h.c a_(i_m)$ that uses every arc occurrence in $A$ exactly once. The trail may be open or closed, and isolated vertices are allowed and ignored. Repeated arc occurrences are distinguished, so the empty-arc instance is accepted by convention with the empty trail.
+    ][
+      An Eulerian trail is the classical "draw without lifting the pen" object: a walk that uses every arc exactly once. Euler's 1736 negative resolution of the Königsberg bridges problem launched graph theory by characterizing exactly when such walks exist on multigraphs. For directed multigraphs $D$ with weakly connected support, an Eulerian trail exists iff either every vertex has equal in-degree and out-degree (giving a closed trail / Eulerian circuit) or there exist two distinguished vertices $s != t$ with $"outdeg"(s) = "indeg"(s) + 1$, $"indeg"(t) = "outdeg"(t) + 1$, and all other vertices balanced @BangJensenGutin2009Digraphs.
+
+      Unlike its sibling Hamiltonian Path, EulerianPath is polynomial-time decidable: Hierholzer's stitching algorithm constructs a witness — or certifies infeasibility — in $O(|V| + |A|)$ time, and Ebert's refinement provides an explicit linear-time algorithm tailored to directed multigraphs @Ebert1988ComputingEulerianTrails. Eulerian trails underpin DNA fragment assembly via de Bruijn graphs, optimal arc routing in postman problems, and printed-circuit drilling tours. The brute-force baseline used by the registry enumerates all $m^m$ position assignments and verifies the permutation-plus-trail invariants in linear time; the model is registered as a satisfaction problem and the literature linear-time algorithm is the worst-case best-known complexity.
+
+      *Example (YES instance).* Consider the directed multigraph on $|V| = #nv$ vertices with $m = #m$ arcs $#arcs.map(((u, v)) => $(#u arrow.r #v)$).join(", ")$; the arcs $a_0 = (0 arrow.r 1)$ and $a_1 = (0 arrow.r 1)$ are parallel. The ordering $(a_(#pi.at(0)), a_(#pi.at(1)), a_(#pi.at(2)), a_(#pi.at(3)))$ traces the directed trail $#trail.map(v => $#v$).join($arrow.r$)$, using every arc exactly once.
+
+      *Example (NO instance).* Let $V = {0, 1}$ and $A = {(0,1), (0,1), (0,1), (1,0)}$. The support is connected, but $"outdeg"(0) - "indeg"(0) = 2$ and $"indeg"(1) - "outdeg"(1) = 2$, so the directed balance criterion fails: any open trail can have at most one source-vertex of excess $+1$, hence no Eulerian trail exists.
+
+      #pred-commands(
+        "pred create --example EulerianPath -o eulerian.json",
+        "pred solve eulerian.json",
+        "pred evaluate eulerian.json --config " + pi.map(str).join(","),
+      )
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let blue = graph-colors.at(0)
+          let gray = luma(170)
+          let arc-mark-blue = (end: (symbol: ">", scale: 0.62, fill: blue))
+          // Three vertices placed in a triangle layout so the parallel arc (0->1)
+          // and the back-arc (2->0) are easy to distinguish.
+          let verts = (
+            (0, 0),
+            (2.4, 0),
+            (1.2, 1.6),
+          )
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "ep-" + str(k), fill: blue, label: none)
+          }
+          // First copy of (0->1): straight thick blue segment carrying a_0.
+          line(
+            "ep-0",
+            "ep-1",
+            stroke: 2pt + blue,
+            mark: arc-mark-blue,
+            name: "ep-arc-0",
+          )
+          // Second copy of (0->1) drawn as a downward bow so it does not overlap a_0.
+          bezier(
+            "ep-0.south",
+            "ep-1.south",
+            (1.2, -0.95),
+            stroke: 2pt + blue,
+            mark: arc-mark-blue,
+            name: "ep-arc-1",
+          )
+          // (1->2) and (2->0) close the trail.
+          line(
+            "ep-1",
+            "ep-2",
+            stroke: 2pt + blue,
+            mark: arc-mark-blue,
+            name: "ep-arc-2",
+          )
+          line(
+            "ep-2",
+            "ep-0",
+            stroke: 2pt + blue,
+            mark: arc-mark-blue,
+            name: "ep-arc-3",
+          )
+          // Label vertices.
+          for (k, pos) in verts.enumerate() {
+            draw.content("ep-" + str(k), text(8pt, text(fill: white)[$v_#k$]))
+          }
+          // Annotate arc indices along the four trail edges.
+          content("ep-arc-0.mid", text(7pt, fill: gray)[$a_0$], frame: "rect", padding: 0.06, stroke: none, fill: white)
+          content((1.2, -0.95), text(7pt, fill: gray)[$a_1$], frame: "rect", padding: 0.06, stroke: none, fill: white)
+          content("ep-arc-2.mid", text(7pt, fill: gray)[$a_2$], frame: "rect", padding: 0.06, stroke: none, fill: white)
+          content("ep-arc-3.mid", text(7pt, fill: gray)[$a_3$], frame: "rect", padding: 0.06, stroke: none, fill: white)
+        }),
+        caption: [Canonical YES instance on $|V| = #nv$ vertices and $m = #m$ arcs (with parallel arcs $a_0, a_1$ between $v_0$ and $v_1$). The witness ordering $(a_0, a_2, a_3, a_1)$ traces the directed Eulerian trail $#trail.map(v => $v_#v$).join($arrow.r$)$.],
+      ) <fig:eulerian-path>
     ]
   ]
 }
