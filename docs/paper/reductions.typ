@@ -206,6 +206,7 @@
   "MaximumClique": [Maximum Clique],
   "MaximumCoKPlex": [Maximum Co-$k$-Plex],
   "MaximumCommonEdgeSubgraph": [Maximum Common Edge Subgraph],
+  "MaximumContactMapOverlap": [Maximum Contact Map Overlap],
   "MaximumEdgeWeightedKClique": [Maximum Edge-Weighted $k$-Clique],
   "HighlyConnectedDeletion": [Highly Connected Deletion],
   "EulerianPath": [Eulerian Path],
@@ -939,6 +940,111 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [Maximum Common Edge Subgraph instance from the issue. Left: source graph $G_1$ with $|V_1| = #n1$ and $|E_1| = #g1.arcs.len()$ labelled arcs; matched source vertices are highlighted. Right: target graph $G_2$ with $|V_2| = #n2$ and $|E_2| = #g2.arcs.len()$. Dashed arrows show the partial injective map $f$; the source arc $(3, b, 4)$ is the unique non-preserved arc because vertex $4 in V_1$ is unmatched.],
     ) <fig:mces-issue>
+    ]
+  ]
+}
+
+#{
+  // Hand-authored canonical example mirroring the in-repo example_db fixture
+  // (the canonical example for MaximumContactMapOverlap ships via the model
+  // file's canonical_model_example_specs rather than docs/paper/data/examples.json).
+  let n1 = 4
+  let n2 = 5
+  let contacts1 = ((0, 2), (1, 3))
+  let contacts2 = ((0, 3), (1, 4), (0, 2))
+  // Encoded config: value 0 = unmatched, value j + 1 = matched to vertex j of G_2.
+  // The optimum [1, 2, 4, 5] aligns 0->0, 1->1, 2->3, 3->4.
+  let config = (1, 2, 4, 5)
+  // Decoded alignment as (i, f(i)) pairs for matched i; bot otherwise.
+  let alignment = config.enumerate().map(((i, v)) => (i, v))
+  let preserved = 2
+  let fmt-pair(p) = $\{#p.at(0), #p.at(1)\}$
+  let fmt-edges(es) = es.map(fmt-pair).join(", ")
+  [
+    #problem-def("MaximumContactMapOverlap")[
+      Given two finite ordered contact maps $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with $V_r = {0, 1, dots, n_r - 1}$ ordered by index and $E_r subset.eq binom(V_r, 2)$ a simple undirected contact set, find an order-preserving partial injective alignment $f: V_1 -> V_2 union {bot}$ maximizing the number of preserved contacts
+      $ |{{i, k} in E_1 : i, k "matched and" {f(i), f(k)} in E_2}|. $
+      Feasibility requires injectivity on matched vertices and the order-preserving condition: if $i < k$ in $V_1$ and both are matched, then $f(i) < f(k)$ in $V_2$.
+    ][
+    The Maximum Contact Map Overlap problem (CMO) is a standard combinatorial formulation of flexible protein-structure comparison: each protein is represented by an ordered residue contact graph, and the alignment quality is measured by the number of superimposed contacts. Xie and Sahinidis introduced a reduction-based exact algorithm that solves CMO via a sequence of smaller maximum-weight independent-set subproblems on a derived interaction graph @XieSahinidis2007CMO. Andonov, Malod-Dognin, and Yanev later strengthened the integer-programming bound and B&B search, producing one of the fastest known exact CMO solvers @AndonovMalodDogninYanev2011CMO. The order-preserving constraint distinguishes CMO from the general maximum common edge-subgraph problem and reflects the underlying sequence of residues along each protein backbone. The registered exact baseline enumerates every assignment $V_1 -> V_2 union {bot}$ in $O^*((|V_2| + 1)^(|V_1|))$ time and filters to order-preserving injective maps#footnote[No algorithm improving on full enumeration is registered for the unrestricted variant. The specialized exact algorithms of @XieSahinidis2007CMO and @AndonovMalodDogninYanev2011CMO improve on the worst case in practice but not in the registered worst-case complexity bound.].
+
+    *Example.* Let $V_1 = {0, 1, 2, 3\}$ with $E_1 = {#fmt-edges(contacts1)}$ and $V_2 = {0, 1, 2, 3, 4\}$ with $E_2 = {#fmt-edges(contacts2)}$. The alignment $f$ given by
+
+    #align(center)[#table(
+      columns: (auto, auto, auto, auto, auto),
+      align: center,
+      stroke: 0.4pt,
+      [$i$], [$0$], [$1$], [$2$], [$3$],
+      [$f(i)$], [$0$], [$1$], [$3$], [$4$],
+    )]
+
+    is order-preserving ($0 < 1 < 3 < 4$) and injective. Both contacts of $G_1$ are preserved:
+    - $\{0, 2\}$ maps to $\{f(0), f(2)\} = \{0, 3\} in E_2$,
+    - $\{1, 3\}$ maps to $\{f(1), f(3)\} = \{1, 4\} in E_2$.
+    Hence the alignment achieves the maximum possible objective $#preserved = |E_1|$.
+
+    #pred-commands(
+      "pred create --example MaximumContactMapOverlap -o cmo.json",
+      "pred solve cmo.json --solver brute-force",
+      "pred evaluate cmo.json --config " + config.map(str).join(","),
+    )
+
+    #figure({
+      let dx = 4.0
+      let pos1 = range(n1).map(i => (i * 1.0, 0.0))
+      let pos2 = range(n2).map(j => (dx + j * 1.0, 0.0))
+      canvas(length: 1cm, {
+        import draw: *
+        // Backbone of G_1 (visualizes residue order).
+        for i in range(n1 - 1) {
+          line(pos1.at(i), pos1.at(i + 1), stroke: (paint: luma(180), thickness: 0.4pt))
+        }
+        // Backbone of G_2.
+        for j in range(n2 - 1) {
+          line(pos2.at(j), pos2.at(j + 1), stroke: (paint: luma(180), thickness: 0.4pt))
+        }
+        // Contacts of G_1 as arcs above the backbone.
+        for (u, v) in contacts1 {
+          let p = pos1.at(u)
+          let q = pos1.at(v)
+          let mid = ((p.at(0) + q.at(0)) / 2, (p.at(1) + q.at(1)) / 2 + 0.45 * (v - u))
+          hobby(p, mid, q, stroke: 0.7pt + luma(90))
+        }
+        // Contacts of G_2 above its backbone.
+        for (u, v) in contacts2 {
+          let p = pos2.at(u)
+          let q = pos2.at(v)
+          let mid = ((p.at(0) + q.at(0)) / 2, (p.at(1) + q.at(1)) / 2 + 0.45 * (v - u))
+          hobby(p, mid, q, stroke: 0.7pt + luma(90))
+        }
+        // Vertices of G_1: highlight matched ones.
+        for (i, pos) in pos1.enumerate() {
+          let matched = config.at(i) != 0
+          g-node(pos, name: "u" + str(i),
+            fill: if matched { graph-colors.at(0) } else { white },
+            label: if matched { text(fill: white)[$#i$] } else { [$#i$] })
+        }
+        // Vertices of G_2.
+        for (j, pos) in pos2.enumerate() {
+          g-node(pos, name: "v" + str(j), fill: white, label: [$#j$])
+        }
+        // Mapping arrows (drawn below the backbones).
+        for (i, v) in alignment {
+          if v != 0 {
+            let j = v - 1
+            let p = pos1.at(i)
+            let q = pos2.at(j)
+            let mid = ((p.at(0) + q.at(0)) / 2, (p.at(1) + q.at(1)) / 2 - 1.0)
+            hobby(p, mid, q,
+              stroke: (paint: graph-colors.at(0), thickness: 0.6pt, dash: "dashed"))
+          }
+        }
+        content((pos1.at(0).at(0) - 0.7, 0.0), text(9pt, weight: "bold")[$G_1$])
+        content((pos2.at(0).at(0) - 0.7, 0.0), text(9pt, weight: "bold")[$G_2$])
+      })
+    },
+    caption: [Maximum Contact Map Overlap instance from the issue. Top: ordered contact maps $G_1$ (left, $|V_1| = #n1$, $|E_1| = #contacts1.len()$) and $G_2$ (right, $|V_2| = #n2$, $|E_2| = #contacts2.len()$); contacts are drawn as arcs above the backbone. Bottom: dashed curves show the order-preserving partial injective alignment $f$; both contacts of $G_1$ are preserved.],
+    ) <fig:cmo-issue>
     ]
   ]
 }

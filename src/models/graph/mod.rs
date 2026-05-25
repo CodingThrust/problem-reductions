@@ -25,6 +25,7 @@
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaximumCoKPlex`]: Maximum-weight vertex subset with induced degree at most k-1
 //! - [`MaximumCommonEdgeSubgraph`]: Maximum number of preserved labelled directed arcs under a partial injective vertex map
+//! - [`MaximumContactMapOverlap`]: Maximum number of preserved contacts under an order-preserving partial injective alignment between ordered contact maps
 //! - [`MaximumEdgeWeightedKClique`]: Select exactly k pairwise-adjacent vertices maximizing the total weight of induced clique edges
 //! - [`MaximumAchromaticNumber`]: Maximum number of colors in a complete proper coloring
 //! - [`MaximumDomaticNumber`]: Maximum partition into disjoint dominating sets
@@ -117,6 +118,7 @@ pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_co_k_plex;
 pub(crate) mod maximum_common_edge_subgraph;
+pub(crate) mod maximum_contact_map_overlap;
 pub(crate) mod maximum_domatic_number;
 pub(crate) mod maximum_edge_weighted_k_clique;
 pub(crate) mod maximum_independent_set;
@@ -200,6 +202,7 @@ pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
 pub use maximum_co_k_plex::MaximumCoKPlex;
 pub use maximum_common_edge_subgraph::{LabelledArc, LabelledDigraph, MaximumCommonEdgeSubgraph};
+pub use maximum_contact_map_overlap::MaximumContactMapOverlap;
 pub use maximum_domatic_number::MaximumDomaticNumber;
 pub use maximum_edge_weighted_k_clique::MaximumEdgeWeightedKClique;
 pub use maximum_independent_set::MaximumIndependentSet;
@@ -291,6 +294,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximum_co_k_plex::canonical_model_example_specs());
     specs.extend(maximum_common_edge_subgraph::canonical_model_example_specs());
+    specs.extend(maximum_contact_map_overlap::canonical_model_example_specs());
     specs.extend(maximum_edge_weighted_k_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());

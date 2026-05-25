@@ -588,6 +588,18 @@ pub struct CreateArgs {
     /// Target labelled digraph G2 for MaximumCommonEdgeSubgraph. Same format as --graph-1 (e.g., "4:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,0-1-3")
     #[arg(long = "graph-2")]
     pub graph_2: Option<String>,
+    /// Number of ordered vertices in the first contact map G_1 for MaximumContactMapOverlap
+    #[arg(long = "num-vertices-1")]
+    pub num_vertices_1: Option<usize>,
+    /// Number of ordered vertices in the second contact map G_2 for MaximumContactMapOverlap
+    #[arg(long = "num-vertices-2")]
+    pub num_vertices_2: Option<usize>,
+    /// Contacts of G_1 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-2,1-3")
+    #[arg(long = "contacts-1")]
+    pub contacts_1: Option<String>,
+    /// Contacts of G_2 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-3,1-4,0-2")
+    #[arg(long = "contacts-2")]
+    pub contacts_2: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -1031,6 +1043,10 @@ impl CreateArgs {
         insert!("allowed-pairs", self.allowed_pairs.as_deref());
         insert!("graph-1", self.graph_1.as_deref());
         insert!("graph-2", self.graph_2.as_deref());
+        insert!("num-vertices-1", self.num_vertices_1);
+        insert!("num-vertices-2", self.num_vertices_2);
+        insert!("contacts-1", self.contacts_1.as_deref());
+        insert!("contacts-2", self.contacts_2.as_deref());
         insert!("capacity", self.capacity.as_deref());
         insert!("sequence", self.sequence.as_deref());
         insert!("subsets", self.sets.as_deref());
