@@ -19,24 +19,39 @@ This skill is an **orchestrator**: it never runs the heavy work itself. Each pha
 - `/auto-pipeline` — pick the highest-priority Backlog issue (Good label first, then lowest issue number)
 - `/auto-pipeline 123` — run on a specific Backlog issue number
 
-## Constants
+## Board states this skill writes
 
-GitHub Project board IDs:
+Only three transitions happen here directly (the rest are owned by sub-skills):
 
-| Constant | Value |
-|----------|-------|
-| `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
-| `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_BACKLOG` | `ab337660` |
-| `STATUS_ON_HOLD` | `48dfe446` |
-| `STATUS_READY` | `f37d0d80` |
-| `STATUS_IN_PROGRESS` | `a12cfc9c` |
-| `STATUS_REVIEW_POOL` | `7082ed60` |
-| `STATUS_FINAL_REVIEW` | `51a3d8bb` |
+| Symbolic name passed to `pipeline_board.py move` | When |
+|---|---|
+| `ready` | Step 1d (quality gate passed) |
+| `on-hold` | Step 1e (fundamental flaw or substantive retry cap hit) |
+
+The orchestrator reads the Backlog column in Step 0 and never writes to it. ID constants for all other columns live in [`run-pipeline`](../run-pipeline/SKILL.md) / [`review-pipeline`](../review-pipeline/SKILL.md) — sub-skills move the card through In Progress → Review pool → Final review.
 
 ## Autonomous Mode
 
 Runs **fully autonomously** — no confirmation prompts, no clarifying questions. All sub-skills called from here must also auto-approve. The human only gets involved at `/final-review`, or when the issue is parked on OnHold with a diagnostic comment.
+
+## Subagent Contract
+
+Every subagent dispatched by this skill operates under the same contract. Each per-step prompt below references this contract by name and only adds the step-specific scope + JSON shape.
+
+**Output:** the subagent's LAST message must be a single fenced ```json``` block matching the shape given by the dispatching step. No prose before or after. The orchestrator parses only that block.
+
+**Don'ts:**
+- Do NOT modify any source files unless the step's prompt explicitly says so.
+- Do NOT move the project board card. The orchestrator owns all board transitions.
+- Do NOT open pull requests or invoke `/issue-to-pr`, `gh pr create`, etc. unless the step is `run-pipeline` (which manages its own PR via the existing skill).
+- Do NOT brainstorm with a human or wait for input.
+
+**Severity vocabulary** (used by every Phase-1 step that reports findings):
+- `mechanical` — issue-body-fixable without changing the claim (typo, missing G&J number, wrong alias, malformed example, wrong heading).
+- `substantive` — the claim is wrong or unsupported (incorrect complexity, broken overhead, mis-cited paper, flawed proof sketch) but a public reference probably exists.
+- `fundamental` — algorithm/reduction is mathematically unsound AND your literature search found no public reference that would salvage it. Only assign after a genuine search.
+
+**Malformed JSON:** if the subagent's reply is missing the fenced JSON block, re-dispatch once with the prompt prefixed by "Your previous reply did not contain a parseable JSON block. Run the skill again from scratch and return ONLY the JSON block." If the second attempt also fails, park the issue on OnHold with reason `subagent contract violation in <phase>`.
 
 ## Architecture
 
@@ -76,76 +91,51 @@ digraph auto_pipeline {
 
 ## Step 0: Pick the Issue
 
-`scripts/pipeline_board.py backlog` only accepts `model` or `rule` (NOT `all`), and it returns `{"issue_type": ..., "items": [{number, title, item_id, labels, has_good}, ...]}`. So the picker has to query both kinds, merge, and sort `Good` first then by issue number.
+`scripts/pipeline_board.py backlog` accepts only `model` or `rule` (NOT `all`), returns `{"issue_type": ..., "items": [{number, title, item_id, labels, has_good}, ...]}`, and **exits with code 1 when the queried kind is empty** even though it prints valid JSON — so the picker queries both kinds and ignores subprocess return codes.
 
-**Gotcha:** `pipeline_board.py backlog <kind>` exits with code **1** when the kind has zero items, even though it still prints valid JSON. Do NOT pass `check=True` to `subprocess.run`; parse stdout unconditionally and ignore the return code.
+### 0a. Pick
 
-### 0a. Pick by number (if supplied)
+Set `ISSUE` to the requested number, or leave empty to auto-pick the top of Backlog (Good label first, then lowest number):
 
 ```bash
-ISSUE=<number>
+ISSUE="${ISSUE:-}"  # set this to a specific number, or leave empty to auto-pick
 
 PICK_JSON=$(ISSUE="$ISSUE" python3 <<'PY'
 import json, os, subprocess
-target = int(os.environ["ISSUE"])
-hit = None
-for kind in ("model", "rule"):
-    out = subprocess.run(
-        ["uv", "run", "--project", "scripts", "scripts/pipeline_board.py",
-         "backlog", kind, "--format", "json"],
-        capture_output=True, text=True
-    )
-    try:
-        items = json.loads(out.stdout)["items"]
-    except Exception:
-        items = []
-    for it in items:
-        if it["number"] == target:
-            hit = it
-            break
-    if hit: break
-print(json.dumps(hit) if hit else "")
-PY
-)
-
-if [ -z "$PICK_JSON" ]; then
-  echo "Issue #$ISSUE is not in the Backlog column."
-  exit 0
-fi
-```
-
-### 0b. Pick top of Backlog (if no number supplied)
-
-```bash
-PICK_JSON=$(python3 <<'PY'
-import json, subprocess
+target = int(os.environ["ISSUE"]) if os.environ.get("ISSUE") else None
 items = []
 for kind in ("model", "rule"):
     out = subprocess.run(
         ["uv", "run", "--project", "scripts", "scripts/pipeline_board.py",
          "backlog", kind, "--format", "json"],
-        capture_output=True, text=True
+        capture_output=True, text=True,
     )
     try:
         items.extend(json.loads(out.stdout)["items"])
     except Exception:
         pass
-if not items:
-    print("")
-else:
-    # Good label first, then lowest issue number
+if target is not None:
+    hit = next((i for i in items if i["number"] == target), None)
+    print(json.dumps(hit) if hit else "")
+elif items:
     items.sort(key=lambda i: (not i["has_good"], i["number"]))
     print(json.dumps(items[0]))
+else:
+    print("")
 PY
 )
 
 if [ -z "$PICK_JSON" ]; then
-  echo "Backlog is empty."
+  if [ -n "$ISSUE" ]; then
+    echo "Issue #$ISSUE is not in the Backlog column."
+  else
+    echo "Backlog is empty."
+  fi
   exit 0
 fi
 ```
 
-### 0c. Extract fields
+### 0b. Extract fields
 
 ```bash
 ISSUE=$(printf '%s' "$PICK_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['number'])")
@@ -158,7 +148,7 @@ echo "  item_id: $ITEM_ID"
 echo "  labels:  $LABELS"
 ```
 
-### 0d. Initialise loop counter
+### 0c. Initialise loop counter
 
 ```bash
 SUBSTANTIVE_RETRIES=0
@@ -171,56 +161,31 @@ MAX_SUBSTANTIVE_RETRIES=2
 
 Use the `Agent` tool with `subagent_type=general-purpose`. The subagent must run the existing `check-issue` skill (force re-check) and report back **structured JSON only**.
 
-**Prompt template:**
+**Prompt template** (subagent follows the Subagent Contract above for everything else):
 
 ```
-Run the repo-local /check-issue skill on GitHub issue #<ISSUE> in the
-problem-reductions repository. Read .claude/skills/check-issue/SKILL.md
-and follow it exactly, including the `--force` re-check behaviour.
+Run /check-issue on issue #<ISSUE> in CodingThrust/problem-reductions
+(--force re-check). Follow .claude/skills/check-issue/SKILL.md exactly.
 
-For `[Rule]` issues, the Completeness check (Rule Check 5) is MANDATORY
-and is the most important check — do not skip it or stub it. You must:
-  - find and read the cited paper or textbook section,
-  - quote the precise statement (theorem/precondition) you are relying on,
-  - enumerate the corner cases the source model allows by inspecting
-    `pred show <Source> --json` and the existing src/rules/*.rs files
-    that already reduce from the same source,
-  - trace the issue's algorithm by hand on at least 2 non-canonical
-    corner cases, and
-  - report the literature evidence and the traced corner cases in the
-    GitHub comment.
+For [Rule] issues, Rule Check 5 (Completeness) is the most important
+check — find and quote the cited theorem, enumerate corner cases the
+source model allows via `pred show <Source> --json` and existing
+src/rules/ implementations, and hand-trace the algorithm on >= 2
+non-canonical corner cases. A cited precondition the issue ignores is
+"substantive"; a cited reference that does not contain the reduction
+at all is "fundamental" (set fundamental_no_reference: true).
 
-If the cited construction is only valid under a precondition the issue
-does not state, that is a substantive failure. If the cited reference
-does not actually contain the reduction at all, that is a fundamental
-failure with severity "fundamental".
+You may post the check-issue comment and apply failure/Good labels per
+the skill. Do NOT close the issue.
 
-After it completes, return ONLY a single fenced ```json``` block with this shape:
-
+Return ONLY this JSON shape:
 {
   "verdict": "pass" | "fail",
-  "errors": [{"check": "...", "label": "...", "summary": "...", "severity": "mechanical" | "substantive" | "fundamental"}],
-  "warnings": [{"check": "...", "summary": "...", "severity": "mechanical" | "substantive"}],
-  "fundamental_no_reference": false,
-  "comment_url": "<URL of the check-issue comment that was posted>"
+  "errors": [{"check": "...", "label": "...", "summary": "...", "severity": "mechanical|substantive|fundamental"}],
+  "warnings": [{"check": "...", "summary": "...", "severity": "mechanical|substantive"}],
+  "fundamental_no_reference": true | false,
+  "comment_url": "<URL of the posted check-issue comment>"
 }
-
-Severity rules:
-- "mechanical": missing/wrong fields the issue body itself can fix without
-  changing the underlying claim (typos, missing G&J reference, wrong
-  problem alias, malformed example, wrong section heading).
-- "substantive": the claim itself is wrong or unsupported (incorrect
-  complexity, broken overhead formula, mis-cited paper, reduction proof
-  sketch is flawed) but a public reference probably exists.
-- "fundamental": the proposed algorithm/reduction is mathematically
-  unsound AND your literature search found no public reference that
-  would salvage it. Only use this label if you genuinely searched.
-
-Set "fundamental_no_reference": true if and only if at least one finding
-is severity "fundamental".
-
-Do NOT modify any files. Do NOT post additional comments beyond what
-/check-issue itself posts. Do NOT brainstorm with a user.
 ```
 
 ### 1b. Classify the report
@@ -237,18 +202,14 @@ Parse the JSON. Then branch:
 ### 1c-mech. Dispatch auto-fix subagent (mechanical only)
 
 ```
-Run the repo-local /fix-issue skill on GitHub issue #<ISSUE>, but in
-auto-fix-only mode:
+Run /fix-issue on issue #<ISSUE> in auto-fix-only mode:
+- Apply only the mechanical auto-fixes from fix-issue's auto-fix step
+  (the one that runs before the human-brainstorm step).
+- Edit the issue body via `gh issue edit` as the skill instructs.
+- Skip the re-check and the project-card move (orchestrator handles
+  re-check by re-dispatching Phase 1).
 
-- Only apply the mechanical auto-fixes described in fix-issue Step 3.
-- Do NOT ask the human anything.
-- Do NOT brainstorm substantive issues — if any remain, leave them
-  unchanged and report them.
-- After auto-fixing, edit the issue body via `gh issue edit` as usual,
-  but DO NOT move the project card and DO NOT re-run /check-issue.
-
-Return ONLY a fenced ```json``` block:
-
+Return ONLY this JSON shape:
 {
   "applied": ["<short description of each auto-fix>"],
   "skipped_substantive": ["<short description>"],
@@ -256,7 +217,7 @@ Return ONLY a fenced ```json``` block:
 }
 ```
 
-When the subagent returns, loop back to **Step 1a** (re-check). Do not increment `SUBSTANTIVE_RETRIES` — mechanical fixes are deterministic and cheap.
+Loop back to **Step 1a** (re-check). Do not increment `SUBSTANTIVE_RETRIES` — mechanical fixes don't count toward the cap.
 
 ### 1c-sub. Codex xhigh rewrite (substantive)
 
@@ -274,50 +235,34 @@ Dispatch the `codex:codex-rescue` subagent to produce a revised issue body. Brie
 **Prompt template:**
 
 ```
-The GitHub issue #<ISSUE> in the problem-reductions repo failed
-/check-issue with substantive issues. We need you to produce a revised
-issue body that fixes those substantive problems, grounded in public
-literature.
+Issue #<ISSUE> failed /check-issue with substantive findings. Run
+codex non-interactively at maximum reasoning effort to produce a
+revised issue body grounded in public literature:
 
-Run `codex` non-interactively at maximum reasoning effort:
+  codex exec -c model="gpt-5.4" -c model_reasoning_effort="high" --skip-git-repo-check "$(cat <PROMPT_FILE>)"
 
-  codex exec -c model="gpt-5.4" -c model_reasoning_effort="high" --skip-git-repo-check "<PROMPT_FILE>"
+where <PROMPT_FILE> contains, in order:
 
-where PROMPT_FILE contains:
+  You are revising a GitHub issue that proposes a reduction rule or
+  problem model. For each substantive finding in the check report,
+  apply a fix grounded in public literature (cite source by name +
+  year + venue). If honest investigation shows the algorithm is
+  mathematically unsound AND no public reference would salvage it,
+  return on the first line (no fences):
 
-  You are editing a GitHub issue that proposes a reduction rule or
-  problem model. The issue failed an automated quality check. Your job:
+    FUNDAMENTAL_FLAW: <one-line reason>
 
-  1. Read the original issue body (below, delimited by <<<BODY>>>).
-  2. Read the check-issue report (below, delimited by <<<REPORT>>>).
-  3. For each substantive finding, decide whether a fix grounded in
-     public literature is possible. If yes, apply it (rewriting the
-     relevant section and citing the source by name + year + venue).
-  4. If, after honest investigation, the underlying algorithm or
-     reduction is mathematically unsound and NO public reference would
-     salvage it, do not paper over it. Instead, return exactly:
-
-       FUNDAMENTAL_FLAW: <one-line reason>
-
-     on the first line, with no markdown fences.
-
-  Otherwise, return the full revised issue body, in the same section
-  structure as the original, inside a fenced ```markdown``` block.
+  Otherwise return the full revised issue body inside a fenced
+  ```markdown``` block, preserving the original section structure.
 
   <<<BODY>>>
-  <original issue body verbatim>
+  [original issue body verbatim]
   <<<REPORT>>>
-  <latest check-issue comment verbatim>
+  [latest check-issue comment verbatim]
 
-After codex completes, report back ONLY one of these two JSON shapes:
-
+Return ONLY one of these JSON shapes:
   {"outcome": "revised", "new_body": "<full revised markdown>"}
-
-or
-
   {"outcome": "fundamental_flaw", "reason": "<one-line reason>"}
-
-Do not edit any files yourself.
 ```
 
 When the subagent returns:
@@ -364,17 +309,15 @@ Auto-pipeline halted at quality gate:
 
 Dispatch the existing `run-pipeline` skill against the same issue:
 
-**Prompt template:**
+**Prompt template** (this is the one step the Subagent Contract's no-board-moves rule does NOT apply to — run-pipeline owns its worktree, PR, and board transitions from Ready to Review pool):
 
 ```
-Run the repo-local /run-pipeline skill on the specific issue #<ISSUE>
-(already in the Ready column). Read .claude/skills/run-pipeline/SKILL.md
-and follow it exactly. The skill itself handles the worktree, the
-issue-to-pr invocation, and the board moves to In Progress and Review
-pool.
+Run /run-pipeline on issue #<ISSUE> (already in Ready). Follow
+.claude/skills/run-pipeline/SKILL.md exactly — it handles the
+worktree, issue-to-pr invocation, and the Ready -> In Progress ->
+Review pool transitions, including moving to OnHold on failure.
 
-After it completes, return ONLY a fenced ```json``` block:
-
+Return ONLY this JSON shape:
 {
   "outcome": "success" | "failure",
   "pr_number": <int or null>,
@@ -402,29 +345,17 @@ When the subagent returns:
 
 Dispatch the existing `review-pipeline` skill against the PR:
 
-**Prompt template:**
+**Prompt template** (board transitions to Final review are owned by review-pipeline; that's its contract):
 
 ```
-Run the repo-local /review-pipeline skill on PR #<PR>. Read
-.claude/skills/review-pipeline/SKILL.md and follow it exactly. It must
-always move the PR to "Final review" at the end (that is the skill's
-contract).
+Run /review-pipeline on PR #<PR>. Follow
+.claude/skills/review-pipeline/SKILL.md exactly; it always moves the
+PR to Final review at the end.
 
-For any PR that adds a reduction rule, the round-trip execution check
-(review-structural Step 4b) is MANDATORY:
-  - locate the closed-loop test(s),
-  - actually invoke `cargo test --lib -- --exact <test_name>` and paste
-    the "test result: ok. N passed" line into the review,
-  - verify the test exercises the full round-trip — concrete non-trivial
-    source instance, reduce to target, solve target, extract solution
-    back, assert extracted source configuration is optimal (compare
-    against BruteForce on the source). Tests that only check
-    `extract_solution(...).is_some()`, only assert on target-side values,
-    or use an instance with a unique optimum, do NOT satisfy this.
-A weak or missing round-trip is a Critical quality issue, not Minor.
+For PRs adding a reduction rule, review-structural Step 4b (round-trip
+execution) is mandatory — see that skill for the four criteria.
 
-After it completes, return ONLY a fenced ```json``` block:
-
+Return ONLY this JSON shape:
 {
   "outcome": "success" | "failure",
   "board_status": "Final review" | "<other>",
@@ -444,21 +375,11 @@ Auto-pipeline complete:
   Next:   human runs /final-review
 ```
 
-## Reporting Contract
-
-Every subagent dispatched by this skill MUST return a single fenced ```json``` block as the last thing in its message. The main agent parses only that block. If a subagent returns malformed JSON:
-
-1. Re-dispatch once with the prompt prefixed by `Your previous reply did not contain a parseable ```json``` block as required. Run the skill again from scratch and return ONLY the JSON block.`
-2. If the second attempt also fails, park the issue on OnHold with reason `subagent contract violation in <phase>`.
-
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
 | Calling sub-skills directly in the main agent | Always dispatch via `Agent` tool — keeps the orchestrator context clean |
-| Looping codex more than 2 times on substantive issues | Hard cap at 2 retries; park on OnHold afterwards |
 | Letting the codex subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — codex only returns text |
 | Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; they are not eligible for codex rescue |
-| Skipping the re-check after auto-fix | Always re-run check-issue after either mechanical or substantive fixes |
-| Forgetting to increment `SUBSTANTIVE_RETRIES` | Only substantive rewrites count toward the cap; mechanical fixes do not |
 | Picking from a non-Backlog column when no issue number is given | Auto-pick must read from Backlog only — never from OnHold, Ready, or elsewhere |

@@ -220,7 +220,7 @@ For the cited construction(s):
    - "in the special case where ..." → only a special case (must be flagged)
 3. Read the **proof**: are there steps that silently assume something about the source (no isolated vertices, no zero weights, integer-valued capacities, ...)?
 
-Use the same fallback chain as Check 3c (project bibliography → arxiv MCP → Semantic Scholar MCP → WebSearch + WebFetch).
+Use the same fallback chain as Check 3c.
 
 If the cited paper is **not actually a reduction from the full source problem** but from a restricted variant → **Fail** with the precise restriction quoted from the paper. The fix is one of: (a) add a preprocessing step that reduces the full source to the restricted variant, (b) split into a `[Rule]` issue from the actual restricted source, or (c) drop the reduction.
 
@@ -266,9 +266,10 @@ If the issue's algorithm appears to handle corner cases correctly but the issue 
 |---|---|
 | Literature explicitly covers all instances AND traced corner cases work | **Pass** |
 | Literature explicitly covers all instances but issue is silent on corner cases | **Warn** |
-| Literature has a precondition the issue ignores | **Fail (severity: substantive)** |
-| Traced corner case breaks the algorithm | **Fail (severity: substantive)** |
-| Cited reference does not actually contain the reduction | **Fail (severity: fundamental)** — this overlaps with Check 3c, flag both |
+| Literature has a precondition the issue ignores | **Fail** |
+| Traced corner case breaks the algorithm | **Fail** |
+
+(If the cited reference doesn't actually contain the reduction at all, Check 3c already catches it — don't double-flag here.)
 
 Report the literature evidence and the corner cases you traced in the comment — this is the most expensive check and reviewers will want to see your work.
 

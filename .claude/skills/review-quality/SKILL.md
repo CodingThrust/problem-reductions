@@ -72,7 +72,7 @@ Flag tests that:
 - **Mirror the implementation**: Tests recomputing the same formula as the code prove nothing
 - **Lack adversarial cases**: Only happy path. Tests must include infeasible configs and boundary cases
 - **Use trivial instances only**: Single-edge or 2-node tests may pass with bugs. Need 5+ vertex instances
-- **Closed-loop without round-trip verification (CRITICAL for `[Rule]` PRs)**: For any new reduction rule, the test suite MUST include at least one test that (a) builds a non-trivial source instance, (b) calls `ReduceTo::<Target>::reduce_to(&source)`, (c) solves the target, (d) calls `extract_solution` to map the witness back, and (e) asserts the extracted source configuration is **optimal** (compare against `BruteForce::find_witness(&source)` or `assert_optimization_round_trip_from_optimization_target`). Tests that only assert on target-side values, or only check `extract_solution(...).is_some()`, or use a source instance whose optimum is unique by inspection, do NOT count. Missing or weak round-trip coverage is a **Critical** issue, not Minor.
+- **Closed-loop without round-trip verification (CRITICAL for `[Rule]` PRs)**: for new reduction rules, defer to the four-criterion check in [`review-structural`](../review-structural/SKILL.md) Step 4b-3. If the test fails any criterion there, raise it as **Critical** here too — not Minor.
 - **Assert count too low**: 1-2 asserts for non-trivial code is insufficient
 
 ## Output Format

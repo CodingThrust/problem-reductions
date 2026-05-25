@@ -154,23 +154,18 @@ Read each closed-loop test and verify it does ALL FOUR of the following:
 
 If any of (1)-(4) is missing → ISSUE (test does not verify the round-trip).
 
-### 4b-4: Spot-check with `pred` on a fresh instance
+### 4b-4: Spot-check on a fresh instance (when feasible)
 
-Pick **one** instance from the rule's canonical example (loadable via `pred create --example <rule_example_id>`) OR construct one by hand. Then drive it through the CLI:
+The rule's own closed-loop test is author-supplied — it may use exactly the input that makes the reduction look right. To catch that class of bug, drive a different instance through the CLI:
 
 ```bash
-# 1. Solve source directly
-pred create <source-flags> --output /tmp/src.json
-pred solve /tmp/src.json
-
-# 2. Reduce to target, solve target, extract solution back to source
-pred path <Source> <Target> --json   # confirm the new rule is on the chosen path
-pred solve /tmp/src.json --via <Target>   # if your build supports --via; otherwise use the lib API
+pred path <Source> <Target> --json     # confirm the new rule is on the chosen path
+pred create --example <rule_example_id> --output /tmp/src.json
+pred solve /tmp/src.json                # direct source-side optimum
+pred solve /tmp/src.json --via <Target> # through the new reduction
 ```
 
-Confirm the source-side objective value reported via the reduction matches the direct-solve value. If they disagree → critical ISSUE (the reduction is unsound or `extract_solution` is wrong). If `--via` is not wired for this path, write a short Rust scratch in a `cargo test --lib --no-fail-fast --test main` invocation, OR fall back to reading the closed-loop test and stating explicitly that 4b-2 already covered this — but you must say which.
-
-Report which path was used (Rust test, `pred --via`, hand-written scratch) so reviewers can reproduce.
+The two `pred solve` values must agree. If `--via` isn't wired for this path, skip 4b-4 and note it in the report — do not pad with a re-statement of 4b-2.
 
 ## Step 5: Issue Compliance Review
 
