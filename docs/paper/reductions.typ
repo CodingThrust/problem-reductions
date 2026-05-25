@@ -11690,6 +11690,50 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return the same binary selection vector: element $i$ is in the partition subset if and only if it is selected in the Subset Sum witness.
 ]
 
+#let part_ifwm = load-example("Partition", "IntegralFlowWithMultipliers")
+#let part_ifwm_sol = part_ifwm.solutions.at(0)
+#let part_ifwm_sizes = part_ifwm.source.instance.sizes
+#let part_ifwm_n = part_ifwm_sizes.len()
+#let part_ifwm_total = part_ifwm_sizes.fold(0, (a, b) => a + b)
+#let part_ifwm_half = part_ifwm_total / 2
+#let part_ifwm_selected = part_ifwm_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ifwm_selected_sizes = part_ifwm_selected.map(i => part_ifwm_sizes.at(i))
+#let part_ifwm_source_arcs = part_ifwm_sol.target_config.slice(0, part_ifwm_n)
+#let part_ifwm_relay_arcs = part_ifwm_sol.target_config.slice(part_ifwm_n, 2 * part_ifwm_n)
+#let part_ifwm_bottleneck = part_ifwm_sol.target_config.at(2 * part_ifwm_n)
+#reduction-rule("Partition", "IntegralFlowWithMultipliers",
+  example: true,
+  example-caption: [#part_ifwm_n elements, total sum $S = #part_ifwm_total$, bottleneck $R = #part_ifwm_half$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_ifwm.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_ifwm) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_ifwm_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition multiset is $(#part_ifwm_sizes.map(str).join(", "))$, so the total is $S = #part_ifwm_total$ and any balanced witness must sum to $S / 2 = #part_ifwm_half$.
+
+    *Step 2 -- Build the relay network.* The reduction creates vertices $s$, one item vertex $v_i$ per element, a relay vertex $w$, and sink $t$. It adds unit-capacity arcs $(s, v_i)$, item arcs $(v_i, w)$ with capacities $(#part_ifwm_sizes.map(str).join(", "))$, and one bottleneck arc $(w, t)$ with capacity $#part_ifwm_half$. The target witness therefore has $#part_ifwm_sol.target_config.len()$ arc-flow coordinates ordered as source arcs, relay arcs, then the bottleneck arc.
+
+    *Step 3 -- Verify the canonical witness.* The source witness $bold(x) = (#part_ifwm_sol.source_config.map(str).join(", "))$ selects item indices $\{#part_ifwm_selected.map(str).join(", ")\}$ with sizes $(#part_ifwm_selected_sizes.map(str).join(", "))$, summing to $#part_ifwm_half$. On the target side, the source arcs carry $(#part_ifwm_source_arcs.map(str).join(", "))$, the relay arcs carry $(#part_ifwm_relay_arcs.map(str).join(", "))$, and the bottleneck arc carries $#part_ifwm_bottleneck$. Thus the relay receives $#part_ifwm_selected_sizes.map(str).join(" + ") = #part_ifwm_half$ units and the sink inflow equals the requirement #sym.checkmark.
+
+    *Witness semantics.* The fixture stores one canonical balanced subset. Other balanced subsets may exist, but every feasible target witness still extracts by reading the first $n$ unit-capacity source arcs.
+  ],
+)[
+  This $O(n)$ reduction @sahni1974 @garey1979[ND33] implements Sahni's multiplier-flow gadget for subset selection. Each Partition element becomes an item vertex whose multiplier amplifies a binary source choice into either $0$ or $a_i$ units entering a relay. A single bottleneck arc of capacity $S / 2$ then converts the target model's sink condition "net inflow at least $R$" into the exact equality needed by Partition.
+][
+  _Construction._ Let the source multiset be $A = {a_1, dots, a_n}$ with total sum $S = sum_(i=1)^n a_i$. If $S$ is odd, return a fixed infeasible Integral Flow With Multipliers instance with vertices $(s, u, t)$, arcs $(s, u)$ and $(u, t)$ both of capacity $1$, multiplier $h(u) = 2$, and requirement $R = 1$. Otherwise set $M = S / 2$ and build a directed graph with vertices $s, v_1, dots, v_n, w, t$. Add arcs $(s, v_i)$ of capacity $1$ and arcs $(v_i, w)$ of capacity $a_i$ for each $i in {1, dots, n}$, plus one bottleneck arc $(w, t)$ of capacity $M$. Assign multipliers $h(v_i) = a_i$ and $h(w) = 1$, and set the sink requirement to $R = M$.
+
+  _Correctness._ ($arrow.r.double$) If the Partition instance is satisfiable, choose a subset $I subset.eq {1, dots, n}$ with $sum_(i in I) a_i = S / 2 = M$. Send one unit on $(s, v_i)$ for each $i in I$ and zero otherwise. Multiplier conservation at each item vertex forces $f(v_i, w) = a_i$ when $i in I$ and $0$ otherwise. The relay multiplier is $1$, so the total flow on $(w, t)$ becomes $sum_(i in I) a_i = M$, which respects the bottleneck capacity and meets the sink requirement $R = M$. When $S$ is odd, the source instance is unsatisfiable and the fixed target is also infeasible because conservation at $u$ would require $f(u, t) = 2 f(s, u)$ while the arc capacity is only $1$.
+
+  ($arrow.l.double$) Suppose the target instance is feasible. In the odd branch the fixed target is infeasible, so only the even branch can yield a witness. Every arc $(s, v_i)$ has capacity $1$, hence integrality forces $f(s, v_i) in {0, 1}$. Conservation at $v_i$ gives $f(v_i, w) = a_i f(s, v_i)$, so each item contributes either $0$ or exactly $a_i$ units to the relay. Conservation at $w$ with multiplier $1$ gives
+  $ f(w, t) = sum_(i=1)^n a_i f(s, v_i). $
+  The bottleneck capacity enforces $f(w, t) <= M$, while the sink requirement enforces $f(w, t) >= R = M$. Therefore $f(w, t) = M = S / 2$, and the indices with $f(s, v_i) = 1$ form a balanced partition subset.
+
+  _Solution extraction._ Read the first $n$ arc-flow coordinates, corresponding to the unit-capacity arcs $(s, v_1), dots, (s, v_n)$. Output bit $x_i = f(s, v_i)$. In the odd branch, return the all-zero source vector.
+]
+
 // Removed: Partition → ShortestWeightConstrainedPath (unsound reduction, #1006)
 
 #let ks_qubo = load-example("Knapsack", "QUBO")
