@@ -1633,6 +1633,8 @@ fn empty_args() -> CreateArgs {
         target_point: None,
         orientation_samples: None,
         allowed_pairs: None,
+        graph_1: None,
+        graph_2: None,
         capacity: None,
         sequence: None,
         sets: None,

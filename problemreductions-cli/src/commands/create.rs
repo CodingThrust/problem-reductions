@@ -15,9 +15,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
-    MinimumDummyActivitiesPert, MinimumMaximalMatching, RootedTreeArrangement, SteinerTree,
-    SteinerTreeInGraphs,
+    LabelledArc, LabelledDigraph, LengthBoundedDisjointPaths, LongestCircuit,
+    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMaximalMatching,
+    RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs,
 };
 use problemreductions::models::misc::{
     CbqRelation, FrequencyTable, KnownValue, QueryArg, SchedulingWithIndividualDeadlines,
@@ -167,6 +167,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_point.is_none()
         && args.orientation_samples.is_none()
         && args.allowed_pairs.is_none()
+        && args.graph_1.is_none()
+        && args.graph_2.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
         && args.source_string.is_none()

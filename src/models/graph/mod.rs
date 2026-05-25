@@ -20,6 +20,7 @@
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaximumCoKPlex`]: Maximum-weight vertex subset with induced degree at most k-1
+//! - [`MaximumCommonEdgeSubgraph`]: Maximum number of preserved labelled directed arcs under a partial injective vertex map
 //! - [`MaximumAchromaticNumber`]: Maximum number of colors in a complete proper coloring
 //! - [`MaximumDomaticNumber`]: Maximum partition into disjoint dominating sets
 //! - [`MaxCut`]: Maximum cut on weighted graphs
@@ -107,6 +108,7 @@ pub(crate) mod maximal_is;
 pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_co_k_plex;
+pub(crate) mod maximum_common_edge_subgraph;
 pub(crate) mod maximum_domatic_number;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_leaf_spanning_tree;
@@ -183,6 +185,7 @@ pub use maximal_is::MaximalIS;
 pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
 pub use maximum_co_k_plex::MaximumCoKPlex;
+pub use maximum_common_edge_subgraph::{LabelledArc, LabelledDigraph, MaximumCommonEdgeSubgraph};
 pub use maximum_domatic_number::MaximumDomaticNumber;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_leaf_spanning_tree::MaximumLeafSpanningTree;
@@ -267,6 +270,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_domatic_number::canonical_model_example_specs());
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximum_co_k_plex::canonical_model_example_specs());
+    specs.extend(maximum_common_edge_subgraph::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
     specs.extend(minimum_dummy_activities_pert::canonical_model_example_specs());

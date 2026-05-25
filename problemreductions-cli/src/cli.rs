@@ -578,6 +578,12 @@ pub struct CreateArgs {
     /// Admissible (a_{j-1}, a_j) pair sets per junction for MinimumDiscretePlanarInverseKinematics (pipe-separated junctions, each comma-separated "i-j" pairs, e.g., "0-0,0-1,1-1")
     #[arg(long)]
     pub allowed_pairs: Option<String>,
+    /// Source labelled digraph G1 for MaximumCommonEdgeSubgraph. Format: "<num_vertices>:<arc1>,<arc2>,..." with each arc "<src>-<label>-<dst>" (e.g., "5:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,3-1-4")
+    #[arg(long = "graph-1")]
+    pub graph_1: Option<String>,
+    /// Target labelled digraph G2 for MaximumCommonEdgeSubgraph. Same format as --graph-1 (e.g., "4:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,0-1-3")
+    #[arg(long = "graph-2")]
+    pub graph_2: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -1004,6 +1010,8 @@ impl CreateArgs {
         insert!("target-point", self.target_point.as_deref());
         insert!("orientation-samples", self.orientation_samples.as_deref());
         insert!("allowed-pairs", self.allowed_pairs.as_deref());
+        insert!("graph-1", self.graph_1.as_deref());
+        insert!("graph-2", self.graph_2.as_deref());
         insert!("capacity", self.capacity.as_deref());
         insert!("sequence", self.sequence.as_deref());
         insert!("subsets", self.sets.as_deref());

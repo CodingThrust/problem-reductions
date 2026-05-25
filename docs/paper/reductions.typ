@@ -205,6 +205,7 @@
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumCoKPlex": [Maximum Co-$k$-Plex],
+  "MaximumCommonEdgeSubgraph": [Maximum Common Edge Subgraph],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -815,6 +816,121 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The 5-cycle $C_5$ with $w = #(weights)$ and $k = #k$. Selected vertices $S = {#S.map(i => $v_#i$).join(", ")}$ (blue) have total weight $#wS$; in $G[S]$ every vertex has induced degree at most $k - 1 = 1$.],
     ) <fig:c5-co-k-plex>
+    ]
+  ]
+}
+
+#{
+  // Hand-authored canonical example mirroring the in-repo example_db fixture
+  // (load-model-example is not used here because the corresponding example
+  // entry is shipped via the model file's canonical_model_example_specs rather
+  // than the docs/paper/data/examples.json bundle).
+  let g1 = (
+    num_vertices: 5,
+    arcs: (
+      (src: 0, label: 0, dst: 1),
+      (src: 1, label: 1, dst: 2),
+      (src: 0, label: 2, dst: 2),
+      (src: 2, label: 0, dst: 3),
+      (src: 1, label: 3, dst: 3),
+      (src: 3, label: 1, dst: 4),
+    ),
+  )
+  let g2 = (
+    num_vertices: 4,
+    arcs: (
+      (src: 0, label: 0, dst: 1),
+      (src: 1, label: 1, dst: 2),
+      (src: 0, label: 2, dst: 2),
+      (src: 2, label: 0, dst: 3),
+      (src: 1, label: 3, dst: 3),
+      (src: 0, label: 1, dst: 3),
+    ),
+  )
+  let n1 = g1.num_vertices
+  let n2 = g2.num_vertices
+  let label-name = ("a", "b", "c", "d")
+  let label-str(l) = label-name.at(l, default: str(l))
+  let fmt-arcs(arcs) = arcs.map(a => $(#a.src, #label-str(a.label), #a.dst)$).join(", ")
+  let f = (0, 1, 2, 3, 4) // 4 encodes ⊥ since |V2| = 4
+  let preserved = 5
+  [
+    #problem-def("MaximumCommonEdgeSubgraph")[
+      Given two finite directed edge-labelled graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with $E_i subset.eq V_i times Sigma times V_i$, find a partial injective map $f: U_1 -> V_2$, where $U_1 subset.eq V_1$, maximizing the number of preserved labelled arcs
+      $ |{(u, lambda, v) in E_1 : u, v in U_1 "and" (f(u), lambda, f(v)) in E_2}|. $
+      Edge labels must match exactly, vertex labels are ignored, and the model uses set semantics: each preserved labelled arc contributes $1$, independent of multiplicity.
+    ][
+    The Maximum Common Edge Subgraph problem (MCES) was introduced by Bokhari as a model for the task-assignment / mapping problem on parallel architectures @Bokhari1981Mapping. Bahiense, Mani{\'c}, Piva, and de Souza later gave a thorough polyhedral investigation and exact branch-and-cut algorithms for general undirected MCES @Bahiense2012MCES. Soul{\'e}, Reinharz, Sarrazin-Gendron, Denise, and Waldisp{\"u}hl use a maximal (not maximum) common subgraph enumeration over edge-coloured graphs to detect recurrent RNA structural networks @Soule2021RNA; the edge-maximizing optimization surrogate registered here is the natural objective version of their setting. The decision form is NP-complete by direct reduction from Subgraph Isomorphism. The registered exact baseline enumerates every assignment $V_1 -> V_2 union {bot}$ in $O^*((|V_2| + 1)^(|V_1|))$ time and filters to injective maps#footnote[No algorithm improving on full enumeration is registered for the unlabelled-vertex variant. Refinements such as branch-and-bound on a product graph @Bahiense2012MCES improve on the worst case in practice but not in worst-case complexity.].
+
+    // Pretty-print the partial map: render f(u) as ⊥ when u is unmatched.
+    #let render-target(v) = if v == n2 { $bot$ } else { $#v$ }
+    #let map-tuple = f.map(v => render-target(v)).join($, $)
+
+    *Example.* Encode the alphabet $Sigma = {a, b, c, d}$ as ${0, 1, 2, 3}$ (alphabetical). Let
+    $V_1 = {0, 1, 2, 3, 4}$ with $E_1 = {#fmt-arcs(g1.arcs)}$ and
+    $V_2 = {0, 1, 2, 3}$ with $E_2 = {#fmt-arcs(g2.arcs)}$.
+    The partial injective map $f = (#map-tuple)$ preserves $#preserved$ of the $#g1.arcs.len()$ source arcs; the only unmatched source arc is $(3, b, 4)$, since vertex $4 in V_1$ is left unmatched. No injective map can preserve all $#g1.arcs.len()$ source arcs, because matching every vertex of $V_1$ injectively into $V_2$ would require $|V_2| >= |V_1| = #n1 > #n2$.
+
+    #pred-commands(
+      "pred create --example MaximumCommonEdgeSubgraph -o mces.json",
+      "pred solve mces.json --solver brute-force",
+      "pred evaluate mces.json --config " + f.map(str).join(","),
+    )
+
+    #figure({
+      let r1 = 1.2
+      let r2 = 1.0
+      let dx = 4.0
+      let verts1 = range(n1).map(i => {
+        let angle = calc.pi / 2 - 2 * calc.pi * i / n1
+        (r1 * calc.cos(angle), r1 * calc.sin(angle))
+      })
+      let verts2 = range(n2).map(i => {
+        let angle = calc.pi / 2 - 2 * calc.pi * i / n2
+        (dx + r2 * calc.cos(angle), r2 * calc.sin(angle))
+      })
+      canvas(length: 1cm, {
+        import draw: *
+        // G1 arcs
+        for arc in g1.arcs {
+          let p = verts1.at(arc.src)
+          let q = verts1.at(arc.dst)
+          let mid = ((p.at(0) + q.at(0)) / 2, (p.at(1) + q.at(1)) / 2)
+          line(p, q, mark: (end: "straight"), stroke: 0.7pt + luma(120))
+          content(mid, text(7pt)[#label-str(arc.label)], frame: "rect", fill: white, stroke: none, padding: 0.04)
+        }
+        for (k, pos) in verts1.enumerate() {
+          let matched = f.at(k) != n2
+          g-node(pos, name: "u" + str(k),
+            fill: if matched { graph-colors.at(0) } else { white },
+            label: if matched { text(fill: white)[$#k$] } else { [$#k$] })
+        }
+        // G2 arcs
+        for arc in g2.arcs {
+          let p = verts2.at(arc.src)
+          let q = verts2.at(arc.dst)
+          let mid = ((p.at(0) + q.at(0)) / 2, (p.at(1) + q.at(1)) / 2)
+          line(p, q, mark: (end: "straight"), stroke: 0.7pt + luma(120))
+          content(mid, text(7pt)[#label-str(arc.label)], frame: "rect", fill: white, stroke: none, padding: 0.04)
+        }
+        for (k, pos) in verts2.enumerate() {
+          g-node(pos, name: "v" + str(k), fill: white, label: [$#k$])
+        }
+        // Mapping arrows
+        for u in range(n1) {
+          let v = f.at(u)
+          if v != n2 {
+            line(verts1.at(u), verts2.at(v),
+              stroke: (paint: graph-colors.at(0), thickness: 0.6pt, dash: "dashed"),
+              mark: (end: "straight"))
+          }
+        }
+        content((verts1.at(0).at(0) - 0.6, r1 + 0.5), text(9pt, weight: "bold")[$G_1$])
+        content((verts2.at(0).at(0) - 0.6, r2 + 0.5), text(9pt, weight: "bold")[$G_2$])
+      })
+    },
+    caption: [Maximum Common Edge Subgraph instance from the issue. Left: source graph $G_1$ with $|V_1| = #n1$ and $|E_1| = #g1.arcs.len()$ labelled arcs; matched source vertices are highlighted. Right: target graph $G_2$ with $|V_2| = #n2$ and $|E_2| = #g2.arcs.len()$. Dashed arrows show the partial injective map $f$; the source arc $(3, b, 4)$ is the unique non-preserved arc because vertex $4 in V_1$ is unmatched.],
+    ) <fig:mces-issue>
     ]
   ]
 }
