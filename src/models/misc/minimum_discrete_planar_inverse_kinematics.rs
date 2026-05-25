@@ -165,6 +165,15 @@ impl MinimumDiscretePlanarInverseKinematics {
         self.link_lengths.len()
     }
 
+    /// Total number of configurations (product of per-link sample counts):
+    /// `prod_{j=1}^n m_j`. This is the size of the brute-force search space.
+    pub fn total_configurations(&self) -> usize {
+        self.orientation_samples
+            .iter()
+            .map(|s| s.len())
+            .product()
+    }
+
     /// Check if a configuration is feasible (one index per link, in range,
     /// and every consecutive pair lies in the corresponding admissible set).
     pub fn is_feasible(&self, config: &[usize]) -> bool {
@@ -241,7 +250,7 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
 }
 
 crate::declare_variants! {
-    default MinimumDiscretePlanarInverseKinematics => "2^num_links",
+    default MinimumDiscretePlanarInverseKinematics => "num_links * total_configurations",
 }
 
 #[cfg(feature = "example-db")]
