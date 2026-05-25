@@ -1882,6 +1882,9 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
         "ClosestString" => {
             "--alphabet-size 2 --strings \"0,0,0;0,1,1;1,0,1;1,1,0\""
         }
+        "ClosestSubstring" => {
+            "--alphabet-size 2 --strings \"0,0,0,1,1;1,0,1,0,0;1,1,0,0,1\" --substring-length 3"
+        }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumExternalMacroDataCompression" | "MinimumInternalMacroDataCompression" => {
             "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
@@ -2072,6 +2075,10 @@ pub(super) fn help_flag_hint(
         ("ClosestString", "strings") => {
             "semicolon-separated equal-length symbol lists: \"0,0,0;0,1,1;1,0,1;1,1,0\""
         }
+        ("ClosestSubstring", "strings") => {
+            "semicolon-separated symbol lists (one per input string): \"0,0,0,1,1;1,0,1,0,0;1,1,0,0,1\""
+        }
+        ("ClosestSubstring", "substring_length") => "common window length ell: 3",
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("MinimumExternalMacroDataCompression", "string")
         | ("MinimumInternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",

@@ -1689,6 +1689,7 @@ fn empty_args() -> CreateArgs {
         deadline: None,
         num_processors: None,
         alphabet_size: None,
+        substring_length: None,
         deps: None,
         query: None,
         dependencies: None,

@@ -258,6 +258,7 @@
   "StackerCrane": [Stacker Crane],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "ClosestString": [Closest String],
+  "ClosestSubstring": [Closest Substring],
   "ExactCoverBy3Sets": [Exact Cover by 3-Sets],
   "ThreeDimensionalMatching": [Three-Dimensional Matching],
   "ThreeMatroidIntersection": [Three-Matroid Intersection],
@@ -7521,6 +7522,51 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred create --example ClosestString -o closest-string.json",
         "pred solve closest-string.json --solver brute-force",
         "pred evaluate closest-string.json --config " + center.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  // Hand-authored canonical example mirroring the in-repo example_db fixture
+  // for ClosestSubstring (q = 2, ell = 3, three length-5 binary strings).
+  let alphabet-size = 2
+  let ell = 3
+  let strings = (
+    (0, 0, 0, 1, 1),
+    (1, 0, 1, 0, 0),
+    (1, 1, 0, 0, 1),
+  )
+  let center = (0, 1, 0)
+  let window-starts = (0, 1, 0)
+  let n = strings.len()
+  let fmt-str(s) = s.map(c => str(c)).join("")
+  let window-of(i) = range(ell).map(j => strings.at(i).at(window-starts.at(i) + j))
+  let hamming(a, b) = range(a.len()).filter(j => a.at(j) != b.at(j)).len()
+  let windows = range(n).map(i => window-of(i))
+  let distances = windows.map(w => hamming(center, w))
+  let radius = distances.fold(0, (a, b) => calc.max(a, b))
+  let config = center + window-starts
+  [
+    #problem-def("ClosestSubstring")[
+      Given a finite alphabet $Sigma = {0, dots, q - 1}$, a list of input strings $s_1, dots, s_n$ over $Sigma$ (not necessarily of equal length), and a window length $ell$ with $ell lt.eq |s_i|$ for every $i$, find a center $c in Sigma^ell$ and per-string window starts $p_i in {0, dots, |s_i| - ell}$ minimizing
+      $ min_(c, p_1, dots, p_n) max_(1 lt.eq i lt.eq n) d_H (c, s_i [p_i .. p_i + ell)), $
+      where $d_H$ is the Hamming distance and $s_i [p_i .. p_i + ell)$ is the length-$ell$ substring of $s_i$ starting at position $p_i$.
+    ][
+      Introduced by #cite(<lima2002closeststring>, form: "prose"), who showed that the decision version is NP-complete (even over the binary alphabet) and gave the first polynomial-time approximation scheme. Closest Substring strictly generalizes Closest String: the special case $ell = |s_i|$ for all $i$ forces a unique window in each string and recovers Closest String. The registered exact baseline enumerates every center in $Sigma^ell$ together with every tuple of window starts, giving $O(q^ell dot product_i (|s_i| - ell + 1))$ configurations.
+
+      *Example.* Let $Sigma = {0, 1}$ ($q = #alphabet-size$), $ell = #ell$, and consider the $n = #n$ binary strings
+      $s_1 = #fmt-str(strings.at(0))$, $s_2 = #fmt-str(strings.at(1))$, $s_3 = #fmt-str(strings.at(2))$.
+      The center $c = #fmt-str(center)$ with window starts $(p_1, p_2, p_3) = (#window-starts.at(0), #window-starts.at(1), #window-starts.at(2))$ selects the substrings
+      $s_1 [#window-starts.at(0) .. #(window-starts.at(0) + ell)) = #fmt-str(windows.at(0))$,
+      $s_2 [#window-starts.at(1) .. #(window-starts.at(1) + ell)) = #fmt-str(windows.at(1))$,
+      $s_3 [#window-starts.at(2) .. #(window-starts.at(2) + ell)) = #fmt-str(windows.at(2))$,
+      with Hamming distances $#distances.at(0), #distances.at(1), #distances.at(2)$ and worst-case distance $#radius$. The three sets of length-$ell$ windows have empty intersection, so no center attains radius $0$ and the optimum is exactly $#radius$.
+
+      #pred-commands(
+        "pred create --example ClosestSubstring -o closest-substring.json",
+        "pred solve closest-substring.json --solver brute-force",
+        "pred evaluate closest-substring.json --config " + config.map(str).join(","),
       )
     ]
   ]

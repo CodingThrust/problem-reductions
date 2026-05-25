@@ -334,6 +334,7 @@ Flags by problem type:
   GroupingBySwapping             --string, --bound [--alphabet-size]
   LCS                             --strings [--alphabet-size]
   ClosestString                   --alphabet-size, --strings
+  ClosestSubstring                --alphabet-size, --strings, --substring-length
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers
@@ -801,6 +802,9 @@ pub struct CreateArgs {
     /// Alphabet size for GroupingBySwapping, LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Common window length ell for ClosestSubstring
+    #[arg(long)]
+    pub substring_length: Option<usize>,
 
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
     #[arg(long)]
@@ -1118,6 +1122,7 @@ impl CreateArgs {
         insert!("craftsman-avail", self.craftsman_avail.as_deref());
         insert!("task-avail", self.task_avail.as_deref());
         insert!("alphabet-size", self.alphabet_size);
+        insert!("substring-length", self.substring_length);
         insert!("num-attributes", self.num_attributes);
         insert!(
             "dependencies",
