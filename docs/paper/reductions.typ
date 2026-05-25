@@ -206,6 +206,7 @@
   "MaximumClique": [Maximum Clique],
   "MaximumCoKPlex": [Maximum Co-$k$-Plex],
   "MaximumCommonEdgeSubgraph": [Maximum Common Edge Subgraph],
+  "MaximumEdgeWeightedKClique": [Maximum Edge-Weighted $k$-Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -931,6 +932,47 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [Maximum Common Edge Subgraph instance from the issue. Left: source graph $G_1$ with $|V_1| = #n1$ and $|E_1| = #g1.arcs.len()$ labelled arcs; matched source vertices are highlighted. Right: target graph $G_2$ with $|V_2| = #n2$ and $|E_2| = #g2.arcs.len()$. Dashed arrows show the partial injective map $f$; the source arc $(3, b, 4)$ is the unique non-preserved arc because vertex $4 in V_1$ is unmatched.],
     ) <fig:mces-issue>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MaximumEdgeWeightedKClique")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let edge-weights = x.instance.edge_weights
+  let k = x.instance.k
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = metric-value(sol.metric)
+  let edge-strs = edges.zip(edge-weights).map(((e, w)) => [$w_(#e.at(0)#e.at(1)) = #w$]).join(", ")
+  [
+    #problem-def("MaximumEdgeWeightedKClique")[
+      Given a simple undirected graph $G = (V, E)$, edge weights $w: E -> RR$, and an integer $k$ with $0 <= k <= |V|$, find $S subset.eq V$ with $|S| = k$ such that every two distinct vertices in $S$ are adjacent in $G$, maximizing the total weight of the induced clique edges:
+      $ sum_({u, v} subset.eq S, {u, v} in E) w_(u v). $
+      Cliques of size $0$ and $1$ are allowed when $k$ takes those values, with objective $0$ since no edge is induced.
+    ][
+    The Maximum Edge-Weighted $k$-Clique problem is the exact-cardinality, edge-weighted specialization of the Maximum Edge-Weight Clique family. The unrestricted version (no cardinality constraint, or only an upper bound $|S| <= b$) was studied by Hunting, Faigle, and Kern @HuntingFaigleKern2001 using Lagrangian relaxation, and by Gouveia and Martins @GouveiaMartins2015MEWC, who developed compact ILP formulations that perform well on sparse graphs. The model differs from Maximum Clique (vertex-weighted, free cardinality) and from $k$-Clique (decision form with threshold $|S| >= k$). The brute-force baseline enumerates all $binom(|V|, k)$ candidate $k$-subsets and tests each for clique-ness in $O(k^2)$ time, giving a conservative worst-case bound of $O^*(2^(|V|))$#footnote[No algorithm improving on subset enumeration is registered for this exact-$k$ edge-weighted specialization.].
+
+    *Example.* Consider the graph $G$ on $n = #nv$ vertices with $|E| = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "), edge weights #edge-strs, and $k = #k$. The graph contains two triangles, ${0, 1, 2}$ and ${0, 1, 3}$, but no clique on ${0, 2, 3}$ or ${1, 2, 3}$ because edge ${2, 3} in.not E$. The optimal $k$-clique is $S = {#S.map(i => $v_#i$).join(", ")}$ with induced edge weights $5 + 4 + (-1) = #wS$; the alternative triangle ${v_0, v_1, v_3}$ scores only $5 + 1 + 0 = 6$. The negatively-weighted edge ${1, 2}$ does not prevent the clique ${0, 1, 2}$ from being optimal because the positive edges dominate.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o k-clique.json",
+      "pred solve k-clique.json",
+      "pred evaluate k-clique.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let r = 1.1
+      let verts = range(nv).map(i => {
+        let angle = calc.pi / 2 + 2 * calc.pi * i / nv
+        (r * calc.cos(angle), r * calc.sin(angle))
+      })
+      draw-node-highlight(verts, edges, S)
+    },
+    caption: [The graph from issue \#1020 with edge weights $(5, 4, -1, 1, 0)$ in graph-edge order and $k = #k$. Selected vertices $S = {#S.map(i => $v_#i$).join(", ")}$ (blue) induce all three edges of the triangle ${v_0, v_1, v_2}$; the total induced weight is $#wS$.],
+    ) <fig:edge-weighted-k-clique>
     ]
   ]
 }
