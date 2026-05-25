@@ -713,6 +713,25 @@ pub(super) fn validate_schema_driven_semantics(
                 &weights,
             )?;
         }
+        "MaximumCoKPlex" => {
+            let usage = "Usage: pred create MaximumCoKPlex/i32 --graph 0-1,1-2,2-3,3-4,4-0 --weights 5,1,4,1,3 --k 2";
+            let (_, num_vertices) =
+                parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let weights = parse_vertex_weights(args, num_vertices)?;
+            let graph_type = resolved_graph_type(resolved_variant);
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
+            let k = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("MaximumCoKPlex requires --k\n\n{usage}"))?;
+            if k == 0 {
+                bail!("MaximumCoKPlex: --k must be at least 1\n\n{usage}");
+            }
+        }
         "MinimumHittingSet" => {
             let universe = args.universe.ok_or_else(|| {
                 anyhow::anyhow!(

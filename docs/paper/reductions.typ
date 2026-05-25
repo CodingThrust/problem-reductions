@@ -204,6 +204,7 @@
   "BottleneckTravelingSalesman": [Bottleneck Traveling Salesman],
   "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
+  "MaximumCoKPlex": [Maximum Co-$k$-Plex],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -776,6 +777,44 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The Petersen graph with a maximum independent set $S = {#S.map(i => $v_#i$).join(", ")}$ shown in blue ($#sym.alpha (G) = #alpha$). Outer vertices $v_0, ..., v_4$ form a pentagon; inner vertices $v_5, ..., v_9$ form a pentagram. Unit weights $w(v_i) = 1$.],
     ) <fig:petersen-mis>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MaximumCoKPlex")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.edges
+  let weights = x.instance.weights
+  let k = x.instance.bound_k
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = metric-value(sol.metric)
+  [
+    #problem-def("MaximumCoKPlex")[
+      Given $G = (V, E)$ with vertex weights $w: V -> RR$ and an integer $k >= 1$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that the induced subgraph $G[S]$ has maximum degree at most $k - 1$: $forall v in S, deg_(G[S])(v) <= k - 1$.
+    ][
+    The Maximum Co-$k$-Plex (also called the maximum $(k - 1)$-dependent set) is a clique-relaxation model that interpolates between the Maximum Independent Set ($k = 1$) and bounded-conflict variants used in molecular similarity scoring @Hernandez2016MolecularSimilarity and bipartite-side combinatorial optimization @HosseinianButenko2022KDependent. Its complement view is the maximum $k$-plex on $overline(G)$. The brute-force baseline enumerates all $2^n$ subsets in $O^*(2^n)$ time#footnote[No algorithm improving on brute-force enumeration is currently registered for the default `KN` variant.].
+
+    *Example.* Consider the 5-cycle $C_5$ with $n = #nv$ vertices, $|E| = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "), vertex weights $w = #(weights)$, and $k = #k$. The set $S = {#S.map(i => $v_#i$).join(", ")}$ has weight $w(S) = #wS$. Its induced subgraph contains only the chord $(v_4, v_0)$, so the induced-degree sequence on $S$ is $(1, 0, 1)$ -- every selected vertex satisfies $deg_(G[S])(v) <= k - 1 = 1$.
+
+    #pred-commands(
+      "pred create --example " + problem-spec(x) + " -o co-k-plex.json",
+      "pred solve co-k-plex.json",
+      "pred evaluate co-k-plex.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure({
+      let r = 1.1
+      let verts = range(nv).map(i => {
+        let angle = calc.pi / 2 + 2 * calc.pi * i / nv
+        (r * calc.cos(angle), r * calc.sin(angle))
+      })
+      draw-node-highlight(verts, edges, S)
+    },
+    caption: [The 5-cycle $C_5$ with $w = #(weights)$ and $k = #k$. Selected vertices $S = {#S.map(i => $v_#i$).join(", ")}$ (blue) have total weight $#wS$; in $G[S]$ every vertex has induced degree at most $k - 1 = 1$.],
+    ) <fig:c5-co-k-plex>
     ]
   ]
 }

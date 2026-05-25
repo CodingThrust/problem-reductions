@@ -1937,6 +1937,7 @@ pub(super) fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("StackerCrane", "arc_lengths") => return "arc-lengths".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
+        ("MaximumCoKPlex", "bound_k") => return "k".to_string(),
         ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
         _ => {}
     }
