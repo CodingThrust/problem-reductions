@@ -1753,6 +1753,10 @@ fn empty_args() -> CreateArgs {
         tiles: None,
         grid_size: None,
         num_colors: None,
+        vertex_prizes: None,
+        edge_costs: None,
+        beta: None,
+        omega: None,
     }
 }
 

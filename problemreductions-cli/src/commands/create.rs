@@ -216,6 +216,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tiles.is_none()
         && args.grid_size.is_none()
         && args.num_colors.is_none()
+        && args.vertex_prizes.is_none()
+        && args.edge_costs.is_none()
+        && args.beta.is_none()
+        && args.omega.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {

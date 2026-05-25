@@ -209,6 +209,7 @@
   "MaximumEdgeWeightedKClique": [Maximum Edge-Weighted $k$-Clique],
   "HighlyConnectedDeletion": [Highly Connected Deletion],
   "EulerianPath": [Eulerian Path],
+  "PrizeCollectingSteinerForest": [Prize-Collecting Steiner Forest],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -1104,6 +1105,73 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         }),
         caption: [Canonical YES instance on $|V| = #nv$ vertices and $m = #m$ arcs (with parallel arcs $a_0, a_1$ between $v_0$ and $v_1$). The witness ordering $(a_0, a_2, a_3, a_1)$ traces the directed Eulerian trail $#trail.map(v => $v_#v$).join($arrow.r$)$.],
       ) <fig:eulerian-path>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PrizeCollectingSteinerForest")
+  let nv = x.instance.graph.num_vertices
+  let edges = x.instance.graph.edges
+  let ne = edges.len()
+  let vertex-prizes = x.instance.vertex_prizes
+  let edge-costs = x.instance.edge_costs
+  let beta = x.instance.beta
+  let omega = x.instance.omega
+  let config = x.optimal_config
+  // Configuration layout: first nv bits are vertex selectors x_v, next ne bits are y_e.
+  let selected-verts = range(nv).filter(v => config.at(v) == 1)
+  let omitted-verts = range(nv).filter(v => config.at(v) == 0)
+  let selected-edge-indices = range(ne).filter(i => config.at(nv + i) == 1)
+  let selected-edges = selected-edge-indices.map(i => edges.at(i))
+  let omitted-prize-sum = omitted-verts.map(v => vertex-prizes.at(v)).fold(0, (a, b) => a + b)
+  let edge-cost-sum = selected-edge-indices.map(i => edge-costs.at(i)).fold(0, (a, b) => a + b)
+  let opt-val = x.optimal_value
+  [
+    #problem-def("PrizeCollectingSteinerForest")[
+      Given an undirected network $G = (V, E)$ with nonnegative vertex prizes $p: V -> RR_(>= 0)$, nonnegative edge costs $c: E -> RR_(>= 0)$, and parameters $beta >= 0$ and $omega >= 0$, find a forest $F = (V_F, E_F)$ — that is, a subgraph that is a disjoint union of trees, including singleton-vertex trees — minimizing
+      $ beta dot sum_(v in.not V_F) p(v) + sum_(e in E_F) c(e) + omega dot kappa(F), $
+      where $kappa(F)$ is the number of (tree) components of $F$. Singleton selected vertices are allowed and count as one-vertex tree components; the empty forest is feasible.
+    ][
+    The Prize-Collecting Steiner Forest (PCSF) model registered here is the biology-paper variant introduced by Tuncbag, Braunstein, Pagnani, Huang, Chayes, Borgs, Zecchina, and Fraenkel, who used it to jointly reconstruct multiple cellular signaling pathways from heterogeneous experimental evidence by trading off node prizes (importance of including a protein), edge costs (interaction reliability), and a per-component penalty $omega$ that discourages over-fragmentation of the recovered subnetwork @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB. The companion artificial-root reduction reformulates PCSF as a single rooted Steiner tree on an augmented graph and is registered separately as a reduction rule, so the model itself stays close to the original biological objective. The registered exact baseline enumerates the $2^(|V| + |E|)$ pairs of vertex- and edge-selectors and filters to feasible forests; we record the conservative bound $O^*(2^(|V| + |E|))$#footnote[No algorithm improving on full $(V, E)$-subset enumeration is registered for the biology-style PCSF variant with explicit component penalty $omega dot kappa(F)$.]. PCSF generalises the rooted prize-collecting Steiner tree ($omega = + infinity$, single component) and reduces to the maximum-prize independent-vertex selection when all edge costs dominate the prizes.
+
+    *Example.* Take the undirected path $0 - 1 - 2$ on $n = #nv$ vertices with $|E| = #ne$ edges $#edges.map(((u, v)) => [${#u, #v}$]).join(", ")$, edge costs $c(0, 1) = #edge-costs.at(0)$ and $c(1, 2) = #edge-costs.at(1)$, vertex prizes $p = (#vertex-prizes.at(0), #vertex-prizes.at(1), #vertex-prizes.at(2))$, $beta = #beta$, and $omega = #omega$. The optimal forest selects $V_F = {#selected-verts.map(v => $v_#v$).join(", ")}$ and $E_F = {#selected-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, which decomposes into two tree components ${v_0, v_1}$ and ${v_2}$, so $kappa(F) = 2$. The objective decomposes as $beta dot #omitted-prize-sum + #edge-cost-sum + omega dot 2 = 0 + #edge-cost-sum + #(omega * 2) = #opt-val$.
+    Cheaper alternatives are dominated: the full path $E_F = {(v_0, v_1), (v_1, v_2)}$ costs $0 + (1 + 6) + omega = 9$, three singleton trees ${v_0}, {v_1}, {v_2}$ cost $0 + 0 + 3 omega = 6$, and the empty forest costs $beta dot (5 + 2 + 5) = 12$.
+
+    #pred-commands(
+      "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
+      "pred solve pcsf.json --solver brute-force",
+      "pred evaluate pcsf.json --config " + config.map(str).join(","),
+    )
+
+    #figure({
+      let verts = ((0, 0), (1.6, 0), (3.2, 0))
+      canvas(length: 1cm, {
+        import draw: *
+        let blue = graph-colors.at(0)
+        let gray = luma(160)
+        // Edges first so node circles overlay them.
+        for (idx, edge) in edges.enumerate() {
+          let (u, v) = edge
+          let on-forest = selected-edge-indices.contains(idx)
+          line(verts.at(u), verts.at(v),
+            stroke: if on-forest { 2pt + blue } else { (paint: gray, thickness: 1pt, dash: "dashed") })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          content((mx, my + 0.28), text(7pt, fill: if on-forest { blue } else { gray })[$c = #edge-costs.at(idx)$], frame: "rect", padding: 0.04, stroke: none, fill: white)
+        }
+        for (k, pos) in verts.enumerate() {
+          let in-vf = selected-verts.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if in-vf { blue } else { white },
+            stroke: if in-vf { none } else { 1pt + blue },
+            label: text(fill: if in-vf { white } else { black })[$v_#k$])
+          content((pos.at(0), pos.at(1) - 0.45), text(7pt, fill: luma(80))[$p = #vertex-prizes.at(k)$])
+        }
+      })
+    },
+    caption: [Canonical PCSF instance from issue #1026 on the path $0 - 1 - 2$ with prizes $p$ and costs $c$ shown beside each vertex and edge. The selected forest $V_F = {v_0, v_1, v_2}$, $E_F = {(v_0, v_1)}$ (solid blue edge) decomposes into the tree on ${v_0, v_1}$ and the singleton tree ${v_2}$, so $kappa(F) = #selected-verts.len() - #selected-edges.len() = 2$. The dashed edge $(v_1, v_2)$ is omitted; objective value $= 0 + #edge-cost-sum + #(omega * 2) = #opt-val$.],
+    ) <fig:prize-collecting-steiner-forest>
     ]
   ]
 }

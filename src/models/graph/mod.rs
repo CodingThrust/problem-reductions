@@ -49,6 +49,7 @@
 //! - [`PartitionIntoForests`]: Partition vertices into K classes each inducing an acyclic subgraph
 //! - [`PartitionIntoPerfectMatchings`]: Partition vertices into K groups each inducing a perfect matching
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
+//! - [`PrizeCollectingSteinerForest`]: Forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
@@ -148,6 +149,7 @@ pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_perfect_matchings;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod path_constrained_network_flow;
+pub(crate) mod prize_collecting_steiner_forest;
 pub(crate) mod rooted_tree_arrangement;
 pub(crate) mod rural_postman;
 pub(crate) mod shortest_weight_constrained_path;
@@ -228,6 +230,7 @@ pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_perfect_matchings::PartitionIntoPerfectMatchings;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use path_constrained_network_flow::PathConstrainedNetworkFlow;
+pub use prize_collecting_steiner_forest::PrizeCollectingSteinerForest;
 pub use rooted_tree_arrangement::RootedTreeArrangement;
 pub use rural_postman::RuralPostman;
 pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
@@ -305,6 +308,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partition_into_perfect_matchings::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(path_constrained_network_flow::canonical_model_example_specs());
+    specs.extend(prize_collecting_steiner_forest::canonical_model_example_specs());
     specs.extend(rooted_tree_arrangement::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());

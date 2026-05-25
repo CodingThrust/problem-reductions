@@ -946,6 +946,18 @@ pub struct CreateArgs {
     /// Number of colors for SquareTiling
     #[arg(long)]
     pub num_colors: Option<usize>,
+    /// Vertex prizes for PrizeCollectingSteinerForest (comma-separated nonnegative weights, e.g., "5,2,5")
+    #[arg(long)]
+    pub vertex_prizes: Option<String>,
+    /// Edge costs for PrizeCollectingSteinerForest (comma-separated nonnegative weights in graph.edges() order, e.g., "1,6")
+    #[arg(long)]
+    pub edge_costs: Option<String>,
+    /// Tradeoff coefficient beta >= 0 on the omitted-prize term for PrizeCollectingSteinerForest
+    #[arg(long)]
+    pub beta: Option<String>,
+    /// Per-component penalty omega >= 0 for PrizeCollectingSteinerForest
+    #[arg(long)]
+    pub omega: Option<String>,
 }
 
 impl CreateArgs {
@@ -1158,6 +1170,10 @@ impl CreateArgs {
         insert!("tiles", self.tiles.as_deref());
         insert!("grid-size", self.grid_size);
         insert!("num-colors", self.num_colors);
+        insert!("vertex-prizes", self.vertex_prizes.as_deref());
+        insert!("edge-costs", self.edge_costs.as_deref());
+        insert!("beta", self.beta.as_deref());
+        insert!("omega", self.omega.as_deref());
 
         flags.insert(
             "source",

@@ -1,0 +1,399 @@
+//! Prize-Collecting Steiner Forest problem implementation.
+//!
+//! Given an undirected network `G = (V, E)` with nonnegative vertex prizes
+//! `p: V -> R_{>=0}`, nonnegative edge costs `c: E -> R_{>=0}`, and
+//! nonnegative tradeoff parameters `beta` and `omega`, find a forest
+//! `F = (V_F, E_F)` -- a subgraph that is a disjoint union of trees,
+//! including singleton-vertex trees -- minimizing
+//!
+//! ```text
+//! beta * sum_{v in V \ V_F} p(v) + sum_{e in E_F} c(e) + omega * kappa(F),
+//! ```
+//!
+//! where `kappa(F)` is the number of (tree) components of `F`. Singleton
+//! selected vertices are allowed and count as one-vertex tree components;
+//! unselected vertices are not part of any component.
+//!
+//! Reference:
+//! - Nurcan Tuncbag, Alfredo Braunstein, Andrea Pagnani, Shao-Shan Carol
+//!   Huang, Jennifer Chayes, Christian Borgs, Riccardo Zecchina, and Ernest
+//!   Fraenkel. "Simultaneous Reconstruction of Multiple Signaling Pathways
+//!   via the Prize-Collecting Steiner Forest Problem." Journal of
+//!   Computational Biology 20(2):124--136, 2013.
+//!   <https://doi.org/10.1089/cmb.2012.0092>
+//! - Earlier conference version, RECOMB 2012, LNBI 7262, pp. 287--301.
+//!   <https://doi.org/10.1007/978-3-642-29627-7_31>
+
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::topology::{Graph, SimpleGraph};
+use crate::traits::Problem;
+use crate::types::{Min, WeightElement};
+use crate::variant::VariantParam;
+use num_traits::Zero;
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "PrizeCollectingSteinerForest",
+        display_name: "Prize-Collecting Steiner Forest",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32", "f64"]),
+        ],
+        module_path: module_path!(),
+        description: "Find a forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying network G=(V,E)" },
+            FieldInfo { name: "vertex_prizes", type_name: "Vec<W>", description: "Nonnegative vertex prizes p: V -> R_{>=0}" },
+            FieldInfo { name: "edge_costs", type_name: "Vec<W>", description: "Nonnegative edge costs c: E -> R_{>=0} in graph.edges() order" },
+            FieldInfo { name: "beta", type_name: "W", description: "Tradeoff coefficient beta >= 0 on the omitted-prize term" },
+            FieldInfo { name: "omega", type_name: "W", description: "Per-component penalty omega >= 0 on the number of tree components" },
+        ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "PrizeCollectingSteinerForest",
+        fields: &["num_vertices", "num_edges"],
+    }
+}
+
+/// The Prize-Collecting Steiner Forest problem (biology-paper variant).
+///
+/// Configuration layout (length `num_vertices + num_edges`):
+/// - the first `num_vertices` bits are vertex selectors `x_v` (1 iff
+///   `v in V_F`),
+/// - the next `num_edges` bits are edge selectors `y_e` (1 iff `e in E_F`),
+///   in `graph.edges()` order.
+///
+/// A configuration is feasible iff every selected edge has both endpoints
+/// selected and the resulting subgraph is acyclic. Singleton selected
+/// vertices are allowed.
+///
+/// # Type Parameters
+///
+/// * `G` - Graph type (currently `SimpleGraph`).
+/// * `W` - Weight / cost type (e.g., `i32`, `f64`).
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::models::graph::PrizeCollectingSteinerForest;
+/// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::types::Min;
+/// use problemreductions::{BruteForce, Problem, Solver};
+///
+/// // Path 0 - 1 - 2 with edge costs c(0,1)=1, c(1,2)=6 and vertex prizes
+/// // p = (5, 2, 5), beta = 1, omega = 2.
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let problem =
+///     PrizeCollectingSteinerForest::<_, i32>::new(graph, vec![5, 2, 5], vec![1, 6], 1, 2);
+/// // V_F = {0,1,2}, E_F = {(0,1)} gives two components {0,1} and {2}:
+/// // objective = 0 + 1 + 2*2 = 5.
+/// assert_eq!(BruteForce::new().solve(&problem), Min(Some(5)));
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(deserialize = "G: serde::Deserialize<'de>, W: serde::Deserialize<'de>"))]
+pub struct PrizeCollectingSteinerForest<G, W> {
+    /// The underlying network.
+    graph: G,
+    /// Vertex prizes `p: V -> R_{>=0}` (in vertex-index order).
+    vertex_prizes: Vec<W>,
+    /// Edge costs `c: E -> R_{>=0}` (in `graph.edges()` order).
+    edge_costs: Vec<W>,
+    /// Tradeoff coefficient on the omitted-prize term.
+    beta: W,
+    /// Per-component penalty.
+    omega: W,
+}
+
+impl<G: Graph, W: Clone + Default> PrizeCollectingSteinerForest<G, W> {
+    /// Create a new Prize-Collecting Steiner Forest instance.
+    ///
+    /// # Panics
+    /// Panics if `vertex_prizes.len() != graph.num_vertices()` or
+    /// `edge_costs.len() != graph.num_edges()`.
+    pub fn new(graph: G, vertex_prizes: Vec<W>, edge_costs: Vec<W>, beta: W, omega: W) -> Self {
+        assert_eq!(
+            vertex_prizes.len(),
+            graph.num_vertices(),
+            "vertex_prizes length must match graph num_vertices"
+        );
+        assert_eq!(
+            edge_costs.len(),
+            graph.num_edges(),
+            "edge_costs length must match graph num_edges"
+        );
+        Self {
+            graph,
+            vertex_prizes,
+            edge_costs,
+            beta,
+            omega,
+        }
+    }
+
+    /// Reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
+    }
+
+    /// Vertex prizes in vertex-index order.
+    pub fn vertex_prizes(&self) -> &[W] {
+        &self.vertex_prizes
+    }
+
+    /// Edge costs in `graph.edges()` order.
+    pub fn edge_costs(&self) -> &[W] {
+        &self.edge_costs
+    }
+
+    /// Tradeoff coefficient on the omitted-prize term.
+    pub fn beta(&self) -> &W {
+        &self.beta
+    }
+
+    /// Per-component penalty.
+    pub fn omega(&self) -> &W {
+        &self.omega
+    }
+}
+
+impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph.num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph.num_edges()
+    }
+
+    /// Whether this configuration is a feasible forest (selected edges only
+    /// touch selected vertices and induce an acyclic subgraph).
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_feasible_forest(&self.graph, config)
+    }
+}
+
+impl<G, W> Problem for PrizeCollectingSteinerForest<G, W>
+where
+    G: Graph + VariantParam,
+    W: WeightElement + VariantParam,
+{
+    const NAME: &'static str = "PrizeCollectingSteinerForest";
+    type Value = Min<W::Sum>;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        crate::variant_params![G, W]
+    }
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices() + self.graph.num_edges()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
+        let n = self.graph.num_vertices();
+        let m = self.graph.num_edges();
+        if config.len() != n + m {
+            return Min(None);
+        }
+        let edges = self.graph.edges();
+
+        // Feasibility: selected edges must be incident only to selected
+        // vertices, and the resulting subgraph must be acyclic.
+        let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+        let mut selected_edge_count = 0usize;
+        for (i, &(u, v)) in edges.iter().enumerate() {
+            let y_e = config[n + i];
+            if y_e == 0 {
+                continue;
+            }
+            if y_e != 1 {
+                return Min(None);
+            }
+            let x_u = config[u];
+            let x_v = config[v];
+            if x_u != 1 || x_v != 1 {
+                return Min(None);
+            }
+            adj[u].push((v, i));
+            adj[v].push((u, i));
+            selected_edge_count += 1;
+        }
+
+        // Acyclicity via BFS on the selected subgraph restricted to selected
+        // vertices. We also count tree components: a selected vertex with no
+        // incident selected edges is one singleton tree.
+        let mut visited = vec![false; n];
+        let mut kappa: usize = 0;
+        let mut total_selected_vertices: usize = 0;
+        let mut total_tree_edges: usize = 0;
+        for start in 0..n {
+            if config[start] != 1 || visited[start] {
+                continue;
+            }
+            // Discovered a fresh component containing `start`.
+            kappa += 1;
+            visited[start] = true;
+            let mut comp_vertices: usize = 1;
+            let mut comp_edges: usize = 0;
+            // Parent edge index per vertex inside this BFS, used to detect
+            // back-edges (cycles).
+            let mut parent_edge: Vec<Option<usize>> = vec![None; n];
+            let mut queue: VecDeque<usize> = VecDeque::new();
+            queue.push_back(start);
+            while let Some(u) = queue.pop_front() {
+                for &(w, edge_idx) in &adj[u] {
+                    if parent_edge[u] == Some(edge_idx) {
+                        // Skip the edge we came in on.
+                        continue;
+                    }
+                    if visited[w] {
+                        // Back-edge inside this component => cycle.
+                        return Min(None);
+                    }
+                    visited[w] = true;
+                    parent_edge[w] = Some(edge_idx);
+                    comp_vertices += 1;
+                    comp_edges += 1;
+                    queue.push_back(w);
+                }
+            }
+            // A tree on `comp_vertices` vertices has exactly
+            // `comp_vertices - 1` edges. The BFS above counts each tree edge
+            // once via discovery. If we did not pick up an extra back-edge
+            // (which would have triggered the cycle return above), the
+            // selected-edge subgraph restricted to this component is a tree.
+            total_selected_vertices += comp_vertices;
+            total_tree_edges += comp_edges;
+        }
+        // Sanity: every selected edge must have been visited as a tree edge.
+        // If it was not, both endpoints would have been in distinct
+        // components, which is impossible by construction.
+        if total_tree_edges != selected_edge_count {
+            return Min(None);
+        }
+        let _ = total_selected_vertices; // not used in the objective directly
+
+        // Objective: beta * sum_{v notin V_F} p(v)
+        //          + sum_{e in E_F} c(e)
+        //          + omega * kappa(F).
+        //
+        // `W::Sum: Num` (via `NumericSize`) gives us `Mul`, so we form the
+        // products `beta * (omitted prize sum)` and `omega * kappa` directly.
+        let mut omitted_prizes = W::Sum::zero();
+        for (v, prize) in self.vertex_prizes.iter().enumerate() {
+            if config[v] == 0 {
+                omitted_prizes += prize.to_sum();
+            }
+        }
+        let omitted_term = self.beta.to_sum() * omitted_prizes;
+
+        let mut edge_term = W::Sum::zero();
+        for (i, cost) in self.edge_costs.iter().enumerate() {
+            if config[n + i] == 1 {
+                edge_term += cost.to_sum();
+            }
+        }
+
+        // Represent `kappa` in `W::Sum` by summing `omega` `kappa` times.
+        // `NumericSize` does not require a `From<usize>` conversion, so we
+        // accumulate additively rather than casting.
+        let omega_sum = self.omega.to_sum();
+        let mut kappa_sum = W::Sum::zero();
+        for _ in 0..kappa {
+            kappa_sum += omega_sum.clone();
+        }
+
+        let mut total = W::Sum::zero();
+        total += omitted_term;
+        total += edge_term;
+        total += kappa_sum;
+        Min(Some(total))
+    }
+}
+
+/// Decide feasibility of a `(V_F, E_F)` configuration: selected edges only
+/// touch selected vertices and induce an acyclic subgraph.
+fn is_feasible_forest<G: Graph>(graph: &G, config: &[usize]) -> bool {
+    let n = graph.num_vertices();
+    let m = graph.num_edges();
+    if config.len() != n + m {
+        return false;
+    }
+    let edges = graph.edges();
+    let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+    for (i, &(u, v)) in edges.iter().enumerate() {
+        let y_e = config[n + i];
+        if y_e == 0 {
+            continue;
+        }
+        if y_e != 1 {
+            return false;
+        }
+        if config[u] != 1 || config[v] != 1 {
+            return false;
+        }
+        adj[u].push((v, i));
+        adj[v].push((u, i));
+    }
+    let mut visited = vec![false; n];
+    for start in 0..n {
+        if config[start] != 1 || visited[start] {
+            continue;
+        }
+        visited[start] = true;
+        let mut parent_edge: Vec<Option<usize>> = vec![None; n];
+        let mut queue: VecDeque<usize> = VecDeque::new();
+        queue.push_back(start);
+        while let Some(u) = queue.pop_front() {
+            for &(w, edge_idx) in &adj[u] {
+                if parent_edge[u] == Some(edge_idx) {
+                    continue;
+                }
+                if visited[w] {
+                    return false; // back-edge inside the component => cycle
+                }
+                visited[w] = true;
+                parent_edge[w] = Some(edge_idx);
+                queue.push_back(w);
+            }
+        }
+    }
+    true
+}
+
+crate::declare_variants! {
+    default PrizeCollectingSteinerForest<SimpleGraph, i32> => "2^(num_vertices + num_edges)",
+    PrizeCollectingSteinerForest<SimpleGraph, f64> => "2^(num_vertices + num_edges)",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    // Issue #1026 canonical instance: path 0 - 1 - 2 with edge costs
+    // c(0,1)=1, c(1,2)=6, vertex prizes p = (5, 2, 5), beta = 1, omega = 2.
+    // Optimum: V_F = {0,1,2}, E_F = {(0,1)} (two components {0,1} and {2}),
+    // objective = 0 + 1 + 2*2 = 5.
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "prize_collecting_steiner_forest_simplegraph_i32",
+        instance: Box::new(PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![5, 2, 5],
+            vec![1, 6],
+            1,
+            2,
+        )),
+        // 3 vertex bits + 2 edge bits = 5-bit configuration.
+        optimal_config: vec![1, 1, 1, 1, 0],
+        optimal_value: serde_json::json!(5),
+    }]
+}
+
+#[cfg(test)]
+#[path = "../../unit_tests/models/graph/prize_collecting_steiner_forest.rs"]
+mod tests;
