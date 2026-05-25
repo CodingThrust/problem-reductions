@@ -5,6 +5,7 @@
 //! - [`BoundedDiameterSpanningTree`]: Spanning tree with bounded weight and diameter
 //! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum vertex degree at most K
 //! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
+//! - [`HighlyConnectedDeletion`]: Minimum-edge deletion so every component is an isolated vertex or a highly connected graph on >=3 vertices
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximumLeafSpanningTree`]: Spanning tree maximizing number of leaves
 //! - [`MaximalIS`]: Maximal independent set
@@ -93,6 +94,7 @@ pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod hamiltonian_path_between_two_vertices;
+pub(crate) mod highly_connected_deletion;
 pub(crate) mod integral_flow_bundles;
 pub(crate) mod integral_flow_homologous_arcs;
 pub(crate) mod integral_flow_with_multipliers;
@@ -171,6 +173,7 @@ pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
 pub use hamiltonian_path_between_two_vertices::HamiltonianPathBetweenTwoVertices;
+pub use highly_connected_deletion::HighlyConnectedDeletion;
 pub use integral_flow_bundles::IntegralFlowBundles;
 pub use integral_flow_homologous_arcs::IntegralFlowHomologousArcs;
 pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
@@ -249,6 +252,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(hamiltonian_path_between_two_vertices::canonical_model_example_specs());
+    specs.extend(highly_connected_deletion::canonical_model_example_specs());
     specs.extend(integral_flow_bundles::canonical_model_example_specs());
     specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());

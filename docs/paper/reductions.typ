@@ -207,6 +207,7 @@
   "MaximumCoKPlex": [Maximum Co-$k$-Plex],
   "MaximumCommonEdgeSubgraph": [Maximum Common Edge Subgraph],
   "MaximumEdgeWeightedKClique": [Maximum Edge-Weighted $k$-Clique],
+  "HighlyConnectedDeletion": [Highly Connected Deletion],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumHittingSet": [Minimum Hitting Set],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -973,6 +974,45 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     },
     caption: [The graph from issue \#1020 with edge weights $(5, 4, -1, 1, 0)$ in graph-edge order and $k = #k$. Selected vertices $S = {#S.map(i => $v_#i$).join(", ")}$ (blue) induce all three edges of the triangle ${v_0, v_1, v_2}$; the total induced weight is $#wS$.],
     ) <fig:edge-weighted-k-clique>
+    ]
+  ]
+}
+
+#{
+  // Hand-authored canonical example mirroring the in-repo example_db fixture
+  // (load-model-example is not used here because the corresponding example
+  // entry is shipped via the model file's canonical_model_example_specs rather
+  // than the docs/paper/data/examples.json bundle).
+  let nv = 4
+  let edges = ((0, 1), (0, 2), (1, 2), (2, 3))
+  let ne = edges.len()
+  let config = (0, 0, 0, 1)
+  let deleted = edges.zip(config).filter(((e, b)) => b == 1).map(((e, _)) => e)
+  let surviving = edges.zip(config).filter(((e, b)) => b == 0).map(((e, _)) => e)
+  let cluster = (0, 1, 2)
+  let opt-val = deleted.len()
+  [
+    #problem-def("HighlyConnectedDeletion")[
+      Given a simple undirected graph $G = (V, E)$, find a minimum-cardinality edge set $F subset.eq E$ such that every connected component of $G - F$ is either an isolated vertex or a *highly connected* graph on at least $3$ vertices, where a graph $H$ is highly connected iff its edge connectivity satisfies
+      $ lambda(H) > |V(H)| / 2. $
+      Components of size $2$ (isolated edges) are explicitly forbidden as clusters. The objective is $|F|$, the number of deleted edges.
+    ][
+    Highly Connected Deletion is the edge-coverage maximizing form of the HCS (Highly Connected Subgraphs) clustering paradigm introduced by Hartuv and Shamir for biological networks, where every cluster must remain strictly more than $|V(H)|/2$-edge-connected to survive iterated minimum-cut splits @HartuvShamir2000. H{\"u}ffner, Komusiewicz, Liebtrau, and Niedermeier later turned this connectivity requirement into the exact optimization problem registered here — minimize the number of deleted edges so that every surviving component is either an isolated vertex or a highly connected subgraph on at least three vertices — and studied its parameterized and approximation complexity @HueffnerKomusiewiczLiebtrauNiedermeier2014. The decision form is NP-complete, and the registered exact baseline enumerates every edge-deletion subset in $O^*(2^(|E|))$ time and verifies feasibility via per-component edge-connectivity checks#footnote[No algorithm improving on subset enumeration is registered for general Highly Connected Deletion. The literature reports kernelization and FPT algorithms parameterized by the number of deletions @HueffnerKomusiewiczLiebtrauNiedermeier2014, but these are not currently part of the registry.]. Note that every clique on at least $3$ vertices is highly connected, but the converse fails, so Highly Connected Deletion is strictly weaker than clique-based clustering models such as Minimum Cluster Edge Deletion.
+
+    *Example.* Consider the graph $G$ on $n = #nv$ vertices with $|E| = #ne$ edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). It is a triangle on ${0, 1, 2}$ with a leaf vertex $3$ attached to $2$ by the edge ${2, 3}$. Deleting only the leaf edge ${#deleted.at(0).at(0), #deleted.at(0).at(1)}$ — i.e. setting $x_e = 1$ for that one edge — yields two components: the triangle $G[{#cluster.map(i => $#i$).join(", ")}] = K_3$, which is highly connected because $lambda(K_3) = 2 > 3/2$, and the isolated vertex ${3}$, which is allowed as an unclustered leftover. Zero deletions are infeasible because the full graph has minimum degree $1$ at vertex $3$ and therefore edge connectivity $lambda(G) = 1$, which is not greater than $4/2 = 2$. Hence the optimum value is $|F| = #opt-val$.
+
+    #pred-commands(
+      "pred create --example HighlyConnectedDeletion -o hcd.json",
+      "pred solve hcd.json",
+      "pred evaluate hcd.json --config " + config.map(str).join(","),
+    )
+
+    #figure({
+      let verts = ((-1.0, 0.6), (1.0, 0.6), (0.0, -0.4), (1.6, -1.2))
+      draw-edge-highlight(verts, edges, deleted, cluster)
+    },
+    caption: [The triangle-with-leaf graph from the issue ($n = #nv$, $|E| = #ne$). The deleted edge ${#deleted.at(0).at(0), #deleted.at(0).at(1)}$ is shown in bold blue. The surviving triangle ${#cluster.map(i => $v_#i$).join(", ")}$ (blue nodes) is highly connected ($lambda = 2 > 3/2$); vertex $v_3$ remains as an allowed isolated leftover. Deletion budget $|F| = #opt-val$.],
+    ) <fig:hcd-triangle-leaf>
     ]
   ]
 }
