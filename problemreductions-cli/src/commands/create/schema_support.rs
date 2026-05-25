@@ -1788,6 +1788,9 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
         "MinimumCostMaximumFlow" => {
             "--arcs \"0>1,0>2,1>2,1>3,2>3\" --capacities 2,1,1,1,2 --costs 1,0,0,1,2 --source 0 --sink 3"
         }
+        "MinimumCostCirculation" => {
+            "--arcs \"0>1,1>0,0>2,2>0\" --capacities 2,2,1,1 --costs 2,-3,1,-4"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "DirectedHamiltonianPath" => {
             "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"

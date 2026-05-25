@@ -253,6 +253,7 @@ Flags by problem type:
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
   MinimumCostMaximumFlow          --arcs, --capacities, --costs, --source, --sink
+  MinimumCostCirculation, MCC     --arcs, --capacities, --costs
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
   MaximumLeafSpanningTree         --graph

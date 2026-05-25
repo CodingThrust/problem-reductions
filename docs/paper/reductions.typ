@@ -284,6 +284,7 @@
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
   "MinimumEdgeCostFlow": [Minimum Edge-Cost Flow],
   "MinimumCostMaximumFlow": [Minimum-Cost Maximum-Flow],
+  "MinimumCostCirculation": [Minimum-Cost Circulation],
   "IntegralFlowHomologousArcs": [Integral Flow with Homologous Arcs],
   "IntegralFlowWithMultipliers": [Integral Flow With Multipliers],
   "MinMaxMulticenter": [Min-Max Multicenter],
@@ -10218,6 +10219,33 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         "pred create --example MinimumCostMaximumFlow -o mcmf.json",
         "pred solve mcmf.json",
         "pred evaluate mcmf.json --config " + flow.map(str).join(","),
+      )
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumCostCirculation")
+  let arcs-j = x.instance.graph.arcs.map(a => (a.at(0), a.at(1)))
+  let caps = x.instance.capacities
+  let costs-j = x.instance.costs
+  let circ = x.optimal_config
+  [
+    #problem-def("MinimumCostCirculation")[
+      Given a finite directed multigraph $G = (V, A)$ (loops and parallel arcs allowed) with non-negative integral arc capacities $c: A -> ZZ_(>= 0)$ and *signed* integral arc costs $a: A -> ZZ$, find an integral circulation $g: A -> ZZ_(>= 0)$ that minimizes the total cost $sum_(a in A) a(a) dot g(a)$ subject to $0 <= g(a) <= c(a)$ for every arc $a$ and to flow conservation at *every* vertex $v in V$, i.e. inflow equals outflow at $v$ (there is no distinguished source or sink).
+    ][
+      Minimum-Cost Circulation is the natural graph-flow target of Minimum-Cost Maximum-Flow: the standard reduction adds a single sufficiently negative return arc from the sink to the source, turning a max-value/min-cost flow problem into pure cost minimization over circulations. Because every vertex must balance, signed costs do not cause the objective to diverge when capacities are finite — negative-cost cycles are bounded by the smallest arc capacity along them and are exactly what drives the reduction from min-cost max-flow. The continuous problem is polynomial-time solvable as a standard minimum-cost flow @mit6854MinCostFlow.
+
+      *Integral-circulation restriction.* The mathematical model uses continuous flows $g: A -> RR_(>= 0)$, but the framework requires a discrete configuration space. Following the same precedent as Minimum Edge-Cost Flow and Minimum-Cost Maximum-Flow, the catalog entry restricts $g$ to integer values $g(a) in {0, 1, dots, c(a)}$. For integral capacities and costs the total-unimodularity of the network constraint matrix guarantees an integral optimum exists, so the restriction does not change the optimal value.
+
+      The registered polynomial bound $(|V| + |A|)^6$ is a conservative placeholder honoring polynomial-time solvability via the linear-programming formulation; sharper strongly-polynomial bounds are available for specific min-cost-flow algorithms.
+
+      *Example.* On the canonical instance ($n = #{arcs-j.fold(0, (acc, a) => calc.max(acc, a.at(0), a.at(1))) + 1}$ vertices, $|A| = #{arcs-j.len()}$ arcs with capacities $(#caps.map(str).join(", "))$ and signed costs $(#costs-j.map(str).join(", "))$) there are two competing cycles through vertex $v_0$: cycle $A = (v_0 -> v_1 -> v_0)$ has per-unit cost $2 + (-3) = -1$ and capacity $2$, while cycle $B = (v_0 -> v_2 -> v_0)$ has per-unit cost $1 + (-4) = -3$ and capacity $1$. Cycle $B$ is cheaper per unit but smaller; cycle $A$ is more expensive per unit but larger. Both reduce cost, so the optimum pushes each cycle to capacity, giving $g = (#circ.map(str).join(", "))$ with total cost $2 dot 2 + 2 dot (-3) + 1 dot 1 + 1 dot (-4) = -5$. By comparison, running only cycle $A$ gives cost $-2$, only cycle $B$ gives $-3$, and the zero circulation gives $0$, so the optimum $-5$ strictly beats every alternative.
+
+      #pred-commands(
+        "pred create --example MinimumCostCirculation -o mcc.json",
+        "pred solve mcc.json",
+        "pred evaluate mcc.json --config " + circ.map(str).join(","),
       )
     ]
   ]
