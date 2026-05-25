@@ -566,6 +566,18 @@ pub struct CreateArgs {
     /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
     #[arg(long)]
     pub probabilities: Option<String>,
+    /// Link lengths for MinimumDiscretePlanarInverseKinematics (comma-separated positive reals, e.g., "2.0,1.0")
+    #[arg(long)]
+    pub link_lengths: Option<String>,
+    /// Target point (x,y) for MinimumDiscretePlanarInverseKinematics (e.g., "2.0,1.0")
+    #[arg(long)]
+    pub target_point: Option<String>,
+    /// Sampled absolute orientations per link for MinimumDiscretePlanarInverseKinematics (semicolon-separated angle lists, e.g., "0.0,1.5707963267948966;0.0,1.5707963267948966")
+    #[arg(long)]
+    pub orientation_samples: Option<String>,
+    /// Admissible (a_{j-1}, a_j) pair sets per junction for MinimumDiscretePlanarInverseKinematics (pipe-separated junctions, each comma-separated "i-j" pairs, e.g., "0-0,0-1,1-1")
+    #[arg(long)]
+    pub allowed_pairs: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -988,6 +1000,10 @@ impl CreateArgs {
         insert!("requirement-2", self.requirement_2);
         insert!("sizes", self.sizes.as_deref());
         insert!("probabilities", self.probabilities.as_deref());
+        insert!("link-lengths", self.link_lengths.as_deref());
+        insert!("target-point", self.target_point.as_deref());
+        insert!("orientation-samples", self.orientation_samples.as_deref());
+        insert!("allowed-pairs", self.allowed_pairs.as_deref());
         insert!("capacity", self.capacity.as_deref());
         insert!("sequence", self.sequence.as_deref());
         insert!("subsets", self.sets.as_deref());

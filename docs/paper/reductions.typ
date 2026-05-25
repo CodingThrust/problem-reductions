@@ -293,6 +293,7 @@
   "MultipleChoiceBranching": [Multiple Choice Branching],
   "MultipleCopyFileAllocation": [Multiple Copy File Allocation],
   "ExpectedRetrievalCost": [Expected Retrieval Cost],
+  "MinimumDiscretePlanarInverseKinematics": [Minimum Discrete Planar Inverse Kinematics],
   "MultiprocessorScheduling": [Multiprocessor Scheduling],
   "NonLivenessFreePetriNet": [Non-Liveness Free Petri Net],
   "ProductionPlanning": [Production Planning],
@@ -5587,6 +5588,40 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       ),
       caption: [Expected Retrieval Cost example with cyclic sector order $S_1 -> S_2 -> S_3 -> S_1$. The optimal allocation yields masses $(0.3, 0.35, 0.35)$ and minimum cost $1.0025$.],
     ) <fig:expected-retrieval-cost>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("MinimumDiscretePlanarInverseKinematics")
+  [
+    #problem-def("MinimumDiscretePlanarInverseKinematics")[
+      Given positive link lengths $l_1, dots, l_n$, a target point $g = (g_x, g_y) in bb(R)^2$, finite sets of candidate absolute orientations $Phi_j = {phi_(j,0), dots, phi_(j,m_j-1)}$ for every link $j = 1, dots, n$, and admissible pair sets $A_j subset.eq {0, dots, m_(j-1) - 1} times {0, dots, m_j - 1}$ for $j = 2, dots, n$, choose indices $a_j in {0, dots, m_j - 1}$ such that $(a_(j-1), a_j) in A_j$ for every $j = 2, dots, n$, minimizing the squared end-effector error
+      $ norm(sum_(j=1)^n l_j (cos phi_(j,a_j), sin phi_(j,a_j)) - g)_2^2. $
+    ][
+    The Minimum Discrete Planar Inverse Kinematics problem is the discrete-sample reformulation of planar inverse kinematics studied by Salloum, Savin, Kholodov, Ryzhakov, Farina, and Oseledets @salloum2025ikqubo for quantum annealing pipelines. Each link is parameterized by its absolute orientation rather than a local joint angle, so the workspace position is linear in the per-link selector variables and one-hot encoding produces a genuinely quadratic objective when reducing to QUBO. The admissible pair sets $A_j$ model joint limits on the relative angle $phi_(j,a_j) - phi_(j-1,a_(j-1))$. The decision and exact optimization versions are NP-hard via Knapsack-style packing of discretized angle choices, mirroring the broader mixed-integer convex inverse-kinematics formulation of Dai, Izatt, and Tedrake @daiizatttedrake2019. The registered exact baseline enumerates the product domain $product_(j=1)^n m_j$#footnote[No algorithm improving on exhaustive enumeration over per-link discrete orientations is known for this discretized formulation in general.].
+
+    *Example.* Take $n = 2$ with link lengths $(l_1, l_2) = (2, 1)$, target $g = (2, 1)$, sampled orientations $Phi_1 = Phi_2 = {0, pi / 2}$, and admissible pair set $A_2 = {(0,0), (0,1), (1,1)}$. The configuration $(a_1, a_2) = (0, 1)$ lies in $A_2$ and places the end-effector at $(2 cos 0, 2 sin 0) + (cos(pi / 2), sin(pi / 2)) = (2, 1)$, giving optimal objective value $0$. The other two feasible configurations have squared errors $2$ (for $(0,0)$) and $8$ (for $(1,1)$); the configuration $(1, 0)$ is infeasible.
+
+    #pred-commands(
+      "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
+      "pred solve ik.json --solver brute-force",
+      "pred evaluate ik.json --config " + x.optimal_config.map(str).join(","),
+    )
+
+    #figure(
+      table(
+        columns: 4,
+        inset: 6pt,
+        stroke: 0.5pt + luma(180),
+        [Config $(a_1, a_2)$], [Feasible?], [End-effector], [Squared error],
+        [$(0, 0)$], [yes], [$(3, 0)$], [$2$],
+        [$(0, 1)$], [yes (optimal)], [$(2, 1)$], [$0$],
+        [$(1, 0)$], [no], [---], [---],
+        [$(1, 1)$], [yes], [$(0, 3)$], [$8$],
+      ),
+      caption: [Minimum Discrete Planar Inverse Kinematics example with $n = 2$, link lengths $(2, 1)$, target $(2, 1)$, and per-link orientations ${0, pi / 2}$. Three of the four configurations are admissible under $A_2 = {(0,0), (0,1), (1,1)}$; the unique optimum is $(0, 1)$ with squared error $0$.],
+    ) <fig:minimum-discrete-planar-inverse-kinematics>
     ]
   ]
 }

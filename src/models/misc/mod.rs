@@ -29,6 +29,7 @@
 //! - [`MinimumCodeGenerationOneRegister`]: Minimize instruction count for a one-register machine
 //! - [`MinimumCodeGenerationParallelAssignments`]: Minimize backward dependencies when ordering parallel assignments
 //! - [`MinimumCodeGenerationUnlimitedRegisters`]: Minimize instruction count for an unlimited-register machine with 2-address instructions
+//! - [`MinimumDiscretePlanarInverseKinematics`]: Pick one sampled absolute orientation per planar link to reach a target point under consecutive-pair feasibility
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all internal DAG vertices
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
@@ -137,6 +138,7 @@ mod minimum_code_generation_one_register;
 pub(crate) mod minimum_code_generation_parallel_assignments;
 mod minimum_code_generation_unlimited_registers;
 pub(crate) mod minimum_decision_tree;
+pub(crate) mod minimum_discrete_planar_inverse_kinematics;
 pub(crate) mod minimum_disjunctive_normal_form;
 mod minimum_external_macro_data_compression;
 mod minimum_fault_detection_test_set;
@@ -210,6 +212,7 @@ pub use minimum_code_generation_one_register::MinimumCodeGenerationOneRegister;
 pub use minimum_code_generation_parallel_assignments::MinimumCodeGenerationParallelAssignments;
 pub use minimum_code_generation_unlimited_registers::MinimumCodeGenerationUnlimitedRegisters;
 pub use minimum_decision_tree::MinimumDecisionTree;
+pub use minimum_discrete_planar_inverse_kinematics::MinimumDiscretePlanarInverseKinematics;
 pub use minimum_disjunctive_normal_form::MinimumDisjunctiveNormalForm;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_fault_detection_test_set::MinimumFaultDetectionTestSet;
@@ -307,6 +310,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_code_generation_parallel_assignments::canonical_model_example_specs());
     specs.extend(minimum_code_generation_unlimited_registers::canonical_model_example_specs());
     specs.extend(minimum_decision_tree::canonical_model_example_specs());
+    specs.extend(minimum_discrete_planar_inverse_kinematics::canonical_model_example_specs());
     specs.extend(minimum_disjunctive_normal_form::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());

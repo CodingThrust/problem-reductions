@@ -801,6 +801,8 @@ pub(super) fn parse_field_value(
         "Vec<(usize,Vec<usize>)>" => parse_indexed_usize_lists_value(raw)?,
         "Vec<Vec<(usize,u64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
         "Vec<(f64,f64)>" => serde_json::to_value(util::parse_positions::<f64>(raw, "0.0,0.0")?)?,
+        "(f64,f64)" => parse_f64_pair_value(raw)?,
+        "Vec<Vec<(usize,usize)>>" => parse_nested_pair_list_value(raw)?,
         "Vec<FrequencyTable>" => {
             serde_json::to_value(parse_cdft_frequency_tables_value(raw, context)?)?
         }
@@ -942,6 +944,52 @@ pub(super) fn parse_pair_list_value(raw: &str) -> Result<serde_json::Value> {
         })
         .collect::<Result<_>>()?;
     Ok(serde_json::to_value(pairs)?)
+}
+
+pub(super) fn parse_f64_pair_value(raw: &str) -> Result<serde_json::Value> {
+    let parts: Vec<&str> = raw.split(',').collect();
+    anyhow::ensure!(
+        parts.len() == 2,
+        "Invalid (f64,f64) pair '{}': expected format x,y (e.g., 2.0,1.0)",
+        raw.trim()
+    );
+    let x: f64 = parts[0]
+        .trim()
+        .parse()
+        .map_err(|err| anyhow::anyhow!("Invalid x in '{}': {err}", raw.trim()))?;
+    let y: f64 = parts[1]
+        .trim()
+        .parse()
+        .map_err(|err| anyhow::anyhow!("Invalid y in '{}': {err}", raw.trim()))?;
+    Ok(serde_json::to_value((x, y))?)
+}
+
+pub(super) fn parse_nested_pair_list_value(raw: &str) -> Result<serde_json::Value> {
+    let groups: Vec<Vec<(usize, usize)>> = raw
+        .split('|')
+        .map(|group| {
+            let trimmed = group.trim();
+            if trimmed.is_empty() {
+                return Ok(Vec::new());
+            }
+            trimmed
+                .split(',')
+                .map(|entry| {
+                    let entry = entry.trim();
+                    let parts: Vec<&str> = entry.split('-').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid pair '{entry}': expected i-j (e.g., 0-1)"
+                    );
+                    Ok((
+                        parts[0].trim().parse::<usize>()?,
+                        parts[1].trim().parse::<usize>()?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(groups)?)
 }
 
 pub(super) fn infer_cbq_num_variables(raw: &str) -> Result<usize> {
