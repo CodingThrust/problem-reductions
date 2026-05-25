@@ -247,7 +247,7 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
 }
 
 crate::declare_variants! {
-    default MinimumDiscretePlanarInverseKinematics => "num_links * total_configurations",
+    default MinimumDiscretePlanarInverseKinematics => "total_configurations",
 }
 
 #[cfg(feature = "example-db")]

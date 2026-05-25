@@ -133,6 +133,27 @@ fn test_minimum_cost_circulation_negative_cycle_beats_zero() {
 }
 
 #[test]
+fn test_minimum_cost_circulation_issue_example_1030() {
+    // Verbatim instance from issue #1030: vertices {0,1}, arcs
+    //   0->1 cap=2 cost= 3
+    //   1->0 cap=1 cost=-5
+    // Bottleneck is the back-arc (cap=1), so the optimum sends one unit
+    // around the cycle: cost = 1*3 + 1*(-5) = -2.
+    let problem = MinimumCostCirculation::new(
+        DirectedGraph::new(2, vec![(0, 1), (1, 0)]),
+        vec![2, 1],
+        vec![3, -5],
+    );
+    let solver = BruteForce::new();
+    let witness = solver
+        .find_witness(&problem)
+        .expect("instance must be feasible");
+    assert_eq!(witness, vec![1, 1]);
+    assert_eq!(problem.total_cost(&witness), -2);
+    assert_eq!(problem.evaluate(&[0, 0]), Min(Some(0)));
+}
+
+#[test]
 fn test_minimum_cost_circulation_serialization() {
     let problem = canonical_instance();
     let json = serde_json::to_string(&problem).unwrap();
