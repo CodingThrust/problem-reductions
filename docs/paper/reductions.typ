@@ -18214,6 +18214,16 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
 ]
 
+#reduction-rule("Numerical3DimensionalMatching", "NumericalMatchingWithTargetSums")[
+  This linear-time reduction @garey1979 keeps the $X$ and $Y$ sets unchanged and replaces each $w_i in W$ by a target complement $B_i = B - s(w_i)$. For an instance with $m$ triples, the target has $m$ pairs.
+][
+  _Construction._ Let the source instance be $(W, X, Y, s, B)$ with $W = {w_1, dots, w_m}$, $X = {x_1, dots, x_m}$, and $Y = {y_1, dots, y_m}$. Construct the Numerical Matching with Target Sums instance with the same ordered size lists for $X$ and $Y$, and target vector $(B - s(w_1), dots, B - s(w_m))$.
+
+  _Correctness._ ($arrow.r.double$) Suppose the N3DM instance has triples $(w_(rho(i)), x_(sigma(i)), y_(tau(i)))$ summing to $B$. Relabel the triples so that the $i$-th triple contains $w_i$. Then $s(x_(sigma(i))) + s(y_(tau(i))) = B - s(w_i)$ for every $i$, so the same $X/Y$ pairings satisfy the NMTS target multiset. ($arrow.l.double$) Suppose the NMTS instance has a perfect pairing of $X$ and $Y$ whose pair-sum multiset equals $(B - s(w_1), dots, B - s(w_m))$. Match each realized pair sum to one unused complement of the same value, and attach that pair to the corresponding $w_i$. Every resulting triple has sum $s(w_i) + (B - s(w_i)) = B$, so the triples form a valid N3DM solution.
+
+  _Solution extraction._ Given a target pairing, compute each realized pair sum $s(x_j) + s(y_(pi(j)))$ and match these sums back to the complement multiset $(B - s(w_i))$. This reconstructs the $X$- and $Y$-permutations indexed by $W$. Because the implemented NMTS model stores `i64` sizes, the reduction additionally assumes that every copied $X/Y$ size and every complement $B - s(w_i)$ fits in `i64`.
+]
+
 // 12. Partition → SequencingToMinimizeTardyTaskWeight (#471)
 #let part_stw = load-example("Partition", "SequencingToMinimizeTardyTaskWeight")
 #let part_stw_sol = part_stw.solutions.at(0)

@@ -101,6 +101,7 @@ pub(crate) mod minimumvertexcover_minimumweightandorgraph;
 pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
 pub(crate) mod naesatisfiability_setsplitting;
+pub(crate) mod numerical3dimensionalmatching_numericalmatchingwithtargetsums;
 pub(crate) mod optimallineararrangement_sequencingtominimizeweightedcompletiontime;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
@@ -495,6 +496,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumweightandorgraph::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());
+    specs.extend(
+        numerical3dimensionalmatching_numericalmatchingwithtargetsums::canonical_rule_example_specs(
+        ),
+    );
     specs.extend(
         optimallineararrangement_sequencingtominimizeweightedcompletiontime::canonical_rule_example_specs(),
     );
