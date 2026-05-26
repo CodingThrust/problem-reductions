@@ -195,6 +195,8 @@ pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod hamiltonianpath_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod highlyconnecteddeletion_ilp;
+#[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod ilp_helpers;
@@ -558,6 +560,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(flowshopscheduling_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(hamiltonianpath_ilp::canonical_rule_example_specs());
+        specs.extend(highlyconnecteddeletion_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
         specs.extend(integralflowhomologousarcs_ilp::canonical_rule_example_specs());

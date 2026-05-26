@@ -323,6 +323,71 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+/// Check whether a vertex subset `S` is a *feasible cluster* of `graph`.
+///
+/// A feasible cluster is either a singleton (`|S| = 1`) or a set of at least
+/// `3` vertices whose induced subgraph `G[S]` is connected and *highly
+/// connected* (edge connectivity strictly greater than `|S| / 2`).
+///
+/// This is the cluster-feasibility predicate used by the set-partitioning ILP
+/// reduction: `x_S` is allowed exactly when `is_feasible_cluster(graph, S)`.
+pub(crate) fn is_feasible_cluster<G: Graph>(graph: &G, vertices: &[usize]) -> bool {
+    let size = vertices.len();
+    if size == 0 {
+        return false;
+    }
+    if size == 1 {
+        return true;
+    }
+    if size == 2 {
+        return false;
+    }
+
+    // Build induced-subgraph adjacency restricted to `vertices`.
+    let n = graph.num_vertices();
+    let in_subset: HashSet<usize> = vertices.iter().copied().collect();
+    let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (u, v) in graph.edges() {
+        if in_subset.contains(&u) && in_subset.contains(&v) {
+            adj[u].push(v);
+            adj[v].push(u);
+        }
+    }
+
+    // The induced subgraph must itself be connected (a single component).
+    let mut visited: HashSet<usize> = HashSet::new();
+    let start = vertices[0];
+    let mut queue: VecDeque<usize> = VecDeque::new();
+    queue.push_back(start);
+    visited.insert(start);
+    while let Some(u) = queue.pop_front() {
+        for &w in &adj[u] {
+            if !visited.contains(&w) {
+                visited.insert(w);
+                queue.push_back(w);
+            }
+        }
+    }
+    if visited.len() != size {
+        return false;
+    }
+
+    // Strict inequality: λ(G[S]) > |S| / 2, equivalently 2 * λ > |S|.
+    let lambda = edge_connectivity(vertices, &adj);
+    2 * lambda > size
+}
+
+/// Count the number of induced edges of `graph` whose endpoints both lie
+/// inside `vertices`.
+pub(crate) fn induced_edge_count<G: Graph>(graph: &G, vertices: &[usize]) -> usize {
+    let in_subset: HashSet<usize> = vertices.iter().copied().collect();
+    graph
+        .edges()
+        .into_iter()
+        .filter(|(u, v)| in_subset.contains(u) && in_subset.contains(v))
+        .count()
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/highly_connected_deletion.rs"]
 mod tests;

@@ -15118,6 +15118,21 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each position $k$, decode the unique vertex $v$ with $x_(v,k) = 1$ to recover the permutation; convert to Lehmer code for the source configuration.
 ]
 
+#reduction-rule("HighlyConnectedDeletion", "ILP")[
+  Enumerate the family of feasible clusters of $G$ and pick a partition of $V$ into feasible clusters maximizing the kept internal edge count; since $|E|$ is fixed, this is equivalent to minimizing deleted edges @HueffnerKomusiewiczLiebtrauNiedermeier2014.
+][
+  _Construction._ Let the source instance be a simple undirected graph $G = (V, E)$. Call a vertex set $S subset.eq V$ a _feasible cluster_ when either $|S| = 1$, or $|S| >= 3$ and the induced subgraph $G[S]$ is _highly connected_, i.e. its edge connectivity satisfies $lambda(G[S]) > |S| / 2$ (strict). Let $cal(C)(G)$ be the family of all feasible clusters. Introduce binary variables $x_S in {0, 1}$ for each $S in cal(C)(G)$, where $x_S = 1$ iff $S$ is chosen as one block of the final partition. The ILP is:
+  $
+    max quad & sum_(S in cal(C)(G)) |E(G[S])| x_S \
+    "subject to" quad & sum_(S in cal(C)(G), v in S) x_S = 1 quad forall v in V \
+    & x_S in {0, 1}.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any feasible source partition $cal(P) = {B_1, dots, B_k}$ -- where every block $B_i$ is a singleton or a highly connected component on $>= 3$ vertices -- yields the feasible ILP assignment $x_(B_i) = 1$ for $i = 1, dots, k$ and $0$ elsewhere; the partition constraints hold because each vertex belongs to exactly one block, and the objective value is the number of edges kept by the partition. ($arrow.l.double$) Any feasible ILP solution selects a sub-family of $cal(C)(G)$ that, by the equality constraints, partitions $V$ into feasible clusters; the objective equals the number of intra-cluster edges. Since $|E|$ is constant, maximizing intra-cluster edges is equivalent to minimizing $|E| - sum_S |E(G[S])| x_S$, the number of deleted edges.
+
+  _Solution extraction._ Decode the chosen clusters $C subset.eq cal(C)(G)$ from $x$. The source configuration is the binary edge-deletion vector: edge $e = {u, v}$ is kept (config bit $0$) iff some chosen cluster $S in C$ contains both $u$ and $v$, otherwise deleted (config bit $1$).
+]
+
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[
   Use a cyclic position assignment for the tour and a bottleneck variable that dominates the weight of every chosen tour edge.
 ][
