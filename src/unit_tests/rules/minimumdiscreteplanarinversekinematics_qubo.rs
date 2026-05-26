@@ -103,12 +103,6 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
     );
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.target.instance["num_vars"], 4);
-    assert_eq!(
-        example.solutions[0].source_config,
-        serde_json::json!([0, 1])
-    );
-    assert_eq!(
-        example.solutions[0].target_config,
-        serde_json::json!([1, 0, 0, 1])
-    );
+    assert_eq!(example.solutions[0].source_config, vec![0_usize, 1]);
+    assert_eq!(example.solutions[0].target_config, vec![1_usize, 0, 0, 1]);
 }
