@@ -1,6 +1,6 @@
 ---
 name: auto-pipeline
-description: Use when you want to take a Backlog issue all the way to Final review without manual orchestration — chains check-issue, fix-issue, add-model/add-rule, run-pipeline, and review-pipeline; substantive issue-quality problems are routed to codex xhigh; algorithmically unsalvageable issues are parked on OnHold
+description: Use when you want to take a Backlog issue all the way to Final review without manual orchestration — chains check-issue, fix-issue, add-model/add-rule, run-pipeline, and review-pipeline; substantive issue-quality problems are sent to a rewrite subagent; algorithmically unsalvageable issues are parked on OnHold
 ---
 
 # Auto Pipeline
@@ -11,7 +11,7 @@ This skill is an **orchestrator**: it never runs the heavy work itself. Each pha
 
 1. pick the issue,
 2. read structured reports from subagents,
-3. decide whether to retry, hand off to `codex` (xhigh) for substantive rewrites, or park the issue on OnHold,
+3. decide whether to retry, dispatch a rewrite subagent for substantive issues, or park the issue on OnHold,
 4. move the project board card forward.
 
 ## Invocation
@@ -62,7 +62,7 @@ digraph auto_pipeline {
     "Phase 1: check-issue (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
     "Classify report" [shape=diamond];
     "Phase 1b: auto-fix (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
-    "Phase 1c: codex xhigh rewrite (subagent)" [shape=box, style=filled, fillcolor="#ffe0cc"];
+    "Phase 1c: rewrite (subagent)" [shape=box, style=filled, fillcolor="#ffe0cc"];
     "Apply revised issue body" [shape=box];
     "Substantive loop counter" [shape=diamond];
     "Move to OnHold + comment" [shape=box, style=filled, fillcolor="#ffcccc"];
@@ -76,10 +76,10 @@ digraph auto_pipeline {
     "Phase 1: check-issue (subagent)" -> "Classify report";
     "Classify report" -> "Move to Ready" [label="pass"];
     "Classify report" -> "Phase 1b: auto-fix (subagent)" [label="mechanical only"];
-    "Classify report" -> "Phase 1c: codex xhigh rewrite (subagent)" [label="substantive"];
+    "Classify report" -> "Phase 1c: rewrite (subagent)" [label="substantive"];
     "Classify report" -> "Move to OnHold + comment" [label="fundamental + no reference"];
     "Phase 1b: auto-fix (subagent)" -> "Phase 1: check-issue (subagent)";
-    "Phase 1c: codex xhigh rewrite (subagent)" -> "Apply revised issue body";
+    "Phase 1c: rewrite (subagent)" -> "Apply revised issue body";
     "Apply revised issue body" -> "Substantive loop counter";
     "Substantive loop counter" -> "Phase 1: check-issue (subagent)" [label="< 2 retries"];
     "Substantive loop counter" -> "Move to OnHold + comment" [label=">= 2 retries"];
@@ -222,9 +222,9 @@ Return ONLY this JSON shape:
 
 Loop back to **Step 1a** (re-check). Do not increment `SUBSTANTIVE_RETRIES` — mechanical fixes don't count toward the cap.
 
-### 1c-sub. Codex xhigh rewrite (substantive)
+### 1c-sub. Rewrite subagent (substantive)
 
-If `SUBSTANTIVE_RETRIES >= MAX_SUBSTANTIVE_RETRIES` → jump to Step 1e (OnHold) with reason `"substantive issues persist after $MAX_SUBSTANTIVE_RETRIES codex rewrites"`.
+If `SUBSTANTIVE_RETRIES >= MAX_SUBSTANTIVE_RETRIES` → jump to Step 1e (OnHold) with reason `"substantive issues persist after $MAX_SUBSTANTIVE_RETRIES rewrites"`.
 
 Otherwise, fetch the current issue body and the latest check-issue comment:
 
@@ -233,35 +233,20 @@ ISSUE_BODY=$(gh issue view "$ISSUE" --json body --jq .body)
 CHECK_REPORT=$(gh issue view "$ISSUE" --json comments --jq '[.comments[] | select(.body | startswith("## Issue Quality Check"))] | last | .body')
 ```
 
-Dispatch the `codex:codex-rescue` subagent to produce a revised issue body. Brief it the way the rescue subagent expects: state goal, summarise what was tried, and ask for a concrete artefact.
-
-**Prompt template:**
+Dispatch a subagent (`subagent_type=general-purpose`) to research and rewrite:
 
 ```
-Issue #<ISSUE> failed /check-issue with substantive findings. Run
-codex non-interactively at maximum reasoning effort to produce a
-revised issue body grounded in public literature:
+Issue #<ISSUE> failed /check-issue with substantive findings. Read the
+current issue body and the latest check-issue report (both pasted in
+the prompt), research public literature with WebSearch / WebFetch, and
+either rewrite the body grounded in citations or report that no public
+reference can salvage the proposal.
 
-  codex exec -c model="gpt-5.4" -c model_reasoning_effort="high" --skip-git-repo-check "$(cat <PROMPT_FILE>)"
+Issue body:
+$ISSUE_BODY
 
-where <PROMPT_FILE> contains, in order:
-
-  You are revising a GitHub issue that proposes a reduction rule or
-  problem model. For each substantive finding in the check report,
-  apply a fix grounded in public literature (cite source by name +
-  year + venue). If honest investigation shows the algorithm is
-  mathematically unsound AND no public reference would salvage it,
-  return on the first line (no fences):
-
-    FUNDAMENTAL_FLAW: <one-line reason>
-
-  Otherwise return the full revised issue body inside a fenced
-  ```markdown``` block, preserving the original section structure.
-
-  <<<BODY>>>
-  [original issue body verbatim]
-  <<<REPORT>>>
-  [latest check-issue comment verbatim]
+Latest check-issue report:
+$CHECK_REPORT
 
 Return ONLY one of these JSON shapes:
   {"outcome": "revised", "new_body": "<full revised markdown>"}
@@ -271,12 +256,12 @@ Return ONLY one of these JSON shapes:
 When the subagent returns:
 
 - **`outcome == "fundamental_flaw"`** → Step 1e (OnHold) with the reason.
-- **`outcome == "revised"`** → apply the new body in the main agent (DO NOT let the subagent edit GitHub — keep edits in the orchestrator so we always know what was written):
+- **`outcome == "revised"`** → orchestrator applies the new body (the subagent must NOT edit GitHub itself — keep all edits in the orchestrator for a clean audit trail):
 
   ```bash
   printf '%s' "$NEW_BODY" > /tmp/auto-pipeline-issue-$ISSUE.md
   gh issue edit "$ISSUE" --body-file /tmp/auto-pipeline-issue-$ISSUE.md
-  gh issue comment "$ISSUE" --body "auto-pipeline: issue body rewritten by codex xhigh (substantive retry $((SUBSTANTIVE_RETRIES + 1)))"
+  gh issue comment "$ISSUE" --body "auto-pipeline: issue body rewritten (substantive retry $((SUBSTANTIVE_RETRIES + 1)))"
   rm /tmp/auto-pipeline-issue-$ISSUE.md
   ```
 
@@ -342,7 +327,7 @@ When the subagent returns:
     Board:  <board_status>
   ```
 
-  Do NOT call codex to rescue here — implementation failures are CI/code-shape problems that need human eyes.
+  Implementation failures need human eyes — `run-pipeline` already moves the card to OnHold and posts a diagnostic, so the orchestrator just stops here.
 
 ## Step 3: Integration Gate (orchestrator-owned)
 
@@ -360,7 +345,7 @@ Do not modify files. Return ONLY:
 ```
 
 - Both `pass` → continue to Step 4.
-- Either `fail` → hand the `first_failure` to `codex:codex-rescue` for a fix-it pass (CI-class problems are usually small: deleting a stale test, fixing a typo'd bib key, swapping `intersect` for `inter`). After codex returns, re-run Step 3 once. If still failing, park on OnHold.
+- Either `fail` → dispatch a fresh subagent (`subagent_type=general-purpose`) with the `first_failure` string and write access to the PR branch, asking it to fix the failure directly (CI-class problems are usually small: deleting a stale test, fixing a typo'd bib key, swapping `intersect` for `inter`). After it returns, re-run Step 3 once. If still failing, park on OnHold.
 
 ## Step 4: Agentic Review (`review-pipeline` subagent)
 
@@ -398,7 +383,7 @@ Auto-pipeline complete:
 | Mistake | Fix |
 |---------|-----|
 | Calling sub-skills directly in the main agent | Always dispatch via `Agent` tool — keeps the orchestrator context clean |
-| Letting the codex subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — codex only returns text |
-| Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; they are not eligible for codex rescue |
+| Letting the rewrite subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — subagents only return text |
+| Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; the orchestrator does not attempt to auto-fix `run-pipeline` output |
 | Picking from a non-Backlog column when no issue number is given | Auto-pick must read from Backlog only — never from OnHold, Ready, or elsewhere |
 | Skipping Step 3 because Phase 2 reported `success` | Phase 2 success is scoped to the new item's own tests; workspace-wide regressions and paper-compile bugs are only visible from `make check` + `make paper`. |
