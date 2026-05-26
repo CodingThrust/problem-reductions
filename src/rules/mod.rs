@@ -83,6 +83,7 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
 pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
@@ -461,6 +462,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumindependentset_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
+    specs.extend(minimumcostmaximumflow_minimumcostcirculation::canonical_rule_example_specs());
     specs.extend(
         minimumcoveringbycliques_minimumintersectiongraphbasis::canonical_rule_example_specs(),
     );

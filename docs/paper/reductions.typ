@@ -15979,6 +15979,25 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
 ]
 
+#reduction-rule("MinimumCostMaximumFlow", "MinimumCostCirculation")[
+  Augment the flow network with a single return arc from the sink to the source. Give it capacity equal to a feasible-flow upper bound and a sufficiently negative cost so that the resulting min-cost circulation lex-orders the original (max value, min cost) objective. Recover the source flow by deleting the return arc.
+][
+  _Construction._ Let the source instance be $(G = (V, A), s, t, u, c)$ with $n = |V|$ vertices, $m = |A|$ arcs, nonnegative capacities $u_a$, and nonnegative costs $c_a$. Build $G' = (V, A')$ where $A' = A union {e^*}$ and $e^* = (t, s)$ is a new return arc. Define:
+  - $U = sum_(a in delta^+(s)) u_a$ — capacity of $e^*$ (a trivial upper bound on $|f|$),
+  - $B = 1 + sum_(a in A) c_a$ — strict upper bound on any simple $s$-$t$ path cost,
+  - $u'_a = u_a$, $c'_a = c_a$ for $a in A$, and $u'_(e^*) = U$, $c'_(e^*) = -B$.
+
+  The target instance is the min-cost integral circulation on $G'$ with capacities $u'$ and signed costs $c'$. Size: $n$ vertices and $m + 1$ arcs.
+
+  _Correctness._ ($arrow.r.double$) Any feasible $s$-$t$ flow $f$ of value $F$ in the source lifts to a circulation $g$ in $G'$ by $g_a = f_a$ for $a in A$ and $g_(e^*) = F$. Conservation is restored at $s$ and $t$ because the return arc carries the net flow back. The circulation cost is $sum_(a in A) c_a f_a + (-B) F = "cost"(f) - B F$.
+
+  ($arrow.l.double$) Any feasible circulation $g$ in $G'$ projects to a feasible $s$-$t$ flow $f_a = g_a$ on $A$ with value $|f| = g_(e^*)$, since conservation at $s$ and $t$ in $G'$ together with the return arc forces net outflow at $s$ to equal $g_(e^*)$.
+
+  Because $B$ strictly exceeds $sum_(a in A) c_a$, each unit of return-arc flow paired with a feasible $s$-$t$ path has strictly negative net cost. Thus the optimal circulation pushes $g_(e^*)$ to the maximum feasible flow value $F^*$; once $F^*$ is fixed, $g_(e^*) dot (-B)$ is constant and the remaining objective is exactly $sum_(a in A) c_a f_a$. Minimizing the circulation cost therefore lex-orders $(max |f|, min "cost"(f))$.
+
+  _Solution extraction._ Discard the last circulation variable (the return arc) and read the first $m$ variables as the source flow.
+]
+
 #reduction-rule("MinimumEdgeCostFlow", "ILP")[
   Introduce integer flow variables and binary arc-activation indicators, link them so that an indicator is forced to 1 whenever the corresponding arc carries positive flow, and minimize the total price of activated arcs.
 ][
