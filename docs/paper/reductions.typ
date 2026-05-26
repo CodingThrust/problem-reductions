@@ -13869,6 +13869,30 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
 ]
 
+#reduction-rule("ClosestString", "ILP")[
+  Binary variables select one alphabet symbol at each center position. An auxiliary radius variable upper-bounds the Hamming distance from the chosen center to every input string and is minimized.
+][
+  _Construction._ Given alphabet $Sigma$ of size $q$, $n$ input strings $s_1, dots, s_n in Sigma^m$ of common length $m$:
+
+  _Variables:_ (1) $x_(j, a) in {0, 1}$ for $j in {0, dots, m - 1}$ and $a in {0, dots, q - 1}$: $x_(j, a) = 1$ iff the center has symbol $a$ at position $j$. (2) Nonnegative integer $R$: an upper bound on the worst-case Hamming distance.
+
+  _Constraints:_ (1) Assignment: $sum_(a = 0)^(q - 1) x_(j, a) = 1$ for every position $j$. Combined with the nonnegativity built into the ILP, this also forces every $x_(j, a) in {0, 1}$. (2) Radius: $R + sum_(j = 0)^(m - 1) x_(j, s_i [j]) >= m$ for every input string $s_i$, which is equivalent to $R >= m - sum_j x_(j, s_i [j]) = d_H (c, s_i)$.
+
+  _Objective:_ Minimize $R$.
+
+  The ILP is:
+  $
+    "minimize" quad & R \
+    "subject to" quad & sum_(a = 0)^(q - 1) x_(j, a) = 1 quad forall j in {0, dots, m - 1} \
+    & R + sum_(j = 0)^(m - 1) x_(j, s_i [j]) >= m quad forall i in {1, dots, n} \
+    & x_(j, a) in {0, 1}, quad R in ZZ_(>= 0).
+  $
+
+  _Correctness._ ($arrow.r.double$) Given an optimal center $c^* in Sigma^m$, set $x_(j, c^*[j]) = 1$ for every $j$ and let $R = max_i d_H (c^*, s_i)$. Each assignment constraint is satisfied, and each radius constraint reduces to $R >= d_H (c^*, s_i)$, which holds with equality at the worst case. ($arrow.l.double$) The assignment constraints force each $x_(j, *)$ block to be a one-hot vector, hence encode a unique center string $c$. The radius constraint then gives $R >= d_H (c, s_i)$ for every $i$, so $R >= max_i d_H (c, s_i)$. Minimizing $R$ therefore minimizes the worst-case Hamming distance.
+
+  _Solution extraction._ For each position $j$, read the unique symbol $a$ with $x_(j, a) = 1$; the resulting length-$m$ vector is the source center.
+]
+
 #reduction-rule("LongestCommonSubsequence", "ILP")[
   An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][

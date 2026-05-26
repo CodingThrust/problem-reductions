@@ -164,6 +164,8 @@ pub(crate) mod capacityassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod closeststring_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod clustering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
@@ -548,6 +550,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(boundedcomponentspanningforest_ilp::canonical_rule_example_specs());
         specs.extend(capacityassignment_ilp::canonical_rule_example_specs());
         specs.extend(circuit_ilp::canonical_rule_example_specs());
+        specs.extend(closeststring_ilp::canonical_rule_example_specs());
         specs.extend(clustering_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveblockminimization_ilp::canonical_rule_example_specs());
