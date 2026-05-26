@@ -14480,6 +14480,74 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Group target vertices by color. Every class of size $2$ identifies a source edge in $E$; mark those edges as selected (and leave all others unselected) to obtain a maximal matching $M$ of $G$ with $|M| = |V| - k$.
 ]
 
+#let mmm_mmd = load-example("MinimumMaximalMatching", "MinimumMatrixDomination")
+#let mmm_mmd_sol = mmm_mmd.solutions.at(0)
+#reduction-rule("MinimumMaximalMatching", "MinimumMatrixDomination",
+  example: true,
+  example-source-variant: (graph: "BipartiteGraph"),
+  example-caption: [Bipartite graph $B$ with $L = {l_0, l_1}$, $R = {r_0, r_1, r_2}$, and $|F| = 5$ edges.],
+  extra: [
+    #{
+      let m-left = mmm_mmd.source.instance.graph.left_size
+      let n-right = mmm_mmd.source.instance.graph.right_size
+      let local-edges = mmm_mmd.source.instance.graph.edges
+      let ones = mmm_mmd.target.instance.ones
+      let big-n = mmm_mmd.target.instance.matrix.len()
+      let s-cfg = mmm_mmd_sol.source_config
+      let t-cfg = mmm_mmd_sol.target_config
+      let matched-source = s-cfg.enumerate()
+        .filter(((i, x)) => x == 1)
+        .map(((i, _)) => i)
+      let selected-target = t-cfg.enumerate()
+        .filter(((i, x)) => x == 1)
+        .map(((i, _)) => i)
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(mmm_mmd.source) + " -o mmm.json",
+          "pred reduce mmm.json --to " + target-spec(mmm_mmd) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mmm.json --config " + s-cfg.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* Bipartite graph $B$ with $|L| = #m-left$, $|R| = #n-right$ and $#local-edges.len()$ bipartite-local edges #local-edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The decision threshold is $K = 2$.
+
+        *Step 2 -- Embedded matrix.* The constructed instance is the $#big-n times #big-n$ binary matrix $M$ whose upper-right $#m-left times #n-right$ block holds the biadjacency matrix $B^*$. Its $#ones.len()$ 1-entries lie at positions #ones.map(p => $(#p.at(0), #p.at(1))$).join(", "), and $M$ is upper triangular (all 1-entries above the row-block boundary).
+
+        *Step 3 -- Source optimum.* A minimum maximal matching $M^* = {(l_0, r_0), (l_1, r_1)}$ uses source edge indices #matched-source.map(i => str(i)).join(", "), giving $"mm"(B) = #matched-source.len() = 2$.
+
+        *Step 4 -- Target optimum.* The fixture selects the matrix-domination set $C = {(0, 2), (1, 3)}$ at 1-entry indices #selected-target.map(i => str(i)).join(", "). Every other 1-entry of $M$ shares row $0$ or row $1$ with one of the chosen entries, so $C$ is dominating with $|C| = #selected-target.len() = 2 = "mm"(B) #sym.checkmark$.
+
+        *Extraction.* The selected 1-entries here happen to be pairwise independent (no shared row or column), so they already correspond to a matching of $B$. In general a matrix-domination witness only yields an edge dominating set, and the Yannakakis-Gavril transformation @yannakakis1980 converts it to a maximal matching of equal size.
+      ]
+    }
+  ],
+)[
+  This $O(n^2)$ reduction @yannakakis1980 takes a bipartite source $B = (L, R, F)$ with $|L| = m$ and $|R| = n$, builds the $N times N$ binary matrix $M$ on $N = m + n$ rows and columns whose upper-right $m times n$ block is the biadjacency matrix $B^*$ and whose other entries are zero, and leaves the decision threshold unchanged. The resulting matrix has exactly $|F|$ 1-entries and is upper triangular.
+][
+  _Construction._ Given a Minimum Maximal Matching instance $(B = (L, R, F), K)$ with $B$ bipartite, label the vertices so that $L = {l_0, dots, l_(m-1)}$ corresponds to rows $0, dots, m-1$ of $M$ and $R = {r_0, dots, r_(n-1)}$ corresponds to columns $m, dots, m+n-1$. Define
+  $
+    M_(i,j) = cases(
+      1 quad &"if " i < m " and " j >= m " and " (l_i, r_(j-m)) in F,
+      0 quad &"otherwise",
+    )
+  $
+  and set $K' = K$. Output the Minimum Matrix Domination instance $(M, K')$.
+
+  _Correctness._ The reduction proves the identity $"md"(M) = "mm"(B)$, where $"md"$ denotes the minimum matrix-domination size and $"mm"$ the minimum maximal-matching size.
+
+  Each 1-entry of $M$ lies in the upper-right block and therefore corresponds bijectively to a source edge: $(i, m + j) <-> (l_i, r_j) in F$. Two 1-entries share a row iff their source edges share a left endpoint; they share a column iff their source edges share a right endpoint. Hence a set $C$ of 1-entries dominates $M$ iff the corresponding edges $F_C subset.eq F$ form an edge dominating set (EDS) of $B$.
+
+  Yannakakis and Gavril @yannakakis1980 prove that for every graph the minimum EDS size equals the minimum independent EDS size, and an independent EDS is exactly a maximal matching. Combining these facts:
+
+  ($arrow.r.double$) A maximal matching $M^*$ of $B$ with $|M^*| <= K$ is in particular an EDS, so its image in $M$ is a dominating set of size $<= K = K'$.
+
+  ($arrow.l.double$) A dominating set $C$ of $M$ with $|C| <= K'$ corresponds to an EDS $F_C$ of size $|C| <= K' = K$. Applying the polynomial-time Yannakakis-Gavril transformation to $F_C$ yields a maximal matching of $B$ of the same size, so $"mm"(B) <= K$.
+
+  _Solution extraction._ Read the selected 1-entries of the matrix-domination witness, map each $(i, m + j)$ back to the bipartite edge $(l_i, r_j)$ to obtain an EDS $F_C$ of $B$, and apply the Yannakakis-Gavril EDS-to-maximal-matching conversion to recover a maximal matching $M^*$ with $|M^*| = |F_C|$.
+
+  _Note on source variant._ The reduction crucially requires the source graph to be bipartite. The biadjacency matrix faithfully represents the edge structure of $B$ (each edge contributes exactly one 1-entry). The adjacency matrix of a general undirected graph would produce two symmetric 1-entries per edge that do not preserve the row/column sharing pattern.
+]
+
 #reduction-rule("MinimumMaximalMatching", "ILP")[
   Each edge is either selected or not; matching and maximality constraints are both directly linear in binary edge indicators.
 ][
