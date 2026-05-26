@@ -13418,6 +13418,24 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each source vertex $u in V_1$, output the unique $p in V_2$ with $x_(u,p) = 1$ if such a $p$ exists, otherwise the sentinel $|V_2|$ encoding "unmatched".
 ]
 
+#reduction-rule("MaximumEdgeWeightedKClique", "ILP")[
+  Binary vertex selectors with an exact-cardinality constraint, non-edge clique constraints, and McCormick edge-product variables linearize the induced edge-weight sum @ParkLeePark1996EWClique @GouveiaMartins2015EWClique.
+][
+  _Construction._ Let the source instance be $G = (V, E)$ with edge weights $w : E -> RR$ and size bound $k$. Introduce binary variables $x_v in {0, 1}$ for every $v in V$ and $y_(u v) in {0, 1}$ for every edge ${u, v} in E$. The ILP is:
+  $
+    max quad & sum_({u, v} in E) w_(u v) y_(u v) \
+    "subject to" quad & sum_(v in V) x_v = k \
+    & x_u + x_v <= 1 quad forall {u, v} in.not E \
+    & y_(u v) <= x_u, quad y_(u v) <= x_v quad forall {u, v} in E \
+    & y_(u v) >= x_u + x_v - 1 quad forall {u, v} in E \
+    & x_v, y_(u v) in {0, 1}.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any $k$-clique $S subset.eq V$ yields a feasible solution by setting $x_v = 1$ iff $v in S$ and $y_(u v) = 1$ iff $u, v in S$; the non-edge constraints are satisfied because $G[S]$ is a clique, and the McCormick triple enforces $y_(u v) = x_u and x_v$. The objective equals $sum_({u, v} in E(S)) w_(u v)$. ($arrow.l.double$) Any feasible solution with cardinality $k$ selects $k$ vertices forming a clique (the non-edge constraints rule out non-adjacent pairs), and the McCormick lower bound $y_(u v) >= x_u + x_v - 1$ forces $y_(u v) = 1$ whenever both endpoints are selected, even when $w_(u v) < 0$.
+
+  _Solution extraction._ Take the first $|V|$ entries of the ILP solution as the source selection vector.
+]
+
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
