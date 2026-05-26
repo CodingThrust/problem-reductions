@@ -17922,6 +17922,18 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
 ]
 
+#reduction-rule("MinimumCoveringByCliques", "MinimumIntersectionGraphBasis")[
+  This $O(n + m)$ identity reduction @garey1979[GT59] @erdosgoodmanposa1966 @kouStockmeyerWong1978 keeps the graph unchanged and reinterprets the objective. The minimum number of cliques covering all edges of $G$ equals the minimum universe size of an intersection representation of $G$, so the two optimization problems are equivalent reformulations.
+][
+  _Construction._ Given a Minimum Covering by Cliques instance on graph $G = (V, E)$, output the Minimum Intersection Graph Basis instance on the same graph $G$. No vertices or edges are added, deleted, or relabeled.
+
+  _Correctness._ ($arrow.r.double$) Suppose $C_1, dots, C_k$ is an edge-clique cover of $G$. Let the target universe be $U = {1, dots, k}$, and for each vertex $v in V$ define $S[v] = {i in U : v in C_i}$. If $\{u, v\} in E$, then some cover clique $C_i$ contains both endpoints, so $i in S[u] intersect S[v]$ and the two sets intersect. Conversely, if $S[u] intersect S[v] != emptyset$, then some $i$ satisfies $u, v in C_i$, and because $C_i$ is a clique, $\{u, v\} in E$. Thus the family $(S[v])_(v in V)$ is an intersection representation using $k$ universe elements.
+
+  ($arrow.l.double$) Suppose $G$ has an intersection representation $(S[v])_(v in V)$ over a universe $U$ of size $k$. For each element $s in U$, define $C_s = {v in V : s in S[v]}$. If $u, v in C_s$, then $s in S[u] intersect S[v]$, so $\{u, v\} in E$; hence every $C_s$ is a clique. Every edge $\{u, v\} in E$ must satisfy $S[u] intersect S[v] != emptyset$, so choosing any shared element $s$ places both endpoints in $C_s$. Therefore the cliques $(C_s)_(s in U)$ cover all edges of $G$, using at most $k$ cliques.
+
+  _Solution extraction._ The implementation reads the target witness as subsets $S[v]$ over the built-in $|E|$ universe slots. For each source edge $\{u, v\}$, choose any slot in $S[u] intersect S[v]$ and use that slot as the source clique label for the edge. All edges receiving the same label lie inside the clique induced by that universe element, so the extracted labeling is a valid edge-clique cover.
+]
+
 // 6. KSatisfiability → Kernel (#882)
 #let ksat_ker = load-example("KSatisfiability", "Kernel")
 #let ksat_ker_sol = ksat_ker.solutions.at(0)
