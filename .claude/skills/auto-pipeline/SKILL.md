@@ -7,7 +7,7 @@ description: Use when you want to take a Backlog issue all the way to Final revi
 
 Take **one** Backlog issue all the way from quality gate to **Final review** without human intervention. The merge step itself is still left to the human (see `/final-review`).
 
-This skill is an **orchestrator**: it never runs the heavy work itself. Each phase is delegated to a fresh-context subagent that invokes the relevant existing skill (`check-issue`, `fix-issue`, `run-pipeline`, `review-pipeline`). The only thing the main agent does directly is:
+This skill is an **orchestrator**: it never runs the heavy work itself. Each phase is delegated to a fresh-context subagent. Most phases invoke an existing skill (`check-issue`, `fix-issue`, `run-pipeline`, `review-pipeline`); Phase 2.5 is owned by the orchestrator and runs raw `cargo test --workspace` + `make paper` to catch breakage the per-item sub-skills cannot see. The only thing the main agent does directly is:
 
 1. pick the issue,
 2. read structured reports from subagents,
@@ -68,6 +68,7 @@ digraph auto_pipeline {
     "Move to OnHold + comment" [shape=box, style=filled, fillcolor="#ffcccc"];
     "Move to Ready" [shape=box];
     "Phase 2: run-pipeline (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
+    "Phase 2.5: integration gate (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
     "Phase 3: review-pipeline (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
     "Final report" [shape=box, style=filled, fillcolor="#ccffcc"];
 
@@ -83,8 +84,10 @@ digraph auto_pipeline {
     "Substantive loop counter" -> "Phase 1: check-issue (subagent)" [label="< 2 retries"];
     "Substantive loop counter" -> "Move to OnHold + comment" [label=">= 2 retries"];
     "Move to Ready" -> "Phase 2: run-pipeline (subagent)";
-    "Phase 2: run-pipeline (subagent)" -> "Phase 3: review-pipeline (subagent)" [label="success"];
+    "Phase 2: run-pipeline (subagent)" -> "Phase 2.5: integration gate (subagent)" [label="success"];
     "Phase 2: run-pipeline (subagent)" -> "Final report" [label="fail (stop)"];
+    "Phase 2.5: integration gate (subagent)" -> "Phase 3: review-pipeline (subagent)" [label="all pass"];
+    "Phase 2.5: integration gate (subagent)" -> "Move to OnHold + comment" [label="any fail"];
     "Phase 3: review-pipeline (subagent)" -> "Final report";
 }
 ```
@@ -328,7 +331,7 @@ Return ONLY this JSON shape:
 
 When the subagent returns:
 
-- **`outcome == "success"`** → continue to Step 3.
+- **`outcome == "success"`** → continue to Step 2.5.
 - **`outcome == "failure"`** → STOP. The `run-pipeline` skill already moves the card to OnHold and posts a diagnostic comment, so we do not duplicate. Print:
 
   ```
@@ -340,6 +343,83 @@ When the subagent returns:
   ```
 
   Do NOT call codex to rescue here — implementation failures are CI/code-shape problems that need human eyes.
+
+## Step 2.5: Integration Gate (orchestrator-owned)
+
+`run-pipeline` and the sub-skills it invokes (`add-model`, `add-rule`, `review-structural`) test each item **in isolation** — the new rule's closed-loop, the new model's unit tests, the rule's own paper entry. None of them runs the full workspace test suite or `make paper`. Two classes of breakage slip past:
+
+- **Cross-crate test regressions.** A model change (validator relaxation, schema field rename, removed enum variant) can break pre-existing tests in `problemreductions-cli/tests/` or other crates that the per-item tests never exercise.
+- **Paper compile errors.** A typo'd math-mode token (`intersect` vs Typst's `inter`), an orphan bib key (cited but absent from `references.bib`), or a stale key (`@lawler1978a` vs `@lawler1978`) is invisible until `typst compile` resolves references — neither `add-rule` nor `review-structural` runs `make paper`.
+
+CI catches both, but only after the PR opens. In **batch mode** (multiple issues stacked on a shared branch with one PR opened at the end — outside this skill's `one-issue-one-PR` default), the breakage accumulates silently across N commits. Running this gate after every Phase 2 success keeps the cadence right regardless of PR strategy.
+
+### 2.5a. Dispatch the integration-gate subagent
+
+Use the `Agent` tool with `subagent_type=general-purpose`. The orchestrator main agent does NOT own a worktree, so this subagent enters the PR branch itself. The subagent is NOT invoking an existing skill — these are raw commands.
+
+**Prompt template:**
+
+```
+Run the auto-pipeline integration gate on PR #<PR> at HEAD.
+
+1. Enter the PR branch in a fresh worktree:
+   WT=$(python3 scripts/pipeline_worktree.py enter \
+        --name "auto-pipeline-gate-<PR>" --format json \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
+   cd "$WT"
+   gh pr checkout <PR>
+
+2. Run these two commands sequentially. Do NOT modify any files.
+   Capture the FIRST failure message from each, if any:
+   a. cargo test --workspace --features "ilp-highs example-db"
+      (same flags the CI Test job uses)
+   b. make paper
+
+3. Clean up:
+   cd <REPO_ROOT>
+   python3 scripts/pipeline_worktree.py cleanup --worktree "$WT"
+
+Return ONLY this JSON shape (no prose):
+{
+  "head_sha": "<git rev-parse HEAD>",
+  "tests":   {"outcome": "pass" | "fail", "first_failure": "<test name + assertion, or empty>"},
+  "paper":   {"outcome": "pass" | "fail", "first_failure": "<typst/make error + file:line, or empty>"}
+}
+```
+
+### 2.5b. Branch on the report
+
+- **Both `tests.outcome` and `paper.outcome == "pass"`** → continue to Step 3.
+- **Either fails** → STOP. Post a diagnostic PR comment with both `first_failure` strings, move the project card to OnHold, and print:
+
+  ```bash
+  COMMENT_FILE=$(mktemp)
+  cat > "$COMMENT_FILE" <<EOF
+  **auto-pipeline integration gate failed**
+
+  - \`cargo test --workspace\`: \`$TESTS_OUTCOME\` — $TESTS_FIRST_FAILURE
+  - \`make paper\`: \`$PAPER_OUTCOME\` — $PAPER_FIRST_FAILURE
+
+  HEAD: \`$HEAD_SHA\`. Per-item closed-loop tests passed, but workspace-wide tests or the Typst paper compile broke. Common causes: validator change relaxes a constraint that a CLI integration test asserted; new \`reduction-rule\` cites a bib key not in \`references.bib\`; math-mode uses an English word Typst does not know (e.g. \`intersect\` should be \`inter\`).
+  EOF
+  python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
+  rm -f "$COMMENT_FILE"
+  uv run --project scripts scripts/pipeline_board.py move "$ITEM_ID" on-hold
+  ```
+
+  ```
+  Auto-pipeline halted at integration gate:
+    Issue: #<ISSUE>
+    PR:    #<PR>
+    Tests: <pass|fail> — <first_failure>
+    Paper: <pass|fail> — <first_failure>
+    Board: Review pool -> OnHold
+    Next:  human triage; cross-crate regressions and paper-compile bugs
+           are not eligible for codex rescue because the failing artefact
+           lives outside the new issue's files.
+  ```
+
+Do NOT auto-dispatch `codex:codex-rescue` here. The failure mode is "this issue's implementation broke something the per-item tests do not cover," which is a focused investigative task that benefits from human eyes (and the offending code usually lives in a file the issue body does not reference, so the codex prompt would be misleading).
 
 ## Step 3: Agentic Review (`review-pipeline` subagent)
 
@@ -383,3 +463,5 @@ Auto-pipeline complete:
 | Letting the codex subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — codex only returns text |
 | Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; they are not eligible for codex rescue |
 | Picking from a non-Backlog column when no issue number is given | Auto-pick must read from Backlog only — never from OnHold, Ready, or elsewhere |
+| Skipping Step 2.5 because Phase 2 reported `success` | Phase 2's success is scoped to the new item's own tests. Workspace-wide regressions (e.g. CLI integration tests asserting a model behaviour the new rule just relaxed) and paper compile errors (`intersect` vs `inter`, orphan bib keys) are only visible after `cargo test --workspace` and `make paper`. Always run Step 2.5 before Step 3. |
+| Treating Step 2.5 failures as eligible for codex rescue | The failing artefact lives outside the new issue's files (CLI tests in another crate, a bib key elsewhere in `references.bib`, a Typst symbol in an unrelated proof). Codex prompts seeded from the issue body would be misleading. Halt + human triage. |
