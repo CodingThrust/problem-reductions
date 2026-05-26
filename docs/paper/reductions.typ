@@ -14517,7 +14517,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
         *Step 4 -- Target optimum.* The fixture selects the matrix-domination set $C = {(0, 2), (1, 3)}$ at 1-entry indices #selected-target.map(i => str(i)).join(", "). Every other 1-entry of $M$ shares row $0$ or row $1$ with one of the chosen entries, so $C$ is dominating with $|C| = #selected-target.len() = 2 = "mm"(B) #sym.checkmark$.
 
-        *Extraction.* The selected 1-entries here happen to be pairwise independent (no shared row or column), so they already correspond to a matching of $B$. In general a matrix-domination witness only yields an edge dominating set, and the Yannakakis-Gavril transformation @yannakakis1980 converts it to a maximal matching of equal size.
+        *Extraction.* For this fixture the selected 1-entries happen to be pairwise independent (no shared row or column), so they already correspond to a matching of $B$. In general a matrix-domination witness only maps back to an edge dominating set $F_C subset.eq F$ that need not be a matching: for instance, the optimal witness $C = {(0, 3), (0, 4)}$ corresponds to source edges ${(l_0, r_1), (l_0, r_2)}$, which share endpoint $l_0$. In such cases the polynomial-time Yannakakis-Gavril transformation @yannakakis1980 -- implemented in `extract_solution` as a sequence of drop / swap moves on $F_C$ -- converts $F_C$ into a maximal matching of $B$ of the same or smaller size, here e.g. ${(l_0, r_0), (l_1, r_1)}$ or ${(l_0, r_1), (l_1, r_2)}$.
       ]
     }
   ],
@@ -14543,7 +14543,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
   ($arrow.l.double$) A dominating set $C$ of $M$ with $|C| <= K'$ corresponds to an EDS $F_C$ of size $|C| <= K' = K$. Applying the polynomial-time Yannakakis-Gavril transformation to $F_C$ yields a maximal matching of $B$ of the same size, so $"mm"(B) <= K$.
 
-  _Solution extraction._ Read the selected 1-entries of the matrix-domination witness, map each $(i, m + j)$ back to the bipartite edge $(l_i, r_j)$ to obtain an EDS $F_C$ of $B$, and apply the Yannakakis-Gavril EDS-to-maximal-matching conversion to recover a maximal matching $M^*$ with $|M^*| = |F_C|$.
+  _Solution extraction._ Read the selected 1-entries of the matrix-domination witness, map each $(i, m + j)$ back to the bipartite edge $(l_i, r_j)$ to obtain an EDS $F_C$ of $B$. Arbitrary optimal MMD witnesses may select 1-entries whose corresponding source edges form a connected subgraph (e.g. two edges sharing a left endpoint) rather than a matching; in that case the polynomial-time Yannakakis-Gavril EDS-to-IEDS transformation iteratively resolves each adjacent pair in $F_C$ by either dropping a redundant edge or swapping it for an edge whose new endpoint lies outside the current vertex cover, terminating in $O(|F|^3)$ time. The result is a maximal matching $M^*$ of $B$ with $|M^*| <= |F_C|$, which `extract_solution` returns as the source-side configuration.
 
   _Note on source variant._ The reduction crucially requires the source graph to be bipartite. The biadjacency matrix faithfully represents the edge structure of $B$ (each edge contributes exactly one 1-entry). The adjacency matrix of a general undirected graph would produce two symmetric 1-entries per edge that do not preserve the row/column sharing pattern.
 ]

@@ -134,6 +134,57 @@ fn test_no_instance_unreachable_threshold() {
 }
 
 #[test]
+fn test_extract_solution_yg_transform_on_non_matching_eds() {
+    // Verify that the Yannakakis-Gavril EDS->IEDS transformation correctly
+    // handles a target witness whose corresponding source edges form a
+    // *connected* subgraph (two edges sharing l0), not yet a matching.
+    //
+    // On the YES bipartite graph, the EDS {(l0, r1), (l0, r2)} is a size-2
+    // minimum EDS that shares vertex l0. Its image in the matrix is the
+    // 1-entries at indices 1 and 2 (positions (0, 3) and (0, 4)). This
+    // dominates all other 1-entries via row 0 / column 3 / column 4.
+    //
+    // The naive "drop one edge" reduction fails: removing either of
+    // {(l0, r1), (l0, r2)} from D leaves a vertex (l1 or r2/r1) whose
+    // incident edge (l1, r2) is no longer dominated. The transformation
+    // must therefore swap one of the adjacent edges for a different bipartite
+    // edge whose new endpoint lies outside V(D \ {e}). The result is a valid
+    // maximal matching of size <= 2, e.g. {(l0, r0), (l1, r1)} or
+    // {(l0, r1), (l1, r2)}.
+    let source = MinimumMaximalMatching::new(yes_bipartite());
+    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+
+    // Construct the non-matching EDS witness explicitly. ones() ordering on
+    // this instance is [(0,2),(0,3),(0,4),(1,3),(1,4)]; indices 1 and 2
+    // pick (0,3) = source edge (l0, r1) and (0,4) = source edge (l0, r2).
+    let target_witness = vec![0, 1, 1, 0, 0];
+
+    // Sanity-check: this is actually a feasible MMD witness on the target.
+    let target = reduction.target_problem();
+    assert_eq!(target.evaluate(&target_witness), Min(Some(2)));
+
+    let extracted = reduction.extract_solution(&target_witness);
+
+    // The extracted configuration must be a valid maximal matching of B of
+    // size 2 (= mm(B)). Crucially it cannot be {(l0, r1), (l0, r2)} because
+    // those two source edges share l0 and are not a matching.
+    assert!(
+        source.is_valid_maximal_matching(&extracted),
+        "YG transform must produce a maximal matching, got {extracted:?}"
+    );
+    let size: usize = extracted.iter().sum();
+    assert_eq!(
+        size, 2,
+        "extracted matching must have size mm(B) = 2, got size {size}"
+    );
+    assert!(
+        !(extracted[1] == 1 && extracted[2] == 1),
+        "transform must break the (l0,r1)-(l0,r2) adjacency"
+    );
+    assert_eq!(source.evaluate(&extracted), Min(Some(2)));
+}
+
+#[test]
 fn test_identity_on_random_bipartite_instances() {
     // Verify the Yannakakis-Gavril identity mm(B) = min matrix domination of
     // the constructed instance on several small bipartite graphs.
