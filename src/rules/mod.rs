@@ -101,6 +101,7 @@ pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
 pub(crate) mod partition_cosineproductintegration;
+pub(crate) mod partition_integralflowwithmultipliers;
 pub(crate) mod partition_knapsack;
 pub(crate) mod partition_multiprocessorscheduling;
 pub(crate) mod partition_openshopscheduling;
@@ -447,6 +448,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
     specs.extend(partition_cosineproductintegration::canonical_rule_example_specs());
+    specs.extend(partition_integralflowwithmultipliers::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());
     specs.extend(partition_openshopscheduling::canonical_rule_example_specs());
     specs.extend(partition_productionplanning::canonical_rule_example_specs());
