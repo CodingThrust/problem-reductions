@@ -111,17 +111,30 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "maximumcokplex_to_ilp",
-        build: || {
-            let source = MaximumCoKPlex::<_, i32, KN>::with_k(
-                SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
-                vec![5, 1, 4, 1, 3],
-                2,
-            );
-            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumcokplex_i32_to_ilp",
+            build: || {
+                let source = MaximumCoKPlex::<_, i32, KN>::with_k(
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+                    vec![5, 1, 4, 1, 3],
+                    2,
+                );
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumcokplex_one_to_ilp",
+            build: || {
+                let source = MaximumCoKPlex::<_, One, KN>::with_k(
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
+                    vec![One; 5],
+                    2,
+                );
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
+        },
+    ]
 }
 
 #[cfg(test)]

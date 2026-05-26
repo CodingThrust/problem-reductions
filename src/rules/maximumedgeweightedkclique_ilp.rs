@@ -151,19 +151,32 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<f64> {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::topology::SimpleGraph;
-    vec![crate::example_db::specs::RuleExampleSpec {
-        id: "maximumedgeweightedkclique_to_ilp",
-        build: || {
-            // Canonical issue #1020 instance: 4 vertices, 5 edges, k = 3.
-            // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
-            let source = MaximumEdgeWeightedKClique::<i32>::new(
-                SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
-                vec![5, 4, -1, 1, 0],
-                3,
-            );
-            crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumedgeweightedkclique_i32_to_ilp",
+            build: || {
+                // Canonical issue #1020 instance: 4 vertices, 5 edges, k = 3.
+                // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
+                let source = MaximumEdgeWeightedKClique::<i32>::new(
+                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                    vec![5, 4, -1, 1, 0],
+                    3,
+                );
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
         },
-    }]
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumedgeweightedkclique_f64_to_ilp",
+            build: || {
+                let source = MaximumEdgeWeightedKClique::<f64>::new(
+                    SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
+                    vec![5.0, 4.0, -1.0, 1.0, 0.0],
+                    3,
+                );
+                crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
+            },
+        },
+    ]
 }
 
 #[cfg(test)]
