@@ -7,7 +7,7 @@ description: Use when you want to take a Backlog issue all the way to Final revi
 
 Take **one** Backlog issue all the way from quality gate to **Final review** without human intervention. The merge step itself is still left to the human (see `/final-review`).
 
-This skill is an **orchestrator**: it never runs the heavy work itself. Each phase is delegated to a fresh-context subagent. Most phases invoke an existing skill (`check-issue`, `fix-issue`, `run-pipeline`, `review-pipeline`); Phase 2.5 is owned by the orchestrator and runs raw `cargo test --workspace` + `make paper` to catch breakage the per-item sub-skills cannot see. The only thing the main agent does directly is:
+This skill is an **orchestrator**: it never runs the heavy work itself. Each phase is delegated to a fresh-context subagent. Most phases invoke an existing skill (`check-issue`, `fix-issue`, `run-pipeline`, `review-pipeline`); Phase 3 is owned by the orchestrator and runs raw `cargo test --workspace` + `make paper` to catch breakage the per-item sub-skills cannot see. The only thing the main agent does directly is:
 
 1. pick the issue,
 2. read structured reports from subagents,
@@ -68,8 +68,8 @@ digraph auto_pipeline {
     "Move to OnHold + comment" [shape=box, style=filled, fillcolor="#ffcccc"];
     "Move to Ready" [shape=box];
     "Phase 2: run-pipeline (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
-    "Phase 2.5: integration gate (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
-    "Phase 3: review-pipeline (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
+    "Phase 3: integration gate (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
+    "Phase 4: review-pipeline (subagent)" [shape=box, style=filled, fillcolor="#cce0ff"];
     "Final report" [shape=box, style=filled, fillcolor="#ccffcc"];
 
     "Pick issue from Backlog" -> "Phase 1: check-issue (subagent)";
@@ -84,11 +84,11 @@ digraph auto_pipeline {
     "Substantive loop counter" -> "Phase 1: check-issue (subagent)" [label="< 2 retries"];
     "Substantive loop counter" -> "Move to OnHold + comment" [label=">= 2 retries"];
     "Move to Ready" -> "Phase 2: run-pipeline (subagent)";
-    "Phase 2: run-pipeline (subagent)" -> "Phase 2.5: integration gate (subagent)" [label="success"];
+    "Phase 2: run-pipeline (subagent)" -> "Phase 3: integration gate (subagent)" [label="success"];
     "Phase 2: run-pipeline (subagent)" -> "Final report" [label="fail (stop)"];
-    "Phase 2.5: integration gate (subagent)" -> "Phase 3: review-pipeline (subagent)" [label="all pass"];
-    "Phase 2.5: integration gate (subagent)" -> "Move to OnHold + comment" [label="any fail"];
-    "Phase 3: review-pipeline (subagent)" -> "Final report";
+    "Phase 3: integration gate (subagent)" -> "Phase 4: review-pipeline (subagent)" [label="all pass"];
+    "Phase 3: integration gate (subagent)" -> "Move to OnHold + comment" [label="any fail"];
+    "Phase 4: review-pipeline (subagent)" -> "Final report";
 }
 ```
 
@@ -331,7 +331,7 @@ Return ONLY this JSON shape:
 
 When the subagent returns:
 
-- **`outcome == "success"`** → continue to Step 2.5.
+- **`outcome == "success"`** → continue to Step 3.
 - **`outcome == "failure"`** → STOP. The `run-pipeline` skill already moves the card to OnHold and posts a diagnostic comment, so we do not duplicate. Print:
 
   ```
@@ -344,9 +344,9 @@ When the subagent returns:
 
   Do NOT call codex to rescue here — implementation failures are CI/code-shape problems that need human eyes.
 
-## Step 2.5: Integration Gate (orchestrator-owned)
+## Step 3: Integration Gate (orchestrator-owned)
 
-The per-item sub-skills only test the new item in isolation, so cross-crate regressions (e.g. a relaxed model validator breaking pre-existing CLI tests) and paper-compile errors (orphan bib keys, math-mode typos like `intersect` vs Typst's `inter`) slip through Phase 2 and Phase 3. CI catches both, but in batch mode (many issues on one branch) breakage accumulates silently. Running this gate after every Phase 2 success closes the loop.
+The per-item sub-skills only test the new item in isolation, so cross-crate regressions (e.g. a relaxed model validator breaking pre-existing CLI tests) and paper-compile errors (orphan bib keys, math-mode typos like `intersect` vs Typst's `inter`) slip through Phase 2 and the per-item structural review. CI catches both, but in batch mode (many issues on one branch) breakage accumulates silently. Running this gate after every Phase 2 success closes the loop.
 
 Dispatch a fresh subagent (`subagent_type=general-purpose`, not invoking any existing skill):
 
@@ -359,10 +359,10 @@ Do not modify files. Return ONLY:
  "first_failure": "<first failing test or typst error, or empty>"}
 ```
 
-- Both `pass` → continue to Step 3.
-- Either `fail` → hand the `first_failure` to `codex:codex-rescue` for a fix-it pass (CI-class problems are usually small: deleting a stale test, fixing a typo'd bib key, swapping `intersect` for `inter`). After codex returns, re-run Step 2.5 once. If still failing, park on OnHold.
+- Both `pass` → continue to Step 4.
+- Either `fail` → hand the `first_failure` to `codex:codex-rescue` for a fix-it pass (CI-class problems are usually small: deleting a stale test, fixing a typo'd bib key, swapping `intersect` for `inter`). After codex returns, re-run Step 3 once. If still failing, park on OnHold.
 
-## Step 3: Agentic Review (`review-pipeline` subagent)
+## Step 4: Agentic Review (`review-pipeline` subagent)
 
 Dispatch the existing `review-pipeline` skill against the PR:
 
@@ -404,4 +404,4 @@ Auto-pipeline complete:
 | Letting the codex subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — codex only returns text |
 | Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; they are not eligible for codex rescue |
 | Picking from a non-Backlog column when no issue number is given | Auto-pick must read from Backlog only — never from OnHold, Ready, or elsewhere |
-| Skipping Step 2.5 because Phase 2 reported `success` | Phase 2 success is scoped to the new item's own tests; workspace-wide regressions and paper-compile bugs are only visible from `make check` + `make paper`. |
+| Skipping Step 3 because Phase 2 reported `success` | Phase 2 success is scoped to the new item's own tests; workspace-wide regressions and paper-compile bugs are only visible from `make check` + `make paper`. |
