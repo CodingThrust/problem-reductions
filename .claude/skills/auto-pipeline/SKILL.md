@@ -331,7 +331,7 @@ When the subagent returns:
 
 ## Step 3: Integration Gate (orchestrator-owned)
 
-The per-item sub-skills only test the new item in isolation, so cross-crate regressions (e.g. a relaxed model validator breaking pre-existing CLI tests) and paper-compile errors (orphan bib keys, math-mode typos like `intersect` vs Typst's `inter`) slip through Phase 2 and the per-item structural review. CI catches both, but in batch mode (many issues on one branch) breakage accumulates silently. Running this gate after every Phase 2 success closes the loop.
+The per-item sub-skills only test the new item in isolation, so cross-crate regressions (e.g. a relaxed model validator breaking pre-existing CLI tests) and paper-compile errors (orphan bib keys, math-mode typos like `intersect` vs Typst's `inter`) slip through Phase 2 and the per-item structural review. Running this gate after Phase 2 catches them locally instead of waiting for CI.
 
 Dispatch a fresh subagent (`subagent_type=general-purpose`, not invoking any existing skill):
 
