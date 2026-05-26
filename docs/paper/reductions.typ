@@ -18354,6 +18354,22 @@ The following table shows concrete variable overhead for example instances, take
 
 #let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
 #let tdm_tp_sol = tdm_tp.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ThreeMatroidIntersection")[
+  This $O(t + q)$ direct embedding @garey1979[SP11] takes the triple set itself as the common ground set and builds three partition matroids, one per coordinate family. The target has $t = |T|$ ground-set elements, $3 q$ groups in total, and bound $K = q$.
+][
+  _Construction._ Let the 3DM instance have universe size $q$ and triples $T = {t_0, dots, t_(t - 1)} subset.eq W times X times Y$, where $t_l = (w_(a_l), x_(b_l), y_(c_l))$. Create a Three-Matroid Intersection instance whose ground set is $E = {0, dots, t - 1}$, with element $l$ representing triple $t_l$.
+
+  Build three partition matroids on $E$. For each $i in {0, dots, q - 1}$, let
+  $ G_i^W = {l in E : a_l = i}, quad G_i^X = {l in E : b_l = i}, quad G_i^Y = {l in E : c_l = i}. $
+  A subset $S subset.eq E$ is independent in the first matroid iff $|S inter G_i^W| <= 1$ for every $i$; define the second and third matroids analogously using the $X$- and $Y$-coordinate groups. Set the target bound to $K = q$.
+
+  _Correctness._ ($arrow.r.double$) If $M subset.eq T$ is a perfect 3-dimensional matching, let $S subset.eq E$ contain exactly the indices of the triples in $M$. Because no two triples in $M$ share a $W$-, $X$-, or $Y$-coordinate, $S$ meets every group $G_i^W$, $G_i^X$, and $G_i^Y$ in at most one element, so $S$ is independent in all three matroids. Also $|S| = |M| = q$, hence $S$ is a feasible Three-Matroid Intersection solution.
+
+  ($arrow.l.double$) Let $S subset.eq E$ be a common independent set of size $q$. Independence in the first matroid implies that the selected triples use $q$ distinct $W$-coordinates; since only $q$ such coordinates exist, they use each element of $W$ exactly once. The same argument applies to $X$ and $Y$. Therefore the triples indexed by $S$ form a perfect 3-dimensional matching.
+
+  _Solution extraction._ Return the same binary indicator vector: target element $l$ is selected iff source triple $t_l$ is selected.
+]
+
 #reduction-rule("ThreeDimensionalMatching", "ThreePartition",
   example: true,
   example-caption: [$q = #tdm_tp.source.instance.universe_size$, $t = #tdm_tp.source.instance.triples.len()$, target has #tdm_tp.target.instance.sizes.len() numbers],

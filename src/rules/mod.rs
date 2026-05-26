@@ -133,6 +133,7 @@ pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+pub(crate) mod threedimensionalmatching_threematroidintersection;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
 pub(crate) mod threepartition_sequencingwithreleasetimesanddeadlines;
