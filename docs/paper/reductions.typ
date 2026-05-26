@@ -13384,6 +13384,21 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#reduction-rule("MaximumCoKPlex", "ILP")[
+  This direct binary ILP formulation introduces one variable per source vertex and one induced-degree cap per source vertex @Hernandez2016MolecularSimilarity.
+][
+  _Construction._ Let the source instance be a weighted graph $G = (V, E)$ with vertex weights $w_v$ and parameter $k >= 1$. Introduce binary variables $x_v in {0,1}$ for each $v in V$, where $x_v = 1$ iff $v$ is selected. Maximize
+  $ sum_(v in V) w_v x_v. $
+  For each vertex $v$, let $N(v)$ be its neighbourhood and $d(v) = |N(v)|$. Add the constraint
+  $ sum_(u in N(v)) x_u <= (k - 1) + d(v) (1 - x_v). $
+  Equivalently, write it as
+  $ sum_(u in N(v)) x_u + d(v) x_v <= d(v) + k - 1. $
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq V$ is a feasible co-$k$-plex and we set $x_v = 1$ exactly for $v in S$, then every selected vertex $v$ has at most $k - 1$ selected neighbours in $G[S]$, so the constraint for $v$ is satisfied. If $x_v = 0$, the right-hand side becomes $d(v) + k - 1$, which is at least $d(v)$, so the constraint is automatically satisfied. Thus every feasible co-$k$-plex yields a feasible ILP solution with the same objective value. ($arrow.l.double$) Conversely, let $x$ be any feasible ILP solution and define $S = {v in V : x_v = 1}$. For each $v in S$, feasibility gives $sum_(u in N(v)) x_u <= k - 1$, so $v$ has induced degree at most $k - 1$ inside $G[S]$. Therefore $S$ is a feasible co-$k$-plex, and the linear objective is exactly its total weight.
+
+  _Solution extraction._ Output the same binary selection vector: $S = {v in V : x_v = 1}$.
+]
+
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
