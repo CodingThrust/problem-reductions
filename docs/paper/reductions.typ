@@ -15133,6 +15133,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Decode the chosen clusters $C subset.eq cal(C)(G)$ from $x$. The source configuration is the binary edge-deletion vector: edge $e = {u, v}$ is kept (config bit $0$) iff some chosen cluster $S in C$ contains both $u$ and $v$, otherwise deleted (config bit $1$).
 ]
 
+#reduction-rule("EulerianPath", "ILP")[
+  Encode the directed Eulerian-trail witness structure as an integer feasibility program: successor variables on compatible arc pairs, start / end indicators, and Miller--Tucker--Zemlin-style position variables eliminate spurious sub-cycles @Ebert1988ComputingEulerianTrails @BangJensenGutin2009Digraphs.
+][
+  _Construction._ Let the source instance be a directed multigraph $D = (V, A)$ with arc occurrences $A = {a_1, dots, a_m}$ and let
+  $
+    P = { (a, b) in A times A : a != b "and" "head"(a) = "tail"(b) }
+  $
+  be the set of compatible ordered arc pairs. When $m = 0$ we map to the empty ILP, which is vacuously feasible (the empty trail). Otherwise introduce integer variables $y_(a,b) in {0, 1}$ for $(a, b) in P$, $s_a, e_a in {0, 1}$ and a position variable $u_a in {0, 1, dots, m - 1}$ for every $a in A$. The ILP is:
+  $
+    "find" quad & bold(x) \
+    "subject to" quad & s_a + sum_((b, a) in P) y_(b,a) = 1 quad forall a in A \
+    & e_a + sum_((a, b) in P) y_(a,b) = 1 quad forall a in A \
+    & u_b >= u_a + 1 - m (1 - y_(a,b)) quad forall (a, b) in P \
+    & sum_(a in A) s_a = 1, quad sum_(a in A) e_a = 1 \
+    & y_(a,b), s_a, e_a in {0, 1}, quad u_a in {0, 1, dots, m - 1}.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any Eulerian trail $a_(pi(1)), dots, a_(pi(m))$ supplies an immediate ILP witness: set $s_(a_(pi(1))) = e_(a_(pi(m))) = 1$, set $y_(a_(pi(t)), a_(pi(t+1))) = 1$ for every consecutive pair, and set $u_(a_(pi(t))) = t - 1$. Every constraint holds by construction. ($arrow.l.double$) In a feasible ILP solution, the predecessor / successor equalities force each arc to appear exactly once on a directed path decomposition; the unique start and unique end constraints leave only one path; the order constraints rule out any disjoint directed cycle because they force strict position increases along every active successor edge.
+
+  _Solution extraction._ Read off the unique start arc with $s_a = 1$ and repeatedly follow the unique active successor $(a, b)$ with $y_(a,b) = 1$ to recover the trail; output the resulting arc permutation as the source configuration.
+]
+
 #reduction-rule("BottleneckTravelingSalesman", "ILP")[
   Use a cyclic position assignment for the tour and a bottleneck variable that dominates the weight of every chosen tour edge.
 ][

@@ -181,6 +181,8 @@ pub(crate) mod directedtwocommodityintegralflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod disjointconnectingpaths_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod eulerianpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod exactcoverby3sets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
@@ -553,6 +555,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(directedhamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(directedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
         specs.extend(disjointconnectingpaths_ilp::canonical_rule_example_specs());
+        specs.extend(eulerianpath_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
         specs.extend(expectedretrievalcost_ilp::canonical_rule_example_specs());
         specs.extend(feasibleregisterassignment_ilp::canonical_rule_example_specs());
