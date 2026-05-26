@@ -13400,7 +13400,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("MaximumCommonEdgeSubgraph", "ILP")[
-  Encode a partial injective vertex map with row and column inequalities and linearize each label-compatible source/target arc pair with a McCormick product variable @Bahiense2012MCES @deGastinesKnippel2024MCES.
+  Encode a partial injective vertex map with row and column inequalities and linearize each label-compatible source/target arc pair with a McCormick product variable @Bahiense2012MCES.
 ][
   _Construction._ Let the source instance be the pair of directed edge-labelled graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with labels in a finite alphabet $Sigma$. Introduce binary variables $x_(u,p) in {0, 1}$ for every $u in V_1, p in V_2$, where $x_(u,p) = 1$ iff source vertex $u$ is mapped to target vertex $p$. For every label-compatible source/target arc pair $a = (u, lambda, v) in E_1$ and $b = (p, lambda, q) in E_2$ with the same label $lambda$, introduce a binary variable $y_(a,b) in {0, 1}$. The ILP is:
   $
@@ -13623,7 +13623,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #reduction-rule("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")[
-  @lawler1978a This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
+  @lawler1978 This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
 ][
   _Construction._ Let the source instance be an undirected graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and maximum degree $d_"max" = max_(v in V) deg(v)$. For each vertex $v in V$, create a job $J_v$ of length 1 and weight $d_"max" - deg(v)$. For each edge $e = {u, v} in E$, create a job $J_e$ of length 0 and weight 2. Add the precedence constraints $J_u prec.eq J_e$ and $J_v prec.eq J_e$ for every edge job $J_e$. There are no other precedences, so the target has $n + m$ jobs and $2m$ precedence arcs.
 
@@ -18084,11 +18084,11 @@ The following table shows concrete variable overhead for example instances, take
 ][
   _Construction._ Given a Minimum Covering by Cliques instance on graph $G = (V, E)$, output the Minimum Intersection Graph Basis instance on the same graph $G$. No vertices or edges are added, deleted, or relabeled.
 
-  _Correctness._ ($arrow.r.double$) Suppose $C_1, dots, C_k$ is an edge-clique cover of $G$. Let the target universe be $U = {1, dots, k}$, and for each vertex $v in V$ define $S[v] = {i in U : v in C_i}$. If $\{u, v\} in E$, then some cover clique $C_i$ contains both endpoints, so $i in S[u] intersect S[v]$ and the two sets intersect. Conversely, if $S[u] intersect S[v] != emptyset$, then some $i$ satisfies $u, v in C_i$, and because $C_i$ is a clique, $\{u, v\} in E$. Thus the family $(S[v])_(v in V)$ is an intersection representation using $k$ universe elements.
+  _Correctness._ ($arrow.r.double$) Suppose $C_1, dots, C_k$ is an edge-clique cover of $G$. Let the target universe be $U = {1, dots, k}$, and for each vertex $v in V$ define $S[v] = {i in U : v in C_i}$. If $\{u, v\} in E$, then some cover clique $C_i$ contains both endpoints, so $i in S[u] inter S[v]$ and the two sets intersect. Conversely, if $S[u] inter S[v] != emptyset$, then some $i$ satisfies $u, v in C_i$, and because $C_i$ is a clique, $\{u, v\} in E$. Thus the family $(S[v])_(v in V)$ is an intersection representation using $k$ universe elements.
 
-  ($arrow.l.double$) Suppose $G$ has an intersection representation $(S[v])_(v in V)$ over a universe $U$ of size $k$. For each element $s in U$, define $C_s = {v in V : s in S[v]}$. If $u, v in C_s$, then $s in S[u] intersect S[v]$, so $\{u, v\} in E$; hence every $C_s$ is a clique. Every edge $\{u, v\} in E$ must satisfy $S[u] intersect S[v] != emptyset$, so choosing any shared element $s$ places both endpoints in $C_s$. Therefore the cliques $(C_s)_(s in U)$ cover all edges of $G$, using at most $k$ cliques.
+  ($arrow.l.double$) Suppose $G$ has an intersection representation $(S[v])_(v in V)$ over a universe $U$ of size $k$. For each element $s in U$, define $C_s = {v in V : s in S[v]}$. If $u, v in C_s$, then $s in S[u] inter S[v]$, so $\{u, v\} in E$; hence every $C_s$ is a clique. Every edge $\{u, v\} in E$ must satisfy $S[u] inter S[v] != emptyset$, so choosing any shared element $s$ places both endpoints in $C_s$. Therefore the cliques $(C_s)_(s in U)$ cover all edges of $G$, using at most $k$ cliques.
 
-  _Solution extraction._ The implementation reads the target witness as subsets $S[v]$ over the built-in $|E|$ universe slots. For each source edge $\{u, v\}$, choose any slot in $S[u] intersect S[v]$ and use that slot as the source clique label for the edge. All edges receiving the same label lie inside the clique induced by that universe element, so the extracted labeling is a valid edge-clique cover.
+  _Solution extraction._ The implementation reads the target witness as subsets $S[v]$ over the built-in $|E|$ universe slots. For each source edge $\{u, v\}$, choose any slot in $S[u] inter S[v]$ and use that slot as the source clique label for the edge. All edges receiving the same label lie inside the clique induced by that universe element, so the extracted labeling is a valid edge-clique cover.
 ]
 
 // 6. KSatisfiability → Kernel (#882)
