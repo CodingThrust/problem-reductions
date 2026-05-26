@@ -152,9 +152,9 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
 
     // y_{i, p} live at indices q*ell + window_offsets[i] + p. With q*ell = 6
     // and W_i = 3 for each string, the y-block starts at 6.
-    target_solution[6 + 0] = 1; // y_{1, 0}
+    target_solution[6] = 1; // y_{1, 0}
     target_solution[6 + 3 + 1] = 1; // y_{2, 1}
-    target_solution[6 + 6 + 0] = 1; // y_{3, 0}
+    target_solution[6 + 6] = 1; // y_{3, 0}
     target_solution[ilp.num_vars - 1] = 1; // R = 1
 
     let extracted = reduction.extract_solution(&target_solution);
