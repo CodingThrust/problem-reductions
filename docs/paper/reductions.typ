@@ -11847,7 +11847,21 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For covering ${S_v : v in C}$, return VC $= C$ (same variable assignment).
 ]
 
-#reduction-rule("DecisionMinimumVertexCover", "ComparativeContainment")[
+#let dmvc_cc = load-example("DecisionMinimumVertexCover", "ComparativeContainment")
+#let dmvc_cc_sol = dmvc_cc.solutions.at(0)
+#reduction-rule("DecisionMinimumVertexCover", "ComparativeContainment",
+  example: true,
+  example-caption: [Path $P_4$: $n = 4$ vertices, $K = 2$ bound],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dmvc_cc.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(dmvc_cc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + dmvc_cc_sol.source_config.map(str).join(","),
+    )
+    Source VC witness $(#dmvc_cc_sol.source_config.map(str).join(", "))$, target containment indicator $(#dmvc_cc_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Plaisted's reduction @plaisted1976 encodes a unit-weight Decision Vertex Cover instance $(G = (V, E), K)$ as a Comparative Containment instance on universe $X = V$. Each vertex contributes a complement set with unit reward; each edge contributes a complement-of-edge penalty set with weight $|V| + 1$ that dominates the total reward whenever the edge is uncovered; and a single budget set with weight $|V| - K$ enforces the cardinality bound.
 ][
   _Construction._ Given a unit-weight VC instance $(G = (V, E), K)$ with $n = |V|$, set the universe $X = V$ and define:
@@ -13384,7 +13398,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
-#reduction-rule("MaximumCoKPlex", "ILP")[
+#let mckp_ilp = load-example(
+  "MaximumCoKPlex",
+  "ILP",
+  source-variant: (graph: "SimpleGraph", k: "KN", weight: "i32"),
+  target-variant: (variable: "bool"),
+)
+#let mckp_ilp_sol = mckp_ilp.solutions.at(0)
+#reduction-rule("MaximumCoKPlex", "ILP",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i32"),
+  example-target-variant: (variable: "bool"),
+  example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mckp_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(mckp_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + mckp_ilp_sol.source_config.map(str).join(","),
+    )
+    Source co-$k$-plex witness $(#mckp_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mckp_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   This direct binary ILP formulation introduces one variable per source vertex and one induced-degree cap per source vertex @Hernandez2016MolecularSimilarity.
 ][
   _Construction._ Let the source instance be a weighted graph $G = (V, E)$ with vertex weights $w_v$ and parameter $k >= 1$. Introduce binary variables $x_v in {0,1}$ for each $v in V$, where $x_v = 1$ iff $v$ is selected. Maximize
@@ -13399,7 +13434,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Output the same binary selection vector: $S = {v in V : x_v = 1}$.
 ]
 
-#reduction-rule("MaximumCommonEdgeSubgraph", "ILP")[
+#let mces_ilp = load-example(
+  "MaximumCommonEdgeSubgraph",
+  "ILP",
+  target-variant: (variable: "bool"),
+)
+#let mces_ilp_sol = mces_ilp.solutions.at(0)
+#reduction-rule("MaximumCommonEdgeSubgraph", "ILP",
+  example: true,
+  example-target-variant: (variable: "bool"),
+  example-caption: [Two labelled 3-vertex digraphs with 2 arcs each],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mces_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(mces_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + mces_ilp_sol.source_config.map(str).join(","),
+    )
+    Source mapping witness $(#mces_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mces_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Encode a partial injective vertex map with row and column inequalities and linearize each label-compatible source/target arc pair with a McCormick product variable @Bahiense2012MCES.
 ][
   _Construction._ Let the source instance be the pair of directed edge-labelled graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with labels in a finite alphabet $Sigma$. Introduce binary variables $x_(u,p) in {0, 1}$ for every $u in V_1, p in V_2$, where $x_(u,p) = 1$ iff source vertex $u$ is mapped to target vertex $p$. For every label-compatible source/target arc pair $a = (u, lambda, v) in E_1$ and $b = (p, lambda, q) in E_2$ with the same label $lambda$, introduce a binary variable $y_(a,b) in {0, 1}$. The ILP is:
@@ -13418,7 +13472,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each source vertex $u in V_1$, output the unique $p in V_2$ with $x_(u,p) = 1$ if such a $p$ exists, otherwise the sentinel $|V_2|$ encoding "unmatched".
 ]
 
-#reduction-rule("MaximumEdgeWeightedKClique", "ILP")[
+#let mewkc_ilp = load-example(
+  "MaximumEdgeWeightedKClique",
+  "ILP",
+  source-variant: (weight: "i32"),
+  target-variant: (variable: "bool"),
+)
+#let mewkc_ilp_sol = mewkc_ilp.solutions.at(0)
+#reduction-rule("MaximumEdgeWeightedKClique", "ILP",
+  example: true,
+  example-source-variant: (weight: "i32"),
+  example-target-variant: (variable: "bool"),
+  example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mewkc_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(mewkc_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + mewkc_ilp_sol.source_config.map(str).join(","),
+    )
+    Source $k$-clique witness $(#mewkc_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mewkc_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Binary vertex selectors with an exact-cardinality constraint, non-edge clique constraints, and McCormick edge-product variables linearize the induced edge-weight sum @ParkLeePark1996EWClique @GouveiaMartins2015EWClique.
 ][
   _Construction._ Let the source instance be $G = (V, E)$ with edge weights $w : E -> RR$ and size bound $k$. Introduce binary variables $x_v in {0, 1}$ for every $v in V$ and $y_(u v) in {0, 1}$ for every edge ${u, v} in E$. The ILP is:
@@ -13622,7 +13697,21 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
 ]
 
-#reduction-rule("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")[
+#let ola_seqmwct = load-example("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")
+#let ola_seqmwct_sol = ola_seqmwct.solutions.at(0)
+#reduction-rule("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime",
+  example: true,
+  example-caption: [Path $P_4$: $n = 4$ vertices, $m = 3$ edges],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ola_seqmwct.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(ola_seqmwct) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + ola_seqmwct_sol.source_config.map(str).join(","),
+    )
+    Source arrangement $pi = (#ola_seqmwct_sol.source_config.map(str).join(", "))$, target schedule $(#ola_seqmwct_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   @lawler1978 This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
 ][
   _Construction._ Let the source instance be an undirected graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and maximum degree $d_"max" = max_(v in V) deg(v)$. For each vertex $v in V$, create a job $J_v$ of length 1 and weight $d_"max" - deg(v)$. For each edge $e = {u, v} in E$, create a job $J_e$ of length 0 and weight 2. Add the precedence constraints $J_u prec.eq J_e$ and $J_v prec.eq J_e$ for every edge job $J_e$. There are no other precedences, so the target has $n + m$ jobs and $2m$ precedence arcs.
@@ -13869,7 +13958,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Sort the selected vertices by position in $s_1$. Read off the characters to obtain the common subsequence, then pad to `max_length` with the padding symbol.
 ]
 
-#reduction-rule("ClosestString", "ILP")[
+#let cs_ilp_str = load-example(
+  "ClosestString",
+  "ILP",
+  target-variant: (variable: "i32"),
+)
+#let cs_ilp_str_sol = cs_ilp_str.solutions.at(0)
+#reduction-rule("ClosestString", "ILP",
+  example: true,
+  example-target-variant: (variable: "i32"),
+  example-caption: [Binary alphabet, 4 length-3 strings],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(cs_ilp_str.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(cs_ilp_str) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + cs_ilp_str_sol.source_config.map(str).join(","),
+    )
+    Source center witness $(#cs_ilp_str_sol.source_config.map(str).join(", "))$, target ILP witness $(#cs_ilp_str_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Binary variables select one alphabet symbol at each center position. An auxiliary radius variable upper-bounds the Hamming distance from the chosen center to every input string and is minimized.
 ][
   _Construction._ Given alphabet $Sigma$ of size $q$, $n$ input strings $s_1, dots, s_n in Sigma^m$ of common length $m$:
@@ -13893,7 +14001,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each position $j$, read the unique symbol $a$ with $x_(j, a) = 1$; the resulting length-$m$ vector is the source center.
 ]
 
-#reduction-rule("ClosestSubstring", "ILP")[
+#let css_ilp = load-example(
+  "ClosestSubstring",
+  "ILP",
+  target-variant: (variable: "i32"),
+)
+#let css_ilp_sol = css_ilp.solutions.at(0)
+#reduction-rule("ClosestSubstring", "ILP",
+  example: true,
+  example-target-variant: (variable: "i32"),
+  example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(css_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(css_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + css_ilp_sol.source_config.map(str).join(","),
+    )
+    Source center+windows witness $(#css_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#css_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Integer variables select one alphabet symbol at each center position and one window start per input string. A conditional radius constraint is activated by the window-choice indicator and upper-bounds the Hamming distance between the center and the selected window of each string.
 ][
   _Construction._ Given alphabet $Sigma$ of size $q$, $n$ input strings $s_1, dots, s_n$ over $Sigma$, and window length $ell$ with $W_i = |s_i| - ell + 1$:
@@ -15167,7 +15294,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each position $k$, decode the unique vertex $v$ with $x_(v,k) = 1$ to recover the permutation; convert to Lehmer code for the source configuration.
 ]
 
-#reduction-rule("HighlyConnectedDeletion", "ILP")[
+#let hcd_ilp = load-example(
+  "HighlyConnectedDeletion",
+  "ILP",
+  target-variant: (variable: "bool"),
+)
+#let hcd_ilp_sol = hcd_ilp.solutions.at(0)
+#reduction-rule("HighlyConnectedDeletion", "ILP",
+  example: true,
+  example-target-variant: (variable: "bool"),
+  example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hcd_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(hcd_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + hcd_ilp_sol.source_config.map(str).join(","),
+    )
+    Source deletion witness $(#hcd_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#hcd_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Enumerate the family of feasible clusters of $G$ and pick a partition of $V$ into feasible clusters maximizing the kept internal edge count; since $|E|$ is fixed, this is equivalent to minimizing deleted edges @HueffnerKomusiewiczLiebtrauNiedermeier2014.
 ][
   _Construction._ Let the source instance be a simple undirected graph $G = (V, E)$. Call a vertex set $S subset.eq V$ a _feasible cluster_ when either $|S| = 1$, or $|S| >= 3$ and the induced subgraph $G[S]$ is _highly connected_, i.e. its edge connectivity satisfies $lambda(G[S]) > |S| / 2$ (strict). Let $cal(C)(G)$ be the family of all feasible clusters. Introduce binary variables $x_S in {0, 1}$ for each $S in cal(C)(G)$, where $x_S = 1$ iff $S$ is chosen as one block of the final partition. The ILP is:
@@ -15182,7 +15328,26 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Decode the chosen clusters $C subset.eq cal(C)(G)$ from $x$. The source configuration is the binary edge-deletion vector: edge $e = {u, v}$ is kept (config bit $0$) iff some chosen cluster $S in C$ contains both $u$ and $v$, otherwise deleted (config bit $1$).
 ]
 
-#reduction-rule("EulerianPath", "ILP")[
+#let ep_ilp = load-example(
+  "EulerianPath",
+  "ILP",
+  target-variant: (variable: "i32"),
+)
+#let ep_ilp_sol = ep_ilp.solutions.at(0)
+#reduction-rule("EulerianPath", "ILP",
+  example: true,
+  example-target-variant: (variable: "i32"),
+  example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ep_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(ep_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + ep_ilp_sol.source_config.map(str).join(","),
+    )
+    Source trail witness $(#ep_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#ep_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   Encode the directed Eulerian-trail witness structure as an integer feasibility program: successor variables on compatible arc pairs, start / end indicators, and Miller--Tucker--Zemlin-style position variables eliminate spurious sub-cycles @Ebert1988ComputingEulerianTrails @BangJensenGutin2009Digraphs.
 ][
   _Construction._ Let the source instance be a directed multigraph $D = (V, A)$ with arc occurrences $A = {a_1, dots, a_m}$ and let
@@ -16028,7 +16193,21 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each vertex $v$, output its unique parent $u$ with $p_(v,u) = 1$.
 ]
 
-#reduction-rule("MinimumCostMaximumFlow", "MinimumCostCirculation")[
+#let mcmf_mcc = load-example("MinimumCostMaximumFlow", "MinimumCostCirculation")
+#let mcmf_mcc_sol = mcmf_mcc.solutions.at(0)
+#reduction-rule("MinimumCostMaximumFlow", "MinimumCostCirculation",
+  example: true,
+  example-caption: [Diamond network: $n = 4$ vertices, $m = 5$ arcs, max flow $= 3$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mcmf_mcc.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(mcmf_mcc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + mcmf_mcc_sol.source_config.map(str).join(","),
+    )
+    Source flow $(#mcmf_mcc_sol.source_config.map(str).join(", "))$; target circulation $(#mcmf_mcc_sol.target_config.map(str).join(", "))$ appends the return arc.
+  ],
+)[
   Augment the flow network with a single return arc from the sink to the source. Give it capacity equal to a feasible-flow upper bound and a sufficiently negative cost so that the resulting min-cost circulation lex-orders the original (max value, min cost) objective. Recover the source flow by deleting the return arc.
 ][
   _Construction._ Let the source instance be $(G = (V, A), s, t, u, c)$ with $n = |V|$ vertices, $m = |A|$ arcs, nonnegative capacities $u_a$, and nonnegative costs $c_a$. Build $G' = (V, A')$ where $A' = A union {e^*}$ and $e^* = (t, s)$ is a new return arc. Define:
@@ -18079,7 +18258,21 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Inspect the label assigned to each matching edge $x_i y_i$. Compress the distinct matching-edge labels to $0, dots, k-1$ and assign source vertex $v_i$ to the compressed label of its matching edge. The previous paragraph proves that these label classes are source cliques, and the forced gadget/side cliques guarantee $k <= K$ whenever the target cover has size at most $K + 2m + 2$.
 ]
 
-#reduction-rule("MinimumCoveringByCliques", "MinimumIntersectionGraphBasis")[
+#let mcbc_migb = load-example("MinimumCoveringByCliques", "MinimumIntersectionGraphBasis")
+#let mcbc_migb_sol = mcbc_migb.solutions.at(0)
+#reduction-rule("MinimumCoveringByCliques", "MinimumIntersectionGraphBasis",
+  example: true,
+  example-caption: [Triangle plus pendant: $n = 4$ vertices, $m = 4$ edges],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mcbc_migb.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(mcbc_migb) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + mcbc_migb_sol.source_config.map(str).join(","),
+    )
+    Source clique labels $(#mcbc_migb_sol.source_config.map(str).join(", "))$, target intersection witness $(#mcbc_migb_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   This $O(n + m)$ identity reduction @garey1979[GT59] @erdosgoodmanposa1966 @kouStockmeyerWong1978 keeps the graph unchanged and reinterprets the objective. The minimum number of cliques covering all edges of $G$ equals the minimum universe size of an intersection representation of $G$, so the two optimization problems are equivalent reformulations.
 ][
   _Construction._ Given a Minimum Covering by Cliques instance on graph $G = (V, E)$, output the Minimum Intersection Graph Basis instance on the same graph $G$. No vertices or edges are added, deleted, or relabeled.
@@ -18371,7 +18564,21 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $tau(x_i) = "TRUE"$ if $x mod p_i = 1$, FALSE if $x mod p_i = 2$.
 ]
 
-#reduction-rule("Numerical3DimensionalMatching", "NumericalMatchingWithTargetSums")[
+#let n3dm_nmts = load-example("Numerical3DimensionalMatching", "NumericalMatchingWithTargetSums")
+#let n3dm_nmts_sol = n3dm_nmts.solutions.at(0)
+#reduction-rule("Numerical3DimensionalMatching", "NumericalMatchingWithTargetSums",
+  example: true,
+  example-caption: [$m = 2$ triples, target sum $B = 15$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(n3dm_nmts.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(n3dm_nmts) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + n3dm_nmts_sol.source_config.map(str).join(","),
+    )
+    Source N3DM witness $(#n3dm_nmts_sol.source_config.map(str).join(", "))$, target NMTS pairing $(#n3dm_nmts_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   This linear-time reduction @garey1979 keeps the $X$ and $Y$ sets unchanged and replaces each $w_i in W$ by a target complement $B_i = B - s(w_i)$. For an instance with $m$ triples, the target has $m$ pairs.
 ][
   _Construction._ Let the source instance be $(W, X, Y, s, B)$ with $W = {w_1, dots, w_m}$, $X = {x_1, dots, x_m}$, and $Y = {y_1, dots, y_m}$. Construct the Numerical Matching with Target Sums instance with the same ordered size lists for $X$ and $Y$, and target vector $(B - s(w_1), dots, B - s(w_m))$.
@@ -18533,7 +18740,21 @@ The following table shows concrete variable overhead for example instances, take
 
 #let tdm_tp = load-example("ThreeDimensionalMatching", "ThreePartition")
 #let tdm_tp_sol = tdm_tp.solutions.at(0)
-#reduction-rule("ThreeDimensionalMatching", "ThreeMatroidIntersection")[
+#let tdm_tmi = load-example("ThreeDimensionalMatching", "ThreeMatroidIntersection")
+#let tdm_tmi_sol = tdm_tmi.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ThreeMatroidIntersection",
+  example: true,
+  example-caption: [$q = 3$, $t = 5$ triples],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_tmi.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(tdm_tmi) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + tdm_tmi_sol.source_config.map(str).join(","),
+    )
+    Source 3DM witness $(#tdm_tmi_sol.source_config.map(str).join(", "))$, target common-independent witness $(#tdm_tmi_sol.target_config.map(str).join(", "))$.
+  ],
+)[
   This $O(t + q)$ direct embedding @garey1979[SP11] takes the triple set itself as the common ground set and builds three partition matroids, one per coordinate family. The target has $t = |T|$ ground-set elements, $3 q$ groups in total, and bound $K = q$.
 ][
   _Construction._ Let the 3DM instance have universe size $q$ and triples $T = {t_0, dots, t_(t - 1)} subset.eq W times X times Y$, where $t_l = (w_(a_l), x_(b_l), y_(c_l))$. Create a Three-Matroid Intersection instance whose ground set is $E = {0, dots, t - 1}$, with element $l$ representing triple $t_l$.
