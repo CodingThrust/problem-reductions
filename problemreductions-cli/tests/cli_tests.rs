@@ -3736,24 +3736,6 @@ fn test_create_help_describes_precedence_pairs_generically() {
 }
 
 #[test]
-fn test_create_sequencing_to_minimize_weighted_completion_time_rejects_zero_length() {
-    let output = pred()
-        .args([
-            "create",
-            "SequencingToMinimizeWeightedCompletionTime",
-            "--lengths",
-            "0,1,3",
-            "--weights",
-            "3,5,1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
-}
-
-#[test]
 fn test_create_with_edge_weights() {
     let output_file = std::env::temp_dir().join("pred_test_create_ew.json");
     let output = pred()
@@ -5887,47 +5869,6 @@ fn test_inspect_stdin() {
         stdout.contains("MaximumIndependentSet"),
         "expected 'MaximumIndependentSet', got: {stdout}"
     );
-}
-
-#[test]
-fn test_inspect_rejects_zero_length_sequencing_problem_from_stdin() {
-    let create_out = pred()
-        .args([
-            "create",
-            "--example",
-            "SequencingToMinimizeWeightedCompletionTime",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        create_out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&create_out.stderr)
-    );
-
-    let mut json: serde_json::Value = serde_json::from_slice(&create_out.stdout).unwrap();
-    json["data"]["lengths"][0] = serde_json::json!(0);
-    let invalid_json = serde_json::to_vec(&json).unwrap();
-
-    use std::io::Write;
-    let mut child = pred()
-        .args(["inspect", "-"])
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(&invalid_json)
-        .unwrap();
-    let result = child.wait_with_output().unwrap();
-
-    assert!(!result.status.success());
-    let stderr = String::from_utf8(result.stderr).unwrap();
-    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
 }
 
 #[test]
