@@ -13399,6 +13399,25 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Output the same binary selection vector: $S = {v in V : x_v = 1}$.
 ]
 
+#reduction-rule("MaximumCommonEdgeSubgraph", "ILP")[
+  Encode a partial injective vertex map with row and column inequalities and linearize each label-compatible source/target arc pair with a McCormick product variable @Bahiense2012MCES @deGastinesKnippel2024MCES.
+][
+  _Construction._ Let the source instance be the pair of directed edge-labelled graphs $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with labels in a finite alphabet $Sigma$. Introduce binary variables $x_(u,p) in {0, 1}$ for every $u in V_1, p in V_2$, where $x_(u,p) = 1$ iff source vertex $u$ is mapped to target vertex $p$. For every label-compatible source/target arc pair $a = (u, lambda, v) in E_1$ and $b = (p, lambda, q) in E_2$ with the same label $lambda$, introduce a binary variable $y_(a,b) in {0, 1}$. The ILP is:
+  $
+    max quad & sum_{a, b "label-compatible"} y_(a,b) \
+    "subject to" quad & sum_(p in V_2) x_(u,p) <= 1 quad forall u in V_1 \
+    & sum_(u in V_1) x_(u,p) <= 1 quad forall p in V_2 \
+    & y_(a,b) <= x_(u,p) quad forall (a, b) "label-compatible" \
+    & y_(a,b) <= x_(v,q) quad forall (a, b) "label-compatible" \
+    & y_(a,b) >= x_(u,p) + x_(v,q) - 1 quad forall (a, b) "label-compatible" \
+    & x_(u,p), y_(a,b) in {0, 1}.
+  $
+
+  _Correctness._ ($arrow.r.double$) Any partial injective map $f : U_1 -> V_2$ with $U_1 subset.eq V_1$ produces a feasible ILP solution by setting $x_(u,p) = 1$ iff $u in U_1$ and $f(u) = p$, and $y_(a,b) = 1$ exactly when $a = (u, lambda, v)$ is preserved by $f$, i.e. $b = (f(u), lambda, f(v)) in E_2$. The row and column inequalities encode that $f$ is a (partial) function and injective; the McCormick triple forces $y_(a,b) = x_(u,p) and x_(v,q)$. The ILP objective equals the number of preserved labelled arcs. ($arrow.l.double$) Any feasible ILP solution selects an injective partial map via $f(u) = p$ when $x_(u,p) = 1$ (well-defined by the row constraints, injective by the column constraints), and the McCormick triple forces $y_(a,b) = 1$ iff both endpoint mappings are realized, i.e. iff $a$ is preserved. Therefore the ILP optimum equals the MCES optimum.
+
+  _Solution extraction._ For each source vertex $u in V_1$, output the unique $p in V_2$ with $x_(u,p) = 1$ if such a $p$ exists, otherwise the sentinel $|V_2|$ encoding "unmatched".
+]
+
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)

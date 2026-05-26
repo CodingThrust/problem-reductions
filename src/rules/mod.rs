@@ -229,6 +229,8 @@ pub(crate) mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumcokplex_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumcommonedgesubgraph_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumdomaticnumber_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumleafspanningtree_ilp;
@@ -570,6 +572,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximum2satisfiability_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
         specs.extend(maximumcokplex_ilp::canonical_rule_example_specs());
+        specs.extend(maximumcommonedgesubgraph_ilp::canonical_rule_example_specs());
         specs.extend(maximumdomaticnumber_ilp::canonical_rule_example_specs());
         specs.extend(maximumleafspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
