@@ -346,80 +346,21 @@ When the subagent returns:
 
 ## Step 2.5: Integration Gate (orchestrator-owned)
 
-`run-pipeline` and the sub-skills it invokes (`add-model`, `add-rule`, `review-structural`) test each item **in isolation** — the new rule's closed-loop, the new model's unit tests, the rule's own paper entry. None of them runs the full workspace test suite or `make paper`. Two classes of breakage slip past:
+The per-item sub-skills only test the new item in isolation, so cross-crate regressions (e.g. a relaxed model validator breaking pre-existing CLI tests) and paper-compile errors (orphan bib keys, math-mode typos like `intersect` vs Typst's `inter`) slip through Phase 2 and Phase 3. CI catches both, but in batch mode (many issues on one branch) breakage accumulates silently. Running this gate after every Phase 2 success closes the loop.
 
-- **Cross-crate test regressions.** A model change (validator relaxation, schema field rename, removed enum variant) can break pre-existing tests in `problemreductions-cli/tests/` or other crates that the per-item tests never exercise.
-- **Paper compile errors.** A typo'd math-mode token (`intersect` vs Typst's `inter`), an orphan bib key (cited but absent from `references.bib`), or a stale key (`@lawler1978a` vs `@lawler1978`) is invisible until `typst compile` resolves references — neither `add-rule` nor `review-structural` runs `make paper`.
-
-CI catches both, but only after the PR opens. In **batch mode** (multiple issues stacked on a shared branch with one PR opened at the end — outside this skill's `one-issue-one-PR` default), the breakage accumulates silently across N commits. Running this gate after every Phase 2 success keeps the cadence right regardless of PR strategy.
-
-### 2.5a. Dispatch the integration-gate subagent
-
-Use the `Agent` tool with `subagent_type=general-purpose`. The orchestrator main agent does NOT own a worktree, so this subagent enters the PR branch itself. The subagent is NOT invoking an existing skill — these are raw commands.
-
-**Prompt template:**
+Dispatch a fresh subagent (`subagent_type=general-purpose`, not invoking any existing skill):
 
 ```
-Run the auto-pipeline integration gate on PR #<PR> at HEAD.
+Run the auto-pipeline integration gate on PR #<PR>. Check out the PR
+branch in a fresh worktree, run `make check` then `make paper`, clean up.
+Do not modify files. Return ONLY:
 
-1. Enter the PR branch in a fresh worktree:
-   WT=$(python3 scripts/pipeline_worktree.py enter \
-        --name "auto-pipeline-gate-<PR>" --format json \
-        | python3 -c "import sys,json; print(json.load(sys.stdin)['worktree_dir'])")
-   cd "$WT"
-   gh pr checkout <PR>
-
-2. Run these two commands sequentially. Do NOT modify any files.
-   Capture the FIRST failure message from each, if any:
-   a. cargo test --workspace --features "ilp-highs example-db"
-      (same flags the CI Test job uses)
-   b. make paper
-
-3. Clean up:
-   cd <REPO_ROOT>
-   python3 scripts/pipeline_worktree.py cleanup --worktree "$WT"
-
-Return ONLY this JSON shape (no prose):
-{
-  "head_sha": "<git rev-parse HEAD>",
-  "tests":   {"outcome": "pass" | "fail", "first_failure": "<test name + assertion, or empty>"},
-  "paper":   {"outcome": "pass" | "fail", "first_failure": "<typst/make error + file:line, or empty>"}
-}
+{"tests": "pass" | "fail", "paper": "pass" | "fail",
+ "first_failure": "<first failing test or typst error, or empty>"}
 ```
 
-### 2.5b. Branch on the report
-
-- **Both `tests.outcome` and `paper.outcome == "pass"`** → continue to Step 3.
-- **Either fails** → STOP. Post a diagnostic PR comment with both `first_failure` strings, move the project card to OnHold, and print:
-
-  ```bash
-  COMMENT_FILE=$(mktemp)
-  cat > "$COMMENT_FILE" <<EOF
-  **auto-pipeline integration gate failed**
-
-  - \`cargo test --workspace\`: \`$TESTS_OUTCOME\` — $TESTS_FIRST_FAILURE
-  - \`make paper\`: \`$PAPER_OUTCOME\` — $PAPER_FIRST_FAILURE
-
-  HEAD: \`$HEAD_SHA\`. Per-item closed-loop tests passed, but workspace-wide tests or the Typst paper compile broke. Common causes: validator change relaxes a constraint that a CLI integration test asserted; new \`reduction-rule\` cites a bib key not in \`references.bib\`; math-mode uses an English word Typst does not know (e.g. \`intersect\` should be \`inter\`).
-  EOF
-  python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
-  rm -f "$COMMENT_FILE"
-  uv run --project scripts scripts/pipeline_board.py move "$ITEM_ID" on-hold
-  ```
-
-  ```
-  Auto-pipeline halted at integration gate:
-    Issue: #<ISSUE>
-    PR:    #<PR>
-    Tests: <pass|fail> — <first_failure>
-    Paper: <pass|fail> — <first_failure>
-    Board: Review pool -> OnHold
-    Next:  human triage; cross-crate regressions and paper-compile bugs
-           are not eligible for codex rescue because the failing artefact
-           lives outside the new issue's files.
-  ```
-
-Do NOT auto-dispatch `codex:codex-rescue` here. The failure mode is "this issue's implementation broke something the per-item tests do not cover," which is a focused investigative task that benefits from human eyes (and the offending code usually lives in a file the issue body does not reference, so the codex prompt would be misleading).
+- Both `pass` → continue to Step 3.
+- Either `fail` → hand the `first_failure` to `codex:codex-rescue` for a fix-it pass (CI-class problems are usually small: deleting a stale test, fixing a typo'd bib key, swapping `intersect` for `inter`). After codex returns, re-run Step 2.5 once. If still failing, park on OnHold.
 
 ## Step 3: Agentic Review (`review-pipeline` subagent)
 
@@ -463,5 +404,4 @@ Auto-pipeline complete:
 | Letting the codex subagent edit GitHub | The orchestrator owns all `gh issue edit` calls — codex only returns text |
 | Treating implementation failures as substantive issue problems | Step 2 failures go straight to a stop; they are not eligible for codex rescue |
 | Picking from a non-Backlog column when no issue number is given | Auto-pick must read from Backlog only — never from OnHold, Ready, or elsewhere |
-| Skipping Step 2.5 because Phase 2 reported `success` | Phase 2's success is scoped to the new item's own tests. Workspace-wide regressions (e.g. CLI integration tests asserting a model behaviour the new rule just relaxed) and paper compile errors (`intersect` vs `inter`, orphan bib keys) are only visible after `cargo test --workspace` and `make paper`. Always run Step 2.5 before Step 3. |
-| Treating Step 2.5 failures as eligible for codex rescue | The failing artefact lives outside the new issue's files (CLI tests in another crate, a bib key elsewhere in `references.bib`, a Typst symbol in an unrelated proof). Codex prompts seeded from the issue body would be misleading. Halt + human triage. |
+| Skipping Step 2.5 because Phase 2 reported `success` | Phase 2 success is scoped to the new item's own tests; workspace-wide regressions and paper-compile bugs are only visible from `make check` + `make paper`. |
