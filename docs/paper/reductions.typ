@@ -11847,6 +11847,22 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For covering ${S_v : v in C}$, return VC $= C$ (same variable assignment).
 ]
 
+#reduction-rule("DecisionMinimumVertexCover", "ComparativeContainment")[
+  Plaisted's reduction @plaisted1976 encodes a unit-weight Decision Vertex Cover instance $(G = (V, E), K)$ as a Comparative Containment instance on universe $X = V$. Each vertex contributes a complement set with unit reward; each edge contributes a complement-of-edge penalty set with weight $|V| + 1$ that dominates the total reward whenever the edge is uncovered; and a single budget set with weight $|V| - K$ enforces the cardinality bound.
+][
+  _Construction._ Given a unit-weight VC instance $(G = (V, E), K)$ with $n = |V|$, set the universe $X = V$ and define:
+  - For each vertex $v in V$, the reward set $R_v = V without {v}$ with weight $w(R_v) = 1$. Then $Y subset.eq R_v$ iff $v in.not Y$, so $sum_(Y subset.eq R_v) w(R_v) = n - |Y|$.
+  - For each edge $e = {u, v} in E$, the edge-penalty set $S_e = V without {u, v}$ with weight $w(S_e) = n + 1$. Then $Y subset.eq S_e$ iff neither $u$ nor $v$ lies in $Y$, i.e.\ iff $e$ is uncovered.
+  - A budget set $S_0 = V$ with weight $w(S_0) = n - K$. Since $Y subset.eq V$ always holds, this set contributes the constant penalty $n - K$.
+
+  The containment inequality becomes $n - |Y| >= (n + 1) dot (\#"uncovered edges") + (n - K)$, which simplifies to
+  $ K - |Y| >= (n + 1) dot (\#"uncovered edges"). $
+
+  _Correctness._ ($arrow.r.double$) If $Y$ is a vertex cover with $|Y| <= K$, the right-hand side equals $0$ and the inequality $K - |Y| >= 0$ holds. ($arrow.l.double$) Suppose the inequality holds for some $Y$. If $Y$ leaves an edge uncovered, the right-hand side is at least $n + 1 > n >= K - |Y|$, a contradiction. Hence $Y$ is a vertex cover and $K - |Y| >= 0$, i.e.\ $|Y| <= K$.
+
+  _Solution extraction._ The indicator vector of $Y subset.eq X$ over the universe $X = V$ is read off as the source vertex-cover indicator. Two corner cases are emitted as trivial instances: when $K >= n$ every cover satisfies the bound, so the target is the empty Comparative Containment instance whose unique configuration is trivially feasible; when $K < 0$ the bound is unattainable, and the target is a fixed unsatisfiable instance with a single penalty set.
+]
+
 #reduction-rule("MinimumVertexCover", "EnsembleComputation")[
   This $O(|V| + |E|)$ reduction @garey1979 encodes the unit-weight vertex-cover problem as an ensemble-computation minimization over disjoint unions. A fresh element $a_0$ is introduced, and each edge becomes a 3-element target subset. The minimum sequence length equals $K^* + |E|$, where $K^*$ is the minimum vertex cover size.
 ][
