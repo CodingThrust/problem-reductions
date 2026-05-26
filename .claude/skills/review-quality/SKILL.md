@@ -72,7 +72,7 @@ Flag tests that:
 - **Mirror the implementation**: Tests recomputing the same formula as the code prove nothing
 - **Lack adversarial cases**: Only happy path. Tests must include infeasible configs and boundary cases
 - **Use trivial instances only**: Single-edge or 2-node tests may pass with bugs. Need 5+ vertex instances
-- **Closed-loop without round-trip verification (CRITICAL for `[Rule]` PRs)**: for new reduction rules, defer to the four-criterion check in [`review-structural`](../review-structural/SKILL.md) Step 4b-3. If the test fails any criterion there, raise it as **Critical** here too — not Minor.
+- **Closed-loop without verification**: Must verify extracted solution is **optimal** (compare brute-force on both source and target)
 - **Assert count too low**: 1-2 asserts for non-trivial code is insufficient
 
 ## Output Format
