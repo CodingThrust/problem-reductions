@@ -87,7 +87,7 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
     fn reduce_to(&self) -> Self::Result {
         let universe_size = self.universe_size();
         let m = self.num_subsets();
-        let q = universe_size / 3;
+        let q = self.q();
 
         // Vertex indexing matches the docstring.
         let s_index = |i: usize| 3 + i;
@@ -108,6 +108,13 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
             edges.push((0, s_index(i)));
             weights.push(2);
         }
+        // Invariant: extract_solution reads edges[2..2 + m] to recover the
+        // selected subsets. If this loop is ever reordered or moved, the
+        // extractor must be updated to match.
+        debug_assert!(
+            (0..m).all(|i| edges[2 + i] == (0, s_index(i))),
+            "root-to-set edges must occupy indices 2..2+m for extract_solution to work"
+        );
 
         // Set-to-element edges. Subsets are already sorted in `ExactCoverBy3Sets::new`.
         for (i, subset) in self.subsets().iter().enumerate() {

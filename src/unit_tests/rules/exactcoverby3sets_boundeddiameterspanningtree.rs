@@ -1,8 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::Graph;
-use crate::traits::Problem;
 use crate::types::Or;
 
 /// q = 2, m = 2: X = {0..5} with C = [{0,1,2}, {3,4,5}].
@@ -36,7 +35,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
     let target = reduction.target_problem();
 
     let m = source.num_subsets();
-    let q = source.universe_size() / 3;
+    let q = source.q();
     // n = 3 + m + 3q
     assert_eq!(target.num_vertices(), 3 + m + source.universe_size());
     // Expected edge count: 2 forced + m root-to-set + 3m set-to-element + m(m-1)/2 clique.
@@ -91,16 +90,11 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     let target = reduction.target_problem();
 
     // The target should be infeasible: no spanning tree satisfies both weight
-    // bound B = 4q + m + 2 = 12 and diameter bound D = 4.
-    let witness = BruteForce::new().find_witness(target);
-    assert_eq!(
-        target.evaluate(&witness.clone().unwrap_or_default()),
-        Or(false)
-    );
-    // BruteForce::find_witness returns the lexicographically-first optimal
-    // assignment; for an Or-valued infeasible target, even that witness
-    // evaluates to false.
-    if let Some(w) = witness {
-        assert!(!target.evaluate(&w).0);
-    }
+    // bound B = 4q + m + 2 = 12 and diameter bound D = 4. For an Or-valued
+    // problem with no satisfying configuration, BruteForce::find_witness
+    // returns None (witnesses are configs that evaluate to Or(true), and none
+    // exist here). Equivalently, the brute-force aggregate evaluates to
+    // Or(false).
+    assert!(BruteForce::new().find_witness(target).is_none());
+    assert_eq!(BruteForce::new().solve(target), Or(false));
 }
