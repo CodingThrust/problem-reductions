@@ -12485,6 +12485,50 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard slack variables: return $bold(z)[0..n]$.
 ]
 
+#let mdpik_qubo = load-example("MinimumDiscretePlanarInverseKinematics", "QUBO")
+#let mdpik_qubo_sol = mdpik_qubo.solutions.at(0)
+#reduction-rule("MinimumDiscretePlanarInverseKinematics", "QUBO",
+  example: true,
+  example-caption: [2-link worked example with 4 QUBO variables],
+  extra: [
+    #pred-commands(
+      "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
+      "pred reduce ik.json --to " + target-spec(mdpik_qubo) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate ik.json --config " + mdpik_qubo_sol.source_config.map(str).join(","),
+    )
+    *Step 1 -- Source instance.* The canonical instance has link lengths $(2, 1)$, target $g = (2, 1)$, sampled orientations $Phi_1 = Phi_2 = {0, pi / 2}$, and admissible pair set $A_2 = {(0,0), (0,1), (1,1)}$.
+
+    *Step 2 -- One-hot variables.* Introduce one binary selector per sampled orientation:
+    $ underbrace(y_(1,0) y_(1,1), "link 1") #h(6pt) underbrace(y_(2,0) y_(2,1), "link 2") $
+    The QUBO therefore has $2 + 2 = #mdpik_qubo.target.instance.num_vars$ variables.
+
+    *Step 3 -- Quadratic energy.* The geometric coefficients are $c = (2, 0, 1, 0)$ for the $x$-coordinate and $s = (0, 2, 0, 1)$ for the $y$-coordinate, so the position term is
+    $ (2 y_(1,0) + y_(2,0) - 2)^2 + (2 y_(1,1) + y_(2,1) - 1)^2. $
+    The implementation adds the same safe penalty to every one-hot violation and every forbidden pair, here penalizing the single forbidden adjacency $(1, 0)$ between the two blocks.
+
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(y) = (#mdpik_qubo_sol.target_config.map(str).join(", "))$ decodes to source configuration $(#mdpik_qubo_sol.source_config.map(str).join(", "))$, i.e. link 1 uses angle $0$ and link 2 uses angle $pi / 2$. The end-effector reaches $(2, 1)$ exactly, so the squared distance is $0$ #sym.checkmark.
+  ],
+)[
+  Discrete planar inverse kinematics is already close to QUBO form: once each sampled orientation is lifted to a binary selector, both end-effector coordinates become linear functions of those selectors, and the squared Euclidean error expands to a quadratic polynomial. Adding quadratic one-hot penalties and quadratic penalties for forbidden consecutive orientation pairs yields a QUBO with $sum_(j=1)^n m_j$ variables @salloum2025ikqubo.
+][
+  _Construction._ For each link $j in {1, dots, n}$ and sample index $a in {0, dots, m_j - 1}$, introduce a binary variable $y_(j,a) in {0,1}$ with the intended meaning "$y_(j,a) = 1$ iff link $j$ chooses orientation $phi_(j,a)$." Define
+  $ c_(j,a) = l_j cos phi_(j,a), quad s_(j,a) = l_j sin phi_(j,a). $
+  Let
+  $ P = 1 + (sum_(j,a) |c_(j,a)| + |g_x|)^2 + (sum_(j,a) |s_(j,a)| + |g_y|)^2. $
+  The QUBO objective is the sum of three terms:
+  $
+    H = underbrace((sum_(j,a) c_(j,a) y_(j,a) - g_x)^2 + (sum_(j,a) s_(j,a) y_(j,a) - g_y)^2)_"position error"
+      + underbrace(P sum_(j=1)^n (sum_(a=0)^(m_j - 1) y_(j,a) - 1)^2)_"one-hot"
+      + underbrace(P sum_(j=2)^n sum_((a,b) in.not A_j) y_(j-1,a) y_(j,b))_"forbidden pairs".
+  $
+  Expanding with $y_(j,a)^2 = y_(j,a)$ gives the upper-triangular QUBO matrix. As usual, the additive constant $g_x^2 + g_y^2$ is dropped.
+
+  _Correctness._ ($arrow.r.double$) Any feasible inverse-kinematics configuration $a_1, dots, a_n$ maps to the one-hot assignment with $y_(j,a_j) = 1$ and all other selectors $0$. Every one-hot penalty vanishes, every consecutive pair lies in the relevant admissible set, and the remaining QUBO objective equals the squared end-effector distance up to the dropped additive constant. ($arrow.l.double$) If some link is not one-hot, then $(sum_a y_(j,a) - 1)^2 >= 1$, so the assignment pays at least $P$. If every link is one-hot but some consecutive pair is forbidden, then exactly one forbidden-pair monomial is active at that junction, again contributing at least $P$. By definition of $P$, every decoded source configuration has squared distance at most $P - 1$, while the dropped-constant geometric term is bounded below by $-(g_x^2 + g_y^2)$. Therefore every violating assignment has strictly larger energy than every feasible source assignment. Among the penalty-zero assignments, minimizing $H$ is exactly minimizing the source squared distance.
+
+  _Solution extraction._ For each link block $j$, read the unique active selector $y_(j,a) = 1$ and output its sample index $a$. If the decoded index vector violates an admissible-pair constraint, the source evaluator rejects it with `Min(None)`.
+]
+
 #let mwc_qubo = load-example("MinimumMultiwayCut", "QUBO")
 #let mwc_qubo_sol = mwc_qubo.solutions.at(0)
 #let mwc_qubo_edges = mwc_qubo.source.instance.graph.edges.map(e => (e.at(0), e.at(1)))

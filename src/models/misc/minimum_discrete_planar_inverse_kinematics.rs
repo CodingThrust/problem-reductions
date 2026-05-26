@@ -171,6 +171,13 @@ impl MinimumDiscretePlanarInverseKinematics {
         self.orientation_samples.iter().map(|s| s.len()).product()
     }
 
+    /// Total number of sampled orientations across all links:
+    /// `sum_{j=1}^n m_j`. This is the QUBO variable count for the one-hot
+    /// encoding used by the QUBO reduction.
+    pub fn num_orientation_samples(&self) -> usize {
+        self.orientation_samples.iter().map(Vec::len).sum()
+    }
+
     /// Check if a configuration is feasible (one index per link, in range,
     /// and every consecutive pair lies in the corresponding admissible set).
     pub fn is_feasible(&self, config: &[usize]) -> bool {

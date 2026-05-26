@@ -25,6 +25,7 @@ fn test_minimum_discrete_planar_inverse_kinematics_creation() {
     assert_eq!(problem.allowed_pairs().len(), 1);
     assert_eq!(problem.dims(), vec![2, 2]);
     assert_eq!(problem.num_variables(), 2);
+    assert_eq!(problem.num_orientation_samples(), 4);
 }
 
 #[test]
