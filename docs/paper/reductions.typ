@@ -14423,6 +14423,63 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $I = {v : x_v = 1}$.
 ]
 
+#let mmm_ach = load-example("MinimumMaximalMatching", "MaximumAchromaticNumber")
+#let mmm_ach_sol = mmm_ach.solutions.at(0)
+#reduction-rule("MinimumMaximalMatching", "MaximumAchromaticNumber",
+  example: true,
+  example-source-variant: (graph: "BipartiteGraph"),
+  example-target-variant: (graph: "SimpleGraph"),
+  example-caption: [Path $P_4$ as a bipartite graph with $A = {v_0, v_2}$, $B = {v_1, v_3}$.],
+  extra: [
+    #{
+      let source-edges = mmm_ach.target.instance.graph.edges
+      let n-source = mmm_ach.source.instance.graph.left_size + mmm_ach.source.instance.graph.right_size
+      let m-source = mmm_ach.source.instance.graph.edges.len()
+      let m-target = mmm_ach.target.instance.graph.edges.len()
+      let color-of = mmm_ach_sol.target_config
+      let matched = mmm_ach_sol.source_config.enumerate()
+        .filter(((i, x)) => x == 1)
+        .map(((i, _)) => i)
+      [
+        #pred-commands(
+          "pred create --example " + problem-spec(mmm_ach.source) + " -o mmm.json",
+          "pred reduce mmm.json --to " + target-spec(mmm_ach) + " -o bundle.json",
+          "pred solve bundle.json",
+          "pred evaluate mmm.json --config " + mmm_ach_sol.source_config.map(str).join(","),
+        )
+
+        *Step 1 -- Source instance.* Path $P_4$ encoded as a bipartite graph with bipartition $A = {v_0, v_2}$ and $B = {v_1, v_3}$. In unified indices the vertex set is ${0, 1, 2, 3}$ (left vertices first), $n = #n-source$, and the $m = #m-source$ edges are #source-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+
+        *Step 2 -- Complement graph $H = overline(G)$.* The non-edges of $G$ in $K_4$ give the target edge set, with $|E(H)| = #m-target$ edges (#mmm_ach.target.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")). The decision threshold transforms as $K' = n - K$.
+
+        *Step 3 -- Source optimum.* The minimum maximal matching uses the middle edge, so $"mm"(G) = #matched.len() = 1$ (source index $#matched.at(0)$).
+
+        *Step 4 -- Target optimum.* The achromatic coloring stored in the fixture is $#color-of.map(str).join(", ")$. The size-$2$ color class corresponds to the source edge selected in Step 3, and the singletons contribute the remaining $n - 2$ classes, so the achromatic number is $psi(H) = n - "mm"(G) = #n-source - 1 = #(n-source - 1) #sym.checkmark$.
+
+        *Multiplicity:* The fixture stores one canonical witness; other valid achromatic $3$-colorings exist and would extract to other minimum maximal matchings.
+      ]
+    }
+  ],
+)[
+  This $O(n^2)$ reduction @yannakakis1980 takes a bipartite source $G = (V, E)$ with $n = |V|$, builds the complement $H = overline(G)$ on the same vertex set, and sets the achromatic threshold to $K' = |V| - K$. For bipartite $G$, every color class of an achromatic coloring of $H$ has size at most two, and the size-two classes are exactly the edges of a maximal matching of $G$. The construction yields $|E(H)| = binom(n, 2) - |E|$ target edges.
+][
+  _Construction._ Given a Minimum Maximal Matching instance $(G = (V, E), K)$ with $G$ bipartite, build a Maximum Achromatic Number instance $(H, K')$ where $H = (V, overline(E))$ with $overline(E) = {(u, v) : u != v, (u, v) in.not E}$ and $K' = |V| - K$.
+
+  _Correctness._ The reduction proves the identity $psi(H) = |V| - "mm"(G)$.
+
+  ($arrow.r.double$) Let $M$ be a maximal matching of $G$ with $|M| <= K$. Assign one color to each edge $\{u, v\} in M$ (placing $u$ and $v$ in the same $2$-vertex class) and a distinct color to each unmatched vertex. The number of colors used is $|V| - |M| >= |V| - K = K'$.
+
+  _Proper._ Each $2$-vertex class $\{u, v\}$ is an edge of $G$, hence a clique of size $2$ in $G$, hence an independent set in $H$. Singletons are trivially independent in $H$.
+
+  _Complete._ Let $A$ and $B$ be the bipartition of $G$ and consider any two distinct classes $C_i, C_j$. Each class lies in $A$, in $B$, or is a $G$-edge with one endpoint on each side. In every case, $C_i union C_j$ contains two vertices on the same side of the bipartition. These two vertices are non-adjacent in $G$ (the bipartite property), so they are adjacent in $H$. Hence the coloring is complete and uses $|V| - |M| >= K'$ colors.
+
+  ($arrow.l.double$) Let $cal(C)$ be a complete proper coloring of $H$ using $k >= K'$ colors. Because $H$ is the complement of a bipartite graph, every independent set of $H$ has size at most two, so each color class is a singleton or a pair. Let $M$ be the set of source edges $\{u, v\}$ such that $\{u, v\}$ is a $2$-vertex class. The classes are pairwise disjoint, so $M$ is a matching. The number of colors equals $k = |M| + (|V| - 2|M|) = |V| - |M|$, hence $|M| = |V| - k <= |V| - K' = K$.
+
+  _Maximality._ Suppose for contradiction that $M$ is not maximal and let $\{u, v\} in E$ have both endpoints unmatched. Then $\{u\}$ and $\{v\}$ are singleton classes in $cal(C)$. Because $\{u, v\} in E$, the pair is _not_ an edge of $H$, contradicting completeness of $cal(C)$ on the class pair $({u}, {v})$. Hence $M$ is a maximal matching with $|M| <= K$.
+
+  _Solution extraction._ Group target vertices by color. Every class of size $2$ identifies a source edge in $E$; mark those edges as selected (and leave all others unselected) to obtain a maximal matching $M$ of $G$ with $|M| = |V| - k$.
+]
+
 #reduction-rule("MinimumMaximalMatching", "ILP")[
   Each edge is either selected or not; matching and maximality constraints are both directly linear in binary edge indicators.
 ][
