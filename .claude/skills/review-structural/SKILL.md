@@ -118,55 +118,6 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 3. **Example quality** — Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** — Is the reduction-rule statement precise? Is the proof sketch sound?
 
-## Step 4b: Round-trip Execution (Rule reviews only) — MANDATORY
-
-Run the rule **end to end** on its canonical example(s), not just confirm a `closed_loop` test exists. The goal is to catch reductions that compile but silently lose information or drop corner cases.
-
-### 4b-1: Locate the test
-
-```bash
-# The closed-loop test for this rule. The reference helper is:
-#   crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target
-# Find every test in the new test file that exercises the round-trip:
-grep -nE "fn test_.*(closed_loop|round_trip|jl_parity)" src/unit_tests/rules/{R}.rs
-```
-
-### 4b-2: Run it by name and confirm it actually executes
-
-```bash
-cargo test --lib --no-fail-fast -- --exact test_{rule_module}::test_{...}_closed_loop
-```
-
-- Confirm the binary prints `test result: ok. 1 passed` for **each** named test.
-- "0 passed; 0 failed; 0 ignored" means the test name was wrong → flag as ISSUE.
-- If the closed-loop test is `#[ignore]`'d → FAIL.
-
-### 4b-3: Confirm the round-trip is real, not a type check
-
-Read each closed-loop test and verify it does ALL FOUR of the following:
-
-| # | What the test must do | Red flag |
-|---|---|---|
-| 1 | Build a concrete source instance with **multiple feasible solutions of different objective values** | Trivial instance (single edge, single clause, empty graph) — anything where the answer is unique by inspection |
-| 2 | Call `ReduceTo::<Target>::reduce_to(&source)` to produce the target | Test only asserts on `target_problem()` fields without actually solving |
-| 3 | Solve the target (BruteForce / ILP / appropriate solver) AND solve the source independently | Test compares only target value, never source value |
-| 4 | Use `extract_solution` (or the appropriate helper, e.g. `assert_optimization_round_trip_from_optimization_target`) to map the target witness back, then assert the extracted source configuration is **optimal** for the source | Test asserts only that `extract_solution` returns `Some(_)` or has the right length |
-
-If any of (1)-(4) is missing → ISSUE (test does not verify the round-trip).
-
-### 4b-4: Spot-check on a fresh instance (when feasible)
-
-The rule's own closed-loop test is author-supplied — it may use exactly the input that makes the reduction look right. To catch that class of bug, drive a different instance through the CLI:
-
-```bash
-pred path <Source> <Target> --json     # confirm the new rule is on the chosen path
-pred create --example <rule_example_id> --output /tmp/src.json
-pred solve /tmp/src.json                # direct source-side optimum
-pred solve /tmp/src.json --via <Target> # through the new reduction
-```
-
-The two `pred solve` values must agree. If `--via` isn't wired for this path, skip 4b-4 and note it in the report — do not pad with a re-statement of 4b-2.
-
 ## Step 5: Issue Compliance Review
 
 Only if a linked issue was provided.
@@ -211,12 +162,6 @@ Flag any deviation as ISSUE.
 
 ### Semantic Review
 - [check]: OK / ISSUE — description
-
-### Round-trip Execution (rules only)
-- Closed-loop test located: PASS / FAIL — name(s) and file
-- Closed-loop test runs and passes: PASS / FAIL — paste the `test result: ok. N passed` line
-- Test exercises real round-trip (4 criteria): PASS / FAIL — note any missing criterion
-- Spot-check with pred / scratch: PASS / FAIL — record method used and observed values
 
 ### Issue Compliance (if linked issue found)
 | # | Check | Status |

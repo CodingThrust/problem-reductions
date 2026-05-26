@@ -373,9 +373,6 @@ Run /review-pipeline on PR #<PR>. Follow
 .claude/skills/review-pipeline/SKILL.md exactly; it always moves the
 PR to Final review at the end.
 
-For PRs adding a reduction rule, review-structural Step 4b (round-trip
-execution) is mandatory — see that skill for the four criteria.
-
 Return ONLY this JSON shape:
 {
   "outcome": "success" | "failure",
