@@ -18608,6 +18608,54 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The X3C configuration equals the Subset Product configuration: select subset $j$ iff $x_j = 1$.
 ]
 
+// ExactCoverBy3Sets → BoundedDiameterSpanningTree (#913)
+#let x3c_bdst = load-example("ExactCoverBy3Sets", "BoundedDiameterSpanningTree")
+#let x3c_bdst_sol = x3c_bdst.solutions.at(0)
+#let x3c_bdst_nv = graph-num-vertices(x3c_bdst.target.instance)
+#let x3c_bdst_ne = graph-num-edges(x3c_bdst.target.instance)
+#reduction-rule("ExactCoverBy3Sets", "BoundedDiameterSpanningTree",
+  example: true,
+  example-caption: [$|U| = #x3c_bdst.source.instance.universe_size$, $|cal(C)| = #x3c_bdst.source.instance.subsets.len()$ subsets; target $D = #x3c_bdst.target.instance.diameter_bound$, $B = #x3c_bdst.target.instance.weight_bound$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(x3c_bdst.source) + " -o x3c.json",
+      "pred reduce x3c.json --to " + target-spec(x3c_bdst) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate x3c.json --config " + x3c_bdst_sol.source_config.map(str).join(","),
+    )
+
+    #let q = x3c_bdst.source.instance.universe_size / 3
+    #let m = x3c_bdst.source.instance.subsets.len()
+    *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_bdst.source.instance.universe_size - 1)}$ with $q = #q$ and candidate triples
+    #for (i, s) in x3c_bdst.source.instance.subsets.enumerate() [
+      $C_#i = {#s.map(str).join(", ")}$#if i < m - 1 [, ] else [.]
+    ]
+
+    *Step 2 -- Build the spanning-tree gadget.* Create a root $r$, two forced-path vertices $v_1, v_2$, one set vertex $s_i$ per triple, and one element vertex $e_j$ per universe element. The target therefore has $#x3c_bdst_nv = 3 + #m + #(x3c_bdst.source.instance.universe_size)$ vertices and $#x3c_bdst_ne$ weighted edges: the forced path $(r, v_1), (v_1, v_2)$ at weight $1$, the root-to-set edges $(r, s_i)$ at weight $2$, the set-to-element edges $(s_i, e_j)$ for $j in C_i$ at weight $1$, and the set clique $(s_i, s_(i'))$ at weight $1$. The bounds are $D = #x3c_bdst.target.instance.diameter_bound$ and $B = 4q + m + 2 = #x3c_bdst.target.instance.weight_bound$.
+
+    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#x3c_bdst_sol.source_config.map(str).join(", "))$ selects subsets ${#x3c_bdst_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => "C_" + str(i)).join(", ")}$. The corresponding tree keeps the forced path, every root-to-set edge for a selected $s_i$, every $(s_i, e_j)$ for $j in C_i$, and one clique edge to attach each remaining set vertex. With $q = #q$ selected sets it has total weight $2 + 2q + 3q + (m - q) = #(2 + 2 * q + 3 * q + m - q) = B$ and every vertex sits within distance $2$ of $r$, so the diameter is at most $4$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. Any feasible spanning tree of weight $B$ and diameter $D = 4$ corresponds to an exact cover via the same extractor, so additional witnesses, when they exist, just enumerate other exact covers.
+  ],
+)[
+  This $O(m^2 + q)$ reduction @garey1979[ND4] embeds X3C into the spanning-tree gadget of Bounded Diameter Spanning Tree. The constructed graph has $3 + m + 3q$ vertices and $2 + 4m + binom(m, 2)$ edges with weights in ${1, 2}$. Setting $D = 4$ and $B = 4q + m + 2$, the BDST instance is feasible if and only if the X3C instance has an exact cover.
+][
+  _Construction._ Let the X3C instance be $(U, cal(C))$ with $|U| = 3q$ and $cal(C) = {C_0, dots, C_(m-1)}$. Introduce a root vertex $r$, two forced-path vertices $v_1, v_2$, set vertices $s_0, dots, s_(m-1)$, and element vertices $e_0, dots, e_(3q-1)$. Add the edges
+  $
+    (r, v_1) " and " (v_1, v_2) " of weight " 1, quad (r, s_i) " of weight " 2 " for every " i,
+  $
+  $
+    (s_i, e_j) " of weight " 1 " whenever " j in C_i, quad (s_i, s_(i')) " of weight " 1 " for all " 0 <= i < i' < m.
+  $
+  Set the diameter bound $D = 4$ and the weight bound $B = 4q + m + 2$.
+
+  _Correctness._ ($arrow.r.double$) Let $cal(C)' = {C_(i_1), dots, C_(i_q)}$ be an exact cover. Pick the forced-path edges, the $q$ root-to-set edges for the chosen indices, the $3q$ set-to-element edges that match the cover, and for every unselected set $C_i$ a single clique edge to some chosen set. This is a spanning tree of weight $2 + 2q + 3q + (m - q) = 4q + m + 2 = B$, and every vertex lies within distance $2$ of $r$, so the diameter is at most $4 = D$.
+
+  ($arrow.l.double$) Suppose $T$ is a spanning tree of weight at most $B$ and diameter at most $4$. Because $"dist"_T(r, v_2) = 2$ in any tree containing the forced edges, every other vertex must sit within distance $2$ of $r$; otherwise its distance to $v_2$ would exceed $4$. Element vertices $e_j$ have neighbors only among set vertices, so each $e_j$ is at depth $2$ and connects through some $s_i$ that is directly attached to $r$. Let $k$ be the number of root-to-set edges in $T$. The cheapest way to spawn the remaining $m - k$ set vertices uses clique edges of weight $1$, so the minimum tree weight is $k dot 2 + (m - k) dot 1 + 3q dot 1 + 2 dot 1 = k + m + 3q + 2$. Feasibility forces $k <= q$. Each chosen set covers at most three element vertices, so covering all $3q$ elements requires $k >= q$, hence $k = q$. The $q$ chosen sets contribute exactly $3q$ element attachments, so they must be pairwise disjoint and form an exact cover.
+
+  _Solution extraction._ The target configuration has one coordinate per edge in the order produced by the construction. The $m$ coordinates indexing the root-to-set edges $(r, s_i)$ are the X3C selection vector: $x_i = 1$ iff $(r, s_i) in T$.
+]
+
 // 8. SubsetSum → IntegerExpressionMembership (#569)
 #let ss_iem = load-example("SubsetSum", "IntegerExpressionMembership")
 #let ss_iem_sol = ss_iem.solutions.at(0)
