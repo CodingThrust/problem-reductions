@@ -13893,6 +13893,31 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each position $j$, read the unique symbol $a$ with $x_(j, a) = 1$; the resulting length-$m$ vector is the source center.
 ]
 
+#reduction-rule("ClosestSubstring", "ILP")[
+  Integer variables select one alphabet symbol at each center position and one window start per input string. A conditional radius constraint is activated by the window-choice indicator and upper-bounds the Hamming distance between the center and the selected window of each string.
+][
+  _Construction._ Given alphabet $Sigma$ of size $q$, $n$ input strings $s_1, dots, s_n$ over $Sigma$, and window length $ell$ with $W_i = |s_i| - ell + 1$:
+
+  _Variables:_ (1) $x_(r, a) in {0, 1}$ for $r in {0, dots, ell - 1}$ and $a in {0, dots, q - 1}$: $x_(r, a) = 1$ iff the center has symbol $a$ at position $r$. (2) $y_(i, p) in {0, 1}$ for input string $s_i$ and window start $p in {0, dots, W_i - 1}$: $y_(i, p) = 1$ iff window $p$ is selected from $s_i$. (3) Nonnegative integer $R$: an upper bound on the worst-case Hamming distance.
+
+  _Constraints:_ (1) Center assignment: $sum_(a = 0)^(q - 1) x_(r, a) = 1$ for every position $r$. (2) Window choice: $sum_(p = 0)^(W_i - 1) y_(i, p) = 1$ for every input string $s_i$. (3) Conditional radius: $R + sum_(r = 0)^(ell - 1) x_(r, s_i [p + r]) - ell dot y_(i, p) >= 0$ for every $(i, p)$. When $y_(i, p) = 1$, this is equivalent to $R >= ell - sum_r x_(r, s_i [p + r]) = d_H (c, s_i [p .. p + ell))$; when $y_(i, p) = 0$, the constraint reduces to $R + (text("nonneg match count")) >= 0$, which holds automatically.
+
+  _Objective:_ Minimize $R$.
+
+  The ILP is:
+  $
+    "minimize" quad & R \
+    "subject to" quad & sum_(a = 0)^(q - 1) x_(r, a) = 1 quad forall r in {0, dots, ell - 1} \
+    & sum_(p = 0)^(W_i - 1) y_(i, p) = 1 quad forall i in {1, dots, n} \
+    & R + sum_(r = 0)^(ell - 1) x_(r, s_i [p + r]) - ell dot y_(i, p) >= 0 quad forall i, p \
+    & x_(r, a), y_(i, p) in {0, 1}, quad R in ZZ_(>= 0).
+  $
+
+  _Correctness._ ($arrow.r.double$) Given an optimal center $c^* in Sigma^ell$ and optimal window starts $p_1^*, dots, p_n^*$, set $x_(r, c^*[r]) = 1$, $y_(i, p_i^*) = 1$, and $R = max_i d_H (c^*, s_i [p_i^* .. p_i^* + ell))$. The assignment and window-choice constraints hold by construction. For each pair $(i, p_i^*)$ the radius constraint becomes $R >= d_H (c^*, s_i [p_i^* .. p_i^* + ell))$, which holds with equality at the worst case; for every other $(i, p)$ with $y_(i, p) = 0$ the constraint is redundant. ($arrow.l.double$) The assignment and window-choice constraints force each block of $x$ and each block of $y$ to be one-hot, encoding a center $c$ and one window per input string. The conditional radius constraint is active exactly on the selected windows and forces $R >= d_H (c, s_i [p_i .. p_i + ell))$ for every $i$, so $R$ is at least the worst-case selected Hamming distance. Minimizing $R$ therefore minimizes the maximum Hamming distance over chosen windows.
+
+  _Solution extraction._ For each position $r$, read the unique symbol $a$ with $x_(r, a) = 1$ as the center symbol; for each input string $s_i$, read the unique $p$ with $y_(i, p) = 1$ as the selected window start.
+]
+
 #reduction-rule("LongestCommonSubsequence", "ILP")[
   An optimization ILP formulation maximizes the length of a common subsequence. Binary variables choose a symbol (or padding) at each witness position. Match variables link active positions to source string indices, and the objective maximizes the number of non-padding positions.
 ][
