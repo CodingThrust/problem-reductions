@@ -54,6 +54,27 @@ impl ReduceTo<ThreeMatroidIntersection> for ThreeDimensionalMatching {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "threedimensionalmatching_to_threematroidintersection",
+        build: || {
+            crate::example_db::specs::rule_example_with_witness::<_, ThreeMatroidIntersection>(
+                ThreeDimensionalMatching::new(
+                    3,
+                    vec![(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 1, 2), (1, 2, 0)],
+                ),
+                SolutionPair {
+                    source_config: vec![1, 1, 1, 0, 0],
+                    target_config: vec![1, 1, 1, 0, 0],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/threedimensionalmatching_threematroidintersection.rs"]
 mod tests;

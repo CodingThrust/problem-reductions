@@ -492,6 +492,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_threematroidintersection::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
     specs.extend(
