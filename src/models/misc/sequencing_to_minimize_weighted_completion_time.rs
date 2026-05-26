@@ -4,6 +4,11 @@
 //! Garey & Johnson, 1979) where tasks with processing times, weights,
 //! and precedence constraints must be scheduled to minimize the total
 //! weighted completion time.
+//!
+//! This model accepts zero-length tasks in addition to positive-length
+//! tasks. That choice matches the standard Lawler reduction from
+//! Optimal Linear Arrangement, which uses zero-length edge jobs instead
+//! of padding them to unit length.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -28,7 +33,7 @@ inventory::submit! {
 
 /// Sequencing to Minimize Weighted Completion Time problem.
 ///
-/// Given tasks with processing times `l(t)`, weights `w(t)`, and precedence
+/// Given tasks with nonnegative processing times `l(t)`, weights `w(t)`, and precedence
 /// constraints, find a single-machine schedule that respects the precedences
 /// and minimizes `sum_t w(t) * C(t)`, where `C(t)` is the completion time of
 /// task `t`.
@@ -57,9 +62,6 @@ impl SequencingToMinimizeWeightedCompletionTime {
         if lengths.len() != weights.len() {
             return Err("lengths length must equal weights length".to_string());
         }
-        if lengths.contains(&0) {
-            return Err("task lengths must be positive".to_string());
-        }
 
         let num_tasks = lengths.len();
         for &(pred, succ) in precedences {
@@ -84,8 +86,8 @@ impl SequencingToMinimizeWeightedCompletionTime {
     ///
     /// # Panics
     ///
-    /// Panics if `lengths.len() != weights.len()` or if any precedence endpoint
-    /// is out of range.
+    /// Panics if `lengths.len() != weights.len()` or if any precedence
+    /// endpoint is out of range.
     pub fn new(lengths: Vec<u64>, weights: Vec<u64>, precedences: Vec<(usize, usize)>) -> Self {
         Self::validate(&lengths, &weights, &precedences).unwrap_or_else(|err| panic!("{err}"));
 

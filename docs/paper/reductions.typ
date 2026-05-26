@@ -13570,6 +13570,25 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Identity: read the ILP vector $(x_0, dots, x_(m-1))$ directly as the arc-flow vector of the source problem.
 ]
 
+#reduction-rule("OptimalLinearArrangement", "SequencingToMinimizeWeightedCompletionTime")[
+  @lawler1978a This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
+][
+  _Construction._ Let the source instance be an undirected graph $G = (V, E)$ with $n = |V|$, $m = |E|$, and maximum degree $d_"max" = max_(v in V) deg(v)$. For each vertex $v in V$, create a job $J_v$ of length 1 and weight $d_"max" - deg(v)$. For each edge $e = {u, v} in E$, create a job $J_e$ of length 0 and weight 2. Add the precedence constraints $J_u prec.eq J_e$ and $J_v prec.eq J_e$ for every edge job $J_e$. There are no other precedences, so the target has $n + m$ jobs and $2m$ precedence arcs.
+
+  _Correctness._ Write the source arrangement as a bijection $pi : V -> {0, dots, n - 1}$. Schedule the vertex jobs in increasing $pi$-order, so $J_v$ completes at time $C_v = pi(v) + 1$. Because $J_e$ has length 0 and must follow both endpoints, edge job $J_{ {u, v} }$ completes at time $max(pi(u), pi(v)) + 1$. The total weighted completion time is
+  $
+    sum_(v in V) (d_"max" - deg(v)) (pi(v) + 1) + sum_({u,v} in E) 2 (max(pi(u), pi(v)) + 1).
+  $
+  Using $sum_v deg(v) (pi(v) + 1) = sum_({u,v} in E) (pi(u) + pi(v) + 2)$, this becomes
+  $
+    d_"max" sum_(v in V) (pi(v) + 1) + sum_({u,v} in E) (2 max(pi(u), pi(v)) - pi(u) - pi(v))
+    = d_"max" n (n + 1) / 2 + sum_({u,v} in E) |pi(u) - pi(v)|.
+  $
+  Therefore minimizing the target objective is exactly minimizing the Optimal Linear Arrangement objective, up to the additive constant $d_"max" n (n + 1) / 2$. The source uses 0-indexed positions, but the completion-time shift by 1 is already absorbed into that constant.
+
+  _Solution extraction._ Read the target schedule order, delete all edge jobs, and assign source positions $0, 1, dots, n - 1$ to the remaining vertex jobs in the order they appear.
+]
+
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
   Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
 ][
