@@ -14429,7 +14429,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   example: true,
   example-source-variant: (graph: "BipartiteGraph"),
   example-target-variant: (graph: "SimpleGraph"),
-  example-caption: [Path $P_4$ as a bipartite graph with $A = {v_0, v_2}$, $B = {v_1, v_3}$.],
+  example-caption: [T-tree on $5$ vertices (spider with three legs at $v_1$): $v_0 - v_1 - v_2 - v_3$ plus the leaf $v_1 - v_4$, encoded as bipartite with $A = {v_0, v_2, v_4}$, $B = {v_1, v_3}$.],
   extra: [
     #{
       let source-edges = mmm_ach.target.instance.graph.edges
@@ -14448,15 +14448,15 @@ The following reductions to Integer Linear Programming are straightforward formu
           "pred evaluate mmm.json --config " + mmm_ach_sol.source_config.map(str).join(","),
         )
 
-        *Step 1 -- Source instance.* Path $P_4$ encoded as a bipartite graph with bipartition $A = {v_0, v_2}$ and $B = {v_1, v_3}$. In unified indices the vertex set is ${0, 1, 2, 3}$ (left vertices first), $n = #n-source$, and the $m = #m-source$ edges are #source-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+        *Step 1 -- Source instance.* The T-tree on $5$ vertices is the spider graph with centre $v_1$ and legs to $v_0$, $v_2$, $v_4$, plus the pendant edge $v_2 - v_3$. It is bipartite with $A = {v_0, v_2, v_4}$ and $B = {v_1, v_3}$. In unified indices the vertex set is ${0, 1, 2, 3, 4}$ (left vertices first, mapping $v_0 mapsto 0$, $v_2 mapsto 1$, $v_4 mapsto 2$, $v_1 mapsto 3$, $v_3 mapsto 4$), so $n = #n-source$ and the $m = #m-source$ edges are #source-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
 
-        *Step 2 -- Complement graph $H = overline(G)$.* The non-edges of $G$ in $K_4$ give the target edge set, with $|E(H)| = #m-target$ edges (#mmm_ach.target.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")). The decision threshold transforms as $K' = n - K$.
+        *Step 2 -- Complement graph $H = overline(G)$.* The non-edges of $G$ in $K_5$ give the target edge set, with $|E(H)| = #m-target$ edges (#mmm_ach.target.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")). The decision threshold transforms as $K' = n - K$.
 
-        *Step 3 -- Source optimum.* The minimum maximal matching uses the middle edge, so $"mm"(G) = #matched.len() = 1$ (source index $#matched.at(0)$).
+        *Step 3 -- Source optimum.* The minimum maximal matching uses the central edge $(v_1, v_2)$, so $"mm"(G) = #matched.len() = 1$ (source index $#matched.at(0)$). The T-tree also admits two strictly larger maximal matchings $\{(v_0, v_1), (v_2, v_3)\}$ and $\{(v_1, v_4), (v_2, v_3)\}$, both of size $2$ -- this richness is the reason for choosing the T-tree over the path $P_4$ as the canonical example.
 
         *Step 4 -- Target optimum.* The achromatic coloring stored in the fixture is $#color-of.map(str).join(", ")$. The size-$2$ color class corresponds to the source edge selected in Step 3, and the singletons contribute the remaining $n - 2$ classes, so the achromatic number is $psi(H) = n - "mm"(G) = #n-source - 1 = #(n-source - 1) #sym.checkmark$.
 
-        *Multiplicity:* The fixture stores one canonical witness; other valid achromatic $3$-colorings exist and would extract to other minimum maximal matchings.
+        *Multiplicity:* The fixture stores one canonical witness; other valid achromatic $4$-colorings exist and would extract to the same minimum maximal matching after relabelling colors.
       ]
     }
   ],
