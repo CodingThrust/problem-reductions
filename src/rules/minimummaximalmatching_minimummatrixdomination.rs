@@ -199,10 +199,7 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
 
 /// Return `Some((i, j, v))` where `i`, `j` are indices in `d` of two edges that
 /// share vertex `v`, or `None` if all edges in `d` are pairwise independent.
-fn find_adjacent_pair(
-    d: &[usize],
-    edges: &[(usize, usize)],
-) -> Option<(usize, usize, usize)> {
+fn find_adjacent_pair(d: &[usize], edges: &[(usize, usize)]) -> Option<(usize, usize, usize)> {
     for (a_pos, &i) in d.iter().enumerate() {
         let (iu, iv) = edges[i];
         for &j in &d[a_pos + 1..] {
@@ -223,8 +220,7 @@ fn find_adjacent_pair(
 /// with some edge in `d`.
 fn is_edge_dominating_set(d: &[usize], edges: &[(usize, usize)]) -> bool {
     // Vertex cover of the candidate EDS.
-    let mut covered_vertices: std::collections::HashSet<usize> =
-        std::collections::HashSet::new();
+    let mut covered_vertices: std::collections::HashSet<usize> = std::collections::HashSet::new();
     for &i in d {
         let (u, v) = edges[i];
         covered_vertices.insert(u);
