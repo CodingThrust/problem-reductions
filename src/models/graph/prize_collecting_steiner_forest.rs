@@ -231,7 +231,6 @@ where
         // incident selected edges is one singleton tree.
         let mut visited = vec![false; n];
         let mut kappa: usize = 0;
-        let mut total_selected_vertices: usize = 0;
         let mut total_tree_edges: usize = 0;
         for start in 0..n {
             if config[start] != 1 || visited[start] {
@@ -240,7 +239,6 @@ where
             // Discovered a fresh component containing `start`.
             kappa += 1;
             visited[start] = true;
-            let mut comp_vertices: usize = 1;
             let mut comp_edges: usize = 0;
             // Parent edge index per vertex inside this BFS, used to detect
             // back-edges (cycles).
@@ -259,17 +257,14 @@ where
                     }
                     visited[w] = true;
                     parent_edge[w] = Some(edge_idx);
-                    comp_vertices += 1;
                     comp_edges += 1;
                     queue.push_back(w);
                 }
             }
-            // A tree on `comp_vertices` vertices has exactly
-            // `comp_vertices - 1` edges. The BFS above counts each tree edge
-            // once via discovery. If we did not pick up an extra back-edge
-            // (which would have triggered the cycle return above), the
-            // selected-edge subgraph restricted to this component is a tree.
-            total_selected_vertices += comp_vertices;
+            // Each discovered tree edge is counted once via BFS discovery. If
+            // we did not pick up an extra back-edge (which would have
+            // triggered the cycle return above), the selected-edge subgraph
+            // restricted to this component is a tree.
             total_tree_edges += comp_edges;
         }
         // Sanity: every selected edge must have been visited as a tree edge.
@@ -278,7 +273,6 @@ where
         if total_tree_edges != selected_edge_count {
             return Min(None);
         }
-        let _ = total_selected_vertices; // not used in the objective directly
 
         // Objective: beta * sum_{v notin V_F} p(v)
         //          + sum_{e in E_F} c(e)
