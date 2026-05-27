@@ -18355,6 +18355,36 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each source vertex $v$, locate any biclique $r$ that contains both $a_v$ and $b_v$. Compact the distinct diagonal-covering biclique indices into colors $0, dots, q - 1$ in first-seen order and assign each $v$ its compacted color.
 ]
 
+// 6. KSatisfiability/K3 → BicliqueCover (#1057)
+#reduction-rule("KSatisfiability", "BicliqueCover")[
+  Polynomial reduction (Chandran, Issac, and Karrenbauer, IPEC 2016 @chandran_et_al:LIPIcs.IPEC.2016.11) from 3-SAT to BicliqueCover with logarithmic rank. Each source variable is split into a positive/negative pair $(t_i, f_i)$, exactly-one clauses tie them to opposite truth values, and the formula is padded so that $n = 2^ell$ normalized variables admit a balanced satisfying assignment with exactly $n / 2$ true variables. The construction then assembles a bipartite gadget whose biclique cover rank equals $k_f + 2 ell + 2$ iff the (normalized) formula is satisfiable.
+][
+  _Construction._ Let $psi$ be a 3-CNF formula with source variables $x_1, dots, x_(n_s)$ and clauses $C_1, dots, C_(m_s)$. *Normalize* $psi$:
+  $
+    "vars:" quad     & "introduce" t_i, f_i "for each" x_i "and pad to" n = 2^ell "variables" \
+    "clauses:" quad  & "replace literal" x_i "by" t_i ";" not x_i "by" f_i \
+                     & "add" (t_i or f_i or f_i) "and" (not t_i or not f_i or not f_i) "per pair."
+  $
+  Let $n$ and $m$ denote the normalized variable and clause counts. Build a bipartite graph $G = (U, V, E)$ with $|U| = |V| = n + 3 m + 3 ell + 2 + k_f$ where $k_f = 4 ell + 2 ceil(log_2 m) + 6$. The edge set is partitioned into _important_ and _free_ edges:
+  $
+    "important: crown" quad         & h_i^u h_j^v "for" i != j "in" [n] \
+    "important: clauses" quad       & p_(i, a)^u p_(i, a)^v "for" i in [m], a in {1, 2, 3} \
+    "important: dominoes" quad      & "seven domino edges of each" S_j "," j in [ell] \
+    "important: guard" quad         & q_t^u q_t^v "for" t in {1, 2} \
+    "important: " H "-"S quad       & s_(j, 2)^u h_i^v "and" h_i^u s_(j, 2)^v \
+    "free: " H "-"S "ladder" quad   & s_(j, 1)^u h_i^v, s_(j, 3)^u h_i^v "and reverse" \
+    "free: " P "-"P quad             & U(P_i) times V(P_j) "for" i != j \
+    "free: " P "-"Q quad             & U(Q) times V(P_i), U(P_i) times V(Q) \
+    "free: " H "-"P quad             & p_(i, a)^u h_j^v "unless" C_i^a = x_j "(symmetric on right side)" \
+    "free: " S_1 "-"P quad           & {s_(1, 1)^u, s_(1, 2)^u} times union.sq_i V(P_i), "symmetric on right."
+  $
+  Finally add a forcing induced matching $Y$ of size $k_f$. For each free-edge biclique $B_r^f$ enumerated in Lemma 16, make $y_r^u y_r^v$ bisimplicial with $B_r^f$: connect $y_r^u$ to every right vertex of $B_r^f$ and every left vertex of $B_r^f$ to $y_r^v$. Set the BicliqueCover rank to $k = k_f + 2 ell + 2$.
+
+  _Correctness._ ($arrow.r.double$) A balanced satisfying assignment fixes one duplex pair $(B_1, overline(B)_1)$ in the crown graph (Lemma 13). Extend $B_1$ through $S_1$ and into one selected satisfied literal edge per clause; the omitted $H$-$P$ edges block extension by unsatisfied literals. Two guard bicliques absorb the remaining two literal edges of each clause and the $Q$ edges. Together with $B_1, overline(B)_1$ and $2 (ell - 1)$ more domino-extension pairs we obtain $2 ell + 2$ important-edge bicliques. Adding $k_f$ free-edge bicliques (Lemma 16) yields a cover of rank exactly $k_f + 2 ell + 2$. ($arrow.l.double$) Any rank-$k$ cover must spend $k_f$ bicliques on the $Y$ matching (Lemma 17) and leaves an induced matching of $2 ell + 2$ important edges, each in its own biclique. The constraints on $S_1$ force the literal-edge biclique to lie in $B_1$, and the omitted $H$-$P$ edges force the selected literals to agree with the assignment $x_i = ($h_i^u in B_1)$. Mapping normalized variables back to source variables yields a satisfying assignment.
+
+  _Solution extraction._ Identify the unique biclique $B_1$ that covers $s_(1, 1)^u s_(1, 1)^v$ and contains no $y_r^u$ or $y_r^v$. Read the normalized assignment $t_i = (h_i^u in B_1)$ and copy each source $x_i$ from its normalized $t_i$.
+]
+
 #let clustering_ilp = load-example("Clustering", "ILP")
 #let clustering_ilp_sol = clustering_ilp.solutions.at(0)
 #reduction-rule("Clustering", "ILP",
