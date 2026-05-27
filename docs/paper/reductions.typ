@@ -13472,6 +13472,44 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ For each source vertex $u in V_1$, output the unique $p in V_2$ with $x_(u,p) = 1$ if such a $p$ exists, otherwise the sentinel $|V_2|$ encoding "unmatched".
 ]
 
+#let cmo_ilp = load-example(
+  "MaximumContactMapOverlap",
+  "ILP",
+  target-variant: (variable: "bool"),
+)
+#let cmo_ilp_sol = cmo_ilp.solutions.at(0)
+#reduction-rule("MaximumContactMapOverlap", "ILP",
+  example: true,
+  example-target-variant: (variable: "bool"),
+  example-caption: [$|V_1| = #cmo_ilp.source.instance.num_vertices_1$, $|E_1| = #cmo_ilp.source.instance.contacts_1.len()$, $|V_2| = #cmo_ilp.source.instance.num_vertices_2$, $|E_2| = #cmo_ilp.source.instance.contacts_2.len()$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(cmo_ilp.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(cmo_ilp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + cmo_ilp_sol.source_config.map(str).join(","),
+    )
+    Source alignment witness $(#cmo_ilp_sol.source_config.map(str).join(", "))$ (each entry is the matched index in $V_2$ shifted by $1$, with $0$ meaning unmatched), target ILP witness $(#cmo_ilp_sol.target_config.map(str).join(", "))$.
+  ],
+)[
+  Encode the order-preserving partial injective alignment $V_1 -> V_2$ by binary match variables $x_(i,j)$ with row, column, and crossing-forbidding inequalities, then linearize each pair of source/target contacts with a binary product variable $y_(i,k,j,l)$ to count preserved contacts @AndonovMalodDogninYanev2011CMO @XieSahinidis2007CMO.
+][
+  _Construction._ Let the source instance be the pair of ordered contact maps $G_1 = (V_1, E_1)$ and $G_2 = (V_2, E_2)$ with $V_r = {0, dots, n_r - 1}$ and contacts $E_r$ canonicalized so that every contact $\{i, k\}$ is stored with $i < k$. Introduce binary variables $x_(i,j) in {0, 1}$ for every $i in V_1$ and $j in V_2$, where $x_(i,j) = 1$ iff residue $i$ is matched to residue $j$. For every pair of canonical contacts ${i, k} in E_1$ (with $i < k$) and ${j, l} in E_2$ (with $j < l$), introduce a binary variable $y_(i,k,j,l) in {0, 1}$. The ILP is:
+  $
+    max quad & sum_({i,k} in E_1, {j,l} in E_2) y_(i,k,j,l) \
+    "subject to" quad & sum_(j in V_2) x_(i,j) <= 1 quad forall i in V_1 \
+    & sum_(i in V_1) x_(i,j) <= 1 quad forall j in V_2 \
+    & x_(i,j) + x_(k,l) <= 1 quad forall i < k in V_1, j >= l in V_2 \
+    & y_(i,k,j,l) <= x_(i,j), quad y_(i,k,j,l) <= x_(k,l) quad forall ({i,k}, {j,l}) in E_1 times E_2 \
+    & x_(i,j), y_(i,k,j,l) in {0, 1}.
+  $
+  The target has $n_1 n_2 + |E_1| |E_2|$ variables and $n_1 + n_2 + n_1^2 n_2^2 + 2 |E_1| |E_2|$ constraints.
+
+  _Correctness._ ($arrow.r.double$) Any order-preserving partial injective alignment $f : V_1 -> V_2 union {bot}$ preserving $K$ contacts produces a feasible ILP solution by setting $x_(i, f(i)) = 1$ when $f(i) != bot$, all other $x_(i,j) = 0$, and $y_(i,k,j,l) = 1$ iff $\{j, l\} = \{f(i), f(k)\}$. The row and column inequalities encode that $f$ is a (partial) function and injective. The crossing-forbidding inequalities rule out both crossings $j > l$ and equal-image matches $j = l$ for $i < k$, which is equivalent to the order-preservation requirement $f(i) < f(k)$ on matched pairs. The linking inequalities allow $y_(i,k,j,l) = 1$ only when both endpoints are matched, and the objective drives $y_(i,k,j,l) = 1$ exactly when $f$ preserves the contact $\{i,k\}$, achieving value $K$. ($arrow.l.double$) Any feasible ILP solution defines a (partial) injective map via $f(i) = j$ when $x_(i,j) = 1$, which is order-preserving because the crossing-forbidding inequalities rule out $j >= l$ when $i < k$. The linking inequalities force $y_(i,k,j,l) <= x_(i,j) and x_(k,l)$, so each $y_(i,k,j,l) = 1$ certifies that the contact $\{i,k\} in E_1$ is mapped to the contact $\{j,l\} in E_2$, hence preserved by $f$. Therefore the ILP optimum equals the CMO optimum.
+
+  _Solution extraction._ For each source residue $i in V_1$, find the unique $j$ with $x_(i,j) = 1$ and output $j + 1$; if no such $j$ exists, output $0$ (the CMO sentinel for an unmatched residue).
+]
+
 #let mewkc_ilp = load-example(
   "MaximumEdgeWeightedKClique",
   "ILP",
