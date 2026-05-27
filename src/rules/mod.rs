@@ -47,6 +47,7 @@ pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
+pub(crate) mod kcoloring_bicliquecover;
 mod kcoloring_casts;
 pub(crate) mod kcoloring_clustering;
 pub(crate) mod kcoloring_partitionintocliques;
@@ -443,6 +444,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
+    specs.extend(kcoloring_bicliquecover::canonical_rule_example_specs());
     specs.extend(kcoloring_clustering::canonical_rule_example_specs());
     specs.extend(kcoloring_partitionintocliques::canonical_rule_example_specs());
     specs.extend(kcoloring_twodimensionalconsecutivesets::canonical_rule_example_specs());
