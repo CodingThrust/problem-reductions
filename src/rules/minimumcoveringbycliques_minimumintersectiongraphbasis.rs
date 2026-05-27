@@ -18,6 +18,7 @@ pub struct ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis {
 
 fn invalid_source_solution(num_edges: usize) -> Vec<usize> {
     if num_edges == 0 {
+        // Deliberately wrong length so source `evaluate` returns `Min(None)`.
         vec![0]
     } else {
         vec![0; num_edges - 1]
