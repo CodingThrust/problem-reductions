@@ -119,6 +119,7 @@ pub(crate) mod partition_sequencingtominimizetardytaskweight;
 pub(crate) mod partition_subsetsum;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
+pub(crate) mod planar3satisfiability_minimumgeometricconnecteddominatingset;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
