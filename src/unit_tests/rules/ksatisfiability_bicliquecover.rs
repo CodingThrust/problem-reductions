@@ -19,6 +19,7 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::graph::BicliqueCover;
+#[cfg(feature = "example-db")]
 use crate::traits::Problem;
 use crate::variant::K3;
 
