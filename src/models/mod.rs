@@ -68,9 +68,9 @@ pub use misc::{
     SequencingToMinimizeMaximumCumulativeCost, SequencingToMinimizeTardyTaskWeight,
     SequencingToMinimizeWeightedCompletionTime, SequencingToMinimizeWeightedTardiness,
     SequencingWithDeadlinesAndSetUpTimes, SequencingWithReleaseTimesAndDeadlines,
-    SequencingWithinIntervals, ShortestCommonSupersequence, SquareTiling, StackerCrane,
-    StaffScheduling, StringToStringCorrection, SubsetProduct, SubsetSum, SumOfSquaresPartition,
-    Term, ThreePartition, TimetableDesign,
+    SequencingWithinIntervals, ShortestCommonSupersequence, ShortestCommonSuperstring,
+    SquareTiling, StackerCrane, StaffScheduling, StringToStringCorrection, SubsetProduct,
+    SubsetSum, SumOfSquaresPartition, Term, ThreePartition, TimetableDesign,
 };
 pub use set::{
     ComparativeContainment, ConsecutiveSets, ExactCoverBy3Sets, IntegerKnapsack, MaximumSetPacking,

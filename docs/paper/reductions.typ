@@ -349,6 +349,7 @@
   "SequencingWithReleaseTimesAndDeadlines": [Sequencing with Release Times and Deadlines],
   "SequencingWithinIntervals": [Sequencing Within Intervals],
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
+  "ShortestCommonSuperstring": [Shortest Common Superstring],
   "StaffScheduling": [Staff Scheduling],
   "SteinerTree": [Steiner Tree],
   "SteinerTreeInGraphs": [Steiner Tree in Graphs],
@@ -8330,6 +8331,97 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       ) <fig:scs>
 
       The optimal supersequence $w = #w-str$ has length #w-len and contains all #nr input strings as subsequences.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ShortestCommonSuperstring")
+  let alpha-size = x.instance.alphabet_size
+  let strings = x.instance.strings
+  let nr = strings.len()
+  // Alphabet mapping: 0->a, 1->b, 2->c, ...
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
+  // Optimal config includes padding; extract non-padding prefix
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w = w-cfg.map(c => alpha-map.at(c))
+  let w-str = fmt-str(w-cfg)
+  let w-len = w.len()
+  let r-strs = strings.map(s => fmt-str(s))
+  let r-chars = strings.map(s => s.map(c => alpha-map.at(c)))
+  // For each input string, locate the leftmost contiguous match in w.
+  let find-substr(needle, hay) = {
+    let n = needle.len()
+    if n == 0 { 0 } else {
+      let found = -1
+      for start in range(hay.len() - n + 1) {
+        if found == -1 {
+          let ok = true
+          for k in range(n) {
+            if hay.at(start + k) != needle.at(k) { ok = false }
+          }
+          if ok { found = start }
+        }
+      }
+      found
+    }
+  }
+  let starts = strings.map(s => find-substr(s, w-cfg))
+  [
+    #problem-def("ShortestCommonSuperstring")[
+      Given a finite alphabet $Sigma$ and a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, find a string $w in Sigma^*$ of minimum length such that every $r_i in R$ appears as a _contiguous substring_ of $w$: there exist $w_0, w_1 in Sigma^*$ with $w = w_0 r_i w_1$.
+    ][
+      A classical NP-complete string problem, listed as problem SR9 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness via reduction from Vertex Cover on cubic graphs; the problem remains NP-complete even for $|Sigma| = 2$ or when every $r_i$ has length at most $8$ with no repeated symbols. The problem is APX-hard, with the best known approximation ratio $2 11 slash 23 approx 2.478$ due to Mucha @mucha2013, recently improved to $approx 2.466$ by Englert, Matsakis, and Veselý.
+
+      Unlike #link(<def:ShortestCommonSupersequence>)[Shortest Common Supersequence], substring containment requires _contiguous_ occurrences: shorter strings cannot be embedded by skipping characters. The exact problem can be solved in $O(m^2 dot 2^m)$ time by a Bellman--Held--Karp style dynamic program on the _overlap graph_ (the asymmetric TSP whose vertices are input strings and whose arc weights record the longest suffix-prefix overlap). For $m = 2$ strings the problem is polynomial; for general $m$ the brute-force search explores candidate superstrings up to the trivial upper bound $sum_i |r_i|$. Major applications include genome assembly from short sequencing reads, data compression, and database compaction.
+
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest $w in Sigma^*$ that contains every $r_i$ as a contiguous substring.
+
+      #pred-commands(
+        "pred create --example ShortestCommonSuperstring -o shortest-common-superstring.json",
+        "pred solve shortest-common-superstring.json",
+        "pred evaluate shortest-common-superstring.json --config " + x.optimal_config.map(str).join(","),
+      )
+
+      #figure({
+        let r-colors = (graph-colors.at(0), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#e15759"), rgb("#b07aa1"))
+        align(center, stack(dir: ttb, spacing: 0.6cm,
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
+            ..w.enumerate().map(((i, ch)) => {
+              // Count how many strings occupy this position (substring window).
+              let used = range(nr).filter(ri => {
+                let st = starts.at(ri)
+                st != -1 and i >= st and i < st + r-chars.at(ri).len()
+              }).len()
+              let fill = if used >= 2 { r-colors.at(0).transparentize(50%) } else if used == 1 { r-colors.at(0).transparentize(80%) } else { white }
+              box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+                align(center + horizon, text(9pt, weight: "bold", ch)))
+            }),
+          ),
+          ..range(nr).map(ri => {
+            let st = starts.at(ri)
+            let r = r-chars.at(ri)
+            let col = r-colors.at(ri)
+            stack(dir: ltr, spacing: 0pt,
+              box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: col)[$r_#(ri + 1) =$])),
+              ..range(w-len).map(i => {
+                let in-window = st != -1 and i >= st and i < st + r.len()
+                let ch = if in-window { r.at(i - st) } else { sym.dot.c }
+                let c = if in-window { col } else { luma(200) }
+                box(width: 0.55cm, height: 0.55cm,
+                  align(center + horizon, text(9pt, fill: c, weight: if in-window { "bold" } else { "regular" }, ch)))
+              }),
+            )
+          }),
+        ))
+      },
+      caption: [Shortest Common Superstring: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (start position #str(starts.at(ri)))]).join(", ") as contiguous substrings. Dots mark positions outside each match window.],
+      ) <fig:scss>
+
+      The optimal superstring $w = #w-str$ has length #w-len and contains all #nr input strings as contiguous substrings.
     ]
   ]
 }
