@@ -11,12 +11,7 @@ use crate::types::Max;
 /// G_2 has 5 vertices with contacts {{0,3},{1,4},{0,2}}.
 /// Optimal alignment 0->0, 1->1, 2->3, 3->4 preserves 2 contacts.
 fn canonical_instance() -> MaximumContactMapOverlap {
-    MaximumContactMapOverlap::new(
-        4,
-        vec![(0, 2), (1, 3)],
-        5,
-        vec![(0, 3), (1, 4), (0, 2)],
-    )
+    MaximumContactMapOverlap::new(4, vec![(0, 2), (1, 3)], 5, vec![(0, 3), (1, 4), (0, 2)])
 }
 
 #[test]
@@ -70,7 +65,7 @@ fn test_maximumcontactmapoverlap_to_ilp_trivial_no_contacts() {
     // n1=2, n2=2 -> 4 x-variables, 0 y-variables.
     assert_eq!(ilp.num_vars, 4);
     // 2 row + 2 column + C(2,2)=1 ordered-pair * (2*3/2)=3 = 3 order-pres + 0 link.
-    assert_eq!(ilp.constraints.len(), 2 + 2 + 1 * 3);
+    assert_eq!(ilp.constraints.len(), 2 + 2 + 3);
     assert!(ilp.objective.is_empty());
 
     let ilp_solution = ILPSolver::new()
@@ -126,8 +121,8 @@ fn test_maximumcontactmapoverlap_to_ilp_extract_solution_partial() {
     // Hand-built solution: x_(0,1)=1, x_(1,2)=1, rest zero.
     let n2 = 3;
     let mut target_sol = vec![0usize; reduction.target_problem().num_vars];
-    target_sol[0 * n2 + 1] = 1;
-    target_sol[1 * n2 + 2] = 1;
+    target_sol[1] = 1;
+    target_sol[n2 + 2] = 1;
     let extracted = reduction.extract_solution(&target_sol);
     // Encoding: vertex j of G_2 is represented as j+1.
     assert_eq!(extracted, vec![2, 3]);
