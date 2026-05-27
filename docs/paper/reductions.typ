@@ -19696,5 +19696,57 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each source variable $v_i$, look up the recorded top-anchor index in the target point list. If the top-column anchor is selected, set $v_i$ to the polarity of its first occurrence (positive occurrence $arrow.r$ true); if the bottom anchor is selected, flip the polarity; if neither (variable does not occur), default to false. This is implemented in `ReductionPlanar3SATToGCD::extract_solution` and uses the auxiliary `first_occurrence_polarity` and `top_anchor_index` tables built during the reduction.
 ]
 
+#let pcsf_st = load-example("PrizeCollectingSteinerForest", "SteinerTree")
+#let pcsf_st_sol = pcsf_st.solutions.at(0)
+#let pcsf_st_n = pcsf_st.source.instance.graph.num_vertices
+#let pcsf_st_m = pcsf_st.source.instance.graph.edges.len()
+#let pcsf_st_prizes = pcsf_st.source.instance.vertex_prizes
+#let pcsf_st_k = range(pcsf_st_n).filter(v => pcsf_st_prizes.at(v) > 0).len()
+#reduction-rule("PrizeCollectingSteinerForest", "SteinerTree",
+  example: true,
+  example-caption: [Canonical PCSF $arrow$ Steiner Tree instance (path $0 - 1 - 2$, $n = #pcsf_st_n$, $m = #pcsf_st_m$, $k = #pcsf_st_k$ prized vertices)],
+  extra: [
+    #pred-commands(
+      "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
+      "pred reduce pcsf.json --to " + target-spec(pcsf_st) + " -o bundle.json",
+      "pred solve bundle.json",
+    )
+    The canonical PCSF source has $beta = #pcsf_st.source.instance.beta$, $omega = #pcsf_st.source.instance.omega$, and prizes $p = (#pcsf_st_prizes.at(0), #pcsf_st_prizes.at(1), #pcsf_st_prizes.at(2))$. The target SteinerTree has $|V_H| = n + k + 1 = #(pcsf_st_n + pcsf_st_k + 1)$ vertices, $|E_H| = m + n + 2 k = #(pcsf_st_m + pcsf_st_n + 2 * pcsf_st_k)$ edges, and $|T_H| = k + 1 = #(pcsf_st_k + 1)$ terminals, matching the registered overhead formulas.
+  ],
+)[
+  Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.
+][
+  _Construction._ Given a PCSF instance with graph $G = (V, E)$, edge costs $c$, vertex prizes $p$, and parameters $beta >= 0$, $omega >= 0$, let $V_p = {v in V : p(v) > 0}$ and $k = |V_p|$. Build the target graph $H = (V_H, E_H)$ with weights $c_H$ and terminal set $T_H$ as follows.
+
+  1. Add a fresh artificial root $r$: $V_H = V union {r} union {t_v : v in V_p}$.
+  2. Keep every original edge $e in E$ with $c_H(e) = c(e)$.
+  3. For every $v in V$, add a root-attachment edge $(r, v)$ with $c_H((r, v)) = omega$.
+  4. For every prized vertex $v in V_p$, add an include-edge $(v, t_v)$ with cost $0$ and an omit-edge $(r, t_v)$ with cost $beta dot p(v)$.
+  5. Set $T_H = {r} union {t_v : v in V_p}$. Original vertices $V$ and the new gadget terminals coexist; only $r$ and the $t_v$ are terminals.
+
+  Solve $"SteinerTree"(H, c_H, T_H)$ to obtain a minimum-weight tree $T^*$ spanning $T_H$.
+
+  _Witness extraction._ From $T^*$ recover the PCSF witness $(V_F, E_F)$ by
+
+  $ E_F = T^* sect E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
+
+  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* sect E(G)$. Both directions are consistent because:
+
+  - any prized vertex $v$ in $V_F$ pays the cost-$0$ include-edge $(v, t_v)$ to reach $t_v$ inside $T^*$;
+  - any prized vertex $v$ omitted from $V_F$ has $t_v$ joined to the tree exclusively through $(r, t_v)$, paying $beta dot p(v)$.
+
+  _Correctness._ ($arrow.r.double$) Given any feasible source forest $F$, attach each connected component of $F$ to $r$ via exactly one root-attachment edge (cost $omega$ per component) and resolve each gadget locally: take $(v, t_v)$ if $v in V_F$, else $(r, t_v)$. The resulting subgraph of $H$ is connected, spans $T_H$, and is a tree because every gadget is paid by exactly one of its two edges and the only chord that could close a cycle is removed by the choice of a single root-attachment edge per component. Its cost equals
+
+  $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + 0 = f'(F). $
+
+  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* sect E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
+
+  _Overhead._ With $n = |V|$, $m = |E|$, and $k = |V_p|$:
+  $ |V_H| = n + k + 1, quad |E_H| = m + n + 2 k, quad |T_H| = k + 1. $
+  Every quantity is linear in the source instance size, so the reduction is a polynomial-time transformation.
+
+  _Remark._ The artificial-root edges all share cost $omega$. Tuncbag et al. originally used this construction with $omega = c$ for any positive scalar $c$ acting as a per-component penalty; we follow that convention. When $omega = 0$, root-attachment edges become free and the construction degenerates: any rooted spanning tree of the prized-vertex closure achieves the same cost, but the witness-extraction recipe still recovers a feasible (cost-equivalent) PCSF forest, possibly with a different component count.
+]
+
 #pagebreak()
 #bibliography("references.bib", style: "ieee")

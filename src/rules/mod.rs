@@ -124,6 +124,7 @@ pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod planar3satisfiability_minimumgeometricconnecteddominatingset;
+pub(crate) mod prizecollectingsteinerforest_steinertree;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
@@ -490,6 +491,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         planar3satisfiability_minimumgeometricconnecteddominatingset::canonical_rule_example_specs(
         ),
     );
+    specs.extend(prizecollectingsteinerforest_steinertree::canonical_rule_example_specs());
     specs.extend(partition_cosineproductintegration::canonical_rule_example_specs());
     specs.extend(partition_integralflowwithmultipliers::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());

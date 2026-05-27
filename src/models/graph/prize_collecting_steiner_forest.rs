@@ -57,7 +57,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "PrizeCollectingSteinerForest",
-        fields: &["num_vertices", "num_edges"],
+        fields: &["num_vertices", "num_edges", "num_vertices_with_prize"],
     }
 }
 
@@ -171,6 +171,16 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
     /// Number of edges in the underlying graph.
     pub fn num_edges(&self) -> usize {
         self.graph.num_edges()
+    }
+
+    /// Number of vertices with a strictly positive prize, i.e.
+    /// `|{ v in V : p(v) > 0 }|`.
+    pub fn num_vertices_with_prize(&self) -> usize {
+        let zero = <W::Sum as Zero>::zero();
+        self.vertex_prizes
+            .iter()
+            .filter(|prize| prize.to_sum() > zero)
+            .count()
     }
 
     /// Whether this configuration is a feasible forest (selected edges only
