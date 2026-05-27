@@ -75,6 +75,7 @@ pub(crate) mod ksatisfiability_subsetsum;
 pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
+pub(crate) mod maxcut_minimummatrixcover;
 pub(crate) mod maximum2satisfiability_maxcut;
 pub(crate) mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
@@ -508,6 +509,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
+    specs.extend(maxcut_minimummatrixcover::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threematroidintersection::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());

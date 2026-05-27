@@ -19412,6 +19412,49 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Return the first $n$ entries of the target assignment.
 ]
 
+// MaxCut → MinimumMatrixCover (#925, Garey & Johnson MS13)
+#let mc_mmc = load-example("MaxCut", "MinimumMatrixCover")
+#let mc_mmc_sol = mc_mmc.solutions.at(0)
+#let mc_mmc_n = mc_mmc.source.instance.graph.num_vertices
+#let mc_mmc_W = mc_mmc.source.instance.edge_weights.fold(0, (a, b) => a + b)
+#let mc_mmc_S = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")
+#let mc_mmc_Sbar = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")
+#let mc_mmc_cut = mc_mmc.source.instance.graph.edges.filter(e => mc_mmc_sol.source_config.at(e.at(0)) != mc_mmc_sol.source_config.at(e.at(1))).len()
+#reduction-rule("MaxCut", "MinimumMatrixCover",
+  example: true,
+  example-caption: [Cycle $C_#mc_mmc_n$ (unit weights, $W = #mc_mmc_W$): adjacency matrix as quadratic form],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mc_mmc.source) + " -o maxcut.json",
+      "pred reduce maxcut.json --to " + target-spec(mc_mmc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + mc_mmc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The source MaxCut instance is the 4-cycle $C_#mc_mmc_n$ with $n = #mc_mmc_n$ vertices, edges $E = {(0,1), (1,2), (2,3), (0,3)}$, and unit weights, so the total weight is $W = #mc_mmc_W$.
+
+    *Step 2 -- Build the adjacency matrix.* Set $a_(i j) = w({i, j})$ for $\{i, j\} in E$ and $a_(i j) = 0$ otherwise. The diagonal is zero and the matrix is symmetric, giving the $#mc_mmc_n times #mc_mmc_n$ matrix
+    $
+      A = mat(0, 1, 0, 1; 1, 0, 1, 0; 0, 1, 0, 1; 1, 0, 1, 0)
+    $
+    which is a valid MinimumMatrixCover instance (nonnegative integer entries).
+
+    *Step 3 -- Verify the witness.* The canonical witness is the sign assignment $f = (+1, -1, +1, -1)$, encoded as the binary config $(#mc_mmc_sol.source_config.map(str).join(", "))$. The partition is $S = {#mc_mmc_S}$ versus $overline(S) = {#mc_mmc_Sbar}$, cutting all #mc_mmc_cut edges. The quadratic form evaluates to $sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 dot #mc_mmc_cut = #(2 * mc_mmc_W) - #(4 * mc_mmc_cut) = #(2 * mc_mmc_W - 4 * mc_mmc_cut)$, which matches the MinimumMatrixCover optimum and is consistent with #raw("MaxCut") $= (2 W - "min" Q F) / 4 = #mc_mmc_cut$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The form is invariant under $f arrow.r -f$, so the complementary assignment $(-1, +1, -1, +1)$ (config $(0, 1, 0, 1)$) is equally optimal.
+  ],
+)[
+  @garey1979 (MS13) The construction takes $A$ to be the weighted adjacency matrix of $G$. The identity $sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 dot "cut"(S)$ — where $S = {i : f(i) = +1\}$ and $W = sum_(e in E) w(e)$ — converts MaxCut maximization into MinimumMatrixCover minimization with $O(n^2)$ overhead.
+][
+  _Construction._ Given a MaxCut instance $(G, w)$ with $G = (V, E)$, $|V| = n$, and nonnegative integer edge weights $w$, build the $n times n$ matrix $A$ with $a_(i j) = w(\{i, j\})$ for $\{i, j\} in E$, $a_(i j) = 0$ otherwise, and $a_(i i) = 0$. $A$ is symmetric, zero-diagonal, and nonnegative, hence a valid MinimumMatrixCover instance.
+
+  _Correctness._ For any $f in \{-1, +1\}^n$ with $S = \{i : f(i) = +1\}$, each edge $\{i, j\} in E$ appears twice in $sum_(i, j) a_(i j) f(i) f(j)$. A non-cut edge contributes $+2 w(\{i, j\})$ (same signs, $f(i) f(j) = +1$); a cut edge contributes $-2 w(\{i, j\})$. Summing yields $sum_(i, j) a_(i j) f(i) f(j) = 2 (W - "cut"(S)) - 2 "cut"(S) = 2 W - 4 "cut"(S)$. Since $2 W$ is a constant, $min_f sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 max_S "cut"(S)$, so the two problems share the same optimal partitions. ($arrow.r.double$) A maximum cut $S^*$ defines $f^*$ minimizing the quadratic form. ($arrow.l.double$) A minimizing $f^*$ defines $S^* = \{i : f^*(i) = +1\}$ achieving the maximum cut.
+
+  _Precondition._ Nonnegative edge weights. Negative-weight MaxCut instances are out of scope; a separate weight-shifting reduction would be required.
+
+  _Solution extraction._ Both encodings agree that $"config"[i] = 1$ means vertex $i in S$, so extraction is the identity. The complementary witness $f arrow.r -f$ is equally optimal because the quadratic form is invariant under this sign flip.
+]
+
 // 14. HamiltonianPath → IsomorphicSpanningTree (#912)
 #let hp_ist = load-example("HamiltonianPath", "IsomorphicSpanningTree")
 #let hp_ist_sol = hp_ist.solutions.at(0)
