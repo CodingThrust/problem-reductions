@@ -317,6 +317,7 @@
   "PreemptiveScheduling": [Preemptive Scheduling],
   "PrimeAttributeName": [Prime Attribute Name],
   "QuadraticAssignment": [Quadratic Assignment],
+  "QuadraticProgramming": [Quadratic Programming],
   "EquilibriumPoint": [Equilibrium Point],
   "QuadraticCongruences": [Quadratic Congruences],
   "QuadraticDiophantineEquations": [Quadratic Diophantine Equations],
@@ -5215,6 +5216,34 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       }),
       caption: [Optimal assignment $f^* = (#fstar-display)$ for the $#n times #m$ QAP instance. Facilities (blue, left) are assigned to locations (red, right) by arrows. Facilities $F_#(max-fi + 1)$ and $F_#(max-fj + 1)$ (highest flow $= #max-flow$) are assigned to locations $L_#(assigned-li + 1)$ and $L_#(assigned-lj + 1)$ (distance $= #dist-between$). Total cost $= #cost-star$.],
     ) <fig:qap-example>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QuadraticProgramming")
+  let m = x.instance.num_vars
+  let K = x.instance.bound
+  let c = x.instance.quad_coeffs
+  let d = x.instance.lin_coeffs
+  let sol = (config: x.optimal_config, metric: x.optimal_value)
+  let fstar = metric-value(sol.metric)
+  let ystar = sol.config.map(ci => ci - K)
+  let ystar-disp = ystar.map(v => str(v)).join(", ")
+  [
+    #problem-def("QuadraticProgramming")[
+      Given a positive integer $m$, a positive integer bound $K >= 1$, a finite set $X$ of pairs $(bold(x), b)$ where $bold(x) in ZZ^m$ and $b in RR$, and two $m$-tuples $bold(c), bold(d) in RR^m$, find $bold(y) in {-K, -K+1, dots, K}^m$ that minimises
+      $ sum_(i=1)^m (c_i y_i^2 + d_i y_i) quad "subject to" quad bold(x) dot bold(y) <= b "for every" (bold(x), b) in X. $
+    ][
+      Bounded Integer Quadratic Programming is the discrete restriction of Garey & Johnson's QUADRATIC PROGRAMMING (MP2) @garey1979 in which each component of the decision vector is forced to lie in the finite integer box ${-K, dots, K}$. The fully continuous (rational) case is also NP-complete: it was open in @garey1979 and resolved by Vavasis @vavasis1990, who proved that QP belongs to NP. NP-hardness of the bounded integer variant follows from Sahni's @sahni1974 PARTITION $arrow$ QP reduction, whose constructed instance has its optimum on ${0,1}^m subset.eq {-K, dots, K}^m$ for every $K >= 1$. Bounded Integer QP strictly generalises QUBO (the case $K = 1$ collapses to QUBO with linear side constraints after the affine substitution $z_i = (y_i + 1)/2$), so it inherits a brute-force bound of $O^*((2K+1)^m)$#footnote[No algorithm improving on enumeration over the discrete box ${-K, dots, K}^m$ is known for general non-convex bounded integer QP.].
+
+      *Example.* Consider the PARTITION instance $bold(a) = (1, 1, 2)$ with total sum $4$ and target $S/2 = 2$. Sahni's encoding sets $bold(c) = (#c.map(v => str(int(v))).join(", "))$, $bold(d) = (#d.map(v => str(int(v))).join(", "))$, and adds five linear constraints to restrict each $y_i$ to ${0, 1}$ and to force $bold(a) dot bold(y) = 2$:
+      $ y_1, y_2, y_3 >= 0, quad y_1 + y_2 + 2 y_3 <= 2, quad y_1 + y_2 + 2 y_3 >= 2. $
+      Over the $#(calc.pow(2 * K + 1, m))$ configurations in ${-1, 0, 1}^3$ exactly two are feasible: $bold(y) = (1, 1, 0)$ with objective $0$ and $bold(y) = (0, 0, 1)$ with objective $1$. The optimum is $bold(y)^* = (#ystar-disp)$ with $sum_i (c_i y_i^2 + d_i y_i) = #fstar$, recovering the PARTITION witness ${a_1, a_2}$.
+
+      #pred-commands(
+        "pred solve quadratic-programming.json --solver brute-force",
+      )
     ]
   ]
 }
