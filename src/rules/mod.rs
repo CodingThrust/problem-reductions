@@ -119,6 +119,7 @@ pub(crate) mod partition_openshopscheduling;
 pub(crate) mod partition_productionplanning;
 pub(crate) mod partition_sequencingtominimizetardytaskweight;
 pub(crate) mod partition_subsetsum;
+pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
 pub(crate) mod planar3satisfiability_minimumgeometricconnecteddominatingset;
@@ -500,6 +501,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_multiprocessorscheduling::canonical_rule_example_specs());
     specs.extend(partitionintocliques_minimumcoveringbycliques::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
+    specs.extend(partition_sumofsquarespartition::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());

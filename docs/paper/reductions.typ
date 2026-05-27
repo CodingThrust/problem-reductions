@@ -17211,6 +17211,48 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The processor assignment $p_i in {0, 1}$ is the partition assignment directly.
 ]
 
+#let part_sosp = load-example("Partition", "SumOfSquaresPartition")
+#let part_sosp_sol = part_sosp.solutions.at(0)
+#let part_sosp_sizes = part_sosp.source.instance.sizes
+#let part_sosp_n = part_sosp_sizes.len()
+#let part_sosp_total = part_sosp_sizes.fold(0, (a, b) => a + b)
+#let part_sosp_half = part_sosp_total / 2
+#let part_sosp_opt = part_sosp_half * part_sosp_half * 2
+#let part_sosp_group0 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
+#let part_sosp_group1 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_sosp_load0 = part_sosp_group0.map(i => part_sosp_sizes.at(i)).fold(0, (a, b) => a + b)
+#let part_sosp_load1 = part_sosp_group1.map(i => part_sosp_sizes.at(i)).fold(0, (a, b) => a + b)
+#reduction-rule("Partition", "SumOfSquaresPartition",
+  example: true,
+  example-caption: [#part_sosp_n elements, total sum $S = #part_sosp_total$, optimum $S^2 / 2 = #part_sosp_opt$],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(part_sosp.source) + " -o partition.json",
+      "pred reduce partition.json --to " + target-spec(part_sosp) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate partition.json --config " + part_sosp_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_sosp_sizes.map(str).join(", "))$ with total sum $S = #part_sosp_total$. A balanced 2-partition splits the elements into subsets summing to $S / 2 = #part_sosp_half$ each.
+
+    *Step 2 -- Construction.* The reduction copies the element sizes verbatim (cast to signed integers) into a SumOfSquaresPartition instance with $K = 2$ groups; no auxiliary variables are introduced. The same #part_sosp_n binary coordinates serve as both source subset assignments and target group assignments.
+
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_sosp_sol.source_config.map(str).join(", "))$. Group 0 contains indices $\{#part_sosp_group0.map(str).join(", ")\}$ with sizes $(#part_sosp_group0.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load0$. Group 1 contains indices $\{#part_sosp_group1.map(str).join(", ")\}$ with sizes $(#part_sosp_group1.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load1$. The sum of squared group sums is $#part_sosp_load0^2 + #part_sosp_load1^2 = #part_sosp_opt = S^2 / 2$ #sym.checkmark
+
+    *Multiplicity:* The example DB stores one canonical balanced witness; other balanced splits of this instance also attain the optimum.
+  ],
+)[
+  Identity copy of element sizes into a SumOfSquaresPartition instance with $K = 2$ groups. A balanced partition exists iff the optimum equals $S^2 slash 2$.
+][
+  _Construction._ Let $A = (a_1, dots, a_n)$ with total sum $S = sum_(i=1)^n a_i$. Set the target sizes to $(a_1, dots, a_n)$ and $K = 2$. If $n < 2$, emit a sentinel target on two unit elements; the sentinel forces the extracted witness to be the all-zero vector, which `Partition::evaluate` rejects.
+
+  _Correctness._ Let $S_1, S_2$ be the two group sums of any 2-partition. Then
+  $ S_1^2 + S_2^2 = (S_1 + S_2)^2 - 2 S_1 S_2 = S^2 - 2 S_1 S_2, $
+  which is minimised when $S_1 S_2$ is maximised, i.e. when $S_1 = S_2 = S slash 2$, giving the lower bound $S^2 slash 2$. Hence the source is YES iff some 2-partition attains $S_1 = S_2$ iff the target's minimum equals $S^2 slash 2$ iff an optimal target witness is a balanced split, which `Partition::evaluate` accepts.
+
+  _Solution extraction._ Identity: the target group assignment $g_i in {0, 1}$ is the source subset assignment directly. In the sentinel case the extractor returns $bold(0)$ for the source, which `Partition::evaluate` rejects, matching the singleton NO answer.
+]
+
 #let hc_btsp = load-example("HamiltonianCircuit", "BottleneckTravelingSalesman")
 #let hc_btsp_sol = hc_btsp.solutions.at(0)
 #reduction-rule("HamiltonianCircuit", "BottleneckTravelingSalesman",
