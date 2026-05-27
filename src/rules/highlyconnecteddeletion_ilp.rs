@@ -77,9 +77,17 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
 
         self.edges
             .iter()
-            .map(|&(u, v)| match (cluster_of[u], cluster_of[v]) {
-                (Some(cu), Some(cv)) if cu == cv => 0,
-                _ => 1,
+            .map(|&(u, v)| {
+                debug_assert!(
+                    cluster_of[u].is_some() && cluster_of[v].is_some(),
+                    "extract_solution invariant violated: edge ({}, {}) has endpoint(s) with no cluster assignment; a well-formed ILP witness assigns every vertex to exactly one selected cluster",
+                    u,
+                    v
+                );
+                match (cluster_of[u], cluster_of[v]) {
+                    (Some(cu), Some(cv)) if cu == cv => 0,
+                    _ => 1,
+                }
             })
             .collect()
     }
@@ -106,6 +114,11 @@ fn vertex_count(clusters: &[Vec<usize>]) -> usize {
 /// gives a stable variable layout; tests pin the singleton prefix.
 fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
     let n = graph.num_vertices();
+    debug_assert!(
+        n < 64,
+        "enumerate_feasible_clusters requires n < 64 due to u64 subset mask; got n={}",
+        n
+    );
     let mut clusters: Vec<Vec<usize>> = Vec::new();
 
     // Singletons first.
