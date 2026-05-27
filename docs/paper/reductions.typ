@@ -18337,6 +18337,24 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Read the cluster label of each source vertex as its color label.
 ]
 
+// 5. KColoring → BicliqueCover (#1058)
+#reduction-rule("KColoring", "BicliqueCover")[
+  Self-contained gadget @karp1972 @garey1979 @orlin1977 building a bipartite graph $H$ on $4 n$ vertices with rank $n + q$. Each source vertex $v$ contributes two left vertices $a_v, g_v$ and two right vertices $b_v, h_v$. Guard-anchor edges $(g_v, h_v)$ force $n$ bicliques to be spent on per-vertex guards, leaving at most $q$ remaining bicliques to cover the diagonal edges $(a_v, b_v)$, which behave as color classes under the classical sub-biclique semantics of BicliqueCover.
+][
+  _Construction._ Let $(G = (V, E), q)$ be the source instance with $n = |V|$. Build $H = (L union.sq R, F)$ with $L = {a_v, g_v : v in V}$ and $R = {b_v, h_v : v in V}$ (so $|L| = |R| = 2 n$). Set the BicliqueCover rank to $k = n + q$. The edge set $F$ consists of:
+  $
+    "diagonal:"      quad & (a_v, b_v) && quad forall v in V \
+    "compatibility:" quad & (a_u, b_v) && quad forall u != v "with" {u, v} in.not E \
+    "guard-anchor:"  quad & (a_v, h_v), (g_v, h_v) && quad forall v in V \
+    "guard-compat:"  quad & (g_v, b_w) && quad forall v != w "with" {v, w} in.not E.
+  $
+  The total edge count is $n + 2(n(n-1) - 2m) + 2n = 2 n (n - 1) - 4 m + 3 n$ where $m = |E|$.
+
+  _Correctness._ ($arrow.r.double$) Given a proper $q$-coloring of $G$, emit $n$ guard bicliques $G_v = ({a_v, g_v}, {h_v} union {b_w : w != v, {v, w} in.not E})$ and one color biclique $C_(c) = ({a_v : v "has color" c}, {b_v : v "has color" c})$ per color $c$. Each color class is an independent set, so all required compatibility edges exist and the color bicliques are valid sub-bicliques. Guard bicliques cover all guard-anchor and guard-compat edges; color bicliques cover the diagonal edges. ($arrow.l.double$) In any biclique cover, each guard-anchor edge $(g_v, h_v)$ must lie in its own biclique because no cross edge $(g_u, h_v)$ exists for $u != v$. A biclique containing $(g_v, h_v)$ cannot cover any diagonal edge $(a_u, b_u)$: if $u = v$ then $(g_v, b_v) in.not F$, and if $u != v$ then $(a_u, h_v) in.not F$. Hence at least $n$ bicliques are spent on guards and at most $q$ remain to cover all $n$ diagonal edges $(a_v, b_v)$. Vertices $u, v$ sharing such a diagonal-covering biclique require both $(a_u, b_v)$ and $(a_v, b_u)$ in $F$, which forces $u != v$ and ${u, v} in.not E$. Compacting the at most $q$ diagonal bicliques into colors $0, dots, q - 1$ gives a proper $q$-coloring of $G$.
+
+  _Solution extraction._ For each source vertex $v$, locate any biclique $r$ that contains both $a_v$ and $b_v$. Compact the distinct diagonal-covering biclique indices into colors $0, dots, q - 1$ in first-seen order and assign each $v$ its compacted color.
+]
+
 #let clustering_ilp = load-example("Clustering", "ILP")
 #let clustering_ilp_sol = clustering_ilp.solutions.at(0)
 #reduction-rule("Clustering", "ILP",
