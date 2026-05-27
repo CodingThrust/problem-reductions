@@ -54,6 +54,7 @@ pub(crate) mod kcoloring_partitionintocliques;
 pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
+pub(crate) mod ksatisfiability_bicliquecover;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
@@ -452,6 +453,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(longestcommonsubsequence_maximumindependentset::canonical_rule_example_specs());
     specs.extend(ksatisfiability_cyclicordering::canonical_rule_example_specs());
     specs.extend(ksatisfiability_acyclicpartition::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_bicliquecover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_decisionminimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs());
     specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
