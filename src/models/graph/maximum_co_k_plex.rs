@@ -81,14 +81,14 @@ pub struct MaximumCoKPlex<G, W, K: KValue> {
     /// Per-vertex weights `w_v`.
     weights: Vec<W>,
     /// Runtime co-k-plex parameter `k`. For compile-time `K` it equals `K::K`.
-    #[serde(default = "default_bound_k::<K>")]
+    ///
+    /// Intentionally has no serde default: a malformed JSON missing
+    /// `bound_k` (e.g. for the `KN` variant) must fail loudly at load time
+    /// rather than silently fall back to `0`, which would make every
+    /// `evaluate()` infeasible.
     bound_k: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
-}
-
-fn default_bound_k<K: KValue>() -> usize {
-    K::K.unwrap_or(0)
 }
 
 impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {

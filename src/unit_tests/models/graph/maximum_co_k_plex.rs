@@ -115,3 +115,26 @@ fn test_maximum_co_k_plex_rejects_zero_k() {
 fn test_maximum_co_k_plex_rejects_weight_length_mismatch() {
     let _ = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 4], 2);
 }
+
+#[test]
+fn test_maximum_co_k_plex_rejects_missing_bound_k_on_load() {
+    // A JSON payload missing `bound_k` must fail to deserialize with a
+    // clear error, instead of silently defaulting to 0 and producing
+    // degenerate `Max(None)` results from `evaluate()` (KN variant has no
+    // compile-time K).
+    let bad_json = serde_json::json!({
+        "graph": {
+            "num_vertices": 5,
+            "edges": [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]]
+        },
+        "weights": [5, 1, 4, 1, 3]
+        // bound_k intentionally omitted
+    });
+    let err = serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i32, KN>>(bad_json)
+        .expect_err("missing bound_k must fail to deserialize");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("bound_k"),
+        "error should mention the missing field `bound_k`, got: {msg}"
+    );
+}
