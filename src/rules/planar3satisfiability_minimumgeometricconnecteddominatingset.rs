@@ -334,6 +334,31 @@ impl ReduceTo<MinimumGeometricConnectedDominatingSet> for Planar3Satisfiability 
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::export::SolutionPair;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "planar3satisfiability_to_minimumgeometricconnecteddominatingset",
+        build: || {
+            // Use the trivial corner case (m = 0) so the canonical example fits within the
+            // brute-force search bound. The reduction emits a single-point target with K = 1
+            // and the optimal connected dominating set is the singleton itself.
+            let source = Planar3Satisfiability::new(0, vec![]);
+            crate::example_db::specs::rule_example_with_witness::<
+                _,
+                MinimumGeometricConnectedDominatingSet,
+            >(
+                source,
+                SolutionPair {
+                    source_config: vec![],
+                    target_config: vec![1],
+                },
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/planar3satisfiability_minimumgeometricconnecteddominatingset.rs"]
 mod tests;

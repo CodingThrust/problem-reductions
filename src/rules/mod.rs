@@ -478,6 +478,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumdiscreteplanarinversekinematics_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
+    specs.extend(
+        planar3satisfiability_minimumgeometricconnecteddominatingset::canonical_rule_example_specs(
+        ),
+    );
     specs.extend(partition_cosineproductintegration::canonical_rule_example_specs());
     specs.extend(partition_integralflowwithmultipliers::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());
