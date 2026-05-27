@@ -19377,5 +19377,32 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ The Max-Cut partition vector is already a valid Graph Partitioning witness, so extraction is the identity map.
 ]
 
+#let p3sat_gcd = load-example("Planar3Satisfiability", "MinimumGeometricConnectedDominatingSet")
+#let p3sat_gcd_sol = p3sat_gcd.solutions.at(0)
+#reduction-rule("Planar3Satisfiability", "MinimumGeometricConnectedDominatingSet",
+  example: true,
+  example-caption: [trivial $m = 0$ corner case (vacuously satisfiable)],
+  extra: [
+    #pred-commands(
+      "pred create --example Planar3Satisfiability -o planar3sat.json",
+      "pred reduce planar3sat.json --to " + target-spec(p3sat_gcd) + " -o bundle.json",
+      "pred solve bundle.json",
+    )
+    Canonical fixture: the empty formula ($n = 0$, $m = 0$) is vacuously satisfiable, and the construction short-circuits to the single point $(0, 0)$ with radius $1$ and bound $K = 1$. The trivial connected dominating set is the singleton itself, witnessed by target config $(#p3sat_gcd_sol.target_config.map(str).join(", "))$ #sym.checkmark.
+
+    *Why the fixture is trivial.* The full Lichtenstein layout emits dozens of geometric points for even a one-clause input, which exceeds this codebase's $<= 16$ brute-force bound. We therefore use the $m = 0$ corner case as the canonical witness and rely on dedicated structural tests for non-trivial point emission. A full round-trip solve test will become feasible once a `MinimumGeometricConnectedDominatingSet -> ILP` rule is added.
+  ],
+)[
+  @lichtenstein1982 (Theorem 5, §6, combined with the bipolar refinement of Lemma 1.) The construction proceeds in two phases. _Phase A_ (Lemma 1) rewrites the Planar 3-SAT instance $phi$ into a _bipolar_ formula $phi'$ by replacing each variable $v_i$ with $m_i$ fresh copies arranged on a cycle and equating consecutive copies through chain clauses, so $phi'$ has $sum_i m_i = 3 m$ variables and $m_b = 4 m$ clauses with the property that every variable has all positive incidences on one side of the planar embedding and all negative incidences on the other. _Phase B_ (§6, Figures 12--15) embeds $phi'$ as a set of points in the plane: each copy variable becomes a "variable structure" (two parallel columns of rounds with square forcers at distance $1\/40$), a ground spine threads through the columns, and each bipolar clause becomes a tripod with three branches reaching the columns of its literal copies. With distance threshold $1$, the resulting Minimum Geometric Connected Dominating Set has solution $<= K = N_V + N_C + N_G + m_b$ if and only if $phi'$ (and hence $phi$) is satisfiable.
+][
+  _Construction (this implementation)._ We follow Lichtenstein's Phase A exactly --- count occurrences $m_i$, form $sum_i m_i = 3 m$ copy variables, build the bipolar formula $phi'$ with $m_b = m + sum_i m_i = 4 m$ clauses --- but we make one deliberate simplification in Phase B: instead of emitting Lichtenstein's full per-copy row stack of height $mu_u$, we _collapse the stack to a single row per copy_ ($mu_u = 1$). This emits $N_V = 4 m$ variable-structure rounds (top, bottom, top-partner, bottom-partner per copy) instead of $4 mu_u m$, while retaining the exact $K = N_V + N_C + N_G + m_b$ shape that Lichtenstein's analysis prescribes. The ground spine and clause tripods follow the original layout. The trivial corner case $m = 0$ short-circuits to a single point with $K = 1$.
+
+  _Why this simplification is faithful._ Lichtenstein's $mu_u$ is a scaling factor used to argue that a satisfying assignment forces _strictly fewer_ than $K + 1$ points into the dominating set; the same bipolar witness, when read off a single-row layout, still hits each variable-column anchor exactly once and dominates the ground spine and clause tripods. The simplification trades the original layout's exponential separation for a smaller point set; planarity, the bipolar property, and the bound shape are preserved. The rule's source-code docstring records this deviation explicitly.
+
+  _Correctness sketch._ ($arrow.r.double$) Given a satisfying assignment $bold(x)$ of $phi$, lift it to a consistent assignment of $phi'$ (each copy gets the value of its source variable). For each copy variable select the anchor round on the column matching the assigned polarity; for each clause tripod, the branch whose underlying literal is true points at a selected variable round, so picking the tripod root plus that branch dominates the tripod. The ground spine is connected by construction. Total selected rounds match $K$. ($arrow.l.double$) Any connected dominating set of size $<= K$ must, by Lichtenstein's gadget argument, select exactly one of the two column anchors per copy variable (the square forcers leave no other option), and the chain clauses of Phase A propagate this choice consistently across all copies of the same source variable. Reading off the column choice for each source variable's first occurrence gives a satisfying assignment of $phi$.
+
+  _Solution extraction._ For each source variable $v_i$, look up the recorded top-anchor index in the target point list. If the top-column anchor is selected, set $v_i$ to the polarity of its first occurrence (positive occurrence $arrow.r$ true); if the bottom anchor is selected, flip the polarity; if neither (variable does not occur), default to false. This is implemented in `ReductionPlanar3SATToGCD::extract_solution` and uses the auxiliary `first_occurrence_polarity` and `top_anchor_index` tables built during the reduction.
+]
+
 #pagebreak()
 #bibliography("references.bib", style: "ieee")
