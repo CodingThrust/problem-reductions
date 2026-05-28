@@ -571,6 +571,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(
         crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),
     );
+    specs.extend(
+        crate::models::graph::optimal_linear_arrangement::decision_canonical_rule_example_specs(),
+    );
     #[cfg(feature = "ilp-solver")]
     {
         specs.extend(acyclicpartition_ilp::canonical_rule_example_specs());

@@ -229,6 +229,37 @@ pub(crate) fn decision_canonical_model_example_specs(
     }]
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_optimal_linear_arrangement_to_optimal_linear_arrangement",
+        build: || {
+            use crate::example_db::specs::assemble_rule_example;
+            use crate::export::SolutionPair;
+            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+            use crate::topology::SimpleGraph;
+
+            // Path P_4 (0-1-2-3): optimal arrangement has cost 3; bound 3 is YES.
+            let source = Decision::new(
+                OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
+                3,
+            );
+            let result = source.reduce_to_aggregate();
+            let target = result.target_problem();
+            let config = vec![0, 1, 2, 3];
+            assemble_rule_example(
+                &source,
+                target,
+                vec![SolutionPair {
+                    source_config: config.clone(),
+                    target_config: config,
+                }],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/optimal_linear_arrangement.rs"]
 mod tests;
