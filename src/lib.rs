@@ -45,7 +45,7 @@ pub mod prelude {
     pub use crate::models::algebraic::{
         AlgebraicEquationsOverGF2, ConsecutiveOnesMatrixAugmentation,
         MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
-        QuadraticProgramming, SimultaneousIncongruences, SparseMatrixCompression, BMF, QUBO,
+        SimultaneousIncongruences, SparseMatrixCompression, BMF, QUBO,
     };
     pub use crate::models::formula::{
         CNFClause, CircuitSAT, KSatisfiability, Maximum2Satisfiability, NAESatisfiability,

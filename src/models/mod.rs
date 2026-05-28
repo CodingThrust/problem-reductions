@@ -15,7 +15,7 @@ pub use algebraic::{
     ConsecutiveOnesMatrixAugmentation, ConsecutiveOnesSubmatrix, EquilibriumPoint,
     FeasibleBasisExtension, MinimumMatrixCover, MinimumMatrixDomination, MinimumWeightDecoding,
     MinimumWeightSolutionToLinearEquations, QuadraticAssignment, QuadraticCongruences,
-    QuadraticDiophantineEquations, QuadraticProgramming, SimultaneousIncongruences,
+    QuadraticDiophantineEquations, SimultaneousIncongruences,
     SparseMatrixCompression, BMF, ILP, QUBO,
 };
 pub use decision::Decision;
