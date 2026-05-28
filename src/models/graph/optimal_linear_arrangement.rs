@@ -4,6 +4,7 @@
 //! f: V -> {0, 1, ..., |V|-1} that minimizes the total edge length
 //! sum_{{u,v} in E} |f(u) - f(v)|.
 
+use crate::models::decision::Decision;
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -156,6 +157,46 @@ crate::declare_variants! {
     default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
 }
 
+impl<G> crate::models::decision::DecisionProblemMeta for OptimalLinearArrangement<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    const DECISION_NAME: &'static str = "DecisionOptimalLinearArrangement";
+}
+
+impl Decision<OptimalLinearArrangement<SimpleGraph>> {
+    /// Number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    /// Number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+
+    /// Decision bound (maximum allowed total edge length) as a nonnegative integer.
+    pub fn k(&self) -> usize {
+        *self.bound()
+    }
+}
+
+crate::register_decision_variant!(
+    OptimalLinearArrangement<SimpleGraph>,
+    "DecisionOptimalLinearArrangement",
+    "2^num_vertices",
+    &["DOLA"],
+    "Decision version: does a linear arrangement of total edge length <= bound exist?",
+    dims: [
+        VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+    ],
+    fields: [
+        FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
+        FieldInfo { name: "bound", type_name: "usize", description: "Decision bound (maximum allowed total edge length)" },
+    ],
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::SimpleGraph;
@@ -169,6 +210,22 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         ))),
         optimal_config: vec![0, 1, 2, 3, 4, 5],
         optimal_value: serde_json::json!(11),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    use crate::topology::SimpleGraph;
+    // Path P_4 (0-1-2-3): optimal arrangement has cost 3; bound 3 is YES.
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_optimal_linear_arrangement_simplegraph",
+        instance: Box::new(Decision::new(
+            OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)])),
+            3,
+        )),
+        optimal_config: vec![0, 1, 2, 3],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

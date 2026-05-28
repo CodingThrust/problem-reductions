@@ -336,6 +336,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
+    specs.extend(optimal_linear_arrangement::decision_canonical_model_example_specs());
     specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
     specs.extend(mixed_chinese_postman::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());

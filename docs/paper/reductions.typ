@@ -336,6 +336,7 @@
   "MinimumMetricDimension": [Minimum Metric Dimension],
   "DecisionMinimumDominatingSet": [Decision Minimum Dominating Set],
   "DecisionMinimumVertexCover": [Decision Minimum Vertex Cover],
+  "DecisionOptimalLinearArrangement": [Decision Optimal Linear Arrangement],
   "MinimumCodeGenerationUnlimitedRegisters": [Minimum Code Generation (Unlimited Registers)],
   "RegisterSufficiency": [Register Sufficiency],
   "ResourceConstrainedScheduling": [Resource Constrained Scheduling],
@@ -13887,6 +13888,35 @@ The following reductions to Integer Linear Programming are straightforward formu
   Therefore minimizing the target objective is exactly minimizing the Optimal Linear Arrangement objective, up to the additive constant $d_"max" n (n + 1) / 2$. The source uses 0-indexed positions, but the completion-time shift by 1 is already absorbed into that constant.
 
   _Solution extraction._ Read the target schedule order, delete all edge jobs, and assign source positions $0, 1, dots, n - 1$ to the remaining vertex jobs in the order they appear.
+]
+
+#let dola_c1ma = load-example(
+  "DecisionOptimalLinearArrangement",
+  "ConsecutiveOnesMatrixAugmentation",
+)
+#let dola_c1ma_sol = dola_c1ma.solutions.at(0)
+#reduction-rule("DecisionOptimalLinearArrangement", "ConsecutiveOnesMatrixAugmentation",
+  example: true,
+  example-caption: [6-vertex, 7-edge graph: arrangement of length $11$ gives $4$ augmentations],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(dola_c1ma.source) + " -o source.json",
+      "pred reduce source.json --to " + target-spec(dola_c1ma) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate source.json --config " + dola_c1ma_sol.source_config.map(str).join(","),
+    )
+    The source decision bound is $K = #dola_c1ma.source.instance.bound$, so the target augmentation bound is $K - m = #dola_c1ma.source.instance.bound - #dola_c1ma.target.instance.matrix.len() = #dola_c1ma.target.instance.bound$. Source arrangement $f = (#dola_c1ma_sol.source_config.map(str).join(", "))$ corresponds to target column permutation $(#dola_c1ma_sol.target_config.map(str).join(", "))$.
+  ],
+)[
+  @garey1979[SR16] @booth1987 This $O(n m)$ reduction maps a decision Optimal Linear Arrangement instance $(G, K)$ to the edge-vertex incidence matrix of $G$ with augmentation bound $K - |E|$. A column permutation is exactly a vertex ordering; making each edge row consecutive costs one flip per interior gap, so the cheapest augmentation under a fixed ordering equals (total edge length) $- |E|$.
+][
+  _Construction._ Let $G = (V, E)$ with $n = |V|$, $m = |E|$, and decision bound $K$. Build the $m times n$ binary matrix $A$ with rows indexed by edges and columns by vertices: for edge $e_i = {u, v}$ set $A[i][u] = A[i][v] = 1$ and all other entries of row $i$ to $0$. Each row has exactly two $1$'s. Set the augmentation bound to $"bound" = K - m$.
+
+  _Correctness._ A column permutation is a bijection $f : V -> {1, dots, n}$. In the row for edge ${u, v}$ the two $1$'s sit at positions $f(u)$ and $f(v)$; making the row consecutive forces filling every zero strictly between them, i.e.\ $|f(u) - f(v)| - 1$ flips. Summed over all rows the total augmentation cost is $sum_({u,v} in E) (|f(u) - f(v)| - 1) = (sum_({u,v} in E) |f(u) - f(v)|) - m$. ($arrow.r.double$) If $G$ admits an arrangement of total length at most $K$, using it as the column permutation costs at most $K - m = "bound"$ flips, so the target is YES. ($arrow.l.double$) If $A$ can be made C1P with at most $"bound"$ flips, the witnessing column permutation gives an arrangement of total length at most $"bound" + m = K$, so the source is YES.
+
+  _Edge inputs._ If $m = 0$ every arrangement has length $0 <= K$, so emit the always-YES $1 times 1$ matrix $[[0]]$ with bound $max(0, K)$. If $K < m$ the source is NO (every arrangement costs at least $m$), so emit the fixed $3 times 3$ cyclic-overlap matrix $[[1,1,0],[0,1,1],[1,0,1]]$ with bound $0$, which is NO under all $6$ column permutations.
+
+  _Solution extraction._ Read the C1P column permutation $sigma$ (column $sigma(p)$ sits at position $p$) and return the inverse: vertex $v$ receives arrangement position $sigma^(-1)(v)$.
 ]
 
 #reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[

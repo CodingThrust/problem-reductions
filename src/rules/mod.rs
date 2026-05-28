@@ -109,6 +109,7 @@ pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
 pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod numerical3dimensionalmatching_numericalmatchingwithtargetsums;
+pub(crate) mod optimallineararrangement_consecutiveonesmatrixaugmentation;
 pub(crate) mod optimallineararrangement_sequencingtominimizeweightedcompletiontime;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
@@ -541,6 +542,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(
         numerical3dimensionalmatching_numericalmatchingwithtargetsums::canonical_rule_example_specs(
         ),
+    );
+    specs.extend(
+        optimallineararrangement_consecutiveonesmatrixaugmentation::canonical_rule_example_specs(),
     );
     specs.extend(
         optimallineararrangement_sequencingtominimizeweightedcompletiontime::canonical_rule_example_specs(),
