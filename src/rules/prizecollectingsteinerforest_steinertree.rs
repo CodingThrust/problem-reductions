@@ -207,7 +207,7 @@ impl ReduceTo<SteinerTree<SimpleGraph, i32>> for PrizeCollectingSteinerForest<Si
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::example_db::specs::RuleExampleSpec;
     use crate::export::SolutionPair;
-    use crate::solvers::{BruteForce, Solver};
+    use crate::solvers::BruteForce;
 
     vec![RuleExampleSpec {
         id: "prize_collecting_steiner_forest_to_steiner_tree",
