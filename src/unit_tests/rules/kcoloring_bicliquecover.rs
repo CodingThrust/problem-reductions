@@ -1,7 +1,6 @@
 use super::*;
 use crate::models::graph::BicliqueCover;
 use crate::solvers::BruteForce;
-use crate::topology::Graph;
 use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::KN;
@@ -93,7 +92,7 @@ fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
 
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
     let target = reduction.target_problem();
-    let witness = build_forward_witness(&source, &coloring);
+    let witness = forward_witness(&source, &coloring);
 
     // Witness covers all edges with rank <= n + q.
     assert!(target.is_valid_cover(&witness));
@@ -113,7 +112,7 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
 
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
     let target = reduction.target_problem();
-    let witness = build_forward_witness(&source, &coloring);
+    let witness = forward_witness(&source, &coloring);
 
     assert!(target.is_valid_cover(&witness));
     let extracted = reduction.extract_solution(&witness);
@@ -178,7 +177,7 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
 
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
     let target = reduction.target_problem();
-    let witness = build_forward_witness(&source, &coloring);
+    let witness = forward_witness(&source, &coloring);
     assert!(target.is_valid_cover(&witness));
 
     let extracted = reduction.extract_solution(&witness);
@@ -229,7 +228,7 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
     // n = 1, q = 1, k = 2, num_vertices = 4.
     // Use the canonical forward witness for the only valid coloring.
     let coloring = vec![0usize];
-    let witness = build_forward_witness(&source, &coloring);
+    let witness = forward_witness(&source, &coloring);
     assert!(target.is_valid_cover(&witness));
 
     // The diagonal edge (a_0, b_0) should be in the color biclique r = 1
@@ -241,57 +240,4 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
 
     let extracted = reduction.extract_solution(&witness);
     assert_eq!(extracted, vec![0]);
-}
-
-/// Local rebuild of the forward witness, mirroring the private helper in
-/// the reduction module. Kept in the test file so the tests do not depend
-/// on the module exporting it publicly.
-fn build_forward_witness(source: &KColoring<KN, SimpleGraph>, coloring: &[usize]) -> Vec<usize> {
-    let n = source.graph().num_vertices();
-    let q = source.num_colors();
-    let k = n + q;
-    let left_size = 2 * n;
-    let num_vertices = 4 * n;
-    let mut config = vec![0usize; num_vertices * k];
-
-    let mut source_edges: std::collections::BTreeSet<(usize, usize)> =
-        std::collections::BTreeSet::new();
-    for (u, v) in source.graph().edges() {
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.insert((a, b));
-    }
-    let has_source_edge = |u: usize, v: usize| -> bool {
-        if u == v {
-            return false;
-        }
-        let (a, b) = if u <= v { (u, v) } else { (v, u) };
-        source_edges.contains(&(a, b))
-    };
-
-    // Guard bicliques: biclique index v for v in 0..n.
-    for v in 0..n {
-        let biclique = v;
-        config[v * k + biclique] = 1; // a_v
-        config[(n + v) * k + biclique] = 1; // g_v
-        config[(left_size + n + v) * k + biclique] = 1; // h_v
-        for w in 0..n {
-            if w != v && !has_source_edge(v, w) {
-                config[(left_size + w) * k + biclique] = 1; // b_w
-            }
-        }
-    }
-
-    // Color bicliques: biclique index n + (slot of color c) in first-seen order.
-    let mut color_to_slot: std::collections::HashMap<usize, usize> =
-        std::collections::HashMap::new();
-    for v in 0..n {
-        let c = coloring[v];
-        let next_slot = color_to_slot.len();
-        let slot = *color_to_slot.entry(c).or_insert(next_slot);
-        let biclique = n + slot;
-        config[v * k + biclique] = 1; // a_v
-        config[(left_size + v) * k + biclique] = 1; // b_v
-    }
-
-    config
 }

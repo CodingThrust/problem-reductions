@@ -186,7 +186,7 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
     /// Whether this configuration is a feasible forest (selected edges only
     /// touch selected vertices and induce an acyclic subgraph).
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        is_feasible_forest(&self.graph, config)
+        forest_components(&self.graph, config).is_some()
     }
 }
 
@@ -208,81 +208,10 @@ where
 
     fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
         let n = self.graph.num_vertices();
-        let m = self.graph.num_edges();
-        if config.len() != n + m {
-            return Min(None);
-        }
-        let edges = self.graph.edges();
-
-        // Feasibility: selected edges must be incident only to selected
-        // vertices, and the resulting subgraph must be acyclic.
-        let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
-        let mut selected_edge_count = 0usize;
-        for (i, &(u, v)) in edges.iter().enumerate() {
-            let y_e = config[n + i];
-            if y_e == 0 {
-                continue;
-            }
-            if y_e != 1 {
-                return Min(None);
-            }
-            let x_u = config[u];
-            let x_v = config[v];
-            if x_u != 1 || x_v != 1 {
-                return Min(None);
-            }
-            adj[u].push((v, i));
-            adj[v].push((u, i));
-            selected_edge_count += 1;
-        }
-
-        // Acyclicity via BFS on the selected subgraph restricted to selected
-        // vertices. We also count tree components: a selected vertex with no
-        // incident selected edges is one singleton tree.
-        let mut visited = vec![false; n];
-        let mut kappa: usize = 0;
-        let mut total_tree_edges: usize = 0;
-        for start in 0..n {
-            if config[start] != 1 || visited[start] {
-                continue;
-            }
-            // Discovered a fresh component containing `start`.
-            kappa += 1;
-            visited[start] = true;
-            let mut comp_edges: usize = 0;
-            // Parent edge index per vertex inside this BFS, used to detect
-            // back-edges (cycles).
-            let mut parent_edge: Vec<Option<usize>> = vec![None; n];
-            let mut queue: VecDeque<usize> = VecDeque::new();
-            queue.push_back(start);
-            while let Some(u) = queue.pop_front() {
-                for &(w, edge_idx) in &adj[u] {
-                    if parent_edge[u] == Some(edge_idx) {
-                        // Skip the edge we came in on.
-                        continue;
-                    }
-                    if visited[w] {
-                        // Back-edge inside this component => cycle.
-                        return Min(None);
-                    }
-                    visited[w] = true;
-                    parent_edge[w] = Some(edge_idx);
-                    comp_edges += 1;
-                    queue.push_back(w);
-                }
-            }
-            // Each discovered tree edge is counted once via BFS discovery. If
-            // we did not pick up an extra back-edge (which would have
-            // triggered the cycle return above), the selected-edge subgraph
-            // restricted to this component is a tree.
-            total_tree_edges += comp_edges;
-        }
-        // Sanity: every selected edge must have been visited as a tree edge.
-        // If it was not, both endpoints would have been in distinct
-        // components, which is impossible by construction.
-        if total_tree_edges != selected_edge_count {
-            return Min(None);
-        }
+        let kappa = match forest_components(&self.graph, config) {
+            Some(kappa) => kappa,
+            None => return Min(None),
+        };
 
         // Objective: beta * sum_{v notin V_F} p(v)
         //          + sum_{e in E_F} c(e)
@@ -322,13 +251,15 @@ where
     }
 }
 
-/// Decide feasibility of a `(V_F, E_F)` configuration: selected edges only
-/// touch selected vertices and induce an acyclic subgraph.
-fn is_feasible_forest<G: Graph>(graph: &G, config: &[usize]) -> bool {
+/// Validate a `(V_F, E_F)` configuration and, if feasible, return the number of
+/// tree components `kappa(F)` among the selected vertices. Feasible means every
+/// selected edge is incident only to selected vertices and the selected
+/// subgraph is acyclic. Returns `None` for any infeasible configuration.
+fn forest_components<G: Graph>(graph: &G, config: &[usize]) -> Option<usize> {
     let n = graph.num_vertices();
     let m = graph.num_edges();
     if config.len() != n + m {
-        return false;
+        return None;
     }
     let edges = graph.edges();
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
@@ -338,19 +269,21 @@ fn is_feasible_forest<G: Graph>(graph: &G, config: &[usize]) -> bool {
             continue;
         }
         if y_e != 1 {
-            return false;
+            return None;
         }
         if config[u] != 1 || config[v] != 1 {
-            return false;
+            return None;
         }
         adj[u].push((v, i));
         adj[v].push((u, i));
     }
     let mut visited = vec![false; n];
+    let mut kappa: usize = 0;
     for start in 0..n {
         if config[start] != 1 || visited[start] {
             continue;
         }
+        kappa += 1;
         visited[start] = true;
         let mut parent_edge: Vec<Option<usize>> = vec![None; n];
         let mut queue: VecDeque<usize> = VecDeque::new();
@@ -361,7 +294,7 @@ fn is_feasible_forest<G: Graph>(graph: &G, config: &[usize]) -> bool {
                     continue;
                 }
                 if visited[w] {
-                    return false; // back-edge inside the component => cycle
+                    return None; // back-edge inside the component => cycle
                 }
                 visited[w] = true;
                 parent_edge[w] = Some(edge_idx);
@@ -369,7 +302,7 @@ fn is_feasible_forest<G: Graph>(graph: &G, config: &[usize]) -> bool {
             }
         }
     }
-    true
+    Some(kappa)
 }
 
 crate::declare_variants! {

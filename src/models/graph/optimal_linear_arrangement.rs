@@ -93,7 +93,7 @@ impl<G: Graph> OptimalLinearArrangement<G> {
 
     /// Check if a configuration is a valid permutation.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.total_edge_length(config).is_some()
+        self.is_valid_permutation(config)
     }
 
     /// Check if a configuration forms a valid permutation of {0, ..., n-1}.

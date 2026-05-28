@@ -51,10 +51,6 @@ pub struct ReductionEulerianPathToILP {
 }
 
 impl ReductionEulerianPathToILP {
-    fn y_idx(&self, k: usize) -> usize {
-        k
-    }
-
     fn s_idx(&self, a: usize) -> usize {
         self.pairs.len() + a
     }
@@ -111,7 +107,7 @@ impl ReductionResult for ReductionEulerianPathToILP {
                 .iter()
                 .enumerate()
                 .find(|&(k, &(a, _))| {
-                    a == current && target_solution.get(self.y_idx(k)).copied().unwrap_or(0) == 1
+                    a == current && target_solution.get(k).copied().unwrap_or(0) == 1
                 })
                 .map(|(_, &(_, b))| b);
 

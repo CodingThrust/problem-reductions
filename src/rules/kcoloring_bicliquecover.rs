@@ -223,8 +223,11 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 /// `coloring[v]` must be in `0..q`. The order of color bicliques is the
 /// order of first appearance of each color along `0..n`, so unused colors
 /// at the tail produce empty bicliques.
-#[cfg(feature = "example-db")]
-fn forward_witness(source: &KColoring<KN, SimpleGraph>, coloring: &[usize]) -> Vec<usize> {
+#[cfg(any(test, feature = "example-db"))]
+pub(crate) fn forward_witness(
+    source: &KColoring<KN, SimpleGraph>,
+    coloring: &[usize],
+) -> Vec<usize> {
     let n = source.graph().num_vertices();
     let q = source.num_colors();
     let k = n + q;
