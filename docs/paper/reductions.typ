@@ -19805,9 +19805,9 @@ The following table shows concrete variable overhead for example instances, take
 
   _Witness extraction._ From $T^*$ recover the PCSF witness $(V_F, E_F)$ by
 
-  $ E_F = T^* sect E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
+  $ E_F = T^* inter E(G), quad V_F = { v in V : (v, t_v) in T^* } union { "endpoints of edges in" E_F }. $
 
-  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* sect E(G)$. Both directions are consistent because:
+  Equivalently, deleting $r$ and the gadget vertices ${t_v}$ from $T^*$ leaves a disjoint union of trees on $V$; $V_F$ is the set of original vertices touched by this restricted forest, and $E_F$ is exactly $T^* inter E(G)$. Both directions are consistent because:
 
   - any prized vertex $v$ in $V_F$ pays the cost-$0$ include-edge $(v, t_v)$ to reach $t_v$ inside $T^*$;
   - any prized vertex $v$ omitted from $V_F$ has $t_v$ joined to the tree exclusively through $(r, t_v)$, paying $beta dot p(v)$.
@@ -19816,7 +19816,7 @@ The following table shows concrete variable overhead for example instances, take
 
   $ sum_(e in E_F) c(e) + omega dot kappa(F) + beta dot sum_(v in.not V_F) p(v) + 0 = f'(F). $
 
-  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* sect E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
+  ($arrow.l.double$) Conversely, given an optimal Steiner tree $T^*$, the restriction $E_F = T^* inter E(G)$ is acyclic (subset of a tree) and respects the PCSF feasibility constraint that selected edges only touch selected vertices, because every endpoint $v$ of an edge in $E_F$ is forced into $V_F$ by the extraction rule. Each connected component of $F$ corresponds to a maximal subtree of $T^*$ confined to $V$, and any optimal $T^*$ uses exactly one root-attachment edge per component (a second incident root edge could be replaced by a cheaper internal path, contradicting optimality). Each prized vertex $v in V_F$ is reached by $T^*$ via original edges, so the include-edge $(v, t_v)$ is selected for free; each omitted prized vertex contributes the omit-edge $(r, t_v)$ of cost $beta dot p(v)$. Summing the contributions reproduces $f'(F)$, so $"cost"_H(T^*) = f'(F^*)$ at optima and the extracted forest is optimal for PCSF.
 
   _Overhead._ With $n = |V|$, $m = |E|$, and $k = |V_p|$:
   $ |V_H| = n + k + 1, quad |E_H| = m + n + 2 k, quad |T_H| = k + 1. $
