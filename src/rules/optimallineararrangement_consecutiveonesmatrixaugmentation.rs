@@ -99,7 +99,9 @@ fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
         bound = "k - num_edges",
     }
 )]
-impl ReduceTo<ConsecutiveOnesMatrixAugmentation> for Decision<OptimalLinearArrangement<SimpleGraph>> {
+impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
+    for Decision<OptimalLinearArrangement<SimpleGraph>>
+{
     type Result = ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation;
 
     fn reduce_to(&self) -> Self::Result {

@@ -32,13 +32,13 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_structure(
 
     // Verify the incidence matrix encodes edge endpoints.
     let expected = vec![
-        vec![true, true, false, false, false, false],  // {0,1}
-        vec![false, true, true, false, false, false],  // {1,2}
-        vec![false, false, true, true, false, false],  // {2,3}
-        vec![false, false, false, true, true, false],  // {3,4}
-        vec![false, false, false, false, true, true],  // {4,5}
-        vec![true, false, false, true, false, false],  // {0,3}
-        vec![false, false, true, false, false, true],  // {2,5}
+        vec![true, true, false, false, false, false], // {0,1}
+        vec![false, true, true, false, false, false], // {1,2}
+        vec![false, false, true, true, false, false], // {2,3}
+        vec![false, false, false, true, true, false], // {3,4}
+        vec![false, false, false, false, true, true], // {4,5}
+        vec![true, false, false, true, false, false], // {0,3}
+        vec![false, false, true, false, false, true], // {2,5}
     ];
     assert_eq!(target.matrix().to_vec(), expected);
 }
@@ -137,7 +137,10 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_in
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source);
 
     // Wrong length.
-    assert_eq!(reduction.extract_solution(&[0, 1, 2]), vec![0, 1, 2, 3, 4, 5]);
+    assert_eq!(
+        reduction.extract_solution(&[0, 1, 2]),
+        vec![0, 1, 2, 3, 4, 5]
+    );
     // Repeated column.
     assert_eq!(
         reduction.extract_solution(&[0, 0, 1, 2, 3, 4]),
