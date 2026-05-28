@@ -84,9 +84,13 @@ fmt-check:
 clippy:
 	cargo clippy --all-targets --features ilp-highs -- -D warnings
 
+node_modules/elkjs/package.json: package.json package-lock.json
+	npm ci
+
 # Build mdBook documentation
-doc:
+doc: node_modules/elkjs/package.json
 	cargo run --example export_graph
+	node scripts/generate_reduction_graph_layout.js
 	cargo run --example export_schemas
 	cargo run --example export_module_graph
 	bash scripts/generate_doc_snippets.sh target/release/pred
@@ -107,9 +111,11 @@ diagrams:
 	done
 
 # Build and serve mdBook with API docs
-mdbook:
+mdbook: node_modules/elkjs/package.json
 	@echo "Exporting graph..."
 	@cargo run --example export_graph 2>&1 | tail -1
+	@echo "Generating graph layout..."
+	@node scripts/generate_reduction_graph_layout.js 2>&1 | tail -1
 	@echo "Exporting schemas..."
 	@cargo run --example export_schemas 2>&1 | tail -1
 	@echo "Exporting module graph..."

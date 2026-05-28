@@ -1,0 +1,11 @@
+{
+  "name": "problemreductions-docs",
+  "private": true,
+  "scripts": {
+    "generate:reduction-graph-layout": "node scripts/generate_reduction_graph_layout.js",
+    "test:reduction-graph-js": "node scripts/test_reduction_graph_js.js && node scripts/test_reduction_graph_layout_generator.js"
+  },
+  "devDependencies": {
+    "elkjs": "0.9.3"
+  }
+}

@@ -4,8 +4,6 @@
 
 ## Reduction Graph
 
-<script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
-<script src="https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js"></script>
 <script src="https://unpkg.com/cytoscape-svg@0.4.0/cytoscape-svg.js"></script>
 
 <div id="cy-search">
