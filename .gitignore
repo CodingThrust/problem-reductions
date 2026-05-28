@@ -64,6 +64,8 @@ Thumbs.db
 *.tmp
 *.temp
 
+node_modules/
+
 # mdBook output
 book/
 
@@ -86,6 +88,8 @@ claude-output.log
 .worktrees/
 .worktree/
 *.json
+!package.json
+!package-lock.json
 .claude/worktrees/
 docs/test-reports/
 docs/superpowers/

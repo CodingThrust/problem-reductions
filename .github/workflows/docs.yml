@@ -22,6 +22,11 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
       - name: Install mdBook
         run: |
           mkdir -p "$HOME/bin"
@@ -33,11 +38,15 @@ jobs:
           curl -sSL https://github.com/typst/typst/releases/download/v0.14.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
+      - name: Install Node dependencies
+        run: npm ci
+
       - name: Generate data
         run: |
           cargo run --features "example-db" --example export_examples
           cargo run --example export_petersen_mapping
           cargo run --example export_graph
+          node scripts/generate_reduction_graph_layout.js
           cargo run --example export_schemas
           cargo run --example export_module_graph
 
