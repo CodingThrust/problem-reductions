@@ -145,6 +145,7 @@ pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+pub(crate) mod threedimensionalmatching_minimumweightdecoding;
 pub(crate) mod threedimensionalmatching_threematroidintersection;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
@@ -513,6 +514,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
     specs.extend(maxcut_minimummatrixcover::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_minimumweightdecoding::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threematroidintersection::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());

@@ -19305,6 +19305,53 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Return the ILP solution vector directly: $x_l = 1$ iff triple $m_l$ is selected.
 ]
 
+#let tdm_mwd = load-example("ThreeDimensionalMatching", "MinimumWeightDecoding")
+#let tdm_mwd_sol = tdm_mwd.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "MinimumWeightDecoding",
+  example: true,
+  example-caption: [$q = #tdm_mwd.source.instance.universe_size$, $m = #tdm_mwd.source.instance.triples.len()$ triples $arrow.r$ #tdm_mwd.target.instance.matrix.len() $times$ #tdm_mwd.target.instance.matrix.at(0).len() parity-check matrix],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_mwd.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_mwd) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_mwd_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_mwd.source.instance.universe_size
+      let m = tdm_mwd.source.instance.triples.len()
+      let triples = tdm_mwd.source.instance.triples
+      let target = tdm_mwd.target.instance
+      [
+        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $m = #m$ triples: #triples.map(tr => "(" + tr.map(str).join(", ") + ")").join(", "). The stored witness $(#tdm_mwd_sol.source_config.map(str).join(", "))$ selects triples #tdm_mwd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", "), covering every element of $W$, $X$, $Y$ exactly once #sym.checkmark.
+
+        *Step 2 -- Build the parity-check matrix.* Allocate a #target.matrix.len() $times$ #target.matrix.at(0).len() binary matrix $H$ with row blocks $W$ (rows $0, dots, #(q - 1)$), $X$ (rows $#q, dots, #(2 * q - 1)$), and $Y$ (rows $#(2 * q), dots, #(3 * q - 1)$). For each triple $t_j = (a_j, b_j, c_j)$, set $H[a_j, j] = H[q + b_j, j] = H[2q + c_j, j] = 1$. Every column has exactly three 1s. Set the syndrome to the all-ones vector $bold(s) = 1^(3q)$ of length #target.target.len().
+
+        *Step 3 -- Verify a solution.* The target codeword $(#tdm_mwd_sol.target_config.map(str).join(", "))$ has Hamming weight #tdm_mwd_sol.target_config.filter(x => x == 1).len() $= q$. Multiplying $H$ by this vector over $bold(F)_2$ recovers the all-ones syndrome, so each element of $W union X union Y$ is covered an odd number of times -- exactly once #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness; the instance admits a second perfect matching $\{t_2, t_3\}$ with codeword $(0, 0, 1, 1)$ of the same weight.
+      ]
+    }
+  ],
+)[
+  Berlekamp--McEliece--van Tilborg (1978) @berlekampMcElieceTilborg1978 (Garey & Johnson MS7 @garey1979): encode each triple as a length-$3q$ column with exactly three $1$s and use the all-ones syndrome to force odd coverage of every element. The target's minimum codeword weight equals $q$ iff a perfect 3-dimensional matching exists.
+][
+  _Construction._ Let the 3DM instance have universe size $q$ and triples $T = (t_0, dots, t_(m - 1))$ with $t_j = (a_j, b_j, c_j) in W times X times Y$ where $W = X = Y = {0, dots, q - 1}$.
+
+  If $q = 0$ or $m = 0$, emit a fixed sentinel target $H = (1)$ (a $1 times 1$ matrix) with syndrome $s = (0)$. The unique feasible codeword is $bold(x) = (0)$ of weight $0$, which decodes to the empty subset; `ThreeDimensionalMatching::evaluate` on the empty configuration returns the correct YES/NO answer ($"Or"("true")$ when $q = 0$, $"Or"("false")$ otherwise) on this branch.
+
+  Otherwise build $H in {0, 1}^(3q times m)$ with three row blocks, one each for $W$, $X$, $Y$. For every triple $t_j = (a_j, b_j, c_j)$, set
+  $ H[a_j, j] = 1, quad H[q + b_j, j] = 1, quad H[2q + c_j, j] = 1, $
+  with all other entries $0$. Every column has exactly three $1$s. Set the syndrome to $bold(s) = 1^(3q)$.
+
+  _Correctness (main branch)._ ($arrow.r.double$) Let $M subset.eq T$ be a perfect 3-dimensional matching, $|M| = q$. The indicator $bold(x) in {0, 1}^m$ with $x_j = 1$ iff $t_j in M$ has Hamming weight $q$. For every row of $H$ (corresponding to some $a in W union X union Y$), exactly one triple in $M$ contains $a$, so $(H bold(x))_a equiv 1 mod 2$. Hence $H bold(x) equiv 1^(3q) mod 2$ and the minimum codeword weight is at most $q$.
+
+  ($arrow.l.double$) Let $bold(x)$ satisfy $H bold(x) equiv 1^(3q) mod 2$. For every row $a$, the count $sum_(j) H[a, j] x_j$ is odd, hence $>= 1$, so at least one selected column contributes to row $a$. Summing the row sums gives $sum_a sum_(j) H[a, j] x_j = sum_(j: x_j = 1) 3$ (each selected column has exactly three $1$s), and this total is at least $3q$ because every row contributes at least $1$. Hence $|{j : x_j = 1}| >= q$. Equality forces every row to be covered exactly once (any row covered three or more times would push the total over $3q$), so the selected triples form a perfect 3-dimensional matching. Therefore the minimum weight is exactly $q$ iff the source is YES.
+
+  _Solution extraction._ Given a target codeword $bold(x)$, return it as the source's binary indicator vector: $x_j = 1$ iff triple $t_j$ is selected. `ThreeDimensionalMatching::evaluate` on this vector then doubles as a defensive verifier -- it returns $"Or"("true")$ iff the recovered subset is a genuine perfect matching, catching non-optimal target witnesses on infeasible instances.
+]
+
 #let tp_rcs = load-example("ThreePartition", "ResourceConstrainedScheduling")
 #let tp_rcs_sol = tp_rcs.solutions.at(0)
 #reduction-rule("ThreePartition", "ResourceConstrainedScheduling",
