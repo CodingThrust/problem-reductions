@@ -1,0 +1,16 @@
+# nextest configuration.
+#
+# Project policy is that no single test exceeds 5s (see .claude/CLAUDE.md).
+# slow-timeout is a CI safety net far above that budget: a test is flagged slow
+# every 60s and forcibly terminated after 3 periods (180s). This bounds a truly
+# hung test (cf. issue #1069, where big_o expansion looped indefinitely and the
+# whole job was SIGTERM-killed at the runner level) — nextest reports it as a
+# clean per-test timeout failure instead of stalling the job.
+#
+# The headroom (180s, not a tight ~10s) is deliberate: the subprocess example
+# tests in tests/suites/examples.rs may recompile under a different feature set.
+# CI pre-builds those examples (see ci.yml) so they run in a few seconds, but
+# the generous bound keeps the gate robust if that pre-build is ever skipped
+# (e.g. local `cargo nextest run`).
+[profile.default]
+slow-timeout = { period = "60s", terminate-after = 3 }
