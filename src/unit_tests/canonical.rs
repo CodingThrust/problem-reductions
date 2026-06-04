@@ -137,3 +137,29 @@ fn test_canonical_sqrt_as_power() {
     let b = canonical_form(&Expr::pow(Expr::Var("n"), Expr::Const(0.5))).unwrap();
     assert_eq!(a.to_string(), b.to_string());
 }
+
+#[test]
+fn test_canonical_nested_power_blowup_is_capped() {
+    // Regression for issue #1069: a "square of a square of a sum" structure —
+    // the shape composed-path overheads take when they traverse
+    // quadratic-overhead reductions — expands exponentially. Before the cap
+    // this OOM'd / hung indefinitely; now it must fail fast with Unsupported
+    // rather than try to materialize the blown-up monomial expansion.
+    let sum = Expr::Var("a") + Expr::Var("b") + Expr::Var("c") + Expr::Var("d");
+    // ((a+b+c+d)^4)^4 expands to >50_000 intermediate terms.
+    let e = Expr::pow(Expr::pow(sum, Expr::Const(4.0)), Expr::Const(4.0));
+    let err = canonical_form(&e).unwrap_err();
+    assert!(matches!(err, CanonicalizationError::Unsupported(_)));
+}
+
+#[test]
+fn test_canonical_moderate_power_still_expands() {
+    // The cap must not perturb legitimate, modestly-sized expressions:
+    // (a+b)^3 stays well under the cap and expands normally.
+    let e = Expr::pow(Expr::Var("a") + Expr::Var("b"), Expr::Const(3.0));
+    let c = canonical_form(&e).unwrap();
+    // a^3 + 3 a^2 b + 3 a b^2 + b^3 — compare against the same expansion
+    // written out flat (both go through canonical_form for identical ordering).
+    let expected = canonical_form(&Expr::parse("a^3 + 3*a^2*b + 3*a*b^2 + b^3")).unwrap();
+    assert_eq!(c.to_string(), expected.to_string());
+}

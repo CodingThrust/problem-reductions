@@ -217,3 +217,13 @@ fn test_big_o_multivar_exp_dominates_poly() {
         "expected n*m to survive (different var set), got: {s}"
     );
 }
+
+#[test]
+fn test_big_o_pathological_nesting_errors_instead_of_hanging() {
+    // Regression for issue #1069: a deeply-nested power that expands
+    // exponentially must return an error promptly (so callers like `big_o_of`
+    // fall back to the un-expanded expression) rather than OOM/hang.
+    let sum = Expr::Var("a") + Expr::Var("b") + Expr::Var("c") + Expr::Var("d");
+    let e = Expr::pow(Expr::pow(sum, Expr::Const(4.0)), Expr::Const(4.0));
+    assert!(big_o_normal_form(&e).is_err());
+}
