@@ -5,6 +5,8 @@
 //! - [`BoundedDiameterSpanningTree`]: Spanning tree with bounded weight and diameter
 //! - [`DegreeConstrainedSpanningTree`]: Spanning tree with maximum vertex degree at most K
 //! - [`DirectedHamiltonianPath`]: Directed Hamiltonian path (decision problem)
+//! - [`EulerianPath`]: Directed Eulerian trail (uses every arc exactly once)
+//! - [`HighlyConnectedDeletion`]: Minimum-edge deletion so every component is an isolated vertex or a highly connected graph on >=3 vertices
 //! - [`MaximumIndependentSet`]: Maximum weight independent set
 //! - [`MaximumLeafSpanningTree`]: Spanning tree maximizing number of leaves
 //! - [`MaximalIS`]: Maximal independent set
@@ -15,10 +17,16 @@
 //! - [`MinimumCapacitatedSpanningTree`]: Minimum weight spanning tree with subtree capacity constraints
 //! - [`MinimumDominatingSet`]: Minimum dominating set
 //! - [`MinimumMetricDimension`]: Minimum resolving set (metric dimension)
+//! - [`MinimumCostCirculation`]: Minimum-cost integral circulation on a directed multigraph (signed costs)
+//! - [`MinimumCostMaximumFlow`]: Lex (max-value, min-cost) integral flow on a directed graph
 //! - [`MinimumEdgeCostFlow`]: Minimum edge-cost integral flow
 //! - [`MinimumGeometricConnectedDominatingSet`]: Minimum connected dominating set in a geometric point set
 //! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
+//! - [`MaximumCoKPlex`]: Maximum-weight vertex subset with induced degree at most k-1
+//! - [`MaximumCommonEdgeSubgraph`]: Maximum number of preserved labelled directed arcs under a partial injective vertex map
+//! - [`MaximumContactMapOverlap`]: Maximum number of preserved contacts under an order-preserving partial injective alignment between ordered contact maps
+//! - [`MaximumEdgeWeightedKClique`]: Select exactly k pairwise-adjacent vertices maximizing the total weight of induced clique edges
 //! - [`MaximumAchromaticNumber`]: Maximum number of colors in a complete proper coloring
 //! - [`MaximumDomaticNumber`]: Maximum partition into disjoint dominating sets
 //! - [`MaxCut`]: Maximum cut on weighted graphs
@@ -44,6 +52,7 @@
 //! - [`PartitionIntoForests`]: Partition vertices into K classes each inducing an acyclic subgraph
 //! - [`PartitionIntoPerfectMatchings`]: Partition vertices into K groups each inducing a perfect matching
 //! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
+//! - [`PrizeCollectingSteinerForest`]: Forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`SteinerTreeInGraphs`]: Minimum weight Steiner tree connecting terminal vertices
 //! - [`BalancedCompleteBipartiteSubgraph`]: Balanced biclique decision problem
@@ -85,11 +94,13 @@ pub(crate) mod degree_constrained_spanning_tree;
 pub(crate) mod directed_hamiltonian_path;
 pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod disjoint_connecting_paths;
+pub(crate) mod eulerian_path;
 pub(crate) mod generalized_hex;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_circuit;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod hamiltonian_path_between_two_vertices;
+pub(crate) mod highly_connected_deletion;
 pub(crate) mod integral_flow_bundles;
 pub(crate) mod integral_flow_homologous_arcs;
 pub(crate) mod integral_flow_with_multipliers;
@@ -105,12 +116,18 @@ pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_achromatic_number;
 pub(crate) mod maximum_clique;
+pub(crate) mod maximum_co_k_plex;
+pub(crate) mod maximum_common_edge_subgraph;
+pub(crate) mod maximum_contact_map_overlap;
 pub(crate) mod maximum_domatic_number;
+pub(crate) mod maximum_edge_weighted_k_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_leaf_spanning_tree;
 pub(crate) mod maximum_matching;
 pub(crate) mod min_max_multicenter;
 pub(crate) mod minimum_capacitated_spanning_tree;
+pub(crate) mod minimum_cost_circulation;
+pub(crate) mod minimum_cost_maximum_flow;
 pub(crate) mod minimum_covering_by_cliques;
 pub(crate) mod minimum_cut_into_bounded_sets;
 pub(crate) mod minimum_dominating_set;
@@ -138,6 +155,7 @@ pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod partition_into_perfect_matchings;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod path_constrained_network_flow;
+pub(crate) mod prize_collecting_steiner_forest;
 pub(crate) mod rooted_tree_arrangement;
 pub(crate) mod rural_postman;
 pub(crate) mod shortest_weight_constrained_path;
@@ -160,11 +178,13 @@ pub use degree_constrained_spanning_tree::DegreeConstrainedSpanningTree;
 pub use directed_hamiltonian_path::DirectedHamiltonianPath;
 pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use disjoint_connecting_paths::DisjointConnectingPaths;
+pub use eulerian_path::EulerianPath;
 pub use generalized_hex::GeneralizedHex;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_circuit::HamiltonianCircuit;
 pub use hamiltonian_path::HamiltonianPath;
 pub use hamiltonian_path_between_two_vertices::HamiltonianPathBetweenTwoVertices;
+pub use highly_connected_deletion::HighlyConnectedDeletion;
 pub use integral_flow_bundles::IntegralFlowBundles;
 pub use integral_flow_homologous_arcs::IntegralFlowHomologousArcs;
 pub use integral_flow_with_multipliers::IntegralFlowWithMultipliers;
@@ -180,12 +200,18 @@ pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_achromatic_number::MaximumAchromaticNumber;
 pub use maximum_clique::MaximumClique;
+pub use maximum_co_k_plex::MaximumCoKPlex;
+pub use maximum_common_edge_subgraph::{LabelledArc, LabelledDigraph, MaximumCommonEdgeSubgraph};
+pub use maximum_contact_map_overlap::MaximumContactMapOverlap;
 pub use maximum_domatic_number::MaximumDomaticNumber;
+pub use maximum_edge_weighted_k_clique::MaximumEdgeWeightedKClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_leaf_spanning_tree::MaximumLeafSpanningTree;
 pub use maximum_matching::MaximumMatching;
 pub use min_max_multicenter::MinMaxMulticenter;
 pub use minimum_capacitated_spanning_tree::MinimumCapacitatedSpanningTree;
+pub use minimum_cost_circulation::MinimumCostCirculation;
+pub use minimum_cost_maximum_flow::MinimumCostMaximumFlow;
 pub use minimum_covering_by_cliques::MinimumCoveringByCliques;
 pub use minimum_cut_into_bounded_sets::MinimumCutIntoBoundedSets;
 pub use minimum_dominating_set::MinimumDominatingSet;
@@ -213,6 +239,7 @@ pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use partition_into_perfect_matchings::PartitionIntoPerfectMatchings;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use path_constrained_network_flow::PathConstrainedNetworkFlow;
+pub use prize_collecting_steiner_forest::PrizeCollectingSteinerForest;
 pub use rooted_tree_arrangement::RootedTreeArrangement;
 pub use rural_postman::RuralPostman;
 pub use shortest_weight_constrained_path::ShortestWeightConstrainedPath;
@@ -231,6 +258,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(bounded_diameter_spanning_tree::canonical_model_example_specs());
     specs.extend(degree_constrained_spanning_tree::canonical_model_example_specs());
     specs.extend(directed_hamiltonian_path::canonical_model_example_specs());
+    specs.extend(eulerian_path::canonical_model_example_specs());
     specs.extend(maximum_independent_set::canonical_model_example_specs());
     specs.extend(maximum_leaf_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_vertex_cover::canonical_model_example_specs());
@@ -240,6 +268,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_circuit::canonical_model_example_specs());
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(hamiltonian_path_between_two_vertices::canonical_model_example_specs());
+    specs.extend(highly_connected_deletion::canonical_model_example_specs());
     specs.extend(integral_flow_bundles::canonical_model_example_specs());
     specs.extend(integral_flow_with_multipliers::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
@@ -263,6 +292,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_achromatic_number::canonical_model_example_specs());
     specs.extend(maximum_domatic_number::canonical_model_example_specs());
     specs.extend(maximum_clique::canonical_model_example_specs());
+    specs.extend(maximum_co_k_plex::canonical_model_example_specs());
+    specs.extend(maximum_common_edge_subgraph::canonical_model_example_specs());
+    specs.extend(maximum_contact_map_overlap::canonical_model_example_specs());
+    specs.extend(maximum_edge_weighted_k_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_cut_into_bounded_sets::canonical_model_example_specs());
     specs.extend(minimum_dummy_activities_pert::canonical_model_example_specs());
@@ -285,6 +318,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(partition_into_perfect_matchings::canonical_model_example_specs());
     specs.extend(partition_into_paths_of_length_2::canonical_model_example_specs());
     specs.extend(path_constrained_network_flow::canonical_model_example_specs());
+    specs.extend(prize_collecting_steiner_forest::canonical_model_example_specs());
     specs.extend(rooted_tree_arrangement::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
     specs.extend(steiner_tree_in_graphs::canonical_model_example_specs());
@@ -296,10 +330,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(rural_postman::canonical_model_example_specs());
     specs.extend(integral_flow_homologous_arcs::canonical_model_example_specs());
     specs.extend(minimum_capacitated_spanning_tree::canonical_model_example_specs());
+    specs.extend(minimum_cost_circulation::canonical_model_example_specs());
+    specs.extend(minimum_cost_maximum_flow::canonical_model_example_specs());
     specs.extend(minimum_edge_cost_flow::canonical_model_example_specs());
     specs.extend(minimum_graph_bandwidth::canonical_model_example_specs());
     specs.extend(minimum_feedback_arc_set::canonical_model_example_specs());
     specs.extend(optimal_linear_arrangement::canonical_model_example_specs());
+    specs.extend(optimal_linear_arrangement::decision_canonical_model_example_specs());
     specs.extend(partial_feedback_edge_set::canonical_model_example_specs());
     specs.extend(mixed_chinese_postman::canonical_model_example_specs());
     specs.extend(subgraph_isomorphism::canonical_model_example_specs());

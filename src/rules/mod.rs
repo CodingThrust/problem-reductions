@@ -18,6 +18,7 @@ pub(crate) mod decisionminimumdominatingset_minimumsummulticenter;
 pub(crate) mod decisionminimumdominatingset_minmaxmulticenter;
 pub(crate) mod decisionminimumvertexcover_hamiltoniancircuit;
 pub(crate) mod exactcoverby3sets_algebraicequationsovergf2;
+pub(crate) mod exactcoverby3sets_boundeddiameterspanningtree;
 pub(crate) mod exactcoverby3sets_maximumsetpacking;
 pub(crate) mod exactcoverby3sets_minimumaxiomset;
 pub(crate) mod exactcoverby3sets_minimumfaultdetectiontestset;
@@ -46,12 +47,14 @@ pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
 pub(crate) mod kclique_subgraphisomorphism;
+pub(crate) mod kcoloring_bicliquecover;
 mod kcoloring_casts;
 pub(crate) mod kcoloring_clustering;
 pub(crate) mod kcoloring_partitionintocliques;
 pub(crate) mod kcoloring_twodimensionalconsecutivesets;
 mod knapsack_qubo;
 pub(crate) mod ksatisfiability_acyclicpartition;
+pub(crate) mod ksatisfiability_bicliquecover;
 mod ksatisfiability_casts;
 pub(crate) mod ksatisfiability_cyclicordering;
 pub(crate) mod ksatisfiability_decisionminimumvertexcover;
@@ -72,6 +75,7 @@ pub(crate) mod ksatisfiability_subsetsum;
 pub(crate) mod ksatisfiability_timetabledesign;
 pub(crate) mod longestcommonsubsequence_maximumindependentset;
 pub(crate) mod maxcut_minimumcutintoboundedsets;
+pub(crate) mod maxcut_minimummatrixcover;
 pub(crate) mod maximum2satisfiability_maxcut;
 pub(crate) mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
@@ -83,9 +87,15 @@ mod maximumindependentset_triangular;
 pub(crate) mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;
 pub(crate) mod maximumsetpacking_qubo;
+pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
+pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
+pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
 pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
+pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
+pub(crate) mod minimummaximalmatching_minimummatrixdomination;
 pub(crate) mod minimummultiwaycut_qubo;
+pub(crate) mod minimumvertexcover_comparativecontainment;
 pub(crate) mod minimumvertexcover_ensemblecomputation;
 pub(crate) mod minimumvertexcover_longestcommonsubsequence;
 pub(crate) mod minimumvertexcover_maximumindependentset;
@@ -98,17 +108,23 @@ pub(crate) mod minimumvertexcover_minimumweightandorgraph;
 pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
 pub(crate) mod naesatisfiability_setsplitting;
+pub(crate) mod numerical3dimensionalmatching_numericalmatchingwithtargetsums;
+pub(crate) mod optimallineararrangement_consecutiveonesmatrixaugmentation;
+pub(crate) mod optimallineararrangement_sequencingtominimizeweightedcompletiontime;
 pub(crate) mod paintshop_qubo;
 pub(crate) mod partition_binpacking;
 pub(crate) mod partition_cosineproductintegration;
+pub(crate) mod partition_integralflowwithmultipliers;
 pub(crate) mod partition_knapsack;
 pub(crate) mod partition_multiprocessorscheduling;
 pub(crate) mod partition_openshopscheduling;
 pub(crate) mod partition_productionplanning;
 pub(crate) mod partition_sequencingtominimizetardytaskweight;
 pub(crate) mod partition_subsetsum;
+pub(crate) mod partition_sumofsquarespartition;
 pub(crate) mod partitionintocliques_minimumcoveringbycliques;
 pub(crate) mod partitionintopathsoflength2_boundedcomponentspanningforest;
+pub(crate) mod prizecollectingsteinerforest_steinertree;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
@@ -129,6 +145,8 @@ pub(crate) mod subsetsum_integerknapsack;
 pub(crate) mod subsetsum_partition;
 #[cfg(test)]
 pub(crate) mod test_helpers;
+pub(crate) mod threedimensionalmatching_minimumweightdecoding;
+pub(crate) mod threedimensionalmatching_threematroidintersection;
 pub(crate) mod threedimensionalmatching_threepartition;
 pub(crate) mod threepartition_resourceconstrainedscheduling;
 pub(crate) mod threepartition_sequencingwithreleasetimesanddeadlines;
@@ -156,6 +174,10 @@ pub(crate) mod capacityassignment_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod closeststring_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod closestsubstring_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod clustering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod coloring_ilp;
@@ -174,6 +196,8 @@ pub(crate) mod directedtwocommodityintegralflow_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod disjointconnectingpaths_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod eulerianpath_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod exactcoverby3sets_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod expectedretrievalcost_ilp;
@@ -187,6 +211,8 @@ pub(crate) mod flowshopscheduling_ilp;
 pub(crate) mod graphpartitioning_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod hamiltonianpath_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod highlyconnecteddeletion_ilp;
 #[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
@@ -220,7 +246,15 @@ pub(crate) mod maximum2satisfiability_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumcokplex_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumcommonedgesubgraph_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumcontactmapoverlap_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumdomaticnumber_ilp;
+#[cfg(feature = "ilp-solver")]
+pub(crate) mod maximumedgeweightedkclique_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod maximumleafspanningtree_ilp;
 #[cfg(feature = "ilp-solver")]
@@ -391,6 +425,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(closestvectorproblem_qubo::canonical_rule_example_specs());
     specs.extend(coloring_qubo::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_algebraicequationsovergf2::canonical_rule_example_specs());
+    specs.extend(exactcoverby3sets_boundeddiameterspanningtree::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumfaultdetectiontestset::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_minimumaxiomset::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_subsetproduct::canonical_rule_example_specs());
@@ -414,6 +449,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(kclique_balancedcompletebipartitesubgraph::canonical_rule_example_specs());
     specs.extend(kclique_conjunctivebooleanquery::canonical_rule_example_specs());
     specs.extend(kclique_subgraphisomorphism::canonical_rule_example_specs());
+    specs.extend(kcoloring_bicliquecover::canonical_rule_example_specs());
     specs.extend(kcoloring_clustering::canonical_rule_example_specs());
     specs.extend(kcoloring_partitionintocliques::canonical_rule_example_specs());
     specs.extend(kcoloring_twodimensionalconsecutivesets::canonical_rule_example_specs());
@@ -421,6 +457,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(longestcommonsubsequence_maximumindependentset::canonical_rule_example_specs());
     specs.extend(ksatisfiability_cyclicordering::canonical_rule_example_specs());
     specs.extend(ksatisfiability_acyclicpartition::canonical_rule_example_specs());
+    specs.extend(ksatisfiability_bicliquecover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_decisionminimumvertexcover::canonical_rule_example_specs());
     specs.extend(ksatisfiability_directedtwocommodityintegralflow::canonical_rule_example_specs());
     specs.extend(ksatisfiability_feasibleregisterassignment::canonical_rule_example_specs());
@@ -444,9 +481,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(maximumindependentset_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximummatching_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maximumsetpacking_qubo::canonical_rule_example_specs());
+    specs.extend(minimumcostmaximumflow_minimumcostcirculation::canonical_rule_example_specs());
+    specs.extend(
+        minimumcoveringbycliques_minimumintersectiongraphbasis::canonical_rule_example_specs(),
+    );
+    specs.extend(minimumdiscreteplanarinversekinematics_qubo::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
+    specs.extend(prizecollectingsteinerforest_steinertree::canonical_rule_example_specs());
     specs.extend(partition_cosineproductintegration::canonical_rule_example_specs());
+    specs.extend(partition_integralflowwithmultipliers::canonical_rule_example_specs());
     specs.extend(partition_knapsack::canonical_rule_example_specs());
     specs.extend(partition_openshopscheduling::canonical_rule_example_specs());
     specs.extend(partition_productionplanning::canonical_rule_example_specs());
@@ -457,18 +501,23 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(partition_multiprocessorscheduling::canonical_rule_example_specs());
     specs.extend(partitionintocliques_minimumcoveringbycliques::canonical_rule_example_specs());
     specs.extend(partition_subsetsum::canonical_rule_example_specs());
+    specs.extend(partition_sumofsquarespartition::canonical_rule_example_specs());
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());
+    specs.extend(maxcut_minimummatrixcover::canonical_rule_example_specs());
     specs.extend(partition_binpacking::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_minimumweightdecoding::canonical_rule_example_specs());
+    specs.extend(threedimensionalmatching_threematroidintersection::canonical_rule_example_specs());
     specs.extend(threedimensionalmatching_threepartition::canonical_rule_example_specs());
     specs.extend(threepartition_resourceconstrainedscheduling::canonical_rule_example_specs());
     specs.extend(
         threepartition_sequencingwithreleasetimesanddeadlines::canonical_rule_example_specs(),
     );
+    specs.extend(minimumvertexcover_comparativecontainment::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_ensemblecomputation::canonical_rule_example_specs());
     specs.extend(minimumfeedbackarcset_maximumlikelihoodranking::canonical_rule_example_specs());
     specs.extend(
@@ -476,6 +525,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     );
     specs.extend(minimumvertexcover_longestcommonsubsequence::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
+    specs.extend(minimummaximalmatching_maximumachromaticnumber::canonical_rule_example_specs());
+    specs.extend(minimummaximalmatching_minimummatrixdomination::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimummaximalmatching::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());
@@ -483,6 +534,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumweightandorgraph::canonical_rule_example_specs());
     specs.extend(naesatisfiability_setsplitting::canonical_rule_example_specs());
+    specs.extend(
+        numerical3dimensionalmatching_numericalmatchingwithtargetsums::canonical_rule_example_specs(
+        ),
+    );
+    specs.extend(
+        optimallineararrangement_consecutiveonesmatrixaugmentation::canonical_rule_example_specs(),
+    );
+    specs.extend(
+        optimallineararrangement_sequencingtominimizeweightedcompletiontime::canonical_rule_example_specs(),
+    );
     specs.extend(setsplitting_betweenness::canonical_rule_example_specs());
     specs.extend(satisfiability_integralflowhomologousarcs::canonical_rule_example_specs());
     specs.extend(satisfiability_naesatisfiability::canonical_rule_example_specs());
@@ -505,6 +566,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(
         crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),
     );
+    specs.extend(
+        crate::models::graph::optimal_linear_arrangement::decision_canonical_rule_example_specs(),
+    );
     #[cfg(feature = "ilp-solver")]
     {
         specs.extend(acyclicpartition_ilp::canonical_rule_example_specs());
@@ -516,6 +580,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(boundedcomponentspanningforest_ilp::canonical_rule_example_specs());
         specs.extend(capacityassignment_ilp::canonical_rule_example_specs());
         specs.extend(circuit_ilp::canonical_rule_example_specs());
+        specs.extend(closeststring_ilp::canonical_rule_example_specs());
+        specs.extend(closestsubstring_ilp::canonical_rule_example_specs());
         specs.extend(clustering_ilp::canonical_rule_example_specs());
         specs.extend(coloring_ilp::canonical_rule_example_specs());
         specs.extend(consecutiveblockminimization_ilp::canonical_rule_example_specs());
@@ -525,6 +591,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(directedhamiltonianpath_ilp::canonical_rule_example_specs());
         specs.extend(directedtwocommodityintegralflow_ilp::canonical_rule_example_specs());
         specs.extend(disjointconnectingpaths_ilp::canonical_rule_example_specs());
+        specs.extend(eulerianpath_ilp::canonical_rule_example_specs());
         specs.extend(exactcoverby3sets_ilp::canonical_rule_example_specs());
         specs.extend(expectedretrievalcost_ilp::canonical_rule_example_specs());
         specs.extend(feasibleregisterassignment_ilp::canonical_rule_example_specs());
@@ -532,6 +599,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(flowshopscheduling_ilp::canonical_rule_example_specs());
         specs.extend(graphpartitioning_ilp::canonical_rule_example_specs());
         specs.extend(hamiltonianpath_ilp::canonical_rule_example_specs());
+        specs.extend(highlyconnecteddeletion_ilp::canonical_rule_example_specs());
         specs.extend(ilp_qubo::canonical_rule_example_specs());
         specs.extend(integralflowbundles_ilp::canonical_rule_example_specs());
         specs.extend(integralflowhomologousarcs_ilp::canonical_rule_example_specs());
@@ -547,7 +615,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximalis_ilp::canonical_rule_example_specs());
         specs.extend(maximum2satisfiability_ilp::canonical_rule_example_specs());
         specs.extend(maximumclique_ilp::canonical_rule_example_specs());
+        specs.extend(maximumcokplex_ilp::canonical_rule_example_specs());
+        specs.extend(maximumcommonedgesubgraph_ilp::canonical_rule_example_specs());
+        specs.extend(maximumcontactmapoverlap_ilp::canonical_rule_example_specs());
         specs.extend(maximumdomaticnumber_ilp::canonical_rule_example_specs());
+        specs.extend(maximumedgeweightedkclique_ilp::canonical_rule_example_specs());
         specs.extend(maximumleafspanningtree_ilp::canonical_rule_example_specs());
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());

@@ -109,6 +109,14 @@ impl ExactCoverBy3Sets {
         self.subsets.len()
     }
 
+    /// Get q = universe_size / 3, the number of subsets in any exact cover.
+    ///
+    /// `ExactCoverBy3Sets::new` enforces `universe_size % 3 == 0`, so this
+    /// division is always exact.
+    pub fn q(&self) -> usize {
+        self.universe_size / 3
+    }
+
     /// Get the number of sets in the collection.
     pub fn num_sets(&self) -> usize {
         self.num_subsets()

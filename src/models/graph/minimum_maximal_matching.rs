@@ -4,7 +4,7 @@
 //! that is maximal (cannot be extended by adding any edge).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -15,7 +15,7 @@ inventory::submit! {
         display_name: "Minimum Maximal Matching",
         aliases: &[],
         dimensions: &[
-            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "BipartiteGraph"]),
         ],
         module_path: module_path!(),
         description: "Find a minimum-size matching that cannot be extended",
@@ -147,6 +147,7 @@ where
 
 crate::declare_variants! {
     default MinimumMaximalMatching<SimpleGraph> => "1.3160^num_vertices",
+    MinimumMaximalMatching<BipartiteGraph> => "1.3160^num_vertices",
 }
 
 #[cfg(feature = "example-db")]

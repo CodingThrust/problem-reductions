@@ -199,6 +199,82 @@ If the algorithm is a high-level sketch rather than an implementable procedure �
 
 ---
 
+## Rule Check 5: Completeness (fail label: `Incomplete`)
+
+**Goal:** Does the proposed mapping work for *every* instance of the source problem, not just the canonical case in the example?
+
+A reduction that only handles a subset of source instances (e.g., "assumes connected graph", "assumes no duplicate elements", "works only when k is even") is **not a valid polynomial-time reduction** unless the issue explicitly:
+- restricts the source to a sub-variant that the codebase actually exposes as a distinct model, AND
+- the restriction is part of the algorithm statement, not a hidden assumption.
+
+This check is **mandatory** for every `[Rule]` issue and must be backed by **explicit literature and codebase research** — not vibes.
+
+### 5a: Literature research (mandatory)
+
+For the cited construction(s):
+
+1. Find the original paper or textbook section that defines the reduction.
+2. Read the **statement of the theorem**: what does it claim the reduction handles? Look for phrases like:
+   - "for any instance of P" → covers all instances (good)
+   - "for a P-instance such that ..." → has a precondition (must be flagged)
+   - "in the special case where ..." → only a special case (must be flagged)
+3. Read the **proof**: are there steps that silently assume something about the source (no isolated vertices, no zero weights, integer-valued capacities, ...)?
+
+Use the same fallback chain as Check 3c.
+
+If the cited paper is **not actually a reduction from the full source problem** but from a restricted variant → **Fail** with the precise restriction quoted from the paper. The fix is one of: (a) add a preprocessing step that reduces the full source to the restricted variant, (b) split into a `[Rule]` issue from the actual restricted source, or (c) drop the reduction.
+
+### 5b: Codebase corner-case research (mandatory)
+
+Check the actual codebase to see what shape the source problem can take:
+
+```bash
+pred show <Source> --json
+```
+
+Read the `size_fields` and any variant getters, then enumerate corner cases the issue's algorithm must handle:
+
+| Class | Example corner cases the reduction must accept |
+|---|---|
+| Graph-input problems | empty graph, single vertex, isolated vertices, self-loops if the model allows them, parallel edges if allowed, disconnected components, complete graph |
+| Weighted problems | all weights equal, all weights zero, mixed signs (if the weight type allows), one weight dominating the rest |
+| Formula/circuit | empty clause set, single-literal clauses, tautological clauses, repeated variables in a clause |
+| Set systems | empty universe, empty subsets, identical subsets, universe element appearing in no subset |
+| Algebraic | zero matrix, identity, singular matrix |
+
+Then trace the **issue's** algorithm by hand against at least 2 corner cases that are not the worked example:
+
+1. Pick a corner case from the table above that the source model actually allows.
+2. Simulate the issue's construction step by step.
+3. Check: is the target problem well-defined? Does solution extraction still work?
+
+Also grep the codebase for any existing rule whose source has the same problem name — if it already handles certain corner cases, the new rule should at least match that coverage:
+
+```bash
+grep -rl "impl.*ReduceTo.*for <Source>" src/rules/
+```
+
+Read 1–2 of those existing rules for how they handle edge inputs.
+
+If the issue's algorithm **crashes, produces an invalid target instance, or loses information** on a legitimate corner case → **Fail** with the corner case spelled out.
+
+If the issue's algorithm appears to handle corner cases correctly but the issue body doesn't *state* this explicitly → **Warn** ("works on tested corner cases, but the algorithm description does not address edge inputs — please document").
+
+### 5c: Verdict
+
+| Finding | Verdict |
+|---|---|
+| Literature explicitly covers all instances AND traced corner cases work | **Pass** |
+| Literature explicitly covers all instances but issue is silent on corner cases | **Warn** |
+| Literature has a precondition the issue ignores | **Fail** |
+| Traced corner case breaks the algorithm | **Fail** |
+
+(If the cited reference doesn't actually contain the reduction at all, Check 3c already catches it — don't double-flag here.)
+
+Report the literature evidence and the corner cases you traced in the comment — this is the most expensive check and reviewers will want to see your work.
+
+---
+
 # Part B: Model Issue Checks
 
 Applies when the title contains `[Model]`.
@@ -359,9 +435,10 @@ Post a single GitHub comment. The table adapts to the issue type:
 | Usefulness | ✅ Pass | No existing direct reduction Source → Target |
 | Non-trivial | ✅ Pass | Gadget construction with penalty terms |
 | Correctness | ❌ Fail | Paper "Smith 2020" not found on arxiv or Semantic Scholar |
+| Completeness | ⚠️ Warn | Algorithm correct on traced corner cases but issue body silent on edge inputs |
 | Well-written | ⚠️ Warn | Symbol `m` used in overhead table but not defined in algorithm |
 
-**Overall: 2 passed, 1 failed, 1 warning**
+**Overall: 2 passed, 1 failed, 2 warnings**
 
 ---
 
@@ -373,6 +450,9 @@ Post a single GitHub comment. The table adapts to the issue type:
 
 ### Correctness
 [Per-reference verification results, any better algorithms found]
+
+### Completeness
+[Literature passages cited (with quote + section/theorem number) showing whether the construction covers all source instances, and the corner cases you traced by hand with the algorithm — including any that broke or any preconditions you discovered]
 
 ### Well-written
 [Specific items to fix]
@@ -423,13 +503,14 @@ gh issue edit <NUMBER> --add-label "Useless"     # if Check 1 failed
 gh issue edit <NUMBER> --add-label "Trivial"      # if Check 2 failed
 gh issue edit <NUMBER> --add-label "Wrong"        # if Check 3 failed
 gh issue edit <NUMBER> --add-label "PoorWritten"  # if Check 4 failed
+gh issue edit <NUMBER> --add-label "Incomplete"   # if Rule Check 5 failed
 
-# "Good" label requires: zero failures AND zero warnings on Usefulness or Correctness.
+# "Good" label requires: zero failures AND zero warnings on Usefulness, Correctness, or Completeness.
 # Warnings on Non-trivial or Well-written alone do NOT block "Good".
 gh issue edit <NUMBER> --add-label "Good"
 
 # If re-checking after fixes, remove stale failure labels and add "Good" if now passing
-gh issue edit <NUMBER> --remove-label "Useless,Trivial,Wrong,PoorWritten" 2>/dev/null
+gh issue edit <NUMBER> --remove-label "Useless,Trivial,Wrong,PoorWritten,Incomplete" 2>/dev/null
 gh issue edit <NUMBER> --add-label "Good"
 ```
 

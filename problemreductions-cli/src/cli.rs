@@ -252,6 +252,8 @@ Flags by problem type:
   GeneralizedHex                  --graph, --source, --sink
   IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
   MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
+  MinimumCostMaximumFlow          --arcs, --capacities, --costs, --source, --sink
+  MinimumCostCirculation, MCC     --arcs, --capacities, --costs
   MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
   HamiltonianCircuit, HC          --graph
   MaximumLeafSpanningTree         --graph
@@ -331,6 +333,8 @@ Flags by problem type:
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   GroupingBySwapping             --string, --bound [--alphabet-size]
   LCS                             --strings [--alphabet-size]
+  ClosestString                   --alphabet-size, --strings
+  ClosestSubstring                --alphabet-size, --strings, --substring-length
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   QBF                             --num-vars, --clauses, --quantifiers
@@ -566,6 +570,36 @@ pub struct CreateArgs {
     /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
     #[arg(long)]
     pub probabilities: Option<String>,
+    /// Link lengths for MinimumDiscretePlanarInverseKinematics (comma-separated positive reals, e.g., "2.0,1.0")
+    #[arg(long)]
+    pub link_lengths: Option<String>,
+    /// Target point (x,y) for MinimumDiscretePlanarInverseKinematics (e.g., "2.0,1.0")
+    #[arg(long)]
+    pub target_point: Option<String>,
+    /// Sampled absolute orientations per link for MinimumDiscretePlanarInverseKinematics (semicolon-separated angle lists, e.g., "0.0,1.5707963267948966;0.0,1.5707963267948966")
+    #[arg(long)]
+    pub orientation_samples: Option<String>,
+    /// Admissible (a_{j-1}, a_j) pair sets per junction for MinimumDiscretePlanarInverseKinematics (pipe-separated junctions, each comma-separated "i-j" pairs, e.g., "0-0,0-1,1-1")
+    #[arg(long)]
+    pub allowed_pairs: Option<String>,
+    /// Source labelled digraph G1 for MaximumCommonEdgeSubgraph. Format: "<num_vertices>:<arc1>,<arc2>,..." with each arc "<src>-<label>-<dst>" (e.g., "5:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,3-1-4")
+    #[arg(long = "graph-1")]
+    pub graph_1: Option<String>,
+    /// Target labelled digraph G2 for MaximumCommonEdgeSubgraph. Same format as --graph-1 (e.g., "4:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,0-1-3")
+    #[arg(long = "graph-2")]
+    pub graph_2: Option<String>,
+    /// Number of ordered vertices in the first contact map G_1 for MaximumContactMapOverlap
+    #[arg(long = "num-vertices-1")]
+    pub num_vertices_1: Option<usize>,
+    /// Number of ordered vertices in the second contact map G_2 for MaximumContactMapOverlap
+    #[arg(long = "num-vertices-2")]
+    pub num_vertices_2: Option<usize>,
+    /// Contacts of G_1 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-2,1-3")
+    #[arg(long = "contacts-1")]
+    pub contacts_1: Option<String>,
+    /// Contacts of G_2 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-3,1-4,0-2")
+    #[arg(long = "contacts-2")]
+    pub contacts_2: Option<String>,
     /// Bin capacity for BinPacking
     #[arg(long)]
     pub capacity: Option<String>,
@@ -780,6 +814,9 @@ pub struct CreateArgs {
     /// Alphabet size for GroupingBySwapping, LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Common window length ell for ClosestSubstring
+    #[arg(long)]
+    pub substring_length: Option<usize>,
 
     /// Number of attributes for AdditionalKey or MinimumCardinalityKey
     #[arg(long)]
@@ -928,6 +965,18 @@ pub struct CreateArgs {
     /// Number of colors for SquareTiling
     #[arg(long)]
     pub num_colors: Option<usize>,
+    /// Vertex prizes for PrizeCollectingSteinerForest (comma-separated nonnegative weights, e.g., "5,2,5")
+    #[arg(long)]
+    pub vertex_prizes: Option<String>,
+    /// Edge costs for PrizeCollectingSteinerForest (comma-separated nonnegative weights in graph.edges() order, e.g., "1,6")
+    #[arg(long)]
+    pub edge_costs: Option<String>,
+    /// Tradeoff coefficient beta >= 0 on the omitted-prize term for PrizeCollectingSteinerForest
+    #[arg(long)]
+    pub beta: Option<String>,
+    /// Per-component penalty omega >= 0 for PrizeCollectingSteinerForest
+    #[arg(long)]
+    pub omega: Option<String>,
 }
 
 impl CreateArgs {
@@ -988,6 +1037,16 @@ impl CreateArgs {
         insert!("requirement-2", self.requirement_2);
         insert!("sizes", self.sizes.as_deref());
         insert!("probabilities", self.probabilities.as_deref());
+        insert!("link-lengths", self.link_lengths.as_deref());
+        insert!("target-point", self.target_point.as_deref());
+        insert!("orientation-samples", self.orientation_samples.as_deref());
+        insert!("allowed-pairs", self.allowed_pairs.as_deref());
+        insert!("graph-1", self.graph_1.as_deref());
+        insert!("graph-2", self.graph_2.as_deref());
+        insert!("num-vertices-1", self.num_vertices_1);
+        insert!("num-vertices-2", self.num_vertices_2);
+        insert!("contacts-1", self.contacts_1.as_deref());
+        insert!("contacts-2", self.contacts_2.as_deref());
         insert!("capacity", self.capacity.as_deref());
         insert!("sequence", self.sequence.as_deref());
         insert!("subsets", self.sets.as_deref());
@@ -1079,6 +1138,7 @@ impl CreateArgs {
         insert!("craftsman-avail", self.craftsman_avail.as_deref());
         insert!("task-avail", self.task_avail.as_deref());
         insert!("alphabet-size", self.alphabet_size);
+        insert!("substring-length", self.substring_length);
         insert!("num-attributes", self.num_attributes);
         insert!(
             "dependencies",
@@ -1134,6 +1194,10 @@ impl CreateArgs {
         insert!("tiles", self.tiles.as_deref());
         insert!("grid-size", self.grid_size);
         insert!("num-colors", self.num_colors);
+        insert!("vertex-prizes", self.vertex_prizes.as_deref());
+        insert!("edge-costs", self.edge_costs.as_deref());
+        insert!("beta", self.beta.as_deref());
+        insert!("omega", self.omega.as_deref());
 
         flags.insert(
             "source",

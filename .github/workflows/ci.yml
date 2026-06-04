@@ -6,17 +6,44 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege: jobs only read the repo; codecov auth is via token secret.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
+  # Incremental compilation hurts cold CI builds and bloats the cache; disable it
+  # (recommended by Swatinem/rust-cache).
+  CARGO_INCREMENTAL: 0
+  # Tolerate transient registry/network blips.
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
 
 jobs:
-  # Run clippy
+  # Formatting — cheap, fails fast, no build/cache needed.
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+  # Lints.
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -24,44 +51,61 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --features ilp-highs -- -D warnings
 
-  # Build and test
+  # Build, test (nextest), doc tests, and paper.
   test:
     name: Test
     runs-on: ubuntu-latest
+    # Single feature set across compile + test + doctest so artifacts are reused
+    # (no redundant full recompile between steps).
+    env:
+      FEATURES: "ilp-highs example-db"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
       - uses: Swatinem/rust-cache@v2
+      - name: Install typst
+        uses: typst-community/setup-typst@v5
 
-      - name: Build
-        run: cargo build --features ilp-highs --verbose
+      - name: Compile tests
+        run: cargo nextest run --no-run --workspace --features "$FEATURES"
+
+      # The subprocess example tests (tests/suites/examples.rs) shell out to
+      # `cargo run --example … --features ilp-highs`. Pre-build those example
+      # binaries with that exact feature set so the subprocess reuses artifacts
+      # instead of recompiling the whole crate mid-test (which otherwise adds
+      # 60s+ to a single test's wall-clock and would trip the nextest timeout).
+      - name: Build examples (for subprocess tests)
+        run: cargo build --examples --features ilp-highs
 
       - name: Run tests
-        run: cargo test --features "ilp-highs example-db" --workspace --verbose
+        run: cargo nextest run --workspace --features "$FEATURES"
 
+      # nextest does not run doc tests; run them separately (reuses the build).
       - name: Run doc tests
-        run: cargo test --doc --features ilp-highs --verbose
-
-      - name: Install typst
-        uses: typst-community/setup-typst@v4
+        run: cargo test --doc --features "$FEATURES" --verbose
 
       - name: Build paper
         run: make paper
 
-  # Code coverage
+  # Coverage. Feature set intentionally matches the historical coverage gate
+  # (ilp-highs only) to keep the codecov baseline stable.
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,nextest
       - uses: Swatinem/rust-cache@v2
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate coverage
-        run: cargo llvm-cov --features ilp-highs --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --features ilp-highs --workspace --lcov --output-path lcov.info
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v5
         with:

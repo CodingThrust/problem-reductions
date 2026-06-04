@@ -5,6 +5,8 @@
 //! - [`Betweenness`]: Find a linear ordering satisfying betweenness constraints on triples
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`Clustering`]: Partition elements into bounded-diameter clusters
+//! - [`ClosestString`]: Find a center string minimizing the maximum Hamming distance to a set of equal-length input strings
+//! - [`ClosestSubstring`]: Find a center string and a length-ell window per input string minimizing the maximum Hamming distance
 //! - [`CyclicOrdering`]: Find a permutation satisfying cyclic ordering constraints on triples
 //! - [`BoyceCoddNormalFormViolation`]: Boyce-Codd Normal Form Violation (BCNF)
 //! - [`ConsistencyOfDatabaseFrequencyTables`]: Pairwise frequency-table consistency
@@ -29,6 +31,7 @@
 //! - [`MinimumCodeGenerationOneRegister`]: Minimize instruction count for a one-register machine
 //! - [`MinimumCodeGenerationParallelAssignments`]: Minimize backward dependencies when ordering parallel assignments
 //! - [`MinimumCodeGenerationUnlimitedRegisters`]: Minimize instruction count for an unlimited-register machine with 2-address instructions
+//! - [`MinimumDiscretePlanarInverseKinematics`]: Pick one sampled absolute orientation per planar link to reach a target point under consecutive-pair feasibility
 //! - [`MinimumExternalMacroDataCompression`]: Minimize compression cost using external dictionary
 //! - [`MinimumFaultDetectionTestSet`]: Find minimum set of input-output paths covering all internal DAG vertices
 //! - [`MinimumInternalMacroDataCompression`]: Minimize self-referencing compression cost
@@ -57,6 +60,7 @@
 //! - [`SequencingWithReleaseTimesAndDeadlines`]: Single-machine scheduling feasibility
 //! - [`SequencingWithinIntervals`]: Schedule tasks within time windows
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
+//! - [`ShortestCommonSuperstring`]: Find a shortest string containing each input as a contiguous substring
 //! - [`SquareTiling`]: Place colored square tiles on an N x N grid with matching edge colors
 //! - [`TimetableDesign`]: Schedule craftsmen on tasks across work periods
 //! - [`StringToStringCorrection`]: String-to-String Correction (derive target via deletions and swaps)
@@ -114,6 +118,8 @@ pub(crate) fn lehmer_dims(n: usize) -> Vec<usize> {
 mod bin_packing;
 mod boyce_codd_normal_form_violation;
 mod capacity_assignment;
+pub(crate) mod closest_string;
+pub(crate) mod closest_substring;
 pub(crate) mod clustering;
 pub(crate) mod conjunctive_boolean_query;
 pub(crate) mod conjunctive_query_foldability;
@@ -137,6 +143,7 @@ mod minimum_code_generation_one_register;
 pub(crate) mod minimum_code_generation_parallel_assignments;
 mod minimum_code_generation_unlimited_registers;
 pub(crate) mod minimum_decision_tree;
+pub(crate) mod minimum_discrete_planar_inverse_kinematics;
 pub(crate) mod minimum_disjunctive_normal_form;
 mod minimum_external_macro_data_compression;
 mod minimum_fault_detection_test_set;
@@ -169,6 +176,7 @@ mod sequencing_with_deadlines_and_set_up_times;
 mod sequencing_with_release_times_and_deadlines;
 mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
+pub(crate) mod shortest_common_superstring;
 mod square_tiling;
 mod stacker_crane;
 mod staff_scheduling;
@@ -184,6 +192,8 @@ pub use betweenness::Betweenness;
 pub use bin_packing::BinPacking;
 pub use boyce_codd_normal_form_violation::BoyceCoddNormalFormViolation;
 pub use capacity_assignment::CapacityAssignment;
+pub use closest_string::ClosestString;
+pub use closest_substring::ClosestSubstring;
 pub use clustering::Clustering;
 pub use conjunctive_boolean_query::{ConjunctiveBooleanQuery, QueryArg, Relation as CbqRelation};
 pub use conjunctive_query_foldability::{ConjunctiveQueryFoldability, Term};
@@ -210,6 +220,7 @@ pub use minimum_code_generation_one_register::MinimumCodeGenerationOneRegister;
 pub use minimum_code_generation_parallel_assignments::MinimumCodeGenerationParallelAssignments;
 pub use minimum_code_generation_unlimited_registers::MinimumCodeGenerationUnlimitedRegisters;
 pub use minimum_decision_tree::MinimumDecisionTree;
+pub use minimum_discrete_planar_inverse_kinematics::MinimumDiscretePlanarInverseKinematics;
 pub use minimum_disjunctive_normal_form::MinimumDisjunctiveNormalForm;
 pub use minimum_external_macro_data_compression::MinimumExternalMacroDataCompression;
 pub use minimum_fault_detection_test_set::MinimumFaultDetectionTestSet;
@@ -242,6 +253,7 @@ pub use sequencing_with_deadlines_and_set_up_times::SequencingWithDeadlinesAndSe
 pub use sequencing_with_release_times_and_deadlines::SequencingWithReleaseTimesAndDeadlines;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
+pub use shortest_common_superstring::ShortestCommonSuperstring;
 pub use square_tiling::SquareTiling;
 pub use stacker_crane::StackerCrane;
 pub use staff_scheduling::StaffScheduling;
@@ -257,6 +269,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     let mut specs = Vec::new();
     specs.extend(boyce_codd_normal_form_violation::canonical_model_example_specs());
     specs.extend(capacity_assignment::canonical_model_example_specs());
+    specs.extend(closest_string::canonical_model_example_specs());
+    specs.extend(closest_substring::canonical_model_example_specs());
     specs.extend(consistency_of_database_frequency_tables::canonical_model_example_specs());
     specs.extend(conjunctive_boolean_query::canonical_model_example_specs());
     specs.extend(conjunctive_query_foldability::canonical_model_example_specs());
@@ -278,6 +292,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(stacker_crane::canonical_model_example_specs());
     specs.extend(timetable_design::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(shortest_common_superstring::canonical_model_example_specs());
     specs.extend(resource_constrained_scheduling::canonical_model_example_specs());
     specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs.extend(string_to_string_correction::canonical_model_example_specs());
@@ -307,6 +322,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(minimum_code_generation_parallel_assignments::canonical_model_example_specs());
     specs.extend(minimum_code_generation_unlimited_registers::canonical_model_example_specs());
     specs.extend(minimum_decision_tree::canonical_model_example_specs());
+    specs.extend(minimum_discrete_planar_inverse_kinematics::canonical_model_example_specs());
     specs.extend(minimum_disjunctive_normal_form::canonical_model_example_specs());
     specs.extend(minimum_external_macro_data_compression::canonical_model_example_specs());
     specs.extend(minimum_internal_macro_data_compression::canonical_model_example_specs());

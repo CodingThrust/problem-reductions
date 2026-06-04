@@ -764,6 +764,7 @@ pub(super) fn parse_field_value(
     let value = match normalized_type.as_str() {
         "SimpleGraph" => parse_simple_graph_value(raw, context)?,
         "DirectedGraph" => parse_directed_graph_value(raw, context)?,
+        "LabelledDigraph" => parse_labelled_digraph_value(raw, field_name)?,
         "KingsSubgraph" => parse_grid_subgraph_value(raw, true)?,
         "TriangularSubgraph" => parse_grid_subgraph_value(raw, false)?,
         "UnitDiskGraph" => parse_unit_disk_graph_value(raw, context)?,
@@ -801,6 +802,8 @@ pub(super) fn parse_field_value(
         "Vec<(usize,Vec<usize>)>" => parse_indexed_usize_lists_value(raw)?,
         "Vec<Vec<(usize,u64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
         "Vec<(f64,f64)>" => serde_json::to_value(util::parse_positions::<f64>(raw, "0.0,0.0")?)?,
+        "(f64,f64)" => parse_f64_pair_value(raw)?,
+        "Vec<Vec<(usize,usize)>>" => parse_nested_pair_list_value(raw)?,
         "Vec<FrequencyTable>" => {
             serde_json::to_value(parse_cdft_frequency_tables_value(raw, context)?)?
         }
@@ -942,6 +945,52 @@ pub(super) fn parse_pair_list_value(raw: &str) -> Result<serde_json::Value> {
         })
         .collect::<Result<_>>()?;
     Ok(serde_json::to_value(pairs)?)
+}
+
+pub(super) fn parse_f64_pair_value(raw: &str) -> Result<serde_json::Value> {
+    let parts: Vec<&str> = raw.split(',').collect();
+    anyhow::ensure!(
+        parts.len() == 2,
+        "Invalid (f64,f64) pair '{}': expected format x,y (e.g., 2.0,1.0)",
+        raw.trim()
+    );
+    let x: f64 = parts[0]
+        .trim()
+        .parse()
+        .map_err(|err| anyhow::anyhow!("Invalid x in '{}': {err}", raw.trim()))?;
+    let y: f64 = parts[1]
+        .trim()
+        .parse()
+        .map_err(|err| anyhow::anyhow!("Invalid y in '{}': {err}", raw.trim()))?;
+    Ok(serde_json::to_value((x, y))?)
+}
+
+pub(super) fn parse_nested_pair_list_value(raw: &str) -> Result<serde_json::Value> {
+    let groups: Vec<Vec<(usize, usize)>> = raw
+        .split('|')
+        .map(|group| {
+            let trimmed = group.trim();
+            if trimmed.is_empty() {
+                return Ok(Vec::new());
+            }
+            trimmed
+                .split(',')
+                .map(|entry| {
+                    let entry = entry.trim();
+                    let parts: Vec<&str> = entry.split('-').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid pair '{entry}': expected i-j (e.g., 0-1)"
+                    );
+                    Ok((
+                        parts[0].trim().parse::<usize>()?,
+                        parts[1].trim().parse::<usize>()?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()
+        })
+        .collect::<Result<_>>()?;
+    Ok(serde_json::to_value(groups)?)
 }
 
 pub(super) fn infer_cbq_num_variables(raw: &str) -> Result<usize> {
@@ -1460,6 +1509,57 @@ pub(super) fn parse_directed_graph_value(
     Ok(serde_json::to_value(graph)?)
 }
 
+pub(super) fn parse_labelled_digraph_value(
+    raw: &str,
+    field_name: &str,
+) -> Result<serde_json::Value> {
+    let trimmed = raw.trim();
+    let flag = format!("--{}", field_name.replace('_', "-"));
+    let (header, arcs_raw) = trimmed.split_once(':').ok_or_else(|| {
+        anyhow::anyhow!(
+            "{flag} must be \"<num_vertices>:<src>-<label>-<dst>,...\" (e.g., \"5:0-0-1,1-1-2\")"
+        )
+    })?;
+    let num_vertices: usize = header.trim().parse().map_err(|err| {
+        anyhow::anyhow!("{flag}: invalid num_vertices '{}': {err}", header.trim())
+    })?;
+    let arcs_raw = arcs_raw.trim();
+    let mut arcs: Vec<LabelledArc> = Vec::new();
+    if !arcs_raw.is_empty() {
+        for entry in arcs_raw.split(',') {
+            let entry = entry.trim();
+            let parts: Vec<&str> = entry.split('-').collect();
+            anyhow::ensure!(
+                parts.len() == 3,
+                "{flag}: invalid arc '{entry}': expected <src>-<label>-<dst>"
+            );
+            let src: usize = parts[0].trim().parse().map_err(|err| {
+                anyhow::anyhow!("{flag}: invalid arc source '{}': {err}", parts[0].trim())
+            })?;
+            let label: u32 = parts[1].trim().parse().map_err(|err| {
+                anyhow::anyhow!("{flag}: invalid arc label '{}': {err}", parts[1].trim())
+            })?;
+            let dst: usize = parts[2].trim().parse().map_err(|err| {
+                anyhow::anyhow!(
+                    "{flag}: invalid arc destination '{}': {err}",
+                    parts[2].trim()
+                )
+            })?;
+            anyhow::ensure!(
+                src < num_vertices,
+                "{flag}: arc source {src} out of range for num_vertices = {num_vertices}"
+            );
+            anyhow::ensure!(
+                dst < num_vertices,
+                "{flag}: arc destination {dst} out of range for num_vertices = {num_vertices}"
+            );
+            arcs.push(LabelledArc::new(src, label, dst));
+        }
+    }
+    let graph = LabelledDigraph::new(num_vertices, arcs);
+    Ok(serde_json::to_value(graph)?)
+}
+
 pub(super) fn parse_grid_subgraph_value(raw: &str, kings: bool) -> Result<serde_json::Value> {
     let positions = util::parse_positions::<i32>(raw, "0,0")?;
     if kings {
@@ -1507,6 +1607,9 @@ pub(super) fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'s
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
+        "LabelledDigraph" => {
+            "labelled digraph \"<num_vertices>:<src>-<label>-<dst>,...\": 5:0-0-1,1-1-2,0-2-2"
+        }
         _ => "value",
     }
 }
@@ -1682,10 +1785,17 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
         "MinimumEdgeCostFlow" => {
             "--arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3"
         }
+        "MinimumCostMaximumFlow" => {
+            "--arcs \"0>1,0>2,1>2,1>3,2>3\" --capacities 2,1,1,1,2 --costs 1,0,0,1,2 --source 0 --sink 3"
+        }
+        "MinimumCostCirculation" => {
+            "--arcs \"0>1,1>0,0>2,2>0\" --capacities 2,2,1,1 --costs 2,-3,1,-4"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "DirectedHamiltonianPath" => {
             "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
         }
+        "EulerianPath" => "--arcs \"0>1,0>1,1>2,2>0\" --num-vertices 3",
         "Kernel" => "--arcs \"0>1,0>2,1>3,2>3,3>4,4>0,4>1\"",
         "MinimumGeometricConnectedDominatingSet" => {
             "--positions \"0,0;3,0;6,0;9,0;0,3;3,3;6,3;9,3\" --radius 3.5"
@@ -1768,6 +1878,12 @@ pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static
         "SetSplitting" => "--universe-size 6 --subsets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
         "LongestCommonSubsequence" => {
             "--strings \"010110;100101;001011\" --alphabet-size 2"
+        }
+        "ClosestString" => {
+            "--alphabet-size 2 --strings \"0,0,0;0,1,1;1,0,1;1,1,0\""
+        }
+        "ClosestSubstring" => {
+            "--alphabet-size 2 --strings \"0,0,0,1,1;1,0,1,0,0;1,1,0,0,1\" --substring-length 3"
         }
         "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
         "MinimumExternalMacroDataCompression" | "MinimumInternalMacroDataCompression" => {
@@ -1889,6 +2005,7 @@ pub(super) fn help_flag_name(canonical: &str, field_name: &str) -> String {
         ("StackerCrane", "arc_lengths") => return "arc-lengths".to_string(),
         ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
         ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
+        ("MaximumCoKPlex", "bound_k") => return "k".to_string(),
         ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
         _ => {}
     }
@@ -1955,6 +2072,13 @@ pub(super) fn help_flag_hint(
         ("LongestCommonSubsequence", "strings") => {
             "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
         }
+        ("ClosestString", "strings") => {
+            "semicolon-separated equal-length symbol lists: \"0,0,0;0,1,1;1,0,1;1,1,0\""
+        }
+        ("ClosestSubstring", "strings") => {
+            "semicolon-separated symbol lists (one per input string): \"0,0,0,1,1;1,0,1,0,0;1,1,0,0,1\""
+        }
+        ("ClosestSubstring", "substring_length") => "common window length ell: 3",
         ("GroupingBySwapping", "string") => "symbol list: \"0,1,2,0,1,2\"",
         ("MinimumExternalMacroDataCompression", "string")
         | ("MinimumInternalMacroDataCompression", "string") => "symbol list: \"0,1,0,1\"",
@@ -2290,6 +2414,7 @@ pub(super) fn format_schema_help_example_value(
     match normalize_type_name(concrete_type).as_str() {
         "SimpleGraph" => format_simple_graph_example(value),
         "DirectedGraph" => format_directed_graph_example(value),
+        "LabelledDigraph" => format_labelled_digraph_example(value),
         "Vec<CNFClause>" => format_cnf_clause_list_example(value),
         "Vec<Quantifier>" => format_quantifier_list_example(value),
         "Vec<Vec<(usize,u64)>>" => format_job_shop_example(value),
@@ -2418,6 +2543,25 @@ pub(super) fn format_directed_graph_example(value: &serde_json::Value) -> Option
             .collect::<Option<Vec<_>>>()?
             .join(","),
     )
+}
+
+pub(super) fn format_labelled_digraph_example(value: &serde_json::Value) -> Option<String> {
+    let num_vertices = value.get("num_vertices")?.as_u64()?;
+    let arcs_str: Vec<String> = value
+        .get("arcs")?
+        .as_array()?
+        .iter()
+        .map(|arc| {
+            let obj = arc.as_object()?;
+            Some(format!(
+                "{}-{}-{}",
+                obj.get("src")?.as_u64()?,
+                obj.get("label")?.as_u64()?,
+                obj.get("dst")?.as_u64()?
+            ))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some(format!("{num_vertices}:{}", arcs_str.join(",")))
 }
 
 pub(super) fn format_quantifier_list_example(value: &serde_json::Value) -> Option<String> {

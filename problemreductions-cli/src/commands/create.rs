@@ -15,9 +15,9 @@ use problemreductions::models::algebraic::{
 use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::{
     GeneralizedHex, HamiltonianCircuit, HamiltonianPath, HamiltonianPathBetweenTwoVertices,
-    LengthBoundedDisjointPaths, LongestCircuit, MinimumCutIntoBoundedSets,
-    MinimumDummyActivitiesPert, MinimumMaximalMatching, RootedTreeArrangement, SteinerTree,
-    SteinerTreeInGraphs,
+    LabelledArc, LabelledDigraph, LengthBoundedDisjointPaths, LongestCircuit,
+    MinimumCutIntoBoundedSets, MinimumDummyActivitiesPert, MinimumMaximalMatching,
+    RootedTreeArrangement, SteinerTree, SteinerTreeInGraphs,
 };
 use problemreductions::models::misc::{
     CbqRelation, FrequencyTable, KnownValue, QueryArg, SchedulingWithIndividualDeadlines,
@@ -163,6 +163,16 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.alphabet_size.is_none()
         && args.num_groups.is_none()
         && args.num_sectors.is_none()
+        && args.link_lengths.is_none()
+        && args.target_point.is_none()
+        && args.orientation_samples.is_none()
+        && args.allowed_pairs.is_none()
+        && args.graph_1.is_none()
+        && args.graph_2.is_none()
+        && args.num_vertices_1.is_none()
+        && args.num_vertices_2.is_none()
+        && args.contacts_1.is_none()
+        && args.contacts_2.is_none()
         && args.dependencies.is_none()
         && args.num_attributes.is_none()
         && args.source_string.is_none()
@@ -210,6 +220,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.tiles.is_none()
         && args.grid_size.is_none()
         && args.num_colors.is_none()
+        && args.vertex_prizes.is_none()
+        && args.edge_costs.is_none()
+        && args.beta.is_none()
+        && args.omega.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -606,8 +620,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         return create_random(args, canonical, &resolved_variant, out);
     }
 
-    // ILP and CircuitSAT have complex input structures not suited for CLI flags.
-    // Check before the empty-flags help so they get a clear message.
+    // ILP and CircuitSAT have complex input structures
+    // not suited for CLI flags. Check before the empty-flags help so they get a
+    // clear message.
     if canonical == "ILP" || canonical == "CircuitSAT" {
         bail!(
             "CLI creation is not yet supported for {canonical}.\n\n\

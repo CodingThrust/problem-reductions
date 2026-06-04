@@ -4,11 +4,18 @@
 //! whether there exists a subset of the universe whose containment weight
 //! in the first family is at least its containment weight in the second.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "ComparativeContainment",
+        fields: &["universe_size", "num_r_sets", "num_s_sets"],
+    }
+}
 
 inventory::submit! {
     ProblemSchemaEntry {

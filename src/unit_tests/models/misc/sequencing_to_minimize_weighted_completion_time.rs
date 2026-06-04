@@ -99,16 +99,17 @@ fn test_sequencing_to_minimize_weighted_completion_time_serialization() {
 }
 
 #[test]
-fn test_sequencing_to_minimize_weighted_completion_time_deserialization_rejects_zero_length_task() {
-    let err =
+fn test_sequencing_to_minimize_weighted_completion_time_deserialization_allows_zero_length_task() {
+    let problem =
         serde_json::from_value::<SequencingToMinimizeWeightedCompletionTime>(serde_json::json!({
             "lengths": [0, 1, 3],
             "weights": [3, 5, 1],
             "precedences": [],
         }))
-        .unwrap_err();
+        .unwrap();
 
-    assert!(err.to_string().contains("task lengths must be positive"));
+    assert_eq!(problem.lengths(), &[0, 1, 3]);
+    assert_eq!(problem.total_processing_time(), 4);
 }
 
 #[test]
@@ -141,9 +142,14 @@ fn test_sequencing_to_minimize_weighted_completion_time_invalid_precedence() {
 }
 
 #[test]
-#[should_panic(expected = "task lengths must be positive")]
 fn test_sequencing_to_minimize_weighted_completion_time_zero_length_task() {
-    SequencingToMinimizeWeightedCompletionTime::new(vec![0, 1, 3], vec![3, 5, 1], vec![]);
+    let problem =
+        SequencingToMinimizeWeightedCompletionTime::new(vec![0, 1, 3], vec![3, 5, 1], vec![]);
+
+    assert_eq!(problem.lengths(), &[0, 1, 3]);
+    // Lehmer [0,0,0] decodes to schedule [0,1,2]; C = [0, 1, 4]; weighted sum
+    // = 3*0 + 5*1 + 1*4 = 9.
+    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(Some(9)));
 }
 
 #[test]

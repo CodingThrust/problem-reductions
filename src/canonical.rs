@@ -7,6 +7,22 @@ use std::collections::BTreeMap;
 
 use crate::expr::{CanonicalizationError, Expr};
 
+/// Hard cap on the number of additive terms produced while expanding an
+/// expression into canonical sum-of-monomials form.
+///
+/// Expanding a nested `(sum)^2 * (sum)^2` structure is exponential in nesting
+/// depth: composed-path overheads that traverse quadratic-overhead reductions
+/// (e.g. `QuadraticAssignment`) blow up to multi-GB of monomials and OOM/hang.
+/// When the intermediate term count would exceed this cap we abandon expansion
+/// and report the expression as `Unsupported`; callers (e.g. `big_o_of`) fall
+/// back to printing the compact, un-expanded expression. See issue #1069.
+///
+/// Legitimate overhead expressions stay far below this bound (the worst
+/// non-pathological case is a few hundred terms), so this never affects normal
+/// output — it only stops pathological blowups. This is a stopgap guard; the
+/// symbolic system is slated for a larger rework.
+const MAX_CANONICAL_TERMS: usize = 50_000;
+
 /// An opaque non-polynomial factor (exp, log, fractional-power base).
 ///
 /// Stored by its canonical string representation for deterministic ordering.
@@ -184,6 +200,19 @@ impl CanonicalSum {
         CanonicalSum { terms }
     }
 
+    /// Multiply with a guard against pathological expansion (see
+    /// [`MAX_CANONICAL_TERMS`]). The Cartesian product size is checked *before*
+    /// it is materialized, so this never allocates the blown-up vector.
+    fn try_mul(&self, other: &CanonicalSum) -> Result<CanonicalSum, CanonicalizationError> {
+        let product = self.terms.len().saturating_mul(other.terms.len());
+        if product > MAX_CANONICAL_TERMS {
+            return Err(CanonicalizationError::Unsupported(format!(
+                "expression too large to canonicalize ({product} terms exceeds cap of {MAX_CANONICAL_TERMS})"
+            )));
+        }
+        Ok(self.mul(other))
+    }
+
     /// Merge terms with the same signature and drop zero-coefficient terms.
     /// Sort the result deterministically.
     fn simplify(self) -> Self {
@@ -238,7 +267,7 @@ fn expr_to_canonical(expr: &Expr) -> Result<CanonicalSum, CanonicalizationError>
         Expr::Mul(a, b) => {
             let ca = expr_to_canonical(a)?;
             let cb = expr_to_canonical(b)?;
-            Ok(ca.mul(&cb))
+            ca.try_mul(&cb)
         }
         Expr::Pow(base, exp) => canonicalize_pow(base, exp),
         Expr::Exp(arg) => {
@@ -300,7 +329,7 @@ fn canonicalize_pow(base: &Expr, exp: &Expr) -> Result<CanonicalSum, Canonicaliz
                 }
                 let mut result = base_sum.clone();
                 for _ in 1..n {
-                    result = result.mul(&base_sum);
+                    result = result.try_mul(&base_sum)?;
                 }
                 Ok(result)
             } else {
