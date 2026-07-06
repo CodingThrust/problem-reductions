@@ -51,6 +51,31 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --features ilp-highs -- -D warnings
 
+  # Cross-compile the portable Rust surface to RISC-V Linux.
+  riscv:
+    name: RISC-V build
+    runs-on: ubuntu-latest
+    env:
+      FEATURES: "ilp-lp-solvers"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: riscv64gc-unknown-linux-gnu
+      - uses: Swatinem/rust-cache@v2
+      - name: Install RISC-V cross tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+      - name: Build workspace for RISC-V
+        env:
+          CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
+        run: cargo build --workspace --no-default-features --features "$FEATURES" --target riscv64gc-unknown-linux-gnu
+      - name: Verify RISC-V executable
+        run: |
+          riscv64-linux-gnu-readelf -h target/riscv64gc-unknown-linux-gnu/debug/pred \
+            | grep 'Machine:.*RISC-V'
+
   # Build, test (nextest), doc tests, and paper.
   test:
     name: Test
