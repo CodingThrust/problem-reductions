@@ -51,9 +51,11 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --features ilp-highs -- -D warnings
 
-  # Cross-compile the portable Rust surface to RISC-V Linux.
+  # Cross-compile the portable Rust surface to RISC-V Linux, then execute the
+  # CLI under QEMU user-mode emulation to verify runtime behavior (not just
+  # that the binary links).
   riscv:
-    name: RISC-V build
+    name: RISC-V build & run
     runs-on: ubuntu-latest
     env:
       FEATURES: "ilp-lp-solvers"
@@ -63,10 +65,10 @@ jobs:
         with:
           targets: riscv64gc-unknown-linux-gnu
       - uses: Swatinem/rust-cache@v2
-      - name: Install RISC-V cross tools
+      - name: Install RISC-V cross tools and QEMU
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu
+          sudo apt-get install -y gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu qemu-user
       - name: Build workspace for RISC-V
         env:
           CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
@@ -75,6 +77,16 @@ jobs:
         run: |
           riscv64-linux-gnu-readelf -h target/riscv64gc-unknown-linux-gnu/debug/pred \
             | grep 'Machine:.*RISC-V'
+      - name: Run CLI smoke test under QEMU
+        env:
+          PRED: qemu-riscv64 -L /usr/riscv64-linux-gnu target/riscv64gc-unknown-linux-gnu/debug/pred
+        run: |
+          # Registry loads and the catalog renders on RISC-V.
+          $PRED list | head -5
+          # End-to-end create + brute-force solve: MIS of a 5-cycle is 2.
+          $PRED create MaximumIndependentSet --graph 0-1,1-2,2-3,3-4,4-0 -o mis.json
+          $PRED solve mis.json --solver brute-force | tee solve.out
+          grep -q '"evaluation": "Max(2)"' solve.out
 
   # Build, test (nextest), doc tests, and paper.
   test:
