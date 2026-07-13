@@ -2,6 +2,7 @@
 
 pub mod analysis;
 pub mod cost;
+pub mod pareto;
 pub mod registry;
 pub use cost::{
     CustomCost, Minimize, MinimizeOutputSize, MinimizeSteps, MinimizeStepsThenOverhead, PathCostFn,
@@ -403,8 +404,11 @@ pub(crate) mod undirectedflowlowerbounds_ilp;
 pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 
 pub use graph::{
-    AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
-    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
+    AggregateReductionChain, MeasuredPath, NeighborInfo, NeighborTree, ReductionChain,
+    ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
+};
+pub use pareto::{
+    CostLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, DEFAULT_SIZE_BUDGET, HOP_CAP,
 };
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,

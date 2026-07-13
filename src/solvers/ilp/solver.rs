@@ -240,48 +240,36 @@ impl ILPSolver {
         any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
     }
 
-    /// Two-level path selection:
-    /// 1. Dijkstra finds the cheapest path to each ILP variant using
-    ///    `MinimizeStepsThenOverhead` (additive edge costs: step count + log overhead).
-    /// 2. Across ILP variants, we pick the path whose composed final output size
-    ///    is smallest — this is the actual ILP problem size the solver will face.
+    /// Select the witness reduction path to ILP whose **measured** final ILP size is
+    /// smallest.
+    ///
+    /// Delegates to the measured Pareto search
+    /// ([`ReductionGraph::find_measured_best_path_to_name`]): it actually executes each
+    /// reduction on `instance` and measures the real constructed ILP size, choosing the
+    /// smallest across all ILP variants. Overhead formulas are used only as a pre-flight
+    /// guard against catastrophic constructions — never to arbitrate between concrete
+    /// candidates. This fixes issue #788 (formula/step ranking could miss the path with
+    /// the smallest real ILP) and makes OOM structurally impossible during selection.
+    ///
+    /// The returned [`MeasuredPath`](crate::rules::MeasuredPath) carries the already
+    /// constructed reduction chain, so the caller solves and extracts without
+    /// re-executing the reductions.
     fn best_path_to_ilp(
         &self,
         graph: &crate::rules::ReductionGraph,
         name: &str,
         variant: &std::collections::BTreeMap<String, String>,
-        mode: ReductionMode,
         instance: &dyn std::any::Any,
-    ) -> Option<crate::rules::ReductionPath> {
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
-        let mut best_path: Option<crate::rules::ReductionPath> = None;
-        let mut best_cost = f64::INFINITY;
-
-        for dv in &ilp_variants {
-            if let Some(path) = graph.find_cheapest_path_mode(
-                name,
-                variant,
-                "ILP",
-                dv,
-                mode,
-                &input_size,
-                &crate::rules::MinimizeStepsThenOverhead,
-            ) {
-                // Use composed final output size for cross-variant comparison,
-                // since this determines the actual ILP problem size.
-                let final_size = graph
-                    .evaluate_path_overhead(&path, &input_size)
-                    .unwrap_or_default();
-                let cost = final_size.total() as f64;
-                if cost < best_cost {
-                    best_cost = cost;
-                    best_path = Some(path);
-                }
-            }
-        }
-
-        best_path
+    ) -> Option<crate::rules::MeasuredPath> {
+        graph.find_measured_best_path_to_name(
+            name,
+            variant,
+            "ILP",
+            ReductionMode::Witness,
+            instance,
+            crate::rules::DEFAULT_SIZE_BUDGET,
+            false,
+        )
     }
 
     pub fn try_solve_via_reduction(
@@ -300,13 +288,8 @@ impl ILPSolver {
 
         let graph = crate::rules::ReductionGraph::new();
 
-        let Some(path) =
-            self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness, instance)
-        else {
-            if self
-                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate, instance)
-                .is_some()
-            {
+        let Some(measured) = self.best_path_to_ilp(&graph, name, variant, instance) else {
+            if self.has_aggregate_path_to_ilp(&graph, name, variant) {
                 return Err(SolveViaReductionError::WitnessPathRequired {
                     name: name.to_string(),
                 });
@@ -317,17 +300,37 @@ impl ILPSolver {
             });
         };
 
-        let chain = graph.reduce_along_path(&path, instance).ok_or_else(|| {
-            SolveViaReductionError::WitnessPathRequired {
+        let ilp_solution = self
+            .solve_dyn(measured.target_problem_any())
+            .ok_or_else(|| SolveViaReductionError::NoSolution {
                 name: name.to_string(),
-            }
-        })?;
-        let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
-            SolveViaReductionError::NoSolution {
-                name: name.to_string(),
-            }
-        })?;
-        Ok(chain.extract_solution(&ilp_solution))
+            })?;
+        Ok(measured.extract_solution(&ilp_solution))
+    }
+
+    /// Whether an aggregate-capable (but possibly not witness-capable) reduction path to
+    /// some ILP variant exists. Used only to distinguish "no path at all" from "a path
+    /// exists but cannot recover a witness" for error reporting.
+    fn has_aggregate_path_to_ilp(
+        &self,
+        graph: &crate::rules::ReductionGraph,
+        name: &str,
+        variant: &std::collections::BTreeMap<String, String>,
+    ) -> bool {
+        let input_size = crate::types::ProblemSize::new(vec![]);
+        graph.variants_for("ILP").iter().any(|dv| {
+            graph
+                .find_cheapest_path_mode(
+                    name,
+                    variant,
+                    "ILP",
+                    dv,
+                    ReductionMode::Aggregate,
+                    &input_size,
+                    &crate::rules::MinimizeSteps,
+                )
+                .is_some()
+        })
     }
 
     /// Solve a type-erased problem by finding a reduction path to ILP.

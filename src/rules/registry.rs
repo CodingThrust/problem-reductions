@@ -41,6 +41,19 @@ impl ReductionOverhead {
         ProblemSize::new(fields)
     }
 
+    /// Predicted total output size as an `f64`, summing every output field's formula.
+    ///
+    /// Unlike [`evaluate_output_size`](Self::evaluate_output_size), this never rounds to
+    /// `usize`, so an astronomic prediction (e.g. `2^num_vertices` on a large instance)
+    /// stays a large finite `f64` instead of overflowing. Used by the measured Pareto
+    /// search's pre-flight guard to refuse catastrophic constructions before executing.
+    pub fn evaluate_output_total_f64(&self, input: &ProblemSize) -> f64 {
+        self.output_size
+            .iter()
+            .map(|(_, expr)| expr.eval(input).max(0.0))
+            .sum()
+    }
+
     /// Collect all input variable names referenced by the overhead expressions.
     pub fn input_variable_names(&self) -> HashSet<&'static str> {
         self.output_size
