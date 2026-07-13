@@ -751,8 +751,23 @@ fn path_all(
         );
     }
 
-    // Sort by path length (shortest first)
-    all_paths.sort_by_key(|p| p.len());
+    // Total, deterministic order: shortest first, then by a full name+variant
+    // signature. `find_paths_up_to` discovery order depends on inventory/link
+    // iteration, so length alone leaves same-length paths (and, after truncation,
+    // *which* same-length paths survive) build-dependent. The signature tiebreak
+    // makes both the ordering and the truncated subset reproducible.
+    let path_signature = |p: &ReductionPath| -> String {
+        p.steps
+            .iter()
+            .map(|s| format!("{}{}", s.name, variant_to_full_slash(&s.variant)))
+            .collect::<Vec<_>>()
+            .join(">")
+    };
+    all_paths.sort_by(|a, b| {
+        a.len()
+            .cmp(&b.len())
+            .then_with(|| path_signature(a).cmp(&path_signature(b)))
+    });
 
     let truncated = all_paths.len() > max_paths;
     if truncated {
