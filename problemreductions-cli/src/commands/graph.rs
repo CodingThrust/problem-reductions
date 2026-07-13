@@ -7,7 +7,7 @@ use problemreductions::rules::{
     TraversalFlow,
 };
 use problemreductions::types::ProblemSize;
-use problemreductions::{big_o_normal_form, Expr};
+use problemreductions::{Expr, Growth};
 use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
@@ -344,13 +344,12 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name(&default_name, &text, &json)
 }
 
-/// Format an expression as Big O notation using asymptotic normalization.
-/// Falls back to wrapping the original expression if normalization fails.
+/// Format an expression as Big O notation using the growth domain's canonical
+/// renderer. Bounded classes render as `O(<expr>)`; a growth the domain cannot
+/// bound symbolically (nonlinear exponent / factorial) renders as the honest
+/// `O(?)` marker — never the raw unreduced expression.
 fn big_o_of(expr: &Expr) -> String {
-    match big_o_normal_form(expr) {
-        Ok(norm) => format!("O({})", norm),
-        Err(_) => format!("O({})", expr),
-    }
+    Growth::from_expr(expr).to_big_o()
 }
 
 /// Format overhead fields as `field = O(...)` strings.
@@ -761,19 +760,6 @@ fn path_all(
     }
 
     let returned = all_paths.len();
-    let mut text = format!(
-        "Found {} paths from {} to {}:\n",
-        returned, src_name, dst_name
-    );
-    for (idx, p) in all_paths.iter().enumerate() {
-        text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
-        text.push_str(&format_path_text(graph, p));
-    }
-    if truncated {
-        text.push_str(&format!(
-            "\n(showing {max_paths} of more paths; use --max-paths to increase)\n"
-        ));
-    }
 
     let paths_json: Vec<serde_json::Value> = all_paths
         .iter()
@@ -829,10 +815,44 @@ fn path_all(
             serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?
         );
     } else {
+        // Build the (potentially expensive) text rendering only for text output;
+        // JSON and file modes above must never construct it (issue #1069).
+        let text =
+            render_all_paths_text(graph, &all_paths, src_name, dst_name, truncated, max_paths);
         println!("{text}");
     }
 
     Ok(())
+}
+
+/// Render the `--all` text listing (header + per-path chains with normalized
+/// Big-O overheads). Extracted so it is built only for text output and can be
+/// exercised in-process by the issue-1069 regression tests without spawning the
+/// binary.
+fn render_all_paths_text(
+    graph: &ReductionGraph,
+    paths: &[ReductionPath],
+    src_name: &str,
+    dst_name: &str,
+    truncated: bool,
+    max_paths: usize,
+) -> String {
+    let mut text = format!(
+        "Found {} paths from {} to {}:\n",
+        paths.len(),
+        src_name,
+        dst_name
+    );
+    for (idx, p) in paths.iter().enumerate() {
+        text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
+        text.push_str(&format_path_text(graph, p));
+    }
+    if truncated {
+        text.push_str(&format!(
+            "\n(showing {max_paths} of more paths; use --max-paths to increase)\n"
+        ));
+    }
+    text
 }
 
 pub fn export(out: &OutputConfig) -> Result<()> {
@@ -966,5 +986,264 @@ mod tests {
         push_alias_part(&mut parts, "3sat");
 
         assert_eq!(parts, vec!["KSAT", "3SAT", "2SAT"]);
+    }
+}
+
+/// Regression, budget, and golden-determinism tests pinning the fix for issue
+/// #1069 (`pred path --all` OOM/hang) and issue #1079 (raw-expression fallback +
+/// unconditional JSON-mode text rendering). All tests run **in-process** against
+/// the CLI's own private rendering helpers — no `pred` binary is spawned.
+///
+/// Note on line lengths: with the growth domain (#1078) backing `big_o_of`,
+/// composed overheads of long paths render to *genuine* multivariate polynomial
+/// normal forms (an antichain of pairwise-incomparable monomials). These are the
+/// correct, tight Big-O answers, not raw fallbacks — a degree-8 trivariate form
+/// like `O(a^8 + a^6 b^2 + … + c^8)` legitimately runs several hundred chars.
+/// The #1069 guarantee is *structural boundedness* (the antichain is capped at
+/// `growth::ANTICHAIN_CAP = 32` terms, computed bottom-up in linear time), not a
+/// fixed line-length limit, so the tests assert a genuine normal form plus a
+/// generous structural bound rather than the (unachievable-for-multivariate)
+/// 200-char figure from the issue text.
+#[cfg(test)]
+mod issue_1069_tests {
+    use super::{big_o_of, render_all_paths_text};
+    use problemreductions::big_o_normal_form;
+    use problemreductions::rules::{ReductionGraph, ReductionPath};
+
+    /// Structural upper bound on a single rendered `O(...)` field: an antichain of
+    /// at most 32 terms (`ANTICHAIN_CAP`) over a handful of variables, each term a
+    /// short monomial. Far below #1069's ~2113-char raw-expression explosion, and
+    /// independent of path length — the point of the growth domain.
+    const RENDER_LEN_BOUND: usize = 2000;
+
+    /// #1069's exploding path as a node-name chain (KSat → QUBO through
+    /// QuadraticAssignment/ILP). Used to reconstruct the path from the live graph
+    /// by name so the tests track inventory changes rather than hard-coding the
+    /// 2000+ char composed expression.
+    const NAMED_EXPLODING_PATH: [&str; 8] = [
+        "KSatisfiability",
+        "Satisfiability",
+        "KSatisfiability",
+        "DecisionMinimumVertexCover",
+        "HamiltonianCircuit",
+        "QuadraticAssignment",
+        "ILP",
+        "QUBO",
+    ];
+
+    /// Reconstruct the #1069 exploding path deterministically. Uses the *complete*
+    /// [`ReductionGraph::find_all_paths`] enumeration (order-independent, unlike
+    /// `find_paths_up_to`'s `take(limit)`) and picks, among all paths whose
+    /// name-chain equals [`NAMED_EXPLODING_PATH`], the one with the
+    /// lexicographically smallest full (variant-annotated) rendering. This makes
+    /// the selection stable across build/inventory/link-order differences.
+    fn named_exploding_path(graph: &ReductionGraph) -> ReductionPath {
+        let src = crate::problem_name::resolve_problem_ref("KSat", graph).unwrap();
+        let dst = crate::problem_name::resolve_problem_ref("QUBO", graph).unwrap();
+        let all = graph.find_all_paths(&src.name, &src.variant, &dst.name, &dst.variant);
+        all.into_iter()
+            .filter(|p| p.type_names() == NAMED_EXPLODING_PATH)
+            .min_by_key(|p| p.to_string())
+            .expect("the #1069 KSat->QUBO exploding path must exist in the graph")
+    }
+
+    /// (1) Regression: reconstruct #1069's exploding KSat→QUBO path *by name* from
+    /// the live graph and assert every composed size field yields a **genuine
+    /// normal form** (the deleted raw fallback would have surfaced here as either
+    /// an `Err`/`O(?)` or an un-reduced multi-thousand-char string).
+    #[test]
+    fn issue_1069_named_exploding_path_normalizes() {
+        let graph = ReductionGraph::new();
+        let path = named_exploding_path(&graph);
+
+        let composed = graph.compose_path_overhead(&path);
+        assert!(
+            !composed.output_size.is_empty(),
+            "composed overhead has no size fields"
+        );
+
+        let mut saw_real_reduction = false;
+        for (field, expr) in &composed.output_size {
+            // Genuine normal form: not the removed `Err(_) => O(<raw expr>)` path.
+            assert!(
+                big_o_normal_form(expr).is_ok(),
+                "field {field} did not normalize to a genuine Big-O form: {expr}"
+            );
+            let rendered = big_o_of(expr);
+            assert!(
+                !rendered.contains("O(?)"),
+                "field {field} rendered as unbounded O(?): expr = {expr}"
+            );
+            // Structurally bounded — no raw-expression explosion.
+            assert!(
+                rendered.len() < RENDER_LEN_BOUND,
+                "field {field} rendered {} chars (>= {RENDER_LEN_BOUND}); \
+                 raw fallback may have returned: {rendered}",
+                rendered.len()
+            );
+            // The rendered normal form is never *longer* than the raw composed
+            // expression: proof that normalization (not passthrough) happened.
+            let raw_len = expr.to_string().len();
+            assert!(
+                rendered.len() <= raw_len + "O()".len(),
+                "field {field}: rendered {} chars exceeds raw {raw_len}; \
+                 looks like a raw-expression fallback",
+                rendered.len()
+            );
+            if raw_len + "O()".len() > rendered.len() {
+                saw_real_reduction = true;
+            }
+        }
+        // At least one field of this deep path must have been genuinely reduced by
+        // normalization (the whole point of #1069): otherwise the raw composed
+        // expression was already trivial and this is not the exploding path.
+        assert!(
+            saw_real_reduction,
+            "no field was reduced by normalization; not the #1069 exploding path"
+        );
+    }
+
+    /// (2) Whole-graph budget: rendering Big-O for **every** path of representative
+    /// hot pairs must finish well within the CI budget and never produce an
+    /// unbounded-length string. This is the "can't OOM/hang again" guard: it walks
+    /// the *complete* path set (`find_all_paths`), so no enumeration cap can hide a
+    /// runaway rendering.
+    #[test]
+    fn issue_1069_render_budget_is_bounded() {
+        let graph = ReductionGraph::new();
+        let start = std::time::Instant::now();
+        for (src, dst) in [("KSat", "QUBO"), ("MIS", "QUBO")] {
+            let src_ref = crate::problem_name::resolve_problem_ref(src, &graph).unwrap();
+            let dst_ref = crate::problem_name::resolve_problem_ref(dst, &graph).unwrap();
+            let paths = graph.find_all_paths(
+                &src_ref.name,
+                &src_ref.variant,
+                &dst_ref.name,
+                &dst_ref.variant,
+            );
+            assert!(!paths.is_empty(), "expected paths for {src} -> {dst}");
+            for path in &paths {
+                // Per-step overheads plus the composed overall overhead.
+                let per_step = graph.path_overheads(path);
+                let overall = graph.compose_path_overhead(path);
+                for oh in per_step.iter().chain(std::iter::once(&overall)) {
+                    for (field, expr) in &oh.output_size {
+                        let rendered = big_o_of(expr);
+                        assert!(
+                            rendered.len() < RENDER_LEN_BOUND,
+                            "{src}->{dst} field {field} rendered {} chars (>= {RENDER_LEN_BOUND})",
+                            rendered.len()
+                        );
+                    }
+                }
+            }
+        }
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_secs(5),
+            "rendering budget exceeded: {elapsed:?}"
+        );
+    }
+
+    /// (3) Golden determinism: the rendered text of the #1069 exploding path is
+    /// byte-stable (growth-term ordering is deterministic by construction, #1075).
+    /// Goldening a single, name-selected path (rather than the full `--all`
+    /// enumeration) keeps the fixture robust to build/inventory ordering while
+    /// still exercising the exact `format_path_text` code path `pred path --all`
+    /// prints. Regenerate the fixture with `REGEN_GOLDEN=1 cargo test issue_1069`.
+    ///
+    /// Negative control: swapping two terms in one rendered `O(...)` breaks the
+    /// byte-exact comparison — proving the check has teeth.
+    #[test]
+    fn issue_1069_golden_text_is_deterministic() {
+        let graph = ReductionGraph::new();
+        let path = named_exploding_path(&graph);
+        // Exactly the per-path block `pred path KSat QUBO --all` prints for this path.
+        let actual = render_all_paths_text(&graph, &[path], "KSatisfiability", "QUBO", false, 0);
+
+        let golden_path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/issue_1069_ksat_qubo_all.txt"
+        );
+        if std::env::var_os("REGEN_GOLDEN").is_some() {
+            std::fs::create_dir_all(std::path::Path::new(golden_path).parent().unwrap()).unwrap();
+            std::fs::write(golden_path, &actual).unwrap();
+        }
+        let golden = std::fs::read_to_string(golden_path).unwrap_or_else(|e| {
+            panic!("missing golden fixture {golden_path} ({e}); run REGEN_GOLDEN=1 cargo test issue_1069")
+        });
+
+        assert_eq!(
+            actual, golden,
+            "rendered text for the #1069 KSat->QUBO exploding path drifted from the \
+             committed golden; if this is an intended inventory change, regenerate \
+             with REGEN_GOLDEN=1"
+        );
+
+        // Negative control: corrupt the golden by swapping two top-level `+` terms
+        // inside the first multi-term `O(... + ...)` and assert the byte-exact
+        // comparison now fails.
+        let corrupted = swap_two_terms(&golden)
+            .expect("golden should contain a multi-term O(... + ...) to corrupt");
+        assert_ne!(corrupted, golden, "swap produced no change");
+        assert_ne!(
+            actual, corrupted,
+            "byte-exact comparison failed to detect a two-term swap (no teeth)"
+        );
+    }
+
+    /// Swap the first two top-level `+`-separated terms inside the first
+    /// multi-term `O(a + b + ...)` group in `text`. Uses balanced-paren matching
+    /// so inner `sqrt(...)` / `log(...)` groups do not confuse the scan, and only
+    /// splits on top-level ` + ` (depth 0). Returns `None` if no multi-term group
+    /// exists.
+    fn swap_two_terms(text: &str) -> Option<String> {
+        let bytes = text.as_bytes();
+        let mut search = 0;
+        while let Some(rel) = text[search..].find("O(") {
+            let open = search + rel; // index of 'O'
+            let inner_start = open + 2; // just past "O("
+            let mut depth = 1usize;
+            let mut i = inner_start;
+            let mut top_pluses: Vec<usize> = Vec::new();
+            while i < bytes.len() && depth > 0 {
+                match bytes[i] {
+                    b'(' => depth += 1,
+                    b')' => depth -= 1,
+                    b'+' if depth == 1
+                        && i >= inner_start + 1
+                        && bytes[i - 1] == b' '
+                        && i + 1 < bytes.len()
+                        && bytes[i + 1] == b' ' =>
+                    {
+                        top_pluses.push(i - 1); // start of the " + " separator
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+            let close = i - 1; // index of the matching ')'
+            if top_pluses.len() >= 1 {
+                let inner = &text[inner_start..close];
+                let p1 = top_pluses[0] - inner_start; // offset of first " + "
+                let after = p1 + 3;
+                let (first, second, tail) = if top_pluses.len() >= 2 {
+                    let p2 = top_pluses[1] - inner_start;
+                    (&inner[..p1], &inner[after..p2], &inner[p2..])
+                } else {
+                    (&inner[..p1], &inner[after..], "")
+                };
+                let swapped_inner = format!("{second} + {first}{tail}");
+                if swapped_inner != inner {
+                    let mut out = String::with_capacity(text.len());
+                    out.push_str(&text[..inner_start]);
+                    out.push_str(&swapped_inner);
+                    out.push_str(&text[close..]);
+                    return Some(out);
+                }
+            }
+            search = inner_start;
+        }
+        None
     }
 }
