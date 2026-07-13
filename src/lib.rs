@@ -20,16 +20,14 @@
 extern crate self as problemreductions;
 
 pub(crate) mod big_o;
-pub(crate) mod canonical;
 pub mod config;
 pub mod error;
 #[cfg(feature = "example-db")]
 pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
-// The growth domain is consumed by later milestone issues (big_o.rs / search
-// rewiring); nothing references it on `main` yet, so its public API is dead code
-// for now.
+// The growth domain backs `big_o_normal_form`; the search/analysis rewiring that
+// consumes the rest of its API lands in later milestone issues.
 #[allow(dead_code)]
 pub(crate) mod growth;
 pub mod io;
@@ -115,9 +113,8 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use big_o::big_o_normal_form;
-pub use canonical::canonical_form;
 pub use error::{ProblemError, Result};
-pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
+pub use expr::{AsymptoticAnalysisError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::Problem;

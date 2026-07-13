@@ -13,11 +13,10 @@ fn test_pred_sym_parse() {
 }
 
 #[test]
-fn test_pred_sym_canon_merge_terms() {
+fn test_pred_sym_canon_subcommand_removed() {
+    // The exact-canonical-form engine is gone; `canon` is no longer a subcommand.
     let output = pred_sym().args(["canon", "n + n"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert_eq!(stdout.trim(), "2 * n");
+    assert!(!output.status.success());
 }
 
 #[test]
@@ -53,7 +52,10 @@ fn test_pred_sym_big_o_signed_polynomial() {
 
 #[test]
 fn test_pred_sym_big_o_sqrt_display() {
-    let output = pred_sym().args(["big-o", "2^(n^(1/2))"]).output().unwrap();
+    // A fractional polynomial degree renders with sqrt notation.
+    // (`2^sqrt(n)` — a nonlinear exponent — is now unsupported, so use an
+    // in-domain sqrt input instead.)
+    let output = pred_sym().args(["big-o", "sqrt(n * m)"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(

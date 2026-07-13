@@ -312,32 +312,6 @@ impl fmt::Display for AsymptoticAnalysisError {
 
 impl std::error::Error for AsymptoticAnalysisError {}
 
-/// Error returned when exact canonicalization fails.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum CanonicalizationError {
-    /// Expression cannot be canonicalized (e.g., variable in both base and exponent).
-    Unsupported(String),
-}
-
-impl fmt::Display for CanonicalizationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Unsupported(expr) => {
-                write!(f, "unsupported expression for canonicalization: {expr}")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CanonicalizationError {}
-
-/// Return a normalized `Expr` representing the asymptotic behavior of `expr`.
-///
-/// This is now a compatibility wrapper for `big_o_normal_form()`.
-pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
-    crate::big_o::big_o_normal_form(expr)
-}
-
 /// Compute factorial for non-negative values.
 ///
 /// For non-negative integers, returns the exact integer factorial.

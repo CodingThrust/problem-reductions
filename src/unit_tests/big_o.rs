@@ -109,9 +109,12 @@ fn test_big_o_rejects_division() {
 }
 
 #[test]
-fn test_big_o_rejects_negative_dominant_term() {
+fn test_big_o_drops_negative_constant_factor() {
+    // The growth domain drops constant multipliers, sign included, so `-1 * n`
+    // widens to `n` (an upper bound on its magnitude) instead of being rejected.
     let e = Expr::Const(-1.0) * Expr::Var("n");
-    assert!(big_o_normal_form(&e).is_err());
+    let result = big_o_normal_form(&e).unwrap();
+    assert_eq!(result.to_string(), "n");
 }
 
 #[test]
@@ -219,11 +222,18 @@ fn test_big_o_multivar_exp_dominates_poly() {
 }
 
 #[test]
-fn test_big_o_pathological_nesting_errors_instead_of_hanging() {
-    // Regression for issue #1069: a deeply-nested power that expands
-    // exponentially must return an error promptly (so callers like `big_o_of`
-    // fall back to the un-expanded expression) rather than OOM/hang.
+fn test_big_o_pathological_nesting_returns_bound_instantly() {
+    // Regression for issue #1069: a deeply-nested power that the old expansion
+    // pipeline could not normalize (it OOM'd, then refused via the term cap).
+    // The growth domain answers it bottom-up: `((a+b+c+d)^4)^4` raises each
+    // variable term to degree 16, so it returns a real bound, instantly.
     let sum = Expr::Var("a") + Expr::Var("b") + Expr::Var("c") + Expr::Var("d");
     let e = Expr::pow(Expr::pow(sum, Expr::Const(4.0)), Expr::Const(4.0));
-    assert!(big_o_normal_form(&e).is_err());
+    let start = std::time::Instant::now();
+    let result = big_o_normal_form(&e).unwrap();
+    assert!(start.elapsed().as_millis() < 50, "should be instant");
+    let s = result.to_string();
+    for v in ["a^16", "b^16", "c^16", "d^16"] {
+        assert!(s.contains(v), "expected {v} in {s}");
+    }
 }

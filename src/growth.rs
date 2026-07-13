@@ -263,6 +263,79 @@ impl Growth {
             }
         }
     }
+
+    /// Render this growth class back to a display [`Expr`] (a sum of monomials),
+    /// or `None` for [`Growth::Unknown`]. Terms are already in the deterministic
+    /// sort order, so the rendered expression is platform-stable.
+    ///
+    /// Exponential rates are de-normalized from base 2 back to a readable base
+    /// (`{n: 1} → 2^n`, `{n: log2 3} → 3^n`, `{n: log2 e} → exp(n)`).
+    pub fn to_expr(&self) -> Option<Expr> {
+        match self {
+            Growth::Unknown => None,
+            Growth::Terms(terms) => {
+                if terms.is_empty() {
+                    return Some(Expr::Const(1.0));
+                }
+                let mut it = terms.iter().map(term_to_expr);
+                let mut acc = it.next().unwrap();
+                for e in it {
+                    acc = acc + e;
+                }
+                Some(acc)
+            }
+        }
+    }
+}
+
+/// Render one monomial as a product of its factors (or `Const(1)` when empty).
+fn term_to_expr(t: &GrowthTerm) -> Expr {
+    let mut factors: Vec<Expr> = Vec::new();
+    for (v, rate) in &t.exp {
+        factors.push(exp_factor(v, *rate));
+    }
+    for (v, deg) in &t.poly {
+        factors.push(poly_factor(v, *deg));
+    }
+    for (v, power) in &t.logs {
+        factors.push(log_factor(v, *power));
+    }
+    let mut it = factors.into_iter();
+    match it.next() {
+        None => Expr::Const(1.0),
+        Some(first) => it.fold(first, |acc, f| acc * f),
+    }
+}
+
+/// Render `2^(rate·v)` with a readable base: `exp(v)` when the base is `e`, an
+/// integer/decimal base otherwise (snapped to remove float round-trip noise).
+fn exp_factor(v: &'static str, rate: f64) -> Expr {
+    let base = 2f64.powf(rate);
+    if (base - std::f64::consts::E).abs() < 1e-9 {
+        return Expr::Exp(Box::new(Expr::Var(v)));
+    }
+    // Snap away round-trip noise so `2^log2(3)` renders as `3^v`, not `3.0000…^v`.
+    let snapped = (base * 1e9).round() / 1e9;
+    Expr::pow(Expr::Const(snapped), Expr::Var(v))
+}
+
+/// Render `v^degree` (`Display` turns degree `0.5` into `sqrt(v)`).
+fn poly_factor(v: &'static str, degree: f64) -> Expr {
+    if degree == 1.0 {
+        Expr::Var(v)
+    } else {
+        Expr::pow(Expr::Var(v), Expr::Const(degree))
+    }
+}
+
+/// Render `(log v)^power`.
+fn log_factor(v: &'static str, power: u32) -> Expr {
+    let log = Expr::Log(Box::new(Expr::Var(v)));
+    if power == 1 {
+        log
+    } else {
+        Expr::pow(log, Expr::Const(power as f64))
+    }
 }
 
 /// Prune a bag of terms to its maximal antichain: drop any term dominated by

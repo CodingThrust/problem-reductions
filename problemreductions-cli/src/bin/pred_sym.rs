@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use problemreductions::{big_o_normal_form, canonical_form, Expr, ProblemSize};
+use problemreductions::{big_o_normal_form, Expr, ProblemSize};
 
 #[derive(Parser)]
 #[command(
@@ -19,11 +19,6 @@ enum Commands {
         /// Expression string
         expr: String,
     },
-    /// Compute exact canonical form
-    Canon {
-        /// Expression string
-        expr: String,
-    },
     /// Compute Big-O normal form
     BigO {
         /// Expression string
@@ -33,7 +28,7 @@ enum Commands {
         #[arg(long)]
         raw: bool,
     },
-    /// Compare two expressions (exits with code 1 if neither exact nor Big-O equal)
+    /// Compare two expressions for Big-O equivalence (exits 1 if not equal)
     Compare {
         /// First expression
         a: String,
@@ -69,16 +64,6 @@ fn main() {
             let parsed = parse_expr_or_exit(&expr);
             println!("{parsed}");
         }
-        Commands::Canon { expr } => {
-            let parsed = parse_expr_or_exit(&expr);
-            match canonical_form(&parsed) {
-                Ok(result) => println!("{result}"),
-                Err(e) => {
-                    eprintln!("Error: {e}");
-                    std::process::exit(1);
-                }
-            }
-        }
         Commands::BigO { expr, raw } => {
             let parsed = parse_expr_or_exit(&expr);
             match big_o_normal_form(&parsed) {
@@ -98,29 +83,31 @@ fn main() {
         Commands::Compare { a, b } => {
             let expr_a = parse_expr_or_exit(&a);
             let expr_b = parse_expr_or_exit(&b);
-            let canon_a = canonical_form(&expr_a);
-            let canon_b = canonical_form(&expr_b);
             let big_o_a = big_o_normal_form(&expr_a);
             let big_o_b = big_o_normal_form(&expr_b);
 
             println!("Expression A: {a}");
             println!("Expression B: {b}");
-            let mut exact_equal = false;
-            let mut big_o_equal = false;
-            if let (Ok(ca), Ok(cb)) = (&canon_a, &canon_b) {
-                exact_equal = ca == cb;
-                println!("Canonical A:  {ca}");
-                println!("Canonical B:  {cb}");
-                println!("Exact equal:  {exact_equal}");
-            }
-            if let (Ok(ba), Ok(bb)) = (&big_o_a, &big_o_b) {
-                big_o_equal = ba == bb;
-                println!("Big-O A:      O({ba})");
-                println!("Big-O B:      O({bb})");
-                println!("Big-O equal:  {big_o_equal}");
-            }
-            if !exact_equal && !big_o_equal {
-                std::process::exit(1);
+            match (&big_o_a, &big_o_b) {
+                (Ok(ba), Ok(bb)) => {
+                    // Rendering is canonical, so equal growth ⇒ equal Big-O expr.
+                    let big_o_equal = ba == bb;
+                    println!("Big-O A:      O({ba})");
+                    println!("Big-O B:      O({bb})");
+                    println!("Big-O equal:  {big_o_equal}");
+                    if !big_o_equal {
+                        std::process::exit(1);
+                    }
+                }
+                _ => {
+                    if let Err(e) = &big_o_a {
+                        println!("Big-O A:      <unsupported: {e}>");
+                    }
+                    if let Err(e) = &big_o_b {
+                        println!("Big-O B:      <unsupported: {e}>");
+                    }
+                    std::process::exit(1);
+                }
             }
         }
         Commands::Eval { expr, vars } => {

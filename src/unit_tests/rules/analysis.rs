@@ -87,10 +87,15 @@ fn test_compare_overhead_unknown_log() {
 }
 
 #[test]
-fn test_compare_overhead_exp_identity_after_asymptotic_normalization() {
+fn test_compare_overhead_exp_identity_not_yet_normalized() {
+    // `exp(n + m)` and `exp(n) * exp(m)` are asymptotically equal, but the
+    // overhead comparator no longer canonicalizes (that engine was deleted), and
+    // its polynomial fallback does not handle exp, so it reports Unknown.
+    // Recognizing this identity again is the job of the analysis-to-growth
+    // rewire (a later milestone issue).
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n + m)"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n) * exp(m)"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
 }
 
 #[test]
@@ -104,10 +109,13 @@ fn test_compare_overhead_log_identity_after_asymptotic_normalization() {
 }
 
 #[test]
-fn test_compare_overhead_sqrt_identity_after_asymptotic_normalization() {
+fn test_compare_overhead_sqrt_identity_not_yet_normalized() {
+    // `sqrt(n * m)` and `(n * m)^(1/2)` are equal, but without canonicalization
+    // the comparator's polynomial fallback does not handle sqrt, so it reports
+    // Unknown until the analysis-to-growth rewire (a later milestone issue).
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("sqrt(n * m)"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("(n * m)^(1/2)"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
 }
 
 #[test]

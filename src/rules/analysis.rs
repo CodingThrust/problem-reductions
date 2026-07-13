@@ -7,7 +7,6 @@
 //! the symbolic comparison is trustworthy, and `Unknown` when metadata is too
 //! weak to compare safely.
 
-use crate::canonical::canonical_form;
 use crate::expr::Expr;
 use crate::rules::graph::{ReductionGraph, ReductionPath};
 use crate::rules::registry::ReductionOverhead;
@@ -224,7 +223,9 @@ fn normalize_polynomial(expr: &Expr) -> Result<NormalizedPoly, String> {
 }
 
 fn prepare_expr_for_comparison(expr: &Expr) -> Expr {
-    canonical_form(expr).unwrap_or_else(|_| expr.clone())
+    // The growth-dominance rewire of this comparison is a separate milestone
+    // issue; until then, compare the expressions as-is (no canonicalization).
+    expr.clone()
 }
 
 // ────────── Monomial-dominance comparison ──────────
