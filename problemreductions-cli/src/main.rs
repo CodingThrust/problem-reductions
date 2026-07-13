@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
             cost,
             all,
             max_paths,
-        } => commands::graph::path(&source, &target, &cost, all, max_paths, &out),
+        } => commands::graph::path(&source, &target, cost.as_deref(), all, max_paths, &out),
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),

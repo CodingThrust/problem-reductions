@@ -32,16 +32,31 @@ mod tests {
     #[test]
     fn test_find_path() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", false, 20);
+        let result = server.find_path_inner("MIS", "QUBO", Some("minimize-steps"), false, 20);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["path"].as_array().unwrap().len() > 0);
     }
 
     #[test]
+    fn test_find_path_asymptotic_front() {
+        // No `cost` and not `all` → the asymptotic Pareto front with structured Growth.
+        let server = McpServer::new();
+        let result = server.find_path_inner("KSatisfiability", "QUBO", None, false, 20);
+        assert!(result.is_ok(), "err: {:?}", result.err());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["mode"], "asymptotic");
+        let front = json["front"].as_array().unwrap();
+        assert!(!front.is_empty());
+        // Structured Growth serialization from issue #1075.
+        assert!(front[0]["growth"]["num_vars"]["Terms"].is_array());
+        assert!(front[0]["big_o"]["num_vars"].is_string());
+    }
+
+    #[test]
     fn test_find_path_all() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", true, 20);
+        let result = server.find_path_inner("MIS", "QUBO", Some("minimize-steps"), true, 20);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         // --all returns a structured envelope
@@ -54,7 +69,7 @@ mod tests {
     #[test]
     fn test_find_path_all_structured_response() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", true, 20);
+        let result = server.find_path_inner("MIS", "QUBO", Some("minimize-steps"), true, 20);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         // Verify the structured envelope fields
@@ -74,7 +89,8 @@ mod tests {
     fn test_find_path_no_route() {
         let server = McpServer::new();
         // Pick two problems with no path (if any). Use an unknown problem to trigger an error.
-        let result = server.find_path_inner("NonExistent", "QUBO", "minimize-steps", false, 20);
+        let result =
+            server.find_path_inner("NonExistent", "QUBO", Some("minimize-steps"), false, 20);
         assert!(result.is_err());
     }
 

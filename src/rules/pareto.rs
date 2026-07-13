@@ -21,13 +21,15 @@
 //!   *actually executes* each reduction and measures the real constructed target size.
 //!   Formulas are only used as a pre-flight guard, never to arbitrate between candidates.
 
+use crate::expr::Expr;
+use crate::growth::Growth;
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{EdgeCapabilities, ReduceFn, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::panic;
 use std::rc::Rc;
 use std::sync::Once;
@@ -313,5 +315,151 @@ impl PathLabel for MeasuredLabel<'_> {
 
     fn cost(&self) -> f64 {
         self.size.total() as f64
+    }
+}
+
+/// Asymptotic, **instance-free** label domain (design doc M3/F3a).
+///
+/// Each entry maps one size field of the **current** node to its
+/// [`Growth`](crate::growth::Growth) expressed in the **source problem's** size
+/// variables. The initial label at source `S` maps every one of `S`'s size fields
+/// `f` to `Growth::from_expr(Var(f))` — "field `f` grows like itself".
+///
+/// [`extend`](PathLabel::extend) composes an edge's overhead into the label: each
+/// target size-field's overhead `Expr` is written over the *current* node's field
+/// names, so we substitute each current field's rendered growth
+/// ([`Growth::to_expr`](crate::growth::Growth::to_expr)) into it and run
+/// [`Growth::from_expr`](crate::growth::Growth::from_expr) on the result. This reuses
+/// the whole M1+M2 growth pipeline and needs no new growth-domain primitive. A field
+/// whose growth is [`Growth::Unknown`](crate::growth::Growth::Unknown) (nonlinear
+/// exponent, factorial) has no `Expr`; any target field depending on it becomes
+/// `Unknown` too — the bound is never fabricated.
+///
+/// [`dominates`](PathLabel::dominates) is componentwise in the **search** sense
+/// (smaller growth = better): `self` dominates `other` iff for *every* field `self`
+/// grows no faster than `other`, and strictly slower on at least one. Because
+/// `Unknown` is the top of the growth order, a label with an `Unknown` field is
+/// dominated by any fully-known label — undecidable paths rank last, the honest
+/// ranking.
+///
+/// **Isotonicity** (the correctness condition for the kernel's dominance pruning)
+/// follows from the growth domain's monotonicity axiom: `from_expr` composed with
+/// substitution into weakly-monotone overhead expressions preserves the growth
+/// order, so `A ⪰ B ⇒ extend(A,e) ⪰ extend(B,e)`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct GrowthLabel {
+    /// Current node's size fields → growth in the source problem's variables.
+    fields: BTreeMap<&'static str, Growth>,
+}
+
+impl GrowthLabel {
+    /// The initial label at a source node: each size field grows like itself.
+    ///
+    /// `source_fields` is the source problem's list of size-field names (e.g. from
+    /// [`ReductionGraph::size_field_names`](crate::rules::ReductionGraph::size_field_names)).
+    pub fn source(source_fields: &[&'static str]) -> Self {
+        let fields = source_fields
+            .iter()
+            .map(|&f| (f, Growth::from_expr(&Expr::Var(f))))
+            .collect();
+        GrowthLabel { fields }
+    }
+
+    /// Construct directly from a field → growth map (test/introspection helper).
+    pub fn from_fields(fields: BTreeMap<&'static str, Growth>) -> Self {
+        GrowthLabel { fields }
+    }
+
+    /// The current node's size fields mapped to their growth in source variables.
+    pub fn fields(&self) -> &BTreeMap<&'static str, Growth> {
+        &self.fields
+    }
+}
+
+impl PathLabel for GrowthLabel {
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        // Render each current field's growth back to a display `Expr` in the source
+        // variables. `Unknown` growth has no `Expr` (`None`) and taints any target
+        // field that references it.
+        let rendered: BTreeMap<&'static str, Option<Expr>> =
+            self.fields.iter().map(|(k, g)| (*k, g.to_expr())).collect();
+
+        let mut new_fields: BTreeMap<&'static str, Growth> = BTreeMap::new();
+        for (target_field, expr) in &edge.overhead.output_size {
+            // If this overhead references a current field whose growth is `Unknown`,
+            // we cannot honestly bound the target field: propagate `Unknown`.
+            let taints = expr
+                .variables()
+                .iter()
+                .any(|v| matches!(rendered.get(v), Some(None)));
+            if taints {
+                new_fields.insert(target_field, Growth::Unknown);
+                continue;
+            }
+            // Substitute each current field name with its rendered growth (in source
+            // variables), then reduce in the growth domain. Overhead variables not in
+            // the label pass through unchanged (mirrors `ReductionOverhead::compose`).
+            let mapping: HashMap<&str, &Expr> = rendered
+                .iter()
+                .filter_map(|(k, opt)| opt.as_ref().map(|e| (*k, e)))
+                .collect();
+            let substituted = expr.substitute(&mapping);
+            new_fields.insert(target_field, Growth::from_expr(&substituted));
+        }
+        // Asymptotic mode has no budget, so `extend` never prunes.
+        Some(GrowthLabel { fields: new_fields })
+    }
+
+    fn dominates(&self, other: &Self) -> bool {
+        // Search-sense componentwise dominance over the union of fields (labels
+        // compared are at the same node, so their field sets coincide; the union is
+        // defensive). `self` dominates `other` iff `self` grows no faster on every
+        // field and strictly slower on at least one.
+        //
+        // `Growth::dominates(a, b)` means "a grows ≥ b", with `Unknown` as top. So:
+        //   self ≤ other on field f  ⟺  other_f.dominates(self_f)
+        // and self is strictly better on f iff additionally NOT self_f.dominates(other_f).
+        let o1 = Growth::Terms(Vec::new()); // O(1): the bottom, for absent fields.
+        let keys: BTreeSet<&'static str> = self
+            .fields
+            .keys()
+            .chain(other.fields.keys())
+            .copied()
+            .collect();
+        let mut strict = false;
+        for k in keys {
+            let s = self.fields.get(k).unwrap_or(&o1);
+            let o = other.fields.get(k).unwrap_or(&o1);
+            if !o.dominates(s) {
+                // self grows strictly faster than other here → self does not dominate.
+                return false;
+            }
+            if !s.dominates(o) {
+                // other ≥ self but self ⋡ other ⇒ self strictly slower on this field.
+                strict = true;
+            }
+        }
+        strict
+    }
+
+    fn cost(&self) -> f64 {
+        // Monotone scalar summary for frontier ordering / branch-and-bound. Not used
+        // for dominance (that is the exact partial order above). Summed over fields so
+        // a path that inflates any field ranks higher; `Unknown` fields dominate the
+        // sum, ranking undecidable paths last.
+        //
+        // The kernel's branch-and-bound compares this scalar with `>=`, which would
+        // collapse two *incomparable* front members whose raw magnitudes happen to be
+        // equal (e.g. `O(n^2)`/`O(m)` vs `O(n)`/`O(m^2)`). To keep such genuinely
+        // distinct front members separable, later-sorted fields get an infinitesimal
+        // extra weight, giving tied-magnitude labels distinct costs. This is a
+        // deterministic, monotone perturbation (ε ≪ any real magnitude gap), so it can
+        // only *preserve* front members, never prune one the raw magnitude would keep.
+        const EPS: f64 = 1e-9;
+        self.fields
+            .values()
+            .enumerate()
+            .map(|(i, g)| g.magnitude() * (1.0 + (i as f64) * EPS))
+            .sum()
     }
 }

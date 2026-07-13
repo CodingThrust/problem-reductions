@@ -408,7 +408,8 @@ pub use graph::{
     ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
 pub use pareto::{
-    CostLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, DEFAULT_SIZE_BUDGET, HOP_CAP,
+    CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, DEFAULT_SIZE_BUDGET,
+    HOP_CAP,
 };
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,

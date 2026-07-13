@@ -252,13 +252,37 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        cost: &str,
+        cost: Option<&str>,
         all: bool,
         max_paths: usize,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
+
+        // No `cost` and not `all`: return the instance-free asymptotic Pareto front
+        // (issue #1080), using the structured `Growth` serialization from #1075.
+        if cost.is_none() && !all {
+            let front = graph.asymptotic_front(
+                &src_ref.name,
+                &src_ref.variant,
+                &dst_ref.name,
+                &dst_ref.variant,
+                ReductionMode::Witness,
+            );
+            if front.is_empty() {
+                anyhow::bail!(
+                    "No reduction path from {} to {}",
+                    src_ref.name,
+                    dst_ref.name
+                );
+            }
+            return Ok(serde_json::to_string_pretty(&format_front_json(
+                &src_ref.name,
+                &dst_ref.name,
+                &front,
+            ))?);
+        }
 
         if all {
             // Fetch one extra to detect truncation
@@ -298,8 +322,9 @@ impl McpServer {
             return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        // Single best path
+        // Single best path (an explicit `cost` was given; `all` is handled above).
         let input_size = ProblemSize::new(vec![]);
+        let cost = cost.expect("cost is Some in the single-best branch");
 
         let cost_field: Option<String> = if cost == "minimize-steps" {
             None
@@ -965,11 +990,16 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
-        let cost = params.cost.as_deref().unwrap_or("minimize-steps");
         let all = params.all.unwrap_or(false);
         let max_paths = params.max_paths.unwrap_or(20);
-        self.find_path_inner(&params.source, &params.target, cost, all, max_paths)
-            .map_err(|e| e.to_string())
+        self.find_path_inner(
+            &params.source,
+            &params.target,
+            params.cost.as_deref(),
+            all,
+            max_paths,
+        )
+        .map_err(|e| e.to_string())
     }
 
     /// Export the full reduction graph as JSON
@@ -1134,6 +1164,47 @@ fn format_path_json(
         "steps": reduction_path.len(),
         "path": steps_json,
         "overall_overhead": overall,
+    })
+}
+
+/// JSON rendering of the asymptotic Pareto front for the `find_path` tool. Each path
+/// carries the structured `Growth` serialization (issue #1075) plus a rendered
+/// `O(...)` string per target size field. `Unknown` growth renders `O(?)`.
+fn format_front_json(
+    source: &str,
+    target: &str,
+    front: &[(
+        problemreductions::rules::ReductionPath,
+        problemreductions::rules::GrowthLabel,
+    )],
+) -> serde_json::Value {
+    let paths: Vec<serde_json::Value> = front
+        .iter()
+        .map(|(reduction_path, label)| {
+            let big_o: BTreeMap<&str, String> = label
+                .fields()
+                .iter()
+                .map(|(f, g)| {
+                    let rendered = match g.to_expr() {
+                        Some(e) => format!("O({e})"),
+                        None => "O(?)".to_string(),
+                    };
+                    (*f, rendered)
+                })
+                .collect();
+            serde_json::json!({
+                "steps": reduction_path.len(),
+                "path": reduction_path.type_names(),
+                "growth": label.fields(),
+                "big_o": big_o,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "source": source,
+        "target": target,
+        "mode": "asymptotic",
+        "front": paths,
     })
 }
 

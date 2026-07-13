@@ -13,7 +13,9 @@
 //! - JSON export for documentation and visualization
 
 use crate::rules::cost::PathCostFn;
-use crate::rules::pareto::{CostLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, HOP_CAP};
+use crate::rules::pareto::{
+    CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, HOP_CAP,
+};
 use crate::rules::registry::{
     AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
 };
@@ -848,19 +850,22 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
-            Vec<NodeIndex>,
-            _,
-            std::hash::RandomState,
-        >(&self.graph, src, dst, 0, max_intermediate_nodes)
+        // Apply the mode filter *during* lazy enumeration, then take `limit`. Taking
+        // before filtering (the previous order) undercounts whenever an early simple
+        // path fails the mode check, which in turn made `--all` truncation detection
+        // depend on enumeration order. Filtering first yields up to `limit` genuinely
+        // usable paths and short-circuits once `limit` are found.
+        all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
+            &self.graph,
+            src,
+            dst,
+            0,
+            max_intermediate_nodes,
+        )
+        .filter(|p| self.node_path_supports_mode(p, mode))
         .take(limit)
-        .collect();
-
-        paths
-            .iter()
-            .filter(|p| self.node_path_supports_mode(p, mode))
-            .map(|p| self.node_path_to_reduction_path(p))
-            .collect()
+        .map(|p| self.node_path_to_reduction_path(&p))
+        .collect()
     }
 
     /// Check if a direct reduction exists from S to T.
@@ -1811,6 +1816,49 @@ impl ReductionGraph {
             size: label.measured_size().clone(),
             steps,
         })
+    }
+
+    /// Compute the **asymptotic Pareto front** of reduction paths from `source` to
+    /// `target` — the instance-free path search (design doc M3/F3a).
+    ///
+    /// Runs the generic [Pareto label-setting search](Self::pareto_search) with the
+    /// [`GrowthLabel`] domain: no concrete instance is needed, and each returned path
+    /// carries its composed Big-O per target size field (in the source problem's size
+    /// variables), read off the returned label. Because asymptotic growth over several
+    /// size variables is a *partial* order, the answer is a front: possibly several
+    /// mutually incomparable optimal paths (one better in one size field, another in a
+    /// different one). Paths whose composed growth is [`Growth::Unknown`] (nonlinear
+    /// exponent, factorial) are still returned, with those fields marked `Unknown` —
+    /// never a fabricated bound.
+    ///
+    /// The front is ordered deterministically by (hops, lexicographic node names), so
+    /// the output is byte-identical across runs and platforms. Returns an empty vector
+    /// if either endpoint is unregistered or no path exists.
+    pub fn asymptotic_front(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+    ) -> Vec<(ReductionPath, GrowthLabel)> {
+        let (Some(src), Some(dst)) = (
+            self.lookup_node(source, source_variant),
+            self.lookup_node(target, target_variant),
+        ) else {
+            return vec![];
+        };
+        let source_fields = self.size_field_names(source);
+        let initial = GrowthLabel::source(&source_fields);
+        let mut front = self.pareto_search(src, dst, mode, initial, false);
+        // Re-order per the issue's contract: (hops, lexicographic node names). The
+        // kernel's own ordering leads with `cost()`, which is only a search heuristic.
+        front.sort_by(|a, b| {
+            a.0.len()
+                .cmp(&b.0.len())
+                .then_with(|| a.0.type_names().cmp(&b.0.type_names()))
+        });
+        front
     }
 
     /// Find the measured-smallest path from `source` to **any** variant of the target

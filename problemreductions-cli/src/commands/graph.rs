@@ -2,9 +2,12 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalFlow};
+use problemreductions::rules::{
+    GrowthLabel, Minimize, MinimizeSteps, ReductionGraph, ReductionMode, ReductionPath,
+    TraversalFlow,
+};
 use problemreductions::types::ProblemSize;
-use problemreductions::{big_o_normal_form, Expr};
+use problemreductions::{big_o_normal_form, Expr, Growth};
 use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
@@ -487,10 +490,134 @@ fn format_path_json(
     })
 }
 
+/// Render one growth as a Big-O string: `O(<expr>)`, or an explicit unbounded marker
+/// for `Growth::Unknown` (nonlinear exponent / factorial) — never a fabricated bound.
+fn growth_big_o(g: &Growth) -> String {
+    match g.to_expr() {
+        Some(e) => format!("O({e})"),
+        None => "O(?)  [unbounded: nonlinear exponent / factorial]".to_string(),
+    }
+}
+
+/// Node-arrow summary (`A → B → C`) for a reduction path, deduplicating consecutive
+/// same-name variant-cast steps.
+fn path_arrow_summary(graph: &ReductionGraph, reduction_path: &ReductionPath) -> String {
+    let mut parts = Vec::new();
+    let mut prev_name = "";
+    for step in &reduction_path.steps {
+        if step.name != prev_name {
+            parts.push(fmt_node(graph, &step.name, &step.variant));
+            prev_name = &step.name;
+        }
+    }
+    parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
+}
+
+/// Text rendering of the asymptotic Pareto front: each path's step chain annotated
+/// with a normalized `O(...)` per target size field (in the source's variables).
+fn format_front_text(
+    graph: &ReductionGraph,
+    src_name: &str,
+    dst_name: &str,
+    front: &[(ReductionPath, GrowthLabel)],
+) -> String {
+    let mut text = format!(
+        "Asymptotic Pareto front: {} path{} from {} to {}\n\
+         (no --size given; each path shows its composed O(...) per {} size field)\n",
+        front.len(),
+        if front.len() == 1 { "" } else { "s" },
+        src_name,
+        dst_name,
+        dst_name,
+    );
+    for (idx, (reduction_path, label)) in front.iter().enumerate() {
+        text.push_str(&format!(
+            "\n--- {} ({} steps) ---\n{}\n",
+            crate::output::fmt_section(&format!("Path {}", idx + 1)),
+            reduction_path.len(),
+            path_arrow_summary(graph, reduction_path),
+        ));
+        for (field, growth) in label.fields() {
+            text.push_str(&format!("  {field} = {}\n", growth_big_o(growth)));
+        }
+    }
+    text
+}
+
+/// JSON rendering of the asymptotic Pareto front. Growth is emitted both as the
+/// structured `Growth` serialization (issue #1075) and as a rendered `O(...)` string.
+fn format_front_json(
+    src_name: &str,
+    dst_name: &str,
+    front: &[(ReductionPath, GrowthLabel)],
+) -> serde_json::Value {
+    let paths: Vec<serde_json::Value> = front
+        .iter()
+        .map(|(reduction_path, label)| {
+            let big_o: BTreeMap<&str, String> = label
+                .fields()
+                .iter()
+                .map(|(f, g)| (*f, growth_big_o(g)))
+                .collect();
+            serde_json::json!({
+                "steps": reduction_path.len(),
+                "path": reduction_path.type_names(),
+                "growth": label.fields(),
+                "big_o": big_o,
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "source": src_name,
+        "target": dst_name,
+        "mode": "asymptotic",
+        "front": paths,
+    })
+}
+
+/// Asymptotic Pareto-front mode of `pred path` (no `--size`/`--cost`): print the
+/// front of asymptotically optimal reduction paths, each annotated with its composed
+/// Big-O per target size field. See issue #1080 / design doc M3/F3a.
+fn path_front(
+    graph: &ReductionGraph,
+    src_name: &str,
+    src_variant: &BTreeMap<String, String>,
+    dst_name: &str,
+    dst_variant: &BTreeMap<String, String>,
+    out: &OutputConfig,
+) -> Result<()> {
+    let front = graph.asymptotic_front(
+        src_name,
+        src_variant,
+        dst_name,
+        dst_variant,
+        ReductionMode::Witness,
+    );
+
+    if front.is_empty() {
+        let variant_hint = variant_hint_for(graph, dst_name);
+        anyhow::bail!(
+            "No reduction path from {} to {}\n\
+             {variant_hint}\n\
+             Usage: pred path <SOURCE> <TARGET>\n\
+             Example: pred path MIS QUBO\n\n\
+             Run `pred show {}` and `pred show {}` to check available reductions.",
+            src_name,
+            dst_name,
+            src_name,
+            dst_name,
+        );
+    }
+
+    let text = format_front_text(graph, src_name, dst_name, &front);
+    let json = format_front_json(src_name, dst_name, &front);
+    out.emit_with_default_name("", &text, &json)
+}
+
 pub fn path(
     source: &str,
     target: &str,
-    cost: &str,
+    cost: Option<&str>,
     all: bool,
     max_paths: usize,
     out: &OutputConfig,
@@ -530,6 +657,20 @@ pub fn path(
             out,
         );
     }
+
+    // No `--cost` (and no `--all`): run the instance-free asymptotic Pareto search and
+    // print the front of asymptotically optimal paths (issue #1080 / design M3/F3a).
+    // Passing `--cost` opts into the single-best scalar mode (unchanged from #1076).
+    let Some(cost) = cost else {
+        return path_front(
+            &graph,
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            out,
+        );
+    };
 
     let input_size = ProblemSize::new(vec![]);
 

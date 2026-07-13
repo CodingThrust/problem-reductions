@@ -289,10 +289,11 @@ cli-demo: cli
 	$$PRED from QUBO --hops 1; \
 	\
 	echo ""; \
-	echo "--- 5. path: find reduction paths ---"; \
+	echo "--- 5. path: asymptotic Pareto front (no --size) ---"; \
 	$$PRED path MIS QUBO; \
-	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	$$PRED path Factoring SpinGlass; \
+	echo "--- 5b. path --cost: single concrete path (for reduce --via) ---"; \
+	$$PRED path MIS QUBO --cost minimize-steps -o $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	$$PRED path MIS QUBO --cost minimize:num_variables; \
 	\
 	echo ""; \

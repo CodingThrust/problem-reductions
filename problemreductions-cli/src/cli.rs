@@ -112,11 +112,11 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     /// Find the cheapest reduction path between two problems
     #[command(after_help = "\
 Examples:
-  pred path MIS QUBO                              # cheapest path
+  pred path MIS QUBO                              # asymptotic Pareto front (Big-O per size field)
   pred path MIS QUBO --all                        # all paths
   pred path MIS QUBO -o path.json                 # save for `pred reduce --via`
   pred path MIS QUBO --all -o paths/              # save all paths to a folder
-  pred path MIS QUBO --cost minimize:num_variables
+  pred path MIS QUBO --cost minimize:num_variables  # single cheapest path by a scalar cost
 
 Use `pred list` to see available problems.")]
     Path {
@@ -126,9 +126,10 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Cost function [default: minimize-steps]
-        #[arg(long, default_value = "minimize-steps")]
-        cost: String,
+        /// Scalar cost function ('minimize-steps' or 'minimize:<field>') for a single
+        /// best path. Omit to get the instance-free asymptotic Pareto front.
+        #[arg(long)]
+        cost: Option<String>,
         /// Show all paths instead of just the cheapest
         #[arg(long)]
         all: bool,

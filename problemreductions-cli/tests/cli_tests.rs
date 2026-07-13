@@ -204,18 +204,81 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
 
 #[test]
 fn test_path() {
+    // Bare `pred path` (no --cost / --size / --all) now prints the asymptotic Pareto
+    // front, each path annotated with O(...) per target size field.
     let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Asymptotic Pareto front"), "got: {stdout}");
     assert!(stdout.contains("Path"));
     assert!(stdout.contains("step"));
+    assert!(
+        stdout.contains("O("),
+        "front should show Big-O per field, got: {stdout}"
+    );
+}
+
+/// Issue #1080 verification 1: `pred path KSatisfiability QUBO` (no `--size`) prints
+/// ≥ 1 path, annotated with a normalized `O(...)` per QUBO size field, and the output
+/// is byte-identical across two consecutive runs (determinism / golden behavior).
+#[test]
+fn test_path_asymptotic_front_deterministic() {
+    let run = || {
+        let output = pred()
+            .args(["path", "KSatisfiability", "QUBO"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).unwrap()
+    };
+    let first = run();
+    let second = run();
+    assert_eq!(
+        first, second,
+        "asymptotic front output must be deterministic"
+    );
+
+    // At least one path, with a normalized Big-O for QUBO's `num_vars` size field.
+    assert!(first.contains("Asymptotic Pareto front"));
+    assert!(first.contains("--- Path 1"));
+    assert!(
+        first.contains("num_vars = O("),
+        "each path must annotate QUBO's num_vars with O(...), got: {first}"
+    );
+
+    // The JSON surface carries the structured Growth serialization (issue #1075).
+    let json_out = pred()
+        .args(["path", "KSatisfiability", "QUBO", "--json"])
+        .output()
+        .unwrap();
+    assert!(json_out.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(json_out.stdout).unwrap()).unwrap();
+    assert_eq!(json["mode"], "asymptotic");
+    let front = json["front"].as_array().expect("front array");
+    assert!(!front.is_empty(), "front must have ≥ 1 path");
+    assert!(
+        front[0]["growth"]["num_vars"]["Terms"].is_array(),
+        "growth must serialize as structured Terms, got: {}",
+        front[0]["growth"]
+    );
+    assert!(front[0]["big_o"]["num_vars"].is_string());
 }
 
 #[test]
 fn test_path_save() {
     let tmp = std::env::temp_dir().join("pred_test_path.json");
+    // `--cost` selects the single-path save format (consumed by `reduce --via`).
     let output = pred()
-        .args(["path", "MIS", "QUBO", "-o", tmp.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "--cost",
+            "minimize-steps",
+            "-o",
+            tmp.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -1177,6 +1240,9 @@ fn test_reduce_via_path() {
             "path",
             "MIS/SimpleGraph/i32",
             "QUBO",
+            // A single concrete path (not the asymptotic front) for `reduce --via`.
+            "--cost",
+            "minimize-steps",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -1241,6 +1307,9 @@ fn test_reduce_via_infer_target() {
             "path",
             "MIS/SimpleGraph/i32",
             "QUBO",
+            // A single concrete path (not the asymptotic front) for `reduce --via`.
+            "--cost",
+            "minimize-steps",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -1300,6 +1369,9 @@ fn test_reduce_via_rejects_target_variant_mismatch() {
             "path",
             "MIS/SimpleGraph/i32",
             "ILP/bool",
+            // A single concrete path (not the asymptotic front) for `reduce --via`.
+            "--cost",
+            "minimize-steps",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -4805,8 +4877,12 @@ fn test_path_unknown_cost() {
 
 #[test]
 fn test_path_overall_overhead_text() {
-    // Use a multi-step path so the "Overall" section appears
-    let output = pred().args(["path", "KSAT/K3", "MIS"]).output().unwrap();
+    // Use a multi-step path so the "Overall" section appears. `--cost` selects the
+    // single-best mode (the asymptotic front default does not render "Overall").
+    let output = pred()
+        .args(["path", "KSAT/K3", "MIS", "--cost", "minimize-steps"])
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
@@ -4819,7 +4895,15 @@ fn test_path_overall_overhead_text() {
 fn test_path_overall_overhead_json() {
     let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
+        .args([
+            "path",
+            "KSAT/K3",
+            "MIS",
+            "--cost",
+            "minimize-steps",
+            "-o",
+            tmp.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -4847,7 +4931,15 @@ fn test_path_overall_overhead_composition() {
     //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
     //   Overall: num_vertices = num_literals, num_edges = num_literals^2
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
+        .args([
+            "path",
+            "KSAT/K3",
+            "MIS",
+            "--cost",
+            "minimize-steps",
+            "-o",
+            tmp.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -4932,7 +5024,7 @@ fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
     // MaxCut -> SpinGlass is a genuine 1-step path with matching default variants
     let output = pred()
-        .args(["path", "MaxCut", "SpinGlass"])
+        .args(["path", "MaxCut", "SpinGlass", "--cost", "minimize-steps"])
         .output()
         .unwrap();
     assert!(output.status.success());

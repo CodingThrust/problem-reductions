@@ -26,10 +26,10 @@ pub mod error;
 pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
-// The growth domain backs `big_o_normal_form`; the search/analysis rewiring that
-// consumes the rest of its API lands in later milestone issues.
-#[allow(dead_code)]
-pub(crate) mod growth;
+// The growth domain backs `big_o_normal_form` (M2) and the asymptotic Pareto path
+// search (`GrowthLabel`, M3/F3a). `Growth` is re-exported for CLI/MCP consumers that
+// render or serialize the asymptotic front.
+pub mod growth;
 pub mod io;
 pub mod models;
 pub mod registry;
@@ -115,6 +115,7 @@ pub mod prelude {
 pub use big_o::big_o_normal_form;
 pub use error::{ProblemError, Result};
 pub use expr::{AsymptoticAnalysisError, Expr};
+pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::Problem;

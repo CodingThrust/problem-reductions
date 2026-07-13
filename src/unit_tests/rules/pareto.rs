@@ -7,14 +7,16 @@
 
 use super::*;
 use crate::expr::Expr;
+use crate::growth::Growth;
 use crate::models::graph::{HamiltonianCircuit, HighlyConnectedDeletion};
 use crate::rules::cost::CustomCost;
-use crate::rules::pareto::{PathLabel, ReductionEdge};
+use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
 use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
 use crate::rules::{ReductionGraph, ReductionMode, DEFAULT_SIZE_BUDGET};
 use crate::topology::SimpleGraph;
 use crate::types::ProblemSize;
 use std::any::Any;
+use std::collections::BTreeMap;
 use std::time::Instant;
 
 // ---------------------------------------------------------------------------
@@ -284,4 +286,288 @@ fn test_diamond_exhaustive_matches_pruned() {
     );
     assert_eq!(front[0].0.type_names(), vec!["S", "P", "M", "T"]);
     assert_eq!(front[0].1.cost(), 6.0);
+}
+
+// ---------------------------------------------------------------------------
+// GrowthLabel (asymptotic, instance-free) domain — issue #1080 / design M3/F3a.
+// ---------------------------------------------------------------------------
+
+/// A power `Var(v)^k`.
+fn powk(v: &'static str, k: f64) -> Expr {
+    Expr::pow(Expr::Var(v), Expr::Const(k))
+}
+
+/// A test edge carrying only a symbolic overhead (target field → Expr over the
+/// current node's fields), no executable reduction.
+fn growth_edge(fields: Vec<(&'static str, Expr)>) -> ReductionEdgeData {
+    ReductionEdgeData {
+        overhead: ReductionOverhead::new(fields),
+        reduce_fn: None,
+        reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+    }
+}
+
+/// The rendered Big-O string for one field of a growth label (or `"?"` for
+/// `Unknown`), for compact assertions.
+fn field_big_o(label: &GrowthLabel, field: &str) -> String {
+    match label.fields().get(field) {
+        Some(g) => match g.to_expr() {
+            Some(e) => e.to_string(),
+            None => "?".to_string(),
+        },
+        None => "<absent>".to_string(),
+    }
+}
+
+/// `extend` substitutes the current label's growth into an edge's overhead and
+/// reduces in the growth domain, yielding the target field's growth in source vars.
+#[test]
+fn test_growth_label_extend_composes_overhead() {
+    // Source S has fields n, m; edge maps a = n^2, b = m (in the source's variables).
+    let edge_data = growth_edge(vec![("a", powk("n", 2.0)), ("b", Expr::Var("m"))]);
+    let target_variant = BTreeMap::new();
+    let redge = ReductionEdge {
+        overhead: &edge_data.overhead,
+        reduce_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+        target_name: "Target",
+        target_variant: &target_variant,
+    };
+
+    let initial = GrowthLabel::source(&["n", "m"]);
+    let next = initial
+        .extend(&redge)
+        .expect("asymptotic extend never prunes");
+    assert_eq!(field_big_o(&next, "a"), "n^2");
+    assert_eq!(field_big_o(&next, "b"), "m");
+
+    // A second hop composes: c = a * b substitutes a→n^2, b→m ⇒ n^2 * m.
+    let edge2 = growth_edge(vec![("c", Expr::Var("a") * Expr::Var("b"))]);
+    let redge2 = ReductionEdge {
+        overhead: &edge2.overhead,
+        reduce_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+        target_name: "Target2",
+        target_variant: &target_variant,
+    };
+    let composed = next.extend(&redge2).expect("extend");
+    assert_eq!(field_big_o(&composed, "c"), "m * n^2");
+}
+
+/// An overhead field that depends on an `Unknown`-growth current field stays
+/// `Unknown` — the bound is never fabricated.
+#[test]
+fn test_growth_label_propagates_unknown() {
+    // Build a label whose field `x` is Unknown (factorial growth).
+    let mut fields = BTreeMap::new();
+    fields.insert(
+        "x",
+        Growth::from_expr(&Expr::Factorial(Box::new(Expr::Var("n")))),
+    );
+    fields.insert("y", Growth::from_expr(&Expr::Var("n")));
+    let label = GrowthLabel::from_fields(fields);
+    assert!(matches!(label.fields().get("x"), Some(Growth::Unknown)));
+
+    // out1 uses x (Unknown) → Unknown; out2 uses only y → bounded.
+    let edge = growth_edge(vec![
+        ("out1", Expr::Var("x") * Expr::Var("y")),
+        ("out2", powk("y", 2.0)),
+    ]);
+    let tv = BTreeMap::new();
+    let redge = ReductionEdge {
+        overhead: &edge.overhead,
+        reduce_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+        target_name: "T",
+        target_variant: &tv,
+    };
+    let next = label.extend(&redge).expect("extend");
+    assert_eq!(field_big_o(&next, "out1"), "?");
+    assert_eq!(field_big_o(&next, "out2"), "n^2");
+}
+
+/// A label with an `Unknown` field is dominated by any fully-known label, and never
+/// dominates one — undecidable paths rank last.
+#[test]
+fn test_growth_label_unknown_ranks_last() {
+    let known = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
+        m.insert("b", Growth::from_expr(&Expr::Var("m")));
+        m
+    });
+    let with_unknown = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
+        m.insert("b", Growth::Unknown);
+        m
+    });
+    // Known is strictly better on field b (n^0? no: bounded vs Unknown) ⇒ known dominates.
+    assert!(known.dominates(&with_unknown));
+    assert!(!with_unknown.dominates(&known));
+}
+
+/// Componentwise search-sense dominance: `self` dominates `other` iff it grows no
+/// faster on every field and strictly slower on at least one.
+#[test]
+fn test_growth_label_dominance_partial_order() {
+    let a = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("v", Growth::from_expr(&Expr::Var("n"))); // n
+        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m
+    });
+    let b = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
+        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m
+    });
+    // a (n, m) grows slower in v, equal in e ⇒ a dominates b; b does not dominate a.
+    assert!(a.dominates(&b));
+    assert!(!b.dominates(&a));
+    // Reflexivity is *not* strict dominance: equal labels do not dominate each other.
+    assert!(!a.dominates(&a.clone()));
+
+    // Incomparable pair: one better in v, the other better in e.
+    let c = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
+        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m
+    });
+    let d = GrowthLabel::from_fields({
+        let mut m = BTreeMap::new();
+        m.insert("v", Growth::from_expr(&Expr::Var("n"))); // n
+        m.insert("e", Growth::from_expr(&powk("m", 2.0))); // m^2
+        m
+    });
+    assert!(!c.dominates(&d));
+    assert!(!d.dominates(&c));
+}
+
+/// **Negative control (issue #1080):** two S→T paths whose composed growths are
+/// incomparable — path A costs `O(n^2)` in `vertices` / `O(m)` in `edges`, path B
+/// costs `O(n)` / `O(m^2)` — must *both* appear in the asymptotic Pareto front. An
+/// implementation that scalarizes or keeps a single representative fails this.
+#[test]
+fn test_growth_negative_control_incomparable_front() {
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "T"],
+        &[
+            // Both prefixes just carry the source fields n, m through unchanged.
+            (
+                "S",
+                "A",
+                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+            ),
+            (
+                "S",
+                "B",
+                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+            ),
+            // Path A: vertices = n^2, edges = m.
+            (
+                "A",
+                "T",
+                growth_edge(vec![
+                    ("vertices", powk("n", 2.0)),
+                    ("edges", Expr::Var("m")),
+                ]),
+            ),
+            // Path B: vertices = n, edges = m^2.
+            (
+                "B",
+                "T",
+                growth_edge(vec![
+                    ("vertices", Expr::Var("n")),
+                    ("edges", powk("m", 2.0)),
+                ]),
+            ),
+        ],
+    );
+
+    let initial = GrowthLabel::source(&["n", "m"]);
+    let front = graph.pareto_search_by_name(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        initial,
+        false,
+    );
+
+    // The front must contain BOTH incomparable paths — not one representative.
+    assert_eq!(
+        front.len(),
+        2,
+        "front should keep both incomparable paths, got {:?}",
+        front
+            .iter()
+            .map(|(p, _)| p.type_names())
+            .collect::<Vec<_>>()
+    );
+    let mut seen: Vec<(String, String)> = front
+        .iter()
+        .map(|(p, label)| {
+            (
+                p.type_names().join("→"),
+                format!(
+                    "v={} e={}",
+                    field_big_o(label, "vertices"),
+                    field_big_o(label, "edges")
+                ),
+            )
+        })
+        .collect();
+    seen.sort();
+    assert_eq!(
+        seen,
+        vec![
+            ("S→A→T".to_string(), "v=n^2 e=m".to_string()),
+            ("S→B→T".to_string(), "v=n e=m^2".to_string()),
+        ],
+    );
+}
+
+/// Isotonicity of `extend` (design invariant): if `A` dominates `B`, then
+/// `extend(A, e)` dominates `extend(B, e)` for the same edge — the correctness
+/// condition for the kernel's dominance pruning.
+#[test]
+fn test_growth_label_extend_isotone() {
+    // A = (n, m) dominates B = (n^2, m^2) componentwise.
+    let a = GrowthLabel::source(&["n", "m"]);
+    let b = GrowthLabel::from_fields({
+        let mut mm = BTreeMap::new();
+        mm.insert("n", Growth::from_expr(&powk("n", 2.0)));
+        mm.insert("m", Growth::from_expr(&powk("m", 2.0)));
+        mm
+    });
+    assert!(a.dominates(&b));
+
+    let tv = BTreeMap::new();
+    // A monotone overhead in both fields.
+    for overhead in [
+        growth_edge(vec![("x", Expr::Var("n") * Expr::Var("m"))]),
+        growth_edge(vec![("x", powk("n", 3.0)), ("y", Expr::Var("m"))]),
+    ] {
+        let redge = ReductionEdge {
+            overhead: &overhead.overhead,
+            reduce_fn: None,
+            capabilities: EdgeCapabilities::witness_only(),
+            target_name: "T",
+            target_variant: &tv,
+        };
+        let ea = a.extend(&redge).unwrap();
+        let eb = b.extend(&redge).unwrap();
+        // A ⪰ B ⇒ extend(A) ⪰ extend(B) (dominates-or-equal). Equality is possible
+        // when the overhead collapses the difference, so accept dominate-or-equal.
+        assert!(
+            ea.dominates(&eb) || ea == eb,
+            "isotonicity violated: {ea:?} vs {eb:?}"
+        );
+    }
 }

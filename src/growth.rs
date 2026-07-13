@@ -210,6 +210,17 @@ impl GrowthTerm {
             Some(Ordering::Greater) | Some(Ordering::Equal)
         )
     }
+
+    /// A monotone scalar summary of this monomial's growth rate. Exponential rate
+    /// dominates polynomial degree, which dominates log power. Bigger ⇒ grows
+    /// faster. Used only as a search-ordering / branch-and-bound heuristic, never
+    /// for asymptotic dominance decisions (those go through [`GrowthTerm::cmp`]).
+    fn magnitude(&self) -> f64 {
+        let e: f64 = self.exp.values().sum();
+        let p: f64 = self.poly.values().sum();
+        let l: f64 = self.logs.values().map(|&x| x as f64).sum();
+        1e6 * e + p + 1e-3 * l
+    }
 }
 
 /// Lexicographic comparison of `(exp rate, poly degree, log power)` triples.
@@ -261,6 +272,20 @@ impl Growth {
             (Growth::Terms(a), Growth::Terms(b)) => {
                 b.iter().all(|tb| a.iter().any(|ta| ta.dominates_or_eq(tb)))
             }
+        }
+    }
+
+    /// A deterministic, monotone scalar summary of this growth class (the maximum
+    /// over its antichain terms). Exponential rate ≫ polynomial degree ≫ log
+    /// power; [`Growth::Unknown`] maps to a very large finite value so undecidable
+    /// growth sorts last. This is a *search-ordering* heuristic only (frontier
+    /// order, branch-and-bound bound); asymptotic dominance is decided exactly by
+    /// [`Growth::dominates`], never by this scalar.
+    pub fn magnitude(&self) -> f64 {
+        match self {
+            // Large but finite (and well below f64::MAX so sums stay finite).
+            Growth::Unknown => 1e18,
+            Growth::Terms(terms) => terms.iter().map(GrowthTerm::magnitude).fold(0.0, f64::max),
         }
     }
 
