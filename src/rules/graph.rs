@@ -1145,10 +1145,14 @@ impl ReductionGraph {
 
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    (entry.source_size_fn)(instance)
-                }));
-                if let Ok(size) = result {
+                // A reduction's `source_size_fn` downcasts `instance` to its own
+                // source variant and panics on a mismatch; iterating every
+                // same-name entry means the non-matching variants panic-and-recover.
+                // Route through the silencer so these expected, caught panics do not
+                // spam stderr (the plain `catch_unwind` here did).
+                let result =
+                    crate::rules::pareto::catch_reduction(|| (entry.source_size_fn)(instance));
+                if let Some(size) = result {
                     for (k, v) in size.components {
                         if seen.insert(k.clone()) {
                             merged.push((k, v));

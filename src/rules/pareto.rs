@@ -51,7 +51,7 @@ static HOOK_INIT: Once = Once::new();
 /// design's guarantee that path selection never crashes. The thread-local silencer keeps
 /// this expected, recovered panic from spamming stderr while leaving genuine panics on
 /// other threads untouched.
-fn catch_reduction<R>(f: impl FnOnce() -> R) -> Option<R> {
+pub(crate) fn catch_reduction<R>(f: impl FnOnce() -> R) -> Option<R> {
     HOOK_INIT.call_once(|| {
         let prev = panic::take_hook();
         panic::set_hook(Box::new(move |info| {
