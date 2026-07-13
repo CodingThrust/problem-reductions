@@ -121,10 +121,22 @@ pub trait PathLabel: Clone {
     /// node's bag an antichain.
     fn dominates(&self, other: &Self) -> bool;
 
-    /// Scalar summary used for branch-and-bound pruning, frontier ordering, and the
-    /// deterministic final tie-break. Smaller is better. Must be non-decreasing along
-    /// `extend` (see trait docs).
+    /// Scalar summary used for frontier ordering, the deterministic final tie-break,
+    /// and (when [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) is set) branch-and-
+    /// bound pruning. Smaller is better. Must be non-decreasing along `extend`.
     fn cost(&self) -> f64;
+
+    /// Whether scalar branch-and-bound pruning — discarding a label whose `cost`
+    /// already meets or exceeds the best completed path's `cost` — is sound for this
+    /// label.
+    ///
+    /// `true` (default) for scalar objectives (measured size, formula cost), where
+    /// `cost` *is* the objective. `false` for the partial-order asymptotic label:
+    /// there `cost` is only a heuristic summary of a multi-field growth vector, so
+    /// pruning by it would drop genuinely *incomparable* Pareto-optimal paths (one
+    /// cheaper in `num_vertices`, another in `num_edges`). Such labels rely on
+    /// [`dominates`](PathLabel::dominates) pruning alone, which is exact.
+    const BRANCH_AND_BOUND: bool = true;
 }
 
 /// Formula-based scalar label reproducing Dijkstra behavior for a [`PathCostFn`].
@@ -442,24 +454,16 @@ impl PathLabel for GrowthLabel {
         strict
     }
 
+    // Asymptotic growth is a partial order, so a scalar `cost` can never separate
+    // incomparable front members; branch-and-bound on it would drop them. Disable it
+    // and rely on the exact `dominates` pruning above.
+    const BRANCH_AND_BOUND: bool = false;
+
     fn cost(&self) -> f64 {
-        // Monotone scalar summary for frontier ordering / branch-and-bound. Not used
-        // for dominance (that is the exact partial order above). Summed over fields so
-        // a path that inflates any field ranks higher; `Unknown` fields dominate the
-        // sum, ranking undecidable paths last.
-        //
-        // The kernel's branch-and-bound compares this scalar with `>=`, which would
-        // collapse two *incomparable* front members whose raw magnitudes happen to be
-        // equal (e.g. `O(n^2)`/`O(m)` vs `O(n)`/`O(m^2)`). To keep such genuinely
-        // distinct front members separable, later-sorted fields get an infinitesimal
-        // extra weight, giving tied-magnitude labels distinct costs. This is a
-        // deterministic, monotone perturbation (ε ≪ any real magnitude gap), so it can
-        // only *preserve* front members, never prune one the raw magnitude would keep.
-        const EPS: f64 = 1e-9;
-        self.fields
-            .values()
-            .enumerate()
-            .map(|(i, g)| g.magnitude() * (1.0 + (i as f64) * EPS))
-            .sum()
+        // Heuristic scalar summary for frontier ordering and the deterministic final
+        // tie-break ONLY — never for pruning (see `BRANCH_AND_BOUND` above; dominance
+        // is the exact partial order). Summed field magnitudes; `Unknown` fields
+        // dominate the sum, ranking undecidable paths last.
+        self.fields.values().map(|g| g.magnitude()).sum()
     }
 }

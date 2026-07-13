@@ -533,6 +533,84 @@ fn test_growth_negative_control_incomparable_front() {
     );
 }
 
+// Completeness under ASYMMETRIC magnitudes: the two incomparable paths have
+// different scalar `cost` summaries (A: n^2 + m ⇒ magnitude 3; B: n + m^3 ⇒
+// magnitude 4). Scalar branch-and-bound would let the cheaper path A complete first
+// and then prune B (cost 4 ≥ 3), silently dropping a Pareto-optimal path. This is
+// the case the equal-magnitude negative control above does NOT catch; it passes only
+// because `GrowthLabel` opts out of branch-and-bound (`BRANCH_AND_BOUND = false`) and
+// relies on exact dominance pruning.
+#[test]
+fn test_growth_asymmetric_incomparable_front_complete() {
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "T"],
+        &[
+            (
+                "S",
+                "A",
+                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+            ),
+            (
+                "S",
+                "B",
+                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+            ),
+            // Path A: vertices = n^2, edges = m   (magnitude 2 + 1 = 3).
+            (
+                "A",
+                "T",
+                growth_edge(vec![
+                    ("vertices", powk("n", 2.0)),
+                    ("edges", Expr::Var("m")),
+                ]),
+            ),
+            // Path B: vertices = n, edges = m^3   (magnitude 1 + 3 = 4).
+            (
+                "B",
+                "T",
+                growth_edge(vec![
+                    ("vertices", Expr::Var("n")),
+                    ("edges", powk("m", 3.0)),
+                ]),
+            ),
+        ],
+    );
+
+    let front = graph.pareto_search_by_name(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        GrowthLabel::source(&["n", "m"]),
+        false,
+    );
+
+    let mut seen: Vec<(String, String)> = front
+        .iter()
+        .map(|(p, label)| {
+            (
+                p.type_names().join("→"),
+                format!(
+                    "v={} e={}",
+                    field_big_o(label, "vertices"),
+                    field_big_o(label, "edges")
+                ),
+            )
+        })
+        .collect();
+    seen.sort();
+    assert_eq!(
+        seen,
+        vec![
+            ("S→A→T".to_string(), "v=n^2 e=m".to_string()),
+            ("S→B→T".to_string(), "v=n e=m^3".to_string()),
+        ],
+        "both incomparable paths must survive despite different scalar magnitudes",
+    );
+}
+
 /// Isotonicity of `extend` (design invariant): if `A` dominates `B`, then
 /// `extend(A, e)` dominates `extend(B, e)` for the same edge — the correctness
 /// condition for the kernel's dominance pruning.

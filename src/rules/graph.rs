@@ -564,8 +564,10 @@ impl ReductionGraph {
                 continue;
             }
             // Branch-and-bound: a label already at least as costly as the best completed
-            // path cannot yield a cheaper destination (cost is non-decreasing).
-            if best_final.is_some_and(|bf| cost.0 >= bf) {
+            // path cannot yield a cheaper destination (cost is non-decreasing). Sound
+            // only for scalar objectives; the asymptotic partial order opts out (see
+            // `PathLabel::BRANCH_AND_BOUND`).
+            if L::BRANCH_AND_BOUND && best_final.is_some_and(|bf| cost.0 >= bf) {
                 continue;
             }
 
@@ -597,8 +599,9 @@ impl ReductionGraph {
                     continue;
                 };
                 let new_cost = new_label.cost();
-                // Branch-and-bound against the best completed path.
-                if best_final.is_some_and(|bf| new_cost >= bf) {
+                // Branch-and-bound against the best completed path (scalar objectives
+                // only; the asymptotic partial order opts out).
+                if L::BRANCH_AND_BOUND && best_final.is_some_and(|bf| new_cost >= bf) {
                     continue;
                 }
                 // Componentwise dominance against the target's bag.
