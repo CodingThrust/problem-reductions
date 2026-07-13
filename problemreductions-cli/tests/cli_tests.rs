@@ -265,6 +265,39 @@ fn test_path_asymptotic_front_deterministic() {
     assert!(front[0]["big_o"]["num_vars"].is_string());
 }
 
+/// The asymptotic front reports one path per distinct growth vector, not per route.
+/// `MVC → ILP` has dozens of reduction chains that compose to only a few Big-O
+/// profiles; the front must collapse to that small handful with no duplicate growth
+/// vectors. (Regression: before dedup this printed 32 paths, most identical.)
+#[test]
+fn test_path_front_dedups_by_growth_vector() {
+    let output = pred()
+        .args(["path", "MVC", "ILP", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+    let front = json["front"].as_array().expect("front array");
+
+    // A proper Pareto front is a small handful (issue #1080: "typically 1–3 paths").
+    assert!(
+        (1..=4).contains(&front.len()),
+        "expected 1..=4 distinct growth vectors, got {}",
+        front.len()
+    );
+    // No two entries share a growth vector (the Big-O per size field).
+    let vectors: Vec<String> = front.iter().map(|p| p["big_o"].to_string()).collect();
+    let mut unique = vectors.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(
+        unique.len(),
+        vectors.len(),
+        "front must not contain two entries with identical growth vectors: {vectors:?}"
+    );
+}
+
 #[test]
 fn test_path_save() {
     let tmp = std::env::temp_dir().join("pred_test_path.json");

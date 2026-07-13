@@ -649,3 +649,68 @@ fn test_growth_label_extend_isotone() {
         );
     }
 }
+
+/// `asymptotic_front` reports **one representative per distinct growth vector**, not
+/// one per route. On the real graph, `MinimumVertexCover → ILP` has dozens of
+/// syntactically distinct reduction chains that compose to only a handful of Big-O
+/// profiles; the front must (a) contain no two entries with identical growth vectors
+/// and (b) collapse to that small handful — while the raw kernel front (same search,
+/// no dedup) still holds the many redundant routes.
+#[test]
+fn test_asymptotic_front_dedups_by_growth_vector() {
+    let graph = ReductionGraph::new();
+    let src_v = graph
+        .default_variant_for("MinimumVertexCover")
+        .or_else(|| graph.variants_for("MinimumVertexCover").into_iter().next())
+        .expect("MinimumVertexCover registered");
+    let dst_v = graph
+        .default_variant_for("ILP")
+        .or_else(|| graph.variants_for("ILP").into_iter().next())
+        .expect("ILP registered");
+
+    let front = graph.asymptotic_front(
+        "MinimumVertexCover",
+        &src_v,
+        "ILP",
+        &dst_v,
+        ReductionMode::Witness,
+    );
+    assert!(!front.is_empty(), "MVC -> ILP must have a path");
+
+    // (a) No two front entries share a growth vector (GrowthLabel PartialEq).
+    for i in 0..front.len() {
+        for j in (i + 1)..front.len() {
+            assert!(
+                front[i].1 != front[j].1,
+                "duplicate growth vector in front:\n  {}\n  {}",
+                front[i].0.type_names().join("→"),
+                front[j].0.type_names().join("→"),
+            );
+        }
+    }
+    // (b) A proper Pareto front is a small handful, not the dozens of redundant routes.
+    assert!(
+        (1..=4).contains(&front.len()),
+        "expected 1..=4 distinct growth vectors, got {}",
+        front.len()
+    );
+
+    // The dedup genuinely collapsed routes: the raw kernel front (same search, no
+    // dedup) is strictly larger and does contain repeated growth vectors.
+    let src_fields = graph.size_field_names("MinimumVertexCover");
+    let raw = graph.pareto_search_by_name(
+        "MinimumVertexCover",
+        &src_v,
+        "ILP",
+        &dst_v,
+        ReductionMode::Witness,
+        GrowthLabel::source(&src_fields),
+        false,
+    );
+    assert!(
+        raw.len() > front.len(),
+        "dedup should collapse redundant routes: raw {} vs deduped {}",
+        raw.len(),
+        front.len()
+    );
+}

@@ -1834,6 +1834,19 @@ impl ReductionGraph {
     /// exponent, factorial) are still returned, with those fields marked `Unknown` —
     /// never a fabricated bound.
     ///
+    /// The front reports **one representative path per distinct growth vector**: the
+    /// asymptotic front is a Pareto set over *growth vectors*, not routes. Many
+    /// syntactically different reduction chains compose to the exact same Big-O per size
+    /// field (e.g. dozens of `MinimumVertexCover → … → ILP` routes all yield
+    /// `num_constraints = O(num_edges), num_vars = O(num_vertices)`); reporting each
+    /// route would drown the ~1–3 genuinely distinct trade-offs the user cares about.
+    /// So equal-growth paths are deduplicated ([`GrowthLabel`] derives `PartialEq`),
+    /// keeping the deterministic best per group: fewest hops, then lexicographic
+    /// node-name path. Deduplication is purely by the growth vector, so two paths that
+    /// reach *different* target variants (e.g. `ILP/bool` vs `ILP/i32`) with the same
+    /// composed Big-O collapse to a single representative — the endpoint variant is not
+    /// part of the asymptotic identity.
+    ///
     /// The front is ordered deterministically by (hops, lexicographic node names), so
     /// the output is byte-identical across runs and platforms. Returns an empty vector
     /// if either endpoint is unregistered or no path exists.
@@ -1854,14 +1867,26 @@ impl ReductionGraph {
         let source_fields = self.size_field_names(source);
         let initial = GrowthLabel::source(&source_fields);
         let mut front = self.pareto_search(src, dst, mode, initial, false);
-        // Re-order per the issue's contract: (hops, lexicographic node names). The
-        // kernel's own ordering leads with `cost()`, which is only a search heuristic.
+        // Order per the issue's contract: (hops, lexicographic node names). The kernel's
+        // own ordering leads with `cost()`, which is only a search heuristic. Sorting
+        // first also puts the deterministic best route of each equal-growth group ahead
+        // of its duplicates, so the dedup below keeps the right representative.
         front.sort_by(|a, b| {
             a.0.len()
                 .cmp(&b.0.len())
                 .then_with(|| a.0.type_names().cmp(&b.0.type_names()))
         });
-        front
+        // Collapse to one representative per distinct growth vector. `GrowthLabel`'s
+        // `PartialEq` compares the field → growth map, i.e. the composed Big-O per size
+        // field; genuinely incomparable vectors are never equal, so they all survive.
+        // O(n^2), but a front is a handful of entries.
+        let mut deduped: Vec<(ReductionPath, GrowthLabel)> = Vec::new();
+        for entry in front {
+            if !deduped.iter().any(|(_, label)| *label == entry.1) {
+                deduped.push(entry);
+            }
+        }
+        deduped
     }
 
     /// Find the measured-smallest path from `source` to **any** variant of the target
