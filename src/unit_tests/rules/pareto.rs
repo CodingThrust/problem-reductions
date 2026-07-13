@@ -714,3 +714,74 @@ fn test_asymptotic_front_dedups_by_growth_vector() {
         front.len()
     );
 }
+
+/// A composed front label must express every size field's growth purely in the
+/// **source problem's** own size variables — never in a downstream getter alias or an
+/// intermediate node's field name.
+///
+/// Regression for the `MinimumFeedbackVertexSet → ILP` bug: the `ILP<i32> → ILP<bool>`
+/// binary-encoding cast declared its overhead as `num_vars = "31 * num_variables"`,
+/// referencing the getter *alias* `num_variables()` instead of ILP's size-field *name*
+/// `num_vars`. Instance mode and raw-overhead rendering both resolve the getter, so the
+/// mistake was invisible there — but growth composition threads field *names*, so the
+/// alias was unmapped and leaked through as `num_vars = O(num_variables)` instead of
+/// the correct `O(num_vertices)`.
+#[test]
+fn test_asymptotic_front_uses_only_source_variables_mfvs_ilp() {
+    let graph = ReductionGraph::new();
+    let src_v = graph
+        .default_variant_for("MinimumFeedbackVertexSet")
+        .or_else(|| {
+            graph
+                .variants_for("MinimumFeedbackVertexSet")
+                .into_iter()
+                .next()
+        })
+        .expect("MinimumFeedbackVertexSet registered");
+    let dst_v = graph
+        .default_variant_for("ILP")
+        .or_else(|| graph.variants_for("ILP").into_iter().next())
+        .expect("ILP registered");
+
+    let front = graph.asymptotic_front(
+        "MinimumFeedbackVertexSet",
+        &src_v,
+        "ILP",
+        &dst_v,
+        ReductionMode::Witness,
+    );
+
+    // The direct route (MFVS → ILP/i32 → ILP/bool; the ILP variants collapse in the
+    // deduplicated node-name view) is the one exercised by the fixed cast.
+    let (_, label) = front
+        .iter()
+        .find(|(p, _)| p.type_names() == ["MinimumFeedbackVertexSet", "ILP"])
+        .expect("direct MinimumFeedbackVertexSet -> ILP path");
+
+    // The size fields of MinimumFeedbackVertexSet — the only variables any composed
+    // growth is allowed to mention.
+    let allowed = ["num_arcs", "num_vertices"];
+    for (field, growth) in label.fields() {
+        let expr = growth
+            .to_expr()
+            .unwrap_or_else(|| panic!("field {field} should have a bounded growth"));
+        for var in expr.variables() {
+            assert!(
+                allowed.contains(&var),
+                "field `{field}` growth O({expr}) references `{var}`, which is not a \
+                 MinimumFeedbackVertexSet source variable {allowed:?}",
+            );
+        }
+    }
+
+    // The previously-buggy field, pinned to the correct source-variable Big-O.
+    let num_vars = label
+        .fields()
+        .get("num_vars")
+        .expect("ILP has a num_vars size field");
+    assert_eq!(
+        num_vars.to_expr().unwrap().to_string(),
+        "num_vertices",
+        "ILP num_vars must compose to O(num_vertices), not the getter alias num_variables"
+    );
+}

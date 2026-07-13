@@ -264,7 +264,7 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
 }
 
 #[reduction(overhead = {
-    num_vars = "31 * num_variables",
+    num_vars = "31 * num_vars",
     num_constraints = "num_constraints",
 })]
 impl ReduceTo<ILP<bool>> for ILP<i32> {
