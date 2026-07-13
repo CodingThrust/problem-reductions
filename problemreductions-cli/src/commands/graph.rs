@@ -763,11 +763,7 @@ fn path_all(
             .collect::<Vec<_>>()
             .join(">")
     };
-    all_paths.sort_by(|a, b| {
-        a.len()
-            .cmp(&b.len())
-            .then_with(|| path_signature(a).cmp(&path_signature(b)))
-    });
+    all_paths.sort_by_cached_key(|p| (p.len(), path_signature(p)));
 
     let truncated = all_paths.len() > max_paths;
     if truncated {
