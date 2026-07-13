@@ -27,6 +27,11 @@ pub mod error;
 pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
+// The growth domain is consumed by later milestone issues (big_o.rs / search
+// rewiring); nothing references it on `main` yet, so its public API is dead code
+// for now.
+#[allow(dead_code)]
+pub(crate) mod growth;
 pub mod io;
 pub mod models;
 pub mod registry;
