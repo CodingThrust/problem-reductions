@@ -263,14 +263,12 @@ impl<'a> MeasuredLabel<'a> {
 /// `a` covers `b` iff every field of `b` is present in `a` with a value `>=` b's — i.e.
 /// `a` is componentwise `<=` `b`. Missing fields are treated as `0`.
 fn size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
-    // a <= b componentwise: for each field in either, a[f] <= b[f].
-    a.components.iter().all(|(name, av)| {
-        let bv = b.get(name).unwrap_or(0);
-        *av <= bv
-    }) && b.components.iter().all(|(name, bv)| {
-        let av = a.get(name).unwrap_or(0);
-        av <= *bv
-    })
+    // a <= b componentwise. Sizes are nonnegative and missing fields default to 0,
+    // so only a's own fields can violate the bound: a b-only field gives `0 <= b`,
+    // which always holds. Checking a's fields against b is therefore sufficient.
+    a.components
+        .iter()
+        .all(|(name, av)| *av <= b.get(name).unwrap_or(0))
 }
 
 impl PathLabel for MeasuredLabel<'_> {
@@ -396,6 +394,15 @@ impl PathLabel for GrowthLabel {
         let rendered: BTreeMap<&'static str, Option<Expr>> =
             self.fields.iter().map(|(k, g)| (*k, g.to_expr())).collect();
 
+        // Substitution map from current field name to its rendered growth `Expr` (in
+        // source variables). Depends only on `rendered`, so build it once for all edges'
+        // output fields rather than per target field. Overhead variables not in the
+        // label pass through unchanged (mirrors `ReductionOverhead::compose`).
+        let mapping: HashMap<&str, &Expr> = rendered
+            .iter()
+            .filter_map(|(k, opt)| opt.as_ref().map(|e| (*k, e)))
+            .collect();
+
         let mut new_fields: BTreeMap<&'static str, Growth> = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
             // If this overhead references a current field whose growth is `Unknown`,
@@ -408,13 +415,8 @@ impl PathLabel for GrowthLabel {
                 new_fields.insert(target_field, Growth::Unknown);
                 continue;
             }
-            // Substitute each current field name with its rendered growth (in source
-            // variables), then reduce in the growth domain. Overhead variables not in
-            // the label pass through unchanged (mirrors `ReductionOverhead::compose`).
-            let mapping: HashMap<&str, &Expr> = rendered
-                .iter()
-                .filter_map(|(k, opt)| opt.as_ref().map(|e| (*k, e)))
-                .collect();
+            // Substitute rendered growths into the overhead, then reduce in the growth
+            // domain.
             let substituted = expr.substitute(&mapping);
             new_fields.insert(target_field, Growth::from_expr(&substituted));
         }

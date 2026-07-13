@@ -7,7 +7,7 @@ use problemreductions::rules::{
     TraversalFlow,
 };
 use problemreductions::types::ProblemSize;
-use problemreductions::{big_o_normal_form, Expr, Growth};
+use problemreductions::{big_o_normal_form, Expr};
 use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
@@ -490,15 +490,6 @@ fn format_path_json(
     })
 }
 
-/// Render one growth as a Big-O string: `O(<expr>)`, or an explicit unbounded marker
-/// for `Growth::Unknown` (nonlinear exponent / factorial) — never a fabricated bound.
-fn growth_big_o(g: &Growth) -> String {
-    match g.to_expr() {
-        Some(e) => format!("O({e})"),
-        None => "O(?)  [unbounded: nonlinear exponent / factorial]".to_string(),
-    }
-}
-
 /// Node-arrow summary (`A → B → C`) for a reduction path, deduplicating consecutive
 /// same-name variant-cast steps.
 fn path_arrow_summary(graph: &ReductionGraph, reduction_path: &ReductionPath) -> String {
@@ -538,7 +529,7 @@ fn format_front_text(
             path_arrow_summary(graph, reduction_path),
         ));
         for (field, growth) in label.fields() {
-            text.push_str(&format!("  {field} = {}\n", growth_big_o(growth)));
+            text.push_str(&format!("  {field} = {}\n", growth.to_big_o()));
         }
     }
     text
@@ -557,7 +548,7 @@ fn format_front_json(
             let big_o: BTreeMap<&str, String> = label
                 .fields()
                 .iter()
-                .map(|(f, g)| (*f, growth_big_o(g)))
+                .map(|(f, g)| (*f, g.to_big_o()))
                 .collect();
             serde_json::json!({
                 "steps": reduction_path.len(),

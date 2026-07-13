@@ -311,6 +311,18 @@ impl Growth {
             }
         }
     }
+
+    /// Canonical Big-O string for this growth class: `O(<expr>)` for a bounded
+    /// class, or `O(?)` for [`Growth::Unknown`] (no honest asymptotic bound —
+    /// nonlinear exponent or factorial). This is the single source of truth for
+    /// how a growth is displayed as Big-O; presentation layers must call it rather
+    /// than re-deriving the mapping (and the `Unknown` spelling) themselves.
+    pub fn to_big_o(&self) -> String {
+        match self.to_expr() {
+            Some(e) => format!("O({e})"),
+            None => "O(?)".to_string(),
+        }
+    }
 }
 
 /// Render one monomial as a product of its factors (or `Const(1)` when empty).

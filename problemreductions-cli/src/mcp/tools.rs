@@ -1184,13 +1184,7 @@ fn format_front_json(
             let big_o: BTreeMap<&str, String> = label
                 .fields()
                 .iter()
-                .map(|(f, g)| {
-                    let rendered = match g.to_expr() {
-                        Some(e) => format!("O({e})"),
-                        None => "O(?)".to_string(),
-                    };
-                    (*f, rendered)
-                })
+                .map(|(f, g)| (*f, g.to_big_o()))
                 .collect();
             serde_json::json!({
                 "steps": reduction_path.len(),

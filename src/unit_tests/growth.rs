@@ -152,6 +152,22 @@ fn test_growth_pow_special_cases() {
     assert_eq!(g("n^m"), Growth::Unknown);
 }
 
+/// Canonical Big-O rendering: bounded classes get `O(<expr>)`, `Unknown` gets `O(?)`.
+#[test]
+fn test_growth_to_big_o() {
+    // The dominated `n` summand is dropped by the antichain, leaving just `n^2`.
+    assert_eq!(g("n^2 + n").to_big_o(), "O(n^2)");
+    assert_eq!(g("2^n").to_big_o(), "O(2^n)");
+    assert_eq!(g("5").to_big_o(), "O(1)");
+    assert_eq!(Growth::Unknown.to_big_o(), "O(?)");
+    // Renders exactly `O(<to_expr>)` for bounded classes.
+    let bounded = g("n * m");
+    assert_eq!(
+        bounded.to_big_o(),
+        format!("O({})", bounded.to_expr().unwrap())
+    );
+}
+
 /// `exp(n)` uses base e; a decaying/unit base is bounded by O(1).
 #[test]
 fn test_growth_exponential_variants() {
