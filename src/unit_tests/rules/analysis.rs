@@ -71,51 +71,85 @@ fn test_compare_overhead_no_common_fields() {
 }
 
 #[test]
-fn test_compare_overhead_unknown_exp() {
-    // Different exponential-vs-polynomial growth is still not decided by the
-    // monomial comparison fallback.
+fn test_compare_overhead_exp_dominates_poly() {
+    // primitive exp(n) grows faster than composite n, so composite ≤ primitive
+    // on the only common field → dominated. (The old polynomial engine rejected
+    // exp outright and returned Unknown; the growth domain decides it.)
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::Var("n"))))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
-fn test_compare_overhead_unknown_log() {
+fn test_compare_overhead_poly_dominates_log() {
+    // primitive n vs composite log(n): n grows faster than log(n), so the
+    // composite is dominated. Previously Unknown (the polynomial engine could
+    // not normalize `log`); now decided by the growth domain.
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::Var("n"))))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
-fn test_compare_overhead_exp_identity_not_yet_normalized() {
-    // `exp(n + m)` and `exp(n) * exp(m)` are asymptotically equal, but the
-    // overhead comparator no longer canonicalizes (that engine was deleted), and
-    // its polynomial fallback does not handle exp, so it reports Unknown.
-    // Recognizing this identity again is the job of the analysis-to-growth
-    // rewire (a later milestone issue).
+fn test_compare_overhead_exp_identity_decided() {
+    // `exp(n + m)` and `exp(n) * exp(m)` are asymptotically equal. The growth
+    // domain normalizes both to the same exponential term, so the (reflexive)
+    // dominance holds → dominated. (Was temporarily asserted Unknown while the
+    // bespoke engine — which could not handle exp — was still in place.)
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n + m)"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n) * exp(m)"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
-fn test_compare_overhead_log_identity_after_asymptotic_normalization() {
-    // log(n) vs log(n^2): the new canonicalization engine keeps log(n^2) as-is
-    // (it doesn't simplify log(x^k) = k*log(x)), so polynomial comparison
-    // returns Unknown for non-polynomial log terms.
+fn test_compare_overhead_log_identity_decided() {
+    // log(n) vs log(n^2): the growth domain uses log(n^k) ≍ log(n), so both
+    // fields collapse to the same growth → dominated. (Was temporarily Unknown
+    // because the polynomial engine could not normalize `log`.)
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("log(n)"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("log(n^2)"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
-fn test_compare_overhead_sqrt_identity_not_yet_normalized() {
-    // `sqrt(n * m)` and `(n * m)^(1/2)` are equal, but without canonicalization
-    // the comparator's polynomial fallback does not handle sqrt, so it reports
-    // Unknown until the analysis-to-growth rewire (a later milestone issue).
+fn test_compare_overhead_sqrt_identity_decided() {
+    // `sqrt(n * m)` and `(n * m)^(1/2)` are equal; the growth domain maps both
+    // to poly degree 0.5 in n and m → dominated. (Was temporarily Unknown while
+    // the sqrt-rejecting polynomial engine was in place.)
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("sqrt(n * m)"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("(n * m)^(1/2)"))]);
-    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+#[test]
+fn test_compare_overhead_subtraction_now_decided() {
+    // Subtraction: primitive n^2 vs composite n^2 - n. The growth domain widens
+    // `a - b ⇝ a + b` so n^2 - n ≍ n^2, asymptotically equal to the primitive →
+    // dominated. The old polynomial engine rejected negative coefficients and
+    // returned Unknown.
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("n^2"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("n^2 - n"))]);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+#[test]
+fn test_compare_overhead_negative_control_cubic_worse() {
+    // Negative control: primitive num_vertices = n^2 vs composite num_vertices =
+    // n^3, all other common fields equal. The composite grows strictly faster on
+    // the differing field, so this MUST be NotDominated — a direction inversion
+    // or an ignored field would flip it to Dominated.
+    let prim = ReductionOverhead::new(vec![
+        ("num_vertices", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
+        ("num_edges", Expr::Var("n")),
+    ]);
+    let comp = ReductionOverhead::new(vec![
+        ("num_vertices", Expr::pow(Expr::Var("n"), Expr::Const(3.0))),
+        ("num_edges", Expr::Var("n")),
+    ]);
+    assert_eq!(
+        compare_overhead(&prim, &comp),
+        ComparisonStatus::NotDominated
+    );
 }
 
 #[test]
@@ -127,10 +161,9 @@ fn test_compare_overhead_additive_constant_after_asymptotic_normalization() {
 
 #[test]
 fn test_compare_overhead_multivariate_product_vs_sum() {
-    // n * m (degree 2) vs n + m (degree 1):
-    // monomial n*m has exponents {n:1, m:1}
-    // monomials n, m each have exponent 1 in one variable
-    // n*m is NOT dominated by either n or m → composite is worse
+    // primitive n + m ≍ {n, m} (two incomparable terms) vs composite n * m ≍
+    // {n·m}. The single composite term n·m is dominated by neither n nor m, so
+    // the primitive does not dominate the composite → not dominated.
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") + Expr::Var("m"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") * Expr::Var("m"))]);
     assert_eq!(
@@ -140,10 +173,10 @@ fn test_compare_overhead_multivariate_product_vs_sum() {
 }
 
 #[test]
-fn test_compare_overhead_multivariate_product_vs_square() {
-    // n * m (has m) vs n^2 (no m): incomparable
-    // n*m monomial {n:1, m:1} — dominated by n^2 {n:2}?
-    // exponent_n: 1 <= 2 ✓, exponent_m: 1 <= 0 ✗ → not dominated
+fn test_compare_overhead_incomparable_field_not_dominated() {
+    // Incomparable growths on a field: primitive n^2 vs composite n * m. n^2 has
+    // degree 2 in n and 0 in m; n·m has degree 1 in each. Neither dominates the
+    // other (n^2 wins on n, n·m wins on m) → not dominated.
     let prim = ReductionOverhead::new(vec![(
         "num_vars",
         Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
@@ -173,11 +206,11 @@ fn test_compare_overhead_constant_factor() {
 
 #[test]
 fn test_compare_overhead_polynomial_expansion() {
-    // (n + m)^2 = n^2 + 2nm + m^2 (degree 2) vs n^3 (degree 3)
-    // Each monomial of composite has total degree ≤ 2, primitive has degree 3
-    // n^2 dominated by n^3? exponent_n: 2 ≤ 3 ✓ → yes
-    // 2*n*m dominated by n^3? exponent_n: 1 ≤ 3 ✓, exponent_m: 1 ≤ 0 ✗ → no!
-    // So composite is NOT dominated — (n+m)^2 can exceed n^3 when m is large
+    // Composite (n + m)^2 ≍ max(n, m)^2 = {n^2, m^2} in the growth domain (no
+    // binomial cross term). Primitive n^3 ≍ {n^3}. n^3 dominates n^2, but n^3
+    // does not dominate m^2 (it has degree 0 in m), so the primitive does not
+    // dominate the composite → not dominated — (n+m)^2 can exceed n^3 when m is
+    // large.
     let prim = ReductionOverhead::new(vec![(
         "num_vars",
         Expr::pow(Expr::Var("n"), Expr::Const(3.0)),
@@ -278,6 +311,16 @@ fn test_find_dominated_rules_returns_known_set() {
         (
             "KSatisfiability {k: \"K3\"}",
             "MinimumVertexCover {graph: \"SimpleGraph\", weight: \"i32\"}",
+        ),
+        // Newly decided by the growth-domain rewire (#1081): PartitionIntoPathsOfLength2
+        // → BCSF → ILP{i32} → ILP{bool}. The composite's composed num_vars/num_constraints
+        // carry a `num_vertices / 3` factor (from max_components = V/3); the old polynomial
+        // engine rejected that constant divisor as a negative-exponent power and returned
+        // Unknown, while the growth domain drops constant divisors, giving both fields
+        // growth {V^2, E*V} — asymptotically equal to the direct edge, hence Dominated.
+        (
+            "PartitionIntoPathsOfLength2 {graph: \"SimpleGraph\"}",
+            "ILP {variable: \"bool\"}",
         ),
     ]
     .into_iter()
