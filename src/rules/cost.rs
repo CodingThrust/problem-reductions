@@ -6,6 +6,13 @@ use crate::types::ProblemSize;
 /// User-defined cost function for path optimization.
 pub trait PathCostFn {
     /// Compute cost of taking an edge given current problem size.
+    ///
+    /// Implementations **must** return a nonnegative value and be monotone in
+    /// `current_size` (a componentwise-larger size never yields a smaller edge cost). The
+    /// Pareto search relies on both properties: nonnegativity keeps the accumulated path
+    /// cost non-decreasing, which is what makes branch-and-bound pruning sound;
+    /// monotonicity gives the isotonicity that makes `(cost, size)` dominance pruning
+    /// sound. All shipped implementations below satisfy these.
     fn edge_cost(&self, overhead: &ReductionOverhead, current_size: &ProblemSize) -> f64;
 }
 

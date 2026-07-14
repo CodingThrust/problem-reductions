@@ -176,8 +176,11 @@ fn test_growth_exponential_variants() {
     assert!(en.dominates(&g("n^5")));
     // 2^(n-m) ≤ 2^n after dropping the negative rate.
     assert_eq!(g("2^(n - m)"), g("2^n"));
-    // Unit / decaying bases collapse to O(1).
+    // Unit base is O(1); a decaying base with a growing exponent is O(1) too.
     assert_eq!(g("1^n"), g("7"));
+    assert_eq!(g("0.5^n"), g("7"));
+    // A fractional base with a *negative* exponent grows: 0.5^(-n) = 2^n.
+    assert_eq!(g("0.5^(-n)"), g("2^n"));
 }
 
 /// `log` lowers each level: log of an exponential is linear, log of a
@@ -195,6 +198,22 @@ fn test_growth_log_levels() {
     assert_eq!(terms_of(&g("log(n*m)")).len(), 2);
     // log of a constant is O(1).
     assert_eq!(terms_of(&g("log(5)")), [GrowthTerm::one()]);
+
+    // A mixed monomial's log keeps *every* factor class: log(2^n * m) ≍ n + log m.
+    // The exponential factor must not swallow the polynomial one.
+    let mixed = g("log(2^n * m)");
+    let expected = make_growth(vec![
+        term(&[], &[("n", 1.0)], &[]),
+        term(&[], &[], &[("m", 1)]),
+    ]);
+    assert_eq!(mixed, expected);
+    assert_eq!(terms_of(&mixed).len(), 2, "expected n + log m: {mixed:?}");
+
+    // When the classes share a variable the dominated summand is pruned:
+    // log(2^n * n^2) ≍ n + log n ≍ n (a single summand).
+    let shared = g("log(2^n * n^2)");
+    assert_eq!(shared, g("n"));
+    assert_eq!(terms_of(&shared), [term(&[], &[("n", 1.0)], &[])]);
 }
 
 /// `Unknown` is the top of the growth order.

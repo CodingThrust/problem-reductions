@@ -163,7 +163,7 @@ Show all paths or save for later use with `pred reduce --via`:
 ```bash
 pred path MIS QUBO --all                    # all paths (up to 20)
 pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO -o path.json             # save path for `pred reduce --via`
+pred path MIS QUBO -o path.json             # save front + best path for `pred reduce --via`
 pred path MIS QUBO --all -o paths/          # save all paths to a folder
 ```
 

@@ -54,6 +54,24 @@ mod tests {
     }
 
     #[test]
+    fn test_find_path_asymptotic_front_has_top_level_path() {
+        // The default (no-cost) find_path envelope must also carry a top-level `path`
+        // step array (the best path) so it stays consumable as a reduction route.
+        let server = McpServer::new();
+        let result = server.find_path_inner("MIS", "QUBO", None, false, 20);
+        assert!(result.is_ok(), "err: {:?}", result.err());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["mode"], "asymptotic");
+        let path = json["path"].as_array().expect("top-level path array");
+        assert!(!path.is_empty(), "top-level path must have ≥ 1 step");
+        // Each step parses as a from→to node pair with names.
+        let first = &path[0];
+        assert!(first["from"]["name"].is_string());
+        assert!(first["to"]["name"].is_string());
+        assert_eq!(first["from"]["name"], "MaximumIndependentSet");
+    }
+
+    #[test]
     fn test_find_path_all() {
         let server = McpServer::new();
         let result = server.find_path_inner("MIS", "QUBO", Some("minimize-steps"), true, 20);
@@ -83,6 +101,95 @@ mod tests {
         assert!(first["steps"].is_u64());
         assert!(first["path"].is_array());
         assert!(first["overall_overhead"].is_array());
+    }
+
+    #[test]
+    fn test_find_path_all_matches_library_order() {
+        use crate::problem_name::resolve_problem_ref;
+        use problemreductions::rules::ReductionGraph;
+
+        // MCP `--all` must delegate to the library ordering (length-first, then
+        // name+variant signature) with no local re-sort, so its ordered route list
+        // is identical to what the library returns directly. This is also what the
+        // CLI returns, since the CLI shares the same code path.
+        let max_paths = 6usize;
+        let server = McpServer::new();
+        let result = server
+            .find_path_inner("KSatisfiability", "QUBO", None, true, max_paths)
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_str(&result).unwrap();
+        let mcp_paths = json["paths"].as_array().unwrap();
+        assert!(!mcp_paths.is_empty());
+
+        // Reconstruct each MCP path as a sequence of node signatures "name/v1/v2".
+        let node_sig = |node: &serde_json::Value| -> String {
+            let mut s = node["name"].as_str().unwrap().to_string();
+            if let Some(vars) = node["variant"].as_object() {
+                // BTreeMap-like ordering: serde_json Map is insertion order, but the
+                // library serialized from a BTreeMap so keys are already sorted.
+                for v in vars.values() {
+                    s.push('/');
+                    s.push_str(v.as_str().unwrap());
+                }
+            }
+            s
+        };
+        let mcp_sigs: Vec<Vec<String>> = mcp_paths
+            .iter()
+            .map(|p| {
+                let steps = p["path"].as_array().unwrap();
+                let mut seq = vec![node_sig(&steps[0]["from"])];
+                for step in steps {
+                    seq.push(node_sig(&step["to"]));
+                }
+                seq
+            })
+            .collect();
+
+        // Reproduce the library-ordered, truncated route list the same way MCP/CLI do:
+        // fetch max_paths + 1 then keep the first max_paths.
+        let graph = ReductionGraph::new();
+        let src = resolve_problem_ref("KSatisfiability", &graph).unwrap();
+        let dst = resolve_problem_ref("QUBO", &graph).unwrap();
+        let mut lib_paths = graph.find_paths_up_to(
+            &src.name,
+            &src.variant,
+            &dst.name,
+            &dst.variant,
+            max_paths + 1,
+        );
+        lib_paths.truncate(max_paths);
+        let lib_sigs: Vec<Vec<String>> = lib_paths
+            .iter()
+            .map(|p| {
+                p.steps
+                    .iter()
+                    .map(|s| {
+                        let mut sig = s.name.clone();
+                        for v in s.variant.values() {
+                            sig.push('/');
+                            sig.push_str(v);
+                        }
+                        sig
+                    })
+                    .collect()
+            })
+            .collect();
+
+        assert_eq!(
+            mcp_sigs, lib_sigs,
+            "MCP --all route list must equal the library-ordered list"
+        );
+
+        // And the route lengths are non-decreasing (length-first ordering).
+        let lens: Vec<usize> = mcp_paths
+            .iter()
+            .map(|p| p["steps"].as_u64().unwrap() as usize)
+            .collect();
+        assert!(
+            lens.windows(2).all(|w| w[0] <= w[1]),
+            "MCP --all routes must be shortest-first, got {lens:?}"
+        );
     }
 
     #[test]

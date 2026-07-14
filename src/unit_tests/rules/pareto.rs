@@ -10,13 +10,15 @@ use crate::expr::Expr;
 use crate::growth::Growth;
 use crate::models::graph::{HamiltonianCircuit, HighlyConnectedDeletion};
 use crate::rules::cost::CustomCost;
-use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
+use crate::rules::pareto::{GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge};
 use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
 use crate::rules::{ReductionGraph, ReductionMode, DEFAULT_SIZE_BUDGET};
 use crate::topology::SimpleGraph;
 use crate::types::ProblemSize;
 use std::any::Any;
+use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::time::Instant;
 
 // ---------------------------------------------------------------------------
@@ -783,5 +785,376 @@ fn test_asymptotic_front_uses_only_source_variables_mfvs_ilp() {
         num_vars.to_expr().unwrap().to_string(),
         "num_vertices",
         "ILP num_vars must compose to O(num_vertices), not the getter alias num_variables"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fix A: MeasuredLabel opts out of (unsound) branch-and-bound.
+// ---------------------------------------------------------------------------
+
+/// The measured label's `cost` (= measured total) can SHRINK across a reduction, so it is
+/// non-monotone and branch-and-bound over it is unsound. The label must therefore declare
+/// `BRANCH_AND_BOUND = false`.
+#[test]
+fn test_measured_label_opts_out_of_branch_and_bound() {
+    const {
+        assert!(
+            !<MeasuredLabel<'static> as PathLabel>::BRANCH_AND_BOUND,
+            "MeasuredLabel::cost is non-monotone (size can shrink); B&B must be disabled"
+        );
+    }
+}
+
+/// A test label whose `cost` is the label's current absolute value — a value a late edge
+/// can *shrink* below an already-completed route's final value. With `BRANCH_AND_BOUND`
+/// disabled it models exactly the invariant `MeasuredLabel` now relies on.
+#[derive(Clone)]
+struct ShrinkLabel {
+    v: f64,
+}
+
+impl PathLabel for ShrinkLabel {
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        // The edge sets a new absolute value (`v`), which may be smaller than the current.
+        let z = ProblemSize::new(vec![]);
+        let v = edge.overhead.get("v").map(|e| e.eval(&z)).unwrap_or(self.v);
+        Some(ShrinkLabel { v })
+    }
+
+    fn dominates(&self, other: &Self) -> bool {
+        self.v <= other.v
+    }
+
+    // Non-monotone cost ⇒ B&B would be unsound (this is the MeasuredLabel case).
+    const BRANCH_AND_BOUND: bool = false;
+
+    fn cost(&self) -> f64 {
+        self.v
+    }
+}
+
+/// Kernel regression for Fix A: a route that *shrinks late* (its intermediate cost 100 is
+/// higher than a rival route that completes early at 50, but a final edge drops it to 10)
+/// must survive to the front. A kernel that applied branch-and-bound would prune the
+/// intermediate node (100 ≥ best-so-far 50) and silently drop the true optimum. Because
+/// `ShrinkLabel` opts out of B&B, the shrink-late route reaches the front even under
+/// `exhaustive = true` (which disables only the dominance guard).
+#[test]
+fn test_kernel_keeps_shrink_late_route_without_branch_and_bound() {
+    let empty = std::collections::BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "T"],
+        &[
+            // S -> T: completes early with final value 50.
+            ("S", "T", growth_edge(vec![("v", Expr::Const(50.0))])),
+            // S -> A: intermediate value 100 (would trip a B&B bound of 50).
+            ("S", "A", growth_edge(vec![("v", Expr::Const(100.0))])),
+            // A -> T: shrinks the value to 10 (globally best).
+            ("A", "T", growth_edge(vec![("v", Expr::Const(10.0))])),
+        ],
+    );
+
+    let front = graph.pareto_search_by_name(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        ShrinkLabel { v: 0.0 },
+        true,
+    );
+
+    // The shrink-late route S -> A -> T (final value 10) must be present in the front.
+    let shrink_late = front
+        .iter()
+        .find(|(p, _)| p.type_names() == ["S", "A", "T"])
+        .expect("shrink-late route S -> A -> T must survive without branch-and-bound");
+    assert_eq!(
+        shrink_late.1.cost(),
+        10.0,
+        "the shrink-late route finishes at the global optimum value 10"
+    );
+    // The kernel's best (lowest cost) front element is that shrink-late route.
+    assert_eq!(front[0].0.type_names(), ["S", "A", "T"]);
+    assert_eq!(front[0].1.cost(), 10.0);
+}
+
+// ---------------------------------------------------------------------------
+// Fix B: CostLabel dominance is componentwise over (cost, size).
+// ---------------------------------------------------------------------------
+
+/// Fix B regression: an edge cost that DEPENDS on the carried size makes a cheaper-so-far
+/// prefix with a *larger* intermediate size a trap — a scalar `cost <= other.cost`
+/// dominance would evict the costlier-but-smaller prefix whose continuation is globally
+/// cheapest. With componentwise `(cost, size)` dominance both prefixes survive at the hub
+/// and `find_cheapest_path` returns the globally optimal route.
+#[test]
+fn test_cost_label_path_dependent_dominance() {
+    let empty = std::collections::BTreeMap::new();
+    // Edges carry `c` (base edge cost), `wf` (weight on the size-dependent term) and `w`
+    // (the tracked size field). The cost function is `c + wf * current_w`, so the M -> T
+    // edge's cost is exactly the size `w` accumulated at M.
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "M", "P", "T"],
+        &[
+            // S -> M: cheap prefix (c = 1) but produces a LARGE intermediate size w = 100.
+            (
+                "S",
+                "M",
+                growth_edge(vec![
+                    ("c", Expr::Const(1.0)),
+                    ("wf", Expr::Const(0.0)),
+                    ("w", Expr::Const(100.0)),
+                ]),
+            ),
+            // S -> P: pricier prefix (c = 3) but a SMALL size w = 1.
+            (
+                "S",
+                "P",
+                growth_edge(vec![
+                    ("c", Expr::Const(3.0)),
+                    ("wf", Expr::Const(0.0)),
+                    ("w", Expr::Const(1.0)),
+                ]),
+            ),
+            // P -> M: cheap (c = 1), keeps the small size w = 1.
+            (
+                "P",
+                "M",
+                growth_edge(vec![
+                    ("c", Expr::Const(1.0)),
+                    ("wf", Expr::Const(0.0)),
+                    ("w", Expr::Const(1.0)),
+                ]),
+            ),
+            // M -> T: cost = current w (wf = 1, c = 0); identity on size.
+            (
+                "M",
+                "T",
+                growth_edge(vec![
+                    ("c", Expr::Const(0.0)),
+                    ("wf", Expr::Const(1.0)),
+                    ("w", Expr::Var("w")),
+                ]),
+            ),
+        ],
+    );
+
+    // Cost function: c + wf * current_w. Depends on the carried size, so the two prefixes
+    // into M are incomparable and must both be kept.
+    let cost_fn = CustomCost(|oh: &ReductionOverhead, sz: &ProblemSize| {
+        let c = oh.get("c").map(|e| e.eval(sz)).unwrap_or(0.0);
+        let wf = oh.get("wf").map(|e| e.eval(sz)).unwrap_or(0.0);
+        c + wf * sz.get("w").unwrap_or(0) as f64
+    });
+
+    let best = graph
+        .find_cheapest_path(
+            "S",
+            &empty,
+            "T",
+            &empty,
+            &ProblemSize::new(vec![("w", 0)]),
+            &cost_fn,
+        )
+        .expect("cheapest path S -> T");
+
+    // Globally cheapest: S -> P -> M -> T (total 3 + 1 + 1 = 5), NOT the cheap-prefix trap
+    // S -> M -> T (total 1 + 100 = 101). A scalar-dominance CostLabel would evict the
+    // small-w prefix at M and return the S -> M -> T trap.
+    assert_eq!(
+        best.type_names(),
+        vec!["S", "P", "M", "T"],
+        "componentwise (cost, size) dominance must keep the globally optimal small-w prefix"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fix C: GrowthLabel taints target fields referencing intermediate-only variables.
+// ---------------------------------------------------------------------------
+
+/// Fix C regression: an overhead output expression that references a variable ABSENT from
+/// the current label (an intermediate-only field, e.g. `tseitin_*`, `num_encoding_bits`)
+/// must taint its target field to `Growth::Unknown` — it must NOT pass through
+/// `substitute` verbatim and surface as a fake source variable in the final bound.
+#[test]
+fn test_growth_label_taints_absent_variable() {
+    // The label knows only the source field `n`.
+    let label = GrowthLabel::source(&["n"]);
+    // Edge output: `bounded` depends only on `n`; `leaky` references `tseitin`, which is
+    // absent from the label (an intermediate-only construction variable).
+    let edge = growth_edge(vec![
+        ("bounded", Expr::Var("n")),
+        ("leaky", Expr::Var("n") * Expr::Var("tseitin")),
+    ]);
+    let tv = BTreeMap::new();
+    let redge = ReductionEdge {
+        overhead: &edge.overhead,
+        reduce_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+        target_name: "T",
+        target_variant: &tv,
+    };
+    let next = label.extend(&redge).expect("extend");
+
+    // Depends only on a mapped source variable ⇒ stays bounded.
+    assert_eq!(field_big_o(&next, "bounded"), "n");
+    // References an unmapped, intermediate-only variable ⇒ tainted to Unknown, never
+    // leaked as `O(n * tseitin)`.
+    assert!(
+        matches!(next.fields().get("leaky"), Some(Growth::Unknown)),
+        "a target field referencing an absent variable must become Unknown, got {:?}",
+        next.fields().get("leaky")
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fix D: the arena frees evicted labels (bag cap bounds retained instance memory).
+// ---------------------------------------------------------------------------
+
+thread_local! {
+    /// Live token instances on this thread.
+    static TOK_LIVE: Cell<i64> = const { Cell::new(0) };
+    /// Peak live token instances observed.
+    static TOK_PEAK: Cell<i64> = const { Cell::new(0) };
+    /// Total token instances ever created.
+    static TOK_CREATED: Cell<i64> = const { Cell::new(0) };
+}
+
+/// A drop-tracking token. Each `new()` is a distinct live instance; `Drop` frees it. Held
+/// behind `Rc` inside a label, so cloning a label (Rc clone) SHARES the token — mirroring
+/// `MeasuredLabel`'s `Rc` reduction chain, where each hop is one instance shared across
+/// label clones. If the arena pinned evicted labels, their tokens would stay live until
+/// the search ended, so `TOK_PEAK` would reach `TOK_CREATED`.
+struct DropToken;
+
+impl DropToken {
+    fn new() -> Self {
+        let live = TOK_LIVE.with(|c| {
+            let v = c.get() + 1;
+            c.set(v);
+            v
+        });
+        TOK_PEAK.with(|p| {
+            if live > p.get() {
+                p.set(live);
+            }
+        });
+        TOK_CREATED.with(|c| c.set(c.get() + 1));
+        DropToken
+    }
+}
+
+impl Drop for DropToken {
+    fn drop(&mut self) {
+        TOK_LIVE.with(|c| c.set(c.get() - 1));
+    }
+}
+
+/// A label carrying an `Rc<DropToken>` and a two-component `(c, s)` value. The engineered
+/// `(c, s)` pairs are pairwise incomparable, so no label evicts another by dominance and
+/// the per-node bag grows until the cap truncates it — exercising the truncation free path.
+#[derive(Clone)]
+struct TokenLabel {
+    c: f64,
+    s: f64,
+    _tok: Rc<DropToken>,
+}
+
+impl PathLabel for TokenLabel {
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        let z = ProblemSize::new(vec![]);
+        let c = edge.overhead.get("c").map(|e| e.eval(&z)).unwrap_or(self.c);
+        let s = edge.overhead.get("s").map(|e| e.eval(&z)).unwrap_or(self.s);
+        Some(TokenLabel {
+            c,
+            s,
+            _tok: Rc::new(DropToken::new()),
+        })
+    }
+
+    fn dominates(&self, other: &Self) -> bool {
+        self.c <= other.c && self.s <= other.s
+    }
+
+    fn cost(&self) -> f64 {
+        self.c
+    }
+}
+
+/// Fix D regression: drive the kernel on a graph that generates far more labels at one hub
+/// than `BAG_CAP`, all incomparable so the bag truncates repeatedly. Because evicted /
+/// truncated arena entries free their labels immediately, the *peak* number of live
+/// `DropToken` instances stays well below the *total* ever created. If the arena pinned
+/// evicted labels (the bug), peak would equal total.
+#[test]
+fn test_arena_frees_evicted_labels_bounds_live_memory() {
+    TOK_LIVE.with(|c| c.set(0));
+    TOK_PEAK.with(|c| c.set(0));
+    TOK_CREATED.with(|c| c.set(0));
+
+    // One hub M fed by N ≫ BAG_CAP parallel S -> M edges with pairwise-incomparable
+    // (c = i+1, s = N-i) labels, then M -> T (identity). The M bag truncates repeatedly.
+    let n: usize = 200;
+    let mut edges: Vec<(&'static str, &'static str, ReductionEdgeData)> = Vec::new();
+    // Leak small &'static str-free constants via Expr::Const (no string needed for values).
+    for i in 0..n {
+        edges.push((
+            "S",
+            "M",
+            growth_edge(vec![
+                ("c", Expr::Const((i + 1) as f64)),
+                ("s", Expr::Const((n - i) as f64)),
+            ]),
+        ));
+    }
+    edges.push((
+        "M",
+        "T",
+        growth_edge(vec![("c", Expr::Var("c")), ("s", Expr::Var("s"))]),
+    ));
+    let graph = ReductionGraph::from_test_edges(&["S", "M", "T"], &edges);
+
+    let empty = std::collections::BTreeMap::new();
+    let initial = TokenLabel {
+        c: 0.0,
+        s: 0.0,
+        _tok: Rc::new(DropToken::new()),
+    };
+    let front = graph.pareto_search_by_name(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        initial,
+        false,
+    );
+    // Sanity: the search reached T.
+    assert!(!front.is_empty(), "front should reach T");
+
+    let created = TOK_CREATED.with(|c| c.get());
+    let peak = TOK_PEAK.with(|c| c.get());
+    // Many labels were created (≥ the N hub edges).
+    assert!(
+        created >= n as i64,
+        "expected many token instances created, got {created}"
+    );
+    // Eviction frees labels: peak live is strictly below total created. With the bug
+    // (arena pins evicted labels) peak would equal created; the margin here is large
+    // (peak is bounded by ~BAG_CAP per live node, created scales with N) so this is not
+    // flaky.
+    assert!(
+        peak < created,
+        "arena must free evicted labels: peak {peak} should be < created {created}"
+    );
+
+    // The retained tokens are bounded by the live bag entries, not by N. Concretely, far
+    // fewer than the total are still live once the search completes.
+    drop(front);
+    let live_after = TOK_LIVE.with(|c| c.get());
+    assert!(
+        live_after < created,
+        "retained tokens {live_after} must be bounded well below total {created}"
     );
 }

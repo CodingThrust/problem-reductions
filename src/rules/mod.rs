@@ -403,6 +403,8 @@ pub(crate) mod undirectedflowlowerbounds_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 
+#[cfg(test)]
+pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
     AggregateReductionChain, MeasuredPath, NeighborInfo, NeighborTree, ReductionChain,
     ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,

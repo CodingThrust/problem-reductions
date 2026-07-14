@@ -114,9 +114,9 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
 Examples:
   pred path MIS QUBO                              # asymptotic Pareto front (Big-O per size field)
   pred path MIS QUBO --all                        # all paths
-  pred path MIS QUBO -o path.json                 # save for `pred reduce --via`
+  pred path MIS QUBO -o path.json                 # save front + best path for `pred reduce --via`
   pred path MIS QUBO --all -o paths/              # save all paths to a folder
-  pred path MIS QUBO --cost minimize:num_variables  # single cheapest path by a scalar cost
+  pred path MIS QUBO --cost minimize:num_variables  # single cheapest path by a scalar cost (also -o for --via)
 
 Use `pred list` to see available problems.")]
     Path {
@@ -1274,7 +1274,8 @@ Examples:
   pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.
-The --via path file is from `pred path <SRC> <DST> -o path.json`.
+The --via path file is from `pred path <SRC> <DST> -o path.json` (its
+top-level `path` is the best path; add --cost to pick a scalar-optimal one).
 When --via is given, --to is inferred from the path file.
 Output is a reduction bundle with source, target, and path.
 Use `pred solve reduced.json` to solve and map the solution back.")]

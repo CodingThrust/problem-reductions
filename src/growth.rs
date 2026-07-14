@@ -494,13 +494,17 @@ fn exponential(c: f64, exp: &Expr) -> Growth {
     if c <= 0.0 {
         return Growth::Unknown;
     }
-    if c <= 1.0 {
-        // 1^x = 1, and c^x with 0 < c < 1 decays: both bounded by O(1).
+    if c == 1.0 {
+        // 1^x = 1 for every x: bounded by O(1).
         return Growth::Terms(vec![GrowthTerm::one()]);
     }
     match linear_form(exp) {
         None => Growth::Unknown, // nonlinear exponent
         Some(coeffs) => {
+            // `log2c` is negative for a fractional base `0 < c < 1`, so a
+            // negative exponent coefficient (e.g. `0.5^(-n) = 2^n`) yields a
+            // positive rate, while a positive one (`0.5^n`) yields a negative
+            // rate that is dropped below.
             let log2c = c.log2();
             let mut term = GrowthTerm::one();
             for (v, coeff) in coeffs {
@@ -580,56 +584,38 @@ fn log_growth(g: Growth) -> Growth {
     }
 }
 
-/// `log` of a single monomial, returned as its own (small) antichain of summands.
+/// `log` of a single monomial, returned as its own (small) antichain of
+/// summands. `log(∏2^(rᵢ·vᵢ) · ∏vⱼ^aⱼ · ∏(log vₖ)^sₖ)` distributes over the
+/// product into a *sum* of the log of each factor, so every factor class of the
+/// monomial contributes its own summand — none may be dropped (e.g. `log(2^n·m)`
+/// is `n + log m`, not `n`). `make_growth`/`prune` then collapse any dominated
+/// summands (so `log(2^n·n^2)` reduces back to `n`).
 fn log_term(t: &GrowthTerm) -> Vec<GrowthTerm> {
-    // log(2^(r·n) · …) ≍ r·n ≍ n: the exponential part dominates and is linear.
-    let exp_vars: Vec<&'static str> = t
-        .exp
-        .iter()
-        .filter(|(_, r)| **r > 0.0)
-        .map(|(k, _)| *k)
-        .collect();
-    if !exp_vars.is_empty() {
-        return exp_vars
-            .into_iter()
-            .map(|v| {
-                let mut g = GrowthTerm::one();
-                g.poly.insert(v, 1.0);
-                g
-            })
-            .collect();
+    let mut out = Vec::new();
+    // log(2^(r·v)) ≍ r·v ≍ v: each positive-rate exponential factor is linear.
+    for v in t.exp.iter().filter(|(_, r)| **r > 0.0).map(|(k, _)| *k) {
+        let mut g = GrowthTerm::one();
+        g.poly.insert(v, 1.0);
+        out.push(g);
     }
-    // log(n^a · m^b) ≍ log n + log m.
-    let poly_vars: Vec<&'static str> = t
-        .poly
-        .iter()
-        .filter(|(_, d)| **d > 0.0)
-        .map(|(k, _)| *k)
-        .collect();
-    if !poly_vars.is_empty() {
-        return poly_vars
-            .into_iter()
-            .map(|v| {
-                let mut g = GrowthTerm::one();
-                g.logs.insert(v, 1);
-                g
-            })
-            .collect();
+    // log(v^a) ≍ log v: each positive-degree polynomial factor becomes a log.
+    for v in t.poly.iter().filter(|(_, d)| **d > 0.0).map(|(k, _)| *k) {
+        let mut g = GrowthTerm::one();
+        g.logs.insert(v, 1);
+        out.push(g);
     }
-    // log((log v)^s) = log log v, upper-bounded by log v (log log v ≤ log v for v ≥ 2).
-    let log_vars: Vec<&'static str> = t.logs.keys().copied().collect();
-    if !log_vars.is_empty() {
-        return log_vars
-            .into_iter()
-            .map(|v| {
-                let mut g = GrowthTerm::one();
-                g.logs.insert(v, 1);
-                g
-            })
-            .collect();
+    // log((log v)^s) = log log v, upper-bounded by log v (log log v ≤ log v for
+    // v ≥ 2): each log factor stays a single log.
+    for v in t.logs.keys().copied() {
+        let mut g = GrowthTerm::one();
+        g.logs.insert(v, 1);
+        out.push(g);
     }
     // Empty term: log(O(1)) = O(1).
-    vec![GrowthTerm::one()]
+    if out.is_empty() {
+        out.push(GrowthTerm::one());
+    }
+    out
 }
 
 // --- serde ---

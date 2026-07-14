@@ -278,6 +278,7 @@ impl McpServer {
                 );
             }
             return Ok(serde_json::to_string_pretty(&format_front_json(
+                &graph,
                 &src_ref.name,
                 &dst_ref.name,
                 &front,
@@ -285,7 +286,9 @@ impl McpServer {
         }
 
         if all {
-            // Fetch one extra to detect truncation
+            // Fetch one extra to detect truncation. The library returns paths in a
+            // deterministic length-first, then name+variant-signature order, so the MCP
+            // and CLI `--all` outputs are the identical ordered route list; no local sort.
             let mut all_paths = graph.find_paths_up_to(
                 &src_ref.name,
                 &src_ref.variant,
@@ -300,7 +303,6 @@ impl McpServer {
                     dst_ref.name
                 );
             }
-            all_paths.sort_by_key(|p| p.len());
 
             let truncated = all_paths.len() > max_paths;
             if truncated {
@@ -1170,7 +1172,13 @@ fn format_path_json(
 /// JSON rendering of the asymptotic Pareto front for the `find_path` tool. Each path
 /// carries the structured `Growth` serialization (issue #1075) plus a rendered
 /// `O(...)` string per target size field. `Unknown` growth renders `O(?)`.
+///
+/// The top-level `path` key carries the best front element's steps in the same shape
+/// `format_path_json` emits, so the default `find_path` envelope stays consumable as a
+/// reduction path (front[0] is the deterministic best path). Each front element's own
+/// step chain is under `front[i].path`.
 fn format_front_json(
+    graph: &ReductionGraph,
     source: &str,
     target: &str,
     front: &[(
@@ -1194,11 +1202,16 @@ fn format_front_json(
             })
         })
         .collect();
+    // Reuse format_path_json for the best path so the top-level `path` array matches
+    // the step shape the reduce/bundle tooling consumes.
+    let best = format_path_json(graph, &front[0].0);
     serde_json::json!({
         "source": source,
         "target": target,
         "mode": "asymptotic",
         "front": paths,
+        "steps": best["steps"].clone(),
+        "path": best["path"].clone(),
     })
 }
 

@@ -988,3 +988,59 @@ fn test_find_paths_bounded_limits_depth() {
         "MIS→QUBO has no direct edge, so bound=0 should return empty"
     );
 }
+
+#[test]
+fn test_find_paths_bounded_returns_shortest_when_truncated() {
+    use crate::expr::Expr;
+    use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
+    use crate::rules::ReductionEdgeData;
+
+    fn edge() -> ReductionEdgeData {
+        ReductionEdgeData {
+            overhead: ReductionOverhead::new(vec![("n", Expr::Var("n"))]),
+            reduce_fn: None,
+            reduce_aggregate_fn: None,
+            capabilities: EdgeCapabilities::witness_only(),
+        }
+    }
+
+    // Topology where DFS discovery order surfaces a LONG route before the SHORT one.
+    // From S the first outgoing edge (S->A) leads into a long chain A->B->C->T, while a
+    // later edge S->T is a direct hop. petgraph's DFS explores S->A first, so the
+    // 4-edge route is discovered before the 1-edge direct route. With a tight limit,
+    // the old `.take(limit)` in discovery order would keep the long route and drop the
+    // short one; length-first enumeration must return the short route.
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "C", "T"],
+        &[
+            ("S", "A", edge()),
+            ("A", "B", edge()),
+            ("B", "C", edge()),
+            ("C", "T", edge()),
+            ("S", "T", edge()),
+        ],
+    );
+
+    let empty = BTreeMap::new();
+
+    // Sanity: both routes exist when unbounded.
+    let all = graph.find_paths_up_to("S", &empty, "T", &empty, 100);
+    assert_eq!(all.len(), 2, "expected the direct route and the long chain");
+
+    // With limit 1, the SHORT (direct) route must be the one returned.
+    let limited = graph.find_paths_up_to("S", &empty, "T", &empty, 1);
+    assert_eq!(limited.len(), 1);
+    assert_eq!(
+        limited[0].len(),
+        1,
+        "truncated result must keep the shortest (direct) route, not the long chain"
+    );
+
+    // Results are length-sorted (non-decreasing edge counts).
+    let lens: Vec<usize> = all.iter().map(|p| p.len()).collect();
+    assert!(
+        lens.windows(2).all(|w| w[0] <= w[1]),
+        "paths must be returned shortest-first, got lengths {lens:?}"
+    );
+    assert_eq!(lens, vec![1, 4]);
+}

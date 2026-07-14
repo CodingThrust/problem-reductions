@@ -234,7 +234,10 @@ pub trait PathLabel: Clone {
   pointer for path reconstruction (McRAPTOR structure).
 - Deterministic bounding, in the style of transit routers: hop cap (default 16) and
   per-node bag cap with a **deterministic tie-break** (fewest hops, then
-  lexicographic node-name order) — never iteration-order truncation.
+  lexicographic node-name order) — never iteration-order truncation. A label evicted
+  from a bag (dominated or cap-truncated) has its arena slot's label freed immediately,
+  so the bag cap genuinely bounds retained per-node label memory — critical for the
+  measured label, whose labels each pin an `Rc` reduction-instance chain.
 - Label domains:
   - **F3a asymptotic:** label = `BTreeMap<field, Growth>` mapping each size field of
     the current node to its growth in the source's variables; `extend` substitutes
@@ -252,15 +255,22 @@ pub trait PathLabel: Clone {
     `reduce_to()` and measures. Pruning stack, in order:
     1. **Symbolic pre-flight guard:** evaluate the edge's overhead formula at the
        current *measured* size; if even the (upper-bound) prediction exceeds the
-       hard size budget, skip without executing. Because formulas are upper bounds
-       (enforced by the per-edge calibration test), this guard errs only toward
-       over-skipping — a catastrophic construction is never started, making OOM
-       structurally impossible.
+       hard size budget, skip without executing. The overhead formulas are
+       uncalibrated upper bounds, so this guard errs toward over-skipping — a
+       predicted-over-budget construction is never started. This is a strong
+       mitigation, not an absolute anti-OOM guarantee.
     2. **Measured budget check** after execution.
-    3. **Branch-and-bound** against the best completed path's final size.
-    4. **Componentwise measured-size dominance** — heuristic under a documented
+    3. **Componentwise measured-size dominance** — heuristic under a documented
        size-monotone-future assumption; `--exhaustive` disables this one guard
-       (1–3 remain, and are sound), falling back to budgeted full enumeration.
+       (1–2 remain, and are sound), falling back to budgeted full enumeration.
+
+    Note the measured label deliberately does **not** use branch-and-bound: a
+    reduction can *shrink* the measured size, so the cost is non-monotone and a
+    B&B bound could prune a partial route that would still finish smallest.
+    Memory is bounded not by B&B but by immediate eviction: the kernel frees a
+    label's `Rc` reduction chain the instant the label leaves its bag (dominated
+    or cap-truncated), so retained reduction instances are bounded by the live bag
+    entries (≤ bag cap per node) × chain length.
     This fixes the path-dependent-cost hole in the current Dijkstra *and* removes
     the dependency on formula accuracy for concrete decisions.
 - `find_cheapest_path*` become thin wrappers returning the front (instance mode

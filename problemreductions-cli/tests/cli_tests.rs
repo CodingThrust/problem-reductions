@@ -1315,6 +1315,99 @@ fn test_reduce_via_path() {
     std::fs::remove_file(&output_file).ok();
 }
 
+/// The documented round-trip: a *bare* `pred path S T -o path.json` (no `--cost`)
+/// saves the asymptotic front plus a top-level best `path`, which `pred reduce --via`
+/// must consume. Regression for #1080, which dropped the top-level `path`.
+#[test]
+fn test_reduce_via_bare_path() {
+    // 1. Create a small source problem (small so the target brute-force stays tiny).
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_via_bare_in.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS/SimpleGraph/i32",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    // 2. Bare path save (NO --cost): asymptotic front + best path.
+    let path_file = std::env::temp_dir().join("pred_test_reduce_via_bare_path.json");
+    let path_out = pred()
+        .args([
+            "path",
+            "MaximumIndependentSet/SimpleGraph/i32",
+            "QUBO",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        path_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&path_out.stderr)
+    );
+
+    // 3. Reduce via the bare path file (target inferred from the file).
+    let output_file = std::env::temp_dir().join("pred_test_reduce_via_bare_out.json");
+    let reduce_out = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let bundle: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
+    assert_eq!(bundle["target"]["type"], "QUBO");
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&path_file).ok();
+    std::fs::remove_file(&output_file).ok();
+}
+
+/// The bare-path envelope must expose BOTH the asymptotic `front` and a top-level
+/// `path` step array (the best path) so it remains a valid `reduce --via` route file.
+#[test]
+fn test_path_front_envelope_has_front_and_path() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value =
+        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
+
+    // Front envelope shape (asymptotic mode).
+    assert_eq!(json["mode"], "asymptotic");
+    assert!(json["front"].as_array().is_some_and(|f| !f.is_empty()));
+
+    // Top-level best path, in the step shape `reduce --via` parses.
+    let path = json["path"].as_array().expect("top-level path array");
+    assert!(!path.is_empty(), "top-level path must have ≥ 1 step");
+    let first = &path[0];
+    assert!(first["from"]["name"].is_string(), "step needs from.name");
+    assert!(first["to"]["name"].is_string(), "step needs to.name");
+    assert_eq!(first["from"]["name"], "MaximumIndependentSet");
+}
+
 #[test]
 fn test_reduce_via_infer_target() {
     // --via without --to: target is inferred from the path file
@@ -7738,6 +7831,69 @@ fn test_path_all_max_paths_truncates() {
         envelope["truncated"], true,
         "should be truncated since KSat->QUBO has many paths"
     );
+}
+
+// Helper: run `pred path S T --all --max-paths N --json` and return the ordered
+// list of per-path step counts.
+fn path_all_step_counts(max_paths: &str) -> Vec<u64> {
+    let output = pred()
+        .args([
+            "path",
+            "KSat",
+            "QUBO",
+            "--all",
+            "--max-paths",
+            max_paths,
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    envelope["paths"]
+        .as_array()
+        .expect("should have paths array")
+        .iter()
+        .map(|p| p["steps"].as_u64().expect("steps is a number"))
+        .collect()
+}
+
+#[test]
+fn test_path_all_truncates_after_sorting_not_before() {
+    // Regression: `--all` must enumerate length-first and truncate only after
+    // ordering, so a small --max-paths returns the SHORTEST routes, not whichever
+    // routes DFS discovered first. Compare a tightly-truncated run against a run
+    // with a generous budget.
+    let full = path_all_step_counts("500");
+    assert!(full.len() > 3, "KSat->QUBO should have many routes");
+
+    // Full list is sorted shortest-first.
+    assert!(
+        full.windows(2).all(|w| w[0] <= w[1]),
+        "paths must be returned shortest-first, got {full:?}"
+    );
+    let shortest = *full.first().unwrap();
+
+    let truncated = path_all_step_counts("3");
+    assert!(truncated.len() <= 3);
+    // Truncated result is still sorted shortest-first...
+    assert!(
+        truncated.windows(2).all(|w| w[0] <= w[1]),
+        "truncated paths must be shortest-first, got {truncated:?}"
+    );
+    // ...and it must include the known shortest length (the bug returned long
+    // early-discovered routes and dropped the short ones).
+    assert_eq!(
+        truncated[0], shortest,
+        "truncated result must start with the known shortest route length {shortest}"
+    );
+    // The truncated step counts are exactly the shortest prefix of the full order.
+    assert_eq!(truncated.as_slice(), &full[..truncated.len()]);
 }
 
 #[test]

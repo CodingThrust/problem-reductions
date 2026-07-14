@@ -516,9 +516,14 @@ impl ReductionGraph {
         initial: L,
         exhaustive: bool,
     ) -> Vec<(ReductionPath, L)> {
+        // `label` is `Option` so an evicted entry (dominated or cap-truncated) can free its
+        // label immediately via `take()` — otherwise dominated labels would linger in the
+        // arena for the whole search, pinning e.g. a `MeasuredLabel`'s `Rc` reduction chain
+        // and defeating the bag cap as a memory bound. Invariant: any arena index that is a
+        // current member of some bag has `label == Some`; only non-members may be `None`.
         struct Entry<L> {
             node: NodeIndex,
-            label: L,
+            label: Option<L>,
             pred: Option<usize>,
             hops: usize,
         }
@@ -530,7 +535,7 @@ impl ReductionGraph {
 
         arena.push(Entry {
             node: src,
-            label: initial.clone(),
+            label: Some(initial.clone()),
             pred: None,
             hops: 0,
         });
@@ -556,6 +561,14 @@ impl ReductionGraph {
             if !bags.get(&node).is_some_and(|b| b.contains(&idx)) {
                 continue;
             }
+            // Clone the current label ONCE, up front. A live bag member always has
+            // `Some` (invariant above), so the `else` is unreachable. Using this local for
+            // every extend below means we never read `arena[idx].label` inside the edge
+            // loop — which also removes the self-edge hazard where extending a target ==
+            // `node` edge could `take()` this entry's label mid-loop.
+            let Some(cur_label) = arena[idx].label.clone() else {
+                continue;
+            };
             // The destination is terminal: keep it in the front, never expand it.
             if node == dst {
                 continue;
@@ -595,7 +608,7 @@ impl ReductionGraph {
                     target_name: target_node.name,
                     target_variant: &target_node.variant,
                 };
-                let Some(new_label) = arena[idx].label.extend(&redge) else {
+                let Some(new_label) = cur_label.extend(&redge) else {
                     continue;
                 };
                 let new_cost = new_label.cost();
@@ -607,15 +620,38 @@ impl ReductionGraph {
                 // Componentwise dominance against the target's bag.
                 if !exhaustive {
                     let bag = bags.entry(target).or_default();
-                    if bag.iter().any(|&j| arena[j].label.dominates(&new_label)) {
+                    // Dominated by an existing bag member? (Bag members are always `Some`.)
+                    if bag.iter().any(|&j| {
+                        arena[j]
+                            .label
+                            .as_ref()
+                            .is_some_and(|l| l.dominates(&new_label))
+                    }) {
                         continue;
                     }
-                    bag.retain(|&j| !new_label.dominates(&arena[j].label));
+                    // Evict every bag member the new label dominates. `Vec::retain` does
+                    // not surface the removed elements, so collect their indices, drop them
+                    // from the bag, then free their labels (`take()`) so nothing dominated
+                    // lingers in the arena.
+                    let mut evicted: Vec<usize> = Vec::new();
+                    bag.retain(|&j| {
+                        let dominated = arena[j]
+                            .label
+                            .as_ref()
+                            .is_some_and(|l| new_label.dominates(l));
+                        if dominated {
+                            evicted.push(j);
+                        }
+                        !dominated
+                    });
+                    for j in evicted {
+                        arena[j].label = None;
+                    }
                 }
                 let nidx = arena.len();
                 arena.push(Entry {
                     node: target,
-                    label: new_label,
+                    label: Some(new_label),
                     pred: Some(idx),
                     hops: hops + 1,
                 });
@@ -631,15 +667,25 @@ impl ReductionGraph {
                 // Enforce the per-node bag cap with a deterministic tie-break.
                 if bags[&target].len() > BAG_CAP {
                     let mut entries = bags[&target].clone();
-                    entries.sort_by(|&a, &b| {
-                        arena[a]
+                    // Bag members are always `Some`; the `unwrap_or(INFINITY)` is defensive.
+                    let entry_cost = |i: usize| {
+                        arena[i]
                             .label
-                            .cost()
-                            .partial_cmp(&arena[b].label.cost())
+                            .as_ref()
+                            .map(|l| l.cost())
+                            .unwrap_or(f64::INFINITY)
+                    };
+                    entries.sort_by(|&a, &b| {
+                        entry_cost(a)
+                            .partial_cmp(&entry_cost(b))
                             .unwrap_or(std::cmp::Ordering::Equal)
                             .then_with(|| arena[a].hops.cmp(&arena[b].hops))
                             .then_with(|| name_path(&arena, a).cmp(&name_path(&arena, b)))
                     });
+                    // Free the labels of the truncated tail before dropping their indices.
+                    for &j in &entries[BAG_CAP..] {
+                        arena[j].label = None;
+                    }
                     entries.truncate(BAG_CAP);
                     bags.insert(target, entries);
                 }
@@ -662,7 +708,11 @@ impl ReductionGraph {
                 node_path.reverse();
                 (
                     self.node_path_to_reduction_path(&node_path),
-                    arena[idx].label.clone(),
+                    // Live dst bag members are always `Some` (bag-member invariant).
+                    arena[idx]
+                        .label
+                        .clone()
+                        .expect("live dst bag member has a label"),
                 )
             })
             .collect();
@@ -716,6 +766,31 @@ impl ReductionGraph {
         } else {
             Some(front.remove(0))
         }
+    }
+
+    /// Deterministic total-order key for a node-index path.
+    ///
+    /// Reproduces the `Name/val1/val2` slash signature the CLI historically used
+    /// as an ordering tiebreak, but computed purely from library node data so the
+    /// ordering lives in exactly one place. Within a fixed path length the length
+    /// contributes nothing, so sorting a same-length level by this key yields a
+    /// reproducible, build-independent order (BTreeMap variant iteration is
+    /// deterministic). Distinct simple paths produce distinct keys because each
+    /// node is a unique `(name, variant)` pair.
+    fn path_order_key(&self, node_path: &[NodeIndex]) -> String {
+        let mut key = String::new();
+        for (i, &idx) in node_path.iter().enumerate() {
+            if i > 0 {
+                key.push('>');
+            }
+            let node = &self.nodes[self.graph[idx]];
+            key.push_str(node.name);
+            for v in node.variant.values() {
+                key.push('/');
+                key.push_str(v);
+            }
+        }
+        key
     }
 
     /// Convert a node index path to a `ReductionPath`.
@@ -853,22 +928,60 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        // Apply the mode filter *during* lazy enumeration, then take `limit`. Taking
-        // before filtering (the previous order) undercounts whenever an early simple
-        // path fails the mode check, which in turn made `--all` truncation detection
-        // depend on enumeration order. Filtering first yields up to `limit` genuinely
-        // usable paths and short-circuits once `limit` are found.
-        all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
-            &self.graph,
-            src,
-            dst,
-            0,
-            max_intermediate_nodes,
-        )
-        .filter(|p| self.node_path_supports_mode(p, mode))
-        .take(limit)
-        .map(|p| self.node_path_to_reduction_path(&p))
-        .collect()
+        if limit == 0 {
+            return vec![];
+        }
+
+        // Enumerate length-first (shortest paths before longer ones) via iterative
+        // deepening over the intermediate-node count `k`. Taking `limit` in petgraph's
+        // DFS discovery order (the previous approach) could drop a short route
+        // discovered late while returning a long route discovered early. Each level
+        // `k` is enumerated exactly (min == max == k) so paths arrive grouped by
+        // length, then sorted by the deterministic `path_order_key` so *which*
+        // same-length paths survive truncation is reproducible and build-independent.
+        let max_k =
+            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
+
+        let mut result: Vec<ReductionPath> = Vec::new();
+
+        for k in 0..=max_k {
+            let still_needed = limit - result.len();
+            if still_needed == 0 {
+                break;
+            }
+
+            // Memory guard: a single level can be combinatorially large, so never hold
+            // more than `still_needed` paths at once. A max-heap keyed by the order key
+            // keeps the smallest-key `still_needed` entries: push each path, and once
+            // over capacity pop the current largest key. This is deterministic and uses
+            // bounded memory regardless of how many paths the level actually contains.
+            let mut heap: BinaryHeap<(String, Vec<NodeIndex>)> = BinaryHeap::new();
+            for p in all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
+                &self.graph,
+                src,
+                dst,
+                k,
+                Some(k),
+            ) {
+                if !self.node_path_supports_mode(&p, mode) {
+                    continue;
+                }
+                let key = self.path_order_key(&p);
+                heap.push((key, p));
+                if heap.len() > still_needed {
+                    heap.pop();
+                }
+            }
+
+            // Drain the retained entries and append them in ascending key order.
+            let mut level: Vec<(String, Vec<NodeIndex>)> = heap.into_vec();
+            level.sort();
+            for (_, p) in level {
+                result.push(self.node_path_to_reduction_path(&p));
+            }
+        }
+
+        result
     }
 
     /// Check if a direct reduction exists from S to T.
@@ -1783,14 +1896,15 @@ impl ReductionGraph {
     /// paths by overhead *formulas* (scaling upper bounds that can be arbitrarily loose
     /// on structure-dependent constructions), this runs the [`MeasuredLabel`] domain:
     /// it *actually executes* each reduction on `source_instance` and measures the real
-    /// constructed target size. Formulas are used only as a pre-flight guard against
-    /// catastrophic constructions (making OOM structurally impossible) — never to
-    /// arbitrate between concrete candidates. See design doc M3/F3b.
+    /// constructed target size. Formulas are used only as a pre-flight guard that skips
+    /// predicted-over-budget constructions before they run — never to arbitrate between
+    /// concrete candidates. See design doc M3/F3b.
     ///
     /// `budget` is the hard total-size limit (sum of `ProblemSize` components); use
     /// [`DEFAULT_SIZE_BUDGET`](crate::rules::DEFAULT_SIZE_BUDGET) for the default.
     /// `exhaustive` disables only the heuristic componentwise-dominance guard (the sound
-    /// pre-flight, budget, and branch-and-bound guards still apply).
+    /// pre-flight and measured-budget guards still apply; the [`MeasuredLabel`] does not
+    /// use branch-and-bound, since its measured cost can shrink across a reduction).
     ///
     /// Returns `None` if no in-budget witness-capable path exists (or `source == target`).
     #[allow(clippy::too_many_arguments)]

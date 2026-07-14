@@ -536,7 +536,13 @@ fn format_front_text(
 
 /// JSON rendering of the asymptotic Pareto front. Growth is emitted both as the
 /// structured `Growth` serialization (issue #1075) and as a rendered `O(...)` string.
+///
+/// The top-level `path` key carries the best front element's steps in exactly the
+/// format `format_path_json` emits, so the saved envelope stays consumable by
+/// `pred reduce --via` (the documented round-trip; front[0] is the deterministic
+/// best path). Each front element's own step chain is under `front[i].path`.
 fn format_front_json(
+    graph: &ReductionGraph,
     src_name: &str,
     dst_name: &str,
     front: &[(ReductionPath, GrowthLabel)],
@@ -557,11 +563,16 @@ fn format_front_json(
             })
         })
         .collect();
+    // Reuse format_path_json for the best path to guarantee the top-level `path`
+    // array is byte-for-byte the shape `pred reduce --via` (load_path_file) parses.
+    let best = format_path_json(graph, &front[0].0);
     serde_json::json!({
         "source": src_name,
         "target": dst_name,
         "mode": "asymptotic",
         "front": paths,
+        "steps": best["steps"].clone(),
+        "path": best["path"].clone(),
     })
 }
 
@@ -600,7 +611,7 @@ fn path_front(
     }
 
     let text = format_front_text(graph, src_name, dst_name, &front);
-    let json = format_front_json(src_name, dst_name, &front);
+    let json = format_front_json(graph, src_name, dst_name, &front);
     out.emit_with_default_name("", &text, &json)
 }
 
@@ -732,7 +743,9 @@ fn path_all(
     max_paths: usize,
     out: &OutputConfig,
 ) -> Result<()> {
-    // Fetch one extra to detect truncation
+    // Fetch one extra to detect truncation. The library already returns paths in a
+    // deterministic length-first, then name+variant-signature order (see
+    // `find_paths_up_to_mode_bounded`), so no CLI-side sort is needed.
     let mut all_paths =
         graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
 
@@ -750,20 +763,6 @@ fn path_all(
             dst_name,
         );
     }
-
-    // Total, deterministic order: shortest first, then by a full name+variant
-    // signature. `find_paths_up_to` discovery order depends on inventory/link
-    // iteration, so length alone leaves same-length paths (and, after truncation,
-    // *which* same-length paths survive) build-dependent. The signature tiebreak
-    // makes both the ordering and the truncated subset reproducible.
-    let path_signature = |p: &ReductionPath| -> String {
-        p.steps
-            .iter()
-            .map(|s| format!("{}{}", s.name, variant_to_full_slash(&s.variant)))
-            .collect::<Vec<_>>()
-            .join(">")
-    };
-    all_paths.sort_by_cached_key(|p| (p.len(), path_signature(p)));
 
     let truncated = all_paths.len() > max_paths;
     if truncated {

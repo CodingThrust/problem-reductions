@@ -106,9 +106,13 @@ pub struct ReductionEdge<'g> {
 /// size in the source size. The Pareto search relies on it to safely discard dominated
 /// labels.
 ///
-/// **B&B soundness:** [`cost`](PathLabel::cost) must be non-decreasing along `extend`
-/// (a reduction never shrinks the tracked cost below the current value). Every concrete
-/// cost function and the measured-size total satisfy this.
+/// **B&B soundness** (only when [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) is
+/// set): [`cost`](PathLabel::cost) must be non-decreasing along `extend` — a reduction
+/// never shrinks the tracked cost below the current value. The scalar cost functions
+/// ([`CostLabel`]) satisfy this. The *measured* size does **not**: a reduction can
+/// shrink the constructed instance, so [`MeasuredLabel::cost`] is non-monotone; that
+/// label therefore opts out (`BRANCH_AND_BOUND = false`) and relies on dominance pruning
+/// alone.
 pub trait PathLabel: Clone {
     /// Advance this label across `edge`. Returns `None` when a guard prunes the edge
     /// (e.g. the measured label's pre-flight size guard). A `None` must be *isotone*:
@@ -123,7 +127,9 @@ pub trait PathLabel: Clone {
 
     /// Scalar summary used for frontier ordering, the deterministic final tie-break,
     /// and (when [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) is set) branch-and-
-    /// bound pruning. Smaller is better. Must be non-decreasing along `extend`.
+    /// bound pruning. Smaller is better. Must be non-decreasing along `extend` *when*
+    /// `BRANCH_AND_BOUND` is set; labels that opt out (e.g. [`MeasuredLabel`]) may have a
+    /// non-monotone `cost`.
     fn cost(&self) -> f64;
 
     /// Whether scalar branch-and-bound pruning — discarding a label whose `cost`
@@ -139,12 +145,14 @@ pub trait PathLabel: Clone {
     const BRANCH_AND_BOUND: bool = true;
 }
 
-/// Formula-based scalar label reproducing Dijkstra behavior for a [`PathCostFn`].
+/// Formula-based label for a [`PathCostFn`].
 ///
 /// Carries the accumulated `ProblemSize` (advanced through overhead formulas) and the
-/// additive scalar cost. Dominance is scalar (`self.cost <= other.cost`), so each node
-/// keeps only its minimum-cost label — exactly the classic single-objective shortest
-/// path, but expressed in the generic kernel.
+/// additive scalar cost. Because a future edge's [`edge_cost`](PathCostFn::edge_cost)
+/// depends on the carried size, dominance is **componentwise Pareto over `(cost, size)`**,
+/// not scalar: a cheaper-but-larger prefix must not evict a costlier-but-smaller one whose
+/// continuation is globally cheapest. Each node therefore keeps the antichain of
+/// non-dominated `(cost, size)` labels rather than a single minimum-cost representative.
 pub struct CostLabel<'c, C: PathCostFn> {
     size: ProblemSize,
     cost: f64,
@@ -185,7 +193,11 @@ impl<C: PathCostFn> PathLabel for CostLabel<'_, C> {
     }
 
     fn dominates(&self, other: &Self) -> bool {
-        self.cost <= other.cost
+        // Path-dependent costs: a future edge's `edge_cost` depends on the carried size,
+        // so `self` may only evict `other` when it is componentwise no worse in BOTH the
+        // accumulated cost and the carried size. Scalar `cost <= other.cost` alone would
+        // let a cheap-but-large prefix evict the globally optimal small one.
+        self.cost <= other.cost && size_le(&self.size, &other.size)
     }
 
     fn cost(&self) -> f64 {
@@ -206,20 +218,30 @@ enum MeasuredPos<'a> {
 /// The concrete-instance measured label (design doc M3/F3b).
 ///
 /// For a concrete source instance, formulas are advisory — the **measured** target size
-/// is authoritative. `extend` runs this four-part pruning stack, in order:
+/// is authoritative. `extend` runs this pruning stack, in order:
 ///
 /// 1. **Symbolic pre-flight guard:** evaluate the edge's overhead formula at the current
-///    *measured* size. If the (upper-bound) prediction already exceeds the budget, return
-///    `None` **without executing** — so a catastrophic construction (e.g. a
-///    `2^num_vertices` blow-up) is never even started. This is what makes OOM
-///    structurally impossible during path selection.
+///    *measured* size. If the (upper-bound, uncalibrated) prediction already exceeds the
+///    budget, return `None` **without executing** — so a catastrophic construction (e.g.
+///    a `2^num_vertices` blow-up) is never even started.
 /// 2. **Execute + measure:** run `reduce_to()`, measure the real target size; over budget
 ///    → `None`.
-/// 3. **Branch-and-bound:** handled by the kernel using [`cost`](PathLabel::cost) against
-///    the best completed path's final size.
-/// 4. **Componentwise measured-size dominance:** [`dominates`](PathLabel::dominates), a
+/// 3. **Componentwise measured-size dominance:** [`dominates`](PathLabel::dominates), a
 ///    heuristic under a documented size-monotone-future assumption. The kernel's
-///    `exhaustive` flag disables *only* this guard, keeping 1–3 (which are sound).
+///    `exhaustive` flag disables *only* this guard, keeping 1–2 (which are sound).
+///
+/// It deliberately does **not** use the kernel's branch-and-bound: measured size can
+/// *shrink* across a reduction, so [`cost`](PathLabel::cost) is non-monotone and a B&B
+/// bound could prune a partial route that would still finish smallest. Hence
+/// [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) `= false`.
+///
+/// **Memory.** There is no absolute anti-OOM guarantee (the overhead formulas are
+/// uncalibrated upper bounds), but two mechanisms bound retained instance memory: the
+/// pre-flight guard skips predicted-over-budget constructions before they run, and the
+/// kernel frees a label's `Rc` reduction chain the instant the label is evicted from its
+/// bag (dominated or cap-truncated). Together they bound the reduction instances retained
+/// at any moment by the live bag entries (≤ [`BAG_CAP`] per node) times their chain
+/// length — the bag cap genuinely bounds retained instance memory.
 #[derive(Clone)]
 pub struct MeasuredLabel<'a> {
     /// Measured size of the problem instance at the current node.
@@ -323,6 +345,12 @@ impl PathLabel for MeasuredLabel<'_> {
         size_le(&self.size, &other.size)
     }
 
+    // Measured size can SHRINK across a reduction, so `cost` (= measured total) is not
+    // monotone along `extend`. Kernel branch-and-bound would then prune a partial route
+    // that could still finish below the best completed path — even under `exhaustive`.
+    // Opt out and rely on the sound pre-flight/budget guards plus dominance pruning.
+    const BRANCH_AND_BOUND: bool = false;
+
     fn cost(&self) -> f64 {
         self.size.total() as f64
     }
@@ -396,8 +424,11 @@ impl PathLabel for GrowthLabel {
 
         // Substitution map from current field name to its rendered growth `Expr` (in
         // source variables). Depends only on `rendered`, so build it once for all edges'
-        // output fields rather than per target field. Overhead variables not in the
-        // label pass through unchanged (mirrors `ReductionOverhead::compose`).
+        // output fields rather than per target field. Only present-and-known fields are
+        // mapped. Unlike `ReductionOverhead::compose`, an overhead variable ABSENT from
+        // this map is NOT a passthrough source variable: in the asymptotic label it is an
+        // intermediate-only field with no source-variable growth, so any target field that
+        // references it must be tainted (see below) rather than leaked verbatim.
         let mapping: HashMap<&str, &Expr> = rendered
             .iter()
             .filter_map(|(k, opt)| opt.as_ref().map(|e| (*k, e)))
@@ -405,12 +436,12 @@ impl PathLabel for GrowthLabel {
 
         let mut new_fields: BTreeMap<&'static str, Growth> = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
-            // If this overhead references a current field whose growth is `Unknown`,
-            // we cannot honestly bound the target field: propagate `Unknown`.
-            let taints = expr
-                .variables()
-                .iter()
-                .any(|v| matches!(rendered.get(v), Some(None)));
+            // Taint the target field if this overhead references any variable we cannot
+            // express in the source's variables: either a present-but-`Unknown` current
+            // field, or a variable absent from the label entirely (an intermediate-only
+            // field that would otherwise leak through `substitute` as a fake source
+            // variable). Both cases are exactly "not in `mapping`".
+            let taints = expr.variables().iter().any(|v| !mapping.contains_key(v));
             if taints {
                 new_fields.insert(target_field, Growth::Unknown);
                 continue;
