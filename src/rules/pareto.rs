@@ -106,13 +106,12 @@ pub struct ReductionEdge<'g> {
 /// size in the source size. The Pareto search relies on it to safely discard dominated
 /// labels.
 ///
-/// **B&B soundness** (only when [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) is
-/// set): [`cost`](PathLabel::cost) must be non-decreasing along `extend` — a reduction
-/// never shrinks the tracked cost below the current value. The scalar cost functions
-/// ([`CostLabel`]) satisfy this. The *measured* size does **not**: a reduction can
-/// shrink the constructed instance, so [`MeasuredLabel::cost`] is non-monotone; that
-/// label therefore opts out (`BRANCH_AND_BOUND = false`) and relies on dominance pruning
-/// alone.
+/// The kernel prunes by [`dominates`](PathLabel::dominates) alone — it does **not**
+/// branch-and-bound on [`cost`](PathLabel::cost). Dominance is exact for every label
+/// domain, whereas a scalar B&B bound would only be sound for a monotone `cost`: the
+/// measured size can *shrink* across a reduction, and the asymptotic `cost` is a
+/// heuristic summary of an incomparable growth vector, so neither admits a sound bound.
+/// `cost` is used only for frontier ordering and the deterministic final tie-break.
 pub trait PathLabel: Clone {
     /// Advance this label across `edge`. Returns `None` when a guard prunes the edge
     /// (e.g. the measured label's pre-flight size guard). A `None` must be *isotone*:
@@ -125,24 +124,12 @@ pub trait PathLabel: Clone {
     /// node's bag an antichain.
     fn dominates(&self, other: &Self) -> bool;
 
-    /// Scalar summary used for frontier ordering, the deterministic final tie-break,
-    /// and (when [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) is set) branch-and-
-    /// bound pruning. Smaller is better. Must be non-decreasing along `extend` *when*
-    /// `BRANCH_AND_BOUND` is set; labels that opt out (e.g. [`MeasuredLabel`]) may have a
-    /// non-monotone `cost`.
-    fn cost(&self) -> f64;
-
-    /// Whether scalar branch-and-bound pruning — discarding a label whose `cost`
-    /// already meets or exceeds the best completed path's `cost` — is sound for this
-    /// label.
+    /// Scalar summary used only for frontier ordering and the deterministic final
+    /// tie-break — never for pruning (the kernel prunes by [`dominates`] alone). Smaller
+    /// is better. It need not be monotone along `extend`.
     ///
-    /// `true` (default) for scalar objectives (measured size, formula cost), where
-    /// `cost` *is* the objective. `false` for the partial-order asymptotic label:
-    /// there `cost` is only a heuristic summary of a multi-field growth vector, so
-    /// pruning by it would drop genuinely *incomparable* Pareto-optimal paths (one
-    /// cheaper in `num_vertices`, another in `num_edges`). Such labels rely on
-    /// [`dominates`](PathLabel::dominates) pruning alone, which is exact.
-    const BRANCH_AND_BOUND: bool = true;
+    /// [`dominates`]: PathLabel::dominates
+    fn cost(&self) -> f64;
 }
 
 /// Formula-based label for a [`PathCostFn`].
@@ -230,10 +217,10 @@ enum MeasuredPos<'a> {
 ///    heuristic under a documented size-monotone-future assumption. The kernel's
 ///    `exhaustive` flag disables *only* this guard, keeping 1–2 (which are sound).
 ///
-/// It deliberately does **not** use the kernel's branch-and-bound: measured size can
-/// *shrink* across a reduction, so [`cost`](PathLabel::cost) is non-monotone and a B&B
-/// bound could prune a partial route that would still finish smallest. Hence
-/// [`BRANCH_AND_BOUND`](PathLabel::BRANCH_AND_BOUND) `= false`.
+/// The kernel prunes by dominance only, never branch-and-bound — which matters here
+/// because measured size can *shrink* across a reduction, so [`cost`](PathLabel::cost)
+/// is non-monotone and any scalar B&B bound could wrongly prune a partial route that
+/// would still finish smallest.
 ///
 /// **Memory.** There is no absolute anti-OOM guarantee (the overhead formulas are
 /// uncalibrated upper bounds), but two mechanisms bound retained instance memory: the
@@ -345,13 +332,10 @@ impl PathLabel for MeasuredLabel<'_> {
         size_le(&self.size, &other.size)
     }
 
-    // Measured size can SHRINK across a reduction, so `cost` (= measured total) is not
-    // monotone along `extend`. Kernel branch-and-bound would then prune a partial route
-    // that could still finish below the best completed path — even under `exhaustive`.
-    // Opt out and rely on the sound pre-flight/budget guards plus dominance pruning.
-    const BRANCH_AND_BOUND: bool = false;
-
     fn cost(&self) -> f64 {
+        // Frontier-ordering heuristic only. Measured size can SHRINK across a reduction,
+        // so this is non-monotone along `extend` — which is exactly why the kernel prunes
+        // by dominance, not branch-and-bound.
         self.size.total() as f64
     }
 }
@@ -487,16 +471,12 @@ impl PathLabel for GrowthLabel {
         strict
     }
 
-    // Asymptotic growth is a partial order, so a scalar `cost` can never separate
-    // incomparable front members; branch-and-bound on it would drop them. Disable it
-    // and rely on the exact `dominates` pruning above.
-    const BRANCH_AND_BOUND: bool = false;
-
     fn cost(&self) -> f64 {
         // Heuristic scalar summary for frontier ordering and the deterministic final
-        // tie-break ONLY — never for pruning (see `BRANCH_AND_BOUND` above; dominance
-        // is the exact partial order). Summed field magnitudes; `Unknown` fields
-        // dominate the sum, ranking undecidable paths last.
+        // tie-break ONLY — never for pruning (dominance is the exact partial order, and
+        // asymptotic growth is incomparable so no scalar bound could separate front
+        // members). Summed field magnitudes; `Unknown` fields dominate the sum, ranking
+        // undecidable paths last.
         self.fields.values().map(|g| g.magnitude()).sum()
     }
 }

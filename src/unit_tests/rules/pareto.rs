@@ -10,7 +10,7 @@ use crate::expr::Expr;
 use crate::growth::Growth;
 use crate::models::graph::{HamiltonianCircuit, HighlyConnectedDeletion};
 use crate::rules::cost::CustomCost;
-use crate::rules::pareto::{GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge};
+use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
 use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
 use crate::rules::{ReductionGraph, ReductionMode, DEFAULT_SIZE_BUDGET};
 use crate::topology::SimpleGraph;
@@ -537,11 +537,11 @@ fn test_growth_negative_control_incomparable_front() {
 
 // Completeness under ASYMMETRIC magnitudes: the two incomparable paths have
 // different scalar `cost` summaries (A: n^2 + m ⇒ magnitude 3; B: n + m^3 ⇒
-// magnitude 4). Scalar branch-and-bound would let the cheaper path A complete first
-// and then prune B (cost 4 ≥ 3), silently dropping a Pareto-optimal path. This is
-// the case the equal-magnitude negative control above does NOT catch; it passes only
-// because `GrowthLabel` opts out of branch-and-bound (`BRANCH_AND_BOUND = false`) and
-// relies on exact dominance pruning.
+// magnitude 4). A scalar branch-and-bound (were the kernel to use one) would let the
+// cheaper path A complete first and then prune B (cost 4 ≥ 3), silently dropping a
+// Pareto-optimal path. This is the case the equal-magnitude negative control above
+// does NOT catch; it passes because the kernel prunes by exact dominance only, never
+// by the scalar `cost`.
 #[test]
 fn test_growth_asymmetric_incomparable_front_complete() {
     let empty = BTreeMap::new();
@@ -789,25 +789,12 @@ fn test_asymptotic_front_uses_only_source_variables_mfvs_ilp() {
 }
 
 // ---------------------------------------------------------------------------
-// Fix A: MeasuredLabel opts out of (unsound) branch-and-bound.
+// Fix A: the kernel prunes by dominance only — never (unsound) branch-and-bound.
 // ---------------------------------------------------------------------------
 
-/// The measured label's `cost` (= measured total) can SHRINK across a reduction, so it is
-/// non-monotone and branch-and-bound over it is unsound. The label must therefore declare
-/// `BRANCH_AND_BOUND = false`.
-#[test]
-fn test_measured_label_opts_out_of_branch_and_bound() {
-    const {
-        assert!(
-            !<MeasuredLabel<'static> as PathLabel>::BRANCH_AND_BOUND,
-            "MeasuredLabel::cost is non-monotone (size can shrink); B&B must be disabled"
-        );
-    }
-}
-
 /// A test label whose `cost` is the label's current absolute value — a value a late edge
-/// can *shrink* below an already-completed route's final value. With `BRANCH_AND_BOUND`
-/// disabled it models exactly the invariant `MeasuredLabel` now relies on.
+/// can *shrink* below an already-completed route's final value. It models exactly the
+/// non-monotone-cost case (`MeasuredLabel`) the dominance-only kernel must handle.
 #[derive(Clone)]
 struct ShrinkLabel {
     v: f64,
@@ -825,9 +812,6 @@ impl PathLabel for ShrinkLabel {
         self.v <= other.v
     }
 
-    // Non-monotone cost ⇒ B&B would be unsound (this is the MeasuredLabel case).
-    const BRANCH_AND_BOUND: bool = false;
-
     fn cost(&self) -> f64 {
         self.v
     }
@@ -837,10 +821,10 @@ impl PathLabel for ShrinkLabel {
 /// higher than a rival route that completes early at 50, but a final edge drops it to 10)
 /// must survive to the front. A kernel that applied branch-and-bound would prune the
 /// intermediate node (100 ≥ best-so-far 50) and silently drop the true optimum. Because
-/// `ShrinkLabel` opts out of B&B, the shrink-late route reaches the front even under
+/// the kernel prunes by dominance only, the shrink-late route reaches the front even under
 /// `exhaustive = true` (which disables only the dominance guard).
 #[test]
-fn test_kernel_keeps_shrink_late_route_without_branch_and_bound() {
+fn test_kernel_keeps_shrink_late_route_dominance_only() {
     let empty = std::collections::BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
         &["S", "A", "T"],

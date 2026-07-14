@@ -496,15 +496,17 @@ impl ReductionGraph {
     /// Maintains a per-node **bag** (an antichain of non-dominated labels); a label is
     /// discarded only when another label at the same node [dominates](PathLabel::dominates)
     /// it. Each surviving label carries a predecessor pointer for path reconstruction.
-    /// The frontier is explored in ascending [`cost`](PathLabel::cost) order, which gives
-    /// an early branch-and-bound bound. Deterministic safety caps apply: [`HOP_CAP`]
-    /// bounds path length, and [`BAG_CAP`] bounds each bag with a deterministic tie-break
-    /// (never iteration-order truncation). Edges are visited in a deterministic
-    /// (target-name, target-variant) order.
+    /// Pruning is by dominance alone — always sound for any label domain, unlike a
+    /// branch-and-bound bound, which would require a monotone scalar `cost` that the
+    /// measured domain does not have. The frontier is explored in ascending
+    /// [`cost`](PathLabel::cost) order (a heuristic that finds good paths early).
+    /// Deterministic safety caps apply: [`HOP_CAP`] bounds path length, and [`BAG_CAP`]
+    /// bounds each bag with a deterministic tie-break (never iteration-order truncation).
+    /// Edges are visited in a deterministic (target-name, target-variant) order.
     ///
     /// When `exhaustive` is `true`, the componentwise dominance guard is disabled (bags
-    /// retain all labels up to the cap); the sound guards inside [`PathLabel::extend`] and
-    /// the branch-and-bound bound still apply.
+    /// retain all labels up to the cap); the sound guards inside [`PathLabel::extend`]
+    /// still apply.
     ///
     /// Returns the Pareto front at `dst`: `(path, label)` pairs, deterministically
     /// ordered by (cost, hops, node-name path).
@@ -531,7 +533,6 @@ impl ReductionGraph {
         let mut arena: Vec<Entry<L>> = Vec::new();
         let mut bags: HashMap<NodeIndex, Vec<usize>> = HashMap::new();
         let mut frontier: BinaryHeap<Reverse<(OrderedFloat<f64>, usize)>> = BinaryHeap::new();
-        let mut best_final: Option<f64> = None;
 
         arena.push(Entry {
             node: src,
@@ -555,7 +556,7 @@ impl ReductionGraph {
             names
         };
 
-        while let Some(Reverse((cost, idx))) = frontier.pop() {
+        while let Some(Reverse((_cost, idx))) = frontier.pop() {
             let node = arena[idx].node;
             // Skip stale entries (removed from their bag because dominated / capped out).
             if !bags.get(&node).is_some_and(|b| b.contains(&idx)) {
@@ -574,13 +575,6 @@ impl ReductionGraph {
                 continue;
             }
             if arena[idx].hops >= HOP_CAP {
-                continue;
-            }
-            // Branch-and-bound: a label already at least as costly as the best completed
-            // path cannot yield a cheaper destination (cost is non-decreasing). Sound
-            // only for scalar objectives; the asymptotic partial order opts out (see
-            // `PathLabel::BRANCH_AND_BOUND`).
-            if L::BRANCH_AND_BOUND && best_final.is_some_and(|bf| cost.0 >= bf) {
                 continue;
             }
 
@@ -612,11 +606,6 @@ impl ReductionGraph {
                     continue;
                 };
                 let new_cost = new_label.cost();
-                // Branch-and-bound against the best completed path (scalar objectives
-                // only; the asymptotic partial order opts out).
-                if L::BRANCH_AND_BOUND && best_final.is_some_and(|bf| new_cost >= bf) {
-                    continue;
-                }
                 // Componentwise dominance against the target's bag.
                 if !exhaustive {
                     let bag = bags.entry(target).or_default();
@@ -657,12 +646,6 @@ impl ReductionGraph {
                 });
                 bags.entry(target).or_default().push(nidx);
                 frontier.push(Reverse((OrderedFloat(new_cost), nidx)));
-                if target == dst {
-                    best_final = Some(match best_final {
-                        Some(bf) => bf.min(new_cost),
-                        None => new_cost,
-                    });
-                }
 
                 // Enforce the per-node bag cap with a deterministic tie-break.
                 if bags[&target].len() > BAG_CAP {
@@ -1885,8 +1868,8 @@ impl ReductionGraph {
     /// `budget` is the hard total-size limit (sum of `ProblemSize` components); use
     /// [`DEFAULT_SIZE_BUDGET`](crate::rules::DEFAULT_SIZE_BUDGET) for the default.
     /// `exhaustive` disables only the heuristic componentwise-dominance guard (the sound
-    /// pre-flight and measured-budget guards still apply; the [`MeasuredLabel`] does not
-    /// use branch-and-bound, since its measured cost can shrink across a reduction).
+    /// pre-flight and measured-budget guards still apply; the kernel prunes by dominance
+    /// only, never branch-and-bound — measured cost can shrink across a reduction).
     ///
     /// Returns `None` if no in-budget witness-capable path exists (or `source == target`).
     #[allow(clippy::too_many_arguments)]
