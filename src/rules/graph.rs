@@ -928,60 +928,42 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        if limit == 0 {
-            return vec![];
-        }
-
-        // Enumerate length-first (shortest paths before longer ones) via iterative
-        // deepening over the intermediate-node count `k`. Taking `limit` in petgraph's
+        // Enumerate every simple path in a single DFS pass and keep only the `limit`
+        // that sort smallest under the deterministic total order: fewest nodes first
+        // (shortest routes), then by `path_order_key`. Taking `limit` in petgraph's raw
         // DFS discovery order (the previous approach) could drop a short route
-        // discovered late while returning a long route discovered early. Each level
-        // `k` is enumerated exactly (min == max == k) so paths arrive grouped by
-        // length, then sorted by the deterministic `path_order_key` so *which*
-        // same-length paths survive truncation is reproducible and build-independent.
-        let max_k =
+        // discovered late while returning a long route discovered early. A single
+        // bounded max-heap keyed by `(node count, order key)` retains exactly those
+        // `limit` paths — push each candidate, and once over capacity pop the current
+        // largest — so ordering and the truncated subset are reproducible and
+        // build-independent with O(limit) memory, however many paths the graph holds.
+        // (`limit == 0` falls out naturally: every push is immediately popped.)
+        let max_intermediate =
             max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
 
-        let mut result: Vec<ReductionPath> = Vec::new();
-
-        for k in 0..=max_k {
-            let still_needed = limit - result.len();
-            if still_needed == 0 {
-                break;
+        let mut heap: BinaryHeap<(usize, String, Vec<NodeIndex>)> = BinaryHeap::new();
+        for p in all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
+            &self.graph,
+            src,
+            dst,
+            0,
+            Some(max_intermediate),
+        ) {
+            if !self.node_path_supports_mode(&p, mode) {
+                continue;
             }
-
-            // Memory guard: a single level can be combinatorially large, so never hold
-            // more than `still_needed` paths at once. A max-heap keyed by the order key
-            // keeps the smallest-key `still_needed` entries: push each path, and once
-            // over capacity pop the current largest key. This is deterministic and uses
-            // bounded memory regardless of how many paths the level actually contains.
-            let mut heap: BinaryHeap<(String, Vec<NodeIndex>)> = BinaryHeap::new();
-            for p in all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
-                &self.graph,
-                src,
-                dst,
-                k,
-                Some(k),
-            ) {
-                if !self.node_path_supports_mode(&p, mode) {
-                    continue;
-                }
-                let key = self.path_order_key(&p);
-                heap.push((key, p));
-                if heap.len() > still_needed {
-                    heap.pop();
-                }
-            }
-
-            // Drain the retained entries and append them in ascending key order.
-            let mut level: Vec<(String, Vec<NodeIndex>)> = heap.into_vec();
-            level.sort();
-            for (_, p) in level {
-                result.push(self.node_path_to_reduction_path(&p));
+            let key = self.path_order_key(&p);
+            heap.push((p.len(), key, p));
+            if heap.len() > limit {
+                heap.pop();
             }
         }
 
-        result
+        // `into_sorted_vec` yields ascending `(node count, order key)` order.
+        heap.into_sorted_vec()
+            .into_iter()
+            .map(|(_, _, p)| self.node_path_to_reduction_path(&p))
+            .collect()
     }
 
     /// Check if a direct reduction exists from S to T.
