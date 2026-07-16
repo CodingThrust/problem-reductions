@@ -1,6 +1,6 @@
 //! Tests for the Pareto label-setting search (`src/rules/pareto.rs`) and its two label
 //! domains. Covers:
-//! - The measured concrete-instance label (issue #788 known-answer, OOM pre-flight guard).
+//! - The measured concrete-instance search (issue #788 known-answer and budget semantics).
 //! - The generic kernel's correctness on a hand-built diamond (negative control): a
 //!   scalar-cost path selection commits to the wrong prefix, while the Pareto search
 //!   returns the path with the strictly-better final measured size.
@@ -8,18 +8,119 @@
 use super::*;
 use crate::expr::Expr;
 use crate::growth::Growth;
-use crate::models::graph::{HamiltonianCircuit, HighlyConnectedDeletion};
+use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::formula::{CNFClause, Satisfiability};
+use crate::models::graph::HamiltonianCircuit;
 use crate::rules::cost::CustomCost;
 use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
 use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
-use crate::rules::{ReductionGraph, ReductionMode, DEFAULT_SIZE_BUDGET};
+use crate::rules::traits::DynReductionResult;
+use crate::rules::{ReductionAutoCast, ReductionGraph, ReductionMode};
 use crate::topology::SimpleGraph;
-use crate::types::ProblemSize;
+use crate::traits::Problem;
+use crate::types::{Or, ProblemSize};
 use std::any::Any;
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::time::Instant;
+
+#[derive(Clone)]
+struct MeasuredSource;
+
+#[derive(Clone)]
+struct MeasuredBranchA;
+
+#[derive(Clone)]
+struct MeasuredBranchB;
+
+macro_rules! impl_measured_test_problem {
+    ($ty:ty, $name:literal) => {
+        impl Problem for $ty {
+            const NAME: &'static str = $name;
+            type Value = Or;
+
+            fn dims(&self) -> Vec<usize> {
+                vec![]
+            }
+
+            fn evaluate(&self, _config: &[usize]) -> Or {
+                Or(true)
+            }
+
+            fn variant() -> Vec<(&'static str, &'static str)> {
+                vec![]
+            }
+        }
+    };
+}
+
+impl_measured_test_problem!(MeasuredSource, "MeasuredSource");
+impl_measured_test_problem!(MeasuredBranchA, "MeasuredBranchA");
+impl_measured_test_problem!(MeasuredBranchB, "MeasuredBranchB");
+
+fn measured_source_to_a(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredSource>()
+        .expect("expected MeasuredSource");
+    Box::new(ReductionAutoCast::<MeasuredSource, MeasuredBranchA>::new(
+        MeasuredBranchA,
+    ))
+}
+
+fn measured_source_to_b(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredSource>()
+        .expect("expected MeasuredSource");
+    Box::new(ReductionAutoCast::<MeasuredSource, MeasuredBranchB>::new(
+        MeasuredBranchB,
+    ))
+}
+
+fn measured_a_to_sat(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchA>()
+        .expect("expected MeasuredBranchA");
+    Box::new(ReductionAutoCast::<MeasuredBranchA, Satisfiability>::new(
+        Satisfiability::new(1, vec![CNFClause::new(vec![1])]),
+    ))
+}
+
+fn measured_b_to_sat(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchB>()
+        .expect("expected MeasuredBranchB");
+    Box::new(ReductionAutoCast::<MeasuredBranchB, Satisfiability>::new(
+        Satisfiability::new(1, vec![CNFClause::new(vec![-1])]),
+    ))
+}
+
+fn measured_sat_to_structure_dependent_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    let sat = any
+        .downcast_ref::<Satisfiability>()
+        .expect("expected Satisfiability");
+    let first_literal = sat.clauses()[0].literals[0];
+    let num_vars = if first_literal > 0 { 100 } else { 1 };
+    let target = ILP::<bool>::new(num_vars, vec![], vec![], ObjectiveSense::Minimize);
+    Box::new(ReductionAutoCast::<Satisfiability, ILP<bool>>::new(target))
+}
+
+fn measured_source_to_small_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredSource>()
+        .expect("expected MeasuredSource");
+    let target = ILP::<bool>::new(1, vec![], vec![], ObjectiveSense::Minimize);
+    Box::new(ReductionAutoCast::<MeasuredSource, ILP<bool>>::new(target))
+}
+
+fn measured_edge(
+    reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+    asymptotic_prediction: f64,
+) -> ReductionEdgeData {
+    ReductionEdgeData {
+        overhead: ReductionOverhead::new(vec![(
+            "predicted_total",
+            Expr::Const(asymptotic_prediction),
+        )]),
+        reduce_fn: Some(reduce_fn),
+        reduce_aggregate_fn: None,
+        capabilities: EdgeCapabilities::witness_only(),
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Verification 1: issue #788 known-answer check.
@@ -66,8 +167,7 @@ fn test_hamiltoniancircuit_to_ilp_measured_optimum_788() {
             "ILP",
             ReductionMode::Witness,
             &hc as &dyn Any,
-            DEFAULT_SIZE_BUDGET,
-            false,
+            1_000,
         )
         .expect("a measured witness path from HamiltonianCircuit to ILP");
 
@@ -94,54 +194,103 @@ fn test_hamiltoniancircuit_to_ilp_measured_optimum_788() {
 }
 
 // ---------------------------------------------------------------------------
-// Verification 2: OOM pre-flight guard is real.
+// Verification 2: measured search does not discard equal-size concrete states.
 // ---------------------------------------------------------------------------
 
-/// Routing a 64-vertex instance through the `2^num_vertices` overhead edge
-/// (`highlyconnecteddeletion_ilp`) must be refused by the symbolic pre-flight guard
-/// *before* the exponential construction is ever started: the search completes near
-/// instantly and returns no in-budget path (the sole HCD → ILP edge is pruned).
-///
-/// The instance is a dense 64-vertex graph on purpose — if the guard were removed, the
-/// reduction would enumerate ~2^64 feasible clusters and exhaust memory. Because guard 1
-/// evaluates the formula (`2^64 ≫ budget`) and skips without executing, the test is safe.
 #[test]
-fn test_oom_preflight_guard_highlyconnecteddeletion() {
-    // Dense 64-vertex graph (complete graph K_64): cheap to build, catastrophic to reduce.
-    let n = 64;
-    let mut edges = Vec::new();
-    for u in 0..n {
-        for v in (u + 1)..n {
-            edges.push((u, v));
-        }
-    }
-    let hcd = HighlyConnectedDeletion::new(SimpleGraph::new(n, edges));
-    let graph = ReductionGraph::new();
-    let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph")]);
+fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
+    let graph = ReductionGraph::from_test_edges(
+        &[
+            "MeasuredSource",
+            "MeasuredBranchA",
+            "MeasuredBranchB",
+            "Satisfiability",
+            "ILP",
+        ],
+        &[
+            (
+                "MeasuredSource",
+                "MeasuredBranchA",
+                measured_edge(measured_source_to_a, 0.0),
+            ),
+            (
+                "MeasuredSource",
+                "MeasuredBranchB",
+                measured_edge(measured_source_to_b, 0.0),
+            ),
+            (
+                "MeasuredBranchA",
+                "Satisfiability",
+                measured_edge(measured_a_to_sat, 0.0),
+            ),
+            (
+                "MeasuredBranchB",
+                "Satisfiability",
+                measured_edge(measured_b_to_sat, 0.0),
+            ),
+            (
+                "Satisfiability",
+                "ILP",
+                measured_edge(measured_sat_to_structure_dependent_ilp, 0.0),
+            ),
+        ],
+    );
+    let empty = BTreeMap::new();
+    let source = MeasuredSource;
 
-    let start = Instant::now();
-    let result = graph.find_measured_best_path_to_name(
-        "HighlyConnectedDeletion",
-        &variant,
-        "ILP",
-        ReductionMode::Witness,
-        &hcd as &dyn Any,
-        DEFAULT_SIZE_BUDGET,
-        false,
+    let bad_sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let good_sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
+    assert_eq!(
+        ReductionGraph::compute_source_size("Satisfiability", &bad_sat),
+        ReductionGraph::compute_source_size("Satisfiability", &good_sat),
+        "the two structurally different hub instances must have identical measured sizes",
     );
-    let elapsed = start.elapsed();
 
-    // The only HCD -> ILP path is the 2^num_vertices edge; it is pre-flight-pruned.
-    assert!(
-        result.is_none(),
-        "the 2^num_vertices construction must be refused, not selected"
+    let measured = graph
+        .find_measured_best_path(
+            "MeasuredSource",
+            &empty,
+            "ILP",
+            &empty,
+            ReductionMode::Witness,
+            &source,
+            1_000,
+        )
+        .expect("the structure-dependent small continuation must survive");
+
+    assert_eq!(
+        measured.path.type_names(),
+        ["MeasuredSource", "MeasuredBranchB", "Satisfiability", "ILP",],
     );
-    // Structural proof the exponential enumeration was never started: it finishes fast.
-    assert!(
-        elapsed.as_secs_f64() < 1.0,
-        "search must complete in < 1s (never executes the exponential edge); took {:?}",
-        elapsed
+    assert_eq!(measured.size.total(), 1);
+}
+
+#[test]
+fn test_asymptotic_overhead_is_not_a_concrete_budget_guard() {
+    let graph = ReductionGraph::from_test_edges(
+        &["MeasuredSource", "ILP"],
+        &[(
+            "MeasuredSource",
+            "ILP",
+            measured_edge(measured_source_to_small_ilp, 1_000_000.0),
+        )],
     );
+    let empty = BTreeMap::new();
+    let source = MeasuredSource;
+
+    let measured = graph
+        .find_measured_best_path(
+            "MeasuredSource",
+            &empty,
+            "ILP",
+            &empty,
+            ReductionMode::Witness,
+            &source,
+            1,
+        )
+        .expect("a loose asymptotic expression must not prune an actually in-budget target");
+
+    assert_eq!(measured.size.total(), 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -793,8 +942,8 @@ fn test_asymptotic_front_uses_only_source_variables_mfvs_ilp() {
 // ---------------------------------------------------------------------------
 
 /// A test label whose `cost` is the label's current absolute value — a value a late edge
-/// can *shrink* below an already-completed route's final value. It models exactly the
-/// non-monotone-cost case (`MeasuredLabel`) the dominance-only kernel must handle.
+/// can *shrink* below an already-completed route's final value. It verifies that the
+/// generic kernel does not silently add scalar branch-and-bound.
 #[derive(Clone)]
 struct ShrinkLabel {
     v: f64,
@@ -1006,10 +1155,9 @@ thread_local! {
 }
 
 /// A drop-tracking token. Each `new()` is a distinct live instance; `Drop` frees it. Held
-/// behind `Rc` inside a label, so cloning a label (Rc clone) SHARES the token — mirroring
-/// `MeasuredLabel`'s `Rc` reduction chain, where each hop is one instance shared across
-/// label clones. If the arena pinned evicted labels, their tokens would stay live until
-/// the search ended, so `TOK_PEAK` would reach `TOK_CREATED`.
+/// behind `Rc` inside a label, so cloning a label shares the token. If the arena pinned
+/// evicted labels, their tokens would stay live until the search ended, so `TOK_PEAK`
+/// would reach `TOK_CREATED`.
 struct DropToken;
 
 impl DropToken {

@@ -519,10 +519,8 @@ impl ReductionGraph {
         exhaustive: bool,
     ) -> Vec<(ReductionPath, L)> {
         // `label` is `Option` so an evicted entry (dominated or cap-truncated) can free its
-        // label immediately via `take()` — otherwise dominated labels would linger in the
-        // arena for the whole search, pinning e.g. a `MeasuredLabel`'s `Rc` reduction chain
-        // and defeating the bag cap as a memory bound. Invariant: any arena index that is a
-        // current member of some bag has `label == Some`; only non-members may be `None`.
+        // label immediately via `take()`. Invariant: any arena index that is a current
+        // member of some bag has `label == Some`; only non-members may be `None`.
         struct Entry<L> {
             node: NodeIndex,
             label: Option<L>,
@@ -533,6 +531,7 @@ impl ReductionGraph {
         let mut arena: Vec<Entry<L>> = Vec::new();
         let mut bags: HashMap<NodeIndex, Vec<usize>> = HashMap::new();
         let mut frontier: BinaryHeap<Reverse<(OrderedFloat<f64>, usize)>> = BinaryHeap::new();
+        let mut adjacency: HashMap<NodeIndex, Vec<(NodeIndex, EdgeIndex)>> = HashMap::new();
 
         arena.push(Entry {
             node: src,
@@ -578,18 +577,24 @@ impl ReductionGraph {
                 continue;
             }
 
-            // Deterministic edge order.
-            let mut edges: Vec<(NodeIndex, EdgeIndex)> = self
-                .graph
-                .edges(node)
-                .filter(|e| Self::edge_supports_mode(e.weight(), mode))
-                .map(|e| (e.target(), e.id()))
-                .collect();
-            edges.sort_by(|a, b| {
-                let na = &self.nodes[self.graph[a.0]];
-                let nb = &self.nodes[self.graph[b.0]];
-                (na.name, &na.variant).cmp(&(nb.name, &nb.variant))
-            });
+            // Deterministic edge order, cached because many labels can visit one node.
+            let edges = adjacency
+                .entry(node)
+                .or_insert_with(|| {
+                    let mut edges: Vec<(NodeIndex, EdgeIndex)> = self
+                        .graph
+                        .edges(node)
+                        .filter(|e| Self::edge_supports_mode(e.weight(), mode))
+                        .map(|e| (e.target(), e.id()))
+                        .collect();
+                    edges.sort_by(|a, b| {
+                        let na = &self.nodes[self.graph[a.0]];
+                        let nb = &self.nodes[self.graph[b.0]];
+                        (na.name, &na.variant).cmp(&(nb.name, &nb.variant))
+                    });
+                    edges
+                })
+                .clone();
 
             let hops = arena[idx].hops;
             for (target, edge_idx) in edges {
@@ -789,6 +794,90 @@ impl ReductionGraph {
             })
             .collect();
         ReductionPath { steps }
+    }
+
+    /// Enumerate every witness-capable simple path from `src` to `dst`, executing each
+    /// reduction as it is reached and retaining the measured-smallest completed target.
+    ///
+    /// This is deliberately separate from [`pareto_search`](Self::pareto_search): no
+    /// dominance relation, hop cap, bag cap, or scalar branch-and-bound is valid for a
+    /// structure-dependent concrete instance. Repeated nodes are excluded because this
+    /// API searches graph paths (not unbounded walks); that is the sole structural
+    /// termination condition.
+    fn measured_best_simple_path<'a>(
+        &self,
+        src: NodeIndex,
+        dst: NodeIndex,
+        mode: ReductionMode,
+        initial: MeasuredLabel<'a>,
+    ) -> Option<(ReductionPath, MeasuredLabel<'a>)> {
+        let mut stack = vec![(src, vec![src], initial)];
+        let mut adjacency: HashMap<NodeIndex, Vec<(NodeIndex, EdgeIndex)>> = HashMap::new();
+        let mut best: Option<(Vec<NodeIndex>, MeasuredLabel<'a>)> = None;
+
+        while let Some((node, node_path, label)) = stack.pop() {
+            if node == dst {
+                let candidate_key = (
+                    label.measured_size().total(),
+                    node_path.len(),
+                    self.path_order_key(&node_path),
+                );
+                let is_better = best.as_ref().is_none_or(|(best_path, best_label)| {
+                    let best_key = (
+                        best_label.measured_size().total(),
+                        best_path.len(),
+                        self.path_order_key(best_path),
+                    );
+                    candidate_key < best_key
+                });
+                if is_better {
+                    best = Some((node_path, label));
+                }
+                continue;
+            }
+
+            let edges = adjacency
+                .entry(node)
+                .or_insert_with(|| {
+                    let mut edges: Vec<(NodeIndex, EdgeIndex)> = self
+                        .graph
+                        .edges(node)
+                        .filter(|e| Self::edge_supports_mode(e.weight(), mode))
+                        .map(|e| (e.target(), e.id()))
+                        .collect();
+                    edges.sort_by(|a, b| {
+                        let na = &self.nodes[self.graph[a.0]];
+                        let nb = &self.nodes[self.graph[b.0]];
+                        (na.name, &na.variant).cmp(&(nb.name, &nb.variant))
+                    });
+                    edges
+                })
+                .clone();
+
+            // Reverse push order so DFS visits the deterministic ascending edge order.
+            for (target, edge_idx) in edges.into_iter().rev() {
+                if node_path.contains(&target) {
+                    continue;
+                }
+                let weight = &self.graph[edge_idx];
+                let target_node = &self.nodes[self.graph[target]];
+                let edge = ReductionEdge {
+                    overhead: &weight.overhead,
+                    reduce_fn: weight.reduce_fn,
+                    capabilities: weight.capabilities,
+                    target_name: target_node.name,
+                    target_variant: &target_node.variant,
+                };
+                let Some(next_label) = label.extend(&edge) else {
+                    continue;
+                };
+                let mut next_path = node_path.clone();
+                next_path.push(target);
+                stack.push((target, next_path, next_label));
+            }
+        }
+
+        best.map(|(path, label)| (self.node_path_to_reduction_path(&path), label))
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -1861,15 +1950,17 @@ impl ReductionGraph {
     /// paths by overhead *formulas* (scaling upper bounds that can be arbitrarily loose
     /// on structure-dependent constructions), this runs the [`MeasuredLabel`] domain:
     /// it *actually executes* each reduction on `source_instance` and measures the real
-    /// constructed target size. Formulas are used only as a pre-flight guard that skips
-    /// predicted-over-budget constructions before they run — never to arbitrate between
-    /// concrete candidates. See design doc M3/F3b.
+    /// constructed target size. Asymptotic overhead formulas are not treated as concrete
+    /// bounds and do not prune candidates. See design doc M3/F3b.
     ///
     /// `budget` is the hard total-size limit (sum of `ProblemSize` components); use
     /// [`DEFAULT_SIZE_BUDGET`](crate::rules::DEFAULT_SIZE_BUDGET) for the default.
-    /// `exhaustive` disables only the heuristic componentwise-dominance guard (the sound
-    /// pre-flight and measured-budget guards still apply; the kernel prunes by dominance
-    /// only, never branch-and-bound — measured cost can shrink across a reduction).
+    /// The search exhaustively enumerates witness-capable simple paths. It does not use
+    /// dominance pruning, branch-and-bound, or the generic Pareto kernel's bag/hop caps:
+    /// neither size vectors nor serialized state equality discard a route. The
+    /// post-construction measured-budget guard still applies.
+    /// Because the target must be built before it can be measured, the budget is not an
+    /// anti-OOM guarantee.
     ///
     /// Returns `None` if no in-budget witness-capable path exists (or `source == target`).
     #[allow(clippy::too_many_arguments)]
@@ -1882,7 +1973,6 @@ impl ReductionGraph {
         mode: ReductionMode,
         source_instance: &dyn Any,
         budget: usize,
-        exhaustive: bool,
     ) -> Option<MeasuredPath> {
         let src = self.lookup_node(source, source_variant)?;
         let dst = self.lookup_node(target, target_variant)?;
@@ -1891,8 +1981,7 @@ impl ReductionGraph {
         }
         let source_size = Self::compute_source_size(source, source_instance);
         let initial = MeasuredLabel::new(source_instance, source_size, budget);
-        let mut front = self.pareto_search(src, dst, mode, initial, exhaustive);
-        let (path, label) = self.pick_best_front(&mut front)?;
+        let (path, label) = self.measured_best_simple_path(src, dst, mode, initial)?;
         let steps: Vec<Rc<dyn DynReductionResult>> = label.chain().to_vec();
         if steps.is_empty() {
             return None;
@@ -1978,7 +2067,6 @@ impl ReductionGraph {
     /// Runs [`find_measured_best_path`](Self::find_measured_best_path) once per target
     /// variant and returns the overall measured-smallest result, with a deterministic
     /// tie-break by (measured total size, hops, node-name path).
-    #[allow(clippy::too_many_arguments)]
     pub fn find_measured_best_path_to_name(
         &self,
         source: &str,
@@ -1987,7 +2075,6 @@ impl ReductionGraph {
         mode: ReductionMode,
         source_instance: &dyn Any,
         budget: usize,
-        exhaustive: bool,
     ) -> Option<MeasuredPath> {
         let mut best: Option<MeasuredPath> = None;
         for tv in self.variants_for(target) {
@@ -1999,7 +2086,6 @@ impl ReductionGraph {
                 mode,
                 source_instance,
                 budget,
-                exhaustive,
             ) else {
                 continue;
             };

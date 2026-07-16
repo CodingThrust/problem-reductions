@@ -13,13 +13,13 @@
 //! an antichain of non-dominated labels (a "bag"); a label is only pruned when another
 //! label at the same node dominates it. See [`ReductionGraph::pareto_search`].
 //!
-//! Two label domains are provided:
+//! Two search domains are provided:
 //! - [`CostLabel`]: a scalar formula label that reproduces Dijkstra's behavior for the
 //!   existing `PathCostFn` cost functions (used by `find_cheapest_path*`). It carries the
 //!   accumulated `ProblemSize` (from overhead formulas) and an additive scalar cost.
-//! - [`MeasuredLabel`]: the concrete-instance label. For a concrete source instance, it
-//!   *actually executes* each reduction and measures the real constructed target size.
-//!   Formulas are only used as a pre-flight guard, never to arbitrate between candidates.
+//! - [`MeasuredLabel`]: concrete-instance state used by a separate exhaustive simple-path
+//!   search. It *actually executes* each reduction and measures the real constructed target
+//!   size. Asymptotic overhead formulas are not used as concrete budget bounds.
 
 use crate::expr::Expr;
 use crate::growth::Growth;
@@ -67,9 +67,12 @@ pub(crate) fn catch_reduction<R>(f: impl FnOnce() -> R) -> Option<R> {
     result.ok()
 }
 
-/// Default hard total-size budget for the measured search (in "size units", i.e. the
-/// sum of all `ProblemSize` components). Generous by design: the point is to refuse
-/// astronomic constructions (e.g. a `2^num_vertices` blow-up), not to micro-manage.
+/// Default post-construction total-size budget for the measured search (in "size units",
+/// i.e. the sum of all `ProblemSize` components).
+///
+/// A reduction's target must exist before it can be measured, so this limits which
+/// constructed instances remain eligible for further search; it cannot prevent the
+/// construction itself from exhausting memory.
 pub const DEFAULT_SIZE_BUDGET: usize = 10_000_000;
 
 /// Maximum number of reduction steps (hops) explored along any path.
@@ -81,10 +84,10 @@ pub const BAG_CAP: usize = 32;
 
 /// A borrowed view of one reduction edge, handed to [`PathLabel::extend`].
 ///
-/// It exposes exactly what a label needs to advance: the overhead formula (for the
-/// symbolic pre-flight guard and formula-based sizing), the executable reduction
-/// function (for measured execution), the edge capabilities, and the target node's
-/// identity (for measuring the constructed target's size by name).
+/// It exposes exactly what a label needs to advance: the overhead formula (for symbolic
+/// and formula-based labels), the executable reduction function (for measured execution),
+/// the edge capabilities, and the target node's identity (for measuring the constructed
+/// target's size by name).
 pub struct ReductionEdge<'g> {
     /// Overhead expressions mapping source size fields to target size fields.
     pub overhead: &'g ReductionOverhead,
@@ -108,20 +111,18 @@ pub struct ReductionEdge<'g> {
 ///
 /// The kernel prunes by [`dominates`](PathLabel::dominates) alone — it does **not**
 /// branch-and-bound on [`cost`](PathLabel::cost). Dominance is exact for every label
-/// domain, whereas a scalar B&B bound would only be sound for a monotone `cost`: the
-/// measured size can *shrink* across a reduction, and the asymptotic `cost` is a
-/// heuristic summary of an incomparable growth vector, so neither admits a sound bound.
+/// domain, whereas a scalar B&B bound would only be sound for a monotone `cost`; a label's
+/// scalar summary may shrink across an edge or summarize an incomparable growth vector.
 /// `cost` is used only for frontier ordering and the deterministic final tie-break.
 pub trait PathLabel: Clone {
-    /// Advance this label across `edge`. Returns `None` when a guard prunes the edge
-    /// (e.g. the measured label's pre-flight size guard). A `None` must be *isotone*:
+    /// Advance this label across `edge`. Returns `None` when a label-domain guard rejects
+    /// the edge. A `None` must be *isotone*:
     /// if `A` dominates `B` and `A.extend(e)` is `None`, that is fine, but a guard must
     /// never prune a dominating label while keeping a dominated one.
     fn extend(&self, edge: &ReductionEdge) -> Option<Self>;
 
-    /// Partial order: `true` iff `self` is at least as good as `other` in every
-    /// component (and strictly better in at least one, or equal). Used to keep each
-    /// node's bag an antichain.
+    /// Partial order used to keep each node's bag an antichain. Implementations must
+    /// satisfy the isotonicity invariant above.
     fn dominates(&self, other: &Self) -> bool;
 
     /// Scalar summary used only for frontier ordering and the deterministic final
@@ -204,31 +205,22 @@ enum MeasuredPos<'a> {
 
 /// The concrete-instance measured label (design doc M3/F3b).
 ///
-/// For a concrete source instance, formulas are advisory — the **measured** target size
-/// is authoritative. `extend` runs this pruning stack, in order:
+/// For a concrete source instance, the **measured** target size is authoritative.
+/// Asymptotic overhead formulas are deliberately not consulted: evaluating a Big-O
+/// expression at one input does not produce a certified concrete upper bound.
+/// `extend` runs this stack, in order:
 ///
-/// 1. **Symbolic pre-flight guard:** evaluate the edge's overhead formula at the current
-///    *measured* size. If the (upper-bound, uncalibrated) prediction already exceeds the
-///    budget, return `None` **without executing** — so a catastrophic construction (e.g.
-///    a `2^num_vertices` blow-up) is never even started.
-/// 2. **Execute + measure:** run `reduce_to()`, measure the real target size; over budget
+/// 1. **Execute + measure:** run `reduce_to()`, measure the real target size; over budget
 ///    → `None`.
-/// 3. **Componentwise measured-size dominance:** [`dominates`](PathLabel::dominates), a
-///    heuristic under a documented size-monotone-future assumption. The kernel's
-///    `exhaustive` flag disables *only* this guard, keeping 1–2 (which are sound).
+/// 2. **No comparative pruning:** measured states are enumerated by a separate exhaustive
+///    simple-path search. Neither size vectors nor serialized representations discard a
+///    constructed route before its downstream reductions are measured, and Pareto bag/hop
+///    caps do not apply.
 ///
-/// The kernel prunes by dominance only, never branch-and-bound — which matters here
-/// because measured size can *shrink* across a reduction, so [`cost`](PathLabel::cost)
-/// is non-monotone and any scalar B&B bound could wrongly prune a partial route that
-/// would still finish smallest.
-///
-/// **Memory.** There is no absolute anti-OOM guarantee (the overhead formulas are
-/// uncalibrated upper bounds), but two mechanisms bound retained instance memory: the
-/// pre-flight guard skips predicted-over-budget constructions before they run, and the
-/// kernel frees a label's `Rc` reduction chain the instant the label is evicted from its
-/// bag (dominated or cap-truncated). Together they bound the reduction instances retained
-/// at any moment by the live bag entries (≤ [`BAG_CAP`] per node) times their chain
-/// length — the bag cap genuinely bounds retained instance memory.
+/// **Memory.** The budget is checked only after a reduction has constructed its target,
+/// so it cannot prevent a reduction itself from exhausting memory. It limits which
+/// constructed instances remain eligible for further search. Exhaustive simple-path
+/// enumeration can take exponential time and retain large constructed chains.
 #[derive(Clone)]
 pub struct MeasuredLabel<'a> {
     /// Measured size of the problem instance at the current node.
@@ -265,34 +257,11 @@ impl<'a> MeasuredLabel<'a> {
     pub(crate) fn measured_size(&self) -> &ProblemSize {
         &self.size
     }
-}
 
-/// Componentwise "less-or-equal in every field" test between two measured sizes.
-///
-/// `a` covers `b` iff every field of `b` is present in `a` with a value `>=` b's — i.e.
-/// `a` is componentwise `<=` `b`. Missing fields are treated as `0`.
-fn size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
-    // a <= b componentwise. Sizes are nonnegative and missing fields default to 0,
-    // so only a's own fields can violate the bound: a b-only field gives `0 <= b`,
-    // which always holds. Checking a's fields against b is therefore sufficient.
-    a.components
-        .iter()
-        .all(|(name, av)| *av <= b.get(name).unwrap_or(0))
-}
-
-impl PathLabel for MeasuredLabel<'_> {
-    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        // Guard 1: symbolic pre-flight. Predict the target size from the overhead
-        // formula evaluated at the *measured* current size. Because formulas are upper
-        // bounds, a prediction over budget means we must not even start the construction.
-        // Computed in `f64` so an astronomic prediction (e.g. `2^num_vertices`) is flagged
-        // rather than overflowing `usize`.
-        let predicted_total = edge.overhead.evaluate_output_total_f64(&self.size);
-        if predicted_total > self.budget as f64 {
-            return None;
-        }
-
-        // Guard 2: execute the reduction and measure the real target size. Executing a
+    /// Execute one reduction and retain the state only when its measured target is
+    /// within the post-construction budget.
+    pub(crate) fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        // Execute the reduction and measure the real target size. Executing a
         // reduction whose preconditions the current instance violates panics; such an
         // edge is not a viable path, so a caught panic prunes it (returns `None`). The
         // measurement (`compute_source_size`) probes every same-name size function, so
@@ -325,19 +294,14 @@ impl PathLabel for MeasuredLabel<'_> {
             budget: self.budget,
         })
     }
+}
 
-    fn dominates(&self, other: &Self) -> bool {
-        // Componentwise measured-size dominance. Labels compared here are always at the
-        // same node (same problem variant), so their size fields coincide.
-        size_le(&self.size, &other.size)
-    }
-
-    fn cost(&self) -> f64 {
-        // Frontier-ordering heuristic only. Measured size can SHRINK across a reduction,
-        // so this is non-monotone along `extend` — which is exactly why the kernel prunes
-        // by dominance, not branch-and-bound.
-        self.size.total() as f64
-    }
+/// Componentwise "less-or-equal in every field" test between two sizes.
+/// Missing fields are treated as `0`.
+fn size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
+    a.components
+        .iter()
+        .all(|(name, av)| *av <= b.get(name).unwrap_or(0))
 }
 
 /// Asymptotic, **instance-free** label domain (design doc M3/F3a).

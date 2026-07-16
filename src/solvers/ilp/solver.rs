@@ -240,36 +240,48 @@ impl ILPSolver {
         any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
     }
 
-    /// Select the witness reduction path to ILP whose **measured** final ILP size is
-    /// smallest.
+    /// Execute the first constructible preferred witness path to an ILP variant.
     ///
-    /// Delegates to the measured Pareto search
-    /// ([`ReductionGraph::find_measured_best_path_to_name`]): it actually executes each
-    /// reduction on `instance` and measures the real constructed ILP size, choosing the
-    /// smallest across all ILP variants. Overhead formulas are used only as a pre-flight
-    /// guard against catastrophic constructions — never to arbitrate between concrete
-    /// candidates. This fixes issue #788 (formula/step ranking could miss the path with
-    /// the smallest real ILP) and makes OOM structurally impossible during selection.
-    ///
-    /// The returned [`MeasuredPath`](crate::rules::MeasuredPath) carries the already
-    /// constructed reduction chain, so the caller solves and extracts without
-    /// re-executing the reductions.
-    fn best_path_to_ilp(
+    /// Solving only requires a valid formulation; it does not require proving which of
+    /// every possible multi-hop formulation is concretely smallest. One shortest path is
+    /// considered per ILP variant, ordered deterministically by hops and node names.
+    fn preferred_chain_to_ilp(
         &self,
         graph: &crate::rules::ReductionGraph,
         name: &str,
         variant: &std::collections::BTreeMap<String, String>,
         instance: &dyn std::any::Any,
-    ) -> Option<crate::rules::MeasuredPath> {
-        graph.find_measured_best_path_to_name(
-            name,
-            variant,
-            "ILP",
-            ReductionMode::Witness,
-            instance,
-            crate::rules::DEFAULT_SIZE_BUDGET,
-            false,
-        )
+    ) -> Option<crate::rules::ReductionChain> {
+        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
+        let mut candidates: Vec<_> = graph
+            .variants_for("ILP")
+            .into_iter()
+            .filter_map(|target_variant| {
+                graph.find_cheapest_path_mode(
+                    name,
+                    variant,
+                    "ILP",
+                    &target_variant,
+                    ReductionMode::Witness,
+                    &input_size,
+                    &crate::rules::MinimizeSteps,
+                )
+            })
+            .collect();
+        candidates.sort_by(|a, b| {
+            a.len()
+                .cmp(&b.len())
+                .then_with(|| a.type_names().cmp(&b.type_names()))
+        });
+        for path in candidates {
+            if let Some(chain) =
+                crate::rules::pareto::catch_reduction(|| graph.reduce_along_path(&path, instance))
+                    .flatten()
+            {
+                return Some(chain);
+            }
+        }
+        None
     }
 
     pub fn try_solve_via_reduction(
@@ -288,24 +300,43 @@ impl ILPSolver {
 
         let graph = crate::rules::ReductionGraph::new();
 
-        let Some(measured) = self.best_path_to_ilp(&graph, name, variant, instance) else {
-            if self.has_aggregate_path_to_ilp(&graph, name, variant) {
-                return Err(SolveViaReductionError::WitnessPathRequired {
+        if let Some(chain) = self.preferred_chain_to_ilp(&graph, name, variant, instance) {
+            let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
+                SolveViaReductionError::NoSolution {
                     name: name.to_string(),
-                });
-            }
+                }
+            })?;
+            return Ok(chain.extract_solution(&ilp_solution));
+        }
 
-            return Err(SolveViaReductionError::NoReductionPath {
+        // A preferred shortest path can be instance-infeasible even when another route
+        // works. Fall back to the uncapped, execution-aware measured enumeration before
+        // reporting that no witness path exists.
+        if let Some(measured) = graph.find_measured_best_path_to_name(
+            name,
+            variant,
+            "ILP",
+            ReductionMode::Witness,
+            instance,
+            crate::rules::DEFAULT_SIZE_BUDGET,
+        ) {
+            let ilp_solution = self
+                .solve_dyn(measured.target_problem_any())
+                .ok_or_else(|| SolveViaReductionError::NoSolution {
+                    name: name.to_string(),
+                })?;
+            return Ok(measured.extract_solution(&ilp_solution));
+        }
+
+        if self.has_aggregate_path_to_ilp(&graph, name, variant) {
+            return Err(SolveViaReductionError::WitnessPathRequired {
                 name: name.to_string(),
             });
-        };
+        }
 
-        let ilp_solution = self
-            .solve_dyn(measured.target_problem_any())
-            .ok_or_else(|| SolveViaReductionError::NoSolution {
-                name: name.to_string(),
-            })?;
-        Ok(measured.extract_solution(&ilp_solution))
+        Err(SolveViaReductionError::NoReductionPath {
+            name: name.to_string(),
+        })
     }
 
     /// Whether an aggregate-capable (but possibly not witness-capable) reduction path to
@@ -335,9 +366,10 @@ impl ILPSolver {
 
     /// Solve a type-erased problem by finding a reduction path to ILP.
     ///
-    /// Tries all ILP variants, picks the cheapest path, reduces, solves,
-    /// and extracts the solution back. Falls back to direct ILP solve if
-    /// the problem is already an ILP type.
+    /// Prefers a shortest witness path to an ILP variant, reduces, solves, and extracts
+    /// the solution back. If the preferred constructions are instance-infeasible, it
+    /// falls back to exhaustive measured simple-path search. Problems already represented
+    /// as ILP are solved directly.
     ///
     /// Returns `None` if no path to ILP exists or the solver finds no solution.
     pub fn solve_via_reduction(

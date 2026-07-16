@@ -98,7 +98,7 @@ Selected (rough, agentic-coding-adjusted estimates):
 |---|---|---|
 | F1 | Growth domain: `GrowthTerm`/`Growth` antichain, symbolic dominance, pruning, absorbing `Unknown`, caps with upward widening | ~2–3 days |
 | F2 | Replace the `big_o.rs` pipeline with the growth domain; delete `canonical.rs`; issue-1069 regression + whole-graph CI budget tests | ~1–2 days |
-| F3 | Pareto label search kernel replacing `dijkstra`, with two label domains: F3a asymptotic (`Growth` per size field) and F3b concrete instance (**measured**: execute reductions, prune via symbolic pre-flight guards + budget + branch-and-bound) | ~3–4 days |
+| F3 | Pareto label search kernel replacing `dijkstra`, with two label domains: F3a asymptotic (`Growth` per size field) and F3b concrete instance (**measured**: execute reductions and apply post-construction measured budgets) | ~3–4 days |
 | F12 | Per-edge overhead calibration test: canonical examples run through `reduce_to()`, measured sizes must not exceed formula predictions | ~0.5–1 day |
 | F4 | CLI/MCP surface: Pareto-front output, deterministic ordering, `--json` no longer renders text | ~1–2 days |
 | F5+F11 (merged support work, folded into F1/F3/F4) | Redundancy check (`find_dominated_rules`) rewired to the same dominance order; `Growth` serde + `Display` consumed by CLI JSON and paper export | ~1.5 days |
@@ -236,8 +236,7 @@ pub trait PathLabel: Clone {
   per-node bag cap with a **deterministic tie-break** (fewest hops, then
   lexicographic node-name order) — never iteration-order truncation. A label evicted
   from a bag (dominated or cap-truncated) has its arena slot's label freed immediately,
-  so the bag cap genuinely bounds retained per-node label memory — critical for the
-  measured label, whose labels each pin an `Rc` reduction-instance chain.
+  so the bag cap genuinely bounds retained per-node label memory.
 - Label domains:
   - **F3a asymptotic:** label = `BTreeMap<field, Growth>` mapping each size field of
     the current node to its growth in the source's variables; `extend` substitutes
@@ -252,25 +251,24 @@ pub trait PathLabel: Clone {
     between concrete candidates. Label = the actual `ProblemSize` measured on the
     constructed intermediate problem (plus the reduction chain itself, reused for
     solving/witness extraction by the winner); `extend` executes the edge's
-    `reduce_to()` and measures. Pruning stack, in order:
-    1. **Symbolic pre-flight guard:** evaluate the edge's overhead formula at the
-       current *measured* size; if even the (upper-bound) prediction exceeds the
-       hard size budget, skip without executing. The overhead formulas are
-       uncalibrated upper bounds, so this guard errs toward over-skipping — a
-       predicted-over-budget construction is never started. This is a strong
-       mitigation, not an absolute anti-OOM guarantee.
-    2. **Measured budget check** after execution.
-    3. **Componentwise measured-size dominance** — heuristic under a documented
-       size-monotone-future assumption; `--exhaustive` disables this one guard
-       (1–2 remain, and are sound), falling back to budgeted full enumeration.
+    `reduce_to()` and measures. The only instance-budget guard is the **measured
+    budget check after execution**. Evaluating an asymptotic expression at one point
+    is not a certified concrete bound, so overhead formulas do not prune measured
+    candidates. This also means the budget cannot prevent the construction itself
+    from exhausting memory.
+
+    Measured search uses **no dominance pruning**. `ProblemSize` omits instance
+    structure, and equal-size intermediate instances can produce different sizes under
+    a later structure-dependent reduction. Even serialized-state equivalence is not
+    used to discard a route. It is therefore a separate exhaustive simple-path
+    enumeration, not a label domain in the capped Pareto kernel.
 
     Note the measured label deliberately does **not** use branch-and-bound: a
     reduction can *shrink* the measured size, so the cost is non-monotone and a
     B&B bound could prune a partial route that would still finish smallest.
-    Memory is bounded not by B&B but by immediate eviction: the kernel frees a
-    label's `Rc` reduction chain the instant the label leaves its bag (dominated
-    or cap-truncated), so retained reduction instances are bounded by the live bag
-    entries (≤ bag cap per node) × chain length.
+    No hop or bag cap truncates this enumeration, so its time and retained constructed
+    state can grow exponentially with the number of simple paths. This also does not
+    bound temporary memory used inside `reduce_to()`.
     This fixes the path-dependent-cost hole in the current Dijkstra *and* removes
     the dependency on formula accuracy for concrete decisions.
 - `find_cheapest_path*` become thin wrappers returning the front (instance mode
@@ -278,8 +276,9 @@ pub trait PathLabel: Clone {
 - `find_dominated_rules` / `compare_overhead` (`src/rules/analysis.rs`) are rewired
   to the same `dominates` order, deleting their bespoke comparison heuristics —
   one trusted comparison everywhere (former F5).
-- `all_simple_paths`-based enumeration (`find_all_paths`, `find_paths_up_to`) remains
-  solely for the explicit `--all` listing use case, not for optimum-finding.
+- `all_simple_paths`-based enumeration remains the explicit `--all` listing mechanism;
+  measured optimum-finding now performs its own execution-aware simple-path enumeration
+  because no sound state-level dominance relation is available.
 
 Alternatives considered: enumerate-then-filter (rejected: combinatorial growth as the
 graph densifies, and any truncation limit is iteration-order-dependent — the sibling
@@ -289,8 +288,8 @@ over-engineering for two label domains); formula-evaluated instance labels (reje
 after review: overhead formulas are upper bounds over declared size fields and can be
 arbitrarily loose on structure-dependent constructions, so a formula-ranked front may
 not contain the true winner — measured sizes are the ground truth and affordable at
-interactive scales, with formulas retained as pre-flight guards and ordering
-heuristics).
+interactive scales; formulas remain available for asymptotic analysis but do not
+decide concrete feasibility).
 
 ### M4 — CLI/MCP surface (`problemreductions-cli/src/commands/graph.rs`, in-place)
 
