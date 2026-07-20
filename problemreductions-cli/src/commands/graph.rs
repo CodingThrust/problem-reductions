@@ -1,5 +1,7 @@
+use crate::cli::SearchArgs;
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
+use crate::util::{add_search_metadata, append_search_warning};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
@@ -585,17 +587,25 @@ fn path_front(
     src_variant: &BTreeMap<String, String>,
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
+    search: &SearchArgs,
     out: &OutputConfig,
 ) -> Result<()> {
-    let front = graph.asymptotic_front(
+    let outcome = graph.asymptotic_front(
         src_name,
         src_variant,
         dst_name,
         dst_variant,
         ReductionMode::Witness,
+        search.mode()?,
     );
 
-    if front.is_empty() {
+    if outcome.value.is_empty() {
+        if !outcome.completeness.is_exact() {
+            anyhow::bail!(
+                "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
+                outcome.completeness.reasons()
+            );
+        }
         let variant_hint = variant_hint_for(graph, dst_name);
         anyhow::bail!(
             "No reduction path from {} to {}\n\
@@ -610,8 +620,13 @@ fn path_front(
         );
     }
 
-    let text = format_front_text(graph, src_name, dst_name, &front);
-    let json = format_front_json(graph, src_name, dst_name, &front);
+    let mut text = format_front_text(graph, src_name, dst_name, &outcome.value);
+    append_search_warning(&mut text, &outcome.completeness);
+    let json = add_search_metadata(
+        format_front_json(graph, src_name, dst_name, &outcome.value),
+        &outcome.completeness,
+        &outcome.stats,
+    )?;
     out.emit_with_default_name("", &text, &json)
 }
 
@@ -621,6 +636,7 @@ pub fn path(
     cost: Option<&str>,
     all: bool,
     max_paths: usize,
+    search: &SearchArgs,
     out: &OutputConfig,
 ) -> Result<()> {
     let src_spec = parse_problem_spec(source)?;
@@ -646,6 +662,12 @@ pub fn path(
     // Resolve source and target to exact variant nodes
     let src_ref = resolve_problem_ref(source, &graph)?;
     let dst_ref = resolve_problem_ref(target, &graph)?;
+    if all && search.has_nondefault_policy() {
+        anyhow::bail!(
+            "--search-mode and search limits apply to ranked path search, not --all; use --max-paths to bound all-path enumeration"
+        );
+    }
+    let _ = search.mode()?;
 
     if all {
         return path_all(
@@ -669,6 +691,7 @@ pub fn path(
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
+            search,
             out,
         );
     };
@@ -700,6 +723,7 @@ pub fn path(
             &dst_ref.variant,
             &input_size,
             &MinimizeSteps,
+            search.mode()?,
         ),
         CostChoice::Field(f) => graph.find_cheapest_path(
             &src_ref.name,
@@ -708,16 +732,28 @@ pub fn path(
             &dst_ref.variant,
             &input_size,
             &Minimize(f),
+            search.mode()?,
         ),
     };
 
-    match best_path {
+    match &best_path.value {
         Some(ref reduction_path) => {
-            let text = format_path_text(&graph, reduction_path);
-            let json = format_path_json(&graph, reduction_path);
+            let mut text = format_path_text(&graph, reduction_path);
+            append_search_warning(&mut text, &best_path.completeness);
+            let json = add_search_metadata(
+                format_path_json(&graph, reduction_path),
+                &best_path.completeness,
+                &best_path.stats,
+            )?;
             out.emit_with_default_name("", &text, &json)
         }
         None => {
+            if !best_path.completeness.is_exact() {
+                anyhow::bail!(
+                    "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
+                    best_path.completeness.reasons()
+                );
+            }
             let variant_hint = variant_hint_for(&graph, &dst_spec.name);
             anyhow::bail!(
                 "No reduction path from {} to {}\n\

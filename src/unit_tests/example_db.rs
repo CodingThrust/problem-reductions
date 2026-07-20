@@ -586,24 +586,30 @@ fn rule_specs_solution_pairs_are_consistent() {
         // Try witness path first; fall back to aggregate for aggregate-only edges.
         // Some authored direct reductions are proof-only and intentionally have
         // no runtime capability in any mode.
-        let witness_path = graph.find_cheapest_path(
-            &example.source.problem,
-            &example.source.variant,
-            &example.target.problem,
-            &example.target.variant,
-            &crate::types::ProblemSize::new(vec![]),
-            &crate::rules::MinimizeSteps,
-        );
-        if witness_path.is_none() {
-            let aggregate_path = graph.find_cheapest_path_mode(
+        let witness_path = graph
+            .find_cheapest_path(
                 &example.source.problem,
                 &example.source.variant,
                 &example.target.problem,
                 &example.target.variant,
-                crate::rules::ReductionMode::Aggregate,
                 &crate::types::ProblemSize::new(vec![]),
                 &crate::rules::MinimizeSteps,
-            );
+                crate::rules::SearchMode::Exact,
+            )
+            .value;
+        if witness_path.is_none() {
+            let aggregate_path = graph
+                .find_cheapest_path_mode(
+                    &example.source.problem,
+                    &example.source.variant,
+                    &example.target.problem,
+                    &example.target.variant,
+                    crate::rules::ReductionMode::Aggregate,
+                    &crate::types::ProblemSize::new(vec![]),
+                    &crate::rules::MinimizeSteps,
+                    crate::rules::SearchMode::Exact,
+                )
+                .value;
             if aggregate_path.is_none() {
                 assert!(
                     graph.has_direct_reduction_by_name(&example.source.problem, &example.target.problem),

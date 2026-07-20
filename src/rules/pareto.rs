@@ -1,4 +1,4 @@
-//! Pareto label-setting search over the reduction graph.
+//! Multi-label elementary-path search over the reduction graph.
 //!
 //! This module replaces the old scalar Dijkstra (`ReductionGraph::dijkstra`) with a
 //! generic multi-label search. The core motivation (issue #788, design doc
@@ -8,18 +8,19 @@
 //! label per node, so a cheaper-but-larger intermediate state can poison downstream
 //! choices — it can miss the path whose *final* target is smallest.
 //!
-//! The fix is the standard algorithm for partial-order path costs — **multi-label
-//! Pareto search** (Martins 1984; McRAPTOR-style per-node label bags). Each node keeps
-//! an antichain of non-dominated labels (a "bag"); a label is only pruned when another
-//! label at the same node dominates it. See [`ReductionGraph::pareto_search`].
+//! The search keeps multiple path states per node and filters the Pareto front only at
+//! the destination. Intermediate strict dominance is deliberately forbidden: arbitrary
+//! reduction overheads may shrink, subtract, or otherwise reverse an apparent order.
+//! The current labels do not carry complete constructed instances, so even equal labels
+//! are retained as distinct intermediate states. See [`ReductionGraph::pareto_search`].
 //!
 //! Two search domains are provided:
 //! - [`CostLabel`]: a scalar formula label that reproduces Dijkstra's behavior for the
 //!   existing `PathCostFn` cost functions (used by `find_cheapest_path*`). It carries the
 //!   accumulated `ProblemSize` (from overhead formulas) and an additive scalar cost.
-//! - [`MeasuredLabel`]: concrete-instance state used by a separate exhaustive simple-path
-//!   search. It *actually executes* each reduction and measures the real constructed target
-//!   size. Asymptotic overhead formulas are not used as concrete budget bounds.
+//! - [`MeasuredLabel`]: concrete-instance state used by a separate simple-path search. It
+//!   *actually executes* each reduction and measures the real constructed target size.
+//!   Asymptotic overhead formulas are not used as concrete budget bounds.
 
 use crate::expr::Expr;
 use crate::growth::Growth;
@@ -75,13 +76,6 @@ pub(crate) fn catch_reduction<R>(f: impl FnOnce() -> R) -> Option<R> {
 /// construction itself from exhausting memory.
 pub const DEFAULT_SIZE_BUDGET: usize = 10_000_000;
 
-/// Maximum number of reduction steps (hops) explored along any path.
-pub const HOP_CAP: usize = 16;
-
-/// Maximum number of non-dominated labels retained per node. On overflow, the bag is
-/// truncated by a deterministic tie-break (never by iteration order).
-pub const BAG_CAP: usize = 32;
-
 /// A borrowed view of one reduction edge, handed to [`PathLabel::extend`].
 ///
 /// It exposes exactly what a label needs to advance: the overhead formula (for symbolic
@@ -101,46 +95,38 @@ pub struct ReductionEdge<'g> {
     pub target_variant: &'g BTreeMap<String, String>,
 }
 
-/// A path cost that composes along reduction edges under a partial order.
+/// Abstract state carried along a reduction path.
 ///
-/// **Isotonicity invariant (correctness condition for dominance pruning):** if label
-/// `A` dominates label `B`, then for any edge `e`, `A.extend(e)` dominates `B.extend(e)`
-/// (when both are `Some`). This follows from the monotonicity of overhead / reduction
-/// size in the source size. The Pareto search relies on it to safely discard dominated
-/// labels.
-///
-/// The kernel prunes by [`dominates`](PathLabel::dominates) alone — it does **not**
-/// branch-and-bound on [`cost`](PathLabel::cost). Dominance is exact for every label
-/// domain, whereas a scalar B&B bound would only be sound for a monotone `cost`; a label's
-/// scalar summary may shrink across an edge or summarize an incomparable growth vector.
-/// `cost` is used only for frontier ordering and the deterministic final tie-break.
+/// The kernel never prunes or coalesces an intermediate state: the built-in labels do
+/// not contain enough information to prove that two constructed problems are identical.
+/// Terminal dominance is applied only after a path reaches the destination, where no
+/// future extension can reverse the order. [`cost`](PathLabel::cost) is used only for
+/// agenda ordering and deterministic result ordering.
 pub trait PathLabel: Clone {
     /// Advance this label across `edge`. Returns `None` when a label-domain guard rejects
-    /// the edge. A `None` must be *isotone*:
-    /// if `A` dominates `B` and `A.extend(e)` is `None`, that is fine, but a guard must
-    /// never prune a dominating label while keeping a dominated one.
+    /// the edge.
     fn extend(&self, edge: &ReductionEdge) -> Option<Self>;
 
-    /// Partial order used to keep each node's bag an antichain. Implementations must
-    /// satisfy the isotonicity invariant above.
-    fn dominates(&self, other: &Self) -> bool;
+    /// Weak Pareto order used only to filter completed labels at the destination.
+    ///
+    /// Implementations must provide a reflexive and transitive relation. Mutual
+    /// dominance denotes the same terminal objective vector; the kernel then retains the
+    /// deterministic best path representative.
+    fn final_dominates(&self, other: &Self) -> bool;
 
     /// Scalar summary used only for frontier ordering and the deterministic final
-    /// tie-break — never for pruning (the kernel prunes by [`dominates`] alone). Smaller
+    /// tie-break — never for pruning. Smaller
     /// is better. It need not be monotone along `extend`.
     ///
-    /// [`dominates`]: PathLabel::dominates
     fn cost(&self) -> f64;
 }
 
 /// Formula-based label for a [`PathCostFn`].
 ///
 /// Carries the accumulated `ProblemSize` (advanced through overhead formulas) and the
-/// additive scalar cost. Because a future edge's [`edge_cost`](PathCostFn::edge_cost)
-/// depends on the carried size, dominance is **componentwise Pareto over `(cost, size)`**,
-/// not scalar: a cheaper-but-larger prefix must not evict a costlier-but-smaller one whose
-/// continuation is globally cheapest. Each node therefore keeps the antichain of
-/// non-dominated `(cost, size)` labels rather than a single minimum-cost representative.
+/// additive scalar cost. Neither value identifies the actual constructed problem, so
+/// equal or componentwise-better labels are never used to remove an intermediate path.
+/// Componentwise Pareto order over `(cost, size)` is used only at the destination.
 pub struct CostLabel<'c, C: PathCostFn> {
     size: ProblemSize,
     cost: f64,
@@ -180,11 +166,7 @@ impl<C: PathCostFn> PathLabel for CostLabel<'_, C> {
         })
     }
 
-    fn dominates(&self, other: &Self) -> bool {
-        // Path-dependent costs: a future edge's `edge_cost` depends on the carried size,
-        // so `self` may only evict `other` when it is componentwise no worse in BOTH the
-        // accumulated cost and the carried size. Scalar `cost <= other.cost` alone would
-        // let a cheap-but-large prefix evict the globally optimal small one.
+    fn final_dominates(&self, other: &Self) -> bool {
         self.cost <= other.cost && size_le(&self.size, &other.size)
     }
 
@@ -200,7 +182,14 @@ enum MeasuredPos<'a> {
     Source(&'a dyn Any),
     /// At a reduced node: the last reduction step's result. The current problem instance
     /// is `result.target_problem_any()`.
-    Reduced(Rc<dyn DynReductionResult>),
+    Reduced(Rc<MeasuredStep>),
+}
+
+/// One persistent reduction-chain link. Sharing predecessors makes label extension O(1)
+/// in path depth while keeping every constructed intermediate alive as long as needed.
+struct MeasuredStep {
+    result: Rc<dyn DynReductionResult>,
+    previous: Option<Rc<MeasuredStep>>,
 }
 
 /// The concrete-instance measured label (design doc M3/F3b).
@@ -212,22 +201,20 @@ enum MeasuredPos<'a> {
 ///
 /// 1. **Execute + measure:** run `reduce_to()`, measure the real target size; over budget
 ///    → `None`.
-/// 2. **No comparative pruning:** measured states are enumerated by a separate exhaustive
+/// 2. **No comparative pruning:** measured states are enumerated by a separate
 ///    simple-path search. Neither size vectors nor serialized representations discard a
-///    constructed route before its downstream reductions are measured, and Pareto bag/hop
-///    caps do not apply.
+///    constructed route before its downstream reductions are measured. Exact mode has no
+///    search caps; approximate mode applies only its explicit reported limits.
 ///
 /// **Memory.** The budget is checked only after a reduction has constructed its target,
 /// so it cannot prevent a reduction itself from exhausting memory. It limits which
-/// constructed instances remain eligible for further search. Exhaustive simple-path
-/// enumeration can take exponential time and retain large constructed chains.
+/// constructed instances remain eligible for further search. Exact simple-path
+/// enumeration can take exponential time; persistent chain links release completed
+/// branches instead of copying every prefix.
 #[derive(Clone)]
 pub struct MeasuredLabel<'a> {
     /// Measured size of the problem instance at the current node.
     size: ProblemSize,
-    /// The reduction steps executed so far (empty at the source). Shared via `Rc` so
-    /// cloning a label is cheap and never re-executes a reduction.
-    chain: Vec<Rc<dyn DynReductionResult>>,
     /// Current constructed position.
     pos: MeasuredPos<'a>,
     /// Hard total-size budget.
@@ -242,15 +229,24 @@ impl<'a> MeasuredLabel<'a> {
     pub fn new(source: &'a dyn Any, source_size: ProblemSize, budget: usize) -> Self {
         Self {
             size: source_size,
-            chain: Vec::new(),
             pos: MeasuredPos::Source(source),
             budget,
         }
     }
 
-    /// The reduction chain executed to reach this label (one entry per hop).
-    pub(crate) fn chain(&self) -> &[Rc<dyn DynReductionResult>] {
-        &self.chain
+    /// Reconstruct the reduction chain executed to reach this label.
+    pub(crate) fn chain(&self) -> Vec<Rc<dyn DynReductionResult>> {
+        let mut chain = Vec::new();
+        let mut step = match &self.pos {
+            MeasuredPos::Source(_) => None,
+            MeasuredPos::Reduced(step) => Some(Rc::clone(step)),
+        };
+        while let Some(current) = step {
+            chain.push(Rc::clone(&current.result));
+            step = current.previous.as_ref().map(Rc::clone);
+        }
+        chain.reverse();
+        chain
     }
 
     /// The measured problem size at this label's node.
@@ -270,7 +266,7 @@ impl<'a> MeasuredLabel<'a> {
         let reduce_fn = edge.reduce_fn?;
         let current: &dyn Any = match &self.pos {
             MeasuredPos::Source(s) => *s,
-            MeasuredPos::Reduced(r) => r.target_problem_any(),
+            MeasuredPos::Reduced(step) => step.result.target_problem_any(),
         };
         let target_name = edge.target_name;
         let (result, measured) = catch_reduction(|| {
@@ -285,12 +281,14 @@ impl<'a> MeasuredLabel<'a> {
             return None;
         }
 
-        let mut chain = self.chain.clone();
-        chain.push(result.clone());
+        let previous = match &self.pos {
+            MeasuredPos::Source(_) => None,
+            MeasuredPos::Reduced(step) => Some(Rc::clone(step)),
+        };
+        let step = Rc::new(MeasuredStep { result, previous });
         Some(Self {
             size: measured,
-            chain,
-            pos: MeasuredPos::Reduced(result),
+            pos: MeasuredPos::Reduced(step),
             budget: self.budget,
         })
     }
@@ -321,17 +319,13 @@ fn size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
 /// exponent, factorial) has no `Expr`; any target field depending on it becomes
 /// `Unknown` too — the bound is never fabricated.
 ///
-/// [`dominates`](PathLabel::dominates) is componentwise in the **search** sense
-/// (smaller growth = better): `self` dominates `other` iff for *every* field `self`
-/// grows no faster than `other`, and strictly slower on at least one. Because
+/// [`final_dominates`](PathLabel::final_dominates) is componentwise in the **search**
+/// sense (smaller growth = better): `self` terminally dominates `other` iff for every field
+/// `self` grows no faster than `other`. It is used only at the destination. Because
 /// `Unknown` is the top of the growth order, a label with an `Unknown` field is
 /// dominated by any fully-known label — undecidable paths rank last, the honest
 /// ranking.
 ///
-/// **Isotonicity** (the correctness condition for the kernel's dominance pruning)
-/// follows from the growth domain's monotonicity axiom: `from_expr` composed with
-/// substitution into weakly-monotone overhead expressions preserves the growth
-/// order, so `A ⪰ B ⇒ extend(A,e) ⪰ extend(B,e)`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GrowthLabel {
     /// Current node's size fields → growth in the source problem's variables.
@@ -403,15 +397,14 @@ impl PathLabel for GrowthLabel {
         Some(GrowthLabel { fields: new_fields })
     }
 
-    fn dominates(&self, other: &Self) -> bool {
-        // Search-sense componentwise dominance over the union of fields (labels
-        // compared are at the same node, so their field sets coincide; the union is
-        // defensive). `self` dominates `other` iff `self` grows no faster on every
-        // field and strictly slower on at least one.
+    fn final_dominates(&self, other: &Self) -> bool {
+        // Search-sense componentwise terminal dominance over the union of fields
+        // (labels compared are at the same node, so their field sets coincide; the
+        // union is defensive). Equality counts so the terminal front has one
+        // deterministic representative per growth vector.
         //
         // `Growth::dominates(a, b)` means "a grows ≥ b", with `Unknown` as top. So:
         //   self ≤ other on field f  ⟺  other_f.dominates(self_f)
-        // and self is strictly better on f iff additionally NOT self_f.dominates(other_f).
         let o1 = Growth::Terms(Vec::new()); // O(1): the bottom, for absent fields.
         let keys: BTreeSet<&'static str> = self
             .fields
@@ -419,7 +412,6 @@ impl PathLabel for GrowthLabel {
             .chain(other.fields.keys())
             .copied()
             .collect();
-        let mut strict = false;
         for k in keys {
             let s = self.fields.get(k).unwrap_or(&o1);
             let o = other.fields.get(k).unwrap_or(&o1);
@@ -427,20 +419,14 @@ impl PathLabel for GrowthLabel {
                 // self grows strictly faster than other here → self does not dominate.
                 return false;
             }
-            if !s.dominates(o) {
-                // other ≥ self but self ⋡ other ⇒ self strictly slower on this field.
-                strict = true;
-            }
         }
-        strict
+        true
     }
 
     fn cost(&self) -> f64 {
         // Heuristic scalar summary for frontier ordering and the deterministic final
-        // tie-break ONLY — never for pruning (dominance is the exact partial order, and
-        // asymptotic growth is incomparable so no scalar bound could separate front
-        // members). Summed field magnitudes; `Unknown` fields dominate the sum, ranking
-        // undecidable paths last.
+        // tie-break ONLY — never for intermediate pruning. Summed field magnitudes;
+        // `Unknown` fields dominate the sum, ranking undecidable paths last.
         self.fields.values().map(|g| g.magnitude()).sum()
     }
 }

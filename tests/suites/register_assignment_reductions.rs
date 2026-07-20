@@ -19,7 +19,9 @@ fn ksat_to_fra_path() -> ReductionPath {
             &dst,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
+            problemreductions::rules::SearchMode::Exact,
         )
+        .value
         .expect("expected a direct KSatisfiability<K3> -> FeasibleRegisterAssignment path")
 }
 
@@ -35,7 +37,9 @@ fn fra_to_ilp_path() -> ReductionPath {
             &dst,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
+            problemreductions::rules::SearchMode::Exact,
         )
+        .value
         .expect("expected a direct FeasibleRegisterAssignment -> ILP<i32> path")
 }
 

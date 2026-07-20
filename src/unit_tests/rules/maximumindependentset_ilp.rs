@@ -20,7 +20,9 @@ fn reduce_mis_to_ilp(
             &dst,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path MaximumIndependentSet -> ILP");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)

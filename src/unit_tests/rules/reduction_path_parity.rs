@@ -27,7 +27,9 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
             &dst_var,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path MaxCut -> SpinGlass");
 
     // Petersen graph: 10 vertices, 15 edges
@@ -82,7 +84,9 @@ fn test_jl_parity_maxcut_to_qubo_path() {
             &dst_var,
             &ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]),
             &MinimizeStepsThenOverhead,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path MaxCut -> QUBO");
 
     // Use a small graph for brute-force feasibility
@@ -133,7 +137,9 @@ fn test_jl_parity_factoring_to_spinglass_path() {
             &dst_var,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path Factoring -> SpinGlass");
 
     // Julia: Factoring(2, 1, 3) — factor 3 with 2-bit x 1-bit
@@ -205,7 +211,9 @@ fn test_find_cheapest_path_with_problem_size() {
             &dst_var,
             &input_size,
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path MaxCut -> SpinGlass");
 
     assert!(!rpath.type_names().is_empty());

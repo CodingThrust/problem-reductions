@@ -160,7 +160,9 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
                 ("num_triples", problem.num_triples()),
             ]),
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("reduction graph should find a direct 3DM -> ILP path");
 
     assert_eq!(path.type_names(), vec!["ThreeDimensionalMatching", "ILP"]);

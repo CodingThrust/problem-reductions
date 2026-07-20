@@ -23,7 +23,9 @@ fn reduce_vc_to_qubo(
                 ("num_edges", problem.graph().num_edges()),
             ]),
             &Minimize("num_vars"),
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("Should find path MinimumVertexCover -> QUBO");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)

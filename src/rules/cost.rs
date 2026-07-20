@@ -7,11 +7,9 @@ use crate::types::ProblemSize;
 pub trait PathCostFn {
     /// Compute cost of taking an edge given current problem size.
     ///
-    /// Implementations **must** be monotone in `current_size` (a componentwise-larger
-    /// size never yields a smaller edge cost). The Pareto search prunes by `(cost, size)`
-    /// dominance, and this monotonicity is what gives the isotonicity that makes such
-    /// pruning sound. (A nonnegative cost is also expected — all shipped implementations
-    /// return one — though the kernel no longer branch-and-bounds on it.)
+    /// This need not be monotone in `current_size`: intermediate strict dominance is not
+    /// used by the exact search. The value controls agenda ordering and contributes to
+    /// the completed path's final cost.
     fn edge_cost(&self, overhead: &ReductionOverhead, current_size: &ProblemSize) -> f64;
 }
 

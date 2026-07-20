@@ -1,6 +1,12 @@
 # Symbolic Growth Domain & Pareto Path Search — Product Design
 
 Status: approved design, ready for decomposition into issues.
+
+Update: [`exact-approximate-path-search.md`](exact-approximate-path-search.md)
+supersedes this document's implicit 16-hop/32-label search caps. The symbolic `Growth`
+domain remains unchanged; search completeness is now an explicit `Exact` or
+`Approximate` caller choice.
+
 Origin: issue #1069 (`pred path --all` OOMs/hangs in `big_o_normal_form`). The acute
 symptom is already mitigated on `main` by a stopgap: `MAX_CANONICAL_TERMS = 50_000`
 in `canonical.rs` aborts oversized expansions, and the CLI falls back to printing the
@@ -71,10 +77,10 @@ e-graph engines; asymptotics theory and formalization). Borrow-vs-build verdict:
 |---|---|---|
 | Albert–Alonso–Arenas–Genaim–Puebla, *Asymptotic Resource Usage Bounds* (APLAS 2009) | **Adopt as spec** | Published normal form (sums of products of `2^(r·A)`, `A^r`, `log A`) with a soundness theorem `e ∈ Θ(asymp(e))` — our correctness contract |
 | SageMath `AsymptoticRing` / growth groups | **Borrow the design, not the code** | GPL; the core (exponent-vector arithmetic + poset of summands with O-term absorption) is small enough to reimplement cleanly |
-| KoAT weakly-monotone bound grammar (Brockschmidt et al., TOPLAS 2016) | **Adopt as axiom** | Weak monotonicity ⇒ composition-by-substitution is sound ⇒ Pareto label search is correct (isotonicity) |
+| KoAT weakly-monotone bound grammar (Brockschmidt et al., TOPLAS 2016) | **Adopt for the growth domain** | Weak monotonicity supports sound composition-by-substitution inside the abstract domain; repository reduction overheads remain too general for intermediate path pruning |
 | LLVM SCEV / GCC chrec | **Adopt patterns** | Construction-time canonicalization, explicit budgets with graceful degradation, absorbing "don't know" sentinel (`SCEVCouldNotCompute`, `chrec_dont_know`) |
 | Multivariate Big-O semantics: Howell (KSU TR 2007-4); Guéneau–Charguéraud–Pottier (ESOP 2018) | **Adopt definition** | Naive multivariate O is inconsistent (Howell Thm 2.3/2.4); the product-filter definition restricted to nonnegative weakly-monotone functions is the trustworthy one |
-| McRAPTOR / OpenTripPlanner `ParetoSet` / nigiri `pareto_set.h`; Martins 1984; NAMOA* | **Adopt algorithm** | Per-node label bags (antichains) with dominance pruning are the industry and literature standard for partial-order path costs; enumerate-then-filter appears nowhere as a recommended method |
+| McRAPTOR / OpenTripPlanner `ParetoSet` / nigiri `pareto_set.h`; Martins 1984; NAMOA* | **Conditional reference** | Per-node dominance requires continuation-complete labels and order-preserving extension. This package cannot prove either condition for arbitrary reductions, so it retains intermediate paths and filters only at the destination |
 | ProblemReductions.jl `reduction_paths` | **Anti-pattern baseline** | `all_simple_paths` with no cost model, no ranking, no filter; survives only because its graph is tiny |
 | egg / egglog e-graphs | **Dropped** | Directional normalization doesn't need equality saturation (Cranelift aegraph retrospective: mean e-class size 1.13); egglog API unstable |
 | SymPy / GiNaC / Symbolica | **Concepts only** | Never auto-expand; deterministic total order on atoms; function-registry extensibility (deferred with F6) |
@@ -141,10 +147,9 @@ These definitions and axioms are the trust contract; tests enforce them.
 - **Forbidden moves (documented + tested):** never specialize a variable to a
   constant inside an O-fact; never rescale coefficients of exponents
   (`2^(2n) ∉ O(2^n)` — exp rates compare coefficientwise, exactly).
-- **Isotonicity invariant (for search):** if label `A` dominates label `B`, then for
-  any edge `e`, `extend(A, e)` dominates `extend(B, e)`. This follows from the
-  monotonicity axiom (composition by substitution into monotone expressions) and is
-  the correctness condition for dominance pruning in M3.
+- **Search boundary:** growth-domain monotonicity does not license intermediate path
+  pruning. Repository overheads may contain subtraction and labels omit constructed
+  instance structure. M3 therefore uses growth order only on completed paths.
 
 ## Modules
 
@@ -218,29 +223,29 @@ and reintroduces order-dependent truncation); per-edge growth caching in
 `ReductionEntry` with per-path folding (rejected for now: YAGNI at current graph
 size; revisit if profiling ever shows `from_expr` on composed paths as hot).
 
-### M3 — Pareto label search kernel (`src/rules/graph.rs`, in-place)
+### M3 — Multi-label elementary-path kernel (`src/rules/graph.rs`, in-place)
 
-Replace `dijkstra` (~60 lines) with one generic label-setting search (~100 lines)
+Replace `dijkstra` with one generic multi-label elementary-path search
 plus a minimal trait:
 
 ```rust
 pub trait PathLabel: Clone {
-    fn extend(&self, edge: &ReductionEdge) -> Self;   // must be isotone
-    fn dominates(&self, other: &Self) -> bool;        // partial order
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self>;
+    fn final_dominates(&self, other: &Self) -> bool;
 }
 ```
 
-- Per-node **bag** = antichain of non-dominated labels, each with a predecessor
-  pointer for path reconstruction (McRAPTOR structure).
-- Deterministic bounding, in the style of transit routers: hop cap (default 16) and
-  per-node bag cap with a **deterministic tie-break** (fewest hops, then
-  lexicographic node-name order) — never iteration-order truncation. A label evicted
-  from a bag (dominated or cap-truncated) has its arena slot's label freed immediately,
-  so the bag cap genuinely bounds retained per-node label memory.
+- Exact mode uses DFS backtracking over elementary paths and streams completed labels into
+  the terminal front, so dead prefixes are released as each branch returns. Approximate
+  mode uses per-node bags to apply caller-provided hop, label, expanded-state, and timeout
+  limits and reports every limit that affected completeness. Every intermediate path
+  remains distinct: equal cost, size, or growth summaries do not prove identical
+  constructed problems. Dominance is terminal-only because repository overheads may be
+  non-monotone.
 - Label domains:
   - **F3a asymptotic:** label = `BTreeMap<field, Growth>` mapping each size field of
     the current node to its growth in the source's variables; `extend` substitutes
-    the edge's overhead expressions; `dominates` is componentwise. Exponential
+    the edge's overhead expressions; terminal dominance is componentwise. Exponential
     growth is comparable via the `exp` field (polynomial paths dominate exponential
     ones); `Unknown` fields make a label dominated by any known label — undecidable
     paths rank last, which is the honest ranking.
@@ -260,15 +265,16 @@ pub trait PathLabel: Clone {
     Measured search uses **no dominance pruning**. `ProblemSize` omits instance
     structure, and equal-size intermediate instances can produce different sizes under
     a later structure-dependent reduction. Even serialized-state equivalence is not
-    used to discard a route. It is therefore a separate exhaustive simple-path
-    enumeration, not a label domain in the capped Pareto kernel.
+    used to discard a route. It is therefore a separate simple-path enumeration, not a
+    label domain in the Pareto kernel.
 
     Note the measured label deliberately does **not** use branch-and-bound: a
     reduction can *shrink* the measured size, so the cost is non-monotone and a
     B&B bound could prune a partial route that would still finish smallest.
-    No hop or bag cap truncates this enumeration, so its time and retained constructed
-    state can grow exponentially with the number of simple paths. This also does not
-    bound temporary memory used inside `reduce_to()`.
+    Exact mode does not truncate this enumeration, so its time and retained constructed
+    state can grow exponentially with the number of simple paths. Approximate mode uses
+    only its explicit reported limits. Neither mode bounds temporary memory used inside
+    `reduce_to()`.
     This fixes the path-dependent-cost hole in the current Dijkstra *and* removes
     the dependency on formula accuracy for concrete decisions.
 - `find_cheapest_path*` become thin wrappers returning the front (instance mode
@@ -280,10 +286,8 @@ pub trait PathLabel: Clone {
   measured optimum-finding now performs its own execution-aware simple-path enumeration
   because no sound state-level dominance relation is available.
 
-Alternatives considered: enumerate-then-filter (rejected: combinatorial growth as the
-graph densifies, and any truncation limit is iteration-order-dependent — the sibling
-package ProblemReductions.jl does exactly this, with no cost model, and it is the
-baseline we are improving on); a generic semiring algebraic-path framework (rejected:
+Alternatives considered: unrestricted walks (rejected because cycles make the state
+space unbounded); a generic semiring algebraic-path framework (rejected:
 over-engineering for two label domains); formula-evaluated instance labels (rejected
 after review: overhead formulas are upper bounds over declared size fields and can be
 arbitrarily loose on structure-dependent constructions, so a formula-ranked front may
@@ -314,7 +318,8 @@ decide concrete feasibility).
   order get randomized property tests (≥ 5000 checks, matching the repo's
   verify-reduction culture): `eval(expr) ≤ C · eval(render(growth(expr)))` at large
   sizes; `growth` idempotent on its own rendering; `dominates(a,b)` ⟹ sampled
-  `eval(b)/eval(a)` grows. Isotonicity of both `PathLabel` impls is property-tested.
+  `eval(b)/eval(a)` grows. Positive monotone overheads preserve `GrowthLabel` order,
+  but search correctness does not depend on intermediate isotonicity.
 - **Determinism:** identical output across platforms; a test compares `pred path`
   output against golden files (antichain and front ordering are total and
   deterministic by construction).

@@ -4,6 +4,7 @@ pub mod analysis;
 pub mod cost;
 pub mod pareto;
 pub mod registry;
+pub mod search;
 pub use cost::{
     CustomCost, Minimize, MinimizeOutputSize, MinimizeSteps, MinimizeStepsThenOverhead, PathCostFn,
 };
@@ -410,8 +411,11 @@ pub use graph::{
     ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
 pub use pareto::{
-    CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge, BAG_CAP, DEFAULT_SIZE_BUDGET,
-    HOP_CAP,
+    CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge, DEFAULT_SIZE_BUDGET,
+};
+pub use search::{
+    ApproximationPolicy, LimitReached, SearchCompleteness, SearchLimits, SearchMode, SearchOutcome,
+    SearchStats,
 };
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,

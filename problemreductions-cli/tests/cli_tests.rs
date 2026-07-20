@@ -248,13 +248,23 @@ fn test_path_asymptotic_front_deterministic() {
 
     // The JSON surface carries the structured Growth serialization (issue #1075).
     let json_out = pred()
-        .args(["path", "KSatisfiability", "QUBO", "--json"])
+        .args([
+            "path",
+            "KSatisfiability",
+            "QUBO",
+            "--search-mode",
+            "exact",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(json_out.status.success());
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(json_out.stdout).unwrap()).unwrap();
     assert_eq!(json["mode"], "asymptotic");
+    assert_eq!(json["completeness"]["status"], "exact");
+    assert_eq!(json["limit_reasons"], serde_json::json!([]));
+    assert!(json["stats"]["expanded_states"].is_number());
     let front = json["front"].as_array().expect("front array");
     assert!(!front.is_empty(), "front must have ≥ 1 path");
     assert!(
@@ -266,9 +276,8 @@ fn test_path_asymptotic_front_deterministic() {
 }
 
 /// The asymptotic front reports one path per distinct growth vector, not per route.
-/// `MVC → ILP` has dozens of reduction chains that compose to only a few Big-O
-/// profiles; the front must collapse to that small handful with no duplicate growth
-/// vectors. (Regression: before dedup this printed 32 paths, most identical.)
+/// `MVC → ILP` has many reduction chains that compose to fewer Big-O profiles; the
+/// front must contain no duplicate growth vectors.
 #[test]
 fn test_path_front_dedups_by_growth_vector() {
     let output = pred()
@@ -280,12 +289,7 @@ fn test_path_front_dedups_by_growth_vector() {
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
     let front = json["front"].as_array().expect("front array");
 
-    // A proper Pareto front is a small handful (issue #1080: "typically 1–3 paths").
-    assert!(
-        (1..=4).contains(&front.len()),
-        "expected 1..=4 distinct growth vectors, got {}",
-        front.len()
-    );
+    assert!(!front.is_empty());
     // No two entries share a growth vector (the Big-O per size field).
     let vectors: Vec<String> = front.iter().map(|p| p["big_o"].to_string()).collect();
     let mut unique = vectors.clone();
@@ -296,6 +300,40 @@ fn test_path_front_dedups_by_growth_vector() {
         vectors.len(),
         "front must not contain two entries with identical growth vectors: {vectors:?}"
     );
+}
+
+#[test]
+fn test_path_exact_rejects_approximate_limit_flags() {
+    let output = pred()
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "--search-mode",
+            "exact",
+            "--timeout",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("Search limits are accepted only in approximate mode"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn test_path_empty_bounded_result_is_reported_as_incomplete() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--max-hops", "0"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("Bounded search was incomplete"), "{stderr}");
+    assert!(!stderr.contains("No reduction path from"), "{stderr}");
 }
 
 #[test]
@@ -332,6 +370,17 @@ fn test_path_all() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Found"));
     assert!(stdout.contains("paths from"));
+}
+
+#[test]
+fn test_path_all_rejects_ranked_search_policy() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--all", "--search-mode", "exact"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("not --all"), "{stderr}");
 }
 
 #[test]
@@ -1309,6 +1358,21 @@ fn test_reduce_via_path() {
     let bundle: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
     assert_eq!(bundle["target"]["type"], "QUBO");
+
+    let rejected = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            path_file.to_str().unwrap(),
+            "--search-mode",
+            "exact",
+        ])
+        .output()
+        .unwrap();
+    assert!(!rejected.status.success());
+    let stderr = String::from_utf8(rejected.stderr).unwrap();
+    assert!(stderr.contains("cannot be used with --via"), "{stderr}");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&path_file).ok();

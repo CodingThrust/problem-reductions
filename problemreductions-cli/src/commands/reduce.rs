@@ -1,9 +1,11 @@
+use crate::cli::SearchArgs;
 use crate::dispatch::{
     load_problem, read_input, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput,
     ReductionBundle,
 };
 use crate::output::OutputConfig;
 use crate::problem_name::resolve_problem_ref;
+use crate::util::{add_search_metadata, append_search_warning};
 use anyhow::{Context, Result};
 use problemreductions::rules::{
     MinimizeSteps, ReductionGraph, ReductionMode, ReductionPath, ReductionStep,
@@ -55,6 +57,7 @@ pub fn reduce(
     input: &Path,
     target: Option<&str>,
     via: Option<&Path>,
+    search: &SearchArgs,
     out: &OutputConfig,
 ) -> Result<()> {
     // 1. Load source problem
@@ -72,7 +75,12 @@ pub fn reduce(
     let graph = ReductionGraph::new();
 
     // 3. Get reduction path: from --via file or auto-discover
-    let reduction_path = if let Some(path_file) = via {
+    let (reduction_path, search_metadata) = if let Some(path_file) = via {
+        if search.has_nondefault_policy() {
+            anyhow::bail!(
+                "--search-mode and search limits cannot be used with --via because the path is already explicit"
+            );
+        }
         let path = load_path_file(path_file)?;
         // Validate that the path starts with the source
         let first = path.steps.first().unwrap();
@@ -99,7 +107,7 @@ pub fn reduce(
                 );
             }
         }
-        path
+        (path, None)
     } else {
         // --to is required when --via is not given
         let target = target.ok_or_else(|| {
@@ -122,9 +130,16 @@ pub fn reduce(
             ReductionMode::Witness,
             &input_size,
             &MinimizeSteps,
+            search.mode()?,
         );
 
-        best_path.ok_or_else(|| {
+        let path = best_path.value.ok_or_else(|| {
+            if !best_path.completeness.is_exact() {
+                return anyhow::anyhow!(
+                    "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
+                    best_path.completeness.reasons()
+                );
+            }
             let variant_hint = variant_hint_for(&graph, &dst_ref.name);
             anyhow::anyhow!(
                 "No witness-capable reduction path from {} to {}\n\
@@ -138,7 +153,8 @@ pub fn reduce(
                 dst_ref.name,
                 input.display(),
             )
-        })?
+        })?;
+        (path, Some((best_path.completeness, best_path.stats)))
     };
 
     // 4. Execute reduction chain via reduce_along_path
@@ -180,7 +196,10 @@ pub fn reduce(
             .collect(),
     };
 
-    let json = serde_json::to_value(&bundle)?;
+    let mut json = serde_json::to_value(&bundle)?;
+    if let Some((completeness, stats)) = search_metadata.as_ref() {
+        json = add_search_metadata(json, completeness, stats)?;
+    }
 
     let mut text = format!(
         "Reduced {} to {} ({} steps)\n",
@@ -189,6 +208,9 @@ pub fn reduce(
         reduction_path.len(),
     );
     text.push_str(&format!("\nPath: {}\n", reduction_path));
+    if let Some((completeness, _)) = search_metadata.as_ref() {
+        append_search_warning(&mut text, completeness);
+    }
     text.push_str(
         "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
     );

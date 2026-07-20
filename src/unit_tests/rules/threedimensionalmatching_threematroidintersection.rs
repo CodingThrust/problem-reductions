@@ -92,7 +92,9 @@ fn test_threedimensionalmatching_to_threematroidintersection_direct_path_exists(
                 ("num_triples", source.num_triples()),
             ]),
             &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
         )
+        .value
         .expect("reduction graph should find the direct 3DM -> 3MI edge");
 
     assert_eq!(

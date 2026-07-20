@@ -257,15 +257,22 @@ impl ILPSolver {
             .variants_for("ILP")
             .into_iter()
             .filter_map(|target_variant| {
-                graph.find_cheapest_path_mode(
-                    name,
-                    variant,
-                    "ILP",
-                    &target_variant,
-                    ReductionMode::Witness,
-                    &input_size,
-                    &crate::rules::MinimizeSteps,
-                )
+                graph
+                    .find_cheapest_path_mode(
+                        name,
+                        variant,
+                        "ILP",
+                        &target_variant,
+                        ReductionMode::Witness,
+                        &input_size,
+                        &crate::rules::MinimizeSteps,
+                        crate::rules::SearchMode::Approximate(
+                            crate::rules::ApproximationPolicy::Bounded(
+                                crate::rules::SearchLimits::interactive(),
+                            ),
+                        ),
+                    )
+                    .value
             })
             .collect();
         candidates.sort_by(|a, b| {
@@ -312,14 +319,18 @@ impl ILPSolver {
         // A preferred shortest path can be instance-infeasible even when another route
         // works. Fall back to the uncapped, execution-aware measured enumeration before
         // reporting that no witness path exists.
-        if let Some(measured) = graph.find_measured_best_path_to_name(
-            name,
-            variant,
-            "ILP",
-            ReductionMode::Witness,
-            instance,
-            crate::rules::DEFAULT_SIZE_BUDGET,
-        ) {
+        if let Some(measured) = graph
+            .find_measured_best_path_to_name(
+                name,
+                variant,
+                "ILP",
+                ReductionMode::Witness,
+                instance,
+                crate::rules::DEFAULT_SIZE_BUDGET,
+                crate::rules::SearchMode::Exact,
+            )
+            .value
+        {
             let ilp_solution = self
                 .solve_dyn(measured.target_problem_any())
                 .ok_or_else(|| SolveViaReductionError::NoSolution {
@@ -359,7 +370,9 @@ impl ILPSolver {
                     ReductionMode::Aggregate,
                     &input_size,
                     &crate::rules::MinimizeSteps,
+                    crate::rules::SearchMode::Exact,
                 )
+                .value
                 .is_some()
         })
     }

@@ -556,7 +556,9 @@ mod qubo_reductions {
                     ("num_edges", is.graph().num_edges()),
                 ]),
                 &Minimize("num_vars"),
+                problemreductions::rules::SearchMode::Exact,
             )
+            .value
             .expect("Should find path MaximumIndependentSet -> QUBO");
         let chain = graph
             .reduce_along_path(&path, &is as &dyn std::any::Any)
@@ -847,7 +849,9 @@ mod qubo_reductions {
                     ("num_edges", vc.graph().num_edges()),
                 ]),
                 &Minimize("num_vars"),
+                problemreductions::rules::SearchMode::Exact,
             )
+            .value
             .expect("Should find path MVC -> QUBO");
         assert_eq!(
             path.type_names(),

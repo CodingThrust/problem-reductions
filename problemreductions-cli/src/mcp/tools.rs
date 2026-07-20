@@ -8,7 +8,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow,
+    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, SearchMode, TraversalFlow,
 };
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
@@ -58,6 +58,48 @@ pub struct FindPathParams {
     pub all: Option<bool>,
     #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
     pub max_paths: Option<usize>,
+    #[serde(flatten)]
+    pub search: SearchParams,
+}
+
+#[derive(Clone, Copy, Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchModeParam {
+    Exact,
+    Approximate,
+}
+
+#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
+pub struct SearchParams {
+    #[schemars(description = "Search completeness: exact or approximate (default)")]
+    pub search_mode: Option<SearchModeParam>,
+    pub max_hops: Option<usize>,
+    pub max_labels_per_node: Option<usize>,
+    pub max_expanded_states: Option<usize>,
+    #[schemars(description = "Wall-clock search timeout in seconds")]
+    pub timeout: Option<u64>,
+}
+
+impl SearchParams {
+    fn mode(&self) -> anyhow::Result<SearchMode> {
+        util::build_search_mode(
+            matches!(self.search_mode, Some(SearchModeParam::Exact)),
+            util::SearchLimitOverrides {
+                max_hops: self.max_hops,
+                max_labels_per_node: self.max_labels_per_node,
+                max_expanded_states: self.max_expanded_states,
+                timeout_seconds: self.timeout,
+            },
+        )
+    }
+
+    fn has_nondefault_policy(&self) -> bool {
+        !matches!(self.search_mode, None | Some(SearchModeParam::Approximate))
+            || self.max_hops.is_some()
+            || self.max_labels_per_node.is_some()
+            || self.max_expanded_states.is_some()
+            || self.timeout.is_some()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +140,8 @@ pub struct ReduceParams {
     pub problem_json: String,
     #[schemars(description = "Target problem type (e.g., QUBO, ILP, SpinGlass)")]
     pub target: String,
+    #[serde(flatten)]
+    pub search: SearchParams,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -255,34 +299,48 @@ impl McpServer {
         cost: Option<&str>,
         all: bool,
         max_paths: usize,
+        search: &SearchParams,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
+        if all && search.has_nondefault_policy() {
+            anyhow::bail!(
+                "search_mode and search limits apply to ranked path search, not all-path enumeration; use max_paths instead"
+            );
+        }
+        let _ = search.mode()?;
 
         // No `cost` and not `all`: return the instance-free asymptotic Pareto front
         // (issue #1080), using the structured `Growth` serialization from #1075.
         if cost.is_none() && !all {
-            let front = graph.asymptotic_front(
+            let outcome = graph.asymptotic_front(
                 &src_ref.name,
                 &src_ref.variant,
                 &dst_ref.name,
                 &dst_ref.variant,
                 ReductionMode::Witness,
+                search.mode()?,
             );
-            if front.is_empty() {
+            if outcome.value.is_empty() {
+                if !outcome.completeness.is_exact() {
+                    anyhow::bail!(
+                        "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
+                        outcome.completeness.reasons()
+                    );
+                }
                 anyhow::bail!(
                     "No reduction path from {} to {}",
                     src_ref.name,
                     dst_ref.name
                 );
             }
-            return Ok(serde_json::to_string_pretty(&format_front_json(
-                &graph,
-                &src_ref.name,
-                &dst_ref.name,
-                &front,
-            ))?);
+            let json = util::add_search_metadata(
+                format_front_json(&graph, &src_ref.name, &dst_ref.name, &outcome.value),
+                &outcome.completeness,
+                &outcome.stats,
+            )?;
+            return Ok(serde_json::to_string_pretty(&json)?);
         }
 
         if all {
@@ -347,6 +405,7 @@ impl McpServer {
                 &dst_ref.variant,
                 &input_size,
                 &MinimizeSteps,
+                search.mode()?,
             ),
             Some(ref f) => {
                 let cost_fn = CustomCost(
@@ -361,16 +420,27 @@ impl McpServer {
                     &dst_ref.variant,
                     &input_size,
                     &cost_fn,
+                    search.mode()?,
                 )
             }
         };
 
-        match best_path {
+        match &best_path.value {
             Some(ref reduction_path) => {
-                let json = format_path_json(&graph, reduction_path);
+                let json = util::add_search_metadata(
+                    format_path_json(&graph, reduction_path),
+                    &best_path.completeness,
+                    &best_path.stats,
+                )?;
                 Ok(serde_json::to_string_pretty(&json)?)
             }
             None => {
+                if !best_path.completeness.is_exact() {
+                    anyhow::bail!(
+                        "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
+                        best_path.completeness.reasons()
+                    );
+                }
                 anyhow::bail!(
                     "No reduction path from {} to {}",
                     src_ref.name,
@@ -815,7 +885,12 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&json)?)
     }
 
-    pub fn reduce_inner(&self, problem_json: &str, target: &str) -> anyhow::Result<String> {
+    pub fn reduce_inner(
+        &self,
+        problem_json: &str,
+        target: &str,
+        search: &SearchParams,
+    ) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let source = load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?;
 
@@ -835,9 +910,16 @@ impl McpServer {
             ReductionMode::Witness,
             &input_size,
             &MinimizeSteps,
+            search.mode()?,
         );
 
-        let reduction_path = best_path.ok_or_else(|| {
+        let reduction_path = best_path.value.as_ref().ok_or_else(|| {
+            if !best_path.completeness.is_exact() {
+                return anyhow::anyhow!(
+                    "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
+                    best_path.completeness.reasons()
+                );
+            }
             anyhow::anyhow!(
                 "No witness-capable reduction path from {} to {}",
                 source_name,
@@ -884,7 +966,12 @@ impl McpServer {
                 .collect(),
         };
 
-        Ok(serde_json::to_string_pretty(&bundle)?)
+        let json = util::add_search_metadata(
+            serde_json::to_value(&bundle)?,
+            &best_path.completeness,
+            &best_path.stats,
+        )?;
+        Ok(serde_json::to_string_pretty(&json)?)
     }
 
     pub fn solve_inner(
@@ -1000,6 +1087,7 @@ impl McpServer {
             params.cost.as_deref(),
             all,
             max_paths,
+            &params.search,
         )
         .map_err(|e| e.to_string())
     }
@@ -1055,7 +1143,7 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn reduce(&self, Parameters(params): Parameters<ReduceParams>) -> Result<String, String> {
-        self.reduce_inner(&params.problem_json, &params.target)
+        self.reduce_inner(&params.problem_json, &params.target, &params.search)
             .map_err(|e| e.to_string())
     }
 

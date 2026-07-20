@@ -69,7 +69,9 @@ impl LoadedProblem {
                         ReductionMode::Witness,
                         &input_size,
                         &MinimizeSteps,
+                        problemreductions::rules::SearchMode::Exact,
                     )
+                    .value
                     .is_some()
             })
         }

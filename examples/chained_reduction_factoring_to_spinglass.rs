@@ -27,7 +27,9 @@ pub fn run() {
             &dst_var,                  // target variant map
             &ProblemSize::new(vec![]), // input size (empty = unknown)
             &MinimizeSteps,            // cost function: fewest hops
+            problemreductions::rules::SearchMode::Exact,
         )
+        .value
         .unwrap();
     println!("  {}", rpath);
     // ANCHOR_END: step1

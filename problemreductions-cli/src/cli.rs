@@ -1,3 +1,4 @@
+use crate::util::{build_search_mode, SearchLimitOverrides};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -44,6 +45,54 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: Commands,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum SearchModeArg {
+    Exact,
+    Approximate,
+}
+
+/// Completeness and resource policy shared by path-discovery commands.
+#[derive(clap::Args, Clone, Debug)]
+pub struct SearchArgs {
+    /// Search completeness: exact elementary-path enumeration or bounded best-effort.
+    #[arg(long, value_enum, default_value_t = SearchModeArg::Approximate)]
+    pub search_mode: SearchModeArg,
+    /// Maximum reduction hops in approximate mode (default: 16).
+    #[arg(long)]
+    pub max_hops: Option<usize>,
+    /// Maximum live labels per node in approximate mode (default: 32).
+    #[arg(long)]
+    pub max_labels_per_node: Option<usize>,
+    /// Maximum expanded states in approximate mode.
+    #[arg(long)]
+    pub max_expanded_states: Option<usize>,
+    /// Wall-clock search timeout in seconds in approximate mode.
+    #[arg(long = "timeout")]
+    pub timeout: Option<u64>,
+}
+
+impl SearchArgs {
+    pub fn mode(&self) -> anyhow::Result<problemreductions::rules::SearchMode> {
+        build_search_mode(
+            self.search_mode == SearchModeArg::Exact,
+            SearchLimitOverrides {
+                max_hops: self.max_hops,
+                max_labels_per_node: self.max_labels_per_node,
+                max_expanded_states: self.max_expanded_states,
+                timeout_seconds: self.timeout,
+            },
+        )
+    }
+
+    pub fn has_nondefault_policy(&self) -> bool {
+        self.search_mode != SearchModeArg::Approximate
+            || self.max_hops.is_some()
+            || self.max_labels_per_node.is_some()
+            || self.max_expanded_states.is_some()
+            || self.timeout.is_some()
+    }
 }
 
 #[derive(Subcommand)]
@@ -136,6 +185,8 @@ Use `pred list` to see available problems.")]
         /// Maximum paths to return in --all mode
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
+        #[command(flatten)]
+        search: SearchArgs,
     },
 
     /// Export the reduction graph to JSON
@@ -1288,6 +1339,8 @@ pub struct ReduceArgs {
     /// Reduction route file (from `pred path ... -o`)
     #[arg(long)]
     pub via: Option<PathBuf>,
+    #[command(flatten)]
+    pub search: SearchArgs,
 }
 
 #[derive(clap::Args)]
