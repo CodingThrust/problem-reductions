@@ -1,8 +1,7 @@
 //! ILP solver implementation using HiGHS.
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
-use crate::models::misc::TimetableDesign;
-use crate::rules::{ReduceTo, ReductionMode, ReductionResult};
+use crate::rules::{ReduceTo, ReductionResult};
 #[cfg(not(feature = "ilp-highs"))]
 use good_lp::default_solver;
 #[cfg(feature = "ilp-highs")]
@@ -39,33 +38,6 @@ pub struct ILPSolver {
     /// Time limit in seconds (None = no limit).
     pub time_limit: Option<f64>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SolveViaReductionError {
-    WitnessPathRequired { name: String },
-    NoReductionPath { name: String },
-    NoSolution { name: String },
-}
-
-impl std::fmt::Display for SolveViaReductionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SolveViaReductionError::WitnessPathRequired { name } => write!(
-                f,
-                "ILP solving requires a witness-capable source problem and reduction path; only aggregate-value solving is available for {}.",
-                name
-            ),
-            SolveViaReductionError::NoReductionPath { name } => {
-                write!(f, "No reduction path from {} to ILP", name)
-            }
-            SolveViaReductionError::NoSolution { name } => {
-                write!(f, "ILP solver found no solution for {}", name)
-            }
-        }
-    }
-}
-
-impl std::error::Error for SolveViaReductionError {}
 
 impl ILPSolver {
     /// Create a new ILP solver with default settings.
@@ -220,130 +192,15 @@ impl ILPSolver {
         Some(reduction.extract_solution(&ilp_solution))
     }
 
-    /// Solve a type-erased problem directly when a native solver hook exists.
-    ///
-    /// Returns `None` if the input type has no direct solver or the solver finds no solution.
-    pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
+    /// Solve a type-erased supported ILP variant directly.
+    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }
         if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
             return self.solve(ilp);
         }
-        if let Some(problem) = any.downcast_ref::<TimetableDesign>() {
-            return problem.solve_via_required_assignments();
-        }
         None
-    }
-
-    fn supports_direct_dyn(&self, any: &dyn std::any::Any) -> bool {
-        any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
-    }
-
-    /// Two-level path selection:
-    /// 1. Dijkstra finds the cheapest path to each ILP variant using
-    ///    `MinimizeStepsThenOverhead` (additive edge costs: step count + log overhead).
-    /// 2. Across ILP variants, we pick the path whose composed final output size
-    ///    is smallest — this is the actual ILP problem size the solver will face.
-    fn best_path_to_ilp(
-        &self,
-        graph: &crate::rules::ReductionGraph,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        mode: ReductionMode,
-        instance: &dyn std::any::Any,
-    ) -> Option<crate::rules::ReductionPath> {
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
-        let mut best_path: Option<crate::rules::ReductionPath> = None;
-        let mut best_cost = f64::INFINITY;
-
-        for dv in &ilp_variants {
-            if let Some(path) = graph.find_cheapest_path_mode(
-                name,
-                variant,
-                "ILP",
-                dv,
-                mode,
-                &input_size,
-                &crate::rules::MinimizeStepsThenOverhead,
-            ) {
-                // Use composed final output size for cross-variant comparison,
-                // since this determines the actual ILP problem size.
-                let final_size = graph
-                    .evaluate_path_overhead(&path, &input_size)
-                    .unwrap_or_default();
-                let cost = final_size.total() as f64;
-                if cost < best_cost {
-                    best_cost = cost;
-                    best_path = Some(path);
-                }
-            }
-        }
-
-        best_path
-    }
-
-    pub fn try_solve_via_reduction(
-        &self,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        instance: &dyn std::any::Any,
-    ) -> Result<Vec<usize>, SolveViaReductionError> {
-        if self.supports_direct_dyn(instance) {
-            return self
-                .solve_dyn(instance)
-                .ok_or_else(|| SolveViaReductionError::NoSolution {
-                    name: name.to_string(),
-                });
-        }
-
-        let graph = crate::rules::ReductionGraph::new();
-
-        let Some(path) =
-            self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness, instance)
-        else {
-            if self
-                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate, instance)
-                .is_some()
-            {
-                return Err(SolveViaReductionError::WitnessPathRequired {
-                    name: name.to_string(),
-                });
-            }
-
-            return Err(SolveViaReductionError::NoReductionPath {
-                name: name.to_string(),
-            });
-        };
-
-        let chain = graph.reduce_along_path(&path, instance).ok_or_else(|| {
-            SolveViaReductionError::WitnessPathRequired {
-                name: name.to_string(),
-            }
-        })?;
-        let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
-            SolveViaReductionError::NoSolution {
-                name: name.to_string(),
-            }
-        })?;
-        Ok(chain.extract_solution(&ilp_solution))
-    }
-
-    /// Solve a type-erased problem by finding a reduction path to ILP.
-    ///
-    /// Tries all ILP variants, picks the cheapest path, reduces, solves,
-    /// and extracts the solution back. Falls back to direct ILP solve if
-    /// the problem is already an ILP type.
-    ///
-    /// Returns `None` if no path to ILP exists or the solver finds no solution.
-    pub fn solve_via_reduction(
-        &self,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        instance: &dyn std::any::Any,
-    ) -> Option<Vec<usize>> {
-        self.try_solve_via_reduction(name, variant, instance).ok()
     }
 }
 

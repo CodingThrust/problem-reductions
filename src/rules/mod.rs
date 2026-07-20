@@ -406,6 +406,7 @@ pub use graph::{
     AggregateReductionChain, NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo,
     ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
+pub(crate) use traits::DynReductionResult;
 pub use traits::{
     AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,
 };

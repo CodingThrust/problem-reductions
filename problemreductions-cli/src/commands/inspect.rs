@@ -2,6 +2,7 @@ use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
 use crate::output::OutputConfig;
 use anyhow::Result;
 use problemreductions::rules::ReductionGraph;
+use problemreductions::solvers::{solver_capabilities, ExactProblemKey};
 use std::path::Path;
 
 pub fn inspect(input: &Path, out: &OutputConfig) -> Result<()> {
@@ -40,19 +41,48 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
-    let solvers = problem.available_solvers();
-    let solver_summary = solvers
-        .iter()
-        .map(|solver| {
-            if *solver == "ilp" {
-                "ilp (default)".to_string()
-            } else {
-                (*solver).to_string()
-            }
+    let key = ExactProblemKey::new(name, variant.clone());
+    let capabilities = solver_capabilities(&key)
+        .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
+    let native = capabilities.native.as_ref().map(|entry| {
+        serde_json::json!({
+            "implementation": entry.implementation,
         })
-        .collect::<Vec<_>>()
-        .join(", ");
-    text.push_str(&format!("Solvers: {solver_summary}\n"));
+    });
+    let ilp = capabilities.ilp.as_ref().map(|pipeline| {
+        serde_json::json!({
+            "reduction_path": pipeline.path_labels(),
+        })
+    });
+    let default_solver = if capabilities.native.is_some() {
+        "native"
+    } else if capabilities.ilp.is_some() {
+        "ilp"
+    } else {
+        "brute-force"
+    };
+    let mut solvers = Vec::new();
+    if capabilities.native.is_some() {
+        solvers.push("native");
+    }
+    if capabilities.ilp.is_some() {
+        solvers.push("ilp");
+    }
+    solvers.push("brute-force");
+    text.push_str(&format!("Default solver: {default_solver}\n"));
+    text.push_str(&format!("Solvers: {}\n", solvers.join(", ")));
+    if let Some(native) = capabilities.native.as_ref() {
+        text.push_str(&format!(
+            "Native implementation: {}\n",
+            native.implementation
+        ));
+    }
+    if let Some(ilp) = capabilities.ilp.as_ref() {
+        text.push_str(&format!(
+            "ILP pipeline: {}\n",
+            ilp.path_labels().join(" -> ")
+        ));
+    }
 
     // Reductions
     let outgoing = graph.outgoing_reductions(name);
@@ -68,6 +98,12 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
         "size_fields": size_fields,
         "num_variables": problem.num_variables_dyn(),
         "solvers": solvers,
+        "default_solver": default_solver,
+        "solver_capabilities": {
+            "native": native,
+            "ilp": ilp,
+            "brute_force": true,
+        },
         "reduces_to": targets,
     });
 
