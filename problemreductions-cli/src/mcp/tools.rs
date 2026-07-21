@@ -10,9 +10,7 @@ use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
     CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow,
 };
-use problemreductions::solvers::{
-    solver_capabilities, DeterministicSolveResult, ExactProblemKey, SolverRequest,
-};
+use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
@@ -24,8 +22,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, serialize_any_problem, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput,
-    ReductionBundle,
+    load_problem, serialize_any_problem, solve_result_json, solver_capabilities_view,
+    solver_request, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
 use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
 
@@ -755,32 +753,7 @@ impl McpServer {
         let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
         targets.sort();
         targets.dedup();
-        let key = ExactProblemKey::new(name, variant.clone());
-        let capabilities = solver_capabilities(&key)
-            .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
-        let native = capabilities
-            .native
-            .as_ref()
-            .map(|entry| serde_json::json!({"implementation": entry.implementation}));
-        let ilp = capabilities
-            .ilp
-            .as_ref()
-            .map(|pipeline| serde_json::json!({"reduction_path": pipeline.path_labels()}));
-        let default_solver = if capabilities.native.is_some() {
-            "native"
-        } else if capabilities.ilp.is_some() {
-            "ilp"
-        } else {
-            "brute-force"
-        };
-        let mut solvers = Vec::new();
-        if capabilities.native.is_some() {
-            solvers.push("native");
-        }
-        if capabilities.ilp.is_some() {
-            solvers.push("ilp");
-        }
-        solvers.push("brute-force");
+        let solver_view = solver_capabilities_view(&problem)?;
 
         let result = serde_json::json!({
             "kind": "problem",
@@ -788,13 +761,9 @@ impl McpServer {
             "variant": variant,
             "size_fields": size_fields,
             "num_variables": problem.num_variables_dyn(),
-            "solvers": solvers,
-            "default_solver": default_solver,
-            "solver_capabilities": {
-                "native": native,
-                "ilp": ilp,
-                "brute_force": true,
-            },
+            "solvers": solver_view.solvers,
+            "default_solver": solver_view.default_solver,
+            "solver_capabilities": solver_view.capabilities,
             "reduces_to": targets,
         });
         Ok(serde_json::to_string_pretty(&result)?)
@@ -900,14 +869,7 @@ impl McpServer {
         solver: Option<&str>,
         timeout: Option<u64>,
     ) -> anyhow::Result<String> {
-        let request = match solver {
-            None => SolverRequest::Default,
-            Some("ilp") => SolverRequest::Ilp,
-            Some("brute-force") => SolverRequest::BruteForce,
-            Some(other) => anyhow::bail!(
-                "Unknown solver: {other}. Available solver overrides: brute-force, ilp"
-            ),
-        };
+        let request = solver_request(solver)?;
 
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
         let timeout_secs = timeout.unwrap_or(0);
@@ -1174,18 +1136,6 @@ fn format_path_json(
 
 fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
     util::ser(problem)
-}
-
-fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> serde_json::Value {
-    let mut json = serde_json::json!({
-        "problem": problem,
-        "solver": &result.solver,
-        "evaluation": result.evaluation,
-    });
-    if let Some(config) = &result.config {
-        json["solution"] = serde_json::json!(config);
-    }
-    json
 }
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {

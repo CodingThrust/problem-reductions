@@ -12,114 +12,55 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use std::collections::HashSet;
 
-fn no_variant() -> Vec<(&'static str, &'static str)> {
-    Vec::new()
+macro_rules! register_native_solver {
+    ($problem:ty, $implementation:literal, $solve:path) => {
+        inventory::submit! {
+            NativeSolverRegistration {
+                source_name: <$problem as Problem>::NAME,
+                source_variant_fn: <$problem as Problem>::variant,
+                implementation: $implementation,
+                solve_fn: |any| {
+                    let problem = any.downcast_ref::<$problem>().expect(
+                        "native solver registration received the wrong concrete type",
+                    );
+                    $solve(problem)
+                },
+            }
+        }
+    };
 }
 
-fn simple_graph_variant() -> Vec<(&'static str, &'static str)> {
-    vec![("graph", "SimpleGraph")]
-}
-
-fn downcast_solve<P: 'static>(
-    any: &dyn std::any::Any,
-    solve: fn(&P) -> Option<Vec<usize>>,
-) -> Option<Vec<usize>> {
-    let problem = any
-        .downcast_ref::<P>()
-        .expect("native solver registration received the wrong concrete type");
-    solve(problem)
-}
-
-fn solve_minimum_cardinality_key_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, solve_minimum_cardinality_key)
-}
-
-fn solve_additional_key_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, solve_additional_key)
-}
-
-fn solve_prime_attribute_name_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, solve_prime_attribute_name)
-}
-
-fn solve_bcnf_violation_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, solve_bcnf_violation)
-}
-
-fn solve_partial_feedback_edge_set_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, super::partial_feedback_edge_set::find_witness)
-}
-
-fn solve_rooted_tree_arrangement_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, super::rooted_tree_arrangement::find_witness)
-}
-
-fn solve_timetable_design_dyn(any: &dyn std::any::Any) -> Option<Vec<usize>> {
-    downcast_solve(any, TimetableDesign::solve_via_required_assignments)
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: MinimumCardinalityKey::NAME,
-        source_variant_fn: no_variant,
-        implementation: "fd-minimum-cardinality-key",
-        solve_fn: solve_minimum_cardinality_key_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: AdditionalKey::NAME,
-        source_variant_fn: no_variant,
-        implementation: "fd-additional-key",
-        solve_fn: solve_additional_key_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: PrimeAttributeName::NAME,
-        source_variant_fn: no_variant,
-        implementation: "fd-prime-attribute-name",
-        solve_fn: solve_prime_attribute_name_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: BoyceCoddNormalFormViolation::NAME,
-        source_variant_fn: no_variant,
-        implementation: "fd-bcnf-violation",
-        solve_fn: solve_bcnf_violation_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: PartialFeedbackEdgeSet::<SimpleGraph>::NAME,
-        source_variant_fn: simple_graph_variant,
-        implementation: "partial-feedback-edge-set",
-        solve_fn: solve_partial_feedback_edge_set_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: RootedTreeArrangement::<SimpleGraph>::NAME,
-        source_variant_fn: simple_graph_variant,
-        implementation: "rooted-tree-arrangement",
-        solve_fn: solve_rooted_tree_arrangement_dyn,
-    }
-}
-
-inventory::submit! {
-    NativeSolverRegistration {
-        source_name: TimetableDesign::NAME,
-        source_variant_fn: no_variant,
-        implementation: "timetable-required-assignments",
-        solve_fn: solve_timetable_design_dyn,
-    }
-}
+register_native_solver!(
+    MinimumCardinalityKey,
+    "fd-minimum-cardinality-key",
+    solve_minimum_cardinality_key
+);
+register_native_solver!(AdditionalKey, "fd-additional-key", solve_additional_key);
+register_native_solver!(
+    PrimeAttributeName,
+    "fd-prime-attribute-name",
+    solve_prime_attribute_name
+);
+register_native_solver!(
+    BoyceCoddNormalFormViolation,
+    "fd-bcnf-violation",
+    solve_bcnf_violation
+);
+register_native_solver!(
+    PartialFeedbackEdgeSet<SimpleGraph>,
+    "partial-feedback-edge-set",
+    super::partial_feedback_edge_set::find_witness
+);
+register_native_solver!(
+    RootedTreeArrangement<SimpleGraph>,
+    "rooted-tree-arrangement",
+    super::rooted_tree_arrangement::find_witness
+);
+register_native_solver!(
+    TimetableDesign,
+    "timetable-required-assignments",
+    TimetableDesign::solve_via_required_assignments
+);
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///

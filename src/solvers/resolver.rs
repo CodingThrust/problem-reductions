@@ -39,11 +39,10 @@ pub enum DeterministicSolveError {
     InvalidRegistry(&'static RegistryBuildError),
     #[error("No ILP pipeline is registered for {0}")]
     MissingIlpCapability(String),
-    #[error("{solver} found no solution for {problem}")]
-    NoSolution {
-        solver: &'static str,
-        problem: String,
-    },
+    #[error("native solver found no solution for {problem}")]
+    NativeNoSolution { problem: String },
+    #[error("ILP solver found no solution for {problem}")]
+    IlpNoSolution { problem: String },
 }
 
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
@@ -55,8 +54,7 @@ fn solve_native(
     registration: &'static NativeSolverRegistration,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let config = (registration.solve_fn)(problem.as_any()).ok_or_else(|| {
-        DeterministicSolveError::NoSolution {
-            solver: "native solver",
+        DeterministicSolveError::NativeNoSolution {
             problem: problem_key(problem).label(),
         }
     })?;
@@ -77,8 +75,7 @@ fn solve_ilp(
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let config = pipeline
         .solve(problem.as_any(), &super::ILPSolver::new())
-        .map_err(|_| DeterministicSolveError::NoSolution {
-            solver: "ILP solver",
+        .map_err(|_| DeterministicSolveError::IlpNoSolution {
             problem: problem_key(problem).label(),
         })?;
     let evaluation = problem.evaluate_dyn(&config);
@@ -92,14 +89,17 @@ fn solve_ilp(
 }
 
 fn solve_brute_force(problem: &LoadedDynProblem) -> DeterministicSolveResult {
-    let evaluation = problem.solve_brute_force_value();
-    let config = problem
-        .solve_brute_force_witness()
-        .map(|(config, _)| config);
-    DeterministicSolveResult {
-        solver: SolverExecution::BruteForce,
-        config,
-        evaluation,
+    match problem.solve_brute_force_witness() {
+        Some((config, evaluation)) => DeterministicSolveResult {
+            solver: SolverExecution::BruteForce,
+            config: Some(config),
+            evaluation,
+        },
+        None => DeterministicSolveResult {
+            solver: SolverExecution::BruteForce,
+            config: None,
+            evaluation: problem.solve_brute_force_value(),
+        },
     }
 }
 
@@ -111,13 +111,17 @@ pub fn solve_deterministically(
     problem: &LoadedDynProblem,
     request: SolverRequest,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
+    if request == SolverRequest::BruteForce {
+        return Ok(solve_brute_force(problem));
+    }
+
     let registry =
         solver_capability_registry().map_err(DeterministicSolveError::InvalidRegistry)?;
     let key = problem_key(problem);
     let capabilities = registry.lookup(&key);
 
     match request {
-        SolverRequest::BruteForce => Ok(solve_brute_force(problem)),
+        SolverRequest::BruteForce => unreachable!("handled before registry initialization"),
         SolverRequest::Ilp => {
             let pipeline = capabilities
                 .ilp

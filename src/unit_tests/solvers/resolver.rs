@@ -1,5 +1,5 @@
 #[cfg(feature = "ilp-solver")]
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::registry::load_dyn;
 use crate::solvers::{solve_deterministically, SolverExecution, SolverRequest};
 use crate::traits::Problem;
@@ -73,10 +73,7 @@ fn deterministic_solver_dispatch_native_failure_does_not_fall_back() {
     let error = solve_deterministically(&loaded, SolverRequest::Default).unwrap_err();
     assert!(matches!(
         error,
-        crate::solvers::DeterministicSolveError::NoSolution {
-            solver: "native solver",
-            ..
-        }
+        crate::solvers::DeterministicSolveError::NativeNoSolution { .. }
     ));
     let brute_force = solve_deterministically(&loaded, SolverRequest::BruteForce).unwrap();
     assert_eq!(brute_force.solver, SolverExecution::BruteForce);
@@ -102,6 +99,57 @@ fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() 
         }
     );
     assert_eq!(result.config, Some(vec![]));
+}
+
+#[test]
+#[cfg(feature = "ilp-solver")]
+fn deterministic_solver_dispatch_ilp_failure_does_not_fall_back() {
+    let problem = ILP::<bool>::new(
+        0,
+        vec![LinearConstraint::le(vec![], -1.0)],
+        vec![],
+        ObjectiveSense::Minimize,
+    );
+    let loaded = load_dyn(
+        ILP::<bool>::NAME,
+        &BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+        serde_json::to_value(problem).unwrap(),
+    )
+    .unwrap();
+
+    let error = solve_deterministically(&loaded, SolverRequest::Default).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::solvers::DeterministicSolveError::IlpNoSolution { .. }
+    ));
+    let brute_force = solve_deterministically(&loaded, SolverRequest::BruteForce).unwrap();
+    assert_eq!(brute_force.solver, SolverExecution::BruteForce);
+    assert!(brute_force.config.is_none());
+}
+
+#[test]
+fn deterministic_solver_execution_has_stable_tagged_json_contract() {
+    assert_eq!(
+        serde_json::to_value(SolverExecution::Native {
+            implementation: "native-id"
+        })
+        .unwrap(),
+        serde_json::json!({"kind": "native", "implementation": "native-id"})
+    );
+    assert_eq!(
+        serde_json::to_value(SolverExecution::Ilp {
+            reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()]
+        })
+        .unwrap(),
+        serde_json::json!({
+            "kind": "ilp",
+            "reduction_path": ["Source", "ILP<bool>"]
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(SolverExecution::BruteForce).unwrap(),
+        serde_json::json!({"kind": "brute-force"})
+    );
 }
 
 #[test]

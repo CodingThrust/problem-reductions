@@ -277,6 +277,18 @@ fn build_registry(
     reductions: &[&'static ReductionEntry],
 ) -> Result<SolverCapabilityRegistry, RegistryBuildError> {
     let mut registry = SolverCapabilityRegistry::default();
+    let mut reduction_index =
+        BTreeMap::<(ExactProblemKey, ExactProblemKey), Vec<&'static ReductionEntry>>::new();
+    for entry in reductions
+        .iter()
+        .copied()
+        .filter(|entry| entry.capabilities.witness && entry.reduce_fn.is_some())
+    {
+        reduction_index
+            .entry((edge_key(entry, true), edge_key(entry, false)))
+            .or_default()
+            .push(entry);
+    }
 
     for native in native_entries {
         let source = native.source_key();
@@ -316,15 +328,10 @@ fn build_registry(
 
         let mut reducers = Vec::with_capacity(path.len().saturating_sub(1));
         for pair in path.windows(2) {
-            let matches = reductions
-                .iter()
-                .filter(|entry| {
-                    entry.capabilities.witness
-                        && entry.reduce_fn.is_some()
-                        && edge_key(entry, true) == pair[0]
-                        && edge_key(entry, false) == pair[1]
-                })
-                .collect::<Vec<_>>();
+            let matches = reduction_index
+                .get(&(pair[0].clone(), pair[1].clone()))
+                .map(Vec::as_slice)
+                .unwrap_or_default();
             if matches.len() != 1 {
                 return Err(RegistryBuildError::InvalidEdge {
                     source_label: pair[0].label(),
@@ -332,7 +339,11 @@ fn build_registry(
                     matches: matches.len(),
                 });
             }
-            reducers.push(matches[0].reduce_fn.expect("filtered above"));
+            reducers.push(
+                matches[0]
+                    .reduce_fn
+                    .expect("indexed only entries with reduce_fn"),
+            );
         }
 
         if registry

@@ -1,4 +1,7 @@
-use crate::dispatch::{load_problem, read_input, BundleReplay, ProblemJson, ReductionBundle};
+use crate::dispatch::{
+    load_problem, read_input, solve_result_json, solver_request, BundleReplay, ProblemJson,
+    ReductionBundle,
+};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 use problemreductions::solvers::{DeterministicSolveResult, SolverExecution, SolverRequest};
@@ -52,18 +55,6 @@ fn solve_result_text(problem: &str, result: &DeterministicSolveResult) -> String
     text
 }
 
-fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> serde_json::Value {
-    let mut json = serde_json::json!({
-        "problem": problem,
-        "solver": &result.solver,
-        "evaluation": result.evaluation,
-    });
-    if let Some(config) = &result.config {
-        json["solution"] = serde_json::json!(config);
-    }
-    json
-}
-
 fn plain_problem_output(
     problem: &str,
     result: &DeterministicSolveResult,
@@ -72,17 +63,6 @@ fn plain_problem_output(
         solve_result_text(problem, result),
         solve_result_json(problem, result),
     )
-}
-
-fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
-    match solver_name {
-        None => Ok(SolverRequest::Default),
-        Some("ilp") => Ok(SolverRequest::Ilp),
-        Some("brute-force") => Ok(SolverRequest::BruteForce),
-        Some(other) => {
-            anyhow::bail!("Unknown solver: {other}. Available solver overrides: brute-force, ilp")
-        }
-    }
 }
 
 pub fn solve(

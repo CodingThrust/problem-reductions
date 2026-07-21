@@ -2,7 +2,8 @@ use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::{
-    solve_deterministically, DeterministicSolveResult, SolverRequest,
+    solve_deterministically, solver_capabilities, DeterministicSolveResult, ExactProblemKey,
+    SolverRequest,
 };
 use serde_json::Value;
 use std::any::Any;
@@ -44,6 +45,90 @@ impl LoadedProblem {
     ) -> Result<DeterministicSolveResult> {
         solve_deterministically(&self.inner, request).map_err(anyhow::Error::from)
     }
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct NativeSolverCapabilityView {
+    pub implementation: &'static str,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct IlpSolverCapabilityView {
+    pub reduction_path: Vec<String>,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SolverCapabilityDetailsView {
+    pub native: Option<NativeSolverCapabilityView>,
+    pub ilp: Option<IlpSolverCapabilityView>,
+    pub brute_force: bool,
+}
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct SolverCapabilitiesView {
+    pub solvers: Vec<&'static str>,
+    pub default_solver: &'static str,
+    pub capabilities: SolverCapabilityDetailsView,
+}
+
+pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabilitiesView> {
+    let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
+    let registered = solver_capabilities(&key)
+        .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
+    let native = registered.native.map(|entry| NativeSolverCapabilityView {
+        implementation: entry.implementation,
+    });
+    let ilp = registered.ilp.map(|pipeline| IlpSolverCapabilityView {
+        reduction_path: pipeline.path_labels(),
+    });
+    let default_solver = if native.is_some() {
+        "native"
+    } else if ilp.is_some() {
+        "ilp"
+    } else {
+        "brute-force"
+    };
+    let mut solvers = Vec::with_capacity(3);
+    if native.is_some() {
+        solvers.push("native");
+    }
+    if ilp.is_some() {
+        solvers.push("ilp");
+    }
+    solvers.push("brute-force");
+
+    Ok(SolverCapabilitiesView {
+        solvers,
+        default_solver,
+        capabilities: SolverCapabilityDetailsView {
+            native,
+            ilp,
+            brute_force: true,
+        },
+    })
+}
+
+pub fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
+    match solver_name {
+        None => Ok(SolverRequest::Default),
+        Some("ilp") => Ok(SolverRequest::Ilp),
+        Some("brute-force") => Ok(SolverRequest::BruteForce),
+        Some(other) => {
+            anyhow::bail!("Unknown solver: {other}. Available solver overrides: brute-force, ilp")
+        }
+    }
+}
+
+pub fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> serde_json::Value {
+    let mut json = serde_json::json!({
+        "problem": problem,
+        "solver": &result.solver,
+        "evaluation": result.evaluation,
+    });
+    if let Some(config) = &result.config {
+        json["solution"] = serde_json::json!(config);
+    }
+    json
 }
 
 /// A validated reduction bundle ready to replay:
@@ -361,5 +446,62 @@ mod tests {
             err.to_string().contains("No ILP pipeline is registered"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn solver_request_accepts_only_documented_overrides() {
+        assert_eq!(solver_request(None).unwrap(), SolverRequest::Default);
+        assert_eq!(solver_request(Some("ilp")).unwrap(), SolverRequest::Ilp);
+        assert_eq!(
+            solver_request(Some("brute-force")).unwrap(),
+            SolverRequest::BruteForce
+        );
+        for rejected in ["auto", "customized", "native", "implementation-id"] {
+            let error = solver_request(Some(rejected)).unwrap_err();
+            assert!(error.to_string().contains(rejected), "{error}");
+        }
+    }
+
+    #[test]
+    fn solve_result_json_preserves_structured_solver_contract() {
+        let result = DeterministicSolveResult {
+            solver: problemreductions::solvers::SolverExecution::Ilp {
+                reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()],
+            },
+            config: Some(vec![1, 0]),
+            evaluation: "Max(1)".to_string(),
+        };
+        let json = solve_result_json("Source", &result);
+
+        assert_eq!(json["problem"], "Source");
+        assert_eq!(json["solver"]["kind"], "ilp");
+        assert_eq!(
+            json["solver"]["reduction_path"],
+            serde_json::json!(["Source", "ILP<bool>"])
+        );
+        assert_eq!(json["solution"], serde_json::json!([1, 0]));
+        assert!(json.get("reduced_to").is_none());
+    }
+
+    #[test]
+    #[cfg(any(feature = "highs", feature = "cplex", feature = "lp-solvers"))]
+    fn solver_capabilities_view_centralizes_default_and_available_order() {
+        use problemreductions::models::graph::RootedTreeArrangement;
+        use problemreductions::Problem;
+
+        let problem = RootedTreeArrangement::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
+        let loaded = load_problem(
+            RootedTreeArrangement::<SimpleGraph>::NAME,
+            &BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+            serde_json::to_value(problem).unwrap(),
+        )
+        .unwrap();
+        let view = solver_capabilities_view(&loaded).unwrap();
+
+        assert_eq!(view.default_solver, "native");
+        assert_eq!(view.solvers, ["native", "ilp", "brute-force"]);
+        assert!(view.capabilities.native.is_some());
+        assert!(view.capabilities.ilp.is_some());
+        assert!(view.capabilities.brute_force);
     }
 }
