@@ -62,7 +62,7 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
     let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solver = ILPSolver::new();
     assert!(
-        ilp_solver.solve(reduction.target_problem()).is_none(),
+        ilp_solver.solve(reduction.target_problem()).is_err(),
         "reduced ILP should also be infeasible"
     );
 }

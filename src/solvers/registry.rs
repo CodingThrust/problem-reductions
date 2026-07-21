@@ -2,6 +2,7 @@
 
 use crate::registry::VariantEntry;
 use crate::rules::registry::{reduction_entries, ReduceFn, ReductionEntry};
+#[cfg(feature = "ilp-solver")]
 use crate::rules::DynReductionResult;
 use serde::Serialize;
 use std::any::Any;
@@ -119,11 +120,9 @@ impl CompiledIlpPipeline {
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<Vec<usize>, PipelineExecutionError> {
+    ) -> Result<Vec<usize>, super::ILPSolveError> {
         if self.reducers.is_empty() {
-            return solver
-                .solve_dyn(source)
-                .ok_or(PipelineExecutionError::NoSolution);
+            return solver.solve_dyn(source);
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -139,19 +138,11 @@ impl CompiledIlpPipeline {
             .last()
             .expect("non-empty fixed pipeline must produce a target")
             .target_problem_any();
-        let solution = solver
-            .solve_dyn(target)
-            .ok_or(PipelineExecutionError::NoSolution)?;
+        let solution = solver.solve_dyn(target)?;
         Ok(reductions.iter().rev().fold(solution, |current, step| {
             step.extract_solution_dyn(&current)
         }))
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
-pub(crate) enum PipelineExecutionError {
-    #[error("the registered ILP pipeline found no solution")]
-    NoSolution,
 }
 
 #[derive(Clone, Copy)]

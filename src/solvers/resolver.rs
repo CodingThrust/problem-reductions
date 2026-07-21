@@ -1,8 +1,9 @@
 //! Shared deterministic solver dispatch.
 
+#[cfg(feature = "ilp-solver")]
+use super::registry::CompiledIlpPipeline;
 use super::registry::{
-    solver_capability_registry, CompiledIlpPipeline, ExactProblemKey, NativeSolverRegistration,
-    RegistryBuildError,
+    solver_capability_registry, ExactProblemKey, NativeSolverRegistration, RegistryBuildError,
 };
 use crate::registry::LoadedDynProblem;
 use serde::Serialize;
@@ -41,8 +42,13 @@ pub enum DeterministicSolveError {
     MissingIlpCapability(String),
     #[error("native solver found no solution for {problem}")]
     NativeNoSolution { problem: String },
-    #[error("ILP solver found no solution for {problem}")]
-    IlpNoSolution { problem: String },
+    #[cfg(feature = "ilp-solver")]
+    #[error("ILP solver failed for {problem}: {source}")]
+    IlpSolve {
+        problem: String,
+        #[source]
+        source: super::ILPSolveError,
+    },
 }
 
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
@@ -75,8 +81,9 @@ fn solve_ilp(
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let config = pipeline
         .solve(problem.as_any(), &super::ILPSolver::new())
-        .map_err(|_| DeterministicSolveError::IlpNoSolution {
+        .map_err(|source| DeterministicSolveError::IlpSolve {
             problem: problem_key(problem).label(),
+            source,
         })?;
     let evaluation = problem.evaluate_dyn(&config);
     Ok(DeterministicSolveResult {

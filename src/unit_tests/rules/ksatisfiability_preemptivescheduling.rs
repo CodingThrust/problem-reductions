@@ -34,7 +34,7 @@ fn solve_threshold_schedule_via_ilp(
         target.precedences().to_vec(),
     );
     let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs);
-    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem())?;
+    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
     let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution);
 
     let mut config = vec![0usize; target.num_tasks() * target.d_max()];

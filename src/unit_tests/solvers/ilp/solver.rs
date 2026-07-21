@@ -16,7 +16,7 @@ fn test_ilp_solver_basic_maximize() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
 
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
     let sol = solution.unwrap();
 
     // Solution should be valid
@@ -40,7 +40,7 @@ fn test_ilp_solver_basic_minimize() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
 
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
     let sol = solution.unwrap();
 
     // Solution should be valid
@@ -86,11 +86,11 @@ fn test_ilp_empty_problem() {
     let ilp = ILP::<bool>::empty();
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
-    assert_eq!(solution, Some(vec![]));
+    assert_eq!(solution, Ok(vec![]));
 }
 
 #[test]
-fn test_ilp_empty_problem_with_infeasible_constraint_returns_none() {
+fn test_ilp_empty_problem_with_infeasible_constraint_returns_infeasible() {
     let ilp = ILP::<bool>::new(
         0,
         vec![LinearConstraint::le(vec![], -1.0)],
@@ -99,7 +99,27 @@ fn test_ilp_empty_problem_with_infeasible_constraint_returns_none() {
     );
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
-    assert_eq!(solution, None);
+    assert_eq!(solution, Err(ILPSolveError::Infeasible));
+}
+
+#[test]
+fn test_backend_errors_are_classified_without_losing_the_cause() {
+    assert_eq!(
+        classify_backend_error(ResolutionError::Infeasible, None),
+        ILPSolveError::Infeasible
+    );
+    assert_eq!(
+        classify_backend_error(ResolutionError::Unbounded, None),
+        ILPSolveError::Unbounded
+    );
+    assert_eq!(
+        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
+        ILPSolveError::Timeout
+    );
+    assert!(matches!(
+        classify_backend_error(ResolutionError::Other("SolveError"), None),
+        ILPSolveError::BackendFailure(message) if message.contains("SolveError")
+    ));
 }
 
 #[test]
@@ -262,7 +282,7 @@ fn test_ilp_with_time_limit() {
     );
 
     let solution = solver.solve(&ilp);
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
 }
 
 #[test]
@@ -300,7 +320,7 @@ fn test_ilp_solve_dyn_bool() {
         ObjectiveSense::Maximize,
     );
     let result = solver.solve_dyn(&ilp as &dyn std::any::Any);
-    assert!(result.is_some());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -313,13 +333,13 @@ fn test_ilp_solve_dyn_i32() {
         ObjectiveSense::Maximize,
     );
     let result = solver.solve_dyn(&ilp as &dyn std::any::Any);
-    assert!(result.is_some());
+    assert!(result.is_ok());
 }
 
 #[test]
-fn test_ilp_solve_dyn_unknown_type_returns_none() {
+fn test_ilp_solve_dyn_unknown_type_returns_unsupported_problem_type() {
     let solver = ILPSolver::new();
     let not_ilp: i32 = 42;
     let result = solver.solve_dyn(&not_ilp as &dyn std::any::Any);
-    assert!(result.is_none());
+    assert_eq!(result, Err(ILPSolveError::UnsupportedProblemType));
 }

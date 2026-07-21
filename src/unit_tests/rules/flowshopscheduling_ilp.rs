@@ -33,7 +33,7 @@ fn test_flowshopscheduling_to_ilp_infeasible() {
     let problem = FlowShopScheduling::new(2, vec![vec![5, 5], vec![5, 5], vec![5, 5]], 6);
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible FSS should produce infeasible ILP"
     );
 }

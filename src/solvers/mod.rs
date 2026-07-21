@@ -22,7 +22,7 @@ pub use resolver::{
 };
 
 #[cfg(feature = "ilp-solver")]
-pub use ilp::ILPSolver;
+pub use ilp::{ILPSolveError, ILPSolver};
 
 use crate::traits::Problem;
 

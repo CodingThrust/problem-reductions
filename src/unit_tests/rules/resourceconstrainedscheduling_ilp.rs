@@ -52,7 +52,7 @@ fn test_resourceconstrainedscheduling_to_ilp_infeasible() {
         ResourceConstrainedScheduling::new(1, vec![5], vec![vec![6], vec![6], vec![6]], 1);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible RCS should produce infeasible ILP"
     );
 }

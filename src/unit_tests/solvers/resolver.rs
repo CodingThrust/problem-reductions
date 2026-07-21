@@ -120,7 +120,10 @@ fn deterministic_solver_dispatch_ilp_failure_does_not_fall_back() {
     let error = solve_deterministically(&loaded, SolverRequest::Default).unwrap_err();
     assert!(matches!(
         error,
-        crate::solvers::DeterministicSolveError::IlpNoSolution { .. }
+        crate::solvers::DeterministicSolveError::IlpSolve {
+            source: crate::solvers::ILPSolveError::Infeasible,
+            ..
+        }
     ));
     let brute_force = solve_deterministically(&loaded, SolverRequest::BruteForce).unwrap();
     assert_eq!(brute_force.solver, SolverExecution::BruteForce);

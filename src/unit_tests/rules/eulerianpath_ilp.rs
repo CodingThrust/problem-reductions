@@ -88,7 +88,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
     // The ILP must report infeasibility for a NO instance.
     let solution = ILPSolver::new().solve(reduction.target_problem());
     assert!(
-        solution.is_none(),
+        solution.is_err(),
         "ILP must be infeasible for a degree-unbalanced NO instance, got {:?}",
         solution
     );

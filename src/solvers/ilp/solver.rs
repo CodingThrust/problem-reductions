@@ -8,7 +8,38 @@ use good_lp::default_solver;
 use good_lp::highs;
 #[cfg(feature = "ilp-highs")]
 use good_lp::solvers::highs::HighsParallelType;
-use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
+use good_lp::{
+    variable, ProblemVariables, ResolutionError, Solution, SolutionStatus, SolverModel, Variable,
+};
+
+/// A failure to produce a proven-optimal ILP solution.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ILPSolveError {
+    /// The constraints have no feasible assignment.
+    #[error("the ILP is infeasible")]
+    Infeasible,
+    /// The objective is unbounded.
+    #[error("the ILP objective is unbounded")]
+    Unbounded,
+    /// The configured time limit was reached before optimality was proven.
+    #[error("the ILP solver reached its time limit before proving optimality")]
+    Timeout,
+    /// The selected backend failed for another reason.
+    #[error("the ILP backend failed: {0}")]
+    BackendFailure(String),
+    /// Type-erased dispatch received a value other than a supported ILP variant.
+    #[error("the ILP backend supports only ILP<bool> and ILP<i32>")]
+    UnsupportedProblemType,
+}
+
+fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
+    match error {
+        ResolutionError::Infeasible => ILPSolveError::Infeasible,
+        ResolutionError::Unbounded => ILPSolveError::Unbounded,
+        ResolutionError::Other("NoSolutionFound") if time_limit.is_some() => ILPSolveError::Timeout,
+        other => ILPSolveError::BackendFailure(other.to_string()),
+    }
+}
 
 /// An ILP solver using the HiGHS backend.
 ///
@@ -29,9 +60,9 @@ use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
 /// );
 ///
 /// let solver = ILPSolver::new();
-/// if let Some(solution) = solver.solve(&ilp) {
-///     println!("Solution: {:?}", solution);
-/// }
+/// let solution = solver.solve(&ilp)?;
+/// println!("Solution: {:?}", solution);
+/// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct ILPSolver {
@@ -54,13 +85,17 @@ impl ILPSolver {
 
     /// Solve an ILP problem directly.
     ///
-    /// Returns `None` if the problem is infeasible or the solver fails.
+    /// Returns a classified error when the problem is infeasible, the time
+    /// limit is reached, or the backend fails.
     /// The returned solution is a configuration vector where each element
     /// is the variable value (config index = value).
-    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Option<Vec<usize>> {
+    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<usize>, ILPSolveError> {
         let n = problem.num_vars;
         if n == 0 {
-            return problem.is_feasible(&[]).then_some(vec![]);
+            return problem
+                .is_feasible(&[])
+                .then_some(vec![])
+                .ok_or(ILPSolveError::Infeasible);
         }
 
         // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
@@ -145,7 +180,23 @@ impl ILPSolver {
         }
 
         // Solve
-        let solution = model.solve().ok()?;
+        #[cfg(feature = "ilp-highs")]
+        let effective_time_limit = self.time_limit;
+        #[cfg(not(feature = "ilp-highs"))]
+        let effective_time_limit = None;
+        let solution = model
+            .solve()
+            .map_err(|error| classify_backend_error(error, effective_time_limit))?;
+
+        match solution.status() {
+            SolutionStatus::Optimal => {}
+            SolutionStatus::TimeLimit => return Err(ILPSolveError::Timeout),
+            SolutionStatus::GapLimit => {
+                return Err(ILPSolveError::BackendFailure(
+                    "the backend stopped at its gap limit before proving optimality".to_string(),
+                ));
+            }
+        }
 
         // Extract solution: config index = value (no lower bound offset)
         let result: Vec<usize> = vars
@@ -156,12 +207,12 @@ impl ILPSolver {
             })
             .collect();
 
-        Some(result)
+        Ok(result)
     }
 
-    /// Solve any problem that reduces to `ILP<bool>`.
+    /// Solve any problem that reduces directly to `ILP<V>`.
     ///
-    /// This method first reduces the problem to a binary ILP, solves the ILP,
+    /// This method first reduces the problem to the selected ILP domain, solves the ILP,
     /// and then extracts the solution back to the original problem space.
     ///
     /// # Example
@@ -179,28 +230,29 @@ impl ILPSolver {
     ///
     /// // Solve using ILP solver
     /// let solver = ILPSolver::new();
-    /// if let Some(solution) = solver.solve_reduced(&problem) {
-    ///     println!("Solution: {:?}", solution);
-    /// }
+    /// let solution = solver.solve_reduced::<bool, _>(&problem)?;
+    /// println!("Solution: {:?}", solution);
+    /// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
     /// ```
-    pub fn solve_reduced<P>(&self, problem: &P) -> Option<Vec<usize>>
+    pub fn solve_reduced<V, P>(&self, problem: &P) -> Result<Vec<usize>, ILPSolveError>
     where
-        P: ReduceTo<ILP<bool>>,
+        V: VariableDomain,
+        P: ReduceTo<ILP<V>>,
     {
         let reduction = problem.reduce_to();
         let ilp_solution = self.solve(reduction.target_problem())?;
-        Some(reduction.extract_solution(&ilp_solution))
+        Ok(reduction.extract_solution(&ilp_solution))
     }
 
     /// Solve a type-erased supported ILP variant directly.
-    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
+    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<usize>, ILPSolveError> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }
         if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
             return self.solve(ilp);
         }
-        None
+        Err(ILPSolveError::UnsupportedProblemType)
     }
 }
 

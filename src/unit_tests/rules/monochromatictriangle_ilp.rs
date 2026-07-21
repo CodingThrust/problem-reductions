@@ -64,7 +64,7 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "K6 should be infeasible by R(3,3)=6"
     );
 }

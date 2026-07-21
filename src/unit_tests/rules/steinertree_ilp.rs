@@ -75,7 +75,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_solve_reduced_uses_new_rule() {
     let problem = canonical_instance();
     let solution = ILPSolver::new()
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should find the Steiner tree via ILP");
     assert_eq!(problem.evaluate(&solution), Min(Some(6)));
 }

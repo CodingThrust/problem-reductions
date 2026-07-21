@@ -161,7 +161,7 @@ fn test_infeasible_target_too_large() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
 
-    assert!(result.is_none(), "Should be infeasible");
+    assert!(result.is_err(), "Should be infeasible");
 }
 
 #[test]

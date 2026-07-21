@@ -92,7 +92,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Path graph should have no Hamiltonian cycle"
     );
 }

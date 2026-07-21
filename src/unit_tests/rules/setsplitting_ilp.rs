@@ -64,7 +64,7 @@ fn test_setsplitting_to_ilp_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     assert!(
-        ilp_solver.solve(ilp).is_none(),
+        ilp_solver.solve(ilp).is_err(),
         "ILP should be infeasible for unsplittable instance"
     );
 }

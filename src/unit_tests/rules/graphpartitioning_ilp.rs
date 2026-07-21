@@ -104,7 +104,10 @@ fn test_odd_vertices_reduce_to_infeasible_ilp() {
     assert_eq!(ilp.constraints[0].rhs, 1.5);
 
     let solver = ILPSolver::new();
-    assert_eq!(solver.solve(ilp), None);
+    assert_eq!(
+        solver.solve(ilp),
+        Err(crate::solvers::ILPSolveError::Infeasible)
+    );
 }
 
 #[test]
@@ -125,7 +128,7 @@ fn test_solve_reduced() {
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
     assert_eq!(problem.evaluate(&solution), Min(Some(3)));

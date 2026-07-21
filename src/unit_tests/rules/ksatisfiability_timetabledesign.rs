@@ -78,7 +78,7 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
 
     let target_solution = ILPSolver::new()
-        .solve_reduced(reduction.target_problem())
+        .solve_reduced::<bool, _>(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
@@ -95,8 +95,8 @@ fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
 
     assert!(
         ILPSolver::new()
-            .solve_reduced(reduction.target_problem())
-            .is_none(),
+            .solve_reduced::<bool, _>(reduction.target_problem())
+            .is_err(),
         "unsatisfiable 3SAT instance should produce an infeasible timetable"
     );
 }

@@ -100,9 +100,16 @@ For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract
 in a single call:
 
 ```rust,ignore
-let solution = ILPSolver::new().solve_reduced(&problem).unwrap();
+let solution = ILPSolver::new()
+    .solve_reduced::<bool, _>(&problem)
+    .unwrap();
 assert!(problem.evaluate(&solution).is_valid());
 ```
+
+The ILP domain is explicit because a source type may provide more than one
+direct ILP reduction. Both `bool` and `i32` are supported. `solve` and
+`solve_reduced` return `ILPSolveError`, which distinguishes infeasibility,
+timeout, unboundedness, unsupported dynamic input, and backend failure.
 
 ### Example 2: Reduction path search — integer factoring to spin glass
 

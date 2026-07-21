@@ -102,9 +102,7 @@ fn test_ksatisfiability_to_feasible_register_assignment_unsatisfiable_instance()
     let fra_to_ilp = ReduceTo::<ILP<i32>>::reduce_to(reduction.target_problem());
 
     assert!(
-        ILPSolver::new()
-            .solve(fra_to_ilp.target_problem())
-            .is_none(),
+        ILPSolver::new().solve(fra_to_ilp.target_problem()).is_err(),
         "an unsatisfiable source formula should yield an infeasible FRA instance"
     );
 }
