@@ -113,7 +113,7 @@ fn test_ilp_infeasible_triangle_2_colors() {
     // ILP should be infeasible
     let result = ilp_solver.solve(ilp);
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Triangle with 2 colors should be infeasible"
     );
 }
@@ -202,7 +202,7 @@ fn test_complete_graph_k4_with_3_colors_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
-    assert!(result.is_none(), "K4 with 3 colors should be infeasible");
+    assert!(result.is_err(), "K4 with 3 colors should be infeasible");
 }
 
 #[test]
@@ -234,7 +234,7 @@ fn test_solve_reduced() {
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution));

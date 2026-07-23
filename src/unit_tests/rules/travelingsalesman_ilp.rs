@@ -104,7 +104,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
     let result = ilp_solver.solve(ilp);
 
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Path graph should have no Hamiltonian cycle (infeasible ILP)"
     );
 }
@@ -136,7 +136,7 @@ fn test_solve_reduced() {
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
     let metric = problem.evaluate(&solution);

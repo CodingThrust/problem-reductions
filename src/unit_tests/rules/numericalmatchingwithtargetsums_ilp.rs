@@ -60,7 +60,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_unsatisfiable() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let result = ILPSolver::new().solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Unsatisfiable instance should have no ILP solution"
     );
 }

@@ -158,7 +158,6 @@ impl TimetableDesign {
         ((craftsman * self.num_tasks) + task) * self.num_periods + period
     }
 
-    #[cfg(feature = "ilp-solver")]
     pub(crate) fn solve_via_required_assignments(&self) -> Option<Vec<usize>> {
         #[derive(Clone)]
         struct PairRequirement {

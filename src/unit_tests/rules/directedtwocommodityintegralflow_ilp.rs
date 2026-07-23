@@ -94,7 +94,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should produce infeasible ILP"
     );
 }
@@ -106,7 +106,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
 
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
     );
 }

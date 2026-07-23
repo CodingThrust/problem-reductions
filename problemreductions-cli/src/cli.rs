@@ -1272,12 +1272,12 @@ impl CreateArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
-  pred solve problem.json                        # ILP solver (default, auto-reduces to ILP)
+  pred solve problem.json                        # deterministic registered backend or fallback
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
-  pred solve problem.json --solver customized    # customized (structure-exploiting exact solver)
+  pred solve problem.json --solver ilp           # require the registered fixed ILP pipeline
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
-  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin when an ILP path exists
+  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
   pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 | pred solve - --solver brute-force
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
@@ -1293,14 +1293,9 @@ Solve via explicit reduction:
 
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
-The ILP solver auto-reduces non-ILP problems before solving.
-Problems without an ILP reduction path, such as `GroupingBySwapping`,
-`LengthBoundedDisjointPaths`, `MinMaxMulticenter`, and `StringToStringCorrection`,
-currently need `--solver brute-force`.
-
-Customized solver: exact witness recovery for select problems via structure-exploiting
-backends. Currently supports MinimumCardinalityKey, AdditionalKey, PrimeAttributeName,
-BoyceCoddNormalFormViolation, PartialFeedbackEdgeSet, and RootedTreeArrangement.
+By default, solve deterministically selects the exact variant's registered native
+backend, then its fixed ILP pipeline, and otherwise brute force. `--solver ilp`
+requires a registered ILP pipeline; it never searches the reduction graph.
 
 ILP backend (default: HiGHS). To use CPLEX instead:
   cargo install problemreductions-cli --features cplex
@@ -1308,9 +1303,9 @@ ILP backend (default: HiGHS). To use CPLEX instead:
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Solver: ilp (default), brute-force, or customized
-    #[arg(long, default_value = "ilp")]
-    pub solver: String,
+    /// Solver override: ilp or brute-force. Omit for deterministic default dispatch.
+    #[arg(long)]
+    pub solver: Option<String>,
     /// Timeout in seconds (0 = no limit)
     #[arg(long, default_value = "0")]
     pub timeout: u64,

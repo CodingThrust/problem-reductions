@@ -115,7 +115,7 @@ fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
         "source instance should be infeasible"
     );
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "reduced ILP should be infeasible"
     );
 }
@@ -138,7 +138,7 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
 
     assert_eq!(problem.evaluate(&direct_source), Or(true));
     assert!(
-        solver.solve(indirect.target_problem()).is_some(),
+        solver.solve(indirect.target_problem()).is_ok(),
         "indirect ILP should agree on feasibility"
     );
     assert!(direct.target_problem().num_vars < indirect.target_problem().num_vars);

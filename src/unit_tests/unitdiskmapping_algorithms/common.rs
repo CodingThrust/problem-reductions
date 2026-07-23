@@ -40,7 +40,7 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
     let weights = vec![1; num_vertices];
     let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(&ilp) {
+    if let Ok(solution) = solver.solve(&ilp) {
         solution.iter().filter(|&&x| x > 0).count()
     } else {
         0
@@ -52,7 +52,7 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
     let weights = vec![1; num_vertices];
     let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(&ilp) {
+    if let Ok(solution) = solver.solve(&ilp) {
         solution
             .iter()
             .map(|&x| if x > 0 { 1 } else { 0 })
@@ -88,7 +88,7 @@ pub fn solve_weighted_grid_mis(result: &MappingResult) -> usize {
 pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> i32 {
     let ilp = build_mis_ilp(num_vertices, edges, weights);
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(&ilp) {
+    if let Ok(solution) = solver.solve(&ilp) {
         solution
             .iter()
             .zip(weights.iter())
@@ -109,7 +109,7 @@ pub fn solve_weighted_mis_config(
     let ilp = build_mis_ilp(num_vertices, edges, weights);
 
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(&ilp) {
+    if let Ok(solution) = solver.solve(&ilp) {
         solution
             .iter()
             .map(|&x| if x > 0 { 1 } else { 0 })

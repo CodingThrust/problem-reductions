@@ -110,7 +110,7 @@ fn test_unsatisfiable_ksat_stays_infeasible_through_fra_to_ilp() {
     assert!(
         ILPSolver::new()
             .solve(fra_chain.target_problem::<ILP<i32>>())
-            .is_none(),
+            .is_err(),
         "unsatisfiable source instance should yield an infeasible ILP"
     );
 }

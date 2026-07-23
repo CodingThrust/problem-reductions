@@ -57,7 +57,7 @@ fn test_precedenceconstrainedscheduling_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionPCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible scheduling instance should produce infeasible ILP"
     );
 }

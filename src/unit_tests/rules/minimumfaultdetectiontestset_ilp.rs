@@ -80,7 +80,7 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
 
     assert_eq!(problem.evaluate(&[0]), Min(None));
     assert_eq!(problem.evaluate(&[1]), Min(None));
-    assert!(ILPSolver::new().solve(ilp).is_none());
+    assert!(ILPSolver::new().solve(ilp).is_err());
 }
 
 #[test]

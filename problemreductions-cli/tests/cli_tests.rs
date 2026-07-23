@@ -189,8 +189,12 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
     let stdout = String::from_utf8(solve.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["problem"], "BalancedCompleteBipartiteSubgraph");
-    assert_eq!(json["solver"], "ilp");
-    assert_eq!(json["reduced_to"], "ILP");
+    assert_eq!(json["solver"]["kind"], "ilp");
+    assert!(json["solver"]["reduction_path"]
+        .as_array()
+        .and_then(|path| path.last())
+        .and_then(|step| step.as_str())
+        .is_some_and(|step| step.starts_with("ILP<")));
     assert_eq!(json["evaluation"], "Or(true)");
     assert!(
         json["solution"]
@@ -1834,12 +1838,12 @@ fn test_solve_d2cif_default_solver_uses_ilp() {
     );
     let stdout = String::from_utf8(solve_output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"ilp\""),
+        stdout.contains("\"kind\": \"ilp\""),
         "expected ILP solver output, got: {stdout}"
     );
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "expected auto-reduction marker, got: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "expected registered ILP pipeline metadata, got: {stdout}"
     );
 
     std::fs::remove_file(&output_file).ok();
@@ -2974,7 +2978,7 @@ fn test_solve_brute_force() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY (as in tests)
-    assert!(stdout.contains("\"solver\": \"brute-force\""));
+    assert!(stdout.contains("\"kind\": \"brute-force\""));
     assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
@@ -3006,11 +3010,11 @@ fn test_solve_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("\"solver\": \"ilp\""));
+    assert!(stdout.contains("\"kind\": \"ilp\""));
     assert!(stdout.contains("\"solution\""));
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "MIS solved with ILP should show auto-reduction: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "MIS solved with ILP should report its registered pipeline: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -3018,7 +3022,7 @@ fn test_solve_ilp() {
 
 #[test]
 fn test_solve_ilp_default() {
-    // Default solver is ilp
+    // MIS has no native solver, so its registered ILP pipeline is the default.
     let problem_file = std::env::temp_dir().join("pred_test_solve_default.json");
     let create_out = pred()
         .args([
@@ -3045,16 +3049,15 @@ fn test_solve_ilp_default() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("\"solver\": \"ilp\"") && stdout.contains("\"reduced_to\": \"ILP\""),
-        "MIS with default solver should show auto-reduction: {stdout}"
+        stdout.contains("\"kind\": \"ilp\"") && stdout.contains("\"reduction_path\""),
+        "MIS with default solver should report its registered ILP pipeline: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_ilp_shows_via_ilp() {
-    // When solving a non-ILP problem with ILP solver, output should show "via ILP"
+fn test_solve_ilp_reports_registered_pipeline() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_via_ilp.json");
     let create_out = pred()
         .args([
@@ -3081,8 +3084,8 @@ fn test_solve_ilp_shows_via_ilp() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "Non-ILP problem solved with ILP should show auto-reduction indicator, got: {stdout}"
+        stdout.contains("\"reduction_path\""),
+        "Non-ILP problem solved with ILP should report its registered pipeline, got: {stdout}"
     );
     assert!(stdout.contains("\"problem\": \"MaximumIndependentSet\""));
 
@@ -3127,7 +3130,7 @@ fn test_solve_json_output() {
     let content = std::fs::read_to_string(&result_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(json["solution"].is_array());
-    assert_eq!(json["solver"], "brute-force");
+    assert_eq!(json["solver"]["kind"], "brute-force");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
@@ -3283,13 +3286,13 @@ fn test_solve_direct_ilp_i32_problem() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("\"problem\": \"ILP\""), "{stdout}");
-    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"kind\": \"ilp\""), "{stdout}");
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
+fn test_solve_partial_ilp_route_defaults_to_brute_force() {
     let problem_file = std::env::temp_dir()
         .join("pred_test_solve_sequencing_to_minimize_weighted_completion_time.json");
 
@@ -3328,7 +3331,7 @@ fn test_solve_sequencing_to_minimize_weighted_completion_time_default_solver() {
         stdout.contains("\"problem\": \"SequencingToMinimizeWeightedCompletionTime\""),
         "{stdout}"
     );
-    assert!(stdout.contains("\"solver\": \"ilp\""), "{stdout}");
+    assert!(stdout.contains("\"kind\": \"brute-force\""), "{stdout}");
     assert!(stdout.contains("\"solution\": ["), "{stdout}");
 
     std::fs::remove_file(&problem_file).ok();
@@ -3367,7 +3370,7 @@ fn test_solve_unknown_solver() {
 }
 
 #[test]
-fn test_solve_help_mentions_bruteforce_only_models() {
+fn test_solve_help_describes_deterministic_dispatch_and_overrides() {
     let output = pred().args(["solve", "--help"]).output().unwrap();
     assert!(
         output.status.success(),
@@ -3375,7 +3378,11 @@ fn test_solve_help_mentions_bruteforce_only_models() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MinMaxMulticenter"), "stdout: {stdout}");
+    assert!(
+        stdout.contains("deterministically selects"),
+        "stdout: {stdout}"
+    );
+    assert!(stdout.contains("never searches"), "stdout: {stdout}");
     assert!(stdout.contains("--solver brute-force"), "stdout: {stdout}");
 }
 
@@ -4623,11 +4630,8 @@ fn test_solve_minmaxmulticenter_default_solver_uses_ilp() {
         String::from_utf8_lossy(&solve_out.stderr)
     );
     let stdout = String::from_utf8(solve_out.stdout).unwrap();
-    assert!(stdout.contains("\"solver\": \"ilp\""), "stdout: {stdout}");
-    assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
-        "stdout: {stdout}"
-    );
+    assert!(stdout.contains("\"kind\": \"ilp\""), "stdout: {stdout}");
+    assert!(stdout.contains("\"reduction_path\""), "stdout: {stdout}");
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -5823,11 +5827,11 @@ fn test_solve_sum_of_squares_partition_default_solver_uses_ilp() {
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"ilp\""),
+        stdout.contains("\"kind\": \"ilp\""),
         "stdout should report the ILP solver, got: {stdout}"
     );
     assert!(
-        stdout.contains("\"reduced_to\": \"ILP\""),
+        stdout.contains("\"reduction_path\""),
         "stdout should report the ILP reduction target, got: {stdout}"
     );
 
@@ -7352,7 +7356,7 @@ fn test_solve_multiple_copy_file_allocation_brute_force() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("\"solver\": \"brute-force\""),
+        stdout.contains("\"kind\": \"brute-force\""),
         "MultipleCopyFileAllocation should solve with brute-force: {stdout}"
     );
 
@@ -8826,7 +8830,7 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
 }
 
 #[test]
-fn test_solve_customized_unsupported_problem_shows_hint() {
+fn deterministic_solver_dispatch_rejects_non_override_solver_names() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_unsupported.json");
     let create_out = pred()
         .args([
@@ -8841,27 +8845,69 @@ fn test_solve_customized_unsupported_problem_shows_hint() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let output = pred()
-        .args([
-            "solve",
-            problem_file.to_str().unwrap(),
-            "--solver",
-            "customized",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("unsupported by customized solver"),
-        "expected customized solver hint, got: {stderr}"
-    );
+    for rejected in ["auto", "customized", "native", "fd-minimum-cardinality-key"] {
+        let output = pred()
+            .args([
+                "solve",
+                problem_file.to_str().unwrap(),
+                "--solver",
+                rejected,
+            ])
+            .output()
+            .unwrap();
+        assert!(!output.status.success(), "accepted --solver {rejected}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!("Unknown solver: {rejected}")),
+            "unexpected error for {rejected}: {stderr}"
+        );
+    }
 
     std::fs::remove_file(&problem_file).ok();
 }
 
 #[test]
-fn test_solve_customized_minimum_cardinality_key() {
+fn deterministic_solver_dispatch_cli_output_is_repeatable_for_each_solver_class() {
+    let problem_file = std::env::temp_dir().join("pred_test_solver_repeatability.json");
+    let problem = serde_json::json!({
+        "type": "RootedTreeArrangement",
+        "variant": {"graph": "SimpleGraph"},
+        "data": {
+            "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]},
+            "bound": 3
+        }
+    });
+    std::fs::write(&problem_file, serde_json::to_vec(&problem).unwrap()).unwrap();
+
+    for solver in [None, Some("ilp"), Some("brute-force")] {
+        let run = || {
+            let mut command = pred();
+            command.args(["--json", "solve", problem_file.to_str().unwrap()]);
+            if let Some(solver) = solver {
+                command.args(["--solver", solver]);
+            }
+            command.output().unwrap()
+        };
+        let first = run();
+        let second = run();
+        assert!(
+            first.status.success(),
+            "first {solver:?} solve failed: {}",
+            String::from_utf8_lossy(&first.stderr)
+        );
+        assert!(
+            second.status.success(),
+            "second {solver:?} solve failed: {}",
+            String::from_utf8_lossy(&second.stderr)
+        );
+        assert_eq!(first.stdout, second.stdout, "{solver:?} output changed");
+    }
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_native() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_mck.json");
     let create_out = pred()
         .args([
@@ -8883,12 +8929,7 @@ fn test_solve_customized_minimum_cardinality_key() {
     );
 
     let output = pred()
-        .args([
-            "solve",
-            problem_file.to_str().unwrap(),
-            "--solver",
-            "customized",
-        ])
+        .args(["solve", problem_file.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(
@@ -8897,9 +8938,11 @@ fn test_solve_customized_minimum_cardinality_key() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("customized"),
-        "expected 'customized' in output, got: {stdout}"
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["solver"]["kind"], "native");
+    assert_eq!(
+        json["solver"]["implementation"],
+        "fd-minimum-cardinality-key"
     );
     assert!(
         stdout.contains("Min("),
@@ -8910,7 +8953,7 @@ fn test_solve_customized_minimum_cardinality_key() {
 }
 
 #[test]
-fn test_solve_customized_bundle_does_not_panic() {
+fn test_solve_bundle_rejects_removed_customized_override_without_panicking() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_bundle_problem.json");
     let bundle_file = std::env::temp_dir().join("pred_test_solve_customized_bundle.json");
 
@@ -8956,15 +8999,15 @@ fn test_solve_customized_bundle_does_not_panic() {
     let stderr = String::from_utf8_lossy(&solve_out.stderr);
     assert!(
         !stderr.contains("panicked at"),
-        "customized bundle solve should fail gracefully, got: {stderr}"
+        "removed override should fail gracefully, got: {stderr}"
     );
     assert!(
         !solve_out.status.success(),
-        "customized solver should not silently succeed on unsupported bundle target"
+        "removed solver override should not silently succeed"
     );
     assert!(
-        stderr.contains("unsupported by customized solver"),
-        "expected customized solver error, got: {stderr}"
+        stderr.contains("Unknown solver: customized"),
+        "expected removed solver error, got: {stderr}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -8972,7 +9015,7 @@ fn test_solve_customized_bundle_does_not_panic() {
 }
 
 #[test]
-fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+fn test_inspect_minimum_cardinality_key_reports_native_capability() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_customized_mck.json");
     let create_out = pred()
         .args([
@@ -9005,15 +9048,10 @@ fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
 
     let stdout = String::from_utf8(inspect_out.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let solvers: Vec<&str> = json["solvers"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|value| value.as_str().unwrap())
-        .collect();
-    assert!(
-        solvers.contains(&"customized"),
-        "inspect should list customized when supported, got: {json}"
+    assert_eq!(json["default_solver"], "native");
+    assert_eq!(
+        json["solver_capabilities"]["native"]["implementation"],
+        "fd-minimum-cardinality-key"
     );
 
     std::fs::remove_file(&problem_file).ok();

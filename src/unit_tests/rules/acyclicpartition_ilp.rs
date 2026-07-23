@@ -76,7 +76,7 @@ fn test_infeasible_instance() {
     let reduction: ReductionAcyclicPartitionToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
-    assert!(solver.solve(ilp).is_none());
+    assert!(solver.solve(ilp).is_err());
 }
 
 #[test]

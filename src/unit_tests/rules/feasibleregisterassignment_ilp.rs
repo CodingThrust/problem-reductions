@@ -41,7 +41,7 @@ fn test_feasible_register_assignment_to_ilp_infeasible() {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
 
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "register-conflict source instance should reduce to an infeasible ILP"
     );
 }

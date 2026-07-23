@@ -64,7 +64,7 @@ fn test_register_sufficiency_to_ilp_infeasible() {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
 
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "register-sufficiency instance with bound one should be infeasible"
     );
 }

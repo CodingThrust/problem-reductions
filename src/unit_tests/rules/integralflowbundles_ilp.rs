@@ -94,7 +94,7 @@ fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
 fn test_integral_flow_bundles_to_ilp_unsat_instance_is_infeasible() {
     let problem = no_instance();
     let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_none());
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
 #[test]

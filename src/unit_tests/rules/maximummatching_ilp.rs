@@ -242,7 +242,7 @@ fn test_solve_reduced() {
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
     assert!(problem.evaluate(&solution).is_valid());

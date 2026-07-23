@@ -52,13 +52,13 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
     let ilp_result = ilp_solver.solve(reduction.target_problem());
 
     match ilp_result {
-        Some(ilp_solution) => {
+        Ok(ilp_solution) => {
             let extracted = reduction.extract_solution(&ilp_solution);
             let ilp_value = problem.evaluate(&extracted);
             // Both should agree on the optimal length
             assert_eq!(ilp_value, bf_value);
         }
-        None => {
+        Err(_) => {
             // ILP found no feasible solution; brute force should agree
             assert_eq!(bf_value, Min(None));
         }

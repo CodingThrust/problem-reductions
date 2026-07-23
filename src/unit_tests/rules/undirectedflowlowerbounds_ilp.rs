@@ -73,7 +73,7 @@ fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
     );
 }

@@ -56,6 +56,16 @@ fn test_preemptivescheduling_to_ilp_closed_loop() {
 }
 
 #[test]
+fn test_solve_reduced_supports_direct_ilp_i32_reductions() {
+    let problem = small_instance();
+    let solution = ILPSolver::new()
+        .solve_reduced::<i32, _>(&problem)
+        .expect("direct ILP<i32> reduction should be solvable");
+
+    assert!(problem.evaluate(&solution).0.is_some());
+}
+
+#[test]
 fn test_preemptivescheduling_to_ilp_medium_closed_loop() {
     let p = medium_instance();
     let reduction: ReductionPSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
@@ -87,7 +97,7 @@ fn test_preemptivescheduling_to_ilp_infeasible() {
     let reduction: ReductionPSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
     let sol = ILPSolver::new().solve(reduction.target_problem());
     // 1 processor, t0 at slot 0, t1 at slot 1 → always feasible
-    assert!(sol.is_some(), "should be feasible");
+    assert!(sol.is_ok(), "should be feasible");
 }
 
 // ─── extract_solution ──────────────────────────────────────────────────────

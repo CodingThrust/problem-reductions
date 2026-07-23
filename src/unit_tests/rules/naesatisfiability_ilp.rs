@@ -74,7 +74,7 @@ fn test_naesatisfiability_to_ilp_infeasible() {
     let ilp_solver = ILPSolver::new();
     // The ILP should be infeasible: x1 ≥ 1 (at least one true) AND x1 ≤ 0 (at least one false)
     assert!(
-        ilp_solver.solve(ilp).is_none(),
+        ilp_solver.solve(ilp).is_err(),
         "ILP should be infeasible for unsatisfiable NAE-SAT"
     );
 }

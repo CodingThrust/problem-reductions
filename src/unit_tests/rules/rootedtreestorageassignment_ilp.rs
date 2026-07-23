@@ -34,13 +34,13 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
     let ilp_result = ilp_solver.solve(reduction.target_problem());
 
     match ilp_result {
-        Some(ilp_solution) => {
+        Ok(ilp_solution) => {
             let extracted = reduction.extract_solution(&ilp_solution);
             let ilp_value = problem.evaluate(&extracted);
             assert!(ilp_value.0, "ILP solution should be feasible");
             assert!(bf_value.0, "BF should also find feasible solution");
         }
-        None => {
+        Err(_) => {
             assert!(!bf_value.0, "both should agree on infeasibility");
         }
     }
@@ -63,10 +63,7 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
     assert!(bf_witness.is_none(), "source should be infeasible");
-    assert!(
-        ilp_result.is_none(),
-        "reduced ILP should also be infeasible"
-    );
+    assert!(ilp_result.is_err(), "reduced ILP should also be infeasible");
 }
 
 #[test]

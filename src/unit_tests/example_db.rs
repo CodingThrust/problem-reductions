@@ -502,10 +502,8 @@ fn model_specs_are_self_consistent() {
 #[cfg(feature = "ilp-solver")]
 #[test]
 fn model_specs_are_optimal() {
-    use crate::registry::find_variant_entry;
-    use crate::solvers::ILPSolver;
-
-    let ilp_solver = ILPSolver::new();
+    use crate::registry::{find_variant_entry, load_dyn};
+    use crate::solvers::{solve_deterministically, SolverRequest};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -520,13 +518,19 @@ fn model_specs_are_optimal() {
         // Try brute force first for small instances (fast, avoids expensive ILP chains)
         let dims = spec.instance.dims_dyn();
         let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
+        let solve_registered_ilp = || {
+            let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
+            solve_deterministically(&loaded, SolverRequest::Ilp)
+                .ok()?
+                .config
+        };
         let best_config = if log_space <= 20.0 {
             find_variant_entry(name, &variant)
                 .and_then(|entry| (entry.solve_witness_fn)(spec.instance.as_any()))
                 .map(|(config, _)| config)
-                .or_else(|| ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any()))
+                .or_else(solve_registered_ilp)
         } else {
-            ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any())
+            solve_registered_ilp()
         };
 
         if let Some(best_config) = best_config {

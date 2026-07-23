@@ -47,7 +47,7 @@ fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(problem);
-    let ilp_solution = ILPSolver::new().solve(reduction.target_problem())?;
+    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
     let extracted = reduction.extract_solution(&ilp_solution);
     problem.evaluate(&extracted).0.then_some(extracted)
 }

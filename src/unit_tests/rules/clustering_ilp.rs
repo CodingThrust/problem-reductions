@@ -74,5 +74,5 @@ fn test_clustering_to_ilp_infeasible_instance_is_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
-    assert!(ILPSolver::new().solve(reduction.target_problem()).is_none());
+    assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }

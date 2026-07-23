@@ -89,7 +89,7 @@ fn test_directedhamiltonianpath_to_ilp_no_path() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Graph with no Hamiltonian path should be infeasible"
     );
 }

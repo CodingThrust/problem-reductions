@@ -10,6 +10,7 @@ use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
     CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, SearchMode, TraversalFlow,
 };
+use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
@@ -21,8 +22,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, serialize_any_problem, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput,
-    ReductionBundle,
+    load_problem, serialize_any_problem, solve_result_json, solver_capabilities_view,
+    solver_request, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
 use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
 
@@ -148,7 +149,7 @@ pub struct ReduceParams {
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(description = "Solver: 'ilp' (default), 'brute-force', or 'customized'")]
+    #[schemars(description = "Solver override: 'ilp' or 'brute-force'; omit for default dispatch")]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
     pub timeout: Option<u64>,
@@ -849,7 +850,7 @@ impl McpServer {
         let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
         targets.sort();
         targets.dedup();
-        let solvers = problem.available_solvers();
+        let solver_view = solver_capabilities_view(&problem)?;
 
         let result = serde_json::json!({
             "kind": "problem",
@@ -857,7 +858,9 @@ impl McpServer {
             "variant": variant,
             "size_fields": size_fields,
             "num_variables": problem.num_variables_dyn(),
-            "solvers": solvers,
+            "solvers": solver_view.solvers,
+            "default_solver": solver_view.default_solver,
+            "solver_capabilities": solver_view.capabilities,
             "reduces_to": targets,
         });
         Ok(serde_json::to_string_pretty(&result)?)
@@ -980,13 +983,7 @@ impl McpServer {
         solver: Option<&str>,
         timeout: Option<u64>,
     ) -> anyhow::Result<String> {
-        let solver_name = solver.unwrap_or("ilp");
-        if solver_name != "brute-force" && solver_name != "ilp" && solver_name != "customized" {
-            anyhow::bail!(
-                "Unknown solver: {}. Available solvers: brute-force, ilp, customized",
-                solver_name
-            );
-        }
+        let request = solver_request(solver)?;
 
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
         let timeout_secs = timeout.unwrap_or(0);
@@ -998,22 +995,18 @@ impl McpServer {
 
         if timeout_secs > 0 {
             let json_clone = json.clone();
-            let solver_name = solver_name.to_string();
             let (tx, rx) = std::sync::mpsc::channel();
             std::thread::spawn(move || {
                 let result = if is_bundle {
                     match serde_json::from_value::<ReductionBundle>(json_clone) {
-                        Ok(b) => solve_bundle_inner(b, &solver_name),
+                        Ok(b) => solve_bundle_inner(b, request),
                         Err(e) => Err(anyhow::Error::from(e)),
                     }
                 } else {
                     match serde_json::from_value::<ProblemJson>(json_clone) {
-                        Ok(pj) => solve_problem_inner(
-                            &pj.problem_type,
-                            &pj.variant,
-                            pj.data,
-                            &solver_name,
-                        ),
+                        Ok(pj) => {
+                            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
+                        }
                         Err(e) => Err(anyhow::Error::from(e)),
                     }
                 };
@@ -1025,10 +1018,10 @@ impl McpServer {
             }
         } else if is_bundle {
             let bundle: ReductionBundle = serde_json::from_value(json)?;
-            solve_bundle_inner(bundle, solver_name)
+            solve_bundle_inner(bundle, request)
         } else {
             let pj: ProblemJson = serde_json::from_value(json)?;
-            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, solver_name)
+            solve_problem_inner(&pj.problem_type, &pj.variant, pj.data, request)
         }
     }
 }
@@ -1147,7 +1140,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Solve a problem instance using brute-force, ILP, or customized solver
+    /// Solve a problem using deterministic default dispatch or an explicit override
     #[tool(
         name = "solve",
         annotations(read_only_hint = true, open_world_hint = false)
@@ -1309,22 +1302,6 @@ fn format_front_json(
 
 fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
     util::ser(problem)
-}
-
-fn solve_result_json(
-    problem: &str,
-    solver: &str,
-    result: &crate::dispatch::SolveResult,
-) -> serde_json::Value {
-    let mut json = serde_json::json!({
-        "problem": problem,
-        "solver": solver,
-        "evaluation": result.evaluation,
-    });
-    if let Some(config) = &result.config {
-        json["solution"] = serde_json::json!(config);
-    }
-    json
 }
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
@@ -1640,69 +1617,37 @@ fn solve_problem_inner(
     problem_type: &str,
     variant: &BTreeMap<String, String>,
     data: serde_json::Value,
-    solver_name: &str,
+    request: SolverRequest,
 ) -> anyhow::Result<String> {
     let problem = load_problem(problem_type, variant, data)?;
     let name = problem.problem_name();
-
-    match solver_name {
-        "brute-force" => {
-            let result = problem.solve_brute_force();
-            let json = solve_result_json(name, "brute-force", &result);
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        "ilp" => {
-            let result = problem.solve_with_ilp()?;
-            let result = crate::dispatch::SolveResult {
-                config: Some(result.config),
-                evaluation: result.evaluation,
-            };
-            let mut json = solve_result_json(name, "ilp", &result);
-            if name != "ILP" {
-                json["reduced_to"] = serde_json::json!("ILP");
-            }
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        "customized" => {
-            let result = problem.solve_with_customized()?;
-            let result = crate::dispatch::SolveResult {
-                config: Some(result.config),
-                evaluation: result.evaluation,
-            };
-            let json = solve_result_json(name, "customized", &result);
-            Ok(serde_json::to_string_pretty(&json)?)
-        }
-        _ => unreachable!(),
-    }
+    let result = problem.solve_deterministically(request)?;
+    let json = solve_result_json(name, &result);
+    Ok(serde_json::to_string_pretty(&json)?)
 }
 
 /// Solve a reduction bundle: solve the target, then map the solution back.
-fn solve_bundle_inner(bundle: ReductionBundle, solver_name: &str) -> anyhow::Result<String> {
+fn solve_bundle_inner(bundle: ReductionBundle, request: SolverRequest) -> anyhow::Result<String> {
     let replay = BundleReplay::prepare(&bundle)?;
 
-    let target_result = match solver_name {
-        "brute-force" => replay.target.solve_brute_force_witness().ok_or_else(|| {
+    let target_result = replay.target.solve_deterministically(request)?;
+    let target_config = target_result.config.as_ref().ok_or_else(|| {
             anyhow::anyhow!(
                 "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
                 replay.target_name
             )
-        })?,
-        "ilp" => replay.target.solve_with_ilp()?,
-        "customized" => replay.target.solve_with_customized()?,
-        _ => unreachable!(),
-    };
+        })?;
 
-    let (source_config, source_eval) = replay.extract(&target_result.config);
+    let (source_config, source_eval) = replay.extract(target_config);
 
     let json = serde_json::json!({
         "problem": replay.source_name,
-        "solver": solver_name,
-        "reduced_to": replay.target_name,
+        "solver": &target_result.solver,
         "solution": source_config,
         "evaluation": source_eval,
         "intermediate": {
             "problem": replay.target_name,
-            "solution": target_result.config,
+            "solution": target_config,
             "evaluation": target_result.evaluation,
         },
     });

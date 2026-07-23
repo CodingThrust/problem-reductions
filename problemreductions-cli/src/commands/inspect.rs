@@ -1,4 +1,6 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
+use crate::dispatch::{
+    load_problem, read_input, solver_capabilities_view, ProblemJson, ReductionBundle,
+};
 use crate::output::OutputConfig;
 use anyhow::Result;
 use problemreductions::rules::ReductionGraph;
@@ -40,19 +42,21 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
-    let solvers = problem.available_solvers();
-    let solver_summary = solvers
-        .iter()
-        .map(|solver| {
-            if *solver == "ilp" {
-                "ilp (default)".to_string()
-            } else {
-                (*solver).to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    text.push_str(&format!("Solvers: {solver_summary}\n"));
+    let solver_view = solver_capabilities_view(&problem)?;
+    text.push_str(&format!("Default solver: {}\n", solver_view.default_solver));
+    text.push_str(&format!("Solvers: {}\n", solver_view.solvers.join(", ")));
+    if let Some(native) = solver_view.capabilities.native.as_ref() {
+        text.push_str(&format!(
+            "Native implementation: {}\n",
+            native.implementation
+        ));
+    }
+    if let Some(ilp) = solver_view.capabilities.ilp.as_ref() {
+        text.push_str(&format!(
+            "ILP pipeline: {}\n",
+            ilp.reduction_path.join(" -> ")
+        ));
+    }
 
     // Reductions
     let outgoing = graph.outgoing_reductions(name);
@@ -67,7 +71,9 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
         "variant": variant,
         "size_fields": size_fields,
         "num_variables": problem.num_variables_dyn(),
-        "solvers": solvers,
+        "solvers": solver_view.solvers,
+        "default_solver": solver_view.default_solver,
+        "solver_capabilities": solver_view.capabilities,
         "reduces_to": targets,
     });
 

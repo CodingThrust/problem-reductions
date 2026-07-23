@@ -42,7 +42,7 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible SWRTD should produce infeasible ILP"
     );
 }

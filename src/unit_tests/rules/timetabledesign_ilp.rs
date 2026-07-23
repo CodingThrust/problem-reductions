@@ -55,7 +55,7 @@ fn test_timetabledesign_to_ilp_infeasible() {
     let problem = TimetableDesign::new(1, 1, 1, vec![vec![true]], vec![vec![true]], vec![vec![2]]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible TD should produce infeasible ILP"
     );
 }

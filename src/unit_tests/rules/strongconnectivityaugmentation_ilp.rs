@@ -90,7 +90,7 @@ fn test_infeasible_budget() {
     let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
-    assert!(solver.solve(ilp).is_none());
+    assert!(solver.solve(ilp).is_err());
 }
 
 #[test]

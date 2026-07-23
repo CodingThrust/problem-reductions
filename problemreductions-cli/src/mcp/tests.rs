@@ -495,7 +495,7 @@ mod tests {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
         let result = server.inspect_problem_inner(&problem_json);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "inspect failed: {result:?}");
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["type"], "MaximumIndependentSet");
         assert_eq!(json["kind"], "problem");
@@ -549,7 +549,7 @@ mod tests {
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["solution"].is_array());
-        assert_eq!(json["solver"], "brute-force");
+        assert_eq!(json["solver"]["kind"], "brute-force");
     }
 
     #[test]
@@ -563,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn test_solve_customized_supported_problem() {
+    fn deterministic_solver_dispatch_defaults_supported_problem_to_native() {
         let server = McpServer::new();
         let problem_json = serde_json::json!({
             "type": "MinimumCardinalityKey",
@@ -576,10 +576,14 @@ mod tests {
         })
         .to_string();
 
-        let result = server.solve_inner(&problem_json, Some("customized"), None);
+        let result = server.solve_inner(&problem_json, None, None);
         assert!(result.is_ok(), "solve failed: {:?}", result);
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["solver"], "customized");
+        assert_eq!(json["solver"]["kind"], "native");
+        assert_eq!(
+            json["solver"]["implementation"],
+            "fd-minimum-cardinality-key"
+        );
         assert!(json["solution"].is_array(), "{json}");
     }
 
@@ -587,8 +591,37 @@ mod tests {
     fn test_solve_unknown_solver() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
-        let result = server.solve_inner(&problem_json, Some("unknown"), None);
-        assert!(result.is_err());
+        for rejected in ["auto", "customized", "native", "fd-minimum-cardinality-key"] {
+            let error = server
+                .solve_inner(&problem_json, Some(rejected), None)
+                .unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("Unknown solver: {rejected}")),
+                "unexpected error for {rejected}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn deterministic_solver_dispatch_mcp_output_is_repeatable_for_each_solver_class() {
+        let server = McpServer::new();
+        let problem_json = serde_json::json!({
+            "type": "RootedTreeArrangement",
+            "variant": {"graph": "SimpleGraph"},
+            "data": {
+                "graph": {"num_vertices": 3, "edges": [[0, 1], [1, 2]]},
+                "bound": 3
+            }
+        })
+        .to_string();
+
+        for solver in [None, Some("ilp"), Some("brute-force")] {
+            let first = server.solve_inner(&problem_json, solver, None).unwrap();
+            let second = server.solve_inner(&problem_json, solver, None).unwrap();
+            assert_eq!(first, second, "{solver:?} MCP output changed");
+        }
     }
 
     #[test]
@@ -607,7 +640,7 @@ mod tests {
     }
 
     #[test]
-    fn test_solve_customized_bundle_rejects_unsupported_target_without_panicking() {
+    fn test_solve_bundle_rejects_removed_customized_override() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
         let bundle_json = server
@@ -617,7 +650,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(
-            err.contains("unsupported by customized solver"),
+            err.contains("Unknown solver: customized"),
             "unexpected error: {err}"
         );
     }
@@ -637,19 +670,15 @@ mod tests {
     }
 
     #[test]
-    fn test_inspect_minmaxmulticenter_lists_bruteforce_only() {
+    fn test_inspect_minmaxmulticenter_reports_registered_ilp_pipeline() {
         let server = McpServer::new();
         let problem_json = serde_json::json!({
             "type": "MinMaxMulticenter",
             "variant": {"graph": "SimpleGraph", "weight": "i32"},
             "data": {
                 "graph": {
-                    "inner": {
-                        "nodes": [null, null, null, null],
-                        "node_holes": [],
-                        "edge_property": "undirected",
-                        "edges": [[0, 1, null], [1, 2, null], [2, 3, null]]
-                    }
+                    "num_vertices": 4,
+                    "edges": [[0, 1], [1, 2], [2, 3]]
                 },
                 "vertex_weights": [1, 1, 1, 1],
                 "edge_lengths": [1, 1, 1],
@@ -659,19 +688,14 @@ mod tests {
         .to_string();
 
         let result = server.inspect_problem_inner(&problem_json);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "inspect failed: {result:?}");
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        let solvers: Vec<&str> = json["solvers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap())
-            .collect();
-        assert_eq!(solvers, vec!["brute-force"]);
+        assert_eq!(json["default_solver"], "ilp");
+        assert!(json["solver_capabilities"]["ilp"]["reduction_path"].is_array());
     }
 
     #[test]
-    fn test_inspect_minimum_cardinality_key_lists_customized_solver() {
+    fn test_inspect_minimum_cardinality_key_reports_native_solver() {
         let server = McpServer::new();
         let problem_json = serde_json::json!({
             "type": "MinimumCardinalityKey",
@@ -687,15 +711,10 @@ mod tests {
         let result = server.inspect_problem_inner(&problem_json);
         assert!(result.is_ok(), "inspect failed: {:?}", result);
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        let solvers: Vec<&str> = json["solvers"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap())
-            .collect();
-        assert!(
-            solvers.contains(&"customized"),
-            "inspect should list customized when supported, got: {json}"
+        assert_eq!(json["default_solver"], "native");
+        assert_eq!(
+            json["solver_capabilities"]["native"]["implementation"],
+            "fd-minimum-cardinality-key"
         );
     }
 
@@ -707,7 +726,7 @@ mod tests {
         let result = server.solve_inner(&problem_json, Some("brute-force"), None);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["solver"], "brute-force");
+        assert_eq!(json["solver"]["kind"], "brute-force");
     }
 
     #[test]
@@ -739,7 +758,10 @@ mod tests {
         let result = server.solve_inner(&aggregate_problem_json(), Some("ilp"), None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("witness-capable"), "unexpected error: {err}");
+        assert!(
+            err.contains("No ILP pipeline is registered"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

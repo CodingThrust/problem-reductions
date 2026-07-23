@@ -65,7 +65,7 @@ fn test_cdft_to_ilp_unsat_instance_is_infeasible() {
     let problem = small_no_instance();
     let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let solver = ILPSolver::new();
-    assert!(solver.solve(reduction.target_problem()).is_none());
+    assert!(solver.solve(reduction.target_problem()).is_err());
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn test_cdft_to_ilp_solve_reduced() {
     let problem = small_yes_instance();
     let solver = ILPSolver::new();
     let solution = solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should find a satisfying assignment");
     assert!(problem.evaluate(&solution));
 }
