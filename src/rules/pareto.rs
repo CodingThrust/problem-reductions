@@ -1,13 +1,5 @@
 //! Multi-label elementary-path search over the reduction graph.
 //!
-//! This module replaces the old scalar Dijkstra (`ReductionGraph::dijkstra`) with a
-//! generic multi-label search. As described in
-//! `docs/design/symbolic-growth-domain.md`, section M3/F3b, edge costs are
-//! **path-dependent**: the cost of a reduction depends on the size of the problem
-//! accumulated along the path so far. Scalar Dijkstra keeps only the cheapest-so-far
-//! label per node, so a cheaper-but-larger intermediate state can poison downstream
-//! choices — it can miss the path whose *final* target is smallest.
-//!
 //! The search keeps multiple path states per node and filters the Pareto front only at
 //! the destination. Intermediate strict dominance is deliberately forbidden: arbitrary
 //! reduction overheads may shrink, subtract, or otherwise reverse an apparent order.
