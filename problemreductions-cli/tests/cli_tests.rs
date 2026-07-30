@@ -222,9 +222,9 @@ fn test_path() {
     );
 }
 
-/// Issue #1080 verification 1: `pred path KSatisfiability QUBO` (no `--size`) prints
-/// ≥ 1 path, annotated with a normalized `O(...)` per QUBO size field, and the output
-/// is byte-identical across two consecutive runs (determinism / golden behavior).
+/// `pred path KSatisfiability QUBO` (no `--size`) prints at least one path,
+/// annotated with a normalized `O(...)` per QUBO size field, and produces
+/// byte-identical output across consecutive runs.
 #[test]
 fn test_path_asymptotic_front_deterministic() {
     let run = || {
@@ -250,7 +250,7 @@ fn test_path_asymptotic_front_deterministic() {
         "each path must annotate QUBO's num_vars with O(...), got: {first}"
     );
 
-    // The JSON surface carries the structured Growth serialization (issue #1075).
+    // The JSON surface carries structured Growth serialization.
     let json_out = pred()
         .args([
             "path",
@@ -1385,7 +1385,7 @@ fn test_reduce_via_path() {
 
 /// The documented round-trip: a *bare* `pred path S T -o path.json` (no `--cost`)
 /// saves the asymptotic front plus a top-level best `path`, which `pred reduce --via`
-/// must consume. Regression for #1080, which dropped the top-level `path`.
+/// must consume.
 #[test]
 fn test_reduce_via_bare_path() {
     // 1. Create a small source problem (small so the target brute-force stays tiny).

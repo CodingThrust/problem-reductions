@@ -1,6 +1,6 @@
 //! Tests for the multi-label elementary-path search (`src/rules/pareto.rs`) and its two label
 //! domains. Covers:
-//! - The measured concrete-instance search (issue #788 known-answer and budget semantics).
+//! - The measured concrete-instance search's known-answer and budget semantics.
 //! - The generic kernel's correctness on a hand-built diamond (negative control): a
 //!   scalar-cost path selection commits to the wrong prefix, while the Pareto search
 //!   returns the path with the strictly-better final measured size.
@@ -123,10 +123,10 @@ fn measured_edge(
 }
 
 // ---------------------------------------------------------------------------
-// Verification 1: issue #788 known-answer check.
+// Verification 1: measured known-answer check.
 // ---------------------------------------------------------------------------
 
-/// The prism (triangular-prism) graph from issue #788: 6 vertices, 9 edges.
+/// A triangular-prism graph with 6 vertices and 9 edges.
 fn prism_hamiltonian_circuit() -> HamiltonianCircuit<SimpleGraph> {
     let prism = SimpleGraph::new(
         6,
@@ -145,17 +145,17 @@ fn prism_hamiltonian_circuit() -> HamiltonianCircuit<SimpleGraph> {
     HamiltonianCircuit::new(prism)
 }
 
-/// #788: the measured Pareto search selects the path whose *measured* final ILP size is
-/// smallest.
+/// The measured Pareto search selects the path whose *measured* final ILP size
+/// is smallest.
 ///
-/// The literal reduction chain quoted in issue #788 (HC → HP → ConsecutiveOnesSubmatrix →
-/// ILP, total 60) no longer exists on the current reduction graph. The *current* measured
-/// optimum is HC → LongestCircuit → ILP<bool> with a measured total of 232
+/// A previously documented chain through HamiltonianPath and
+/// ConsecutiveOnesSubmatrix no longer exists on the current reduction graph.
+/// The *current* measured optimum is HC → LongestCircuit → ILP<bool> with a total of 232
 /// (num_constraints=127, num_vars=105); the next candidates are RuralPostman → ILP<i32>
 /// (366) and TravelingSalesman → ILP<bool> (768). This test pins the measured optimum so
 /// the selector is proven to rank by *measured* final size, not by step count or formula.
 #[test]
-fn test_hamiltoniancircuit_to_ilp_measured_optimum_788() {
+fn test_hamiltoniancircuit_to_ilp_measured_optimum() {
     let hc = prism_hamiltonian_circuit();
     let graph = ReductionGraph::new();
     let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph")]);
@@ -476,7 +476,7 @@ fn test_diamond_exact_multi_label_keeps_optimum() {
 }
 
 // ---------------------------------------------------------------------------
-// GrowthLabel (asymptotic, instance-free) domain — issue #1080 / design M3/F3a.
+// GrowthLabel (asymptotic, instance-free) domain — design M3/F3a.
 // ---------------------------------------------------------------------------
 
 /// A power `Var(v)^k`.
@@ -633,7 +633,7 @@ fn test_growth_label_terminal_dominance_partial_order() {
     assert!(!d.final_dominates(&c));
 }
 
-/// **Negative control (issue #1080):** two S→T paths whose composed growths are
+/// **Negative control:** two S→T paths whose composed growths are
 /// incomparable — path A costs `O(n^2)` in `vertices` / `O(m)` in `edges`, path B
 /// costs `O(n)` / `O(m^2)` — must *both* appear in the asymptotic Pareto front. An
 /// implementation that scalarizes or keeps a single representative fails this.

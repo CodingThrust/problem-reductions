@@ -223,10 +223,9 @@ fn test_big_o_multivar_exp_dominates_poly() {
 
 #[test]
 fn test_big_o_pathological_nesting_returns_bound_instantly() {
-    // Regression for issue #1069: a deeply-nested power that the old expansion
-    // pipeline could not normalize (it OOM'd, then refused via the term cap).
+    // A deeply nested power that the old expansion pipeline could not normalize.
     // The growth domain answers it bottom-up: `((a+b+c+d)^4)^4` raises each
-    // variable term to degree 16, so it returns a real bound, instantly.
+    // variable term to degree 16, so it returns a real bound immediately.
     let sum = Expr::Var("a") + Expr::Var("b") + Expr::Var("c") + Expr::Var("d");
     let e = Expr::pow(Expr::pow(sum, Expr::Const(4.0)), Expr::Const(4.0));
     let start = std::time::Instant::now();

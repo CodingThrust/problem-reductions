@@ -68,7 +68,7 @@ mod tests {
         assert!(json["stats"]["expanded_states"].is_number());
         let front = json["front"].as_array().unwrap();
         assert!(!front.is_empty());
-        // Structured Growth serialization from issue #1075.
+        // The response includes structured Growth serialization.
         assert!(front[0]["growth"]["num_vars"]["Terms"].is_array());
         assert!(front[0]["big_o"]["num_vars"].is_string());
     }

@@ -129,7 +129,7 @@ fn test_timetable_design_bruteforce_solver_finds_solution() {
 }
 
 #[test]
-fn test_timetable_design_issue_example_is_solved_via_native_backend() {
+fn test_timetable_design_native_backend_solves_feasible_example() {
     let problem = super::issue_example_problem();
     let solution = problem
         .solve_via_required_assignments()

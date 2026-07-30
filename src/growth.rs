@@ -2,10 +2,9 @@
 //! overhead expressions.
 //!
 //! Where [`crate::canonical`] answers Big-O questions by fully expanding an
-//! [`Expr`] to monomial normal form (exponential in nesting depth — the root
-//! cause of issue #1069), the growth domain computes an asymptotic upper bound
-//! *bottom-up* in a single pass, linear in the tree size, without ever expanding
-//! nested sums.
+//! [`Expr`] to monomial normal form, with exponential cost in nesting depth, the
+//! growth domain computes an asymptotic upper bound *bottom-up* in a single pass,
+//! linear in the tree size, without ever expanding nested sums.
 //!
 //! # Representation
 //!

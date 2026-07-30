@@ -312,8 +312,8 @@ impl McpServer {
         }
         let _ = search.mode()?;
 
-        // No `cost` and not `all`: return the instance-free asymptotic Pareto front
-        // (issue #1080), using the structured `Growth` serialization from #1075.
+        // No `cost` and not `all`: return the instance-free asymptotic Pareto
+        // front using structured `Growth` serialization.
         if cost.is_none() && !all {
             let outcome = graph.asymptotic_front(
                 &src_ref.name,
@@ -1250,9 +1250,9 @@ fn format_path_json(
     })
 }
 
-/// JSON rendering of the asymptotic Pareto front for the `find_path` tool. Each path
-/// carries the structured `Growth` serialization (issue #1075) plus a rendered
-/// `O(...)` string per target size field. `Unknown` growth renders `O(?)`.
+/// JSON rendering of the asymptotic Pareto front for the `find_path` tool. Each
+/// path carries structured `Growth` serialization plus a rendered `O(...)`
+/// string per target size field. `Unknown` growth renders `O(?)`.
 ///
 /// The top-level `path` key carries the best front element's steps in the same shape
 /// `format_path_json` emits, so the default `find_path` envelope stays consumable as a

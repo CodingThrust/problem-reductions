@@ -50,10 +50,10 @@ fn exp_product(factors: &[(f64, f64)]) -> ExpProduct {
     )
 }
 
-// --- The six named verification cases from issue #1075 ---
+// --- Core verification cases ---
 
 /// 1. No-expansion regression: the nested sum-of-squares shape that OOM'd in
-///    issue #1069 is handled without expansion, quickly, with few terms.
+///    the old implementation is handled without expansion, quickly, with few terms.
 #[test]
 fn test_growth_no_expansion_regression() {
     let e = Expr::parse("(12*(n + 3*m) + 5)^2 * (12*(n + 3*m) + 5)^2");
@@ -502,8 +502,8 @@ fn test_growth_serde_roundtrip() {
         assert_eq!(serde_json::from_str::<Growth>(&json).unwrap(), value);
     }
 
-    // The transient base-2-rate representation from the unmerged PR is not
-    // guessed back into a symbolic base.
+    // The deprecated transient base-2-rate representation is not guessed back
+    // into a symbolic base.
     let old_rate_only = r#"{"Terms":[{"exp":{"n":1.0},"poly":{},"logs":{}}]}"#;
     assert!(serde_json::from_str::<Growth>(old_rate_only).is_err());
 
@@ -519,7 +519,7 @@ fn test_growth_serde_roundtrip() {
     assert!(serde_json::from_str::<Growth>(&invalid_json).is_err());
 }
 
-// --- Randomized property tests (#1077) ---
+// --- Randomized property tests ---
 //
 // These cross-validate the symbolic growth domain against the numeric ground
 // truth (`Expr::eval`) over a large, seeded input space, in the spirit of the
@@ -553,7 +553,7 @@ use std::collections::BTreeMap;
 
 /// Fixed master seed. Every contract derives its own stream by offsetting this,
 /// so the whole suite is deterministic and reproducible on any platform.
-const MASTER_SEED: u64 = 0xD1CE_2026_1077_ABCD;
+const MASTER_SEED: u64 = 0xD1CE_2026_A11C_E5ED;
 
 /// SplitMix64 — a tiny, fully specified PRNG. Hand-rolled (rather than
 /// `rand::StdRng`) precisely because its output must be identical across crate

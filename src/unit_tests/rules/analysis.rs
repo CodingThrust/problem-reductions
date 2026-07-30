@@ -312,7 +312,7 @@ fn test_find_dominated_rules_returns_known_set() {
             "KSatisfiability {k: \"K3\"}",
             "MinimumVertexCover {graph: \"SimpleGraph\", weight: \"i32\"}",
         ),
-        // Newly decided by the growth-domain rewire (#1081): PartitionIntoPathsOfLength2
+        // Newly decided by the growth-domain rewrite: PartitionIntoPathsOfLength2
         // → BCSF → ILP{i32} → ILP{bool}. The composite's composed num_vars/num_constraints
         // carry a `num_vertices / 3` factor (from max_components = V/3); the old polynomial
         // engine rejected that constant divisor as a negative-exponent power and returned
