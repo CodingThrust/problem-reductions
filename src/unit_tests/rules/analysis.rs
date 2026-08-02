@@ -322,6 +322,8 @@ fn test_find_dominated_rules_returns_known_set() {
             "PartitionIntoPathsOfLength2 {graph: \"SimpleGraph\"}",
             "ILP {variable: \"bool\"}",
         ),
+        // SetSplitting → NAE-SAT → ILP is better than direct SetSplitting → ILP
+        ("SetSplitting", "ILP {variable: \"bool\"}"),
     ]
     .into_iter()
     .collect();
