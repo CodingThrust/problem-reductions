@@ -14321,6 +14321,53 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Remark._ Zero-weight edges are excluded because they allow degenerate optimal ILP solutions containing redundant cycles at no cost; following the convention of practical solvers (e.g., SCIP-Jack @kochmartin1998steiner), such edges should be contracted before applying the reduction.
 ]
 
+#let mds_hs = load-example(
+  "MinimumDominatingSet",
+  "MinimumHittingSet",
+  source-variant: (graph: "SimpleGraph", weight: "One"),
+)
+#let mds_hs_sol = mds_hs.solutions.at(0)
+#let mds_hs_graph = mds_hs.source.instance.graph
+#let mds_hs_sets = mds_hs.target.instance.sets
+#let mds_hs_dominators = mds_hs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+#let mds_hs_hits = mds_hs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
+#let mds_hs_incidences = mds_hs_sets.map(s => s.len()).sum()
+#reduction-rule("MinimumDominatingSet", "MinimumHittingSet",
+  example: true,
+  example-source-variant: (graph: "SimpleGraph", weight: "One"),
+  example-caption: [Five-vertex path: closed neighborhoods form a Hitting Set instance],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mds_hs.source) + " -o dominating-set.json",
+      "pred reduce dominating-set.json --to " + target-spec(mds_hs) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dominating-set.json --config " + mds_hs_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Read the source path.* The fixture has $n = #mds_hs_graph.num_vertices$ vertices and $m = #mds_hs_graph.edges.len()$ edges, ordered as #mds_hs_graph.edges.map(((u, v)) => [$(#u, #v)$]).join(", "). Thus it is the path $0 dash 1 dash 2 dash 3 dash 4$, and its canonical dominating-set witness is $D = {#mds_hs_dominators.map(str).join(", ")}$. In indicator order this is $(#mds_hs_sol.source_config.map(str).join(", "))$.
+
+    *Step 2 -- Replace vertices by closed neighborhoods.* Keep the vertex labels as the universe $U = {0, dots, #(mds_hs.target.instance.universe_size - 1)}$. For each vertex $v$, insert the set $N[v]$ consisting of $v$ and its neighbors. In source-vertex order the fixture yields #mds_hs_sets.enumerate().map(((v, s)) => [$N[#v] = {#s.map(str).join(", ")}$]).join(", ").
+
+    *Step 3 -- Account for the exact overhead.* The target has $#mds_hs.target.instance.universe_size = n$ universe elements and $#mds_hs_sets.len() = n$ sets. Across those sets there are $#mds_hs_incidences = n + 2 m = #(mds_hs_graph.num_vertices + 2 * mds_hs_graph.edges.len())$ incidences: each vertex contributes itself once, and each undirected edge contributes its two endpoints to one another's closed neighborhoods. The construction therefore takes $O(n + m)$ time and space.
+
+    *Step 4 -- Verify the round trip.* The target witness chooses $H = {#mds_hs_hits.map(str).join(", ")}$, with indicator vector $(#mds_hs_sol.target_config.map(str).join(", "))$. It intersects every displayed neighborhood: $1$ hits $N[0], N[1], N[2]$, while $3$ hits $N[2], N[3], N[4]$. Hence $H$ is a hitting set of size #mds_hs_hits.len(). Identity extraction returns the same coordinates, so the recovered source set is $D = H$ and dominates every path vertex #sym.checkmark
+
+    *Multiplicity:* The fixture stores one canonical witness, not all optimal witnesses. Every minimum dominating set of this path is also a minimum hitting set under the same indicator vector, and conversely, because the construction and extraction preserve selected vertex labels exactly.
+  ],
+)[
+  The closed-neighborhood reduction noted by Bannach and Tantau @bannachTantau2018 maps a unit-weight graph $G = (V, E)$ to the Hitting Set instance whose universe is $V$ and whose sets are the closed neighborhoods $N[v]$. It is computable in $O(n + m)$ time and space and produces exactly $n$ universe elements, $n$ sets, and $n + 2m$ element-set incidences.
+][
+  _Construction._ Let $G = (V, E)$ be a simple undirected graph with $n = |V|$ vertices and $m = |E|$ edges. For $v in V$, define its closed neighborhood by
+  $ N[v] = {v} union {u in V : {u, v} in E}. $
+  Construct the Minimum Hitting Set instance with universe $U = V$ and collection
+  $ cal(S) = {N[v] : v in V}. $
+  A target coordinate $h_v$ represents the same selected vertex as the source coordinate $d_v$. Consequently, $|U| = n$, $|cal(S)| = n$, and $sum_(S in cal(S)) |S| = n + 2m$: every vertex supplies one self-incidence and every edge supplies two neighbor incidences.
+
+  _Correctness._ ($arrow.r.double$) Let $D subset.eq V$ be a dominating set. For every $v in V$, either $v in D$ or a neighbor of $v$ lies in $D$. Equivalently, $D inter N[v] != emptyset$. Thus $D$ hits every set in $cal(S)$ and is a hitting set. ($arrow.l.double$) Let $H subset.eq U$ hit every set in $cal(S)$. For every $v in V$, $H inter N[v] != emptyset$, so either $v in H$ or some neighbor of $v$ lies in $H$. Hence $H$ dominates every vertex and is a dominating set. The correspondence preserves the selected vertex set and therefore its cardinality, so minimum solutions and optimal values coincide.
+
+  _Solution extraction._ Return the target indicator vector unchanged: $d_v = h_v$ for every $v in V$. This identity extraction is valid for every target witness, not only the canonical fixture witness.
+]
+
 #let mvc_hs = load-example("MinimumVertexCover", "MinimumHittingSet")
 #let mvc_hs_sol = mvc_hs.solutions.at(0)
 #let mvc_hs_cover = mvc_hs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
