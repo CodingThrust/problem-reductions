@@ -22,6 +22,28 @@ fn test_setsplitting_to_naesatisfiability_closed_loop() {
 }
 
 #[test]
+fn test_setsplitting_to_naesatisfiability_five_element_closed_loop() {
+    let source = SetSplitting::new(5, vec![vec![0, 1], vec![1, 2, 3], vec![0, 2, 3, 4]]);
+    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&source);
+
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &reduction,
+        "five-element SetSplitting -> NAE-SAT",
+    );
+}
+
+#[test]
+fn test_setsplitting_to_naesatisfiability_odd_cycle_is_infeasible() {
+    let source = SetSplitting::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
+    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&source);
+    let solver = BruteForce::new();
+
+    assert!(solver.find_witness(&source).is_none());
+    assert!(solver.find_witness(reduction.target_problem()).is_none());
+}
+
+#[test]
 fn test_setsplitting_to_naesatisfiability_structure_and_overhead() {
     let source = issue_example();
     let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&source);
