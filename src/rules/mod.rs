@@ -41,6 +41,7 @@ pub(crate) mod hamiltoniancircuit_stackercrane;
 pub(crate) mod hamiltoniancircuit_strongconnectivityaugmentation;
 pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
+pub(crate) mod hamiltonianpath_hamiltoniancircuit;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
 pub(crate) mod ilp_i32_ilp_bool;
@@ -452,6 +453,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(hamiltoniancircuit_strongconnectivityaugmentation::canonical_rule_example_specs());
     specs.extend(hamiltoniancircuit_travelingsalesman::canonical_rule_example_specs());
     specs.extend(hamiltonianpath_degreeconstrainedspanningtree::canonical_rule_example_specs());
+    specs.extend(hamiltonianpath_hamiltoniancircuit::canonical_rule_example_specs());
     specs.extend(graphpartitioning_maxcut::canonical_rule_example_specs());
     specs.extend(graphpartitioning_qubo::canonical_rule_example_specs());
     specs.extend(hamiltonianpathbetweentwovertices_longestpath::canonical_rule_example_specs());
