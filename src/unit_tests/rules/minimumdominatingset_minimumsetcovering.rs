@@ -1,6 +1,8 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
+use crate::types::Min;
 
 #[test]
 fn test_minimumdominatingset_to_minimumsetcovering_closed_loop() {
@@ -40,6 +42,19 @@ fn test_exact_target_structure() {
         ]
     );
     assert_eq!(target.weights_ref(), &[3, 1, 4, 1, 3]);
+}
+
+#[test]
+fn test_infeasible_configuration_preservation() {
+    let source = MinimumDominatingSet::new(SimpleGraph::path(5), vec![3, 1, 4, 1, 3]);
+    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let endpoint_only = vec![1, 0, 0, 0, 0];
+
+    assert_eq!(source.evaluate(&endpoint_only), Min(None));
+    assert_eq!(
+        reduction.target_problem().evaluate(&endpoint_only),
+        Min(None)
+    );
 }
 
 #[test]
