@@ -19165,6 +19165,57 @@ The following table shows concrete variable overhead for example instances, take
 #let tdm_tp_sol = tdm_tp.solutions.at(0)
 #let tdm_tmi = load-example("ThreeDimensionalMatching", "ThreeMatroidIntersection")
 #let tdm_tmi_sol = tdm_tmi.solutions.at(0)
+#let tdm_x3c = load-example("ThreeDimensionalMatching", "ExactCoverBy3Sets")
+#let tdm_x3c_sol = tdm_x3c.solutions.at(0)
+#reduction-rule("ThreeDimensionalMatching", "ExactCoverBy3Sets",
+  example: true,
+  example-caption: [$q = #tdm_x3c.source.instance.universe_size$, #tdm_x3c.source.instance.triples.len() triples $arrow.r$ #tdm_x3c.target.instance.subsets.len() tagged 3-sets],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(tdm_x3c.source) + " -o three-dimensional-matching.json",
+      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_x3c) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate three-dimensional-matching.json --config " + tdm_x3c_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let q = tdm_x3c.source.instance.universe_size
+      let triples = tdm_x3c.source.instance.triples
+      let subsets = tdm_x3c.target.instance.subsets
+      let witness-indices = tdm_x3c_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let witness-elements = witness-indices.map(i => subsets.at(i)).flatten().sorted()
+      let cross-indices = (triples.len() - 2, triples.len() - 1)
+      let cross-elements = cross-indices.map(i => subsets.at(i)).flatten().sorted()
+      let uncovered = range(3 * q).filter(element => not cross-elements.contains(element))
+      [
+        *Step 1 -- Read the indexed 3DM instance.* The three coordinate domains each have size $q = #q$. The fixture's indexed triple list is #triples.enumerate().map(((i, triple)) => "$t_" + str(i) + " = (" + triple.map(str).join(", ") + ")$").join([; ]).
+
+        *Step 2 -- Tag the coordinate domains.* Put the first, second, and third coordinates in disjoint numeric blocks $[0, q)$, $[q, 2q)$, and $[2q, 3q)$. Thus triple $t_j = (a_j, b_j, c_j)$ becomes $S_j = {a_j, q + b_j, 2q + c_j}$. The exact five target subsets are #subsets.enumerate().map(((i, subset)) => "$S_" + str(i) + " = {" + subset.map(str).join(", ") + "}$").join([; ]). The target therefore has universe size $#tdm_x3c.target.instance.universe_size = 3 q$ and one subset per source triple.
+
+        *Step 3 -- Verify the diagonal witness end-to-end.* The canonical source configuration is $(#tdm_x3c_sol.source_config.map(str).join(", "))$, selecting triple indices $#witness-indices.map(str).join(", ")$. Their target subsets have sorted union ${#witness-elements.map(str).join(", ")}$, which is every element of the tagged universe exactly once. The target configuration is the identical vector $(#tdm_x3c_sol.target_config.map(str).join(", "))$, so exact-cover feasibility maps back to the diagonal perfect matching #sym.checkmark.
+
+        *Step 4 -- Understand the cross triples.* The final two triples map to $S_#cross-indices.at(0) = {#subsets.at(cross-indices.at(0)).map(str).join(", ")}$ and $S_#cross-indices.at(1) = {#subsets.at(cross-indices.at(1)).map(str).join(", ")}$. These two sets are mutually disjoint, but together they leave ${#uncovered.map(str).join(", ")}$ uncovered. None of the five available subsets is contained in that remaining three-element set, so the pair cannot be extended by any available third triple to an exact cover.
+
+        *Multiplicity:* The fixture stores one canonical witness.
+      ]
+    }
+  ],
+)[
+  This $O(q + t)$ reduction @karp1972 @garey1979[SP1--SP2] embeds the three coordinate domains of a Three-Dimensional Matching instance into three disjoint tagged blocks. For $t$ indexed source triples it constructs an Exact Cover by 3-Sets instance with exactly $3q$ universe elements and $t$ subsets (hence $t$ subset variables).
+][
+  _Construction._ Let $q in NN$ and let the source contain the indexed list $T = (t_0, dots, t_(t - 1))$, where $t_j = (a_j, b_j, c_j) in W times X times Y$ and $W = X = Y = {0, dots, q - 1}$. Form the disjoint tagged blocks
+  $ W' = {0, dots, q - 1}, quad X' = {q, dots, 2q - 1}, quad Y' = {2q, dots, 3q - 1}, $
+  and target universe $U' = W' union X' union Y'$. For every indexed triple $t_j$, create the three-element target subset
+  $ S_j = {a_j, q + b_j, 2q + c_j}. $
+  The target family is the indexed list $(S_0, dots, S_(t - 1))$; in particular, duplicate source triples remain distinct subset variables. The exact target sizes are $|U'| = 3q$ and $|cal(S)| = t$.
+
+  _Correctness._ ($arrow.r.double$) Suppose source indices $J subset.eq {0, dots, t - 1}$ form a perfect three-dimensional matching. Every coordinate value occurs in exactly one selected triple. Therefore every element of $W'$, $X'$, and $Y'$ occurs in exactly one set $S_j$ with $j in J$. The selected sets are pairwise disjoint and their union is $U'$, so they form an exact cover.
+
+  ($arrow.l.double$) Conversely, suppose target indices $J$ select an exact cover of $U'$. Each $S_j$ contains exactly one element from each of the three tagged blocks. Exact coverage of $W'$ implies that the first coordinates of the selected triples contain every value in $W$ exactly once; exact coverage of $X'$ and $Y'$ gives the same conclusion for the second and third coordinates. Hence the source triples indexed by $J$ are pairwise coordinate-disjoint and cover all three domains, so they form a perfect three-dimensional matching.
+
+  _Solution extraction._ Return the target's binary subset-indicator vector unchanged: target variable $j$ and source variable $j$ both refer to the same indexed triple.
+]
+
 #reduction-rule("ThreeDimensionalMatching", "ThreeMatroidIntersection",
   example: true,
   example-caption: [$q = 3$, $t = 5$ triples],
