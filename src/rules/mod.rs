@@ -109,6 +109,7 @@ pub(crate) mod minimumvertexcover_minimumsetcovering;
 pub(crate) mod minimumvertexcover_minimumweightandorgraph;
 pub(crate) mod naesatisfiability_maxcut;
 pub(crate) mod naesatisfiability_partitionintoperfectmatchings;
+pub(crate) mod naesatisfiability_satisfiability;
 pub(crate) mod naesatisfiability_setsplitting;
 pub(crate) mod numerical3dimensionalmatching_numericalmatchingwithtargetsums;
 pub(crate) mod optimallineararrangement_consecutiveonesmatrixaugmentation;
@@ -517,6 +518,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(rootedtreearrangement_rootedtreestorageassignment::canonical_rule_example_specs());
     specs.extend(naesatisfiability_maxcut::canonical_rule_example_specs());
     specs.extend(naesatisfiability_partitionintoperfectmatchings::canonical_rule_example_specs());
+    specs.extend(naesatisfiability_satisfiability::canonical_rule_example_specs());
     specs.extend(satisfiability_maximum2satisfiability::canonical_rule_example_specs());
     specs.extend(exactcoverby3sets_maximumsetpacking::canonical_rule_example_specs());
     specs.extend(maxcut_minimumcutintoboundedsets::canonical_rule_example_specs());

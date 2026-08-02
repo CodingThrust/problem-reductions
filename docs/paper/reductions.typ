@@ -13066,6 +13066,59 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ If the sentinel $s = 0$, return the first $n$ variables. If $s = 1$, return the complement of the first $n$ variables.
 ]
 
+#let nae_sat = load-example("NAESatisfiability", "Satisfiability")
+#let nae_sat_sol = nae_sat.solutions.at(0)
+#reduction-rule("NAESatisfiability", "Satisfiability",
+  example: true,
+  example-caption: [$n = #nae_sat.source.instance.num_vars$ variables, $m = #sat-num-clauses(nae_sat.source.instance)$ NAE clauses, and $#sat-num-clauses(nae_sat.target.instance)$ SAT clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(nae_sat.source) + " -o naesat.json",
+      "pred reduce naesat.json --to " + target-spec(nae_sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate naesat.json --config " + nae_sat_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let fmt-lit(l) = if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ }
+      let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+      let lit-value(l, config) = if l > 0 { config.at(l - 1) } else { 1 - config.at(-l - 1) }
+      let truth-pattern(c, config) = c.literals.map(l => lit-value(l, config))
+      let clause-value(c, config) = if truth-pattern(c, config).any(v => v == 1) { 1 } else { 0 }
+      [
+        *Step 1 -- Read the NAE instance.* The fixture has $#nae_sat.source.instance.num_vars$ variables and $#sat-num-clauses(nae_sat.source.instance)$ clauses:
+        $#nae_sat.source.instance.clauses.enumerate().map(((j, c)) => $C_#(j + 1) = #fmt-clause(c)$).join($comma quad$)$.
+
+        *Step 2 -- Double the clauses.* For each $C_j$, emit $C_j$ followed by its literalwise complement $overline(C_j)$. The target therefore retains $#nae_sat.target.instance.num_vars$ variables and contains $#sat-num-clauses(nae_sat.target.instance)$ clauses:
+        $#nae_sat.target.instance.clauses.enumerate().map(((j, c)) => $D_#(j + 1) = #fmt-clause(c)$).join($comma quad$)$.
+        The source has $#nae_sat.source.instance.clauses.map(c => c.literals.len()).sum()$ literal occurrences, while the target has $#nae_sat.target.instance.clauses.map(c => c.literals.len()).sum()$.
+
+        *Step 3 -- Verify the canonical witness.* For $(#range(nae_sat.source.instance.num_vars).map(i => $x_#(i + 1)$).join(", ")) = (#nae_sat_sol.source_config.map(str).join(", "))$, the source clauses have literal-value patterns
+        $#nae_sat.source.instance.clauses.enumerate().map(((j, c)) => $C_#(j + 1): #truth-pattern(c, nae_sat_sol.source_config).map(str).join(",")$).join([; ])$.
+        Every pattern contains both $0$ and $1$, so every NAE clause is satisfied. Under the identical target configuration $(#nae_sat_sol.target_config.map(str).join(", "))$, the target clauses evaluate to $(#nae_sat.target.instance.clauses.map(c => str(clause-value(c, nae_sat_sol.target_config))).join(", "))$ #sym.checkmark.
+
+        *Step 4 -- Extract the source witness.* Identity extraction returns $(#nae_sat_sol.target_config.map(str).join(", "))$, exactly the stored source configuration $(#nae_sat_sol.source_config.map(str).join(", "))$.
+
+        *Multiplicity:* The fixture stores one canonical witness. Since the reduction introduces no variables and preserves every assignment pointwise, each NAE witness corresponds to exactly one SAT witness and conversely; this conclusion follows from the construction, not from the number of stored fixture solutions.
+      ]
+    }
+  ],
+)[
+  Let $L = sum_(j=1)^m |C_j|$ be the number of literal occurrences. This $O(L)$ negation-closure construction @Gurumukhani2025, also implicit in the classical ternary NAE relation @schaefer1978, keeps all $n$ variables and replaces every NAE clause $C_j$ by two SAT clauses, $C_j$ and its literalwise complement $overline(C_j)$. The target has $n$ variables, $2m$ clauses, and $2L$ literal occurrences.
+][
+  _Construction._ Let $Phi = and.big_(j=1)^m "NAE"(C_j)$ be an NAE-CNF formula on variables $x_1, dots, x_n$, where $C_j = (ell_(j,1), dots, ell_(j,r_j))$ and each $ell_(j,k)$ is a literal. For a literal $ell$, let $overline(ell)$ denote its Boolean complement, and define $overline(C_j) = (overline(ell_(j,1)) or dots or overline(ell_(j,r_j)))$. Construct the ordinary CNF formula
+  $
+    Psi = and.big_(j=1)^m (C_j and overline(C_j)),
+  $
+  interpreting $C_j$ itself as the disjunction $(ell_(j,1) or dots or ell_(j,r_j))$. No variables are added or reordered. The construction copies and complements each literal once, so it takes $O(L)$ time. When $m = 0$, both source and target are the empty conjunction.
+
+  _Correctness._ ($arrow.r.double$) Suppose an assignment satisfies $Phi$. In each $C_j$, the NAE condition supplies a true literal $ell_(j,p)$ and a false literal $ell_(j,q)$. The true literal satisfies the target clause $C_j$, while $overline(ell_(j,q))$ is true and satisfies $overline(C_j)$. Hence every pair $C_j and overline(C_j)$ is satisfied, so the assignment satisfies $Psi$.
+
+  ($arrow.l.double$) Conversely, suppose an assignment satisfies $Psi$. For every $j$, satisfaction of $C_j$ supplies at least one true source literal. Satisfaction of $overline(C_j)$ supplies a true complemented literal $overline(ell_(j,q))$, so the corresponding source literal $ell_(j,q)$ is false. Thus $C_j$ contains both truth values and satisfies NAE. Therefore the same assignment satisfies $Phi$.
+
+  _Solution extraction._ Return the target Boolean configuration unchanged. Because the target uses exactly the source variables in the same order, this identity map is valid for every satisfying assignment, including the unique empty configuration when $n = 0$.
+]
+
 #let cs_sat = load-example("CircuitSAT", "Satisfiability")
 #let cs_sat_sol = cs_sat.solutions.at(0)
 #reduction-rule("CircuitSAT", "Satisfiability",
