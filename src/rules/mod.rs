@@ -92,6 +92,7 @@ pub(crate) mod maximumsetpacking_qubo;
 pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
+pub(crate) mod minimumdominatingset_minimumhittingset;
 pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
@@ -498,6 +499,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         minimumcoveringbycliques_minimumintersectiongraphbasis::canonical_rule_example_specs(),
     );
     specs.extend(minimumdiscreteplanarinversekinematics_qubo::canonical_rule_example_specs());
+    specs.extend(minimumdominatingset_minimumhittingset::canonical_rule_example_specs());
     specs.extend(minimummultiwaycut_qubo::canonical_rule_example_specs());
     specs.extend(paintshop_qubo::canonical_rule_example_specs());
     specs.extend(prizecollectingsteinerforest_steinertree::canonical_rule_example_specs());
