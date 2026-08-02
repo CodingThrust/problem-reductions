@@ -1,7 +1,9 @@
 use super::*;
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use std::collections::HashSet;
 
 #[test]
 fn test_threedimensionalmatching_to_exactcoverby3sets_closed_loop() {
@@ -10,13 +12,39 @@ fn test_threedimensionalmatching_to_exactcoverby3sets_closed_loop() {
         vec![(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 1, 2), (1, 2, 0)],
     );
     let reduction = ReduceTo::<ExactCoverBy3Sets>::reduce_to(&source);
-    let target_witnesses = BruteForce::new().find_all_witnesses(reduction.target_problem());
+    assert_satisfaction_round_trip_from_satisfaction_target(
+        &source,
+        &reduction,
+        "ThreeDimensionalMatching -> ExactCoverBy3Sets",
+    );
+}
 
-    assert!(!target_witnesses.is_empty());
-    for target_witness in target_witnesses {
-        let source_witness = reduction.extract_solution(&target_witness);
-        assert!(source.evaluate(&source_witness).0);
-        assert_eq!(source_witness, target_witness);
+#[test]
+fn test_all_q2_triple_families_preserve_exact_witnesses() {
+    let triples: Vec<_> = (0..2)
+        .flat_map(|w| (0..2).flat_map(move |x| (0..2).map(move |y| (w, x, y))))
+        .collect();
+    let solver = BruteForce::new();
+
+    for family_mask in 0..(1usize << triples.len()) {
+        let family: Vec<_> = triples
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &triple)| ((family_mask >> index) & 1 == 1).then_some(triple))
+            .collect();
+        let source = ThreeDimensionalMatching::new(2, family);
+        let reduction = ReduceTo::<ExactCoverBy3Sets>::reduce_to(&source);
+        let source_witnesses: HashSet<_> = solver.find_all_witnesses(&source).into_iter().collect();
+        let extracted_witnesses: HashSet<_> = solver
+            .find_all_witnesses(reduction.target_problem())
+            .into_iter()
+            .map(|witness| reduction.extract_solution(&witness))
+            .collect();
+
+        assert_eq!(
+            extracted_witnesses, source_witnesses,
+            "witness mismatch for family mask {family_mask:#010b}"
+        );
     }
 }
 
@@ -81,8 +109,11 @@ fn test_duplicate_triples_preserve_indices() {
         reduction.target_problem().subsets(),
         &[[0, 2, 4], [0, 2, 4], [1, 3, 5]]
     );
-    let witnesses = BruteForce::new().find_all_witnesses(reduction.target_problem());
-    assert_eq!(witnesses, vec![vec![0, 1, 1], vec![1, 0, 1]]);
+    let witnesses: HashSet<_> = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .into_iter()
+        .collect();
+    assert_eq!(witnesses, HashSet::from([vec![0, 1, 1], vec![1, 0, 1]]));
     for witness in witnesses {
         assert!(source.evaluate(&reduction.extract_solution(&witness)).0);
     }
