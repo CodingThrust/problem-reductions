@@ -13,6 +13,11 @@ pub struct ReductionMaxCutToMaximum2Satisfiability {
     target: Maximum2Satisfiability,
 }
 
+fn vertex_literal(vertex: usize) -> i32 {
+    i32::try_from(vertex + 1)
+        .expect("MaxCut vertex index exceeds Maximum2Satisfiability's i32 literal range")
+}
+
 impl ReductionResult for ReductionMaxCutToMaximum2Satisfiability {
     type Source = MaxCut<SimpleGraph, One>;
     type Target = Maximum2Satisfiability;
@@ -41,8 +46,8 @@ impl ReduceTo<Maximum2Satisfiability> for MaxCut<SimpleGraph, One> {
             .edges()
             .into_iter()
             .flat_map(|(u, v)| {
-                let u = (u + 1) as i32;
-                let v = (v + 1) as i32;
+                let u = vertex_literal(u);
+                let v = vertex_literal(v);
                 [CNFClause::new(vec![u, v]), CNFClause::new(vec![-u, -v])]
             })
             .collect();

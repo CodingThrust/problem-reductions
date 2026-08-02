@@ -102,6 +102,12 @@ fn test_maxcut_to_maximum2satisfiability_boundaries() {
 }
 
 #[test]
+#[should_panic(expected = "MaxCut vertex index exceeds Maximum2Satisfiability's i32 literal range")]
+fn test_maxcut_to_maximum2satisfiability_rejects_unrepresentable_vertex_literal() {
+    vertex_literal(i32::MAX as usize);
+}
+
+#[test]
 fn test_maxcut_to_maximum2satisfiability_exhaustive_small_graphs() {
     for num_vertices in 0..=4 {
         let possible_edges: Vec<_> = (0..num_vertices)

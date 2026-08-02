@@ -11453,7 +11453,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example-caption: [Four-cycle with one diagonal ($n = #mc_max2sat.source.instance.graph.num_vertices$, $|E| = #mc_max2sat.source.instance.graph.edges.len()$, ten target clauses)],
   extra: [
     #pred-commands(
-      "pred create --example " + problem-spec(mc_max2sat.source) + " -o maxcut.json",
+      "pred create --example " + problem-spec(mc_max2sat.source) + " --to " + target-spec(mc_max2sat) + " -o maxcut.json",
       "pred reduce maxcut.json --to " + target-spec(mc_max2sat) + " -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + mc_max2sat_sol.source_config.map(str).join(","),
