@@ -11437,6 +11437,87 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 Each reduction is presented as a *Rule* (with linked problem names and overhead from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
 
 
+#let mc_max2sat = load-example("MaxCut", "Maximum2Satisfiability")
+#let mc_max2sat_sol = mc_max2sat.solutions.at(0)
+#let mc_max2sat_cut = mc_max2sat.source.instance.graph.edges.filter(edge =>
+  mc_max2sat_sol.source_config.at(edge.at(0)) != mc_max2sat_sol.source_config.at(edge.at(1))
+).len()
+#let mc_max2sat_satisfied = mc_max2sat.target.instance.clauses.filter(clause =>
+  clause.literals.any(lit => {
+    let bit = mc_max2sat_sol.target_config.at(calc.abs(lit) - 1)
+    if lit > 0 { bit == 1 } else { bit == 0 }
+  })
+).len()
+#reduction-rule("MaxCut", "Maximum2Satisfiability",
+  example: true,
+  example-caption: [Four-cycle with one diagonal ($n = #mc_max2sat.source.instance.graph.num_vertices$, $|E| = #mc_max2sat.source.instance.graph.edges.len()$, ten target clauses)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mc_max2sat.source) + " -o maxcut.json",
+      "pred reduce maxcut.json --to " + target-spec(mc_max2sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate maxcut.json --config " + mc_max2sat_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let positions = ((0, 0), (1, 0), (1, 1), (0, 1))
+      let fills = mc_max2sat_sol.source_config.map(bit => graph-colors.at(bit))
+      align(center, canvas(length: 0.75cm, {
+        for (u, v) in mc_max2sat.source.instance.graph.edges {
+          g-edge(positions.at(u), positions.at(v))
+        }
+        for (v, pos) in positions.enumerate() {
+          g-node(pos, name: str(v), fill: fills.at(v), label: str(v))
+        }
+      }))
+    }
+
+    *Step 1 -- Read the cut instance.* The fixture has #mc_max2sat.source.instance.graph.num_vertices vertices and the five edge occurrences
+    #raw(mc_max2sat.source.instance.graph.edges.map(edge => "(" + edge.map(str).join(",") + ")").join(", ")).
+    Its canonical cut assignment is $(#mc_max2sat_sol.source_config.map(str).join(", "))$: vertices colored differently lie on opposite sides.
+
+    *Step 2 -- Replace each edge by two clauses.* For every displayed edge occurrence $(u,v)$, introduce $(x_u or x_v)$ and $(not x_u or not x_v)$. Thus the five edges produce #mc_max2sat.target.instance.clauses.len() clauses. In the fixture's one-based literal encoding, their literal pairs are
+    #raw(mc_max2sat.target.instance.clauses.map(clause => "[" + clause.literals.map(str).join(",") + "]").join(", ")).
+
+    *Step 3 -- Verify the objectives.* Under the identical target assignment $(#mc_max2sat_sol.target_config.map(str).join(", "))$, exactly #mc_max2sat_cut of the five edges cross. The two clauses belonging to each crossing edge are both true, while each noncrossing edge contributes one true clause. Hence the target value is $5 + #mc_max2sat_cut = #mc_max2sat_satisfied$. The source value is #mc_max2sat_cut and the target value is #mc_max2sat_satisfied, so the direct extraction recovers the optimal cut #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical optimum. Complementing all four bits gives the other orientation of the same cut and also satisfies nine clauses; this second optimum follows from the construction rather than from the fixture's solution count.
+  ],
+)[
+  This $O(n + m)$ reduction @gramm2003max2sat maps an unweighted graph $G = (V,E)$ to a 2-CNF formula with $n = |V|$ variables and $2m$ clauses. Every edge occurrence $(u,v)$ contributes the pair $(x_u or x_v)$ and $(not x_u or not x_v)$, so maximizing satisfied clauses is equivalent to maximizing cut edges.
+][
+  _Construction._ Given an unweighted MaxCut instance $G = (V,E)$, introduce one Boolean variable $x_v$ for every $v in V$. The value $x_v$ denotes the side of the cut containing $v$. For every edge occurrence $e = (u,v)$, append two clauses
+  $
+    C_e^+ = (x_u or x_v), quad C_e^- = (not x_u or not x_v).
+  $
+  Edge occurrences are processed independently, so the target has exactly $n$ variables and $2m$ clauses.
+
+  _Per-edge identity._ The complete truth table is
+  #table(
+    columns: (auto, auto, auto, auto, auto),
+    inset: 4pt,
+    align: center,
+    table.header([$x_u$], [$x_v$], [$C_e^+$], [$C_e^-$], [satisfied / cut]),
+    [$0$], [$0$], [true], [false], [$1 = 1 + 0$],
+    [$0$], [$1$], [true], [true], [$2 = 1 + 1$],
+    [$1$], [$0$], [true], [true], [$2 = 1 + 1$],
+    [$1$], [$1$], [false], [true], [$1 = 1 + 0$],
+  )
+  Therefore each edge occurrence contributes exactly $1 + bold(1)[x_u != x_v]$ satisfied clauses. Summing over all occurrences gives
+  $
+    "sat"(bold(x)) = m + "cut"_G(bold(x)).
+  $
+
+  _Correctness._ ($arrow.r.double$) Let $bold(x)$ be a maximum cut. The per-edge truth table shows that its target assignment satisfies $m + "cut"_G(bold(x))$ clauses. If another assignment satisfied more clauses, subtracting the fixed $m$ in the identity would give a larger cut, contradicting maximality.
+
+  ($arrow.l.double$) Let $bold(x)$ maximize the number of satisfied target clauses. If some cut crossed more edges, using its side bits as a truth assignment would, by the same truth table, satisfy more than $m + "cut"_G(bold(x))$ clauses. This contradicts target optimality, so $bold(x)$ is a maximum cut.
+
+  _Loops and parallel edges._ If $u = v$, the pair becomes $(x_u or x_u)$ and $(not x_u or not x_u)$: exactly one clause is true, matching the fact that a loop never crosses the cut. Parallel edge occurrences generate repeated clause pairs. Each copy contributes independently on both sides of the identity, so multiplicity is preserved.
+
+  _Solution extraction._ Return the target assignment unchanged. Variable $x_v$ already records the source cut side of vertex $v$, so this is a direct canonical witness mapping.
+]
+
+
 #let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")
 #let max2sat_mc_sol = max2sat_mc.solutions.at(0)
 #reduction-rule("Maximum2Satisfiability", "MaxCut",
