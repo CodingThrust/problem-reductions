@@ -13922,6 +13922,66 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
+#let hc_sat = load-example("HamiltonianCircuit", "Satisfiability")
+#let hc_sat_sol = hc_sat.solutions.at(0)
+#let hc_sat_n = graph-num-vertices(hc_sat.source.instance)
+#let hc_sat_edges = hc_sat.source.instance.graph.edges
+#let hc_sat_clauses = hc_sat.target.instance.clauses
+#let hc_sat_num_literals = hc_sat_clauses.map(c => c.literals.len()).sum()
+#let hc_sat_var(vertex, position) = vertex * hc_sat_n + position + 1
+#let hc_sat_nonedge_u = hc_sat_sol.source_config.at(0)
+#let hc_sat_nonedge_v = hc_sat_sol.source_config.at(3)
+#let hc_sat_forbidden = (
+  -hc_sat_var(hc_sat_nonedge_u, 0),
+  -hc_sat_var(hc_sat_nonedge_v, 1),
+)
+#reduction-rule("HamiltonianCircuit", "Satisfiability",
+  example: true,
+  example-caption: [Five-cycle plus one chord ($n = #hc_sat_n$, $|E| = #hc_sat_edges.len()$)],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hc_sat.source) + " -o hc.json",
+      "pred reduce hc.json --to " + target-spec(hc_sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hc.json --config " + hc_sat_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Read the source circuit instance.* The canonical fixture has $#hc_sat_n$ vertices and edges #hc_sat_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its stored circuit is $[#hc_sat_sol.source_config.map(str).join(", ")]$, with the closing edge from $#hc_sat_sol.source_config.last()$ back to $#hc_sat_sol.source_config.first()$.
+
+    *Step 2 -- Build the position matrix.* Introduce one variable per vertex-position pair, using the 1-based SAT literal $x_(v,p) arrow.r v n + p + 1$. Thus the fixture's $#hc_sat_n times #hc_sat_n$ matrix contains $#hc_sat.target.instance.num_vars$ variables. The target configuration
+    $ (#hc_sat_sol.target_config.map(str).join(", ")) $
+    is the diagonal permutation matrix: $x_(v,v) = 1$ for every fixture vertex $v$.
+
+    *Step 3 -- Force a permutation.* Each of the $#hc_sat_n$ positions gets one at-least-one clause and #(hc_sat_n * (hc_sat_n - 1) / 2) pairwise at-most-one clauses. The same clauses are added for each of the $#hc_sat_n$ vertices across all positions. These two exactly-one families therefore contribute #(2 * hc_sat_n) long clauses and #(hc_sat_n * hc_sat_n * (hc_sat_n - 1)) binary clauses.
+
+    *Step 4 -- Forbid impossible cyclic successors.* For each position $p$, let $q = (p + 1) mod n$. Whenever $u = v$ or ${u,v} in.not E$, add $not x_(u,p) or not x_(v,q)$. In the fixture, vertices $#hc_sat_nonedge_u$ and $#hc_sat_nonedge_v$ are not adjacent, so positions 0 and 1 give the target clause $(#hc_sat_forbidden.map(str).join(", "))$, namely $not x_(#hc_sat_nonedge_u,0) or not x_(#hc_sat_nonedge_v,1)$. The target has $#hc_sat_clauses.len()$ clauses and $#hc_sat_num_literals$ literal occurrences in total.
+
+    *Step 5 -- Verify and extract the circuit.* The diagonal assignment selects consecutive pairs $(0,1), (1,2), (2,3), (3,4)$ and the cyclic pair $(4,0)$ from the fixture edge list, so it satisfies every forbidden-successor clause. Reading the unique true vertex in positions $0, dots, #(hc_sat_n - 1)$ recovers $[#hc_sat_sol.source_config.map(str).join(", ")]$, and the final edge closes the Hamiltonian circuit.
+
+    *Multiplicity:* The fixture stores one canonical SAT witness. Its five-cycle has five choices of starting position and two traversal directions, producing $5 times 2 = 10$ satisfying position matrices. The extra chord does not create another Hamiltonian cycle: using it would trap vertex 1 in the triangle on vertices 0, 1, and 2, leaving vertices 3 and 4 outside the circuit.
+  ],
+)[
+  @VelevGao2009 This $O(n^3)$ reduction uses the absolute vertex-position encoding for Hamiltonian cycles. It constructs an $n times n$ Boolean matrix $x_(v,p)$ and CNF clauses that make the matrix a permutation and allow only graph edges between cyclically consecutive positions. For $n < 3$, it instead emits the fixed contradiction $(z) and (not z)$.
+][
+  _Construction._ Let $G = (V,E)$ be a simple undirected graph with $V = {0, dots, n - 1}$. If $n < 3$, output the two unit clauses $(z)$ and $(not z)$. Otherwise, for every vertex $v in V$ and position $p in {0, dots, n - 1}$ introduce a Boolean variable $x_(v,p)$, where $x_(v,p) = 1$ means that vertex $v$ occupies position $p$ of the cyclic ordering. The implementation assigns it the 1-based SAT literal $v n + p + 1$.
+
+  For each position $p$, require exactly one vertex:
+  $ (or.big_(v in V) x_(v,p)) quad and quad (not x_(u,p) or not x_(v,p)) quad "for all " u < v. $
+  For each vertex $v$, require exactly one position:
+  $ (or.big_(p=0)^(n-1) x_(v,p)) quad and quad (not x_(v,p) or not x_(v,q)) quad "for all " p < q. $
+  Finally, for each $p$, set $q = (p + 1) mod n$. For every ordered pair $(u,v)$ with $u = v$ or ${u,v} in.not E$, add
+  $ not x_(u,p) or not x_(v,q). $
+  Because the successor position wraps modulo $n$, this family enforces the closing edge as well as the $n - 1$ internal successor edges.
+
+  _Correctness._ ($arrow.r.double$) Suppose $G$ has a Hamiltonian circuit $v_0, v_1, dots, v_(n-1), v_0$. Set $x_(v_p,p) = 1$ and every other variable to 0. Each position contains exactly one vertex and every vertex occurs exactly once. Every consecutive pair $v_p,v_q$, including $p=n-1$ and $q=0$, consists of distinct adjacent vertices, so no forbidden-successor clause has both literals false. Hence the CNF formula is satisfiable.
+
+  ($arrow.l.double$) Conversely, suppose the CNF formula is satisfiable. The position clauses select a unique vertex $v_p$ at every position, and the vertex clauses ensure that the selected sequence contains every vertex exactly once. If any consecutive pair $v_p,v_q$ were equal or were not an edge of $G$, the construction would contain $not x_(v_p,p) or not x_(v_q,q)$; both literals would be false, contradicting satisfiability. Thus all cyclically consecutive vertices are distinct and adjacent, so $v_0,v_1,dots,v_(n-1),v_0$ is a Hamiltonian circuit. For $n < 3$, both the source model and the fixed contradictory target are infeasible.
+
+  _Variable mapping._ Source vertex $v$ at circuit position $p$ maps to target variable index $v n + p$ in the zero-based assignment vector, represented by signed SAT literal $v n + p + 1$ in clauses.
+
+  _Solution extraction._ For each position $p$, find the unique vertex $v$ for which $x_(v,p) = 1$, and return the sequence $(v_0, dots, v_(n-1))$.
+]
+
 #let hc_tsp = load-example("HamiltonianCircuit", "TravelingSalesman")
 #let hc_tsp_sol = hc_tsp.solutions.at(0)
 #let hc_tsp_n = graph-num-vertices(hc_tsp.source.instance)
