@@ -322,6 +322,11 @@ fn test_find_dominated_rules_returns_known_set() {
             "PartitionIntoPathsOfLength2 {graph: \"SimpleGraph\"}",
             "ILP {variable: \"bool\"}",
         ),
+        // HP → HC → RuralPostman → ILP is no worse than direct HP → ILP.
+        (
+            "HamiltonianPath {graph: \"SimpleGraph\"}",
+            "ILP {variable: \"bool\"}",
+        ),
     ]
     .into_iter()
     .collect();

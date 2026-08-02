@@ -17082,6 +17082,49 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ For each source variable $x_i$, compute $x_i = sum_(j=0)^(K_i - 1) w_(i j) y_(i j)$ from the binary solution.
 ]
 
+#let hp_hc = load-example("HamiltonianPath", "HamiltonianCircuit")
+#let hp_hc_sol = hp_hc.solutions.at(0)
+#let hp_hc_n = graph-num-vertices(hp_hc.source.instance)
+#let hp_hc_m = graph-num-edges(hp_hc.source.instance)
+#let hp_hc_source_edges = hp_hc.source.instance.graph.edges
+#let hp_hc_target_n = graph-num-vertices(hp_hc.target.instance)
+#let hp_hc_target_edges = hp_hc.target.instance.graph.edges
+#let hp_hc_x = hp_hc_n
+#reduction-rule("HamiltonianPath", "HamiltonianCircuit",
+  example: true,
+  example-caption: [Add universal vertex $x = #hp_hc_x$ to a #{hp_hc_n}-vertex Hamiltonian-path instance],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(hp_hc.source) + " -o hp.json",
+      "pred reduce hp.json --to " + target-spec(hp_hc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate hp.json --config " + hp_hc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Inspect the source.* The canonical fixture has $n = #hp_hc_n$ vertices and $m = #hp_hc_m$ edges: #hp_hc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its stored Hamiltonian path is $[#hp_hc_sol.source_config.map(str).join(", ")]$.
+
+    *Step 2 -- Add the universal vertex.* Set $x = n = #hp_hc_x$, copy the #hp_hc_m source edges, and add one edge from $x$ to each old vertex. The target therefore has $#hp_hc_target_n = #hp_hc_n + 1$ vertices and $#hp_hc_target_edges.len() = #hp_hc_m + #hp_hc_n$ edges: #hp_hc_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
+
+    *Step 3 -- Close and verify the circuit.* Prefixing the source witness by $x$ gives the stored target witness $[#hp_hc_sol.target_config.map(str).join(", ")]$. The two circuit edges incident to $x$ are present because $x$ is universal; every edge between consecutive old vertices belongs to the source path.
+
+    *Step 4 -- Extract the path.* Rotate the target circuit to place $x$ first, then delete it. For the stored witness this returns $[#hp_hc_sol.target_config.slice(1).map(str).join(", ")]$, exactly the source Hamiltonian path.
+
+    *Multiplicity:* The fixture stores one canonical witness. On this $n >= 2$ branch, each ordered source-path witness gives $n + 1 = #hp_hc_target_n$ target configurations, namely the cyclic rotations of $[x]$ followed by that path; rotating a target witness to $x$ and deleting $x$ reverses this correspondence.
+  ],
+)[
+  The standard universal-vertex mapping @waggoner2025npcomplete is an $O(n + m)$ reduction. Given an undirected graph $G = (V, E)$ with $n = |V|$ and $m = |E|$, it adds one vertex adjacent to every old vertex when $n >= 2$; the implementation uses a fixed triangle when $n < 2$ so that the target model, which requires at least three vertices for a circuit, preserves the feasible empty and singleton path instances.
+][
+  _Construction._ If $n >= 2$, introduce a fresh vertex $x = n$ and form $G' = (V', E')$ with
+  $V' = V union {x}$ and $E' = E union {{x, v} : v in V}$.
+  Hence the normal branch has exactly $|V'| = n + 1$ and $|E'| = m + n$. If $n < 2$, let $G'$ be the fixed triangle $K_3$. Across both branches, the registered safe bounds are $|V'| <= n + 3$ and $|E'| <= m + n + 3$.
+
+  _Correctness._ First suppose $n >= 2$. ($arrow.r.double$) If $(v_0, v_1, dots, v_(n-1))$ is a Hamiltonian path in $G$, then $(x, v_0, v_1, dots, v_(n-1))$ is a Hamiltonian circuit in $G'$: all internal edges come from the path, and the two closing edges incident to $x$ exist by construction. ($arrow.l.double$) If $G'$ has a Hamiltonian circuit, rotate its cyclic order until $x$ is first. Deleting $x$ leaves an ordering of every old vertex exactly once. Every consecutive pair in that ordering is joined by an edge of $E'$ not incident to $x$, hence by an original edge of $E$, so the ordering is a Hamiltonian path in $G$. If $n = 0$ or $n = 1$, the source configuration $()$ or $(0)$ is a valid Hamiltonian path under the model's permutation semantics, while the fixed triangle has a Hamiltonian circuit; thus equivalence also holds on the small-instance branch.
+
+  _Solution extraction._ For $n >= 2$, locate $x$ in the target permutation, cyclically rotate the circuit so that $x$ comes first, and delete $x$; preserve the remaining order as the source path. For $n = 0$ return $()$, and for $n = 1$ return $(0)$.
+
+  _Loops and parallel edges._ The graph representation permits self-loops and repeated edges. The construction copies them verbatim, so the exact normal-branch count remains $m + n$. They do not affect the proof: a Hamiltonian witness is a permutation of distinct vertices, and feasibility only asks whether each required adjacency is present.
+]
+
 #let hc_hp = load-example("HamiltonianCircuit", "HamiltonianPath")
 #let hc_hp_sol = hc_hp.solutions.at(0)
 #let hc_hp_n = graph-num-vertices(hc_hp.source.instance)
