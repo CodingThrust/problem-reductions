@@ -12189,6 +12189,76 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
 
+#let kc_sat = load-example("KColoring", "Satisfiability")
+#let kc_sat_sol = kc_sat.solutions.at(0)
+#let kc_sat_n = graph-num-vertices(kc_sat.source.instance)
+#let kc_sat_m = graph-num-edges(kc_sat.source.instance)
+#let kc_sat_k = kc_sat.source.instance.num_colors
+#let kc_sat_num_vars = kc_sat.target.instance.num_vars
+#let kc_sat_num_clauses = sat-num-clauses(kc_sat.target.instance)
+#let kc_sat_num_literals = kc_sat.target.instance.clauses.map(c => c.literals.len()).sum()
+#reduction-rule("KColoring", "Satisfiability",
+  example: true,
+  example-caption: [Five-cycle ($n = #kc_sat_n$, $|E| = #kc_sat_m$) with $k = #kc_sat_k$ colors],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(kc_sat.source) + " -o kcoloring.json",
+      "pred reduce kcoloring.json --to " + target-spec(kc_sat) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate kcoloring.json --config " + kc_sat_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let edges = kc_sat.source.instance.graph.edges
+      let vertices = range(kc_sat_n).map(i => {
+        let angle = -calc.pi / 2 + 2 * calc.pi * i / kc_sat_n
+        (1.15 * calc.cos(angle), 1.15 * calc.sin(angle))
+      })
+      let fills = kc_sat_sol.source_config.map(c => graph-colors.at(c))
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in edges { g-edge(vertices.at(u), vertices.at(v)) }
+        for (v, pos) in vertices.enumerate() {
+          g-node(pos, name: str(v), fill: fills.at(v), label: str(v))
+        }
+      }))
+    }
+
+    *Step 1 -- Start from the source cycle.* The fixture supplies $C_#kc_sat_n$ with edges #kc_sat.source.instance.graph.edges.map(e => $paren.l #e.at(0), #e.at(1) paren.r$).join(", ") and $k = #kc_sat_k$. Its stored proper coloring is $(#kc_sat_sol.source_config.map(str).join(", "))$, shown above. With only two colors, alternating colors around this odd cycle would force the last edge to have equal-colored endpoints, so the same $C_#kc_sat_n$ instance with $k=2$ is infeasible.
+
+    *Step 2 -- Create assignment variables.* Each vertex-color pair receives one Boolean variable. The fixture therefore has $n k = #kc_sat_n times #kc_sat_k = #kc_sat_num_vars$ variables, ordered in vertex blocks as $x_(0,0), x_(0,1), x_(0,2), dots.c, x_(4,2)$. SAT literal $x_(v,c)$ has one-based index $v k + c + 1$.
+
+    *Step 3 -- Emit the three clause families.* The construction creates #kc_sat_n at-least-one clauses, $n k(k-1)/2 = #(kc_sat_n * kc_sat_k * (kc_sat_k - 1) / 2)$ pairwise at-most-one clauses, and $m k = #(kc_sat_m * kc_sat_k)$ edge clauses. Altogether the fixture contains #kc_sat_num_clauses clauses and #kc_sat_num_literals literal occurrences: $#kc_sat_n$ clauses of length $#kc_sat_k$ and $#(kc_sat_num_clauses - kc_sat_n)$ binary clauses.
+
+    *Step 4 -- Verify the target assignment.* One-hot encoding $(#kc_sat_sol.source_config.map(str).join(", "))$ gives the Boolean vector of length #kc_sat_num_vars, namely $(#kc_sat_sol.target_config.map(str).join(", "))$. Every vertex block has exactly one 1, so all at-least-one and at-most-one clauses hold. Each cycle edge joins different selected colors, so every edge clause holds. Extracting the position of the 1 in each block returns $(#kc_sat_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+
+    *Multiplicity:* The fixture stores one canonical witness. The pairwise clauses force exactly one true bit per vertex, so encoding and extraction give a bijection between proper labeled colorings and satisfying assignments. In particular, $C_5$ has $(k-1)^5-(k-1) = 30$ proper colorings for $k=3$, hence 30 satisfying assignments; this count follows from the cycle chromatic polynomial, not from the fixture length.
+  ],
+)[
+  This $O(n k^2 + m k)$ assignment-variable reduction uses $n k$ Boolean variables and emits at-least-one, pairwise at-most-one, and edge-conflict clauses. The assignment variables and the first and third clause families are the standard assignment encoding in @faber_et_al:LIPIcs.SAT.2024.12[Section 2.2]; the repository uses the pairwise (binomial) at-most-one encoding rather than the sequential encoding analyzed there.
+][
+  _Construction._ Let $G = (V,E)$ be the stored undirected graph, with vertices $V = {0, dots, n-1}$, stored edge sequence $E$, and available colors $C = {0, dots, k-1}$. Introduce a Boolean variable $x_(v,c)$ for every $(v,c) in V times C$. The CNF formula is the conjunction of three clause families:
+  $
+    or.big_(c in C) x_(v,c)                         & quad forall v in V,                           \
+    not x_(v,a) or not x_(v,b)                      & quad forall v in V, thin a,b in C, thin a < b, \
+    not x_(u,c) or not x_(v,c)                      & quad forall (u,v) in E, thin c in C.
+  $
+  The first family selects at least one color, the second selects at most one, and the third forbids equal colors across every stored edge. The exact output has
+  $
+    N &= n k, \
+    M &= n + n k(k-1)/2 + m k, \
+    L &= n k + n k(k-1) + 2 m k
+  $
+  variables, clauses, and literal occurrences, respectively, where $m$ is the length of the stored edge sequence.
+
+  _Correctness._ ($arrow.r.double$) Let $c: V -> C$ be a proper coloring. Set $x_(v,c(v)) = 1$ and all other $x_(v,d) = 0$. Every vertex then satisfies its at-least-one clause, no vertex violates a pairwise at-most-one clause, and properness gives $c(u) eq.not c(v)$ for each stored edge $(u,v)$, so no edge clause has both literals false. Hence the CNF is satisfiable. ($arrow.l.double$) Conversely, let $bold(x)$ satisfy the CNF. For every vertex, the at-least-one clause supplies some true $x_(v,c)$, while the pairwise at-most-one clauses make that color unique. Define $c(v)$ to be this unique color. For every stored edge $(u,v)$ and every color $d$, the edge clause forbids $x_(u,d) = x_(v,d) = 1$; therefore $c(u) eq.not c(v)$ and $c$ is proper.
+
+  _Variable mapping._ The zero-based source pair $(v,c)$ occupies target configuration position $v k + c$ and signed SAT literal index $v k + c + 1$. Positive literals denote selection; negative literals denote non-selection.
+
+  _Solution extraction._ Partition a satisfying assignment into $n$ consecutive blocks of length $k$ and return, for each vertex, the position of its unique 1.
+
+  _Repository edge-case semantics._ The literature presentation assumes $k > 0$ and a loop-free graph. The same clauses cover the repository's full stored-graph domain without separate cases. When $n=k=0$, the empty CNF is satisfiable and extracts the empty coloring. When $n>0$ and $k=0$, every vertex contributes an empty at-least-one clause, making the formula unsatisfiable. A self-loop contributes $not x_(v,c) or not x_(v,c)$ for every color and therefore makes a positive-$k$ instance infeasible. Parallel edges deliberately duplicate their edge clauses but do not change satisfiability. Isolated vertices, disconnected components, and $k>n$ require no modification.
+]
+
 #reduction-rule("MaximumSetPacking", "QUBO")[
   Set packing selects mutually disjoint sets of maximum total weight. Two sets conflict if and only if they share a universe element — the same adjacency structure as an independent set on the _intersection graph_. This reduction builds the intersection graph implicitly and applies the IS penalty method directly: each set becomes a QUBO variable, diagonal entries reward selection, and off-diagonal entries penalize pairs of overlapping sets with a penalty large enough to forbid any overlap.
 ][
