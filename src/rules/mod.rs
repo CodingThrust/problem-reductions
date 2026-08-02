@@ -92,6 +92,7 @@ pub(crate) mod maximumsetpacking_qubo;
 pub(crate) mod minimumcostmaximumflow_minimumcostcirculation;
 pub(crate) mod minimumcoveringbycliques_minimumintersectiongraphbasis;
 pub(crate) mod minimumdiscreteplanarinversekinematics_qubo;
+pub(crate) mod minimumdominatingset_minimumsetcovering;
 pub(crate) mod minimumfeedbackarcset_maximumlikelihoodranking;
 pub(crate) mod minimumfeedbackvertexset_minimumcodegenerationunlimitedregisters;
 pub(crate) mod minimummaximalmatching_maximumachromaticnumber;
@@ -539,6 +540,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     specs.extend(minimumvertexcover_maximumindependentset::canonical_rule_example_specs());
     specs.extend(minimummaximalmatching_maximumachromaticnumber::canonical_rule_example_specs());
     specs.extend(minimummaximalmatching_minimummatrixdomination::canonical_rule_example_specs());
+    specs.extend(minimumdominatingset_minimumsetcovering::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimummaximalmatching::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackarcset::canonical_rule_example_specs());
     specs.extend(minimumvertexcover_minimumfeedbackvertexset::canonical_rule_example_specs());

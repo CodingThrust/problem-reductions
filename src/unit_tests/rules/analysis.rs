@@ -300,6 +300,11 @@ fn test_find_dominated_rules_returns_known_set() {
             "MaximumMatching {graph: \"SimpleGraph\", weight: \"i32\"}",
             "ILP {variable: \"bool\"}",
         ),
+        // MinimumDominatingSet → MinimumSetCovering → ILP is better than direct MDS → ILP
+        (
+            "MinimumDominatingSet {graph: \"SimpleGraph\", weight: \"i32\"}",
+            "ILP {variable: \"bool\"}",
+        ),
         // ExactCoverBy3Sets → MaxSetPacking → ILP is better than direct ExactCoverBy3Sets → ILP
         ("ExactCoverBy3Sets", "ILP {variable: \"bool\"}"),
         // GraphPartitioning → MaxCut → SpinGlass → QUBO is better than direct GraphPartitioning → QUBO

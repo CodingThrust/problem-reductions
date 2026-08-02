@@ -11940,6 +11940,41 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For covering ${S_v : v in C}$, return VC $= C$ (same variable assignment).
 ]
 
+#let mds_msc = load-example("MinimumDominatingSet", "MinimumSetCovering")
+#let mds_msc_sol = mds_msc.solutions.at(0)
+#reduction-rule("MinimumDominatingSet", "MinimumSetCovering",
+  example: true,
+  example-caption: [Weighted path $P_5$: closed neighborhoods form a set covering instance],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(mds_msc.source) + " -o dominating-set.json",
+      "pred reduce dominating-set.json --to " + target-spec(mds_msc) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate dominating-set.json --config " + mds_msc_sol.source_config.map(str).join(","),
+    )
+
+    *Step 1 -- Read the source graph.* The fixture is the path on $#graph-num-vertices(mds_msc.source.instance)$ vertices with edges #{mds_msc.source.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")} and vertex weights $(#mds_msc.source.instance.weights.map(str).join(", "))$.
+
+    *Step 2 -- Form the closed-neighborhood sets.* The target universe has $#mds_msc.target.instance.universe_size$ elements. In vertex order, its $#mds_msc.target.instance.sets.len()$ closed-neighborhood sets are #mds_msc.target.instance.sets.map(subset => "{" + subset.map(str).join(", ") + "}").join(", "), with weights $(#mds_msc.target.instance.weights.map(str).join(", "))$. Thus both target dimensions equal the source's $#graph-num-vertices(mds_msc.source.instance)$ vertices.
+
+    *Step 3 -- Verify the canonical witness.* The source configuration $(#mds_msc_sol.source_config.map(str).join(", "))$ selects vertices ${#mds_msc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$, and the identical target configuration selects the corresponding closed-neighborhood sets. Their union is the entire universe, and their copied weights sum to $#mds_msc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => mds_msc.target.instance.weights.at(i)).sum()$.
+
+    *Multiplicity:* The fixture stores one canonical witness. Because vertex $v$ and set $D_v$ share the same coordinate, the reduction gives a bijection between all source configurations and target configurations, preserving feasibility and weight.
+  ],
+)[
+  Using the Garey--Johnson definitions of Dominating Set and Set Covering @garey1979, this closed-neighborhood reduction follows the explicit construction in the UMass COMPSCI 311 solution @umassCompsci3112018. Given a weighted graph $G = (V, E)$, it creates universe $U = V$ and one set $D_v = N[v]$ per vertex, with the same weight. The implementation runs in $O(|V| + |E| + sum_(v in V) deg(v) log deg(v))$ time because each deduplicated neighborhood is sorted.
+][
+  _Construction._ Let $G = (V, E)$ have vertices $V = {0, dots, n - 1}$ and weights $w: V -> ZZ$. Set the target universe to $U = V$. For every $v in V$, create the closed-neighborhood set
+  $ D_v = N[v] = {v} union {u in V : {u, v} in E}, $
+  and assign it weight $w'(D_v) = w(v)$. Self-loops and repeated edges do not create repeated elements because $D_v$ is a set. The target contains exactly $n$ universe elements and $n$ sets.
+
+  _Correctness._ ($arrow.r.double$) If $S subset.eq V$ dominates $G$, then every $u in V$ is either selected itself or adjacent to some selected $v in S$. Hence $u in D_v$ for some $v in S$, so ${D_v : v in S}$ covers $U$. ($arrow.l.double$) If ${D_v : v in S}$ covers $U$, then every $u in V$ belongs to some selected $D_v = N[v]$. Therefore $u = v$ or ${u, v} in E$, so $S$ dominates $G$. In both directions,
+  $ sum_(v in S) w(v) = sum_(v in S) w'(D_v), $
+  so the correspondence preserves objective values, including signed weights, and therefore preserves optimality.
+
+  _Solution extraction._ Return the target indicator vector unchanged: selecting $D_v$ maps to selecting vertex $v$ in the same coordinate.
+]
+
 #let dmvc_cc = load-example("DecisionMinimumVertexCover", "ComparativeContainment")
 #let dmvc_cc_sol = dmvc_cc.solutions.at(0)
 #reduction-rule("DecisionMinimumVertexCover", "ComparativeContainment",
