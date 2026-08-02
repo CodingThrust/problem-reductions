@@ -1351,24 +1351,24 @@ fn test_cost_label_path_dependent_cost_keeps_winner() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "P", "T"],
         &[
-            // S -> M: cheap prefix (c = 1) but produces a LARGE intermediate size w = 100.
+            // S -> M: cheap prefix (c = 1) but expands the source size from 10 to 100.
             (
                 "S",
                 "M",
                 growth_edge(vec![
                     ("c", Expr::Const(1.0)),
                     ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Const(100.0)),
+                    ("w", Expr::Const(10.0) * Expr::Var("w")),
                 ]),
             ),
-            // S -> P: pricier prefix (c = 3) but a SMALL size w = 1.
+            // S -> P: pricier prefix (c = 3) but shrinks the source size from 10 to 1.
             (
                 "S",
                 "P",
                 growth_edge(vec![
                     ("c", Expr::Const(3.0)),
                     ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Const(1.0)),
+                    ("w", Expr::Var("w") / Expr::Const(10.0)),
                 ]),
             ),
             // P -> M: cheap (c = 1), keeps the small size w = 1.
@@ -1378,7 +1378,7 @@ fn test_cost_label_path_dependent_cost_keeps_winner() {
                 growth_edge(vec![
                     ("c", Expr::Const(1.0)),
                     ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Const(1.0)),
+                    ("w", Expr::Var("w")),
                 ]),
             ),
             // M -> T: cost = current w (wf = 1, c = 0); identity on size.
@@ -1408,7 +1408,7 @@ fn test_cost_label_path_dependent_cost_keeps_winner() {
             &empty,
             "T",
             &empty,
-            &ProblemSize::new(vec![("w", 0)]),
+            &ProblemSize::new(vec![("w", 10)]),
             &cost_fn,
             crate::rules::SearchMode::Exact,
         )
@@ -1438,8 +1438,8 @@ fn test_cost_label_nonmonotone_overhead_does_not_prune_intermediate_winner() {
                 "S",
                 "A",
                 growth_edge(vec![
-                    ("n", Expr::Const(10.0)),
-                    ("m", Expr::Const(2.0)),
+                    ("n", Expr::Var("n")),
+                    ("m", Expr::Var("m") - Expr::Const(3.0)),
                     ("edge_cost", Expr::Const(0.0)),
                 ]),
             ),
@@ -1456,8 +1456,8 @@ fn test_cost_label_nonmonotone_overhead_does_not_prune_intermediate_winner() {
                 "S",
                 "B",
                 growth_edge(vec![
-                    ("n", Expr::Const(10.0)),
-                    ("m", Expr::Const(8.0)),
+                    ("n", Expr::Var("n")),
+                    ("m", Expr::Var("m") + Expr::Const(3.0)),
                     ("edge_cost", Expr::Const(1.0)),
                 ]),
             ),
@@ -1501,7 +1501,7 @@ fn test_cost_label_nonmonotone_overhead_does_not_prune_intermediate_winner() {
             &empty,
             "T",
             &empty,
-            &ProblemSize::new(vec![]),
+            &ProblemSize::new(vec![("n", 10), ("m", 5)]),
             &cost_fn,
             crate::rules::SearchMode::Exact,
         )
