@@ -18775,6 +18775,49 @@ The following table shows concrete variable overhead for example instances, take
   _Solution extraction._ Set $alpha(x_(i+1)) = chi(2i)$ for $i = 0, dots, n-1$.
 ]
 
+// 8a. SetSplitting → NAESatisfiability
+#let ss_nae = load-example("SetSplitting", "NAESatisfiability")
+#let ss_nae_sol = ss_nae.solutions.at(0)
+#reduction-rule("SetSplitting", "NAESatisfiability",
+  example: true,
+  example-caption: [$|U| = #ss_nae.source.instance.universe_size$, $#ss_nae.source.instance.subsets.len()$ subsets, and $#ss_nae.target.instance.clauses.len()$ NAE clauses],
+  extra: [
+    #pred-commands(
+      "pred create --example " + problem-spec(ss_nae.source) + " -o set-splitting.json",
+      "pred reduce set-splitting.json --to " + target-spec(ss_nae) + " -o bundle.json",
+      "pred solve bundle.json",
+      "pred evaluate set-splitting.json --config " + ss_nae_sol.source_config.map(str).join(","),
+    )
+
+    #{
+      let source = ss_nae.source.instance
+      let target = ss_nae.target.instance
+      let colors = ss_nae_sol.source_config
+      [
+        *Step 1 -- Start from the set family.* The universe is $U = {0, dots, #(source.universe_size - 1)}$, with subsets $S_1 = {#source.subsets.at(0).map(str).join(", ")}$, $S_2 = {#source.subsets.at(1).map(str).join(", ")}$, and $S_3 = {#source.subsets.at(2).map(str).join(", ")}$. The fixture's splitting is $(#colors.map(str).join(", "))$.
+
+        *Step 2 -- Turn elements into variables and subsets into clauses.* The target has $#target.num_vars$ variables, one for each universe element. In signed one-indexed storage, the three canonicalized subsets become the positive-literal clauses $(#target.clauses.at(0).literals.map(str).join(", "))$, $(#target.clauses.at(1).literals.map(str).join(", "))$, and $(#target.clauses.at(2).literals.map(str).join(", "))$. Thus this fixture has $#target.clauses.len()$ clauses and $#target.clauses.map(c => c.literals.len()).sum()$ literal occurrences.
+
+        *Step 3 -- Verify the NAE assignment.* Under the source colors, the three subsets have truth patterns $(#source.subsets.at(0).map(u => colors.at(u)).map(str).join(", "))$, $(#source.subsets.at(1).map(u => colors.at(u)).map(str).join(", "))$, and $(#source.subsets.at(2).map(u => colors.at(u)).map(str).join(", "))$. Every pattern contains both 0 and 1, so the identical target assignment $(#ss_nae_sol.target_config.map(str).join(", "))$ NAE-satisfies every clause. Extracting it unchanged recovers the source splitting $(#colors.map(str).join(", "))$ #sym.checkmark.
+
+        *Multiplicity:* The fixture stores one canonical witness. Because construction and extraction leave the configuration vector unchanged, every valid splitting corresponds to exactly one satisfying target assignment and conversely.
+      ]
+    }
+  ],
+)[
+  This $O(n + sum_(j=1)^m |S_j|)$ reduction @garey1979 @schaefer1978 identifies a two-way split with a Boolean assignment. It creates one variable for each of the $n$ universe elements and one positive-literal NAE clause for each of the $m$ source subset vectors. The target has exactly $n$ variables and $m$ clauses; its literal count is at most $(n + 1)m$.
+][
+  _Construction._ Let the Set Splitting instance have universe $U = {0, dots, n - 1}$ and subset vectors $S_1, dots, S_m$. Introduce a Boolean variable $x_u$ for each $u in U$, with its truth value denoting the side assigned to $u$. For each $S_j$, scan its entries from left to right and retain only the first occurrence of each distinct element, obtaining the canonical sequence $D_j$. If $|D_j| >= 2$, emit the NAE clause $C_j = (x_u : u in D_j)$, using only positive literals. If $D_j = (u)$, emit $C_j = (x_u, x_u)$. The implementation stores positive literal $x_u$ as the signed one-indexed integer $u + 1$.
+
+  Duplicate removal preserves the first-seen order for deterministic output and does not affect which colors occur in a subset. The exact literal count is $sum_j max(2, |D_j|)$, bounded by $(n + 1)m$; the variable and clause counts are exactly $n$ and $m$.
+
+  _Correctness._ ($arrow.r.double$) Let $chi: U -> {0, 1}$ split every source subset, and assign $x_u = chi(u)$. Removing duplicates does not remove either color from a split subset, so every $D_j$ contains elements of both colors and $C_j$ has both truth values. Hence every target clause satisfies NAE. ($arrow.l.double$) Let $bold(x)$ NAE-satisfy every target clause and color element $u$ by $chi(u) = x_u$. A repeated-literal clause $(x_u, x_u)$ can never satisfy NAE, so no all-repeated source subset can occur in a satisfiable target instance. Every other clause contains both truth values; therefore its canonical sequence $D_j$, and hence the original subset vector $S_j$, contains elements on both sides of the split. Thus $chi$ splits every source subset.
+
+  An all-repeated vector such as $(u, u, dots, u)$ is therefore preserved as a NO constraint: canonicalization finds only $u$, and the emitted $(x_u, x_u)$ is false under both possible values of $x_u$.
+
+  _Solution extraction._ Return the target assignment unchanged: the source color of universe element $u$ is $x_u$.
+]
+
 // 6b. NAESatisfiability → PartitionIntoPerfectMatchings (#845)
 #let nae_ppm = load-example("NAESatisfiability", "PartitionIntoPerfectMatchings")
 #let nae_ppm_sol = nae_ppm.solutions.at(0)
