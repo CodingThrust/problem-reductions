@@ -138,6 +138,7 @@ pub(crate) mod satisfiability_maximum2satisfiability;
 pub(crate) mod satisfiability_naesatisfiability;
 pub(crate) mod satisfiability_nontautology;
 pub(crate) mod setsplitting_betweenness;
+pub(crate) mod setsplitting_naesatisfiability;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
@@ -557,6 +558,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         optimallineararrangement_sequencingtominimizeweightedcompletiontime::canonical_rule_example_specs(),
     );
     specs.extend(setsplitting_betweenness::canonical_rule_example_specs());
+    specs.extend(setsplitting_naesatisfiability::canonical_rule_example_specs());
     specs.extend(satisfiability_integralflowhomologousarcs::canonical_rule_example_specs());
     specs.extend(satisfiability_naesatisfiability::canonical_rule_example_specs());
     specs.extend(sat_circuitsat::canonical_rule_example_specs());
