@@ -42,7 +42,7 @@ fn test_expectedretrievalcost_to_ilp_bf_vs_ilp() {
     let bf_cost = problem.expected_cost(&bf_witness).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_cost = problem.expected_cost(&extracted).unwrap();
 
     // ILP cost should match BF optimal cost
@@ -70,7 +70,7 @@ fn test_solution_extraction() {
     // z_{1,1,1,1} = x_{1,1}*x_{1,1} = 1: offset 4 + 3*4 + 3 = 4+15=19
     ilp_solution[19] = 1;
 
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1]);
 }
 
@@ -83,7 +83,7 @@ fn test_expectedretrievalcost_to_ilp_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(
         matches!(value, Min(Some(_))),

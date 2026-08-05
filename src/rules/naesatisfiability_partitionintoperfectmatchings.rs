@@ -65,12 +65,17 @@ impl ReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.layout
-            .variables
-            .iter()
-            .map(|variable| usize::from(target_solution[variable.t] == 0))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.layout
+                .variables
+                .iter()
+                .map(|variable| usize::from(target_solution[variable.t] == 0))
+                .collect()
+        })
     }
 }
 

@@ -38,7 +38,7 @@ fn test_reduction_c4_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify extracted solution is valid on source problem
     let metric = problem.evaluate(&extracted);
@@ -56,7 +56,7 @@ fn test_reduction_k4_weighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
@@ -83,7 +83,7 @@ fn test_reduction_c5_unweighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let metric = problem.evaluate(&extracted);
     assert!(metric.is_valid());
@@ -121,7 +121,7 @@ fn test_solution_extraction_structure() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Should have one value per edge
     assert_eq!(extracted.len(), 4);

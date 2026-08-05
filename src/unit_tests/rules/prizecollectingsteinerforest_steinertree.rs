@@ -65,7 +65,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target SteinerTree must be feasible");
-    let source_witness = reduction.extract_solution(&target_witness);
+    let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
     // Source layout is `n` vertex-bits then `m` edge-bits.
     assert_eq!(source_witness.len(), source.num_variables());

@@ -236,10 +236,10 @@ impl BundleReplay {
     }
 
     /// Map a target-space configuration back to the source space and evaluate it.
-    pub fn extract(&self, target_config: &[usize]) -> (Vec<usize>, String) {
-        let source_config = self.chain.extract_solution(target_config);
+    pub fn extract(&self, target_config: &[usize]) -> Result<(Vec<usize>, String)> {
+        let source_config = self.chain.extract_solution(target_config)?;
         let source_eval = self.source.evaluate_dyn(&source_config);
-        (source_config, source_eval)
+        Ok((source_config, source_eval))
     }
 }
 

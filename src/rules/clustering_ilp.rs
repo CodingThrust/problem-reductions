@@ -32,17 +32,22 @@ impl ReductionResult for ReductionClusteringToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_elements)
-            .map(|element| {
-                (0..self.num_clusters)
-                    .find(|&cluster| {
-                        let idx = self.var_index(element, cluster);
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.num_elements)
+                .map(|element| {
+                    (0..self.num_clusters)
+                        .find(|&cluster| {
+                            let idx = self.var_index(element, cluster);
+                            idx < target_solution.len() && target_solution[idx] == 1
+                        })
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

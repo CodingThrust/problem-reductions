@@ -54,50 +54,55 @@ impl ReductionResult for ReductionSTSCToILP {
     }
 
     /// Extract operation sequence from ILP solution.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let k = self.bound;
-        let noop_code = 2 * n;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            let k = self.bound;
+            let noop_code = 2 * n;
 
-        if n == 0 {
-            return vec![noop_code; k];
-        }
+            if n == 0 {
+                return Ok(vec![noop_code; k]);
+            }
 
-        let nm1 = n.saturating_sub(1);
-        let mut ops = Vec::with_capacity(k);
+            let nm1 = n.saturating_sub(1);
+            let mut ops = Vec::with_capacity(k);
 
-        for t in 1..=k {
-            // current length at step t-1
-            let current_len = (0..n)
-                .filter(|&p| target_solution[idx_e(n, k, t - 1, p)] == 0)
-                .count();
+            for t in 1..=k {
+                // current length at step t-1
+                let current_len = (0..n)
+                    .filter(|&p| target_solution[idx_e(n, k, t - 1, p)] == 0)
+                    .count();
 
-            if target_solution[idx_nu(n, k, t)] == 1 {
-                ops.push(noop_code);
-            } else {
-                let mut found = false;
-                for j in 0..n {
-                    if target_solution[idx_d(n, k, t, j)] == 1 {
-                        ops.push(j);
-                        found = true;
-                        break;
-                    }
-                }
-                if !found {
-                    for j in 0..nm1 {
-                        if target_solution[idx_s(n, k, t, j)] == 1 {
-                            ops.push(current_len + j);
+                if target_solution[idx_nu(n, k, t)] == 1 {
+                    ops.push(noop_code);
+                } else {
+                    let mut found = false;
+                    for j in 0..n {
+                        if target_solution[idx_d(n, k, t, j)] == 1 {
+                            ops.push(j);
                             found = true;
                             break;
                         }
                     }
                     if !found {
-                        ops.push(noop_code);
+                        for j in 0..nm1 {
+                            if target_solution[idx_s(n, k, t, j)] == 1 {
+                                ops.push(current_len + j);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if !found {
+                            ops.push(noop_code);
+                        }
                     }
                 }
             }
-        }
-        ops
+            ops
+        })
     }
 }
 
@@ -391,7 +396,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

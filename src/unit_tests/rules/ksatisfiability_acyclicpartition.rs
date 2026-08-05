@@ -20,7 +20,7 @@ fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
     assert!(!solutions.is_empty());
 
     for solution in solutions {
-        let extracted = reduction.extract_solution(&solution);
+        let extracted = reduction.extract_solution(&solution).unwrap();
         assert!(source.evaluate(&extracted).0);
     }
 }

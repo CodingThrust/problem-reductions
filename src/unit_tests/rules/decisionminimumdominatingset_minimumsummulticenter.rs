@@ -58,7 +58,7 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
 
     for target_solution in target_solutions {
         assert_eq!(target.evaluate(&target_solution).unwrap(), 4);
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
         assert_eq!(source.evaluate(&extracted), Or(true));
     }
@@ -86,7 +86,7 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         assert_eq!(target_value, 6);
         assert!(target_value > threshold);
 
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
         assert_eq!(source.evaluate(&extracted), Or(false));
     }

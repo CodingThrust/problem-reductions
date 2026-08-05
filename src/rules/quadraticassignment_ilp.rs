@@ -34,15 +34,20 @@ impl ReductionResult for ReductionQAPToILP {
     }
 
     /// Extract: for each facility i, output the unique location p with x_{i,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let loc = self.num_locations;
-        (0..self.num_facilities)
-            .map(|i| {
-                (0..loc)
-                    .find(|&p| target_solution[i * loc + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let loc = self.num_locations;
+            (0..self.num_facilities)
+                .map(|i| {
+                    (0..loc)
+                        .find(|&p| target_solution[i * loc + p] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

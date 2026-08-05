@@ -80,7 +80,7 @@ fn test_ocst_to_ilp_bf_vs_ilp_k3() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -99,7 +99,7 @@ fn test_ocst_to_ilp_bf_vs_ilp_k4() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -115,7 +115,7 @@ fn test_ocst_to_ilp_extraction() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Should be a valid config with m=3 entries
     assert_eq!(extracted.len(), 3);

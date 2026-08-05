@@ -123,6 +123,6 @@ fn test_vc_to_hs_solution_extraction() {
     let reduction = ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem);
 
     let target_solution = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
 }

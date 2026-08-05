@@ -43,15 +43,20 @@ impl ReductionResult for ReductionSWIToILP {
     ///
     /// For each task j, find the offset k where x_{j,k} = 1.
     /// Returns config[j] = k (start time offset from release time).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.task_layout
-            .iter()
-            .map(|&(base, count)| {
-                (0..count)
-                    .find(|&k| target_solution.get(base + k).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.task_layout
+                .iter()
+                .map(|&(base, count)| {
+                    (0..count)
+                        .find(|&k| target_solution.get(base + k).copied().unwrap_or(0) == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 
@@ -139,7 +144,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

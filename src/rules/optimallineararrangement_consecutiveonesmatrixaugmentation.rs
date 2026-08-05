@@ -45,36 +45,45 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match &self.construction {
-            // No edges: any arrangement has total length 0 <= k, so emit the
-            // identity arrangement f(v) = v over all source vertices.
-            ConstructionKind::EdgelessYes { num_vertices } => (0..*num_vertices).collect(),
-            // Genuine NO: there is no valid arrangement; return a sentinel
-            // (identity) so the source decision evaluates correctly (NO).
-            ConstructionKind::FixedNo { num_vertices } => (0..*num_vertices).collect(),
-            ConstructionKind::Incidence { num_vertices } => {
-                // The C1MA witness is a column permutation: `config[position] = col`.
-                // Columns correspond to vertices, so this places vertex `col` at
-                // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
-                // the inverse permutation.
-                let n = *num_vertices;
-                if target_solution.len() != n {
-                    return (0..n).collect();
-                }
-                let mut arrangement = vec![0usize; n];
-                let mut seen = vec![false; n];
-                for (position, &vertex) in target_solution.iter().enumerate() {
-                    if vertex >= n || seen[vertex] {
-                        // Not a valid permutation; fall back to identity.
-                        return (0..n).collect();
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            match &self.construction {
+                // No edges: any arrangement has total length 0 <= k, so emit the
+                // identity arrangement f(v) = v over all source vertices.
+                ConstructionKind::EdgelessYes { num_vertices } => (0..*num_vertices).collect(),
+                // Genuine NO: the identity arrangement is the mathematically defined
+                // source-side representative and evaluates to NO.
+                ConstructionKind::FixedNo { num_vertices } => (0..*num_vertices).collect(),
+                ConstructionKind::Incidence { num_vertices } => {
+                    // The C1MA witness is a column permutation: `config[position] = col`.
+                    // Columns correspond to vertices, so this places vertex `col` at
+                    // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
+                    // the inverse permutation.
+                    let n = *num_vertices;
+                    if target_solution.len() != n {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "expected a permutation of {n} columns, got {} entries",
+                            target_solution.len()
+                        )));
                     }
-                    seen[vertex] = true;
-                    arrangement[vertex] = position;
+                    let mut arrangement = vec![0usize; n];
+                    let mut seen = vec![false; n];
+                    for (position, &vertex) in target_solution.iter().enumerate() {
+                        if vertex >= n || seen[vertex] {
+                            return Err(crate::rules::ExtractionError::invalid(
+                                "target column order is not a permutation",
+                            ));
+                        }
+                        seen[vertex] = true;
+                        arrangement[vertex] = position;
+                    }
+                    arrangement
                 }
-                arrangement
             }
-        }
+        })
     }
 }
 

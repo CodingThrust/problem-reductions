@@ -51,14 +51,19 @@ impl ReductionResult for ReductionSMWCTToILP {
     }
 
     /// Extract solution: for each task, find the processor with x_{t,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_tasks)
-            .map(|t| {
-                (0..self.num_processors)
-                    .find(|&p| target_solution[self.x_var(t, p)] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.num_tasks)
+                .map(|t| {
+                    (0..self.num_processors)
+                        .find(|&p| target_solution[self.x_var(t, p)] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

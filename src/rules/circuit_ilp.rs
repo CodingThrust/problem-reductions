@@ -36,11 +36,16 @@ impl ReductionResult for ReductionCircuitToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_variables
-            .iter()
-            .map(|name| target_solution[self.variable_map[name]])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.source_variables
+                .iter()
+                .map(|name| target_solution[self.variable_map[name]])
+                .collect()
+        })
     }
 }
 

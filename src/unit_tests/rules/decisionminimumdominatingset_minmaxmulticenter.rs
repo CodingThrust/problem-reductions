@@ -58,7 +58,7 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_closed_loop() {
     );
 
     for target_solution in target_solutions {
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
         assert_eq!(source.evaluate(&extracted), Or(true));
     }

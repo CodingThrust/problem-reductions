@@ -46,22 +46,27 @@ impl ReductionResult for ReductionSWRTDToILP {
 
     /// Extract: read each task's start time, sort tasks by start time,
     /// encode as Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let horizon = self.time_horizon;
-        // For each task, find the start time
-        let mut start_times: Vec<(usize, usize)> = (0..n)
-            .map(|j| {
-                let start = (0..horizon)
-                    .find(|&t| target_solution.get(j * horizon + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0);
-                (j, start)
-            })
-            .collect();
-        // Sort by start time (break ties by task index)
-        start_times.sort_by_key(|&(j, t)| (t, j));
-        let schedule: Vec<usize> = start_times.iter().map(|&(j, _)| j).collect();
-        Self::encode_schedule_as_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_tasks;
+            let horizon = self.time_horizon;
+            // For each task, find the start time
+            let mut start_times: Vec<(usize, usize)> = (0..n)
+                .map(|j| {
+                    let start = (0..horizon)
+                        .find(|&t| target_solution.get(j * horizon + t).copied().unwrap_or(0) == 1)
+                        .unwrap_or(0);
+                    (j, start)
+                })
+                .collect();
+            // Sort by start time (break ties by task index)
+            start_times.sort_by_key(|&(j, t)| (t, j));
+            let schedule: Vec<usize> = start_times.iter().map(|&(j, _)| j).collect();
+            Self::encode_schedule_as_lehmer(&schedule)
+        })
     }
 }
 

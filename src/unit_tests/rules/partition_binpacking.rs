@@ -45,7 +45,7 @@ fn test_partition_to_binpacking_odd_total_is_not_satisfying() {
     let value = target.evaluate(&best);
     assert_eq!(value, Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert!(!source.evaluate(&extracted));
 }
 

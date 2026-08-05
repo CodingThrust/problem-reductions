@@ -42,9 +42,14 @@ impl ReductionResult for ReductionMMCToILP {
     /// Extract solution from ILP back to MinimumMultiwayCut.
     ///
     /// For each edge e, source config[e] = target_solution[k*n + e] (the x_e variable).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let offset = self.k * self.n;
-        (0..self.m).map(|e| target_solution[offset + e]).collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let offset = self.k * self.n;
+            (0..self.m).map(|e| target_solution[offset + e]).collect()
+        })
     }
 }
 

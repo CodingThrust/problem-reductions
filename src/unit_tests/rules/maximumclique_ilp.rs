@@ -120,7 +120,7 @@ fn test_maximumclique_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Both should find optimal size = 3 (all vertices form a clique)
     let ilp_size = clique_size(&problem, &extracted);
@@ -151,7 +151,7 @@ fn test_ilp_solution_equals_brute_force_path() {
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = clique_size(&problem, &extracted);
 
     assert_eq!(bf_size, 2);
@@ -177,7 +177,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf_obj = brute_force_max_clique(&problem);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = clique_size(&problem, &extracted);
 
     assert_eq!(bf_obj, 101);
@@ -195,7 +195,7 @@ fn test_solution_extraction() {
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 0, 0]);
 
     // Verify this is a valid clique (0 and 1 are adjacent)
@@ -229,7 +229,7 @@ fn test_empty_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Only one vertex should be selected
     assert_eq!(extracted.iter().sum::<usize>(), 1);
@@ -253,7 +253,7 @@ fn test_complete_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // All vertices should be selected
     assert_eq!(extracted, vec![1, 1, 1, 1]);
@@ -275,7 +275,7 @@ fn test_bipartite_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);
@@ -301,7 +301,7 @@ fn test_star_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 2);

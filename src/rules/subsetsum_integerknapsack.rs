@@ -10,7 +10,7 @@
 use crate::expr::Expr;
 use crate::models::misc::SubsetSum;
 use crate::models::set::IntegerKnapsack;
-use crate::rules::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use crate::rules::{ReductionEntry, ReductionOverhead};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_bigint::BigUint;
@@ -63,7 +63,7 @@ inventory::submit! {
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::none(),
+        turing: false,
         overhead_eval_fn: subset_sum_to_integer_knapsack_overhead,
         source_size_fn: subset_sum_source_size,
     }

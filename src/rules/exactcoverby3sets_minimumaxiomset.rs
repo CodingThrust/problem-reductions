@@ -29,11 +29,16 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
     /// For YES-instances, every optimal target witness of value q consists only of
     /// q set-sentences, which form an exact cover. For NO-instances, the extracted
     /// vector may be non-satisfying, which is expected for an `Or -> Min` rule.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let set_offset = self.source_universe_size;
-        (0..self.source_num_subsets)
-            .map(|j| usize::from(target_solution.get(set_offset + j).copied().unwrap_or(0) > 0))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let set_offset = self.source_universe_size;
+            (0..self.source_num_subsets)
+                .map(|j| usize::from(target_solution.get(set_offset + j).copied().unwrap_or(0) > 0))
+                .collect()
+        })
     }
 }
 

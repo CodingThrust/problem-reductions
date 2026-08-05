@@ -10,7 +10,7 @@ fn solve_via_bool(source: &ILP<i32>) -> Option<(Vec<usize>, f64)> {
     let target = reduction.target_problem();
     let solver = BruteForce::new();
     let witness = solver.find_witness(target)?;
-    let source_config = reduction.extract_solution(&witness);
+    let source_config = reduction.extract_solution(&witness).unwrap();
     let values: Vec<i64> = source_config.iter().map(|&c| c as i64).collect();
     let obj = source.evaluate_objective(&values);
     Some((source_config, obj))

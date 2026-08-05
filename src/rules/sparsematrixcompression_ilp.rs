@@ -22,15 +22,20 @@ impl ReductionResult for ReductionSMCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // For each row r, output the unique zero-based shift g with x_{r,g} = 1
-        (0..self.num_rows)
-            .map(|r| {
-                (0..self.bound_k)
-                    .find(|&g| target_solution[r * self.bound_k + g] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // For each row r, output the unique zero-based shift g with x_{r,g} = 1
+            (0..self.num_rows)
+                .map(|r| {
+                    (0..self.bound_k)
+                        .find(|&g| target_solution[r * self.bound_k + g] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 
@@ -123,7 +128,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

@@ -13,7 +13,7 @@ use crate::models::formula::{CNFClause, Satisfiability};
 use crate::models::graph::HamiltonianCircuit;
 use crate::rules::cost::CustomCost;
 use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
-use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::DynReductionResult;
 use crate::rules::{ReductionAutoCast, ReductionGraph, ReductionMode};
 use crate::topology::SimpleGraph;
@@ -118,7 +118,7 @@ fn measured_edge(
         )]),
         reduce_fn: Some(reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
     }
 }
 
@@ -228,13 +228,14 @@ fn test_measured_any_target_uses_one_request_limit_tracker() {
 
 #[test]
 fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
-    let graph = ReductionGraph::from_test_edges(
+    let ilp_variant = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    let graph = ReductionGraph::from_test_variant_edges(
         &[
-            "MeasuredSource",
-            "MeasuredBranchA",
-            "MeasuredBranchB",
-            "Satisfiability",
-            "ILP",
+            ("MeasuredSource", BTreeMap::new()),
+            ("MeasuredBranchA", BTreeMap::new()),
+            ("MeasuredBranchB", BTreeMap::new()),
+            ("Satisfiability", BTreeMap::new()),
+            ("ILP", ilp_variant.clone()),
         ],
         &[
             (
@@ -267,11 +268,15 @@ fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
     let empty = BTreeMap::new();
     let source = MeasuredSource;
 
+    let ilp = ILP::<bool>::new(1, vec![], vec![], ObjectiveSense::Minimize);
+    let ilp_size = ReductionGraph::compute_source_size("ILP", &ilp_variant, &ilp);
+    assert_eq!(ilp_size.total(), 1, "measured ILP size: {ilp_size:?}");
+
     let bad_sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let good_sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
     assert_eq!(
-        ReductionGraph::compute_source_size("Satisfiability", &bad_sat),
-        ReductionGraph::compute_source_size("Satisfiability", &good_sat),
+        ReductionGraph::compute_source_size("Satisfiability", &empty, &bad_sat),
+        ReductionGraph::compute_source_size("Satisfiability", &empty, &good_sat),
         "the two structurally different hub instances must have identical measured sizes",
     );
 
@@ -280,7 +285,7 @@ fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
             "MeasuredSource",
             &empty,
             "ILP",
-            &empty,
+            &ilp_variant,
             ReductionMode::Witness,
             &source,
             1_000,
@@ -298,8 +303,12 @@ fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
 
 #[test]
 fn test_asymptotic_overhead_is_not_a_concrete_budget_guard() {
-    let graph = ReductionGraph::from_test_edges(
-        &["MeasuredSource", "ILP"],
+    let ilp_variant = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    let graph = ReductionGraph::from_test_variant_edges(
+        &[
+            ("MeasuredSource", BTreeMap::new()),
+            ("ILP", ilp_variant.clone()),
+        ],
         &[(
             "MeasuredSource",
             "ILP",
@@ -314,7 +323,7 @@ fn test_asymptotic_overhead_is_not_a_concrete_budget_guard() {
             "MeasuredSource",
             &empty,
             "ILP",
-            &empty,
+            &ilp_variant,
             ReductionMode::Witness,
             &source,
             1,
@@ -374,9 +383,9 @@ impl PathLabel for DiamondLabel {
 fn diamond_edge(c: f64, s: Expr) -> ReductionEdgeData {
     ReductionEdgeData {
         overhead: ReductionOverhead::new(vec![("c", Expr::Const(c)), ("s", s)]),
-        reduce_fn: None,
+        reduce_fn: Some(measured_source_to_a),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
     }
 }
 
@@ -489,9 +498,9 @@ fn powk(v: &'static str, k: f64) -> Expr {
 fn growth_edge(fields: Vec<(&'static str, Expr)>) -> ReductionEdgeData {
     ReductionEdgeData {
         overhead: ReductionOverhead::new(fields),
-        reduce_fn: None,
+        reduce_fn: Some(measured_source_to_a),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
     }
 }
 
@@ -517,7 +526,6 @@ fn test_growth_label_extend_composes_overhead() {
     let redge = ReductionEdge {
         overhead: &edge_data.overhead,
         reduce_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
         target_name: "Target",
         target_variant: &target_variant,
     };
@@ -534,7 +542,6 @@ fn test_growth_label_extend_composes_overhead() {
     let redge2 = ReductionEdge {
         overhead: &edge2.overhead,
         reduce_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
         target_name: "Target2",
         target_variant: &target_variant,
     };
@@ -565,7 +572,6 @@ fn test_growth_label_propagates_unknown() {
     let redge = ReductionEdge {
         overhead: &edge.overhead,
         reduce_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
         target_name: "T",
         target_variant: &tv,
     };
@@ -824,7 +830,6 @@ fn test_growth_label_monotone_overhead_preserves_order() {
         let redge = ReductionEdge {
             overhead: &overhead.overhead,
             reduce_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
             target_name: "T",
             target_variant: &tv,
         };
@@ -1533,7 +1538,6 @@ fn test_growth_label_taints_absent_variable() {
     let redge = ReductionEdge {
         overhead: &edge.overhead,
         reduce_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
         target_name: "T",
         target_variant: &tv,
     };

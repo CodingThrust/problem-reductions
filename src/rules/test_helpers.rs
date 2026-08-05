@@ -104,7 +104,7 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     verify_optimization_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution),
+        |target_solution| reduction.extract_solution(target_solution).unwrap(),
         "optimal",
         context,
     );
@@ -125,7 +125,7 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     verify_optimization_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution),
+        |target_solution| reduction.extract_solution(target_solution).unwrap(),
         "satisfying",
         context,
     );
@@ -145,7 +145,7 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
     verify_optimization_round_trip(
         source,
         target_solutions,
-        |target_solution| chain.extract_solution(target_solution),
+        |target_solution| chain.extract_solution(target_solution).unwrap(),
         "optimal",
         context,
     );
@@ -166,7 +166,7 @@ pub(crate) fn assert_satisfaction_round_trip_from_optimization_target<R>(
     verify_satisfaction_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution),
+        |target_solution| reduction.extract_solution(target_solution).unwrap(),
         "optimal",
         context,
     );
@@ -187,7 +187,7 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     verify_satisfaction_round_trip(
         source,
         target_solutions,
-        |target_solution| reduction.extract_solution(target_solution),
+        |target_solution| reduction.extract_solution(target_solution).unwrap(),
         "satisfying",
         context,
     );
@@ -206,7 +206,7 @@ where
     let ilp_solution = ILPSolver::new()
         .solve_dyn(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(source.evaluate(&extracted), bf_value);
 }
 
@@ -293,8 +293,11 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-            target_solution.to_vec()
+        fn extract_solution(
+            &self,
+            target_solution: &[usize],
+        ) -> crate::rules::ExtractionResult<Vec<usize>> {
+            Ok(target_solution.to_vec())
         }
     }
 
@@ -310,8 +313,11 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-            target_solution.to_vec()
+        fn extract_solution(
+            &self,
+            target_solution: &[usize],
+        ) -> crate::rules::ExtractionResult<Vec<usize>> {
+            Ok(target_solution.to_vec())
         }
     }
 
@@ -327,8 +333,11 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-            target_solution.to_vec()
+        fn extract_solution(
+            &self,
+            target_solution: &[usize],
+        ) -> crate::rules::ExtractionResult<Vec<usize>> {
+            Ok(target_solution.to_vec())
         }
     }
 
@@ -344,8 +353,11 @@ mod tests {
             &self.target
         }
 
-        fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-            target_solution.to_vec()
+        fn extract_solution(
+            &self,
+            target_solution: &[usize],
+        ) -> crate::rules::ExtractionResult<Vec<usize>> {
+            Ok(target_solution.to_vec())
         }
     }
 

@@ -32,11 +32,16 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
-        let perm = one_hot_decode(target_solution, n, n, 0);
-        permutation_to_lehmer(&perm)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_vertices;
+            // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
+            let perm = one_hot_decode(target_solution, n, n, 0);
+            permutation_to_lehmer(&perm)
+        })
     }
 }
 

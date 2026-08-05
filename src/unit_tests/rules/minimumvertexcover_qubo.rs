@@ -60,7 +60,7 @@ fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo);
     for sol in &qubo_solutions {
-        let extracted = chain.extract_solution(sol);
+        let extracted = chain.extract_solution(sol).unwrap();
         assert!(problem.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
@@ -77,7 +77,7 @@ fn test_minimumvertexcover_to_qubo_via_path_weighted() {
     let qubo_solution = solver
         .find_witness(qubo)
         .expect("QUBO should be solvable via path");
-    let extracted = chain.extract_solution(&qubo_solution);
+    let extracted = chain.extract_solution(&qubo_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted, vec![0, 1, 0]);
@@ -96,7 +96,7 @@ fn test_minimumvertexcover_to_qubo_via_path_star_graph() {
 
     let solver = BruteForce::new();
     let qubo_solution = solver.find_witness(qubo).expect("QUBO should be solvable");
-    let extracted = chain.extract_solution(&qubo_solution);
+    let extracted = chain.extract_solution(&qubo_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);

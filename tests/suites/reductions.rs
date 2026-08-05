@@ -38,7 +38,7 @@ mod is_vc_reductions {
         let vc_solutions = solver.find_all_witnesses(vc_problem);
 
         // Extract back to IS solution
-        let is_solution = result.extract_solution(&vc_solutions[0]);
+        let is_solution = result.extract_solution(&vc_solutions[0]).unwrap();
 
         // Solution should be valid for original problem
         assert!(is_problem.evaluate(&is_solution).is_valid());
@@ -65,7 +65,7 @@ mod is_vc_reductions {
         let is_solutions = solver.find_all_witnesses(is_problem);
 
         // Extract back to VC solution
-        let vc_solution = result.extract_solution(&is_solutions[0]);
+        let vc_solution = result.extract_solution(&is_solutions[0]).unwrap();
 
         // Solution should be valid for original problem
         assert!(vc_problem.evaluate(&vc_solution).is_valid());
@@ -98,8 +98,8 @@ mod is_vc_reductions {
         let solutions = solver.find_all_witnesses(final_is);
 
         // Extract through the chain
-        let intermediate_sol = back_to_is.extract_solution(&solutions[0]);
-        let original_sol = to_vc.extract_solution(&intermediate_sol);
+        let intermediate_sol = back_to_is.extract_solution(&solutions[0]).unwrap();
+        let original_sol = to_vc.extract_solution(&intermediate_sol).unwrap();
 
         // Should be valid
         assert!(original.evaluate(&original_sol).is_valid());
@@ -163,7 +163,7 @@ mod is_sp_reductions {
         let sp_solutions = solver.find_all_witnesses(sp_problem);
 
         // Extract to IS solution
-        let is_solution = result.extract_solution(&sp_solutions[0]);
+        let is_solution = result.extract_solution(&sp_solutions[0]).unwrap();
 
         assert!(is_problem.evaluate(&is_solution).is_valid());
     }
@@ -185,7 +185,7 @@ mod is_sp_reductions {
         let is_solutions = solver.find_all_witnesses(is_problem);
 
         // Extract to SP solution
-        let sp_solution = result.extract_solution(&is_solutions[0]);
+        let sp_solution = result.extract_solution(&is_solutions[0]).unwrap();
 
         // All sets can be packed (disjoint)
         assert_eq!(sp_solution.iter().sum::<usize>(), 3);
@@ -208,7 +208,7 @@ mod is_sp_reductions {
         let sp_solutions = solver.find_all_witnesses(sp_problem);
 
         // Extract to IS solution
-        let is_solution = to_sp.extract_solution(&sp_solutions[0]);
+        let is_solution = to_sp.extract_solution(&sp_solutions[0]).unwrap();
 
         // Valid for original
         assert!(original.evaluate(&is_solution).is_valid());
@@ -241,7 +241,7 @@ mod sg_qubo_reductions {
         let qubo_solutions = solver.find_all_witnesses(qubo);
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&qubo_solutions[0]);
+        let sg_solution = result.extract_solution(&qubo_solutions[0]).unwrap();
         assert_eq!(sg_solution.len(), 2);
     }
 
@@ -260,7 +260,7 @@ mod sg_qubo_reductions {
         let sg_solutions = solver.find_all_witnesses(sg);
 
         // Extract to QUBO solution
-        let qubo_solution = result.extract_solution(&sg_solutions[0]);
+        let qubo_solution = result.extract_solution(&sg_solutions[0]).unwrap();
         assert_eq!(qubo_solution.len(), 2);
     }
 
@@ -283,7 +283,7 @@ mod sg_qubo_reductions {
         let qubo_solutions = solver.find_all_witnesses(qubo);
 
         // Extract QUBO solution back to SG
-        let extracted = result.extract_solution(&qubo_solutions[0]);
+        let extracted = result.extract_solution(&qubo_solutions[0]).unwrap();
 
         // Convert solutions to spins for energy computation
         // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
@@ -316,7 +316,7 @@ mod minimum_covering_by_cliques_ilp_reductions {
         let ilp_solution = ILPSolver::new()
             .solve(ilp)
             .expect("MinimumCoveringByCliques -> ILP should be solvable");
-        let extracted = reduction.extract_solution(&ilp_solution);
+        let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
         assert_eq!(source.evaluate(&extracted), Min(Some(3)));
     }
@@ -336,7 +336,7 @@ mod partition_into_cliques_covering_by_cliques_reductions {
         let target_solution = BruteForce::new()
             .find_witness(target)
             .expect("target should be solvable");
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
 
         assert_eq!(source.evaluate(&extracted), Or(true));
     }
@@ -376,7 +376,7 @@ mod max2sat_maxcut_reductions {
 
         let solver = BruteForce::new();
         let target_solutions = solver.find_all_witnesses(target);
-        let extracted = reduction.extract_solution(&target_solutions[0]);
+        let extracted = reduction.extract_solution(&target_solutions[0]).unwrap();
 
         assert_eq!(source.evaluate(&extracted), Max(Some(5)));
     }
@@ -406,7 +406,7 @@ mod sg_maxcut_reductions {
         let maxcut_solutions = solver.find_all_witnesses(maxcut);
 
         // Extract to SG solution
-        let sg_solution = result.extract_solution(&maxcut_solutions[0]);
+        let sg_solution = result.extract_solution(&maxcut_solutions[0]).unwrap();
         assert_eq!(sg_solution.len(), 3);
     }
 
@@ -428,7 +428,7 @@ mod sg_maxcut_reductions {
         let sg_solutions = solver.find_all_witnesses(sg);
 
         // Extract to MaxCut solution
-        let maxcut_solution = result.extract_solution(&sg_solutions[0]);
+        let maxcut_solution = result.extract_solution(&sg_solutions[0]).unwrap();
         assert_eq!(maxcut_solution.len(), 3);
     }
 
@@ -451,7 +451,7 @@ mod sg_maxcut_reductions {
         let maxcut_solutions = solver.find_all_witnesses(maxcut);
 
         // Extract MaxCut solution back to SG
-        let extracted = result.extract_solution(&maxcut_solutions[0]);
+        let extracted = result.extract_solution(&maxcut_solutions[0]).unwrap();
 
         // Convert solutions to spins for energy computation
         // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
@@ -572,13 +572,13 @@ mod qubo_reductions {
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
-            let extracted = chain.extract_solution(sol);
+            let extracted = chain.extract_solution(sol).unwrap();
             assert!(is.evaluate(&extracted).is_valid());
         }
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_size: usize = chain.extract_solution(&solutions[0]).iter().sum();
+        let our_is_size: usize = chain.extract_solution(&solutions[0]).unwrap().iter().sum();
         assert_eq!(our_is_size, gt_is_size);
     }
 
@@ -616,7 +616,7 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = reduction.extract_solution(sol).unwrap();
             assert!(kc.evaluate(&extracted));
         }
 
@@ -653,13 +653,17 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = reduction.extract_solution(sol).unwrap();
             assert!(sp.evaluate(&extracted).is_valid());
         }
 
         // Optimal packing should match ground truth
         let gt_selected: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_selected: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        let our_selected: usize = reduction
+            .extract_solution(&solutions[0])
+            .unwrap()
+            .iter()
+            .sum();
         assert_eq!(our_selected, gt_selected);
     }
 
@@ -718,13 +722,13 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = reduction.extract_solution(sol).unwrap();
             assert!(ksat.evaluate(&extracted));
         }
 
         // Verify extracted solution matches ground truth assignment
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]);
+        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
         assert_eq!(&our_config, gt_config);
     }
 
@@ -802,13 +806,13 @@ mod qubo_reductions {
         let solutions = solver.find_all_witnesses(qubo);
 
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = reduction.extract_solution(sol).unwrap();
             assert!(ilp.evaluate(&extracted).is_valid());
         }
 
         // Optimal assignment should match ground truth
         let gt_config = &data.qubo_optimal.configs[0];
-        let our_config = reduction.extract_solution(&solutions[0]);
+        let our_config = reduction.extract_solution(&solutions[0]).unwrap();
         assert_eq!(&our_config, gt_config);
     }
 
@@ -873,12 +877,12 @@ mod qubo_reductions {
 
         // Extract back through the full chain to get VC solution
         for sol in &solutions {
-            let vc_sol = chain.extract_solution(sol);
+            let vc_sol = chain.extract_solution(sol).unwrap();
             assert!(vc.evaluate(&vc_sol).is_valid());
         }
 
         // Optimal VC size should match ground truth
-        let vc_sol = chain.extract_solution(&solutions[0]);
+        let vc_sol = chain.extract_solution(&solutions[0]).unwrap();
         let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
         let our_vc_size: usize = vc_sol.iter().sum();
         assert_eq!(our_vc_size, gt_vc_size);
@@ -964,14 +968,14 @@ mod end_to_end {
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);
         let vc = to_vc.target_problem();
         let vc_solutions = solver.find_all_witnesses(vc);
-        let vc_extracted = to_vc.extract_solution(&vc_solutions[0]);
+        let vc_extracted = to_vc.extract_solution(&vc_solutions[0]).unwrap();
         let via_vc_size = vc_extracted.iter().sum::<usize>();
 
         // Reduce to MaximumSetPacking and solve
         let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is);
         let sp = to_sp.target_problem();
         let sp_solutions = solver.find_all_witnesses(sp);
-        let sp_extracted = to_sp.extract_solution(&sp_solutions[0]);
+        let sp_extracted = to_sp.extract_solution(&sp_solutions[0]).unwrap();
         let via_sp_size = sp_extracted.iter().sum::<usize>();
 
         // All should give same optimal size
@@ -1000,7 +1004,7 @@ mod end_to_end {
         let to_maxcut = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let maxcut = to_maxcut.target_problem();
         let maxcut_solutions = solver.find_all_witnesses(maxcut);
-        let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]);
+        let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]).unwrap();
 
         // Convert extracted solution to spins for energy computation
         let extracted_spins: Vec<i32> = maxcut_extracted.iter().map(|&x| x as i32).collect();
@@ -1029,8 +1033,8 @@ mod end_to_end {
         let vc_solutions = solver.find_all_witnesses(vc);
 
         // Extract back through chain
-        let is_sol = is_to_vc.extract_solution(&vc_solutions[0]);
-        let sp_sol = sp_to_is.extract_solution(&is_sol);
+        let is_sol = is_to_vc.extract_solution(&vc_solutions[0]).unwrap();
+        let sp_sol = sp_to_is.extract_solution(&is_sol).unwrap();
 
         // Should be valid MaximumSetPacking
         assert!(sp.evaluate(&sp_sol).is_valid());

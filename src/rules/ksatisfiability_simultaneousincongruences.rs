@@ -27,12 +27,17 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let x = target_solution.first().copied().unwrap_or(0) as u64;
-        self.variable_primes
-            .iter()
-            .map(|&prime| if x % prime == 1 { 1 } else { 0 })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let x = target_solution.first().copied().unwrap_or(0) as u64;
+            self.variable_primes
+                .iter()
+                .map(|&prime| if x % prime == 1 { 1 } else { 0 })
+                .collect()
+        })
     }
 }
 

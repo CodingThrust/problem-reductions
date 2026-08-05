@@ -34,15 +34,20 @@ impl ReductionResult for ReductionMGBToILP {
     }
 
     /// Extract: for each vertex v, output its position p (the unique p with x_{v,p} = 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        (0..n)
-            .map(|v| {
-                (0..n)
-                    .find(|&p| target_solution[v * n + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_vertices;
+            (0..n)
+                .map(|v| {
+                    (0..n)
+                        .find(|&p| target_solution[v * n + p] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

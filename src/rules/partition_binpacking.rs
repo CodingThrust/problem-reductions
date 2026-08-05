@@ -30,15 +30,20 @@ impl ReductionResult for ReductionPartitionToBinPacking {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // BinPacking may use any bin indices (0..n-1). Remap the two distinct
-        // bins used in a 2-bin packing to Partition's {0, 1} assignment.
-        // The first bin encountered maps to 0, the second to 1.
-        let first_bin = target_solution[0];
-        target_solution
-            .iter()
-            .map(|&b| if b == first_bin { 0 } else { 1 })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // BinPacking may use any bin indices (0..n-1). Remap the two distinct
+            // bins used in a 2-bin packing to Partition's {0, 1} assignment.
+            // The first bin encountered maps to 0, the second to 1.
+            let first_bin = target_solution[0];
+            target_solution
+                .iter()
+                .map(|&b| if b == first_bin { 0 } else { 1 })
+                .collect()
+        })
     }
 }
 

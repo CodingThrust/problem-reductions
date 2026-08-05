@@ -79,7 +79,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
     // value 1 and cost 1 (the cheaper 1->3 path).
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted), 1);
     assert_eq!(source.total_cost(&extracted), 1);
 }
@@ -113,7 +113,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
     // parallel arc has cost 1, so optimal source cost = 1.
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted), 1);
     assert_eq!(source.total_cost(&extracted), 1);
 }
@@ -161,7 +161,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted), 1);
     // Zero-capacity arc must be 0 in the extracted flow.
     assert_eq!(extracted[2], 0);
@@ -187,7 +187,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_value_priority_over_cos
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(reduction.target_problem()).unwrap();
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted), 2);
     assert_eq!(source.total_cost(&extracted), 20);
 
@@ -208,7 +208,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_extract_solution_length
     for (i, v) in padded.iter_mut().enumerate().take(m) {
         *v = i % 2;
     }
-    let extracted = reduction.extract_solution(&padded);
+    let extracted = reduction.extract_solution(&padded).unwrap();
     assert_eq!(extracted.len(), m);
     assert_eq!(extracted, padded[..m].to_vec());
 }

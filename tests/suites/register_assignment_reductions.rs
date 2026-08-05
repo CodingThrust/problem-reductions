@@ -81,10 +81,10 @@ fn test_ksat_to_fra_structure_and_closed_loop_via_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("satisfiable FRA instance should reduce to a feasible ILP");
-    let fra_solution = fra_chain.extract_solution(&ilp_solution);
+    let fra_solution = fra_chain.extract_solution(&ilp_solution).unwrap();
     assert_eq!(fra.evaluate(&fra_solution), Or(true));
 
-    let sat_solution = ksat_chain.extract_solution(&fra_solution);
+    let sat_solution = ksat_chain.extract_solution(&fra_solution).unwrap();
     assert_eq!(source.evaluate(&sat_solution), Or(true));
 }
 

@@ -28,19 +28,24 @@ impl ReductionResult for ReductionSATToNAESAT {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
         let n = self.source_num_vars;
         if target_solution.len() <= n {
-            return vec![0; n];
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected at least {} values including the sentinel, got {}",
+                n + 1,
+                target_solution.len()
+            )));
         }
+
         // The sentinel variable is the last variable (index n).
-        let sentinel_value = target_solution[n];
-        if sentinel_value == 0 {
-            // Sentinel is false: return first n variables as-is.
-            target_solution[..n].to_vec()
+        if target_solution[n] == 0 {
+            Ok(target_solution[..n].to_vec())
         } else {
-            // Sentinel is true: return complement of first n variables.
-            target_solution[..n].iter().map(|&v| 1 - v).collect()
+            Ok(target_solution[..n].iter().map(|&v| 1 - v).collect())
         }
     }
 }

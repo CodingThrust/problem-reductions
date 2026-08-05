@@ -199,23 +199,28 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.layout.num_vars == 0 {
-            return Vec::new();
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if self.layout.num_vars == 0 {
+                return Ok(Vec::new());
+            }
 
-        let cutoff = target_solution[self.layout.w(self.layout.num_vars - 1)];
-        (0..self.layout.num_vars)
-            .map(|var| {
-                let x_pos_before = target_solution[self.layout.x_pos(var)] < cutoff;
-                let x_neg_before = target_solution[self.layout.x_neg(var)] < cutoff;
-                debug_assert!(
-                    !(x_pos_before && x_neg_before),
-                    "Sethi extraction expects at most one of x_pos/x_neg before w[n]",
-                );
-                usize::from(x_pos_before)
-            })
-            .collect()
+            let cutoff = target_solution[self.layout.w(self.layout.num_vars - 1)];
+            (0..self.layout.num_vars)
+                .map(|var| {
+                    let x_pos_before = target_solution[self.layout.x_pos(var)] < cutoff;
+                    let x_neg_before = target_solution[self.layout.x_neg(var)] < cutoff;
+                    debug_assert!(
+                        !(x_pos_before && x_neg_before),
+                        "Sethi extraction expects at most one of x_pos/x_neg before w[n]",
+                    );
+                    usize::from(x_pos_before)
+                })
+                .collect()
+        })
     }
 }
 
@@ -377,7 +382,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 .target_problem()
                 .solve_exact()
                 .expect("satisfying 3-SAT instance must yield a feasible RS witness");
-            let source_config = to_registers.extract_solution(&target_config);
+            let source_config = to_registers.extract_solution(&target_config).unwrap();
 
             crate::example_db::specs::assemble_rule_example(
                 &source,

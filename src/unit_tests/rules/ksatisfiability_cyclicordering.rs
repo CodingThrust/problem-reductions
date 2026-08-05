@@ -141,7 +141,7 @@ fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
 
     let target_solution =
         solve_cyclic_ordering(target).expect("single-clause gadget should be solvable");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 1]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -178,7 +178,10 @@ fn test_ksatisfiability_to_cyclicordering_extract_solution_from_reference_witnes
     let target_solution = vec![0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5];
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
-    assert_eq!(reduction.extract_solution(&target_solution), vec![1, 1, 1]);
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![1, 1, 1]
+    );
 }
 
 #[test]
@@ -251,7 +254,7 @@ fn test_ksatisfiability_to_cyclicordering_closed_loop() {
         "target solution must evaluate as satisfying"
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(
         source.evaluate(&extracted).0,
         "extracted source config must satisfy the source"

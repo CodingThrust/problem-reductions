@@ -28,7 +28,10 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
         self.base_reduction.extract_solution(target_solution)
     }
 }

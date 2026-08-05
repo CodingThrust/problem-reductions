@@ -75,5 +75,5 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
         reduction.target_problem().evaluate(&cover),
         crate::types::Or(true)
     );
-    assert_eq!(reduction.extract_solution(&cover), vec![0, 0, 1]);
+    assert_eq!(reduction.extract_solution(&cover).unwrap(), vec![0, 0, 1]);
 }

@@ -70,7 +70,7 @@ fn test_ksatisfiability_to_kernel_extract_solution_reads_variable_gadgets() {
     let reduction = ReduceTo::<Kernel>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 0, 1, 0, 0, 0]),
+        reduction.extract_solution(&[1, 0, 0, 1, 0, 0, 0]).unwrap(),
         vec![1, 0]
     );
 }

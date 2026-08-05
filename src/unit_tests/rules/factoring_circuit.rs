@@ -210,7 +210,7 @@ fn test_extract_solution() {
         }
     }
 
-    let factoring_sol = reduction.extract_solution(&sol);
+    let factoring_sol = reduction.extract_solution(&sol).unwrap();
     assert_eq!(
         factoring_sol.len(),
         4,

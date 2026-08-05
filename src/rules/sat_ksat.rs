@@ -31,9 +31,14 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Only return the original variables, discarding ancillas
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Only return the original variables, discarding ancillas
+            target_solution[..self.source_num_vars].to_vec()
+        })
     }
 }
 
@@ -162,9 +167,14 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Direct mapping - no transformation needed
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Direct mapping - no transformation needed
+            target_solution.to_vec()
+        })
     }
 }
 

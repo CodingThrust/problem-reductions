@@ -31,37 +31,46 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut source_assignment = vec![0; self.source_num_vars];
-        let Some(x) = self.target.decode_witness(target_solution) else {
-            return source_assignment;
-        };
-        if x > self.h {
-            return source_assignment;
-        }
-
-        let h_minus_x = &self.h - &x;
-        let h_plus_x = &self.h + &x;
-        let mut alpha = vec![0i8; self.prime_powers.len()];
-
-        for (j, prime_power) in self.prime_powers.iter().enumerate() {
-            if (&h_minus_x % prime_power).is_zero() {
-                alpha[j] = 1;
-            } else if (&h_plus_x % prime_power).is_zero() {
-                alpha[j] = -1;
-            }
-        }
-
-        for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
-            let alpha_index = 2 * self.standard_clause_count + active_index + 1;
-            source_assignment[source_index] = if alpha.get(alpha_index) == Some(&-1) {
-                1
-            } else {
-                0
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut source_assignment = vec![0; self.source_num_vars];
+            let Some(x) = self.target.decode_witness(target_solution) else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration does not encode a quadratic-congruence witness",
+                ));
             };
-        }
+            if x > self.h {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "decoded quadratic-congruence witness exceeds the construction bound",
+                ));
+            }
 
-        source_assignment
+            let h_minus_x = &self.h - &x;
+            let h_plus_x = &self.h + &x;
+            let mut alpha = vec![0i8; self.prime_powers.len()];
+
+            for (j, prime_power) in self.prime_powers.iter().enumerate() {
+                if (&h_minus_x % prime_power).is_zero() {
+                    alpha[j] = 1;
+                } else if (&h_plus_x % prime_power).is_zero() {
+                    alpha[j] = -1;
+                }
+            }
+
+            for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
+                let alpha_index = 2 * self.standard_clause_count + active_index + 1;
+                source_assignment[source_index] = if alpha.get(alpha_index) == Some(&-1) {
+                    1
+                } else {
+                    0
+                };
+            }
+
+            source_assignment
+        })
     }
 }
 

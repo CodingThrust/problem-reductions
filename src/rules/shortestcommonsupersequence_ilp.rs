@@ -27,16 +27,21 @@ impl ReductionResult for ReductionSCSToILP {
 
     /// At each position p, output the unique symbol a with x_{p,a} = 1.
     /// Uses alphabet_size + 1 symbols (last = padding).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let b = self.max_length;
-        let k = self.alphabet_size + 1; // includes padding symbol
-        (0..b)
-            .map(|p| {
-                (0..k)
-                    .find(|&a| target_solution[p * k + a] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let b = self.max_length;
+            let k = self.alphabet_size + 1; // includes padding symbol
+            (0..b)
+                .map(|p| {
+                    (0..k)
+                        .find(|&a| target_solution[p * k + a] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 
@@ -154,7 +159,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

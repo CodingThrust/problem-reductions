@@ -117,7 +117,7 @@ fn test_maxcut_to_minimumcutintoboundedsets_extract_solution_size() {
 
     // Target has 8 vertices, extract should return 3
     let dummy_target_sol = vec![0, 1, 0, 1, 0, 1, 0, 1];
-    let extracted = reduction.extract_solution(&dummy_target_sol);
+    let extracted = reduction.extract_solution(&dummy_target_sol).unwrap();
     assert_eq!(extracted.len(), 3);
 }
 

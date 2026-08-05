@@ -66,7 +66,7 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_en
     let satisfying_flow = reduction.encode_assignment(&satisfying_assignment);
     assert!(target.evaluate(&satisfying_flow).0);
     assert_eq!(
-        reduction.extract_solution(&satisfying_flow),
+        reduction.extract_solution(&satisfying_flow).unwrap(),
         satisfying_assignment
     );
 

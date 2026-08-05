@@ -30,26 +30,31 @@ impl ReductionResult for ReductionSubsetSumToPartition {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let source_bits = &target_solution[..self.source_len];
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let source_bits = &target_solution[..self.source_len];
 
-        match self.padding_relation {
-            PaddingRelation::None => source_bits.to_vec(),
-            PaddingRelation::SameSide => {
-                let padding_is_selected = target_solution[self.source_len] == 1;
-                source_bits
-                    .iter()
-                    .map(|&bit| if padding_is_selected { bit } else { 1 - bit })
-                    .collect()
+            match self.padding_relation {
+                PaddingRelation::None => source_bits.to_vec(),
+                PaddingRelation::SameSide => {
+                    let padding_is_selected = target_solution[self.source_len] == 1;
+                    source_bits
+                        .iter()
+                        .map(|&bit| if padding_is_selected { bit } else { 1 - bit })
+                        .collect()
+                }
+                PaddingRelation::OppositeSide => {
+                    let padding_is_selected = target_solution[self.source_len] == 1;
+                    source_bits
+                        .iter()
+                        .map(|&bit| if padding_is_selected { 1 - bit } else { bit })
+                        .collect()
+                }
             }
-            PaddingRelation::OppositeSide => {
-                let padding_is_selected = target_solution[self.source_len] == 1;
-                source_bits
-                    .iter()
-                    .map(|&bit| if padding_is_selected { 1 - bit } else { bit })
-                    .collect()
-            }
-        }
+        })
     }
 }
 

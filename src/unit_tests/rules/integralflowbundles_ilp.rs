@@ -75,7 +75,7 @@ fn test_integral_flow_bundles_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.evaluate(&extracted));
 }
@@ -85,7 +85,7 @@ fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
     let problem = yes_instance();
     let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert_eq!(
-        reduction.extract_solution(&satisfying_config()),
+        reduction.extract_solution(&satisfying_config()).unwrap(),
         satisfying_config()
     );
 }

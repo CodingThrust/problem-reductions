@@ -30,6 +30,9 @@ pub enum ILPSolveError {
     /// Type-erased dispatch received a value other than a supported ILP variant.
     #[error("the ILP backend supports only ILP<bool> and ILP<i32>")]
     UnsupportedProblemType,
+    /// A target witness could not be mapped back to the source problem.
+    #[error(transparent)]
+    Extraction(#[from] crate::rules::ExtractionError),
 }
 
 fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
@@ -241,7 +244,7 @@ impl ILPSolver {
     {
         let reduction = problem.reduce_to();
         let ilp_solution = self.solve(reduction.target_problem())?;
-        Ok(reduction.extract_solution(&ilp_solution))
+        Ok(reduction.extract_solution(&ilp_solution)?)
     }
 
     /// Solve a type-erased supported ILP variant directly.

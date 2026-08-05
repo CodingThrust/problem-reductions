@@ -1,9 +1,7 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
 //! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
-//! Nodes are built in two phases:
-//! 1. From `VariantEntry` inventory (with complexity metadata)
-//! 2. From `ReductionEntry` inventory (fallback for backwards compatibility)
+//! Nodes come from `VariantEntry` inventory, and `ReductionEntry` inventory supplies edges.
 //!
 //! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
 //!
@@ -49,7 +47,13 @@ pub(crate) struct ReductionEdgeData {
     pub overhead: ReductionOverhead,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
-    pub capabilities: EdgeCapabilities,
+    pub turing: bool,
+}
+
+impl ReductionEdgeData {
+    fn capabilities(&self) -> EdgeCapabilities {
+        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
+    }
 }
 
 /// JSON-serializable representation of the reduction graph.
@@ -334,7 +338,6 @@ impl<L: PathLabel> ExactParetoDfs<'_, '_, L> {
             let edge = ReductionEdge {
                 overhead: &weight.overhead,
                 reduce_fn: weight.reduce_fn,
-                capabilities: weight.capabilities,
                 target_name: target_node.name,
                 target_variant: &target_node.variant,
             };
@@ -429,26 +432,14 @@ impl ReductionGraph {
             let source_variant = Self::variant_to_map(&entry.source_variant());
             let target_variant = Self::variant_to_map(&entry.target_variant());
 
-            // Nodes should already exist from Phase 1.
-            // Fall back to creating them with empty complexity for backwards compatibility.
-            let src_idx = ensure_node(
-                entry.source_name,
-                source_variant,
-                "",
-                &mut nodes,
-                &mut graph,
-                &mut node_index,
-                &mut name_to_nodes,
-            );
-            let dst_idx = ensure_node(
-                entry.target_name,
-                target_variant,
-                "",
-                &mut nodes,
-                &mut graph,
-                &mut node_index,
-                &mut name_to_nodes,
-            );
+            let src_idx = node_index[&VariantRef {
+                name: entry.source_name.to_string(),
+                variant: source_variant,
+            }];
+            let dst_idx = node_index[&VariantRef {
+                name: entry.target_name.to_string(),
+                variant: target_variant,
+            }];
 
             let overhead = entry.overhead();
             if graph.find_edge(src_idx, dst_idx).is_none() {
@@ -459,7 +450,7 @@ impl ReductionGraph {
                         overhead,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
-                        capabilities: entry.capabilities,
+                        turing: entry.turing,
                     },
                 );
             }
@@ -500,9 +491,9 @@ impl ReductionGraph {
 
     fn edge_supports_mode(edge: &ReductionEdgeData, mode: ReductionMode) -> bool {
         match mode {
-            ReductionMode::Witness => edge.capabilities.witness,
-            ReductionMode::Aggregate => edge.capabilities.aggregate,
-            ReductionMode::Turing => edge.capabilities.turing,
+            ReductionMode::Witness => edge.reduce_fn.is_some(),
+            ReductionMode::Aggregate => edge.reduce_aggregate_fn.is_some(),
+            ReductionMode::Turing => edge.turing,
         }
     }
 
@@ -698,7 +689,6 @@ impl ReductionGraph {
                 let redge = ReductionEdge {
                     overhead: &weight.overhead,
                     reduce_fn: weight.reduce_fn,
-                    capabilities: weight.capabilities,
                     target_name: target_node.name,
                     target_variant: &target_node.variant,
                 };
@@ -1013,7 +1003,6 @@ impl ReductionGraph {
                 let edge = ReductionEdge {
                     overhead: &weight.overhead,
                     reduce_fn: weight.reduce_fn,
-                    capabilities: weight.capabilities,
                     target_name: target_node.name,
                     target_variant: &target_node.variant,
                 };
@@ -1406,7 +1395,7 @@ impl ReductionGraph {
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
                     overhead: self.graph[e.id()].overhead.clone(),
-                    capabilities: self.graph[e.id()].capabilities,
+                    capabilities: self.graph[e.id()].capabilities(),
                 }
             })
             .collect()
@@ -1462,28 +1451,36 @@ impl ReductionGraph {
 
     /// Compute the source problem's size from a type-erased instance.
     ///
-    /// Iterates over all registered reduction entries with a matching source name
-    /// and merges their `source_size_fn` results to capture all size fields.
+    /// Iterates over all registered reduction entries with an exact source name and
+    /// variant match, then merges their `source_size_fn` results to capture all size fields.
     /// Different entries may reference different getter methods (e.g., one uses
     /// `num_vertices` while another also uses `num_edges`).
-    pub fn compute_source_size(name: &str, instance: &dyn Any) -> ProblemSize {
+    pub fn compute_source_size(
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        instance: &dyn Any,
+    ) -> ProblemSize {
         let mut merged: Vec<(String, usize)> = Vec::new();
         let mut seen: HashSet<String> = HashSet::new();
 
         for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name == name {
-                // A reduction's `source_size_fn` downcasts `instance` to its own
-                // source variant and panics on a mismatch; iterating every
-                // same-name entry means the non-matching variants panic-and-recover.
-                // Route through the silencer so these expected, caught panics do not
-                // spam stderr (the plain `catch_unwind` here did).
-                let result =
-                    crate::rules::pareto::catch_reduction(|| (entry.source_size_fn)(instance));
-                if let Some(size) = result {
-                    for (k, v) in size.components {
-                        if seen.insert(k.clone()) {
-                            merged.push((k, v));
-                        }
+            if entry.source_name != name {
+                continue;
+            }
+            let entry_variant = entry.source_variant();
+            let variant_matches = entry_variant.len() == variant.len()
+                && entry_variant.iter().all(|(key, value)| {
+                    let value = if *key == "graph" && value.is_empty() {
+                        "SimpleGraph"
+                    } else {
+                        value
+                    };
+                    variant.get(*key).is_some_and(|expected| expected == value)
+                });
+            if variant_matches {
+                for (k, v) in (entry.source_size_fn)(instance).components {
+                    if seen.insert(k.clone()) {
+                        merged.push((k, v));
                     }
                 }
             }
@@ -1509,7 +1506,7 @@ impl ReductionGraph {
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
                     overhead: self.graph[e.id()].overhead.clone(),
-                    capabilities: self.graph[e.id()].capabilities,
+                    capabilities: self.graph[e.id()].capabilities(),
                 }
             })
             .collect()
@@ -1721,7 +1718,7 @@ impl ReductionGraph {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
             let overhead = &edge_ref.weight().overhead;
-            let capabilities = edge_ref.weight().capabilities;
+            let capabilities = edge_ref.weight().capabilities();
 
             let overhead_fields = overhead
                 .output_size
@@ -1909,13 +1906,15 @@ impl ReductionChain {
     }
 
     /// Extract a solution from target space back to source space.
-    pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.steps
-            .iter()
-            .rev()
-            .fold(target_solution.to_vec(), |sol, step| {
-                step.extract_solution_dyn(&sol)
-            })
+    pub fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        let mut solution = target_solution.to_vec();
+        for step in self.steps.iter().rev() {
+            solution = step.extract_solution_dyn(&solution)?;
+        }
+        Ok(solution)
     }
 }
 
@@ -1952,20 +1951,6 @@ impl AggregateReductionChain {
     }
 }
 
-struct WitnessBackedIdentityAggregateStep {
-    inner: Box<dyn DynReductionResult>,
-}
-
-impl DynAggregateReductionResult for WitnessBackedIdentityAggregateStep {
-    fn target_problem_any(&self) -> &dyn Any {
-        self.inner.target_problem_any()
-    }
-
-    fn extract_value_dyn(&self, target_value: serde_json::Value) -> serde_json::Value {
-        target_value
-    }
-}
-
 impl ReductionGraph {
     fn execute_aggregate_edge(
         &self,
@@ -1977,18 +1962,7 @@ impl ReductionGraph {
             return None;
         }
 
-        if let Some(edge_fn) = edge.reduce_aggregate_fn {
-            return Some(edge_fn(input));
-        }
-
-        if edge.capabilities.witness && edge.capabilities.aggregate {
-            let edge_fn = edge.reduce_fn?;
-            return Some(Box::new(WitnessBackedIdentityAggregateStep {
-                inner: edge_fn(input),
-            }));
-        }
-
-        None
+        Some(edge.reduce_aggregate_fn?(input))
     }
 
     /// Execute a reduction path on a source problem instance.
@@ -2093,13 +2067,15 @@ impl MeasuredPath {
     }
 
     /// Extract a solution from target space back to source space.
-    pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.steps
-            .iter()
-            .rev()
-            .fold(target_solution.to_vec(), |sol, step| {
-                step.extract_solution_dyn(&sol)
-            })
+    pub fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        let mut solution = target_solution.to_vec();
+        for step in self.steps.iter().rev() {
+            solution = step.extract_solution_dyn(&solution)?;
+        }
+        Ok(solution)
     }
 }
 
@@ -2145,7 +2121,7 @@ impl ReductionGraph {
         if src == dst {
             return tracker.finish(None);
         }
-        let source_size = Self::compute_source_size(source, source_instance);
+        let source_size = Self::compute_source_size(source, source_variant, source_instance);
         let initial = MeasuredLabel::new(source_instance, source_size, budget);
         let targets = HashSet::from([dst]);
         let result = self
@@ -2249,7 +2225,7 @@ impl ReductionGraph {
             return tracker.finish(None);
         }
 
-        let source_size = Self::compute_source_size(source, source_instance);
+        let source_size = Self::compute_source_size(source, source_variant, source_instance);
         let initial = MeasuredLabel::new(source_instance, source_size, budget);
         let result = self
             .measured_best_simple_path(src, &targets, mode, initial, &mut tracker)
@@ -2270,16 +2246,29 @@ impl ReductionGraph {
         node_names: &[&'static str],
         edges: &[(&'static str, &'static str, ReductionEdgeData)],
     ) -> Self {
+        Self::from_test_variant_edges(
+            &node_names
+                .iter()
+                .map(|&name| (name, BTreeMap::new()))
+                .collect::<Vec<_>>(),
+            edges,
+        )
+    }
+
+    pub(crate) fn from_test_variant_edges(
+        test_nodes: &[(&'static str, BTreeMap<String, String>)],
+        edges: &[(&'static str, &'static str, ReductionEdgeData)],
+    ) -> Self {
         let mut graph: DiGraph<usize, ReductionEdgeData> = DiGraph::new();
         let mut nodes: Vec<VariantNode> = Vec::new();
         let mut name_to_nodes: HashMap<&'static str, Vec<NodeIndex>> = HashMap::new();
         let mut index_of: HashMap<&'static str, NodeIndex> = HashMap::new();
 
-        for &name in node_names {
+        for (name, variant) in test_nodes {
             let node_id = nodes.len();
             nodes.push(VariantNode {
                 name,
-                variant: BTreeMap::new(),
+                variant: variant.clone(),
                 complexity: "",
             });
             let idx = graph.add_node(node_id);

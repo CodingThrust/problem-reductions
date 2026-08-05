@@ -50,8 +50,14 @@ fn test_closestvectorproblem_to_qubo_example_matrix_coefficients() {
 fn test_extract_solution_ignores_duplicate_exact_range_encodings() {
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp());
 
-    assert_eq!(reduction.extract_solution(&[1, 1, 0, 1, 1, 0]), vec![3, 3]);
-    assert_eq!(reduction.extract_solution(&[0, 0, 1, 0, 0, 1]), vec![3, 3]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 1, 0, 1, 1, 0]).unwrap(),
+        vec![3, 3]
+    );
+    assert_eq!(
+        reduction.extract_solution(&[0, 0, 1, 0, 0, 1]).unwrap(),
+        vec![3, 3]
+    );
 }
 
 #[cfg(feature = "example-db")]

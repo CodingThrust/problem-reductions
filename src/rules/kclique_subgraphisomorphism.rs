@@ -34,8 +34,13 @@ impl ReductionResult for ReductionKCliqueToSubIso {
     /// The SubgraphIsomorphism config maps each pattern vertex (0..k-1) to a
     /// host vertex. We create a binary vector of length n and set positions
     /// f(0), f(1), ..., f(k-1) to 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        KClique::<SimpleGraph>::config_from_vertices(self.num_source_vertices, target_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            KClique::<SimpleGraph>::config_from_vertices(self.num_source_vertices, target_solution)
+        })
     }
 }
 

@@ -48,7 +48,7 @@ fn test_maximumedgeweightedkclique_to_ilp_extract_solution_identity() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
     let target_solution = vec![1, 1, 1, 0, 1, 1, 1, 0, 0];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 1, 0]);
     assert_eq!(source.evaluate(&extracted), Max(Some(8)));
 }

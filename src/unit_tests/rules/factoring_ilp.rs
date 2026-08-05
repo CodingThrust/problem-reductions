@@ -50,7 +50,7 @@ fn test_factor_6() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify it's a valid factorization
     assert!(problem.is_valid_factorization(&extracted));
@@ -75,7 +75,7 @@ fn test_factor_15() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
 
     // 4. Extract factoring solution
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // 5. Verify: solution is valid and p × q = 15
     assert!(problem.is_valid_factorization(&extracted));
@@ -92,7 +92,7 @@ fn test_factor_35() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&extracted));
 
@@ -109,7 +109,7 @@ fn test_factor_one() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&extracted));
 
@@ -126,7 +126,7 @@ fn test_factor_prime() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&extracted));
 
@@ -143,7 +143,7 @@ fn test_factor_square() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&extracted));
 
@@ -173,7 +173,7 @@ fn test_factoring_to_ilp_closed_loop() {
     // Get ILP solution
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let ilp_factors = reduction.extract_solution(&ilp_solution);
+    let ilp_factors = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Get brute force solutions
     let bf = BruteForce::new();
@@ -207,7 +207,7 @@ fn test_solution_extraction() {
     // z_10 = p_1 * q_0 = 1, z_11 = p_1 * q_1 = 1
     // Variables: [p0, p1, q0, q1, z00, z01, z10, z11, c0, c1, c2, c3]
     let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Should extract [p0, p1, q0, q1] = [0, 1, 1, 1]
     assert_eq!(extracted, vec![0, 1, 1, 1]);
@@ -239,7 +239,7 @@ fn test_solve_reduced() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let solution = reduction.extract_solution(&ilp_solution);
+    let solution = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&solution));
 }
@@ -253,7 +253,7 @@ fn test_asymmetric_bit_widths() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_factorization(&extracted));
 

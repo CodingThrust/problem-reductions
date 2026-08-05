@@ -60,36 +60,47 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
     /// For every source edge `(u, v)`, the edge is *kept* iff some chosen
     /// cluster `S` (i.e. with `x_S = 1`) contains both `u` and `v`; otherwise
     /// it is deleted (`config[e] = 1`).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Map every vertex to the (unique, for a feasible ILP solution) chosen
-        // cluster id. For partial/infeasible target assignments we fall back to
-        // `None`, which forces the corresponding source edges to be marked
-        // deleted -- preserving feasibility of `is_valid_solution` is the
-        // caller's responsibility, not ours.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        if target_solution.len() != self.clusters.len() {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} cluster-selection values, got {}",
+                self.clusters.len(),
+                target_solution.len()
+            )));
+        }
+
         let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
         for (c, cluster) in self.clusters.iter().enumerate() {
-            if target_solution.get(c).copied().unwrap_or(0) == 1 {
+            if target_solution[c] == 1 {
                 for &v in cluster {
+                    if cluster_of[v].is_some() {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "vertex {v} belongs to multiple selected clusters"
+                        )));
+                    }
                     cluster_of[v] = Some(c);
                 }
+            } else if target_solution[c] != 0 {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "cluster selection {c} is not binary"
+                )));
             }
         }
 
-        self.edges
+        if let Some(vertex) = cluster_of.iter().position(Option::is_none) {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "vertex {vertex} has no selected cluster"
+            )));
+        }
+
+        Ok(self
+            .edges
             .iter()
-            .map(|&(u, v)| {
-                debug_assert!(
-                    cluster_of[u].is_some() && cluster_of[v].is_some(),
-                    "extract_solution invariant violated: edge ({}, {}) has endpoint(s) with no cluster assignment; a well-formed ILP witness assigns every vertex to exactly one selected cluster",
-                    u,
-                    v
-                );
-                match (cluster_of[u], cluster_of[v]) {
-                    (Some(cu), Some(cv)) if cu == cv => 0,
-                    _ => 1,
-                }
-            })
-            .collect()
+            .map(|&(u, v)| usize::from(cluster_of[u] != cluster_of[v]))
+            .collect())
     }
 }
 

@@ -56,7 +56,7 @@ fn test_cdft_to_ilp_solution_encoding_round_trip() {
     let problem = small_yes_instance();
     let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solution = reduction.encode_source_solution(&small_yes_witness());
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, small_yes_witness());
 }
 
@@ -91,7 +91,7 @@ fn test_consistency_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(problem.evaluate(&extracted));
 }
 
@@ -123,7 +123,7 @@ fn test_cdft_to_ilp_issue_instance_closed_loop() {
     let target_solution = solver
         .solve(reduction.target_problem())
         .expect("ILP solver should find a feasible solution for the issue instance");
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
     assert!(
         problem.evaluate(&source_solution),
         "extracted source solution must satisfy the original CDFT instance"
@@ -135,6 +135,6 @@ fn test_cdft_to_ilp_issue_instance_encoding_round_trip() {
     let problem = issue_instance();
     let reduction: ReductionCDFTToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solution = reduction.encode_source_solution(&issue_witness());
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, issue_witness());
 }

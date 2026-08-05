@@ -1,7 +1,7 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
 use problemreductions::models::algebraic::{ObjectiveSense, ILP};
 use problemreductions::registry::VariantEntry;
-use problemreductions::rules::registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use problemreductions::rules::registry::{ReductionEntry, ReductionOverhead};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::solvers::{BruteForce, Solver};
 use problemreductions::traits::Problem;
@@ -180,7 +180,7 @@ problemreductions::inventory::submit! {
                 },
             ))
         }),
-        capabilities: EdgeCapabilities::aggregate_only(),
+        turing: false,
         overhead_eval_fn: |_| ProblemSize::new(vec![]),
         source_size_fn: |_| ProblemSize::new(vec![]),
     }
@@ -203,7 +203,7 @@ problemreductions::inventory::submit! {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
             })
         }),
-        capabilities: EdgeCapabilities::aggregate_only(),
+        turing: false,
         overhead_eval_fn: |_| ProblemSize::new(vec![]),
         source_size_fn: |_| ProblemSize::new(vec![]),
     }

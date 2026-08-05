@@ -33,7 +33,7 @@ fn test_quadraticassignment_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert!(
@@ -61,7 +61,7 @@ fn test_quadraticassignment_to_ilp_2x2() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert!(ilp_value.is_valid());
@@ -76,7 +76,7 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let metric = problem.evaluate(&extracted);
     assert!(metric.is_valid());
 }
@@ -99,7 +99,7 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert!(ilp_value.is_valid());

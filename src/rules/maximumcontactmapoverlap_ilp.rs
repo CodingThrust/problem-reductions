@@ -46,17 +46,22 @@ impl ReductionResult for ReductionCMOToILP {
     /// For each source residue `i in V_1`, find the unique `j` with
     /// `x_(i,j) = 1` and encode it as `j + 1` (CMO's `bot` is `0`); if no
     /// `x_(i,*)` is selected, the residue is left unmatched (`0`).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
-        let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|i| {
-                (0..n2)
-                    .find(|&j| target_solution[i * n2 + j] == 1)
-                    .map(|j| j + 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n1 = self.num_vertices_1;
+            let n2 = self.num_vertices_2;
+            (0..n1)
+                .map(|i| {
+                    (0..n2)
+                        .find(|&j| target_solution[i * n2 + j] == 1)
+                        .map(|j| j + 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

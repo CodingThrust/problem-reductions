@@ -17,12 +17,17 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .take(self.target.num_periods().saturating_sub(1))
-            .map(|&production| usize::from(production > 0))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            target_solution
+                .iter()
+                .take(self.target.num_periods().saturating_sub(1))
+                .map(|&production| usize::from(production > 0))
+                .collect()
+        })
     }
 }
 

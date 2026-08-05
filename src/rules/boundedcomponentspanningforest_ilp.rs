@@ -26,16 +26,21 @@ impl ReductionResult for ReductionBCSFToILP {
     }
 
     /// One-hot decode: for each vertex v, output the unique component c with x_{v,c} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let k = self.k;
-        (0..n)
-            .map(|v| {
-                (0..k)
-                    .find(|&c| target_solution[v * k + c] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            let k = self.k;
+            (0..n)
+                .map(|v| {
+                    (0..k)
+                        .find(|&c| target_solution[v * k + c] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 
@@ -203,7 +208,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&ilp_sol);
+            let extracted = reduction.extract_solution(&ilp_sol).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {

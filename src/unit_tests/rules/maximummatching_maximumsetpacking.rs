@@ -56,7 +56,7 @@ fn test_matching_to_setpacking_solution_extraction() {
 
     // Test solution extraction is 1:1
     let sp_solution = vec![1, 0, 1];
-    let matching_solution = reduction.extract_solution(&sp_solution);
+    let matching_solution = reduction.extract_solution(&sp_solution).unwrap();
     assert_eq!(matching_solution, vec![1, 0, 1]);
 
     // Verify the extracted solution is valid for original MaximumMatching

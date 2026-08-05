@@ -40,7 +40,7 @@ fn test_partition_to_knapsack_odd_total_is_not_satisfying() {
 
     assert_eq!(target.evaluate(&best), Max(Some(5)));
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert!(!source.evaluate(&extracted));
 }
 

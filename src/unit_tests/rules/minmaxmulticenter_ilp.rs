@@ -51,7 +51,7 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Min(Some(1)));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         extracted.len(),
         3,
@@ -80,7 +80,7 @@ fn test_solution_extraction() {
         0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
         1, // z
     ];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
 }
@@ -104,7 +104,7 @@ fn test_minmaxmulticenter_to_ilp_weighted() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Min(Some(100)));
 }
 
@@ -119,7 +119,7 @@ fn test_minmaxmulticenter_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 1);
     assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
 }

@@ -69,7 +69,7 @@ fn test_longestpath_to_ilp_closed_loop_on_issue_example() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.is_valid_solution(&extracted));
     assert_eq!(problem.evaluate(&extracted), best_value);
@@ -82,7 +82,7 @@ fn test_solution_extraction_from_handcrafted_ilp_assignment() {
 
     // x_{0->1}, x_{1->0}, x_{1->2}, x_{2->1}, o_0, o_1, o_2
     let target_solution = vec![1, 0, 1, 0, 0, 1, 2];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1]);
     assert_eq!(problem.evaluate(&extracted), Max(Some(5)));
@@ -101,7 +101,7 @@ fn test_source_equals_target_uses_empty_path() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should solve the trivial empty-path case");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0, 0, 0]);
     assert_eq!(problem.evaluate(&extracted), Max(Some(0)));

@@ -30,8 +30,14 @@ fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
     let reduction = ReduceTo::<Partition>::reduce_to(&source);
 
     assert_eq!(reduction.target_problem().sizes(), &[10, 20, 30, 40]);
-    assert_eq!(reduction.extract_solution(&[1, 0, 0, 1]), vec![1, 0, 0]);
-    assert_eq!(reduction.extract_solution(&[0, 1, 1, 0]), vec![1, 0, 0]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 0, 0, 1]).unwrap(),
+        vec![1, 0, 0]
+    );
+    assert_eq!(
+        reduction.extract_solution(&[0, 1, 1, 0]).unwrap(),
+        vec![1, 0, 0]
+    );
 }
 
 #[test]
@@ -40,7 +46,10 @@ fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
     let reduction = ReduceTo::<Partition>::reduce_to(&source);
 
     assert_eq!(reduction.target_problem().sizes(), &[3, 5, 2, 6]);
-    assert_eq!(reduction.extract_solution(&[1, 1, 0, 0]), vec![1, 1, 0, 0]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 1, 0, 0]).unwrap(),
+        vec![1, 1, 0, 0]
+    );
 }
 
 #[test]

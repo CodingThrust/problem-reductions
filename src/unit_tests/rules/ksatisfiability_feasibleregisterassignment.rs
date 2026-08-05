@@ -68,7 +68,7 @@ fn test_ksatisfiability_to_feasible_register_assignment_extract_solution() {
     let mut realization: Vec<usize> = (0..reduction.target_problem().num_vertices()).collect();
     realization.swap(s_pos_idx(1), s_neg_idx(2, 1));
 
-    let extracted = reduction.extract_solution(&realization);
+    let extracted = reduction.extract_solution(&realization).unwrap();
 
     assert_eq!(extracted, vec![1, 0]);
 }
@@ -82,10 +82,10 @@ fn test_ksatisfiability_to_feasible_register_assignment_closed_loop_via_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(fra_to_ilp.target_problem())
         .expect("satisfiable FRA gadget should reduce to a feasible ILP");
-    let fra_solution = fra_to_ilp.extract_solution(&ilp_solution);
+    let fra_solution = fra_to_ilp.extract_solution(&ilp_solution).unwrap();
     assert_eq!(reduction.target_problem().evaluate(&fra_solution), Or(true));
 
-    let extracted = reduction.extract_solution(&fra_solution);
+    let extracted = reduction.extract_solution(&fra_solution).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
 }
 

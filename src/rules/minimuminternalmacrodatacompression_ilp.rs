@@ -95,60 +95,65 @@ impl ReductionResult for ReductionIMDCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.layout.n;
-        let k = self.alphabet_size;
-        let eos = k; // end-of-string marker
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.layout.n;
+            let k = self.alphabet_size;
+            let eos = k; // end-of-string marker
 
-        // First pass: collect segments and build source-to-compressed-position map.
-        // source_to_c_pos[i] = compressed position that covers source position i.
-        let mut source_to_c_pos = vec![0usize; n];
-        let mut segments: Vec<(usize, usize, Option<usize>)> = Vec::new(); // (source_start, len, ref_source_pos)
-        let mut c_pos = 0;
-        let mut pos = 0;
+            // First pass: collect segments and build source-to-compressed-position map.
+            // source_to_c_pos[i] = compressed position that covers source position i.
+            let mut source_to_c_pos = vec![0usize; n];
+            let mut segments: Vec<(usize, usize, Option<usize>)> = Vec::new(); // (source_start, len, ref_source_pos)
+            let mut c_pos = 0;
+            let mut pos = 0;
 
-        while pos < n {
-            if target_solution[self.layout.lit_var(pos)] == 1 {
-                source_to_c_pos[pos] = c_pos;
-                segments.push((pos, 1, None));
-                c_pos += 1;
-                pos += 1;
-                continue;
-            }
-            let mut found = false;
-            for (idx, &(i, l, r)) in self.layout.ptr_triples.iter().enumerate() {
-                if i == pos && target_solution[self.layout.ptr_offset + idx] == 1 {
-                    for offset in 0..l {
-                        source_to_c_pos[pos + offset] = c_pos;
-                    }
-                    segments.push((pos, l, Some(r)));
+            while pos < n {
+                if target_solution[self.layout.lit_var(pos)] == 1 {
+                    source_to_c_pos[pos] = c_pos;
+                    segments.push((pos, 1, None));
                     c_pos += 1;
-                    pos += l;
-                    found = true;
-                    break;
+                    pos += 1;
+                    continue;
+                }
+                let mut found = false;
+                for (idx, &(i, l, r)) in self.layout.ptr_triples.iter().enumerate() {
+                    if i == pos && target_solution[self.layout.ptr_offset + idx] == 1 {
+                        for offset in 0..l {
+                            source_to_c_pos[pos + offset] = c_pos;
+                        }
+                        segments.push((pos, l, Some(r)));
+                        c_pos += 1;
+                        pos += l;
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    pos += 1;
                 }
             }
-            if !found {
-                pos += 1;
-            }
-        }
 
-        // Second pass: build config using source_to_c_pos for pointer references
-        let mut config = vec![eos; n];
-        for (idx, &(src_start, _len, ref_pos)) in segments.iter().enumerate() {
-            match ref_pos {
-                None => {
-                    config[idx] = self.source_string[src_start];
-                }
-                Some(r) => {
-                    // Pointer references source position r, which is at
-                    // compressed position source_to_c_pos[r]
-                    config[idx] = k + 1 + source_to_c_pos[r];
+            // Second pass: build config using source_to_c_pos for pointer references
+            let mut config = vec![eos; n];
+            for (idx, &(src_start, _len, ref_pos)) in segments.iter().enumerate() {
+                match ref_pos {
+                    None => {
+                        config[idx] = self.source_string[src_start];
+                    }
+                    Some(r) => {
+                        // Pointer references source position r, which is at
+                        // compressed position source_to_c_pos[r]
+                        config[idx] = k + 1 + source_to_c_pos[r];
+                    }
                 }
             }
-        }
 
-        config
+            config
+        })
     }
 }
 
@@ -287,7 +292,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(0)] = 1;
             target_config[layout.lit_var(1)] = 1;
 
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,

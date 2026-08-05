@@ -26,15 +26,20 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_n {
-            // Normal case: same elements, same binary vector.
-            target_solution.to_vec()
-        } else {
-            // Odd-sum case: target is trivially infeasible (0 elements).
-            // Return all-zero config for the source (which also won't satisfy it).
-            vec![0; self.source_n]
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if target_solution.len() == self.source_n {
+                // Normal case: same elements, same binary vector.
+                target_solution.to_vec()
+            } else {
+                // Odd-sum case: target is trivially infeasible (0 elements).
+                // Return all-zero config for the source (which also won't satisfy it).
+                vec![0; self.source_n]
+            }
+        })
     }
 }
 

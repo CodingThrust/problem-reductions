@@ -64,7 +64,9 @@ fn test_clustering_to_ilp_solution_extraction() {
     let problem = canonical_yes_instance();
     let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0, 0, 1, 0, 1]);
+    let extracted = reduction
+        .extract_solution(&[1, 0, 1, 0, 0, 1, 0, 1])
+        .unwrap();
     assert_eq!(extracted, vec![0, 0, 1, 1]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

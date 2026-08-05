@@ -127,7 +127,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
         .find_witness(target)
         .expect("should find a solution");
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert_eq!(
         extracted.len(),
         3,

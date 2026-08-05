@@ -51,8 +51,11 @@ impl ReductionResult for ReductionU2CIFToILP {
     }
 
     /// Extract flow solution: first 4*|E| variables are the flow values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..4 * self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..4 * self.num_edges].to_vec())
     }
 }
 
@@ -234,7 +237,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
                 source,
                 SolutionPair {

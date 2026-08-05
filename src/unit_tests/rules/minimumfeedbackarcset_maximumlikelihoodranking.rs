@@ -105,7 +105,7 @@ fn test_solution_extraction_marks_backward_arcs() {
     let source = issue_example_source();
     let reduction: ReductionFASToMLR = ReduceTo::<MaximumLikelihoodRanking>::reduce_to(&source);
 
-    let source_config = reduction.extract_solution(&[0, 1, 2, 3, 4]);
+    let source_config = reduction.extract_solution(&[0, 1, 2, 3, 4]).unwrap();
     assert_eq!(source_config, vec![0, 0, 1, 0, 0, 1, 0]);
 }
 

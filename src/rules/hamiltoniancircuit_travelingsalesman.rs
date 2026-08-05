@@ -23,7 +23,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
         crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
     }
 }

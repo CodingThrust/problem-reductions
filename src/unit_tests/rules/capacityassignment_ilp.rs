@@ -57,7 +57,7 @@ fn test_capacityassignment_to_ilp_closed_loop() {
     let reduction: ReductionCAToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
     assert_eq!(
         ilp_value, bf_value,
@@ -79,7 +79,7 @@ fn test_solution_extraction() {
     // link 0 → cap 1, link 1 → cap 0
     // x_{0,0}=0, x_{0,1}=1, x_{0,2}=0, x_{1,0}=1, x_{1,1}=0, x_{1,2}=0
     let ilp_solution = vec![0, 1, 0, 1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0]);
     // Verify extraction works (evaluation may or may not be feasible)
     let _ = problem.evaluate(&extracted);
@@ -98,7 +98,7 @@ fn test_capacityassignment_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(problem.evaluate(&extracted).0.is_some());
 }
 

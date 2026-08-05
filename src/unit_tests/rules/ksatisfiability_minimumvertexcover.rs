@@ -105,7 +105,7 @@ fn test_ksatisfiability_to_minimumvertexcover_extract_solution() {
     // Verify this is a valid vertex cover
     assert!(reduction.target_problem().is_valid_solution(&vc_config));
 
-    let extracted = reduction.extract_solution(&vc_config);
+    let extracted = reduction.extract_solution(&vc_config).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]); // x1=F, x2=F, x3=T
     assert!(ksat.evaluate(&extracted));
 }

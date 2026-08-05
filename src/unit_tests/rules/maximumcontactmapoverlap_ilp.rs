@@ -47,7 +47,7 @@ fn test_maximumcontactmapoverlap_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("canonical CMO ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // The optimal alignment preserves both contacts of G_1.
     assert!(source.is_valid_solution(&extracted));
@@ -71,7 +71,7 @@ fn test_maximumcontactmapoverlap_to_ilp_trivial_no_contacts() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("empty-contact ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(0)));
 }
@@ -97,7 +97,7 @@ fn test_maximumcontactmapoverlap_to_ilp_order_preserving_forbidden() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(1)));
@@ -123,7 +123,7 @@ fn test_maximumcontactmapoverlap_to_ilp_extract_solution_partial() {
     let mut target_sol = vec![0usize; reduction.target_problem().num_vars];
     target_sol[1] = 1;
     target_sol[n2 + 2] = 1;
-    let extracted = reduction.extract_solution(&target_sol);
+    let extracted = reduction.extract_solution(&target_sol).unwrap();
     // Encoding: vertex j of G_2 is represented as j+1.
     assert_eq!(extracted, vec![2, 3]);
     assert!(source.is_valid_solution(&extracted));

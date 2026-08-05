@@ -62,7 +62,7 @@ fn test_sat_to_circuitsat_single_literal_clause() {
 
     let target_solution = solve_satisfaction_problem(result.target_problem())
         .expect("CircuitSAT should have a satisfying solution");
-    let extracted = result.extract_solution(&target_solution);
+    let extracted = result.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1]);
 }
 

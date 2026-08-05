@@ -33,7 +33,7 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -49,7 +49,7 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_all_on_time() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid());
     assert_eq!(value.0, Some(0));
@@ -73,7 +73,7 @@ fn test_sequencingtominimizetardytaskweight_to_ilp_optimal_ordering() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     let bf = BruteForce::new();

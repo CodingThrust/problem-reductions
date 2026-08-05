@@ -64,7 +64,7 @@ fn test_threepartition_to_resourceconstrainedscheduling_solution_extraction() {
     let target_solutions = solver.find_all_witnesses(target);
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
         let target_valid = target.evaluate(sol);
         let source_valid = source.evaluate(&extracted);

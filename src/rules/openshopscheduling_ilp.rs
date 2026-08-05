@@ -88,24 +88,29 @@ impl ReductionResult for ReductionOSSToILP {
 
     /// Extract per-machine job orderings from the ILP start times, then
     /// convert to the config format (direct permutation indices per machine).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_jobs;
-        let m = self.num_machines;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_jobs;
+            let m = self.num_machines;
 
-        // Read start times s_{j,i} for each (j, i)
-        let start = |j: usize, i: usize| -> usize {
-            let idx = self.num_order_vars + j * m + i;
-            target_solution.get(idx).copied().unwrap_or(0)
-        };
+            // Read start times s_{j,i} for each (j, i)
+            let start = |j: usize, i: usize| -> usize {
+                let idx = self.num_order_vars + j * m + i;
+                target_solution.get(idx).copied().unwrap_or(0)
+            };
 
-        // For each machine, sort jobs by their start time on that machine
-        let mut config = Vec::with_capacity(n * m);
-        for i in 0..m {
-            let mut jobs: Vec<usize> = (0..n).collect();
-            jobs.sort_by_key(|&j| (start(j, i), j));
-            config.extend(jobs);
-        }
-        config
+            // For each machine, sort jobs by their start time on that machine
+            let mut config = Vec::with_capacity(n * m);
+            for i in 0..m {
+                let mut jobs: Vec<usize> = (0..n).collect();
+                jobs.sort_by_key(|&j| (start(j, i), j));
+                config.extend(jobs);
+            }
+            config
+        })
     }
 }
 

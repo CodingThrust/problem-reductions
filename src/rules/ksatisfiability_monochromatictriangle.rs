@@ -47,7 +47,10 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
         let direct: Vec<usize> = self
             .negation_edge_indices
             .iter()
@@ -59,15 +62,17 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
             )
             .collect();
         if self.source.evaluate(&direct).0 {
-            return direct;
+            return Ok(direct);
         }
 
         let complement: Vec<usize> = direct.iter().map(|&value| 1 - value).collect();
         if self.source.evaluate(&complement).0 {
-            return complement;
+            return Ok(complement);
         }
 
-        direct
+        Err(crate::rules::ExtractionError::invalid(
+            "target coloring does not map to a satisfying source assignment",
+        ))
     }
 }
 
@@ -154,7 +159,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = BruteForce::new()
                 .find_witness(reduction.target_problem())
                 .expect("canonical MonochromaticTriangle example must be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),

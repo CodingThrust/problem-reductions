@@ -22,9 +22,14 @@ impl ReductionResult for ReductionCOSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Output the selection bits s_c (first num_cols variables)
-        target_solution[..self.num_cols].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Output the selection bits s_c (first num_cols variables)
+            target_solution[..self.num_cols].to_vec()
+        })
     }
 }
 
@@ -211,7 +216,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

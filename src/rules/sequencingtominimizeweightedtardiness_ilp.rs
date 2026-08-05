@@ -49,12 +49,17 @@ impl ReductionResult for ReductionSTMWTToILP {
     }
 
     /// Extract: sort jobs by completion time C_j, convert to Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let c_offset = self.num_order_vars;
-        let mut jobs: Vec<usize> = (0..n).collect();
-        jobs.sort_by_key(|&j| (target_solution.get(c_offset + j).copied().unwrap_or(0), j));
-        Self::encode_schedule_as_lehmer(&jobs)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_tasks;
+            let c_offset = self.num_order_vars;
+            let mut jobs: Vec<usize> = (0..n).collect();
+            jobs.sort_by_key(|&j| (target_solution.get(c_offset + j).copied().unwrap_or(0), j));
+            Self::encode_schedule_as_lehmer(&jobs)
+        })
     }
 }
 

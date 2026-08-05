@@ -27,7 +27,7 @@ fn test_feasible_register_assignment_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("feasible source instance should yield a feasible ILP");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(source.evaluate(&extracted), Or(true));
     let mut sorted = extracted.clone();

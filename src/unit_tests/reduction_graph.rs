@@ -180,6 +180,29 @@ fn natural_edge_supports_both_modes_public_api() {
 }
 
 #[test]
+fn value_changing_variant_cast_is_not_aggregate_capable() {
+    use crate::models::set::MaximumSetPacking;
+
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<f64>::variant());
+
+    assert!(graph
+        .find_cheapest_path_mode(
+            "MaximumSetPacking",
+            &src,
+            "MaximumSetPacking",
+            &dst,
+            ReductionMode::Aggregate,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+            crate::rules::SearchMode::Exact,
+        )
+        .value
+        .is_none());
+}
+
+#[test]
 fn test_problem_size_propagation() {
     let graph = ReductionGraph::new();
     let input_size = ProblemSize::new(vec![("num_vertices", 50), ("num_edges", 100)]);
@@ -1019,15 +1042,24 @@ fn test_find_paths_bounded_limits_depth() {
 #[test]
 fn test_find_paths_bounded_returns_shortest_when_truncated() {
     use crate::expr::Expr;
-    use crate::rules::registry::{EdgeCapabilities, ReductionOverhead};
+    use crate::rules::registry::ReductionOverhead;
     use crate::rules::ReductionEdgeData;
 
     fn edge() -> ReductionEdgeData {
+        fn reduce(_source: &dyn std::any::Any) -> Box<dyn crate::rules::DynReductionResult> {
+            Box::new(crate::rules::ReductionAutoCast::<
+                crate::models::formula::Satisfiability,
+                crate::models::formula::Satisfiability,
+            >::new(
+                crate::models::formula::Satisfiability::new(0, vec![])
+            ))
+        }
+
         ReductionEdgeData {
             overhead: ReductionOverhead::new(vec![("n", Expr::Var("n"))]),
-            reduce_fn: None,
+            reduce_fn: Some(reduce),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
+            turing: false,
         }
     }
 

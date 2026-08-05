@@ -61,7 +61,7 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
 
     // Source solution should be valid
     let metric = source.evaluate(&source_solution);
@@ -164,7 +164,7 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let ilp_solution = ilp_solver
         .solve(ilp)
         .expect("ILP solver should find factoring solution");
-    let factoring_solution = reduction.extract_solution(&ilp_solution);
+    let factoring_solution = reduction.extract_solution(&ilp_solution).unwrap();
     let metric = factoring.evaluate(&factoring_solution);
     assert_eq!(
         metric.unwrap(),

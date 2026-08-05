@@ -45,7 +45,7 @@ fn test_timetabledesign_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -75,7 +75,7 @@ fn test_timetabledesign_to_ilp_identity_extraction() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Identity extraction: ILP solution == source config
     assert_eq!(extracted, ilp_solution);

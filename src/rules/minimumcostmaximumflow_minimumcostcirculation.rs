@@ -43,8 +43,11 @@ impl ReductionResult for ReductionMCMFToMCC {
     /// Extract the source flow by discarding the return arc: the first
     /// `num_original_arcs` entries of the circulation are exactly the
     /// flow values on the original arcs.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_original_arcs].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.num_original_arcs].to_vec())
     }
 }
 

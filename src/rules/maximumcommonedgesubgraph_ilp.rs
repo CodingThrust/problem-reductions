@@ -43,16 +43,21 @@ impl ReductionResult for ReductionMCESToILP {
     /// Extract: for each source vertex `u`, output the unique target vertex
     /// `p` with `x_(u,p) = 1`, or the sentinel `n2` ("bottom") when no
     /// mapping variable is selected.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
-        let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|u| {
-                (0..n2)
-                    .find(|&p| target_solution[u * n2 + p] == 1)
-                    .unwrap_or(n2)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n1 = self.num_vertices_1;
+            let n2 = self.num_vertices_2;
+            (0..n1)
+                .map(|u| {
+                    (0..n2)
+                        .find(|&p| target_solution[u * n2 + p] == 1)
+                        .unwrap_or(n2)
+                })
+                .collect()
+        })
     }
 }
 

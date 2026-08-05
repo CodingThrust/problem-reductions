@@ -38,7 +38,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution()
     let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[1, 2, 4, 5, 0, 3]),
+        reduction.extract_solution(&[1, 2, 4, 5, 0, 3]).unwrap(),
         vec![1, 0, 0, 1, 0, 0]
     );
 }
@@ -53,7 +53,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsat
         .expect("target should always have an optimal schedule");
 
     assert_eq!(target.evaluate(&best), Min(Some(6)));
-    assert!(!source.evaluate(&reduction.extract_solution(&best)));
+    assert!(!source.evaluate(&reduction.extract_solution(&best).unwrap()));
 }
 
 #[cfg(feature = "example-db")]

@@ -68,7 +68,7 @@ fn test_solution_extraction() {
     let cbq_witness = bf
         .find_witness(reduction.target_problem())
         .expect("CBQ should be satisfiable");
-    let extracted = reduction.extract_solution(&cbq_witness);
+    let extracted = reduction.extract_solution(&cbq_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
     // All 3 vertices should be selected
     assert_eq!(extracted.iter().sum::<usize>(), 3);
@@ -90,6 +90,6 @@ fn test_trivial_k1() {
     let witness = bf
         .find_witness(reduction.target_problem())
         .expect("k=1 should be feasible");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

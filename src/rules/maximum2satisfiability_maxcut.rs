@@ -33,11 +33,16 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToMaxCut {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let reference_side = target_solution[0];
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution[i + 1] == reference_side))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let reference_side = target_solution[0];
+            (0..self.source_num_vars)
+                .map(|i| usize::from(target_solution[i + 1] == reference_side))
+                .collect()
+        })
     }
 }
 

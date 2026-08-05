@@ -86,7 +86,7 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_extract_solution() 
 
     assert!(target.is_valid_solution(&target_config));
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted.len(), 4);
     assert!(
         source.evaluate(&extracted).is_valid(),

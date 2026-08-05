@@ -33,41 +33,46 @@ impl ReductionResult for ReductionHPBTVToLP {
     ///
     /// The target solution is a binary vector over edges. We walk the selected
     /// edges from the source vertex to reconstruct the vertex ordering.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_vertices;
 
-        // Build adjacency from selected edges
-        let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let (u, v) = self.edges[idx];
-                adj[u].push(v);
-                adj[v].push(u);
-            }
-        }
-
-        // Walk the path from source
-        let mut path = Vec::with_capacity(n);
-        let mut current = self.source_vertex;
-        let mut prev = usize::MAX; // sentinel for "no previous"
-        path.push(current);
-
-        while path.len() < n {
-            let next = adj[current]
-                .iter()
-                .find(|&&neighbor| neighbor != prev)
-                .copied();
-            match next {
-                Some(next_vertex) => {
-                    prev = current;
-                    current = next_vertex;
-                    path.push(current);
+            // Build adjacency from selected edges
+            let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+            for (idx, &selected) in target_solution.iter().enumerate() {
+                if selected == 1 {
+                    let (u, v) = self.edges[idx];
+                    adj[u].push(v);
+                    adj[v].push(u);
                 }
-                None => break,
             }
-        }
 
-        path
+            // Walk the path from source
+            let mut path = Vec::with_capacity(n);
+            let mut current = self.source_vertex;
+            let mut prev = usize::MAX; // sentinel for "no previous"
+            path.push(current);
+
+            while path.len() < n {
+                let next = adj[current]
+                    .iter()
+                    .find(|&&neighbor| neighbor != prev)
+                    .copied();
+                match next {
+                    Some(next_vertex) => {
+                        prev = current;
+                        current = next_vertex;
+                        path.push(current);
+                    }
+                    None => break,
+                }
+            }
+
+            path
+        })
     }
 }
 

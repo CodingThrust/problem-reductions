@@ -23,7 +23,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
     let target_solution = solver
         .find_witness(target)
         .expect("target should be satisfiable");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&extracted));
 }
@@ -76,7 +76,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_tautological_clause_is_red
     let target_solution = solver
         .find_witness(reduction.target_problem())
         .expect("target should remain satisfiable");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&extracted));
 }

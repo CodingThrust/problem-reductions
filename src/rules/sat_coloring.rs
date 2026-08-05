@@ -240,40 +240,45 @@ impl ReductionResult for ReductionSATToColoring {
     ///
     /// For each variable, we check if its positive literal vertex has TRUE color (0).
     /// If so, the variable is assigned true (1); otherwise false (0).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First determine which color is TRUE, FALSE, and AUX
-        // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
-        assert!(
-            target_solution.len() >= 3,
-            "Invalid solution: coloring must have at least 3 vertices"
-        );
-        let true_color = target_solution[0];
-        let false_color = target_solution[1];
-        let aux_color = target_solution[2];
-
-        // Sanity checks
-        assert!(
-            true_color != false_color && true_color != aux_color,
-            "Invalid coloring solution: special vertices must have distinct colors"
-        );
-
-        let mut assignment = vec![0usize; self.num_source_variables];
-
-        for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
-            let vertex_color = target_solution[pos_vertex];
-
-            // Sanity check: variable vertices should not have AUX color
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // First determine which color is TRUE, FALSE, and AUX
+            // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
             assert!(
-                vertex_color != aux_color,
-                "Invalid coloring solution: variable vertex has auxiliary color"
+                target_solution.len() >= 3,
+                "Invalid solution: coloring must have at least 3 vertices"
+            );
+            let true_color = target_solution[0];
+            let false_color = target_solution[1];
+            let aux_color = target_solution[2];
+
+            // Sanity checks
+            assert!(
+                true_color != false_color && true_color != aux_color,
+                "Invalid coloring solution: special vertices must have distinct colors"
             );
 
-            // If positive literal has TRUE color, variable is true (1)
-            // Otherwise, variable is false (0)
-            assignment[i] = if vertex_color == true_color { 1 } else { 0 };
-        }
+            let mut assignment = vec![0usize; self.num_source_variables];
 
-        assignment
+            for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
+                let vertex_color = target_solution[pos_vertex];
+
+                // Sanity check: variable vertices should not have AUX color
+                assert!(
+                    vertex_color != aux_color,
+                    "Invalid coloring solution: variable vertex has auxiliary color"
+                );
+
+                // If positive literal has TRUE color, variable is true (1)
+                // Otherwise, variable is false (0)
+                assignment[i] = if vertex_color == true_color { 1 } else { 0 };
+            }
+
+            assignment
+        })
     }
 }
 

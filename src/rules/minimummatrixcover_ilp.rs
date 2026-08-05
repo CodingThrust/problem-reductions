@@ -27,9 +27,14 @@ impl ReductionResult for ReductionMinimumMatrixCoverToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First n variables are the sign variables x_0,...,x_{n-1}
-        target_solution[..self.n].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // First n variables are the sign variables x_0,...,x_{n-1}
+            target_solution[..self.n].to_vec()
+        })
     }
 }
 

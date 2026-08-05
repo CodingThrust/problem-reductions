@@ -98,7 +98,7 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("direct ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1, 0, 0]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
@@ -134,7 +134,7 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let direct_solution = solver
         .solve(direct.target_problem())
         .expect("direct ILP should solve");
-    let direct_source = direct.extract_solution(&direct_solution);
+    let direct_source = direct.extract_solution(&direct_solution).unwrap();
 
     assert_eq!(problem.evaluate(&direct_source), Or(true));
     assert!(

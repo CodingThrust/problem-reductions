@@ -39,17 +39,22 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.block_offsets
-            .iter()
-            .zip(&self.block_sizes)
-            .map(|(&start, &size)| {
-                target_solution[start..start + size]
-                    .iter()
-                    .position(|&bit| bit == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.block_offsets
+                .iter()
+                .zip(&self.block_sizes)
+                .map(|(&start, &size)| {
+                    target_solution[start..start + size]
+                        .iter()
+                        .position(|&bit| bit == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

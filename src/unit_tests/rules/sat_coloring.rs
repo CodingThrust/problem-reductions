@@ -81,7 +81,7 @@ fn test_unsatisfiable_formula() {
     // OR no valid coloring exists that extracts to a satisfying SAT assignment
     let mut found_satisfying = false;
     for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
+        let sat_sol = reduction.extract_solution(sol).unwrap();
         let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
         if sat.is_satisfying(&assignment) {
             found_satisfying = true;
@@ -194,7 +194,7 @@ fn test_single_literal_clauses() {
 
     let mut found_correct = false;
     for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
+        let sat_sol = reduction.extract_solution(sol).unwrap();
         if sat_sol == vec![1, 1] {
             found_correct = true;
             break;
@@ -272,7 +272,7 @@ fn test_manual_coloring_extraction() {
     let valid_coloring = vec![0, 1, 2, 0, 1];
 
     assert_eq!(coloring.graph().num_vertices(), 5);
-    let extracted = reduction.extract_solution(&valid_coloring);
+    let extracted = reduction.extract_solution(&valid_coloring).unwrap();
     // x1 should be true (1) because vertex 3 has color 0 which equals TRUE vertex's color
     assert_eq!(extracted, vec![1]);
 }
@@ -287,14 +287,14 @@ fn test_extraction_with_different_color_assignment() {
     // Different valid coloring: TRUE=2, FALSE=0, AUX=1
     // x1 must have color 2 (TRUE), NOT_x1 must have color 0 (FALSE)
     let coloring_permuted = vec![2, 0, 1, 2, 0];
-    let extracted = reduction.extract_solution(&coloring_permuted);
+    let extracted = reduction.extract_solution(&coloring_permuted).unwrap();
     // x1 should still be true because its color equals TRUE vertex's color
     assert_eq!(extracted, vec![1]);
 
     // Another permutation: TRUE=1, FALSE=2, AUX=0
     // x1 has color 1 (TRUE), NOT_x1 has color 2 (FALSE)
     let coloring_permuted2 = vec![1, 2, 0, 1, 2];
-    let extracted2 = reduction.extract_solution(&coloring_permuted2);
+    let extracted2 = reduction.extract_solution(&coloring_permuted2).unwrap();
     assert_eq!(extracted2, vec![1]);
 }
 
@@ -323,7 +323,7 @@ fn test_jl_parity_sat_to_coloring() {
         let target_sol = ilp_solver
             .solve_reduced::<bool, _>(target)
             .expect("ILP should find a coloring");
-        let extracted = result.extract_solution(&target_sol);
+        let extracted = result.extract_solution(&target_sol).unwrap();
         let best_source: HashSet<Vec<usize>> = BruteForce::new()
             .find_all_witnesses(&source)
             .into_iter()

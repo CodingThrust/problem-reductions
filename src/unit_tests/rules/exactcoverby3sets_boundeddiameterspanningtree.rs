@@ -73,13 +73,13 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let mut target_config = vec![0; reduction.target_problem().num_edges()];
     target_config[2] = 1;
     target_config[3] = 1;
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 1]);
 
     // Only s_0 selected via root edge.
     let mut target_config = vec![0; reduction.target_problem().num_edges()];
     target_config[2] = 1;
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0]);
 }
 

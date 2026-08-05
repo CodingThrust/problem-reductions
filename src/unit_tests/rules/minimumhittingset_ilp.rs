@@ -22,7 +22,7 @@ fn test_minimumhittingset_to_ilp_bf_vs_ilp() {
     let bf_solutions = bf.find_all_witnesses(&problem);
     let bf_value = problem.evaluate(&bf_solutions[0]);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
     assert_eq!(bf_value, ilp_value);
     assert!(ilp_value.is_valid());
@@ -33,7 +33,7 @@ fn test_solution_extraction() {
     let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![1, 2]]);
     let reduction: ReductionHSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solution = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
     assert!(problem.evaluate(&extracted).is_valid());
 }

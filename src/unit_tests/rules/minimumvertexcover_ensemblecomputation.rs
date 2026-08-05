@@ -40,7 +40,7 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     // Every extracted solution must be a valid vertex cover
     let witnesses = solver.find_all_witnesses(target);
     for witness in &witnesses {
-        let source_config = reduction.extract_solution(witness);
+        let source_config = reduction.extract_solution(witness).unwrap();
         assert_eq!(source_config.len(), 2);
         assert!(
             is_valid_cover(&graph, &source_config),
@@ -100,7 +100,7 @@ fn test_extract_solution_correctness() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&config), Min(Some(2)));
 
-    let cover = reduction.extract_solution(&config);
+    let cover = reduction.extract_solution(&config).unwrap();
     assert_eq!(cover, vec![1, 1]);
     assert!(is_valid_cover(&graph, &cover));
 }
@@ -117,7 +117,7 @@ fn test_extract_from_non_normalized_witness() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&config), Min(Some(2)));
 
-    let cover = reduction.extract_solution(&config);
+    let cover = reduction.extract_solution(&config).unwrap();
     assert_eq!(cover, vec![1, 1]);
     assert!(is_valid_cover(&graph, &cover));
 }

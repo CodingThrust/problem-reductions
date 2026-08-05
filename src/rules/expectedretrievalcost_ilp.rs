@@ -65,18 +65,23 @@ impl ReductionResult for ReductionERCToILP {
     }
 
     /// Extract solution: for each record r, find the unique sector s where x_{r,s} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_sectors = self.num_sectors;
-        (0..self.num_records)
-            .map(|r| {
-                (0..num_sectors)
-                    .find(|&s| {
-                        let idx = r * num_sectors + s;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_sectors = self.num_sectors;
+            (0..self.num_records)
+                .map(|r| {
+                    (0..num_sectors)
+                        .find(|&s| {
+                            let idx = r * num_sectors + s;
+                            idx < target_solution.len() && target_solution[idx] == 1
+                        })
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

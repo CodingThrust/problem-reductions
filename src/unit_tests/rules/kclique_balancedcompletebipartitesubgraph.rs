@@ -44,7 +44,7 @@ fn test_kclique_to_bcbs_complete_graph() {
 
     let bf = BruteForce::new();
     let witness = bf.find_witness(target).expect("K4 should contain K3");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
     // Exactly 3 vertices should be selected
     assert_eq!(extracted.iter().sum::<usize>(), 3);
@@ -91,7 +91,7 @@ fn test_kclique_to_bcbs_k_equals_2() {
     let witness = bf
         .find_witness(target)
         .expect("graph has edges, so 2-clique exists");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
     assert_eq!(extracted.iter().sum::<usize>(), 2);
 }
@@ -110,7 +110,7 @@ fn test_kclique_to_bcbs_k_equals_1() {
 
     let bf = BruteForce::new();
     let witness = bf.find_witness(target).expect("should find a 1-clique");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
     assert_eq!(extracted.iter().sum::<usize>(), 1);
 }

@@ -28,21 +28,30 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let Some(x) = self.target.decode_witness(target_solution) else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let Some(x) = self.target.decode_witness(target_solution) else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration does not encode a Diophantine witness",
+                ));
+            };
 
-        let Some(congruence_config) = self
-            .congruence_reduction
-            .target_problem()
-            .encode_witness(&x)
-        else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
+            let Some(congruence_config) = self
+                .congruence_reduction
+                .target_problem()
+                .encode_witness(&x)
+            else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "decoded Diophantine witness cannot be encoded for the source congruence",
+                ));
+            };
 
-        self.congruence_reduction
-            .extract_solution(&congruence_config)
+            self.congruence_reduction
+                .extract_solution(&congruence_config)?
+        })
     }
 }
 

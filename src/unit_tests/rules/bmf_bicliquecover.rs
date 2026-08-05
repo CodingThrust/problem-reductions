@@ -29,7 +29,7 @@ fn test_bmf_to_bicliquecover_closed_loop_all_ones() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target has feasible biclique cover");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), bf_source);
     assert!(problem.is_exact(&extracted));
@@ -46,7 +46,7 @@ fn test_bmf_to_bicliquecover_closed_loop_identity() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target has feasible biclique cover");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), bf_source);
     assert!(problem.is_exact(&extracted));

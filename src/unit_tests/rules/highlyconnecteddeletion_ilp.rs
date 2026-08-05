@@ -76,13 +76,28 @@ fn test_highlyconnecteddeletion_to_ilp_extract_solution_decode() {
     target_solution[3] = 1; // singleton {3}
     target_solution[4] = 1; // triangle {0,1,2}
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     // Edges in input order: (0,1), (0,2), (1,2) all inside the triangle (kept);
     // (2,3) crosses clusters and is deleted.
     assert_eq!(extracted, vec![0, 0, 0, 1]);
     assert_eq!(source.evaluate(&extracted), Min(Some(1)));
     assert!(source.is_valid_solution(&extracted));
+}
+
+#[test]
+fn test_highlyconnecteddeletion_to_ilp_rejects_unassigned_vertex() {
+    let source = issue_instance();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let target_solution = vec![0; reduction.target_problem().num_vars];
+
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "vertex 0 has no selected cluster"
+    );
 }
 
 #[test]

@@ -36,8 +36,11 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -112,21 +115,26 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match self.ancilla {
-            None => target_solution.to_vec(),
-            Some(anc) => {
-                // If ancilla is 1, flip all bits; then remove ancilla
-                let mut sol = target_solution.to_vec();
-                if sol[anc] == 1 {
-                    for x in sol.iter_mut() {
-                        *x = 1 - *x;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            match self.ancilla {
+                None => target_solution.to_vec(),
+                Some(anc) => {
+                    // If ancilla is 1, flip all bits; then remove ancilla
+                    let mut sol = target_solution.to_vec();
+                    if sol[anc] == 1 {
+                        for x in sol.iter_mut() {
+                            *x = 1 - *x;
+                        }
                     }
+                    sol.remove(anc);
+                    sol
                 }
-                sol.remove(anc);
-                sol
             }
-        }
+        })
     }
 }
 

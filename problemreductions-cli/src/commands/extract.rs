@@ -60,7 +60,7 @@ pub fn extract(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()>
     }
     let target_eval = replay.target.evaluate_dyn(&target_config);
 
-    let (source_config, source_eval) = replay.extract(&target_config);
+    let (source_config, source_eval) = replay.extract(&target_config)?;
 
     let text = format!(
         "Problem: {}\nSolver: external (via {})\nSolution: {:?}\nEvaluation: {}",

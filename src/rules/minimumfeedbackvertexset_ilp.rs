@@ -38,8 +38,11 @@ impl ReductionResult for ReductionMFVSToILP {
     ///
     /// The first n variables of the ILP solution are the binary x_i values,
     /// which directly correspond to the FVS configuration (1 = removed).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 

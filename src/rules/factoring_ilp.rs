@@ -75,21 +75,26 @@ impl ReductionResult for ReductionFactoringToILP {
     /// The first m variables are p_i (first factor bits).
     /// The next n variables are q_j (second factor bits).
     /// Returns concatenated bit vector [p_0, ..., p_{m-1}, q_0, ..., q_{n-1}].
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Extract p bits (first factor)
-        let p_bits: Vec<usize> = (0..self.m)
-            .map(|i| target_solution.get(self.p_var(i)).copied().unwrap_or(0))
-            .collect();
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Extract p bits (first factor)
+            let p_bits: Vec<usize> = (0..self.m)
+                .map(|i| target_solution.get(self.p_var(i)).copied().unwrap_or(0))
+                .collect();
 
-        // Extract q bits (second factor)
-        let q_bits: Vec<usize> = (0..self.n)
-            .map(|j| target_solution.get(self.q_var(j)).copied().unwrap_or(0))
-            .collect();
+            // Extract q bits (second factor)
+            let q_bits: Vec<usize> = (0..self.n)
+                .map(|j| target_solution.get(self.q_var(j)).copied().unwrap_or(0))
+                .collect();
 
-        // Concatenate p and q bits
-        let mut result = p_bits;
-        result.extend(q_bits);
-        result
+            // Concatenate p and q bits
+            let mut result = p_bits;
+            result.extend(q_bits);
+            result
+        })
     }
 }
 

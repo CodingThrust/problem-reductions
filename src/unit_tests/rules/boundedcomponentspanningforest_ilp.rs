@@ -30,7 +30,7 @@ fn test_boundedcomponentspanningforest_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
 
     assert!(
         source.evaluate(&extracted).0,
@@ -45,7 +45,7 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).0);
 }
@@ -65,7 +65,7 @@ fn test_single_component() {
     let ilp_sol = solver
         .solve(ilp)
         .expect("single component should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 

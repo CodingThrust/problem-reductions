@@ -25,10 +25,15 @@ impl ReductionResult for Reduction3SatToKernel {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution.get(2 * i).copied().unwrap_or(0) == 1))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.source_num_vars)
+                .map(|i| usize::from(target_solution.get(2 * i).copied().unwrap_or(0) == 1))
+                .collect()
+        })
     }
 }
 

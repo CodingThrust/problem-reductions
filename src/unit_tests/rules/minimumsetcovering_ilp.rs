@@ -56,7 +56,7 @@ fn test_minimumsetcovering_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Both should find optimal size = 2
     let bf_size: usize = bf_solutions[0].iter().sum();
@@ -92,7 +92,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = problem.evaluate(&extracted);
 
     assert_eq!(bf_obj, Min(Some(6)));
@@ -109,7 +109,7 @@ fn test_solution_extraction() {
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 1]);
 
     // Verify this is a valid set cover
@@ -137,7 +137,7 @@ fn test_single_set_covers_all() {
     let ilp = reduction.target_problem();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // First set alone covers everything with weight 1
     assert_eq!(extracted, vec![1, 0, 0, 0]);
@@ -156,7 +156,7 @@ fn test_overlapping_sets() {
     let ilp = reduction.target_problem();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Need both sets to cover all elements
     assert_eq!(extracted, vec![1, 1]);

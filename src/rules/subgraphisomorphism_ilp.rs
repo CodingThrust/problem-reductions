@@ -34,15 +34,20 @@ impl ReductionResult for ReductionSubIsoToILP {
     }
 
     /// Extract: for each pattern vertex v, output the unique host vertex u with x_{v,u} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n_host = self.num_host_vertices;
-        (0..self.num_pattern_vertices)
-            .map(|v| {
-                (0..n_host)
-                    .find(|&u| target_solution[v * n_host + u] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n_host = self.num_host_vertices;
+            (0..self.num_pattern_vertices)
+                .map(|v| {
+                    (0..n_host)
+                        .find(|&u| target_solution[v * n_host + u] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

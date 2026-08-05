@@ -36,18 +36,23 @@ impl ReductionResult for ReductionDomaticNumberToILP {
     /// Extract solution from ILP back to MaximumDomaticNumber.
     ///
     /// For each vertex v, find the set index i where x_{v,i} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let mut config = vec![0; n];
-        for v in 0..n {
-            for i in 0..n {
-                if target_solution[v * n + i] == 1 {
-                    config[v] = i;
-                    break;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            let mut config = vec![0; n];
+            for v in 0..n {
+                for i in 0..n {
+                    if target_solution[v * n + i] == 1 {
+                        config[v] = i;
+                        break;
+                    }
                 }
             }
-        }
-        config
+            config
+        })
     }
 }
 

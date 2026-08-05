@@ -89,7 +89,7 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_e
     let (source, reduction) = reduce_path(4);
     let schedule = vec![3, 2, 6, 1, 5, 0, 4];
     let target_solution = permutation_to_lehmer(&schedule);
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, vec![3, 2, 1, 0]);
     assert_eq!(source.evaluate(&extracted), Min(Some(3)));

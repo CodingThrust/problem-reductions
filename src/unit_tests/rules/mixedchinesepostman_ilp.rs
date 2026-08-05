@@ -22,7 +22,7 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.evaluate(&extracted).0.is_some());
 }
@@ -42,7 +42,7 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = source.evaluate(&extracted);
 
     assert_eq!(
@@ -66,7 +66,7 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = source.evaluate(&extracted);
 
     assert_eq!(

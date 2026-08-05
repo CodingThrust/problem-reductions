@@ -36,8 +36,11 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 
     /// Map a BMF config (B row-major, C row-major) to a BicliqueCover
     /// config (vertex-major) via the inverse transpose.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        config_bmf_to_bc(target_solution, self.m, self.n, self.k)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(config_bmf_to_bc(target_solution, self.m, self.n, self.k))
     }
 }
 

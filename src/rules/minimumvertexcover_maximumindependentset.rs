@@ -27,8 +27,11 @@ where
 
     /// Solution extraction: complement the configuration.
     /// If v is in the independent set (1), it's NOT in the vertex cover (0).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.iter().map(|&x| 1 - x).collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.iter().map(|&x| 1 - x).collect())
     }
 }
 
@@ -68,8 +71,11 @@ where
     }
 
     /// Solution extraction: complement the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.iter().map(|&x| 1 - x).collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.iter().map(|&x| 1 - x).collect())
     }
 }
 

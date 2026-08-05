@@ -52,7 +52,7 @@ fn test_isomorphicspanningtree_to_ilp_bf_vs_ilp() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -67,7 +67,7 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 3);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

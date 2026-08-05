@@ -16,7 +16,7 @@ fn test_travelingsalesman_to_qubo_closed_loop() {
 
     // All QUBO solutions should extract to valid TSP solutions
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let metric = tsp.evaluate(&extracted);
         assert!(metric.is_valid(), "Extracted solution should be valid");
         // K3 has only one Hamiltonian cycle (all 3 edges), cost = 1+2+3 = 6
@@ -44,7 +44,7 @@ fn test_travelingsalesman_to_qubo_k4() {
 
     // Every Hamiltonian cycle in K4 uses exactly 4 edges, so cost = 4
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let metric = tsp.evaluate(&extracted);
         assert!(metric.is_valid(), "Extracted solution should be valid");
         assert_eq!(metric, Min(Some(4)));

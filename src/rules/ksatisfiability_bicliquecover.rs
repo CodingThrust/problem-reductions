@@ -98,12 +98,25 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     /// 4. Map normalized variables back to source variables by reading
     ///    each original `t_i`.
     ///
-    /// If no qualifying `B_1` is found (e.g. the witness is invalid),
-    /// the extracted assignment defaults to all-false.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
         let n = self.normalized_n;
         let left_size = self.target.left_size();
         let k = self.target.k();
+        let expected_len = (left_size + self.target.right_size()) * k;
+        if target_solution.len() != expected_len {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {expected_len} biclique-membership values, got {}",
+                target_solution.len()
+            )));
+        }
+        if target_solution.iter().any(|&value| value > 1) {
+            return Err(crate::rules::ExtractionError::invalid(
+                "biclique-membership values must be binary",
+            ));
+        }
 
         // Unified-vertex helpers for the named gadget anchors.
         let s11_u = self.s1_left_offset; // s_{1,1}^u
@@ -115,11 +128,9 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         // Find a biclique containing both s_11^u and s_11^v, but no
         // Y-matching vertex. By Lemma 17, free-edge bicliques touch the
         // Y matching; the important-edge biclique B_1 does not.
-        let mut b1_index: Option<usize> = None;
+        let mut b1_index = None;
         for r in 0..k {
-            let in_b1 = |vertex: usize| -> bool {
-                target_solution.get(vertex * k + r).copied().unwrap_or(0) == 1
-            };
+            let in_b1 = |vertex: usize| target_solution[vertex * k + r] == 1;
             if !in_b1(s11_u) || !in_b1(s11_v) {
                 continue;
             }
@@ -133,11 +144,14 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         }
 
         // Read off normalized assignment: t_i = (h_i^u in B_1) for i in 0..n.
+        let b1_index = b1_index.ok_or_else(|| {
+            crate::rules::ExtractionError::invalid(
+                "target configuration has no important-edge biclique B_1",
+            )
+        })?;
         let mut normalized_assignment = vec![false; n];
-        if let Some(r) = b1_index {
-            for (i, slot) in normalized_assignment.iter_mut().enumerate() {
-                *slot = target_solution.get(h_left(i) * k + r).copied().unwrap_or(0) == 1;
-            }
+        for (i, slot) in normalized_assignment.iter_mut().enumerate() {
+            *slot = target_solution[h_left(i) * k + b1_index] == 1;
         }
 
         // Map normalized t_i back to the source: source x_s = t_s
@@ -146,13 +160,9 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         let mut source_assignment = vec![0usize; self.source_num_vars];
         for (s, slot) in source_assignment.iter_mut().enumerate() {
             let t_idx = 2 * s;
-            *slot = if normalized_assignment.get(t_idx).copied().unwrap_or(false) {
-                1
-            } else {
-                0
-            };
+            *slot = if normalized_assignment[t_idx] { 1 } else { 0 };
         }
-        source_assignment
+        Ok(source_assignment)
     }
 }
 

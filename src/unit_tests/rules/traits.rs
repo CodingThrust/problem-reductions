@@ -55,8 +55,11 @@ impl ReductionResult for TestReduction {
     fn target_problem(&self) -> &TargetProblem {
         &self.target
     }
-    fn extract_solution(&self, target_config: &[usize]) -> Vec<usize> {
-        target_config.to_vec()
+    fn extract_solution(
+        &self,
+        target_config: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_config.to_vec())
     }
 }
 
@@ -75,7 +78,7 @@ fn test_reduction() {
     let result = <SourceProblem as ReduceTo<TargetProblem>>::reduce_to(&source);
     let target = result.target_problem();
     assert_eq!(target.evaluate(&[1, 1]), 2);
-    assert_eq!(result.extract_solution(&[1, 0]), vec![1, 0]);
+    assert_eq!(result.extract_solution(&[1, 0]).unwrap(), vec![1, 0]);
 }
 
 #[derive(Clone)]

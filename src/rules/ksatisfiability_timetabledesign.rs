@@ -745,39 +745,45 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_tasks = self.target.num_tasks();
-        let num_periods = self.target.num_periods();
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_tasks = self.target.num_tasks();
+            let num_periods = self.target.num_periods();
 
-        let mut transformed_assignment = vec![0usize; self.layout.transformed_to_original.len()];
-        for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
-            let vb_pair = match &encoding.vb {
-                EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
-                EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
-            };
-            let vb_color = core_edge_color(target_solution, vb_pair, num_tasks, num_periods);
-            transformed_assignment[index] = usize::from(vb_color == encoding.neg2);
-        }
-
-        let mut source_assignment = vec![0usize; self.layout.source_num_vars];
-        for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
-            if let Some(value) = fixed {
-                source_assignment[var] = value;
+            let mut transformed_assignment =
+                vec![0usize; self.layout.transformed_to_original.len()];
+            for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
+                let vb_pair = match &encoding.vb {
+                    EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
+                    EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
+                };
+                let vb_color = core_edge_color(target_solution, vb_pair, num_tasks, num_periods);
+                transformed_assignment[index] = usize::from(vb_color == encoding.neg2);
             }
-        }
 
-        let mut seen_transformed = vec![false; self.layout.source_num_vars];
-        for (value, &original_var) in transformed_assignment
-            .iter()
-            .zip(self.layout.transformed_to_original.iter())
-        {
-            if !seen_transformed[original_var] {
-                source_assignment[original_var] = *value;
-                seen_transformed[original_var] = true;
+            let mut source_assignment = vec![0usize; self.layout.source_num_vars];
+            for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
+                if let Some(value) = fixed {
+                    source_assignment[var] = value;
+                }
             }
-        }
 
-        source_assignment
+            let mut seen_transformed = vec![false; self.layout.source_num_vars];
+            for (value, &original_var) in transformed_assignment
+                .iter()
+                .zip(self.layout.transformed_to_original.iter())
+            {
+                if !seen_transformed[original_var] {
+                    source_assignment[original_var] = *value;
+                    seen_transformed[original_var] = true;
+                }
+            }
+
+            source_assignment
+        })
     }
 }
 

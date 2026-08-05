@@ -56,7 +56,7 @@ fn test_sequencingwithinintervals_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         problem.evaluate(&extracted).0,
@@ -82,7 +82,7 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
     // task 0 at offset 0, task 1 at offset 0
     // vars: x_{0,0}=1, x_{0,1}=0, x_{1,0}=1, x_{1,1}=0
     let ilp_solution = vec![1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0]);
     assert!(
         problem.evaluate(&extracted).0,

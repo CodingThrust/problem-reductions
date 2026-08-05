@@ -77,7 +77,7 @@ fn test_identity_solution_extraction() {
         ReduceTo::<MinimumFeedbackVertexSet<i32>>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1]),
+        reduction.extract_solution(&[1, 0, 1, 0, 1]).unwrap(),
         vec![1, 0, 1, 0, 1]
     );
 }

@@ -50,7 +50,7 @@ fn test_register_sufficiency_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("feasible register-sufficiency instance should yield a feasible ILP");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(source.evaluate(&extracted), Or(true));
     let mut sorted = extracted.clone();
@@ -105,7 +105,7 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     let solution = &example.solutions[0];
     assert_eq!(source.evaluate(&solution.source_config), Or(true));
     assert_eq!(
-        reduction.extract_solution(&solution.target_config),
+        reduction.extract_solution(&solution.target_config).unwrap(),
         solution.source_config
     );
 }

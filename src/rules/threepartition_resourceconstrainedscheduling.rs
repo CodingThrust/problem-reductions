@@ -38,8 +38,11 @@ impl ReductionResult for ReductionThreePartitionToRCS {
 
     /// Solution extraction: identity mapping.
     /// ThreePartition config (group index 0..m-1) maps directly to time slot assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

@@ -28,8 +28,11 @@ impl ReductionResult for ReductionHPToIST {
     /// The IST config maps tree vertex i to graph vertex config[i]. Since the
     /// tree is P_n (path 0-1-2-...-n-1), this mapping directly gives the
     /// vertex ordering of the Hamiltonian path.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

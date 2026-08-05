@@ -58,8 +58,11 @@ where
 
     /// Extract: take the first `num_vertices` entries of the ILP solution.
     /// They are exactly the binary `x_v` selection variables.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 

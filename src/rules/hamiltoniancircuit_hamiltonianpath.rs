@@ -36,36 +36,51 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_original_vertices;
-        if n == 0 {
-            return vec![];
-        }
-
-        if target_solution.len() != n + 3 {
-            return vec![0; n];
-        }
-
-        let v_prime = n; // index of duplicated vertex v'
-        let s = n + 1; // pendant attached to v=0
-        let t = n + 2; // pendant attached to v'
-
-        // The two pendants force any valid witness to have endpoints s and t.
-        let reversed;
-        let oriented = match (target_solution.first(), target_solution.last()) {
-            (Some(&start), Some(&end)) if start == s && end == t => target_solution,
-            (Some(&start), Some(&end)) if start == t && end == s => {
-                reversed = target_solution.iter().copied().rev().collect::<Vec<_>>();
-                reversed.as_slice()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_original_vertices;
+            if n == 0 {
+                return Ok(vec![]);
             }
-            _ => return vec![0; n],
-        };
 
-        if oriented.get(1) != Some(&0) || oriented.get(n + 1) != Some(&v_prime) {
-            return vec![0; n];
-        }
+            if target_solution.len() != n + 3 {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "expected {} path vertices, got {}",
+                    n + 3,
+                    target_solution.len()
+                )));
+            }
 
-        oriented[1..=n].to_vec()
+            let v_prime = n; // index of duplicated vertex v'
+            let s = n + 1; // pendant attached to v=0
+            let t = n + 2; // pendant attached to v'
+
+            // The two pendants force any valid witness to have endpoints s and t.
+            let reversed;
+            let oriented = match (target_solution.first(), target_solution.last()) {
+                (Some(&start), Some(&end)) if start == s && end == t => target_solution,
+                (Some(&start), Some(&end)) if start == t && end == s => {
+                    reversed = target_solution.iter().copied().rev().collect::<Vec<_>>();
+                    reversed.as_slice()
+                }
+                _ => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target path does not have the required pendant endpoints",
+                    ))
+                }
+            };
+
+            if oriented.get(1) != Some(&0) || oriented.get(n + 1) != Some(&v_prime) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target path does not traverse the duplicated source vertex correctly",
+                ));
+            }
+
+            oriented[1..=n].to_vec()
+        })
     }
 }
 

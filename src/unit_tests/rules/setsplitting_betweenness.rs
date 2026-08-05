@@ -52,7 +52,9 @@ fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
         ],
     );
     assert_eq!(
-        reduction.extract_solution(&[8, 2, 9, 0, 1, 4, 3, 6, 7, 5]),
+        reduction
+            .extract_solution(&[8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
+            .unwrap(),
         vec![1, 0, 1, 0, 0]
     );
 }

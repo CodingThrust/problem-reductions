@@ -49,7 +49,7 @@ fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target must be feasible");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_source);
 }
 
@@ -64,7 +64,7 @@ fn test_bicliquecover_to_bmf_closed_loop_identity_rank2() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target must be feasible");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_source);
 }
 

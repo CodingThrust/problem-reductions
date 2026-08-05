@@ -86,7 +86,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         problem.evaluate(&extracted).0,
@@ -121,7 +121,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
         0, 1, // d1_1=0, d2_1=1
         1, 1, // d1_2=1, d2_2=1
     ];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     // extract_solution returns first 4*3=12 flow variables
     assert_eq!(extracted.len(), 12);
     assert!(

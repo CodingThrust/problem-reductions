@@ -87,7 +87,7 @@ macro_rules! register_decision_variant {
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source),
                     )
                 }),
-                capabilities: $crate::rules::EdgeCapabilities::both(),
+                turing: false,
                 overhead_eval_fn: |any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
@@ -119,7 +119,7 @@ macro_rules! register_decision_variant {
                 module_path: module_path!(),
                 reduce_fn: None,
                 reduce_aggregate_fn: None,
-                capabilities: $crate::rules::EdgeCapabilities::turing(),
+                turing: true,
                 overhead_eval_fn: |any| {
                     let source = any
                         .downcast_ref::<$inner>()
@@ -279,8 +279,11 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

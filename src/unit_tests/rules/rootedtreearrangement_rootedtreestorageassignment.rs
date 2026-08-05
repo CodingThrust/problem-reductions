@@ -83,7 +83,7 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_solution_extraction
 
     // Target solution: parent array [0, 0] means tree rooted at 0 with 1->0
     let target_config = vec![0, 0];
-    let source_config = reduction.extract_solution(&target_config);
+    let source_config = reduction.extract_solution(&target_config).unwrap();
 
     // Source config should be [parent_array | identity_mapping] = [0, 0, 0, 1]
     assert_eq!(source_config, vec![0, 0, 0, 1]);

@@ -25,6 +25,8 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 /// # Attributes
 ///
 /// - `overhead = { expr }` — overhead specification
+/// - `aggregate = identity` — explicitly register an aggregate executor; compilation
+///   requires the reduction result to prove source/target value-type equality
 ///
 /// ## New syntax (preferred):
 /// ```ignore
@@ -60,11 +62,15 @@ enum OverheadSpec {
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
     overhead: Option<OverheadSpec>,
+    identity_aggregate: bool,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut attrs = ReductionAttrs { overhead: None };
+        let mut attrs = ReductionAttrs {
+            overhead: None,
+            identity_aggregate: false,
+        };
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;
@@ -75,6 +81,13 @@ impl syn::parse::Parse for ReductionAttrs {
                     let content;
                     syn::braced!(content in input);
                     attrs.overhead = Some(parse_overhead_content(&content)?);
+                }
+                "aggregate" => {
+                    let value: syn::Ident = input.parse()?;
+                    if value != "identity" {
+                        return Err(syn::Error::new(value.span(), "expected `identity`"));
+                    }
+                    attrs.identity_aggregate = true;
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -330,10 +343,21 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(source_type, "Cannot extract source type name"))?;
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
-    let capabilities = if source_name == target_name {
-        quote! { crate::rules::EdgeCapabilities::both() }
+    let reduce_aggregate_fn = if attrs.identity_aggregate {
+        quote! {
+            Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
+                let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
+                    panic!(
+                        "DynAggregateReductionResult: source type mismatch: expected `{}`, got `{}`",
+                        std::any::type_name::<#source_type>(),
+                        std::any::type_name_of_val(src),
+                    )
+                });
+                Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
+            })
+        }
     } else {
-        quote! { crate::rules::EdgeCapabilities::witness_only() }
+        quote! { None }
     };
 
     // Collect generic parameter info from the impl block
@@ -395,8 +419,8 @@ fn generate_reduction_entry(
                     });
                     Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
                 }),
-                reduce_aggregate_fn: None,
-                capabilities: #capabilities,
+                reduce_aggregate_fn: #reduce_aggregate_fn,
+                turing: false,
                 overhead_eval_fn: #overhead_eval_fn,
                 source_size_fn: #source_size_fn,
             }

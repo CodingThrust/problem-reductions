@@ -1,6 +1,5 @@
 use super::*;
 use crate::expr::Expr;
-use crate::rules::registry::EdgeCapabilities;
 use std::path::Path;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
@@ -53,7 +52,7 @@ fn test_reduction_entry_overhead() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -75,7 +74,7 @@ fn test_reduction_entry_debug() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -96,7 +95,7 @@ fn test_is_base_reduction_unweighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -114,7 +113,7 @@ fn test_is_base_reduction_source_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -132,7 +131,7 @@ fn test_is_base_reduction_target_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -150,7 +149,7 @@ fn test_is_base_reduction_both_weighted() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -169,7 +168,7 @@ fn test_is_base_reduction_no_weight_key() {
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::witness_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -187,7 +186,7 @@ fn test_reduction_entry_can_store_aggregate_executor() {
         module_path: "test::module",
         reduce_fn: None,
         reduce_aggregate_fn: Some(dummy_reduce_aggregate_fn),
-        capabilities: EdgeCapabilities::aggregate_only(),
+        turing: false,
         overhead_eval_fn: dummy_overhead_eval_fn,
         source_size_fn: dummy_source_size_fn,
     };
@@ -370,7 +369,7 @@ fn walk_rust_files(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-fn reduction_attribute_has_extra_top_level_field(path: &Path) -> bool {
+fn reduction_attribute_does_not_start_with_overhead(path: &Path) -> bool {
     let contents = std::fs::read_to_string(path).unwrap();
     let mut in_reduction_attr = false;
     let mut attr_text = String::new();
@@ -443,13 +442,13 @@ fn every_registered_reduction_has_non_empty_names() {
 }
 
 #[test]
-fn repo_reductions_use_overhead_only_attribute() {
+fn repo_reduction_attributes_start_with_overhead() {
     let mut rust_files = Vec::new();
     walk_rust_files(Path::new("src/rules"), &mut rust_files);
 
     let offenders: Vec<_> = rust_files
         .into_iter()
-        .filter(|path| reduction_attribute_has_extra_top_level_field(path))
+        .filter(|path| reduction_attribute_does_not_start_with_overhead(path))
         .collect();
 
     assert!(
@@ -460,35 +459,36 @@ fn repo_reductions_use_overhead_only_attribute() {
 }
 
 #[test]
-fn test_edge_capabilities_constructors() {
-    let wo = EdgeCapabilities::witness_only();
-    assert!(wo.witness);
-    assert!(!wo.aggregate);
+fn test_edge_capabilities_come_from_executors() {
+    let entry = ReductionEntry {
+        source_name: "A",
+        target_name: "B",
+        source_variant_fn: Vec::new,
+        target_variant_fn: Vec::new,
+        overhead_fn: ReductionOverhead::default,
+        module_path: "test::module",
+        reduce_fn: Some(dummy_reduce_fn),
+        reduce_aggregate_fn: Some(dummy_reduce_aggregate_fn),
+        turing: false,
+        overhead_eval_fn: dummy_overhead_eval_fn,
+        source_size_fn: dummy_source_size_fn,
+    };
+    let caps = entry.capabilities();
+    assert!(caps.witness);
+    assert!(caps.aggregate);
+    assert!(!caps.turing);
 
-    let ao = EdgeCapabilities::aggregate_only();
-    assert!(!ao.witness);
-    assert!(ao.aggregate);
-
-    let both = EdgeCapabilities::both();
-    assert!(both.witness);
-    assert!(both.aggregate);
-
-    let none = EdgeCapabilities::none();
-    assert!(!none.witness);
-    assert!(!none.aggregate);
-    assert!(!none.turing);
-}
-
-#[test]
-fn test_edge_capabilities_default_is_witness_only() {
-    let default = EdgeCapabilities::default();
-    assert_eq!(default, EdgeCapabilities::witness_only());
+    let json = serde_json::to_string(&caps).unwrap();
+    assert_eq!(json, r#"{"witness":true,"aggregate":true,"turing":false}"#);
 }
 
 #[test]
 fn test_edge_capabilities_serde_roundtrip() {
-    let caps = EdgeCapabilities::both();
-    let json = serde_json::to_string(&caps).unwrap();
-    let back: EdgeCapabilities = serde_json::from_str(&json).unwrap();
-    assert_eq!(caps, back);
+    let json = r#"{"witness":true,"aggregate":false,"turing":true}"#;
+    let capabilities: EdgeCapabilities = serde_json::from_str(json).unwrap();
+
+    assert!(capabilities.witness);
+    assert!(!capabilities.aggregate);
+    assert!(capabilities.turing);
+    assert_eq!(serde_json::to_string(&capabilities).unwrap(), json);
 }

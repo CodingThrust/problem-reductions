@@ -50,19 +50,37 @@ impl ReductionResult for ReductionClosestStringToILP {
     /// Decode the integer ILP assignment into the source center config.
     ///
     /// For every position `j`, choose the unique alphabet symbol `a` with
-    /// `x_{j, a} = 1`. If the target assignment is missing or none of the
-    /// per-position `x_{j, *}` variables are set to 1, we fall back to symbol
-    /// `0` so the returned vector still has the expected length; partial /
-    /// infeasible ILP solutions are the caller's responsibility.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    /// `x_{j, a} = 1`.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        if target_solution.len() != self.target.num_vars {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} ILP values, got {}",
+                self.target.num_vars,
+                target_solution.len()
+            )));
+        }
+
         let q = self.alphabet_size;
-        (0..self.string_length)
-            .map(|j| {
-                (0..q)
-                    .find(|&a| target_solution.get(j * q + a).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+        let mut center = Vec::with_capacity(self.string_length);
+        for position in 0..self.string_length {
+            let block = &target_solution[position * q..(position + 1) * q];
+            let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
+            let symbol = selected.next().map(|(symbol, _)| symbol).ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(format!(
+                    "center position {position} has no selected symbol"
+                ))
+            })?;
+            if selected.next().is_some() || block.iter().any(|&value| value > 1) {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "center position {position} is not one-hot"
+                )));
+            }
+            center.push(symbol);
+        }
+        Ok(center)
     }
 }
 

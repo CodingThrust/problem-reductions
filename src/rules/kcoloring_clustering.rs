@@ -28,8 +28,11 @@ impl ReductionResult for ReductionKColoringToClustering {
 
     /// Cluster labels are color labels. The empty-graph corner case uses one
     /// dummy target element because Clustering forbids empty instances.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vertices.min(target_solution.len())].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.source_num_vertices.min(target_solution.len())].to_vec())
     }
 }
 

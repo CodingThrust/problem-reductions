@@ -89,7 +89,7 @@ fn test_minimumvertexcover_to_comparativecontainment_extracts_cover() {
     let witness = BruteForce::new()
         .find_witness(reduction.target_problem())
         .expect("triangle with K=2 should be satisfiable");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted.len(), 3);
     assert!(source.evaluate(&extracted).0);
 }
@@ -110,7 +110,7 @@ fn test_minimumvertexcover_to_comparativecontainment_trivial_yes_k_equals_n() {
     assert!(target.evaluate(&[]).0);
 
     // Extracted source configuration must be a valid cover with size <= K.
-    let extracted = reduction.extract_solution(&[]);
+    let extracted = reduction.extract_solution(&[]).unwrap();
     assert_eq!(extracted.len(), 3);
     assert!(source.evaluate(&extracted).0);
 }
@@ -123,7 +123,7 @@ fn test_minimumvertexcover_to_comparativecontainment_trivial_yes_k_greater_than_
     let target = reduction.target_problem();
 
     assert_eq!(target.universe_size(), 0);
-    let extracted = reduction.extract_solution(&[]);
+    let extracted = reduction.extract_solution(&[]).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 

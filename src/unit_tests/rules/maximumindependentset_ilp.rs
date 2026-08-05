@@ -66,7 +66,7 @@ fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     let ilp_size: usize = extracted.iter().sum();
     assert_eq!(ilp_size, 2);
@@ -82,7 +82,7 @@ fn test_maximumindependentset_to_ilp_via_path_weighted() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Max(Some(100)));
     assert_eq!(extracted, vec![0, 1, 0]);
@@ -98,6 +98,6 @@ fn test_maximumindependentset_to_ilp_bf_vs_ilp() {
     let ilp: &ILP<bool> = chain.target_problem();
     let bf_value = BruteForce::new().solve(&problem);
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_value);
 }

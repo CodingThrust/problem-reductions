@@ -57,7 +57,7 @@ fn test_satisfiability_to_non_tautology_extract_solution_is_identity() {
         .expect("target should have a witness");
 
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         target_solution
     );
 }

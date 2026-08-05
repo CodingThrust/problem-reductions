@@ -81,7 +81,10 @@ fn test_weighted_vertices_are_charged_on_sink_arcs() {
     assert_eq!(source.evaluate(&[0, 1, 0]), Min(Some(1)));
     assert_eq!(target.evaluate(&target_solution), Min(Some(5)));
     assert_eq!(target.arc_weights(), &[1, 1, 1, 1, 1, 1, 4, 1, 3]);
-    assert_eq!(reduction.extract_solution(&target_solution), vec![0, 1, 0]);
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![0, 1, 0]
+    );
 }
 
 #[cfg(feature = "example-db")]

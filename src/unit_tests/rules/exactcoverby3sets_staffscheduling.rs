@@ -56,7 +56,7 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
     let solutions = solver.find_all_witnesses(target);
     // Each satisfying target config should extract to selecting all 3 subsets
     for sol in &solutions {
-        let extracted = result.extract_solution(sol);
+        let extracted = result.extract_solution(sol).unwrap();
         assert!(
             source.evaluate(&extracted).0,
             "Extracted solution must be valid"
@@ -65,7 +65,7 @@ fn test_exactcoverby3sets_to_staffscheduling_unique_cover() {
     // There should be exactly one satisfying assignment (up to extraction)
     let extracted_solutions: Vec<Vec<usize>> = solutions
         .iter()
-        .map(|s| result.extract_solution(s))
+        .map(|s| result.extract_solution(s).unwrap())
         .collect();
     assert!(
         extracted_solutions.iter().all(|s| *s == vec![1, 1, 1]),
@@ -81,7 +81,7 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
 
     // StaffScheduling config: [1, 1, 0, 0] means 1 worker on schedule 0 and 1 on schedule 1
     let target_config = vec![1, 1, 0, 0];
-    let extracted = result.extract_solution(&target_config);
+    let extracted = result.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 1, 0, 0]);
 
     // Verify the extracted solution is valid in the source
@@ -89,7 +89,7 @@ fn test_exactcoverby3sets_to_staffscheduling_extract_solution() {
 
     // Config with 0 workers everywhere should extract to all-zero (no subsets selected)
     let empty_config = vec![0, 0, 0, 0];
-    let extracted_empty = result.extract_solution(&empty_config);
+    let extracted_empty = result.extract_solution(&empty_config).unwrap();
     assert_eq!(extracted_empty, vec![0, 0, 0, 0]);
 }
 

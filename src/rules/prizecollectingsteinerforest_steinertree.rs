@@ -69,41 +69,46 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_source_vertices;
-        let m = self.num_source_edges;
-        let mut source_config = vec![0usize; n + m];
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_source_vertices;
+            let m = self.num_source_edges;
+            let mut source_config = vec![0usize; n + m];
 
-        // Mark vertices included via their gadget include-edge `(v, t_v)`,
-        // and edges via the matching original edge.
-        for (target_idx, &selected) in target_solution.iter().enumerate() {
-            if selected != 1 {
-                continue;
+            // Mark vertices included via their gadget include-edge `(v, t_v)`,
+            // and edges via the matching original edge.
+            for (target_idx, &selected) in target_solution.iter().enumerate() {
+                if selected != 1 {
+                    continue;
+                }
+                if let Some(v) = self.target_to_include_vertex[target_idx] {
+                    source_config[v] = 1;
+                } else if let Some(src_edge) = self.target_to_source_edge[target_idx] {
+                    source_config[n + src_edge] = 1;
+                }
             }
-            if let Some(v) = self.target_to_include_vertex[target_idx] {
-                source_config[v] = 1;
-            } else if let Some(src_edge) = self.target_to_source_edge[target_idx] {
-                source_config[n + src_edge] = 1;
-            }
-        }
 
-        // Any original edge selected in `T*` forces both endpoints into
-        // `V_F`. The PCSF model rejects configurations where a selected
-        // edge has an unselected endpoint, so we mark endpoints explicitly
-        // (this also covers prize-zero endpoints, which have no gadget).
-        let edges = self.target.graph().edges();
-        for (target_idx, &(_, _)) in edges.iter().enumerate() {
-            if target_solution.get(target_idx).copied() != Some(1) {
-                continue;
+            // Any original edge selected in `T*` forces both endpoints into
+            // `V_F`. The PCSF model rejects configurations where a selected
+            // edge has an unselected endpoint, so we mark endpoints explicitly
+            // (this also covers prize-zero endpoints, which have no gadget).
+            let edges = self.target.graph().edges();
+            for (target_idx, &(_, _)) in edges.iter().enumerate() {
+                if target_solution.get(target_idx).copied() != Some(1) {
+                    continue;
+                }
+                if let Some(src_edge) = self.target_to_source_edge[target_idx] {
+                    let (u, v) = self.source_edge_pair(src_edge);
+                    source_config[u] = 1;
+                    source_config[v] = 1;
+                }
             }
-            if let Some(src_edge) = self.target_to_source_edge[target_idx] {
-                let (u, v) = self.source_edge_pair(src_edge);
-                source_config[u] = 1;
-                source_config[v] = 1;
-            }
-        }
 
-        source_config
+            source_config
+        })
     }
 }
 
@@ -231,7 +236,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = BruteForce::new()
                 .find_witness(target)
                 .expect("canonical PCSF -> SteinerTree example must have an optimal target tree");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 target,

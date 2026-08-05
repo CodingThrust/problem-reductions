@@ -33,8 +33,11 @@ impl ReductionResult for ReductionPPL2ToBCSF {
     ///
     /// Both problems use the same vertex-to-group assignment encoding,
     /// so the solution mapping is identity.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

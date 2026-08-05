@@ -64,7 +64,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let bf_value = problem.evaluate(&best_source[0]);
     let ilp_value = problem.evaluate(&extracted);
@@ -83,7 +83,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_canonical_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&best_source[0]), Min(Some(5)));
     assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
@@ -103,7 +103,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     target_solution[3] = 1; // edge (1,3)
 
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         vec![1, 1, 0, 1, 0]
     );
 }
@@ -131,7 +131,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_star_tree() {
         ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Min(Some(3)));
     assert!(problem.is_valid_solution(&extracted));
 }
@@ -151,7 +151,7 @@ fn test_minimumcapacitatedspanningtree_to_ilp_path_graph() {
         ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
     assert!(problem.is_valid_solution(&extracted));
 }

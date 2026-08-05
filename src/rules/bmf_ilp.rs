@@ -25,10 +25,15 @@ impl ReductionResult for ReductionBMFToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Extract B (m x k) then C (k x n) — first m*k + k*n variables
-        let total = self.m * self.k + self.k * self.n;
-        target_solution[..total].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Extract B (m x k) then C (k x n) — first m*k + k*n variables
+            let total = self.m * self.k + self.k * self.n;
+            target_solution[..total].to_vec()
+        })
     }
 }
 

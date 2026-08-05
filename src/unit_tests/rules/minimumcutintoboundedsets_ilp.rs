@@ -42,7 +42,7 @@ fn test_extract_solution() {
     let source = small_instance();
     let reduction: ReductionMinCutBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
     let target_sol = vec![0, 0, 1, 1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&target_sol);
+    let extracted = reduction.extract_solution(&target_sol).unwrap();
     assert_eq!(extracted, vec![0, 0, 1, 1]);
     assert!(source.evaluate(&extracted).0.is_some());
 }

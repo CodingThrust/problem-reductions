@@ -40,17 +40,22 @@ impl ReductionResult for Reduction3SATToMVC {
     /// is not-u_i. Each truth-setting edge forces exactly one of these two
     /// into any minimum vertex cover. If u_i is in the cover, set x_i = 1;
     /// if not-u_i is in the cover, set x_i = 0.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| {
-                // u_i is at index 2*i, not-u_i is at index 2*i+1
-                if target_solution[2 * i] == 1 {
-                    1
-                } else {
-                    0
-                }
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.source_num_vars)
+                .map(|i| {
+                    // u_i is at index 2*i, not-u_i is at index 2*i+1
+                    if target_solution[2 * i] == 1 {
+                        1
+                    } else {
+                        0
+                    }
+                })
+                .collect()
+        })
     }
 }
 

@@ -196,16 +196,21 @@ impl ReductionResult for ReductionCircuitToSG {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_variables
-            .iter()
-            .map(|var| {
-                self.variable_map
-                    .get(var)
-                    .and_then(|&idx| target_solution.get(idx).copied())
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.source_variables
+                .iter()
+                .map(|var| {
+                    self.variable_map
+                        .get(var)
+                        .and_then(|&idx| target_solution.get(idx).copied())
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

@@ -39,29 +39,34 @@ impl ReductionResult for ReductionMaximumLikelihoodRankingToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        if n == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            if n == 0 {
+                return Ok(vec![]);
+            }
 
-        // Count how many items are ranked before each item i.
-        // config[i] = number of items ranked before i = rank of item i.
-        let mut config = vec![0usize; n];
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let idx = pair_index(i, j, n);
-                if target_solution[idx] == 1 {
-                    // i is before j -> contributes 1 to config[j]
-                    config[j] += 1;
-                } else {
-                    // j is before i -> contributes 1 to config[i]
-                    config[i] += 1;
+            // Count how many items are ranked before each item i.
+            // config[i] = number of items ranked before i = rank of item i.
+            let mut config = vec![0usize; n];
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    let idx = pair_index(i, j, n);
+                    if target_solution[idx] == 1 {
+                        // i is before j -> contributes 1 to config[j]
+                        config[j] += 1;
+                    } else {
+                        // j is before i -> contributes 1 to config[i]
+                        config[i] += 1;
+                    }
                 }
             }
-        }
 
-        config
+            config
+        })
     }
 }
 

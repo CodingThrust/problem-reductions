@@ -57,7 +57,7 @@ fn test_closeststring_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let extracted_value = source.evaluate(&extracted);
 
     // The extracted center must be syntactically valid and match the BF optimum.
@@ -87,9 +87,24 @@ fn test_closeststring_to_ilp_extract_known_center() {
     target_solution[4] = 1; // x_{2,0}
     target_solution[6] = 2; // R = 2
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 0]);
     assert_eq!(source.evaluate(&extracted), Min(Some(2)));
+}
+
+#[test]
+fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
+    let source = ClosestString::new(2, vec![vec![0, 1]]);
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let target_solution = vec![0; reduction.target_problem().num_vars];
+
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "center position 0 has no selected symbol"
+    );
 }
 
 #[test]
@@ -118,7 +133,7 @@ fn test_closeststring_to_ilp_single_string_zero_radius() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 1, 1]);
     assert_eq!(source.evaluate(&extracted), Min(Some(0)));
 }

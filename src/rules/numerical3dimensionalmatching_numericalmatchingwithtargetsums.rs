@@ -26,32 +26,37 @@ impl ReductionResult for ReductionN3DMToNMTS {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut x_indices_by_pair_sum: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
-        for (x_index, &y_index) in target_solution.iter().enumerate() {
-            let pair_sum = self.target.sizes_x()[x_index]
-                .checked_add(self.target.sizes_y()[y_index])
-                .expect("NMTS witness must not overflow i64 pair sums");
-            x_indices_by_pair_sum
-                .entry(pair_sum)
-                .or_default()
-                .push(x_index);
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut x_indices_by_pair_sum: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
+            for (x_index, &y_index) in target_solution.iter().enumerate() {
+                let pair_sum = self.target.sizes_x()[x_index]
+                    .checked_add(self.target.sizes_y()[y_index])
+                    .expect("NMTS witness must not overflow i64 pair sums");
+                x_indices_by_pair_sum
+                    .entry(pair_sum)
+                    .or_default()
+                    .push(x_index);
+            }
 
-        let mut x_perm = Vec::with_capacity(self.source_sizes_w.len());
-        let mut y_perm = Vec::with_capacity(self.source_sizes_w.len());
-        for &w_size in &self.source_sizes_w {
-            let target_sum = checked_target_sum_to_i64(self.source_bound, w_size);
-            let x_index = x_indices_by_pair_sum
-                .get_mut(&target_sum)
-                .and_then(Vec::pop)
-                .expect("satisfying NMTS witness must realize every target complement");
-            x_perm.push(x_index);
-            y_perm.push(target_solution[x_index]);
-        }
+            let mut x_perm = Vec::with_capacity(self.source_sizes_w.len());
+            let mut y_perm = Vec::with_capacity(self.source_sizes_w.len());
+            for &w_size in &self.source_sizes_w {
+                let target_sum = checked_target_sum_to_i64(self.source_bound, w_size);
+                let x_index = x_indices_by_pair_sum
+                    .get_mut(&target_sum)
+                    .and_then(Vec::pop)
+                    .expect("satisfying NMTS witness must realize every target complement");
+                x_perm.push(x_index);
+                y_perm.push(target_solution[x_index]);
+            }
 
-        x_perm.extend(y_perm);
-        x_perm
+            x_perm.extend(y_perm);
+            x_perm
+        })
     }
 }
 

@@ -52,7 +52,7 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
         .any(|s| s.iter().sum::<usize>() == 3));
 
     // Extract solution: should be the full clique {0,1,2}
-    let source_sol = reduction.extract_solution(&target_solutions[0]);
+    let source_sol = reduction.extract_solution(&target_solutions[0]).unwrap();
     assert_eq!(source.evaluate(&source_sol).unwrap(), 3);
 }
 

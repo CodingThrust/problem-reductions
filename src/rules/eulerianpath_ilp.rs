@@ -68,67 +68,61 @@ impl ReductionResult for ReductionEulerianPathToILP {
     ///
     /// Reads the unique active start arc (`s_a = 1`) and walks the active
     /// successor relation (`y_{a,b} = 1`) one step at a time, producing an arc
-    /// permutation of length `m`. If the assignment is malformed (no start,
-    /// no successor mid-walk, or revisits an arc) we fall back to the identity
-    /// ordering `0..m` in release builds; debug builds trip a
-    /// `debug_assert!` to surface the caller bug. Callers must independently
-    /// check feasibility on the source side via
-    /// `EulerianPath::is_valid_solution`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let m = self.num_arcs;
-        if m == 0 {
-            return Vec::new();
-        }
-        let fallback: Vec<usize> = (0..m).collect();
-
-        // Find the unique active start arc.
-        let mut current = match (0..m)
-            .find(|&a| target_solution.get(self.s_idx(a)).copied().unwrap_or(0) == 1)
-        {
-            Some(a) => a,
-            None => {
-                debug_assert!(
-                    false,
-                    "EulerianPath -> ILP extract_solution: malformed assignment, no active start arc (expected exactly one s_a = 1)",
-                );
-                return fallback;
+    /// permutation of length `m`. Malformed assignments return an extraction
+    /// error instead of fabricating an ordering.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let m = self.num_arcs;
+            if m == 0 {
+                return Ok(Vec::new());
             }
-        };
 
-        // Walk the active successor relation, recording each visited arc.
-        let mut order = Vec::with_capacity(m);
-        let mut visited = vec![false; m];
-        order.push(current);
-        visited[current] = true;
-
-        for _ in 1..m {
-            let next = self
-                .pairs
-                .iter()
-                .enumerate()
-                .find(|&(k, &(a, _))| {
-                    a == current && target_solution.get(k).copied().unwrap_or(0) == 1
-                })
-                .map(|(_, &(_, b))| b);
-
-            match next {
-                Some(b) if !visited[b] => {
-                    order.push(b);
-                    visited[b] = true;
-                    current = b;
+            // Find the unique active start arc.
+            let mut current = match (0..m)
+                .find(|&a| target_solution.get(self.s_idx(a)).copied().unwrap_or(0) == 1)
+            {
+                Some(a) => a,
+                None => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "ILP witness has no active Eulerian-path start arc",
+                    ));
                 }
-                _ => {
-                    debug_assert!(
-                        false,
-                        "EulerianPath -> ILP extract_solution: malformed assignment at arc {} (expected exactly one active successor y_{{{},b}} = 1 leading to an unvisited arc)",
-                        current,
-                        current,
-                    );
-                    return fallback;
+            };
+
+            // Walk the active successor relation, recording each visited arc.
+            let mut order = Vec::with_capacity(m);
+            let mut visited = vec![false; m];
+            order.push(current);
+            visited[current] = true;
+
+            for _ in 1..m {
+                let next = self
+                    .pairs
+                    .iter()
+                    .enumerate()
+                    .find(|&(k, &(a, _))| {
+                        a == current && target_solution.get(k).copied().unwrap_or(0) == 1
+                    })
+                    .map(|(_, &(_, b))| b);
+
+                match next {
+                    Some(b) if !visited[b] => {
+                        order.push(b);
+                        visited[b] = true;
+                        current = b;
+                    }
+                    _ => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "ILP witness has no unvisited successor for arc {current}",
+                        )));
+                    }
                 }
             }
-        }
-        order
+            order
+        })
     }
 }
 

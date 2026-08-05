@@ -44,52 +44,65 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        if n < 3 {
-            return vec![0; n];
-        }
-
-        // Collect selected edges (those with config value 1)
-        let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
-        for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
-            if i < target_solution.len() && target_solution[i] == 1 {
-                adj[u].push(v);
-                adj[v].push(u);
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_vertices;
+            if n < 3 {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "a Hamiltonian circuit requires at least three vertices",
+                ));
             }
-        }
 
-        // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
-        if adj.iter().any(|neighbors| neighbors.len() != 2) {
-            return vec![0; n];
-        }
+            // Collect selected edges (those with config value 1)
+            let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+            for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
+                if i < target_solution.len() && target_solution[i] == 1 {
+                    adj[u].push(v);
+                    adj[v].push(u);
+                }
+            }
 
-        // Walk the cycle starting from vertex 0
-        let mut circuit = Vec::with_capacity(n);
-        circuit.push(0);
-        let mut prev = 0;
-        let mut current = adj[0][0];
-        while current != 0 {
-            circuit.push(current);
-            let next = if adj[current][0] == prev {
-                adj[current][1]
+            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
+            if adj.iter().any(|neighbors| neighbors.len() != 2) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not give every source vertex degree two",
+                ));
+            }
+
+            // Walk the cycle starting from vertex 0
+            let mut circuit = Vec::with_capacity(n);
+            circuit.push(0);
+            let mut prev = 0;
+            let mut current = adj[0][0];
+            while current != 0 {
+                circuit.push(current);
+                let next = if adj[current][0] == prev {
+                    adj[current][1]
+                } else {
+                    adj[current][0]
+                };
+                prev = current;
+                current = next;
+
+                // Safety: if we've visited more than n vertices, something is wrong
+                if circuit.len() > n {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected edges revisit a source vertex",
+                    ));
+                }
+            }
+
+            if circuit.len() == n {
+                circuit
             } else {
-                adj[current][0]
-            };
-            prev = current;
-            current = next;
-
-            // Safety: if we've visited more than n vertices, something is wrong
-            if circuit.len() > n {
-                return vec![0; n];
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not form a spanning circuit",
+                ));
             }
-        }
-
-        if circuit.len() == n {
-            circuit
-        } else {
-            vec![0; n]
-        }
+        })
     }
 }
 

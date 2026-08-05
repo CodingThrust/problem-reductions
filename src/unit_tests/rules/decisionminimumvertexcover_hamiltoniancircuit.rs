@@ -42,7 +42,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
 
     assert!(reduction.target_problem().evaluate(&target_witness).0);
 
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(extracted, cover);
     assert!(source.evaluate(&extracted).0);
 }
@@ -55,7 +55,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
     let target_witness = reduction.build_target_witness(&[1, 0, 0]);
     assert!(reduction.target_problem().evaluate(&target_witness).0);
 
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(extracted.len(), 3);
     assert_eq!(extracted[2], 0);
     assert!(source.evaluate(&extracted).0);
@@ -74,7 +74,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers
     let witness = BruteForce::new()
         .find_witness(target)
         .expect("triangle should have a Hamiltonian circuit");
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 

@@ -45,7 +45,7 @@ fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -62,7 +62,7 @@ fn test_solution_extraction() {
     // Manually set: task 0 → proc 0, task 1 → proc 1, task 2 → proc 0
     // Variables: x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1, x_{2,0}=1, x_{2,1}=0
     let ilp_solution = vec![1, 0, 0, 1, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
     // loads: proc 0 = 1+3=4 ≤ 5, proc 1 = 2 ≤ 5
     assert_eq!(problem.evaluate(&extracted), Or(true));
@@ -82,6 +82,6 @@ fn test_multiprocessorscheduling_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

@@ -137,7 +137,7 @@ fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputCon
         )
     })?;
 
-    let (source_config, source_eval) = replay.extract(target_config);
+    let (source_config, source_eval) = replay.extract(target_config)?;
 
     let solver_desc = format!(
         "{} (via {})",

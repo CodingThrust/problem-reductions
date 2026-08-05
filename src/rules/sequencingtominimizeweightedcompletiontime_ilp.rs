@@ -51,10 +51,15 @@ impl ReductionResult for ReductionSTMWCTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut schedule: Vec<usize> = (0..self.num_tasks).collect();
-        schedule.sort_by_key(|&task| (target_solution.get(task).copied().unwrap_or(0), task));
-        Self::encode_schedule_as_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut schedule: Vec<usize> = (0..self.num_tasks).collect();
+            schedule.sort_by_key(|&task| (target_solution.get(task).copied().unwrap_or(0), task));
+            Self::encode_schedule_as_lehmer(&schedule)
+        })
     }
 }
 

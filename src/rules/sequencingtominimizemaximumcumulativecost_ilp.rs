@@ -31,10 +31,15 @@ impl ReductionResult for ReductionSTMMCCToILP {
     }
 
     /// Extract: decode position assignment → permutation → Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let schedule = one_hot_decode(target_solution, n, n, 0);
-        permutation_to_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_tasks;
+            let schedule = one_hot_decode(target_solution, n, n, 0);
+            permutation_to_lehmer(&schedule)
+        })
     }
 }
 

@@ -28,8 +28,11 @@ impl ReductionResult for ReductionPaintShopToQUBO {
 
     /// The QUBO solution maps directly back: car i's first occurrence gets
     /// color x_i, second gets 1 - x_i.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

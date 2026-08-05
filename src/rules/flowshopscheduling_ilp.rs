@@ -53,21 +53,26 @@ impl ReductionResult for ReductionFSSToILP {
 
     /// Extract solution: sort jobs by final-machine completion time C_{j,m-1},
     /// then convert permutation to Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_jobs;
-        let m = self.num_machines;
-        let c_offset = self.num_order_vars;
-        let mut jobs: Vec<usize> = (0..n).collect();
-        jobs.sort_by_key(|&j| {
-            let idx = c_offset + j * m + (m - 1);
-            (target_solution.get(idx).copied().unwrap_or(0), j)
-        });
-        let perm = permutation_to_lehmer(&jobs);
-        Self::encode_schedule_as_lehmer(&jobs)
-            .into_iter()
-            .zip(perm)
-            .map(|(lehmer, _)| lehmer)
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_jobs;
+            let m = self.num_machines;
+            let c_offset = self.num_order_vars;
+            let mut jobs: Vec<usize> = (0..n).collect();
+            jobs.sort_by_key(|&j| {
+                let idx = c_offset + j * m + (m - 1);
+                (target_solution.get(idx).copied().unwrap_or(0), j)
+            });
+            let perm = permutation_to_lehmer(&jobs);
+            Self::encode_schedule_as_lehmer(&jobs)
+                .into_iter()
+                .zip(perm)
+                .map(|(lehmer, _)| lehmer)
+                .collect()
+        })
     }
 }
 

@@ -101,52 +101,16 @@ pub struct EdgeCapabilities {
 }
 
 impl EdgeCapabilities {
-    pub const fn none() -> Self {
+    pub(crate) const fn from_executors(
+        reduce_fn: Option<ReduceFn>,
+        reduce_aggregate_fn: Option<AggregateReduceFn>,
+        turing: bool,
+    ) -> Self {
         Self {
-            witness: false,
-            aggregate: false,
-            turing: false,
+            witness: reduce_fn.is_some(),
+            aggregate: reduce_aggregate_fn.is_some(),
+            turing,
         }
-    }
-
-    pub const fn witness_only() -> Self {
-        Self {
-            witness: true,
-            aggregate: false,
-            turing: false,
-        }
-    }
-
-    pub const fn aggregate_only() -> Self {
-        Self {
-            witness: false,
-            aggregate: true,
-            turing: false,
-        }
-    }
-
-    pub const fn both() -> Self {
-        Self {
-            witness: true,
-            aggregate: true,
-            turing: false,
-        }
-    }
-
-    pub const fn turing() -> Self {
-        Self {
-            witness: false,
-            aggregate: false,
-            turing: true,
-        }
-    }
-}
-
-/// Defaults to `witness_only()` — the conservative choice for edges registered
-/// via `#[reduction]`, which are witness/config reductions.
-impl Default for EdgeCapabilities {
-    fn default() -> Self {
-        Self::witness_only()
     }
 }
 
@@ -174,8 +138,8 @@ pub struct ReductionEntry {
     /// `ReduceToAggregate::reduce_to_aggregate()`, and returns the result as a
     /// boxed `DynAggregateReductionResult`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
-    /// Capability metadata for runtime path filtering.
-    pub capabilities: EdgeCapabilities,
+    /// Whether this is a Turing (multi-query) reduction.
+    pub turing: bool,
     /// Compiled overhead evaluation function.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
     /// and returns the computed target problem size.
@@ -200,6 +164,11 @@ impl ReductionEntry {
     /// Get the target variant by calling the function.
     pub fn target_variant(&self) -> Vec<(&'static str, &'static str)> {
         (self.target_variant_fn)()
+    }
+
+    /// Return the modes backed by this entry's executors.
+    pub fn capabilities(&self) -> EdgeCapabilities {
+        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
     }
 
     /// Check if this reduction involves only the base (unweighted) variants.
@@ -229,7 +198,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_variant", &self.target_variant())
             .field("overhead", &self.overhead())
             .field("module_path", &self.module_path)
-            .field("capabilities", &self.capabilities)
+            .field("capabilities", &self.capabilities())
             .finish()
     }
 }

@@ -31,16 +31,23 @@ impl ReductionResult for ReductionLCSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_symbols = self.alphabet_size + 1;
-        let mut witness = Vec::with_capacity(self.max_length);
-        for position in 0..self.max_length {
-            let selected = (0..num_symbols)
-                .find(|&symbol| target_solution.get(position * num_symbols + symbol) == Some(&1))
-                .unwrap_or(self.alphabet_size);
-            witness.push(selected);
-        }
-        witness
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_symbols = self.alphabet_size + 1;
+            let mut witness = Vec::with_capacity(self.max_length);
+            for position in 0..self.max_length {
+                let selected = (0..num_symbols)
+                    .find(|&symbol| {
+                        target_solution.get(position * num_symbols + symbol) == Some(&1)
+                    })
+                    .unwrap_or(self.alphabet_size);
+                witness.push(selected);
+            }
+            witness
+        })
     }
 }
 

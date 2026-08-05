@@ -34,10 +34,15 @@ impl ReductionResult for ReductionKCliqueToBCBS {
     /// The k-clique is S = {v in V : v not in A'}, i.e., the original vertices
     /// NOT selected on the left side. For each original vertex v (0..n-1):
     /// source_config[v] = 1 - target_config[v].
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_original_vertices)
-            .map(|v| 1 - target_solution[v])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.num_original_vertices)
+                .map(|v| 1 - target_solution[v])
+                .collect()
+        })
     }
 }
 

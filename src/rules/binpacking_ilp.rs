@@ -36,18 +36,23 @@ impl ReductionResult for ReductionBPToILP {
     /// Extract solution from ILP back to BinPacking.
     ///
     /// For each item i, find the unique bin j where x_{ij} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let mut assignment = vec![0usize; n];
-        for i in 0..n {
-            for j in 0..n {
-                if target_solution[i * n + j] == 1 {
-                    assignment[i] = j;
-                    break;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            let mut assignment = vec![0usize; n];
+            for i in 0..n {
+                for j in 0..n {
+                    if target_solution[i * n + j] == 1 {
+                        assignment[i] = j;
+                        break;
+                    }
                 }
             }
-        }
-        assignment
+            assignment
+        })
     }
 }
 

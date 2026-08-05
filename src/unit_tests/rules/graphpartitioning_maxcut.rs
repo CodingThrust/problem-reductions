@@ -53,7 +53,7 @@ fn test_graphpartitioning_to_maxcut_extract_solution_identity() {
     let target_solution = super::ISSUE_EXAMPLE_WITNESS.to_vec();
 
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         target_solution
     );
 }

@@ -99,21 +99,30 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() != self.source_num_elements + 2 {
-            return vec![0; self.source_num_elements];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if target_solution.len() != self.source_num_elements + 2 {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "expected {} partition labels, got {}",
+                    self.source_num_elements + 2,
+                    target_solution.len()
+                )));
+            }
 
-        let source_label = target_solution[self.source_vertex];
-        let sink_label = target_solution[self.sink_vertex];
-        debug_assert_ne!(
-            source_label, sink_label,
-            "valid target witnesses must place source and sink in different blocks"
-        );
+            let source_label = target_solution[self.source_vertex];
+            let sink_label = target_solution[self.sink_vertex];
+            debug_assert_ne!(
+                source_label, sink_label,
+                "valid target witnesses must place source and sink in different blocks"
+            );
 
-        (0..self.source_num_elements)
-            .map(|item| usize::from(target_solution[item] == sink_label))
-            .collect()
+            (0..self.source_num_elements)
+                .map(|item| usize::from(target_solution[item] == sink_label))
+                .collect()
+        })
     }
 }
 
@@ -133,12 +142,19 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         self.partition_to_acyclic.target_problem()
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let partition_solution = self.partition_to_acyclic.extract_solution(target_solution);
-        let subset_solution = self
-            .subset_to_partition
-            .extract_solution(&partition_solution);
-        self.sat_to_subset.extract_solution(&subset_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let partition_solution = self
+                .partition_to_acyclic
+                .extract_solution(target_solution)?;
+            let subset_solution = self
+                .subset_to_partition
+                .extract_solution(&partition_solution)?;
+            self.sat_to_subset.extract_solution(&subset_solution)?
+        })
     }
 }
 

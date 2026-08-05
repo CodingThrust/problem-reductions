@@ -157,7 +157,7 @@ fn test_constant_true() {
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 1
@@ -184,7 +184,7 @@ fn test_constant_false() {
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 0
@@ -215,7 +215,7 @@ fn test_multi_input_and() {
 
     let extracted: Vec<Vec<usize>> = solutions
         .iter()
-        .map(|s| reduction.extract_solution(s))
+        .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // Variables sorted: c, x, y, z

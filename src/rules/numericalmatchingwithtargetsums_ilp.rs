@@ -44,14 +44,19 @@ impl ReductionResult for ReductionNMTSToILP {
     }
 
     /// Extract solution: for each x_i find the y_j it is paired with.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut assignment = vec![0usize; self.m];
-        for (var_idx, triple) in self.triples.iter().enumerate() {
-            if target_solution[var_idx] == 1 {
-                assignment[triple.i] = triple.j;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut assignment = vec![0usize; self.m];
+            for (var_idx, triple) in self.triples.iter().enumerate() {
+                if target_solution[var_idx] == 1 {
+                    assignment[triple.i] = triple.j;
+                }
             }
-        }
-        assignment
+            assignment
+        })
     }
 }
 

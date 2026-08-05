@@ -121,66 +121,71 @@ impl ReductionResult for ReductionEMDCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.layout.n;
-        let k = self.alphabet_size;
-        let empty = k; // empty marker
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.layout.n;
+            let k = self.alphabet_size;
+            let empty = k; // empty marker
 
-        // Build D-slots
-        let mut d_slots = vec![empty; n];
-        for j in 0..n {
-            if target_solution[self.layout.d_used_var(j)] == 1 {
-                for c in 0..k {
-                    if target_solution[self.layout.d_var(j, c)] == 1 {
-                        d_slots[j] = c;
-                        break;
+            // Build D-slots
+            let mut d_slots = vec![empty; n];
+            for j in 0..n {
+                if target_solution[self.layout.d_used_var(j)] == 1 {
+                    for c in 0..k {
+                        if target_solution[self.layout.d_var(j, c)] == 1 {
+                            d_slots[j] = c;
+                            break;
+                        }
                     }
                 }
             }
-        }
 
-        // Walk through active segments to build C-slots
-        let mut c_slots = vec![empty; n];
-        let mut c_pos = 0;
-        let mut pos = 0;
-        while pos < n {
-            // Check if lit[pos] = 1
-            if target_solution[self.layout.lit_var(pos)] == 1 {
-                // Literal at position pos
-                c_slots[c_pos] = self.source_string[pos];
-                c_pos += 1;
-                pos += 1;
-                continue;
-            }
-            // Check for an active pointer starting at pos
-            let mut found = false;
-            for l in 1..=(n - pos) {
-                for d_start in 0..=(n - l) {
-                    let var_idx = self.layout.ptr_var(pos, l, d_start);
-                    if target_solution[var_idx] == 1 {
-                        // Encode pointer (d_start, l) as EMDC pointer index
-                        let ptr_idx = encode_pointer(n, d_start, l);
-                        c_slots[c_pos] = k + 1 + ptr_idx;
-                        c_pos += 1;
-                        pos += l;
-                        found = true;
+            // Walk through active segments to build C-slots
+            let mut c_slots = vec![empty; n];
+            let mut c_pos = 0;
+            let mut pos = 0;
+            while pos < n {
+                // Check if lit[pos] = 1
+                if target_solution[self.layout.lit_var(pos)] == 1 {
+                    // Literal at position pos
+                    c_slots[c_pos] = self.source_string[pos];
+                    c_pos += 1;
+                    pos += 1;
+                    continue;
+                }
+                // Check for an active pointer starting at pos
+                let mut found = false;
+                for l in 1..=(n - pos) {
+                    for d_start in 0..=(n - l) {
+                        let var_idx = self.layout.ptr_var(pos, l, d_start);
+                        if target_solution[var_idx] == 1 {
+                            // Encode pointer (d_start, l) as EMDC pointer index
+                            let ptr_idx = encode_pointer(n, d_start, l);
+                            c_slots[c_pos] = k + 1 + ptr_idx;
+                            c_pos += 1;
+                            pos += l;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if found {
                         break;
                     }
                 }
-                if found {
-                    break;
+                if !found {
+                    // Should not happen with a valid ILP solution
+                    pos += 1;
                 }
             }
-            if !found {
-                // Should not happen with a valid ILP solution
-                pos += 1;
-            }
-        }
 
-        // Combine D-slots and C-slots
-        let mut config = d_slots;
-        config.extend(c_slots);
-        config
+            // Combine D-slots and C-slots
+            let mut config = d_slots;
+            config.extend(c_slots);
+            config
+        })
     }
 }
 
@@ -387,7 +392,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(1)] = 1;
 
             // Verify this is correct
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             debug_assert_eq!(source_config[..n], [k, k]); // D empty
             debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"
 

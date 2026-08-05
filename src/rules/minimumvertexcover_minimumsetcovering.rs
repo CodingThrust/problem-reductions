@@ -29,8 +29,11 @@ where
 
     /// Solution extraction: variables correspond 1:1.
     /// Vertex i in VC corresponds to set i in SC.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

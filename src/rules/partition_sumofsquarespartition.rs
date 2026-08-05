@@ -47,12 +47,17 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
     /// witness has a different length, so we return an all-zero source-sized
     /// vector; `Partition::evaluate` then yields `Or(false)`, which is the
     /// correct answer because a single positive element cannot be balanced.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_n {
-            target_solution.to_vec()
-        } else {
-            vec![0; self.source_n]
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if target_solution.len() == self.source_n {
+                target_solution.to_vec()
+            } else {
+                vec![0; self.source_n]
+            }
+        })
     }
 }
 

@@ -335,12 +335,17 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d_max = self.target.d_max();
-        self.positive_start_jobs
-            .iter()
-            .map(|&job| usize::from(task_slot(target_solution, job, d_max) == Some(0)))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let d_max = self.target.d_max();
+            self.positive_start_jobs
+                .iter()
+                .map(|&job| usize::from(task_slot(target_solution, job, d_max) == Some(0)))
+                .collect()
+        })
     }
 }
 

@@ -42,7 +42,7 @@ fn test_minimummultiwaycut_to_ilp_closed_loop() {
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = problem.evaluate(&extracted);
 
     // Optimal cut cost is 8
@@ -63,7 +63,7 @@ fn test_triangle_with_3_terminals() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let obj = problem.evaluate(&extracted);
     assert_eq!(obj, Min(Some(6)));
@@ -81,7 +81,7 @@ fn test_two_terminals() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let obj = problem.evaluate(&extracted);
     assert_eq!(obj, Min(Some(1)));
@@ -118,7 +118,7 @@ fn test_solution_extraction() {
     ilp_solution[15 + 3] = 1; // edge (3,4) cut
     ilp_solution[15 + 4] = 1; // edge (0,4) cut
 
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 0, 1, 1, 0]);
 
     let obj = problem.evaluate(&extracted);

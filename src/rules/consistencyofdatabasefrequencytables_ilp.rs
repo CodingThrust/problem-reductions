@@ -90,23 +90,29 @@ impl ReductionResult for ReductionCDFTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
-        for object in 0..self.source.num_objects() {
-            for (attribute, &domain_size) in self.source.attribute_domains().iter().enumerate() {
-                let value = (0..domain_size)
-                    .find(|&candidate| {
-                        target_solution
-                            .get(self.assignment_var_index(object, attribute, candidate))
-                            .copied()
-                            .unwrap_or(0)
-                            == 1
-                    })
-                    .unwrap_or(0);
-                source_solution.push(value);
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut source_solution = Vec::with_capacity(self.source.num_assignment_variables());
+            for object in 0..self.source.num_objects() {
+                for (attribute, &domain_size) in self.source.attribute_domains().iter().enumerate()
+                {
+                    let value = (0..domain_size)
+                        .find(|&candidate| {
+                            target_solution
+                                .get(self.assignment_var_index(object, attribute, candidate))
+                                .copied()
+                                .unwrap_or(0)
+                                == 1
+                        })
+                        .unwrap_or(0);
+                    source_solution.push(value);
+                }
             }
-        }
-        source_solution
+            source_solution
+        })
     }
 }
 

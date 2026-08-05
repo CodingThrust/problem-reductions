@@ -45,10 +45,15 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
     let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&issue_example_target_config()),
+        reduction
+            .extract_solution(&issue_example_target_config())
+            .unwrap(),
         issue_example_source_config()
     );
-    assert_eq!(reduction.extract_solution(&[1, 0, 0, 1]), vec![1, 0, 0, 1]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 0, 0, 1]).unwrap(),
+        vec![1, 0, 0, 1]
+    );
 }
 
 #[test]

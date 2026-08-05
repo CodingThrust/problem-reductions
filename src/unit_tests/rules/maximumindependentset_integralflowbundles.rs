@@ -23,7 +23,7 @@ fn test_maximumindependentset_to_integralflowbundles_closed_loop() {
     let witnesses = solver.find_all_witnesses(target);
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        let source_config = reduction.extract_solution(w);
+        let source_config = reduction.extract_solution(w).unwrap();
         let value = source.evaluate(&source_config);
         assert!(value.is_valid(), "Extracted config should be a valid IS");
     }
@@ -48,7 +48,7 @@ fn test_maximumindependentset_to_integralflowbundles_triangle() {
     let witnesses = solver.find_all_witnesses(target);
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        let source_config = reduction.extract_solution(w);
+        let source_config = reduction.extract_solution(w).unwrap();
         let value = source.evaluate(&source_config);
         assert!(value.is_valid());
     }
@@ -73,7 +73,7 @@ fn test_maximumindependentset_to_integralflowbundles_cycle5() {
     let witnesses = solver.find_all_witnesses(target);
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        let source_config = reduction.extract_solution(w);
+        let source_config = reduction.extract_solution(w).unwrap();
         let value = source.evaluate(&source_config);
         assert!(value.is_valid());
     }
@@ -95,7 +95,7 @@ fn test_maximumindependentset_to_integralflowbundles_empty_graph() {
     let witnesses = solver.find_all_witnesses(target);
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        let source_config = reduction.extract_solution(w);
+        let source_config = reduction.extract_solution(w).unwrap();
         let value = source.evaluate(&source_config);
         assert!(value.is_valid());
     }
@@ -117,7 +117,7 @@ fn test_maximumindependentset_to_integralflowbundles_single_vertex() {
     let witnesses = solver.find_all_witnesses(target);
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        let source_config = reduction.extract_solution(w);
+        let source_config = reduction.extract_solution(w).unwrap();
         let value = source.evaluate(&source_config);
         assert!(value.is_valid());
         assert_eq!(value.unwrap(), 1);

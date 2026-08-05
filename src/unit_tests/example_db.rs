@@ -421,7 +421,7 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         .into_iter()
         .filter(|entry| entry.source_name != entry.target_name)
         // Turing (multi-query) edges have no single-shot reduction to demonstrate
-        .filter(|entry| !entry.capabilities.turing)
+        .filter(|entry| !entry.turing)
         .map(|entry| {
             (
                 ProblemRef {
@@ -688,7 +688,7 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
-                let extracted = chain.extract_solution(&pair.target_config);
+                let extracted = chain.extract_solution(&pair.target_config).unwrap();
                 let extracted_val = source.evaluate_json(&extracted);
                 assert_eq!(
                     extracted_val, source_val,

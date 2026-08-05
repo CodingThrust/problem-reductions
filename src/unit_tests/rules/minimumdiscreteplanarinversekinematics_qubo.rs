@@ -43,7 +43,10 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_link() {
 
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions.len(), 1);
-    assert_eq!(reduction.extract_solution(&qubo_solutions[0]), vec![1]);
+    assert_eq!(
+        reduction.extract_solution(&qubo_solutions[0]).unwrap(),
+        vec![1]
+    );
     assert!(matches!(source.evaluate(&[1]), Min(Some(v)) if v.abs() < EPS));
 }
 
@@ -62,7 +65,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_sample_per_link() 
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions, vec![vec![1, 1, 1]]);
     assert_eq!(
-        reduction.extract_solution(&qubo_solutions[0]),
+        reduction.extract_solution(&qubo_solutions[0]).unwrap(),
         vec![0, 0, 0]
     );
     assert!(matches!(source.evaluate(&[0, 0, 0]), Min(Some(v)) if v.abs() < EPS));
@@ -83,7 +86,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_empty_allowed_pairs() {
     assert_eq!(solver.solve(&source), Min(None));
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
     for target_solution in qubo_solutions {
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(source.evaluate(&extracted), Min(None));
     }
 }

@@ -42,7 +42,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_feasible_paper_example() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -70,7 +70,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_setup_time_respected() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -97,7 +97,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_bf_vs_ilp_small() {
         "BF and ILP should agree on feasibility"
     );
     if let Ok(ilp_solution) = ilp_result {
-        let extracted = reduction.extract_solution(&ilp_solution);
+        let extracted = reduction.extract_solution(&ilp_solution).unwrap();
         assert_eq!(problem.evaluate(&extracted), Or(true));
     }
 }
@@ -116,6 +116,6 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_no_setup_same_compiler() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("should be feasible with no switches");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

@@ -246,7 +246,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_r
     assert!(source.evaluate(&source_solution));
     assert!(reduction.target_problem().evaluate(&target_solution));
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         source_solution
     );
 }
@@ -264,7 +264,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
     assert_eq!(target.num_matchings(), 2);
     assert!(target.evaluate(&target_solution));
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         source_solution
     );
 }

@@ -33,21 +33,26 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let schedule = self.decode_schedule(target_solution);
-        let mut source_config = vec![1; self.target.num_tasks()];
-        let mut completion_time = 0u64;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let schedule = self.decode_schedule(target_solution);
+            let mut source_config = vec![1; self.target.num_tasks()];
+            let mut completion_time = 0u64;
 
-        for task in schedule {
-            completion_time = completion_time
-                .checked_add(self.target.lengths()[task])
-                .expect("completion time overflowed u64");
-            if completion_time <= self.target.deadlines()[task] {
-                source_config[task] = 0;
+            for task in schedule {
+                completion_time = completion_time
+                    .checked_add(self.target.lengths()[task])
+                    .expect("completion time overflowed u64");
+                if completion_time <= self.target.deadlines()[task] {
+                    source_config[task] = 0;
+                }
             }
-        }
 
-        source_config
+            source_config
+        })
     }
 }
 

@@ -34,15 +34,20 @@ impl ReductionResult for ReductionCAToILP {
     }
 
     /// Extract solution: for each link l, find the unique capacity c where x_{l,c} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_capacities = self.num_capacities;
-        (0..self.num_links)
-            .map(|l| {
-                (0..num_capacities)
-                    .find(|&c| target_solution[l * num_capacities + c] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_capacities = self.num_capacities;
+            (0..self.num_links)
+                .map(|l| {
+                    (0..num_capacities)
+                        .find(|&c| target_solution[l * num_capacities + c] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

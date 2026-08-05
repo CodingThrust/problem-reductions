@@ -51,12 +51,17 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
     /// which decodes to `S = ∅`. `ThreeDimensionalMatching::evaluate(∅)`
     /// then yields `Or(true)` iff `q == 0` (the correct answer for both
     /// sentinel sub-cases).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_num_triples {
-            target_solution.to_vec()
-        } else {
-            vec![0; self.source_num_triples]
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if target_solution.len() == self.source_num_triples {
+                target_solution.to_vec()
+            } else {
+                vec![0; self.source_num_triples]
+            }
+        })
     }
 }
 

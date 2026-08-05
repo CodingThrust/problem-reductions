@@ -73,7 +73,7 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_solution_extrac
     let target_solutions = solver.find_all_witnesses(target);
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
         let source_valid = source.evaluate(&extracted);
         assert!(

@@ -53,7 +53,7 @@ fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_tim
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 
@@ -66,7 +66,7 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
         construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
             .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -83,7 +83,7 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 

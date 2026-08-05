@@ -50,18 +50,23 @@ where
     ///
     /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = self.num_colors;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..k)
-                    .find(|&c| {
-                        let var_idx = self.var_index(v, c);
-                        var_idx < target_solution.len() && target_solution[var_idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let k = self.num_colors;
+            (0..self.num_vertices)
+                .map(|v| {
+                    (0..k)
+                        .find(|&c| {
+                            let var_idx = self.var_index(v, c);
+                            var_idx < target_solution.len() && target_solution[var_idx] == 1
+                        })
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

@@ -62,7 +62,7 @@ fn test_minimumweightdecoding_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let ilp_value = problem.evaluate(&extracted);
     assert_eq!(ilp_value, bf_value);
@@ -82,7 +82,7 @@ fn test_minimumweightdecoding_to_ilp_small_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_value);
 }
 
@@ -114,7 +114,7 @@ fn test_minimumweightdecoding_to_ilp_extract_solution() {
     // Row 1: H[1][2]=1 → sum=1, s=1 → 1-1=0 → k_1=0 ✓
     // Row 2: H[2][2]=0 → sum=0, s=0 → 0-0=0 → k_2=0 ✓
     let target_solution = vec![0, 0, 1, 0, 0, 0, 0];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), 4);
     assert_eq!(extracted, vec![0, 0, 1, 0]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));

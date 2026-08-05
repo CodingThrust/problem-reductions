@@ -54,12 +54,17 @@ impl ReductionResult for ReductionUFLBToILP {
     /// The model encodes orientation as config[e] = 0 for u→v, 1 for v→u.
     /// The ILP uses z_e = 1 for u→v, z_e = 0 for v→u.
     /// So we return 1 - z_e to match the model's convention.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let e = self.num_edges;
-        target_solution[2 * e..3 * e]
-            .iter()
-            .map(|&z| 1 - z)
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let e = self.num_edges;
+            target_solution[2 * e..3 * e]
+                .iter()
+                .map(|&z| 1 - z)
+                .collect()
+        })
     }
 }
 

@@ -40,23 +40,28 @@ impl ReductionResult for ReductionSWCPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_edges)
-            .map(|edge_idx| {
-                usize::from(
-                    target_solution
-                        .get(Self::arc_var(edge_idx, 0))
-                        .copied()
-                        .unwrap_or(0)
-                        > 0
-                        || target_solution
-                            .get(Self::arc_var(edge_idx, 1))
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            (0..self.num_edges)
+                .map(|edge_idx| {
+                    usize::from(
+                        target_solution
+                            .get(Self::arc_var(edge_idx, 0))
                             .copied()
                             .unwrap_or(0)
-                            > 0,
-                )
-            })
-            .collect()
+                            > 0
+                            || target_solution
+                                .get(Self::arc_var(edge_idx, 1))
+                                .copied()
+                                .unwrap_or(0)
+                                > 0,
+                    )
+                })
+                .collect()
+        })
     }
 }
 

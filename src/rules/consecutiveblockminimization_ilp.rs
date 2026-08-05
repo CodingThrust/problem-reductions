@@ -24,9 +24,14 @@ impl ReductionResult for ReductionCBMToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the column permutation from x_{c,p}
-        one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Decode the column permutation from x_{c,p}
+            one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
+        })
     }
 }
 

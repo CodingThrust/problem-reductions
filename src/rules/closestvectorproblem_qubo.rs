@@ -31,24 +31,29 @@ impl ReductionResult for ReductionCVPToQUBO {
     }
 
     /// Reconstruct the source configuration offsets from the encoded QUBO bits.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.encodings
-            .iter()
-            .map(|encoding| {
-                encoding
-                    .weights
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, weight)| {
-                        target_solution
-                            .get(encoding.start + offset)
-                            .copied()
-                            .unwrap_or(0)
-                            * weight
-                    })
-                    .sum()
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.encodings
+                .iter()
+                .map(|encoding| {
+                    encoding
+                        .weights
+                        .iter()
+                        .enumerate()
+                        .map(|(offset, weight)| {
+                            target_solution
+                                .get(encoding.start + offset)
+                                .copied()
+                                .unwrap_or(0)
+                                * weight
+                        })
+                        .sum()
+                })
+                .collect()
+        })
     }
 }
 

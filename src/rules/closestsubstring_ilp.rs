@@ -70,41 +70,58 @@ impl ReductionResult for ReductionClosestSubstringToILP {
     /// first `ell` entries are the center symbols, the remaining `n` entries
     /// are per-string window starts. For each center position `r`, we pick the
     /// unique alphabet symbol `a` with `x_{r, a} = 1`; for each input string
-    /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`. When no
-    /// indicator is set to 1 in some block (which only happens on partial /
-    /// infeasible ILP solutions), we fall back to 0 so the returned vector
-    /// still has the expected shape.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        if target_solution.len() != self.target.num_vars {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} ILP values, got {}",
+                self.target.num_vars,
+                target_solution.len()
+            )));
+        }
+
         let q = self.alphabet_size;
         let ell = self.substring_length;
         let y_base = q * ell;
-
         let mut out = Vec::with_capacity(ell + self.window_counts.len());
 
-        // Center symbols.
-        for r in 0..ell {
-            let symbol = (0..q)
-                .find(|&a| target_solution.get(r * q + a).copied().unwrap_or(0) == 1)
-                .unwrap_or(0);
-            out.push(symbol);
+        for position in 0..ell {
+            let block = &target_solution[position * q..(position + 1) * q];
+            out.push(decode_one_hot(block, "center position", position)?);
+        }
+        for (string, &window_count) in self.window_counts.iter().enumerate() {
+            let start = y_base + self.window_offsets[string];
+            out.push(decode_one_hot(
+                &target_solution[start..start + window_count],
+                "string window",
+                string,
+            )?);
         }
 
-        // Window starts.
-        for (i, &w_i) in self.window_counts.iter().enumerate() {
-            let start = (0..w_i)
-                .find(|&p| {
-                    target_solution
-                        .get(y_base + self.window_offsets[i] + p)
-                        .copied()
-                        .unwrap_or(0)
-                        == 1
-                })
-                .unwrap_or(0);
-            out.push(start);
-        }
-
-        out
+        Ok(out)
     }
+}
+
+fn decode_one_hot(
+    block: &[usize],
+    block_name: &str,
+    block_index: usize,
+) -> crate::rules::ExtractionResult<usize> {
+    let mut selected = block.iter().enumerate().filter(|(_, value)| **value == 1);
+    let index = selected.next().map(|(index, _)| index).ok_or_else(|| {
+        crate::rules::ExtractionError::invalid(format!(
+            "{block_name} {block_index} has no selected value"
+        ))
+    })?;
+    if selected.next().is_some() || block.iter().any(|&value| value > 1) {
+        return Err(crate::rules::ExtractionError::invalid(format!(
+            "{block_name} {block_index} is not one-hot"
+        )));
+    }
+    Ok(index)
 }
 
 #[reduction(

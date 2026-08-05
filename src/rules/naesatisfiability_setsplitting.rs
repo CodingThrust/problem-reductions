@@ -25,14 +25,19 @@ impl ReductionResult for ReductionNAESATToSetSplitting {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        assert!(
-            target_solution.len() >= self.num_source_variables,
-            "SetSplitting solution has {} variables but source requires {}",
-            target_solution.len(),
-            self.num_source_variables,
-        );
-        target_solution[..self.num_source_variables].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            assert!(
+                target_solution.len() >= self.num_source_variables,
+                "SetSplitting solution has {} variables but source requires {}",
+                target_solution.len(),
+                self.num_source_variables,
+            );
+            target_solution[..self.num_source_variables].to_vec()
+        })
     }
 }
 

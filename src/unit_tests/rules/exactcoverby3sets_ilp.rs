@@ -27,7 +27,7 @@ fn test_exactcoverby3sets_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -36,7 +36,7 @@ fn test_solution_extraction() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
     let reduction: ReductionX3CToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solution = vec![1, 1]; // select both triples
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 1]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

@@ -25,8 +25,16 @@ impl ReductionResult for ReductionCOMAToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(one_hot_decode(
+            target_solution,
+            self.num_cols,
+            self.num_cols,
+            0,
+        ))
     }
 }
 
@@ -187,7 +195,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

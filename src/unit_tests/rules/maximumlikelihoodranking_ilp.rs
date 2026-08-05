@@ -49,7 +49,7 @@ fn test_maximumlikelihoodranking_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -66,7 +66,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify the extracted config is a valid permutation
     let n = problem.num_items();
@@ -92,7 +92,7 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
     assert_eq!(ilp.num_constraints(), 0);
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid());
 
@@ -114,7 +114,7 @@ fn test_maximumlikelihoodranking_to_ilp_single_item() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("single-item ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0]);
 }
 

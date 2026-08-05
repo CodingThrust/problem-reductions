@@ -86,12 +86,12 @@ fn test_extract_solution_basic() {
 
     // Select vertex 0 (literal x1)
     let is_sol = vec![1, 0];
-    let sat_sol = reduction.extract_solution(&is_sol);
+    let sat_sol = reduction.extract_solution(&is_sol).unwrap();
     assert_eq!(sat_sol, vec![1, 0]); // x1=true, x2=false
 
     // Select vertex 1 (literal x2)
     let is_sol = vec![0, 1];
-    let sat_sol = reduction.extract_solution(&is_sol);
+    let sat_sol = reduction.extract_solution(&is_sol).unwrap();
     assert_eq!(sat_sol, vec![0, 1]); // x1=false, x2=true
 }
 
@@ -102,7 +102,7 @@ fn test_extract_solution_with_negation() {
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat);
 
     let is_sol = vec![1];
-    let sat_sol = reduction.extract_solution(&is_sol);
+    let sat_sol = reduction.extract_solution(&is_sol).unwrap();
     assert_eq!(sat_sol, vec![0]); // x1=false (so NOT x1 is true)
 }
 
@@ -217,7 +217,7 @@ fn test_jl_parity_sat_to_independentset() {
             if sat_solutions.is_empty() {
                 let target_solution = solve_optimization_problem(result.target_problem())
                     .expect("SAT->IS: target should have an optimal solution");
-                let extracted = result.extract_solution(&target_solution);
+                let extracted = result.extract_solution(&target_solution).unwrap();
                 assert!(
                     !source.evaluate(&extracted),
                     "SAT->IS [{label}]: unsatisfiable but extracted satisfies"

@@ -26,11 +26,16 @@ impl ReductionResult for ReductionSATToCircuit {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_var_indices
-            .iter()
-            .map(|&idx| target_solution[idx])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.source_var_indices
+                .iter()
+                .map(|&idx| target_solution[idx])
+                .collect()
+        })
     }
 }
 

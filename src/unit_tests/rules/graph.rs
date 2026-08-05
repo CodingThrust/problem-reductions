@@ -9,7 +9,7 @@ use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::{Minimize, MinimizeSteps};
 use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
-use crate::rules::registry::{EdgeCapabilities, ReductionEntry};
+use crate::rules::registry::ReductionEntry;
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -165,8 +165,11 @@ impl ReductionResult for SourceToMiddleWitnessResult {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -281,7 +284,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
     graph.add_edge(
@@ -291,7 +294,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
 
@@ -346,7 +349,7 @@ fn witness_path_search_rejects_aggregate_only_edge() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
 
@@ -391,7 +394,7 @@ fn aggregate_path_search_rejects_witness_only_edge() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
+            turing: false,
         },
     );
 
@@ -424,7 +427,7 @@ fn aggregate_path_search_rejects_witness_only_edge() {
 }
 
 #[test]
-fn natural_edge_supports_both_modes() {
+fn witness_executor_does_not_imply_aggregate_capability() {
     let source_variant = BTreeMap::from([("graph".to_string(), "Source".to_string())]);
     let target_variant = BTreeMap::from([("graph".to_string(), "Target".to_string())]);
     let graph = build_two_node_graph(
@@ -436,7 +439,7 @@ fn natural_edge_supports_both_modes() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: Some(reduce_natural_variant_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::both(),
+            turing: false,
         },
     );
 
@@ -466,11 +469,7 @@ fn natural_edge_supports_both_modes() {
         .value;
 
     assert!(witness_path.is_some());
-    let aggregate_path = aggregate_path.expect("expected aggregate path");
-    let chain = graph
-        .reduce_aggregate_along_path(&aggregate_path, &NaturalVariantProblem as &dyn Any)
-        .expect("expected aggregate chain");
-    assert_eq!(chain.extract_value_dyn(json!(7)), json!(7));
+    assert!(aggregate_path.is_none());
 }
 
 #[test]
@@ -485,7 +484,7 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
-            capabilities: EdgeCapabilities::aggregate_only(),
+            turing: false,
         },
     );
     let single_step_path = ReductionPath {
@@ -512,7 +511,7 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
             overhead: crate::rules::registry::ReductionOverhead::default(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
-            capabilities: EdgeCapabilities::witness_only(),
+            turing: false,
         },
     );
     let path = ReductionPath {
@@ -1451,7 +1450,7 @@ fn test_reduction_chain_direct() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
 }
@@ -1488,7 +1487,7 @@ fn test_reduction_chain_multi_step() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
 }
@@ -1542,7 +1541,7 @@ fn test_reduction_chain_with_variant_casts() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(target).unwrap();
-    let source_solution = chain.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = mis.evaluate(&source_solution);
     assert!(metric.is_valid());
 
@@ -1587,7 +1586,7 @@ fn test_reduction_chain_with_variant_casts() {
     let target: &MaximumIndependentSet<SimpleGraph, i32> = ksat_chain.target_problem();
 
     let target_solution = solver.find_witness(target).unwrap();
-    let original_solution = ksat_chain.extract_solution(&target_solution);
+    let original_solution = ksat_chain.extract_solution(&target_solution).unwrap();
 
     // Verify the extracted solution satisfies the original 3-SAT formula
     assert!(ksat.evaluate(&original_solution));
@@ -1705,12 +1704,14 @@ fn test_variant_complexity() {
 }
 
 #[test]
-fn test_compute_source_size() {
+fn test_compute_source_size_uses_exact_variant_executor() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 1, 1, 1],
     );
-    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &problem);
+    let variant =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let size = ReductionGraph::compute_source_size("MaximumIndependentSet", &variant, &problem);
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -1718,7 +1719,8 @@ fn test_compute_source_size() {
 #[test]
 fn test_compute_source_size_unknown_problem() {
     let problem = 42u32;
-    let size = ReductionGraph::compute_source_size("NonExistentProblem", &problem);
+    let size =
+        ReductionGraph::compute_source_size("NonExistentProblem", &BTreeMap::new(), &problem);
     assert!(size.components.is_empty());
 }
 

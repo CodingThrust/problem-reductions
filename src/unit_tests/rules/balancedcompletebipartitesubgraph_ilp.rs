@@ -54,7 +54,7 @@ fn test_extract_solution_identity() {
     let source = small_instance();
     let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
     let target_sol = vec![1, 1, 0, 1, 1, 0];
-    let extracted = reduction.extract_solution(&target_sol);
+    let extracted = reduction.extract_solution(&target_sol).unwrap();
     assert_eq!(extracted, vec![1, 1, 0, 1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
 }

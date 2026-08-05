@@ -24,15 +24,20 @@ impl ReductionResult for ReductionISTToILP {
     }
 
     /// For each tree vertex u, output the unique graph vertex v with x_{u,v} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        (0..n)
-            .map(|u| {
-                (0..n)
-                    .find(|&v| target_solution[u * n + v] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.n;
+            (0..n)
+                .map(|u| {
+                    (0..n)
+                        .find(|&v| target_solution[u * n + v] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

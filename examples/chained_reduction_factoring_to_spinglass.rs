@@ -47,7 +47,7 @@ pub fn run() {
     let solver = ILPSolver::new();
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
     let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
-    let solution = reduction.extract_solution(&ilp_solution);
+    let solution = reduction.extract_solution(&ilp_solution).unwrap();
     // ANCHOR_END: step3
 
     // ANCHOR: step4

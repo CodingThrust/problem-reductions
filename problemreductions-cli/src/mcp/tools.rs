@@ -1638,7 +1638,7 @@ fn solve_bundle_inner(bundle: ReductionBundle, request: SolverRequest) -> anyhow
             )
         })?;
 
-    let (source_config, source_eval) = replay.extract(target_config);
+    let (source_config, source_eval) = replay.extract(target_config)?;
 
     let json = serde_json::json!({
         "problem": replay.source_name,

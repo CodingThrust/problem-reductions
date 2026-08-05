@@ -37,8 +37,11 @@ impl ReductionResult for ReductionD2CIFToILP {
     }
 
     /// Extract flow solution: all 2*|A| variables directly encode the flow.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..2 * self.num_arcs].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..2 * self.num_arcs].to_vec())
     }
 }
 

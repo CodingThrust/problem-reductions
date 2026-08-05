@@ -139,9 +139,11 @@ impl CompiledIlpPipeline {
             .expect("non-empty fixed pipeline must produce a target")
             .target_problem_any();
         let solution = solver.solve_dyn(target)?;
-        Ok(reductions.iter().rev().fold(solution, |current, step| {
-            step.extract_solution_dyn(&current)
-        }))
+        let mut source_solution = solution;
+        for step in reductions.iter().rev() {
+            source_solution = step.extract_solution_dyn(&source_solution)?;
+        }
+        Ok(source_solution)
     }
 }
 
@@ -273,7 +275,7 @@ fn build_registry(
     for entry in reductions
         .iter()
         .copied()
-        .filter(|entry| entry.capabilities.witness && entry.reduce_fn.is_some())
+        .filter(|entry| entry.reduce_fn.is_some())
     {
         reduction_index
             .entry((edge_key(entry, true), edge_key(entry, false)))

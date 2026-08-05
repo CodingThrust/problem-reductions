@@ -49,7 +49,7 @@ fn test_maximumsetpacking_to_ilp_closed_loop() {
 
     let bf_solutions = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let bf_size: usize = bf_solutions[0].iter().sum();
     let ilp_size: usize = extracted.iter().sum();
@@ -78,7 +78,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_obj = problem.evaluate(&extracted);
 
     assert_eq!(bf_obj, Max(Some(6)));
@@ -93,7 +93,7 @@ fn test_solution_extraction() {
     let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     let ilp_solution = vec![1, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 1, 0]);
     assert!(problem.evaluate(&extracted).is_valid());
 }
@@ -108,7 +108,7 @@ fn test_disjoint_sets() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1, 1]);
     assert!(problem.evaluate(&extracted).is_valid());

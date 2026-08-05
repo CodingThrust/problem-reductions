@@ -247,19 +247,24 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.encodings
-            .iter()
-            .map(|enc| {
-                let val: i64 = enc
-                    .weights
-                    .iter()
-                    .enumerate()
-                    .map(|(j, &w)| w * target_solution[enc.start + j] as i64)
-                    .sum();
-                val as usize
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            self.encodings
+                .iter()
+                .map(|enc| {
+                    let val: i64 = enc
+                        .weights
+                        .iter()
+                        .enumerate()
+                        .map(|(j, &w)| w * target_solution[enc.start + j] as i64)
+                        .sum();
+                    val as usize
+                })
+                .collect()
+        })
     }
 }
 

@@ -18,7 +18,7 @@ fn test_knapsack_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 1, 0]);
 }
 
@@ -33,7 +33,7 @@ fn test_knapsack_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = knapsack.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -68,7 +68,7 @@ fn test_knapsack_to_ilp_zero_capacity() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0]);
 }
 
@@ -88,7 +88,7 @@ fn test_knapsack_to_ilp_empty_instance() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("empty Knapsack ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, Vec::<usize>::new());
 }
 

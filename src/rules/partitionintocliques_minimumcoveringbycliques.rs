@@ -88,10 +88,6 @@ fn add_clique_edges(vertices: &[usize], edges: &mut Vec<(usize, usize)>) {
     }
 }
 
-fn invalid_source_solution(num_source_vertices: usize, num_source_cliques: usize) -> Vec<usize> {
-    vec![num_source_cliques; num_source_vertices]
-}
-
 /// Result of reducing PartitionIntoCliques to MinimumCoveringByCliques.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
@@ -108,58 +104,75 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.source_graph.num_vertices();
-        let target_edges = self.target.graph().edges();
-        if target_solution.len() != target_edges.len() {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
-
-        let mut matching_labels = vec![None; n];
-        for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
-            let matching_index = if *u < n && *v == n + *u {
-                Some(*u)
-            } else if *v < n && *u == n + *v {
-                Some(*v)
-            } else {
-                None
-            };
-
-            if let Some(i) = matching_index {
-                matching_labels[i] = Some(label);
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.source_graph.num_vertices();
+            let target_edges = self.target.graph().edges();
+            if target_solution.len() != target_edges.len() {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "expected {} edge labels, got {}",
+                    target_edges.len(),
+                    target_solution.len()
+                )));
             }
-        }
 
-        if matching_labels.iter().any(Option::is_none) {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
+            let mut matching_labels = vec![None; n];
+            for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
+                let matching_index = if *u < n && *v == n + *u {
+                    Some(*u)
+                } else if *v < n && *u == n + *v {
+                    Some(*v)
+                } else {
+                    None
+                };
 
-        let mut label_map = BTreeMap::new();
-        let extracted = matching_labels
-            .into_iter()
-            .map(|label| {
-                let label = label.expect("checked above");
-                let next = label_map.len();
-                *label_map.entry(label).or_insert(next)
-            })
-            .collect::<Vec<_>>();
+                if let Some(i) = matching_index {
+                    matching_labels[i] = Some(label);
+                }
+            }
 
-        if label_map.len() > self.source_num_cliques {
-            return invalid_source_solution(n, self.source_num_cliques);
-        }
+            if matching_labels.iter().any(Option::is_none) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target cover does not label every matching gadget edge",
+                ));
+            }
 
-        let source_problem =
-            PartitionIntoCliques::new(self.source_graph.clone(), self.source_num_cliques);
-        if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
-            &source_problem,
-            &extracted,
-        )
-        .0
-        {
-            extracted
-        } else {
-            invalid_source_solution(n, self.source_num_cliques)
-        }
+            let mut label_map = BTreeMap::new();
+            let extracted = matching_labels
+                .into_iter()
+                .map(|label| {
+                    let label = label.expect("checked above");
+                    let next = label_map.len();
+                    *label_map.entry(label).or_insert(next)
+                })
+                .collect::<Vec<_>>();
+
+            if label_map.len() > self.source_num_cliques {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "target cover uses {} cliques, exceeding source bound {}",
+                    label_map.len(),
+                    self.source_num_cliques
+                )));
+            }
+
+            let source_problem =
+                PartitionIntoCliques::new(self.source_graph.clone(), self.source_num_cliques);
+            if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
+                &source_problem,
+                &extracted,
+            )
+            .0
+            {
+                extracted
+            } else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target cover maps to an invalid source clique partition",
+                ));
+            }
+        })
     }
 }
 

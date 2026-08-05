@@ -14,7 +14,7 @@ fn test_emdc_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid(), "Extracted solution should be valid");
     assert_eq!(value, Min(Some(2)));
@@ -33,7 +33,7 @@ fn test_emdc_to_ilp_compression_wins() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid(), "Extracted solution should be valid");
     assert_eq!(value, Min(Some(12)));
@@ -78,7 +78,7 @@ fn test_emdc_to_ilp_empty() {
     assert!(ilp.constraints.is_empty());
 
     // For empty ILP, the solution is empty
-    let extracted = reduction.extract_solution(&[]);
+    let extracted = reduction.extract_solution(&[]).unwrap();
     let value = problem.evaluate(&extracted);
     assert_eq!(value, Min(Some(0)));
 }
@@ -102,7 +102,7 @@ fn test_emdc_to_ilp_single_char() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid());
     assert_eq!(value, Min(Some(1)));
@@ -121,7 +121,7 @@ fn test_emdc_to_ilp_repeated_string() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert!(value.is_valid());
     assert_eq!(value, Min(Some(3)));

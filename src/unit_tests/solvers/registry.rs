@@ -339,7 +339,7 @@ fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
     let reduction = reduction_entries()
         .into_iter()
         .find(|entry| {
-            entry.capabilities.witness
+            entry.capabilities().witness
                 && entry.reduce_fn.is_some()
                 && edge_key(entry, true) == path[0]
                 && edge_key(entry, false) == path[1]

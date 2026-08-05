@@ -17,48 +17,12 @@
 use crate::expr::Expr;
 use crate::growth::Growth;
 use crate::rules::cost::PathCostFn;
-use crate::rules::registry::{EdgeCapabilities, ReduceFn, ReductionOverhead};
+use crate::rules::registry::{ReduceFn, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
-use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
-use std::panic;
 use std::rc::Rc;
-use std::sync::Once;
-
-thread_local! {
-    /// When set, the installed panic hook suppresses output on the current thread.
-    static SILENCE_PANIC: Cell<bool> = const { Cell::new(false) };
-}
-
-static HOOK_INIT: Once = Once::new();
-
-/// Run `f`, catching any panic and returning `None`, without printing the panic to
-/// stderr on this thread.
-///
-/// During the measured search we deliberately execute candidate reductions to measure
-/// their real output size. A reduction whose preconditions the current instance violates
-/// panics (its macro-generated dispatch downcasts and unwraps); such an edge is simply
-/// not a viable path, so we treat the panic as "edge infeasible" and prune it — the
-/// design's guarantee that path selection never crashes. The thread-local silencer keeps
-/// this expected, recovered panic from spamming stderr while leaving genuine panics on
-/// other threads untouched.
-pub(crate) fn catch_reduction<R>(f: impl FnOnce() -> R) -> Option<R> {
-    HOOK_INIT.call_once(|| {
-        let prev = panic::take_hook();
-        panic::set_hook(Box::new(move |info| {
-            if SILENCE_PANIC.with(|s| s.get()) {
-                return;
-            }
-            prev(info);
-        }));
-    });
-    SILENCE_PANIC.with(|s| s.set(true));
-    let result = panic::catch_unwind(panic::AssertUnwindSafe(f));
-    SILENCE_PANIC.with(|s| s.set(false));
-    result.ok()
-}
 
 /// Default post-construction total-size budget for the measured search (in "size units",
 /// i.e. the sum of all `ProblemSize` components).
@@ -72,15 +36,12 @@ pub const DEFAULT_SIZE_BUDGET: usize = 10_000_000;
 ///
 /// It exposes exactly what a label needs to advance: the overhead formula (for symbolic
 /// and formula-based labels), the executable reduction function (for measured execution),
-/// the edge capabilities, and the target node's identity (for measuring the constructed
-/// target's size by name).
+/// and the target node's identity (for measuring the constructed target's size by name).
 pub struct ReductionEdge<'g> {
     /// Overhead expressions mapping source size fields to target size fields.
     pub overhead: &'g ReductionOverhead,
     /// Type-erased witness reduction executor, if this edge supports witness/config mode.
     pub reduce_fn: Option<ReduceFn>,
-    /// Capability metadata for the edge.
-    pub capabilities: EdgeCapabilities,
     /// Target problem name (e.g. "ILP").
     pub target_name: &'static str,
     /// Target problem variant.
@@ -249,26 +210,20 @@ impl<'a> MeasuredLabel<'a> {
     /// Execute one reduction and retain the state only when its measured target is
     /// within the post-construction budget.
     pub(crate) fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        // Execute the reduction and measure the real target size. Executing a
-        // reduction whose preconditions the current instance violates panics; such an
-        // edge is not a viable path, so a caught panic prunes it (returns `None`). The
-        // measurement (`compute_source_size`) probes every same-name size function, so
-        // mismatched-variant probes panic internally too — both are wrapped in one
-        // silenced `catch_reduction`.
+        // Execute the reduction and measure the real target size. The graph has already
+        // selected the exact source variant, so any panic is a reduction defect and must
+        // remain visible.
         let reduce_fn = edge.reduce_fn?;
         let current: &dyn Any = match &self.pos {
             MeasuredPos::Source(s) => *s,
             MeasuredPos::Reduced(step) => step.result.target_problem_any(),
         };
-        let target_name = edge.target_name;
-        let (result, measured) = catch_reduction(|| {
-            let result: Rc<dyn DynReductionResult> = Rc::from(reduce_fn(current));
-            let measured = crate::rules::ReductionGraph::compute_source_size(
-                target_name,
-                result.target_problem_any(),
-            );
-            (result, measured)
-        })?;
+        let result: Rc<dyn DynReductionResult> = Rc::from(reduce_fn(current));
+        let measured = crate::rules::ReductionGraph::compute_source_size(
+            edge.target_name,
+            edge.target_variant,
+            result.target_problem_any(),
+        );
         if measured.total() > self.budget {
             return None;
         }

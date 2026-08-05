@@ -302,7 +302,7 @@ inventory::submit! {
                 >>::reduce_to_aggregate(source),
             )
         }),
-        capabilities: crate::rules::EdgeCapabilities::both(),
+        turing: false,
         overhead_eval_fn: |any| {
             let source = any
                 .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
@@ -336,7 +336,7 @@ inventory::submit! {
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: crate::rules::EdgeCapabilities::turing(),
+        turing: true,
         overhead_eval_fn: |any| {
             let source = any
                 .downcast_ref::<MinimumDominatingSet<SimpleGraph, One>>()

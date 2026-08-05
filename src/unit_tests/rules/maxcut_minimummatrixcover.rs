@@ -182,7 +182,7 @@ fn test_extract_solution_is_identity() {
         MaxCut::<SimpleGraph, i32>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1]);
     let reduction = ReduceTo::<MinimumMatrixCover>::reduce_to(&source);
     let target_sol = vec![1, 0, 1];
-    assert_eq!(reduction.extract_solution(&target_sol), target_sol);
+    assert_eq!(reduction.extract_solution(&target_sol).unwrap(), target_sol);
 }
 
 #[test]

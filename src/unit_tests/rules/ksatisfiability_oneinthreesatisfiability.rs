@@ -97,7 +97,7 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
     let target_solution = vec![0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0];
     assert!(target.evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]);
     assert!(source.evaluate(&extracted).0);
 }

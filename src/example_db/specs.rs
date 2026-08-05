@@ -81,7 +81,7 @@ where
     let ilp_solution = crate::solvers::ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("canonical example must be ILP-solvable");
-    let source_config = reduction.extract_solution(&ilp_solution);
+    let source_config = reduction.extract_solution(&ilp_solution).unwrap();
     assemble_rule_example(
         &source,
         reduction.target_problem(),

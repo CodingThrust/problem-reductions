@@ -64,7 +64,7 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
         let target_solution: Vec<usize> = (0..target.num_vertices())
             .map(|bit| (mask >> bit) & 1)
             .collect();
-        let source_solution = reduction.extract_solution(&target_solution);
+        let source_solution = reduction.extract_solution(&target_solution).unwrap();
         let satisfied = source.evaluate(&source_solution).unwrap() as i32;
         let cut_weight = target.evaluate(&target_solution).unwrap();
 
@@ -81,10 +81,16 @@ fn test_maximum2satisfiability_to_maxcut_extract_solution_uses_reference_vertex(
     let source = make_issue_instance();
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
 
-    assert_eq!(reduction.extract_solution(&[0, 1, 0, 0]), vec![0, 1, 1]);
-    assert_eq!(reduction.extract_solution(&[1, 0, 1, 1]), vec![0, 1, 1]);
     assert_eq!(
-        source.evaluate(&reduction.extract_solution(&[1, 0, 1, 1])),
+        reduction.extract_solution(&[0, 1, 0, 0]).unwrap(),
+        vec![0, 1, 1]
+    );
+    assert_eq!(
+        reduction.extract_solution(&[1, 0, 1, 1]).unwrap(),
+        vec![0, 1, 1]
+    );
+    assert_eq!(
+        source.evaluate(&reduction.extract_solution(&[1, 0, 1, 1]).unwrap()),
         Max(Some(5))
     );
 }

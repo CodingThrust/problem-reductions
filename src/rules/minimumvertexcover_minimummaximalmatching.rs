@@ -8,7 +8,7 @@
 //! (for example, on `C5`, `mmm(G) = 2` but `mvc(G) = 3`).
 
 use crate::models::graph::{MinimumMaximalMatching, MinimumVertexCover};
-use crate::rules::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use crate::rules::{ReductionEntry, ReductionOverhead};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, ProblemSize};
@@ -34,7 +34,7 @@ inventory::submit! {
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::none(),
+        turing: false,
         overhead_eval_fn: source_problem_size,
         source_size_fn: source_problem_size,
     }

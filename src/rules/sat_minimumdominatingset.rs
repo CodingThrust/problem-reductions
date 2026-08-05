@@ -53,49 +53,55 @@ impl ReductionResult for ReductionSATToDS {
     ///   - 3*i+1: negative literal NOT x_i (selecting means x_i = false)
     ///   - 3*i+2: dummy vertex (selecting means x_i can be either)
     ///
-    /// If more than num_literals vertices are selected, the solution is invalid
-    /// and we return a default assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let selected_count: usize = target_solution.iter().sum();
+    /// If more than num_literals vertices are selected, the target witness is invalid.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let selected_count: usize = target_solution.iter().sum();
 
-        // If more vertices selected than variables, not a minimal dominating set
-        // corresponding to a satisfying assignment
-        if selected_count > self.num_literals {
-            // Return default assignment (all false)
-            return vec![0; self.num_literals];
-        }
+            // If more vertices selected than variables, not a minimal dominating set
+            // corresponding to a satisfying assignment
+            if selected_count > self.num_literals {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "selected {selected_count} dominating-set vertices for {} source variables",
+                    self.num_literals
+                )));
+            }
 
-        let mut assignment = vec![0usize; self.num_literals];
+            let mut assignment = vec![0usize; self.num_literals];
 
-        for (i, &value) in target_solution.iter().enumerate() {
-            if value == 1 {
-                // Only consider variable gadget vertices (first 3*num_literals vertices)
-                if i >= 3 * self.num_literals {
-                    continue; // Skip clause vertices
-                }
-
-                let var_index = i / 3;
-                let vertex_type = i % 3;
-
-                match vertex_type {
-                    0 => {
-                        // Positive literal selected: x_i = true
-                        assignment[var_index] = 1;
+            for (i, &value) in target_solution.iter().enumerate() {
+                if value == 1 {
+                    // Only consider variable gadget vertices (first 3*num_literals vertices)
+                    if i >= 3 * self.num_literals {
+                        continue; // Skip clause vertices
                     }
-                    1 => {
-                        // Negative literal selected: x_i = false
-                        assignment[var_index] = 0;
+
+                    let var_index = i / 3;
+                    let vertex_type = i % 3;
+
+                    match vertex_type {
+                        0 => {
+                            // Positive literal selected: x_i = true
+                            assignment[var_index] = 1;
+                        }
+                        1 => {
+                            // Negative literal selected: x_i = false
+                            assignment[var_index] = 0;
+                        }
+                        2 => {
+                            // Dummy vertex selected: variable is unconstrained
+                            // Default to false (already 0), but could be anything
+                        }
+                        _ => unreachable!(),
                     }
-                    2 => {
-                        // Dummy vertex selected: variable is unconstrained
-                        // Default to false (already 0), but could be anything
-                    }
-                    _ => unreachable!(),
                 }
             }
-        }
 
-        assignment
+            assignment
+        })
     }
 }
 

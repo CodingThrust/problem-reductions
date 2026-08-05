@@ -39,20 +39,25 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.num_edges == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            if self.num_edges == 0 {
+                return Ok(vec![]);
+            }
 
-        (0..self.num_edges)
-            .map(|edge_idx| {
-                (0..self.num_edges)
-                    .find(|&slot| {
-                        target_solution[self.y_offset + edge_idx * self.num_edges + slot] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+            (0..self.num_edges)
+                .map(|edge_idx| {
+                    (0..self.num_edges)
+                        .find(|&slot| {
+                            target_solution[self.y_offset + edge_idx * self.num_edges + slot] == 1
+                        })
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

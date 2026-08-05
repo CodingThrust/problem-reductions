@@ -293,12 +293,17 @@ impl ReductionResult for ReductionCircuitSATToSAT {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .take(self.source_var_count)
-            .copied()
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            target_solution
+                .iter()
+                .take(self.source_var_count)
+                .copied()
+                .collect()
+        })
     }
 }
 
@@ -350,7 +355,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = BruteForce::new()
                 .find_all_witnesses(reduction.target_problem())
                 .into_iter()
-                .find(|candidate| reduction.extract_solution(candidate) == source_config)
+                .find(|candidate| reduction.extract_solution(candidate).unwrap() == source_config)
                 .expect("canonical CircuitSAT -> Satisfiability example must be satisfiable");
 
             crate::example_db::specs::assemble_rule_example(

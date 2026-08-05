@@ -25,12 +25,17 @@ impl ReductionResult for ReductionSTMTTWToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        // Decode the n*n block of x_{j,p} variables into a schedule permutation.
-        // The source uses direct permutation encoding (config = schedule directly),
-        // so return the schedule as-is (it is already a permutation of 0..n).
-        one_hot_decode(target_solution, n, n, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_tasks;
+            // Decode the n*n block of x_{j,p} variables into a schedule permutation.
+            // The source uses direct permutation encoding (config = schedule directly),
+            // so return the schedule as-is (it is already a permutation of 0..n).
+            one_hot_decode(target_solution, n, n, 0)
+        })
     }
 }
 

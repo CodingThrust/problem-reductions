@@ -37,7 +37,7 @@ fn test_minimumfeedbackvertexset_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted);
 
     // Both should find optimal size = 1
@@ -86,7 +86,7 @@ fn test_cycle_of_triangles() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let size = problem.evaluate(&extracted);
     assert_eq!(size, Min(Some(3)), "FVS should be 3");
@@ -102,7 +102,7 @@ fn test_dag_no_removal() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let size = problem.evaluate(&extracted);
     assert_eq!(size, Min(Some(0)), "DAG needs no removal");
@@ -123,7 +123,7 @@ fn test_single_vertex() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
@@ -149,7 +149,7 @@ fn test_weighted() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Should remove vertex 1 (cheapest)
     assert_eq!(extracted[1], 1, "Should remove vertex 1 (cheapest)");
@@ -171,7 +171,7 @@ fn test_two_disjoint_cycles() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted);
 
     assert_eq!(bf_size, Min(Some(2)));
@@ -187,7 +187,7 @@ fn test_solution_extraction() {
 
     // Simulate ILP solution: x_0=1, x_1=0, x_2=0, o_0=0, o_1=0, o_2=1
     let ilp_solution = vec![1, 0, 0, 0, 0, 1];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 0]);
 
     // Verify this is a valid FVS (removing vertex 0 breaks the 3-cycle)

@@ -56,18 +56,23 @@ impl ReductionResult for ReductionSSPToILP {
     }
 
     /// Extract solution: for each element i, find the unique group g where x_{i,g} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_groups = self.num_groups;
-        (0..self.num_elements)
-            .map(|i| {
-                (0..num_groups)
-                    .find(|&g| {
-                        let idx = i * num_groups + g;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_groups = self.num_groups;
+            (0..self.num_elements)
+                .map(|i| {
+                    (0..num_groups)
+                        .find(|&g| {
+                            let idx = i * num_groups + g;
+                            idx < target_solution.len() && target_solution[idx] == 1
+                        })
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

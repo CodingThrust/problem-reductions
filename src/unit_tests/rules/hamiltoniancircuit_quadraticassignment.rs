@@ -103,7 +103,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
 
     // Permutation [0,1,2,3] visits 0->1->2->3->0 on cycle4
     let target_config = vec![0, 1, 2, 3];
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(
         source.evaluate(&extracted).0,
@@ -137,8 +137,8 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     let ilp_sol = ILPSolver::new()
         .solve(r2.target_problem())
         .expect("ILP should be feasible");
-    let qap_sol = r2.extract_solution(&ilp_sol);
-    let hc_sol = r1.extract_solution(&qap_sol);
+    let qap_sol = r2.extract_solution(&ilp_sol).unwrap();
+    let hc_sol = r1.extract_solution(&qap_sol).unwrap();
 
     assert!(
         hc.evaluate(&hc_sol).0,

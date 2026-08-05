@@ -51,9 +51,14 @@ impl ReductionResult for ReductionPSToILP {
     /// Extract schedule from ILP solution.
     ///
     /// Returns a binary config of length n * D_max: `config[t * D_max + u] = x_{t,u}`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let nd = self.num_tasks * self.d_max;
-        target_solution[..nd.min(target_solution.len())].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let nd = self.num_tasks * self.d_max;
+            target_solution[..nd.min(target_solution.len())].to_vec()
+        })
     }
 }
 

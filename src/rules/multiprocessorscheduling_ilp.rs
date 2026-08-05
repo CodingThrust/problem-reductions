@@ -33,15 +33,20 @@ impl ReductionResult for ReductionMSToILP {
     }
 
     /// Extract solution: for each task j, find the unique processor p where x_{j,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_processors = self.num_processors;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..num_processors)
-                    .find(|&p| target_solution[j * num_processors + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let num_processors = self.num_processors;
+            (0..self.num_tasks)
+                .map(|j| {
+                    (0..num_processors)
+                        .find(|&p| target_solution[j * num_processors + p] == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 

@@ -49,7 +49,7 @@ fn test_partition_to_subsetsum_odd_total() {
     assert!(witness.is_none());
 
     // extract_solution should return all-zeros for the source
-    let extracted = reduction.extract_solution(&[]);
+    let extracted = reduction.extract_solution(&[]).unwrap();
     assert_eq!(extracted, vec![0, 0, 0]);
     // The extracted solution should not satisfy the source
     assert!(!source.evaluate(&extracted));

@@ -45,29 +45,38 @@ impl ReductionResult for ReductionVCToEC {
     /// We collect all vertices that appear as singleton operands (index < |V|)
     /// in the meaningful steps only (before all required subsets are covered).
     /// Padding steps beyond the coverage point are ignored.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        use crate::traits::Problem;
-        use crate::types::Min;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            use crate::traits::Problem;
+            use crate::types::Min;
 
-        let meaningful_steps = match self.target.evaluate(target_solution) {
-            Min(Some(n)) => n,
-            _ => return vec![0; self.num_vertices],
-        };
-        let mut cover = vec![0usize; self.num_vertices];
+            let meaningful_steps = match self.target.evaluate(target_solution) {
+                Min(Some(n)) => n,
+                _ => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target configuration does not encode a valid ensemble computation",
+                    ))
+                }
+            };
+            let mut cover = vec![0usize; self.num_vertices];
 
-        for step in 0..meaningful_steps {
-            let left = target_solution[2 * step];
-            let right = target_solution[2 * step + 1];
+            for step in 0..meaningful_steps {
+                let left = target_solution[2 * step];
+                let right = target_solution[2 * step + 1];
 
-            if left < self.num_vertices {
-                cover[left] = 1;
+                if left < self.num_vertices {
+                    cover[left] = 1;
+                }
+                if right < self.num_vertices {
+                    cover[right] = 1;
+                }
             }
-            if right < self.num_vertices {
-                cover[right] = 1;
-            }
-        }
 
-        cover
+            cover
+        })
     }
 }
 

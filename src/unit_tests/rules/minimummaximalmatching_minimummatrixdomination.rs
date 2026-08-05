@@ -50,7 +50,7 @@ fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
         "matrix domination has at least one optimum"
     );
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness);
+        let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(
             source.evaluate(&extracted),
             Min(Some(2)),
@@ -100,7 +100,7 @@ fn test_extract_solution_returns_maximal_matching() {
     let target_witness = solver
         .find_witness(target)
         .expect("matrix domination has an optimum");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
 
     // The result must be a valid maximal matching of the source graph and
     // realize mm(B) = 2.
@@ -163,7 +163,7 @@ fn test_extract_solution_yg_transform_on_non_matching_eds() {
     let target = reduction.target_problem();
     assert_eq!(target.evaluate(&target_witness), Min(Some(2)));
 
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
 
     // The extracted configuration must be a valid maximal matching of B of
     // size 2 (= mm(B)). Crucially it cannot be {(l0, r1), (l0, r2)} because

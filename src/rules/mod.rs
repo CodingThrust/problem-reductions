@@ -419,7 +419,8 @@ pub use search::{
 };
 pub(crate) use traits::DynReductionResult;
 pub use traits::{
-    AggregateReductionResult, ReduceTo, ReduceToAggregate, ReductionAutoCast, ReductionResult,
+    AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
+    ReductionAutoCast, ReductionResult,
 };
 
 #[cfg(feature = "example-db")]
@@ -735,6 +736,7 @@ macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
      fields: [$($field:ident),+],
+     $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
             overhead = {
@@ -742,6 +744,7 @@ macro_rules! impl_variant_reduction {
                     &[$(stringify!($field)),+]
                 )
             }
+            $(, aggregate = $aggregate)?
         )]
         impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
             for $problem<$($src_param),+>

@@ -38,35 +38,40 @@ impl ReductionResult for ReductionTSPToILP {
 
     /// Extract solution: read tour permutation from x variables,
     /// then map to edge selection for the source problem.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_vertices;
 
-        // Read tour: for each position k, find vertex v with x_{v,k} = 1
-        let mut tour = vec![0usize; n];
-        for k in 0..n {
-            for v in 0..n {
-                if target_solution[self.x_index(v, k)] == 1 {
-                    tour[k] = v;
-                    break;
+            // Read tour: for each position k, find vertex v with x_{v,k} = 1
+            let mut tour = vec![0usize; n];
+            for k in 0..n {
+                for v in 0..n {
+                    if target_solution[self.x_index(v, k)] == 1 {
+                        tour[k] = v;
+                        break;
+                    }
                 }
             }
-        }
 
-        // Map tour to edge selection
-        let mut edge_selection = vec![0usize; self.source_edges.len()];
-        for k in 0..n {
-            let u = tour[k];
-            let v = tour[(k + 1) % n];
-            // Find the edge index for (u, v) or (v, u)
-            for (idx, &(a, b)) in self.source_edges.iter().enumerate() {
-                if (a == u && b == v) || (a == v && b == u) {
-                    edge_selection[idx] = 1;
-                    break;
+            // Map tour to edge selection
+            let mut edge_selection = vec![0usize; self.source_edges.len()];
+            for k in 0..n {
+                let u = tour[k];
+                let v = tour[(k + 1) % n];
+                // Find the edge index for (u, v) or (v, u)
+                for (idx, &(a, b)) in self.source_edges.iter().enumerate() {
+                    if (a == u && b == v) || (a == v && b == u) {
+                        edge_selection[idx] = 1;
+                        break;
+                    }
                 }
             }
-        }
 
-        edge_selection
+            edge_selection
+        })
     }
 }
 

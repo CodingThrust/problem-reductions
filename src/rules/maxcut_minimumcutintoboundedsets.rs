@@ -30,8 +30,11 @@ impl ReductionResult for ReductionMaxCutToMinCutBounded {
 
     /// Extract the source solution from the target balanced bisection.
     /// Take only the first `original_n` vertex assignments.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.original_n].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.original_n].to_vec())
     }
 }
 

@@ -26,8 +26,11 @@ impl ReductionResult for ReductionVCToHS {
 
     /// Solution extraction: variables correspond 1:1.
     /// Element i in the hitting set corresponds to vertex i in the vertex cover.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

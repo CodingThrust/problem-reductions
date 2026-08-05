@@ -31,9 +31,14 @@ impl ReductionResult for ReductionSCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
-        one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
+            one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)
+        })
     }
 }
 

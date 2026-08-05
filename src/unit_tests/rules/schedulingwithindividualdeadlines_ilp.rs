@@ -44,7 +44,7 @@ fn test_schedulingwithindividualdeadlines_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         problem.evaluate(&extracted).0,
@@ -71,7 +71,7 @@ fn test_schedulingwithindividualdeadlines_to_ilp_extract_solution() {
     // max_deadline=3: x_{j,t} at j*3+t
     // x_{0,0}=1, x_{0,1}=0, x_{0,2}=0, x_{1,0}=1, x_{1,1}=0, x_{1,2}=0, x_{2,0}=0, x_{2,1}=1, x_{2,2}=0
     let ilp_solution = vec![1, 0, 0, 1, 0, 0, 0, 1, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]);
     assert!(
         problem.evaluate(&extracted).0,

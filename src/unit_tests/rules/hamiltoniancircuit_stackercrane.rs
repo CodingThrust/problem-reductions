@@ -92,7 +92,7 @@ fn test_hamiltoniancircuit_to_stackercrane_extract_solution() {
     // The identity permutation [0, 1, 2, 3] traverses arcs in order,
     // corresponding to vertex order 0, 1, 2, 3 in the original graph.
     let target_config = vec![0, 1, 2, 3];
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(
         source.evaluate(&extracted).0,

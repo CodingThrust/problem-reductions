@@ -28,8 +28,11 @@ where
 
     /// Solution extraction: identity mapping.
     /// A clique in G is an independent set in the complement, so the configuration is the same.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
     }
 }
 

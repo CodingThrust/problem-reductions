@@ -43,8 +43,11 @@ impl ReductionResult for ReductionMECFToILP {
     }
 
     /// Extract flow solution: first m variables are the flow values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.num_edges].to_vec())
     }
 }
 

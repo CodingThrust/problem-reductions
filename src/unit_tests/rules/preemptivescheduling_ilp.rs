@@ -47,7 +47,7 @@ fn test_preemptivescheduling_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(
         value.0.is_some(),
@@ -72,7 +72,7 @@ fn test_preemptivescheduling_to_ilp_medium_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(
         value.0.is_some(),
@@ -109,7 +109,7 @@ fn test_preemptivescheduling_to_ilp_extract_solution() {
     let p = small_instance();
     let reduction: ReductionPSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
     let ilp_solution = vec![1, 0, 0, 1, 2]; // last element is M
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 0, 1]);
     assert_eq!(p.evaluate(&extracted), Min(Some(2)));
 }

@@ -48,7 +48,7 @@ fn test_partition_to_productionplanning_extract_solution() {
     let reduction = ReduceTo::<ProductionPlanning>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[0, 0, 0, 4, 6, 0]),
+        reduction.extract_solution(&[0, 0, 0, 4, 6, 0]).unwrap(),
         vec![0, 0, 0, 1, 1]
     );
 }

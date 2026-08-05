@@ -36,10 +36,15 @@ impl ReductionResult for ReductionSWDSTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        // x_{j,p} occupies the first n*n variables: decode the permutation.
-        one_hot_decode(target_solution, n, n, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let n = self.num_tasks;
+            // x_{j,p} occupies the first n*n variables: decode the permutation.
+            one_hot_decode(target_solution, n, n, 0)
+        })
     }
 }
 

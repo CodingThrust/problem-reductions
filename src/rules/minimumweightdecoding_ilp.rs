@@ -40,8 +40,11 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     }
 
     /// Extract the source solution: first m variables are the binary x_j values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_cols].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution[..self.num_cols].to_vec())
     }
 }
 

@@ -38,15 +38,20 @@ impl ReductionResult for ReductionSWIDToILP {
     /// Extract schedule from ILP solution.
     ///
     /// For each task j, find the time slot t where x_{j,t} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d = self.max_deadline;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..d)
-                    .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let d = self.max_deadline;
+            (0..self.num_tasks)
+                .map(|j| {
+                    (0..d)
+                        .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
+                        .unwrap_or(0)
+                })
+                .collect()
+        })
     }
 }
 
