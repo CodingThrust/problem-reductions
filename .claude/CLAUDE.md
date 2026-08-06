@@ -158,10 +158,8 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
 - `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
 - `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
-- Every direct `extract_solution()` decoder must first call `validate_target_solution()` so the target configuration has exactly the declared shape and every value is inside its declared domain. Composed extractors delegate this check to their first direct decoder.
-- Structured encodings must then be decoded exactly: reject missing or conflicting selections with `ExtractionError`; do not invent defaults, truncate input, clamp values, or recover from malformed encodings.
-- Branches required by the mathematics remain valid. For example, a partial mapping may have an explicit unmatched sentinel, and an edge covered by several cliques may choose one covering clique deterministically.
-- Extraction failures are ordinary `ExtractionResult` errors, never panics. Tests must cover successful decoding and each malformed representation the extractor distinguishes.
+- Every direct `extract_solution()` must call `validate_target_solution()` before decoding; composed extractors delegate validation to the first direct decoder.
+- Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
