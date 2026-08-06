@@ -91,7 +91,6 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 Scan the PR's changed files for auto-generated files that must never be committed:
 - `docs/src/reductions/reduction_graph.json`
 - `docs/src/reductions/problem_schemas.json`
-- `src/example_db/fixtures/examples.json` (legacy path, deleted on main)
 - `docs/paper/data/examples.json` (current output path, gitignored)
 
 If any of these files appear in the diff, report **FAIL — blacklisted auto-generated file committed**. These files are rebuilt by CI/`make doc`/`make paper` and must not be in PRs.
