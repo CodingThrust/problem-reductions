@@ -21,7 +21,7 @@ help:
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
-	@echo "  paper        - Build Typst paper from checked-in fixtures (requires typst)"
+	@echo "  paper        - Generate example data and build the Typst paper (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
