@@ -9,7 +9,7 @@ use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -51,6 +51,7 @@ inventory::submit! {
 /// let value = solver.solve(&problem);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "Maximum2SatisfiabilityDef")]
 pub struct Maximum2Satisfiability {
     /// Number of Boolean variables.
     num_vars: usize,
@@ -64,15 +65,21 @@ impl Maximum2Satisfiability {
     /// # Panics
     /// Panics if any clause does not have exactly 2 literals.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a new MAX-2-SAT problem after validating its clauses.
+    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() == 2,
-                "Clause {} has {} literals, expected 2",
-                i,
-                clause.len()
-            );
+            if clause.len() != 2 {
+                return Err(format!(
+                    "Clause {i} has {} literals, expected 2",
+                    clause.len()
+                ));
+            }
         }
-        Self { num_vars, clauses }
+        Ok(Self { num_vars, clauses })
     }
 
     /// Get the number of variables.
@@ -119,6 +126,20 @@ impl Problem for Maximum2Satisfiability {
 
 crate::declare_variants! {
     default Maximum2Satisfiability => "2^(0.7905 * num_variables)",
+}
+
+#[derive(Deserialize)]
+struct Maximum2SatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<Maximum2SatisfiabilityDef> for Maximum2Satisfiability {
+    type Error = String;
+
+    fn try_from(value: Maximum2SatisfiabilityDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]

@@ -1,7 +1,7 @@
 //! Reduction from CircuitSAT to Satisfiability via Tseitin encoding.
 
 use crate::models::formula::{
-    Assignment, BooleanExpr, BooleanOp, CNFClause, CircuitSAT, Satisfiability,
+    Assignment, BooleanExpr, BooleanOp, CNFClause, CircuitSAT, SatVariableAllocator, Satisfiability,
 };
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -33,21 +33,26 @@ struct TseitinEncoding {
 struct TseitinEncoder {
     source_var_ids: HashMap<String, i32>,
     clauses: Vec<CNFClause>,
-    next_var: i32,
+    variables: SatVariableAllocator,
 }
 
 impl TseitinEncoder {
     fn new(source: &CircuitSAT) -> Self {
+        let mut variables = SatVariableAllocator::new("CircuitSAT -> Satisfiability", 0)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let source_ids = variables
+            .allocate_many(source.num_variables())
+            .unwrap_or_else(|message| panic!("{message}"));
         let source_var_ids = source
             .variable_names()
             .iter()
-            .enumerate()
-            .map(|(index, name)| (name.clone(), index as i32 + 1))
+            .zip(source_ids)
+            .map(|(name, variable)| (name.clone(), variable))
             .collect();
         Self {
             source_var_ids,
             clauses: Vec::new(),
-            next_var: source.num_variables() as i32 + 1,
+            variables,
         }
     }
 
@@ -57,7 +62,7 @@ impl TseitinEncoder {
         }
 
         TseitinEncoding {
-            num_vars: (self.next_var - 1) as usize,
+            num_vars: self.variables.num_vars(),
             clauses: self.clauses,
         }
     }
@@ -152,9 +157,9 @@ impl TseitinEncoder {
     }
 
     fn allocate_auxiliary_var(&mut self) -> i32 {
-        let var = self.next_var;
-        self.next_var += 1;
-        var
+        self.variables
+            .allocate()
+            .unwrap_or_else(|message| panic!("{message}"))
     }
 
     fn push_equivalence(&mut self, left: i32, right: i32) {

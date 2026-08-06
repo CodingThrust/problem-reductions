@@ -8,9 +8,9 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::variant::{KValue, K2, K3, KN};
-use serde::{Deserialize, Serialize};
+use serde::{de::Error as _, Deserialize, Deserializer, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 pub(crate) fn first_n_odd_primes(count: usize) -> Vec<u64> {
     let mut primes = Vec::with_capacity(count);
@@ -93,8 +93,7 @@ inventory::submit! {
 /// let solutions = solver.find_all_witnesses(&problem);
 /// assert!(!solutions.is_empty());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(deserialize = ""))]
+#[derive(Debug, Clone, Serialize)]
 pub struct KSatisfiability<K: KValue> {
     /// Number of variables.
     num_vars: usize,
@@ -102,6 +101,22 @@ pub struct KSatisfiability<K: KValue> {
     clauses: Vec<CNFClause>,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Deserialize)]
+struct KSatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl<'de, K: KValue> Deserialize<'de> for KSatisfiability<K> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = KSatisfiabilityDef::deserialize(deserializer)?;
+        Self::try_new(value.num_vars, value.clauses).map_err(D::Error::custom)
+    }
 }
 
 impl<K: KValue> KSatisfiability<K> {
@@ -112,22 +127,27 @@ impl<K: KValue> KSatisfiability<K> {
     /// concrete value like K2, K3). When K is KN (arbitrary), no clause-length
     /// validation is performed.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a K-SAT problem after validating its clauses.
+    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
         if let Some(k) = K::K {
             for (i, clause) in clauses.iter().enumerate() {
-                assert!(
-                    clause.len() == k,
-                    "Clause {} has {} literals, expected {}",
-                    i,
-                    clause.len(),
-                    k
-                );
+                if clause.len() != k {
+                    return Err(format!(
+                        "Clause {i} has {} literals, expected {k}",
+                        clause.len()
+                    ));
+                }
             }
         }
-        Self {
+        Ok(Self {
             num_vars,
             clauses,
             _phantom: std::marker::PhantomData,
-        }
+        })
     }
 
     /// Create a new K-SAT problem allowing clauses with fewer than K literals.
@@ -140,22 +160,27 @@ impl<K: KValue> KSatisfiability<K> {
     /// value like K2, K3). When K is KN (arbitrary), no clause-length
     /// validation is performed.
     pub fn new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new_allow_less(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a K-SAT problem with shorter clauses after validation.
+    pub fn try_new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
         if let Some(k) = K::K {
             for (i, clause) in clauses.iter().enumerate() {
-                assert!(
-                    clause.len() <= k,
-                    "Clause {} has {} literals, expected at most {}",
-                    i,
-                    clause.len(),
-                    k
-                );
+                if clause.len() > k {
+                    return Err(format!(
+                        "Clause {i} has {} literals, expected at most {k}",
+                        clause.len()
+                    ));
+                }
             }
         }
-        Self {
+        Ok(Self {
             num_vars,
             clauses,
             _phantom: std::marker::PhantomData,
-        }
+        })
     }
 
     /// Get the number of variables.

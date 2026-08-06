@@ -114,7 +114,7 @@ fn test_jl_parity_evaluation() {
             let jl_config = jl_parse_config(&eval["config"]);
             let config = jl_flip_config(&jl_config);
             let result = problem.evaluate(&config);
-            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            let jl_size = eval["size"].as_i64().unwrap();
             assert!(result.is_valid(), "SpinGlass should always be valid");
             assert_eq!(
                 result.unwrap(),

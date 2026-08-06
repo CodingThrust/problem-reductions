@@ -29,6 +29,7 @@ pub use non_tautology::NonTautology;
 pub use one_in_three_satisfiability::OneInThreeSatisfiability;
 pub use planar_3_satisfiability::Planar3Satisfiability;
 pub use qbf::{QuantifiedBooleanFormulas, Quantifier};
+pub(crate) use sat::SatVariableAllocator;
 pub use sat::{CNFClause, Satisfiability};
 
 /// Convert a binary config (0/1 per variable) to a boolean assignment.

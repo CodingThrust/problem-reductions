@@ -133,8 +133,8 @@ fn test_qbf_zero_vars() {
 
 #[test]
 fn test_qbf_zero_vars_unsat() {
-    // Zero variables, but a clause that refers to var 1 (unsatisfiable)
-    let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![CNFClause::new(vec![1])]);
+    // An empty clause is false without referring to a nonexistent variable.
+    let problem = QuantifiedBooleanFormulas::new(0, vec![], vec![CNFClause::new(vec![])]);
     assert!(!problem.evaluate(&[]));
     assert!(!problem.is_true());
 }

@@ -1,6 +1,8 @@
 //! Reduction from Satisfiability to Maximum 2-Satisfiability.
 
-use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
+use crate::models::formula::{
+    CNFClause, Maximum2Satisfiability, SatVariableAllocator, Satisfiability,
+};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
@@ -29,19 +31,22 @@ impl ReductionResult for ReductionSatisfiabilityToMaximum2Satisfiability {
     }
 }
 
-fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mut Vec<CNFClause>) {
+fn add_normalized_clause(
+    clause: &CNFClause,
+    variables: &mut SatVariableAllocator,
+    normalized: &mut Vec<CNFClause>,
+) -> Result<(), String> {
     match clause.len() {
         0 => {
-            let y = *next_var;
-            *next_var += 1;
+            let y = variables.allocate()?;
             normalized.push(CNFClause::new(vec![y, y, y]));
             normalized.push(CNFClause::new(vec![-y, -y, -y]));
         }
         1 => {
             let l1 = clause.literals[0];
-            let y = *next_var;
-            let z = *next_var + 1;
-            *next_var += 2;
+            let allocated = variables.allocate_many(2)?;
+            let y = allocated[0];
+            let z = allocated[1];
             normalized.push(CNFClause::new(vec![l1, y, z]));
             normalized.push(CNFClause::new(vec![l1, y, -z]));
             normalized.push(CNFClause::new(vec![l1, -y, z]));
@@ -50,16 +55,14 @@ fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mu
         2 => {
             let l1 = clause.literals[0];
             let l2 = clause.literals[1];
-            let y = *next_var;
-            *next_var += 1;
+            let y = variables.allocate()?;
             normalized.push(CNFClause::new(vec![l1, l2, y]));
             normalized.push(CNFClause::new(vec![l1, l2, -y]));
         }
         3 => normalized.push(clause.clone()),
         k => {
             let literals = &clause.literals;
-            let y_vars: Vec<i32> = (*next_var..*next_var + (k as i32 - 3)).collect();
-            *next_var += k as i32 - 3;
+            let y_vars = variables.allocate_many(k - 3)?;
 
             normalized.push(CNFClause::new(vec![literals[0], literals[1], y_vars[0]]));
             for i in 1..k - 3 {
@@ -76,6 +79,7 @@ fn add_normalized_clause(clause: &CNFClause, next_var: &mut i32, normalized: &mu
             ]));
         }
     }
+    Ok(())
 }
 
 fn add_gjs_gadget(clause: &CNFClause, w: i32, target_clauses: &mut Vec<CNFClause>) {
@@ -106,20 +110,28 @@ impl ReduceTo<Maximum2Satisfiability> for Satisfiability {
 
     fn reduce_to(&self) -> Self::Result {
         let mut normalized = Vec::new();
-        let mut next_var = self.num_vars() as i32 + 1;
+        let mut variables =
+            SatVariableAllocator::new("Satisfiability -> Maximum2Satisfiability", self.num_vars())
+                .unwrap_or_else(|message| panic!("{message}"));
 
         for clause in self.clauses() {
-            add_normalized_clause(clause, &mut next_var, &mut normalized);
+            add_normalized_clause(clause, &mut variables, &mut normalized)
+                .unwrap_or_else(|message| panic!("{message}"));
         }
 
-        let mut target_clauses = Vec::with_capacity(normalized.len() * 10);
+        let capacity = normalized
+            .len()
+            .checked_mul(10)
+            .expect("Satisfiability -> Maximum2Satisfiability clause count overflow");
+        let mut target_clauses = Vec::with_capacity(capacity);
         for clause in &normalized {
-            let w = next_var;
-            next_var += 1;
+            let w = variables
+                .allocate()
+                .unwrap_or_else(|message| panic!("{message}"));
             add_gjs_gadget(clause, w, &mut target_clauses);
         }
 
-        let target = Maximum2Satisfiability::new((next_var - 1) as usize, target_clauses);
+        let target = Maximum2Satisfiability::new(variables.num_vars(), target_clauses);
 
         ReductionSatisfiabilityToMaximum2Satisfiability {
             target,

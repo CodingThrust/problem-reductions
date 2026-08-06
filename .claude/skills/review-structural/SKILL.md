@@ -66,6 +66,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
+| 17 | Numeric contract | Compare issue fields, schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
 
 ### Rule Checklist
 
@@ -85,6 +86,7 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
 | 12 | Extraction contract | Direct decoders call `validate_target_solution()`, enforce rule-specific structure, and test malformed cases; the helper does not establish feasibility or optimality. Composed extractors may delegate. |
+| 13 | Numeric contract | Compare source/target types, size arithmetic, coefficients, bounds, auxiliary IDs, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
 
 ## Step 2b: Blacklisted File Check
 
@@ -111,12 +113,14 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 2. **`dims()` correctness** — Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
 3. **Size getter consistency** — Do inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** — Are weights managed via inherent methods, not traits?
+5. **Numeric safety** — Are element and total types distinct where required, do serde and constructors enforce the same range, and are overflow and non-finite values rejected explicitly?
 
 ### For Rules:
 1. **`extract_solution` correctness** — Does it implement the mathematical inverse? Is every branch either a defined mathematical case or an `ExtractionError`, with no defaulting, truncation, clamping, panic, or recovery?
 2. **Overhead accuracy** — Does `overhead = { field = "expr" }` reflect the actual size relationship?
 3. **Example quality** — Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** — Is the reduction-rule statement precise? Is the proof sketch sound?
+5. **Numeric safety** — Are target sizes and auxiliary IDs checked before construction, with no unchecked narrowing or exact-to-`f64` shortcut?
 
 ## Step 5: Issue Compliance Review
 

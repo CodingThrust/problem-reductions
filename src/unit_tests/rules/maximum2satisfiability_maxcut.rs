@@ -65,7 +65,7 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
             .map(|bit| (mask >> bit) & 1)
             .collect();
         let source_solution = reduction.extract_solution(&target_solution).unwrap();
-        let satisfied = source.evaluate(&source_solution).unwrap() as i32;
+        let satisfied = i64::try_from(source.evaluate(&source_solution).unwrap()).unwrap();
         let cut_weight = target.evaluate(&target_solution).unwrap();
 
         assert_eq!(

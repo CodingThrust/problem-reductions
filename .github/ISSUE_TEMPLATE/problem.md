@@ -50,6 +50,18 @@ Connect fields to the symbols defined above.
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
 | <!-- e.g. weights --> | <!-- e.g. list of W --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
+## Numeric Contract
+
+<!-- Follow docs/src/design.md#numeric-types-and-arithmetic. Distinguish the
+type of one input value from the type of a sum or product. -->
+
+| Quantity | Meaning and domain | Input type | Computed/total type | Maximum supported value | Checked conversions |
+|----------|--------------------|------------|---------------------|-------------------------|---------------------|
+| <!-- e.g. w_i --> | <!-- signed vertex weight --> | <!-- i32 --> | <!-- i64 total --> | <!-- i64::MAX total --> | <!-- i32 -> i64 via From --> |
+
+- **Overflow behavior:** <!-- What construction rejects and what error is reported -->
+- **Arithmetic:** <!-- Exact integer, or approximate f64 with justification -->
+
 ## Complexity
 
 - **Best known exact algorithm:** <!-- e.g. O(1.1996^n) by Xiao & Nagamochi (2017), where n = |V| -->

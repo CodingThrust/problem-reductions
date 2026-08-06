@@ -135,7 +135,7 @@ fn test_planar_3_satisfiability_wrong_clause_width() {
 }
 
 #[test]
-#[should_panic(expected = "outside range")]
+#[should_panic(expected = "allowed variable numbers are 1..=2")]
 fn test_planar_3_satisfiability_variable_out_of_range() {
     Planar3Satisfiability::new(2, vec![CNFClause::new(vec![1, 2, 3])]);
 }

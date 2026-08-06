@@ -99,7 +99,8 @@ impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<Simple
             }
         }
 
-        let bound = n as i32;
+        let bound = i64::try_from(n)
+            .expect("HamiltonianCircuit -> StrongConnectivityAugmentation bound must fit i64");
         let target = StrongConnectivityAugmentation::new(graph, candidate_arcs, bound);
 
         ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n }

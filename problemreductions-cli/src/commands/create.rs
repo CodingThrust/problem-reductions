@@ -693,7 +693,7 @@ fn ser_decision_minimum_vertex_cover_with<
 >(
     graph: G,
     weights: Vec<i32>,
-    bound: i32,
+    bound: i64,
 ) -> Result<serde_json::Value> {
     ser(Decision::new(
         MinimumVertexCover::new(graph, weights),
@@ -1827,11 +1827,7 @@ fn create_random(
                 raw_bound >= 0,
                 "DecisionMinimumVertexCover: --bound must be non-negative"
             );
-            let bound = i32::try_from(raw_bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "DecisionMinimumVertexCover: --bound must fit in a 32-bit signed integer, got {raw_bound}"
-                )
-            })?;
+            let bound = raw_bound;
             let weights = vec![1i32; num_vertices];
             match graph_type {
                 "KingsSubgraph" => {

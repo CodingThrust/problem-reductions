@@ -45,6 +45,18 @@ Use the symbols defined in the Reduction Algorithm above. -->
 | <!-- e.g. number of variables --> | <!-- e.g. n = |V| --> |
 | <!-- e.g. number of edges --> | <!-- e.g. m = |E| --> |
 
+## Numeric Contract
+
+<!-- Follow docs/src/design.md#numeric-types-and-arithmetic. Include source and
+target values, size calculations, coefficients, bounds, and auxiliary IDs. -->
+
+| Quantity | Meaning and domain | Source type | Target/computed type | Maximum supported value | Checked conversions |
+|----------|--------------------|-------------|----------------------|-------------------------|---------------------|
+| <!-- e.g. auxiliary variable --> | <!-- positive SAT variable ID --> | <!-- usize count --> | <!-- i32 literal --> | <!-- i32::MAX --> | <!-- i32::try_from --> |
+
+- **Overflow behavior:** <!-- Where the reduction stops and what error is reported -->
+- **Arithmetic:** <!-- Exact integer, or approximate f64 with justification -->
+
 ## Validation Method
 
 <!-- How to verify the reduction is correct beyond closed-loop testing?

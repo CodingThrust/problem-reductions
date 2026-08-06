@@ -138,7 +138,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,

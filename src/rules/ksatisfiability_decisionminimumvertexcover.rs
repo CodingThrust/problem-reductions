@@ -50,8 +50,12 @@ impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, i32>>> for KSatisfiabilit
         let base_reduction = <KSatisfiability<K3> as ReduceTo<
             MinimumVertexCover<SimpleGraph, i32>,
         >>::reduce_to(self);
-        let bound = i32::try_from(self.num_vars() + 2 * self.num_clauses())
-            .expect("decision minimum vertex cover bound must fit in i32");
+        let bound = self
+            .num_clauses()
+            .checked_mul(2)
+            .and_then(|value| value.checked_add(self.num_vars()))
+            .and_then(|value| i64::try_from(value).ok())
+            .expect("decision minimum vertex cover bound must fit in i64");
         let target = Decision::new(base_reduction.target_problem().clone(), bound);
 
         Reduction3SATToDecisionMVC {

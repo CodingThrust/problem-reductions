@@ -33,7 +33,7 @@ fn verify_identity(source: &MaxCut<SimpleGraph, i32>) {
         let Max(Some(cut)) = source.evaluate(&config) else {
             panic!("MaxCut must yield a finite cut for every config");
         };
-        let cut64 = cut as i64;
+        let cut64 = cut;
 
         assert_eq!(
             qf,

@@ -72,14 +72,10 @@ impl ReductionPartitionToAcyclicPartition {
             DirectedGraph::new(num_elements + 2, arcs),
             vertex_weights,
             arc_costs,
-            u64_to_i32(
-                weight_bound,
-                "Partition -> AcyclicPartition requires weight bound to fit in i32",
-            ),
-            usize_to_i32(
-                num_elements,
-                "Partition -> AcyclicPartition requires num_elements to fit in i32",
-            ),
+            i64::try_from(weight_bound)
+                .expect("Partition -> AcyclicPartition weight bound must fit in i64"),
+            i64::try_from(num_elements)
+                .expect("Partition -> AcyclicPartition cost bound must fit in i64"),
         );
 
         Self {
@@ -156,10 +152,6 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
 }
 
 fn u64_to_i32(value: u64, context: &str) -> i32 {
-    i32::try_from(value).expect(context)
-}
-
-fn usize_to_i32(value: usize, context: &str) -> i32 {
     i32::try_from(value).expect(context)
 }
 

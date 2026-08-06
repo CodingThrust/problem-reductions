@@ -10,7 +10,7 @@ use crate::types::{One, Or};
 fn decision_mds(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    k: i32,
+    k: i64,
 ) -> Decision<MinimumDominatingSet<SimpleGraph, One>> {
     Decision::new(
         MinimumDominatingSet::new(

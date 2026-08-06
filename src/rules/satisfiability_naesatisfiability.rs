@@ -7,7 +7,7 @@
 //! has at least one false literal (the sentinel itself when s=false, or
 //! the complement of the original satisfied literal when s=true).
 
-use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
+use crate::models::formula::{CNFClause, NAESatisfiability, SatVariableAllocator, Satisfiability};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
@@ -53,8 +53,11 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars();
-        // Sentinel variable has 0-indexed position n, so its 1-indexed literal is n+1.
-        let sentinel_lit = (n + 1) as i32;
+        let mut variables = SatVariableAllocator::new("Satisfiability -> NAESatisfiability", n)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let sentinel_lit = variables
+            .allocate()
+            .unwrap_or_else(|message| panic!("{message}"));
 
         let nae_clauses: Vec<CNFClause> = self
             .clauses()
@@ -72,7 +75,7 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
             })
             .collect();
 
-        let target = NAESatisfiability::new(n + 1, nae_clauses);
+        let target = NAESatisfiability::new(variables.num_vars(), nae_clauses);
 
         ReductionSATToNAESAT {
             source_num_vars: n,

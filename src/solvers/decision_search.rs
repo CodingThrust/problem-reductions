@@ -16,9 +16,9 @@ where
     BruteForce::new().solve(problem).0
 }
 
-fn solve_via_decision_min<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+fn solve_via_decision_min<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
 where
-    P: DecisionProblemMeta + Problem<Value = Min<i32>> + Clone,
+    P: DecisionProblemMeta + Problem<Value = Min<i64>> + Clone,
 {
     if lower > upper {
         return None;
@@ -42,9 +42,9 @@ where
     Some(lo)
 }
 
-fn solve_via_decision_max<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+fn solve_via_decision_max<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
 where
-    P: DecisionProblemMeta + Problem<Value = Max<i32>> + Clone,
+    P: DecisionProblemMeta + Problem<Value = Max<i64>> + Clone,
 {
     if lower > upper {
         return None;
@@ -70,15 +70,15 @@ where
 
 #[doc(hidden)]
 pub trait DecisionSearchValue:
-    OptimizationValue<Inner = i32> + Clone + fmt::Debug + Serialize + DeserializeOwned
+    OptimizationValue<Inner = i64> + Clone + fmt::Debug + Serialize + DeserializeOwned
 {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+    fn solve_problem<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
     where
         P: DecisionProblemMeta + Problem<Value = Self> + Clone;
 }
 
-impl DecisionSearchValue for Min<i32> {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+impl DecisionSearchValue for Min<i64> {
+    fn solve_problem<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
     where
         P: DecisionProblemMeta + Problem<Value = Self> + Clone,
     {
@@ -86,8 +86,8 @@ impl DecisionSearchValue for Min<i32> {
     }
 }
 
-impl DecisionSearchValue for Max<i32> {
-    fn solve_problem<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+impl DecisionSearchValue for Max<i64> {
+    fn solve_problem<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
     where
         P: DecisionProblemMeta + Problem<Value = Self> + Clone,
     {
@@ -96,7 +96,7 @@ impl DecisionSearchValue for Max<i32> {
 }
 
 /// Recover an optimization value by querying the problem's decision wrapper.
-pub fn solve_via_decision<P>(problem: &P, lower: i32, upper: i32) -> Option<i32>
+pub fn solve_via_decision<P>(problem: &P, lower: i64, upper: i64) -> Option<i64>
 where
     P: DecisionProblemMeta + Clone,
     P::Value: DecisionSearchValue,

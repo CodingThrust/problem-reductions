@@ -33,6 +33,7 @@ Before any implementation, collect all required information. If called from `iss
 | 7 | **Concrete example** | A small worked-out instance (tutorial style, clear intuition) | "Triangle graph: VC={0,1} -> IS={2}" |
 | 8 | **Solving strategy** | How to solve the target problem | "BruteForce, or existing ILP reduction" |
 | 9 | **Reference** | Paper, textbook, or URL for the reduction | URL or citation |
+| 10 | **Numeric contract** | Source/target numeric fields, totals, size arithmetic, coefficients, bounds, auxiliary IDs, maximum values, checked conversions, overflow behavior, and exact/approximate choice | `usize` source count to checked `i32` SAT IDs |
 
 If any item is missing, ask the user to provide it. Put a high standard on item 7 (concrete example): it must be in tutorial style with clear intuition and easy to understand. Do NOT proceed until the checklist is complete.
 
@@ -55,6 +56,14 @@ grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
 - Any pair involving `And` or `Sum` on the target side
 
 If incompatible, STOP and comment on the issue explaining the type mismatch and options. Do NOT proceed.
+
+## Numeric Safety Gate
+
+Read `docs/src/design.md#numeric-types-and-arithmetic`. Reject an incomplete
+plan when numeric domains, total types, maxima, or conversions are unspecified.
+Do not use `as` for range/sign changes. Check target-size arithmetic and
+auxiliary identifiers before constructing the target, verify serde/CLI uses the
+same ranges, and add focused tests at the declared boundary.
 
 ## Reference Implementations
 

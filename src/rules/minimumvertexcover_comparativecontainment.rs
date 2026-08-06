@@ -111,7 +111,8 @@ impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<Simpl
         // covers every edge), so the answer is YES regardless of the graph.
         // Emit an empty target instance (universe size 0, no R/S sets); its
         // unique configuration is trivially satisfying.
-        if raw_bound >= num_vertices as i32 {
+        if i128::from(raw_bound) >= i128::try_from(num_vertices).expect("usize always fits in i128")
+        {
             let target = ComparativeContainment::with_weights(
                 0,
                 Vec::new(),
