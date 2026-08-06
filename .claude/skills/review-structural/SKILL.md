@@ -84,7 +84,7 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 9 | Canonical rule example registered | `Grep("canonical_rule_example_specs", rule file)` and verify it is included by `src/rules/mod.rs` |
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
-| 12 | Extraction contract | Direct decoders validate before indexing; malformed structures have focused tests. Composed extractors may delegate. |
+| 12 | Extraction contract | Direct decoders validate length/domains, enforce rule-specific structure, and test malformed cases; validation does not establish feasibility or optimality. Composed extractors may delegate. |
 
 ## Step 2b: Blacklisted File Check
 
