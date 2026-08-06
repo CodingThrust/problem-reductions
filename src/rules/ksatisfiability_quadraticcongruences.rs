@@ -64,10 +64,12 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
 
             for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
                 let alpha_index = 2 * self.standard_clause_count + active_index + 1;
-                source_assignment[source_index] = if alpha.get(alpha_index) == Some(&-1) {
-                    1
-                } else {
-                    0
+                source_assignment[source_index] = match alpha[alpha_index] {
+                    1 => 0,
+                    -1 => 1,
+                    sign => return Err(crate::rules::ExtractionError::invalid(format!(
+                        "target witness encodes invalid sign {sign} for source variable {source_index}"
+                    ))),
                 };
             }
 

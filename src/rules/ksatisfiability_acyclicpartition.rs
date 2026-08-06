@@ -103,6 +103,8 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let source_label = target_solution[self.source_vertex];
             let sink_label = target_solution[self.sink_vertex];

@@ -26,6 +26,17 @@ fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
 }
 
 #[test]
+fn test_partition_to_acyclicpartition_rejects_malformed_target_configuration() {
+    let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
+    let reduction = ReduceTo::<AcyclicPartition<i32>>::reduce_to(&source);
+
+    assert!(reduction
+        .partition_to_acyclic
+        .extract_solution(&[])
+        .is_err());
+}
+
+#[test]
 fn test_ksatisfiability_to_acyclicpartition_unsatisfiable() {
     let source = KSatisfiability::<K3>::new(
         1,

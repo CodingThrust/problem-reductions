@@ -182,7 +182,7 @@ impl TheoremConstruction {
         witness
     }
 
-    fn extract_solution(
+    fn decode_solution(
         &self,
         target_problem: &HamiltonianCircuit<SimpleGraph>,
         target_solution: &[usize],
@@ -286,7 +286,7 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
                     ))
                 }
                 ConstructionKind::Theorem(construction) => {
-                    construction.extract_solution(&self.target, target_solution)?
+                    construction.decode_solution(&self.target, target_solution)?
                 }
             }
         })

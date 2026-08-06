@@ -417,7 +417,7 @@ pub use search::{
     ApproximationPolicy, LimitReached, SearchCompleteness, SearchLimits, SearchMode, SearchOutcome,
     SearchStats,
 };
-pub(crate) use traits::DynReductionResult;
+pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
     AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
     ReductionAutoCast, ReductionResult,

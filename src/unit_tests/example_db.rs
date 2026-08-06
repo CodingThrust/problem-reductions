@@ -697,6 +697,29 @@ fn rule_specs_solution_pairs_are_consistent() {
                      (extracted: {:?}, stored: {:?})",
                     extracted_val, source_val, extracted, pair.source_config
                 );
+
+                let mut wrong_length = pair.target_config.clone();
+                if wrong_length.is_empty() {
+                    wrong_length.push(0);
+                } else {
+                    wrong_length.pop();
+                }
+                assert!(
+                    chain.extract_solution(&wrong_length).is_err(),
+                    "Rule {label}: extraction accepted a target configuration with the wrong length"
+                );
+
+                let target_dims = target.dims_dyn();
+                if let Some((&dimension, value)) =
+                    target_dims.first().zip(pair.target_config.first())
+                {
+                    let mut out_of_domain = pair.target_config.clone();
+                    out_of_domain[0] = dimension;
+                    assert!(
+                        chain.extract_solution(&out_of_domain).is_err(),
+                        "Rule {label}: extraction accepted out-of-domain value {dimension} in place of {value}"
+                    );
+                }
             }
         }
     }

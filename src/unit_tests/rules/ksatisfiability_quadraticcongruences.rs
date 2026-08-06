@@ -103,6 +103,15 @@ fn test_ksatisfiability_to_quadraticcongruences_extracts_assignment_from_constru
 }
 
 #[test]
+fn test_ksatisfiability_to_quadraticcongruences_rejects_missing_variable_signs() {
+    let source = yes_source();
+    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+    let target_config = vec![0; reduction.target_problem().dims().len()];
+
+    assert!(reduction.extract_solution(&target_config).is_err());
+}
+
+#[test]
 fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, -3])]);
 
