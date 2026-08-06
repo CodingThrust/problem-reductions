@@ -1,7 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
-use crate::traits::Problem;
 
 #[test]
 fn test_partition_to_subsetsum_closed_loop() {
@@ -48,11 +47,11 @@ fn test_partition_to_subsetsum_odd_total() {
     let witness = BruteForce::new().find_witness(target);
     assert!(witness.is_none());
 
-    // extract_solution should return all-zeros for the source
-    let extracted = reduction.extract_solution(&[]).unwrap();
-    assert_eq!(extracted, vec![0, 0, 0]);
-    // The extracted solution should not satisfy the source
-    assert!(!source.evaluate(&extracted));
+    let error = reduction.extract_solution(&[]).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "expected 3 subset-selection values, got 0"
+    );
 }
 
 #[test]
@@ -66,4 +65,12 @@ fn test_partition_to_subsetsum_equal_elements() {
         &reduction,
         "Partition -> SubsetSum equal elements",
     );
+}
+
+#[test]
+fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
+    let source = Partition::new(vec![1, 1, 2, 2]);
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+
+    assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
 }

@@ -165,4 +165,6 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
             "extracted witness {extracted:?} must be a valid 3DM solution"
         );
     }
+
+    assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
 }

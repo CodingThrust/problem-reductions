@@ -42,22 +42,21 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
         &self.target
     }
 
-    /// Solution extraction: identity mapping in the normal case.
-    /// In the sentinel case (source has fewer than two elements) the target's
-    /// witness has a different length, so we return an all-zero source-sized
-    /// vector; `Partition::evaluate` then yields `Or(false)`, which is the
-    /// correct answer because a single positive element cannot be balanced.
+    /// Solution extraction preserves the source elements. The sentinel target
+    /// appends elements, so only the prefix corresponding to actual source
+    /// elements is mapped back.
     fn extract_solution(
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            if target_solution.len() == self.source_n {
-                target_solution.to_vec()
-            } else {
-                vec![0; self.source_n]
-            }
-        })
+        let expected = self.target.num_elements();
+        if target_solution.len() != expected {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {expected} group assignments, got {}",
+                target_solution.len()
+            )));
+        }
+        Ok(target_solution[..self.source_n].to_vec())
     }
 }
 

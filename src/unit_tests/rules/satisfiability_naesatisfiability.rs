@@ -78,8 +78,10 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
     let error = reduction.extract_solution(&[0, 0]).unwrap_err();
     assert_eq!(
         error.to_string(),
-        "expected at least 3 values including the sentinel, got 2"
+        "expected 3 values including the sentinel, got 2"
     );
+    assert!(reduction.extract_solution(&[0, 0, 0, 0]).is_err());
+    assert!(reduction.extract_solution(&[0, 2, 0]).is_err());
 }
 
 #[test]

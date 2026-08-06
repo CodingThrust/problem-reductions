@@ -33,20 +33,29 @@ impl ReductionResult for ReductionSATToNAESAT {
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
         let n = self.source_num_vars;
-        if target_solution.len() <= n {
+        let expected = n + 1;
+        if target_solution.len() != expected {
             return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected at least {} values including the sentinel, got {}",
-                n + 1,
+                "expected {expected} values including the sentinel, got {}",
                 target_solution.len()
             )));
         }
-
-        // The sentinel variable is the last variable (index n).
-        if target_solution[n] == 0 {
-            Ok(target_solution[..n].to_vec())
-        } else {
-            Ok(target_solution[..n].iter().map(|&v| 1 - v).collect())
+        if let Some((index, value)) = target_solution
+            .iter()
+            .copied()
+            .enumerate()
+            .find(|(_, value)| *value > 1)
+        {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected a binary value at position {index}, got {value}"
+            )));
         }
+
+        let sentinel = target_solution[n];
+        Ok(target_solution[..n]
+            .iter()
+            .map(|&value| value ^ sentinel)
+            .collect())
     }
 }
 

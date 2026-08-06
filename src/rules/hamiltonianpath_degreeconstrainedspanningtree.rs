@@ -52,11 +52,8 @@ fn extract_hamiltonian_order(
     target_solution: &[usize],
 ) -> crate::rules::ExtractionResult<Vec<usize>> {
     let num_vertices = graph.num_vertices();
-    if num_vertices == 0 {
-        return Ok(vec![]);
-    }
-    if num_vertices == 1 {
-        return Ok(vec![0]);
+    if num_vertices < 2 {
+        return Ok((0..num_vertices).collect());
     }
 
     let edges = graph.edges();

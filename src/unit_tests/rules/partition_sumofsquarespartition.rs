@@ -106,7 +106,7 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     for witness in &target_witnesses {
         let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        assert_eq!(extracted, vec![0]);
+        assert_eq!(extracted, witness[..source.num_elements()]);
         assert!(
             !source.evaluate(&extracted).0,
             "singleton Partition: extracted witness must yield Or(false)"
@@ -137,4 +137,6 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
             "extracted witness {extracted:?} must be a valid Partition solution"
         );
     }
+
+    assert!(reduction.extract_solution(&[0]).is_err());
 }
