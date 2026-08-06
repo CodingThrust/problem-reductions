@@ -14,6 +14,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SchedulingWithIndividualDeadlines;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SchedulingWithIndividualDeadlines to ILP<bool>.
@@ -42,16 +43,9 @@ impl ReductionResult for ReductionSWIDToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let d = self.max_deadline;
-            (0..self.num_tasks)
-                .map(|j| {
-                    (0..d)
-                        .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_tasks, self.max_deadline, 0)
     }
 }
 

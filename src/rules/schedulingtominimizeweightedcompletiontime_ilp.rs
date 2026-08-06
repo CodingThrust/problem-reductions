@@ -8,6 +8,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SchedulingToMinimizeWeightedCompletionTime to ILP.
@@ -55,15 +56,9 @@ impl ReductionResult for ReductionSMWCTToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            (0..self.num_tasks)
-                .map(|t| {
-                    (0..self.num_processors)
-                        .find(|&p| target_solution[self.x_var(t, p)] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_tasks, self.num_processors, 0)
     }
 }
 

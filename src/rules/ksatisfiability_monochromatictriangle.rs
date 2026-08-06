@@ -51,15 +51,12 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let direct: Vec<usize> = self
             .negation_edge_indices
             .iter()
-            .map(
-                |&edge_idx| match target_solution.get(edge_idx).copied().unwrap_or(1) {
-                    0 => 1,
-                    _ => 0,
-                },
-            )
+            .map(|&edge_idx| usize::from(target_solution[edge_idx] == 0))
             .collect();
         if self.source.evaluate(&direct).0 {
             return Ok(direct);

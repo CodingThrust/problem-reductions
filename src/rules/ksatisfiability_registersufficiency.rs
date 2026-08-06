@@ -203,6 +203,8 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             if self.layout.num_vars == 0 {
                 return Ok(Vec::new());
@@ -213,13 +215,15 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
                 .map(|var| {
                     let x_pos_before = target_solution[self.layout.x_pos(var)] < cutoff;
                     let x_neg_before = target_solution[self.layout.x_neg(var)] < cutoff;
-                    debug_assert!(
-                        !(x_pos_before && x_neg_before),
-                        "Sethi extraction expects at most one of x_pos/x_neg before w[n]",
-                    );
-                    usize::from(x_pos_before)
+                    if x_pos_before && x_neg_before {
+                        Err(crate::rules::ExtractionError::invalid(format!(
+                            "both literals of variable {var} precede the extraction cutoff"
+                        )))
+                    } else {
+                        Ok(usize::from(x_pos_before))
+                    }
                 })
-                .collect()
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
         })
     }
 }

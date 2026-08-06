@@ -29,16 +29,9 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let n = self.n;
-            (0..n)
-                .map(|v| {
-                    (0..n)
-                        .find(|&c| target_solution[v * n + c] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 

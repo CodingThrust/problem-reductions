@@ -43,21 +43,21 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            if self.num_edges == 0 {
-                return Ok(vec![]);
-            }
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-            (0..self.num_edges)
-                .map(|edge_idx| {
-                    (0..self.num_edges)
-                        .find(|&slot| {
-                            target_solution[self.y_offset + edge_idx * self.num_edges + slot] == 1
-                        })
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        (0..self.num_edges)
+            .map(|edge| {
+                (0..self.num_edges)
+                    .find(|&clique| {
+                        target_solution[self.y_offset + edge * self.num_edges + clique] == 1
+                    })
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "edge {edge} is not covered by any clique"
+                        ))
+                    })
+            })
+            .collect()
     }
 }
 

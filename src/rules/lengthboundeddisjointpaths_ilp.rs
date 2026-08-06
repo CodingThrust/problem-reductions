@@ -36,6 +36,8 @@ impl ReductionResult for ReductionLBDPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // For each path slot k, set the source vertex-indicator block to 1
             // exactly on the vertices incident to the commodity-k path, including s and t.

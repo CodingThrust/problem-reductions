@@ -40,18 +40,12 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_original_vertices;
             if n == 0 {
                 return Ok(vec![]);
-            }
-
-            if target_solution.len() != n + 3 {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "expected {} path vertices, got {}",
-                    n + 3,
-                    target_solution.len()
-                )));
             }
 
             let v_prime = n; // index of duplicated vertex v'

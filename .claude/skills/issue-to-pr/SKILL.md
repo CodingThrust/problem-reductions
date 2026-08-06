@@ -92,12 +92,12 @@ Write implementation plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpower
 The plan MUST reference the appropriate implementation skill and follow its steps:
 
 - **For ordinary `[Model]` issues:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 as the action pipeline
-- **For `[Model]` issues that explicitly claim direct ILP solving:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 **and** [add-rule](../add-rule/SKILL.md) Steps 1-6 for the direct `<Problem> -> ILP` rule in the same plan / PR
+- **For `[Model]` issues that explicitly claim direct ILP solving:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 **and** [add-rule](../add-rule/SKILL.md) Steps 1-7 for the direct `<Problem> -> ILP` rule in the same plan / PR
 - **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-7 as the action pipeline. By default, `/add-rule` runs mathematical verification (Step 1) before implementation. If `--no-verify` was passed, include `--no-verify` when invoking `/add-rule` to skip verification.
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
-**Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
+**Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 6) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
 - Batch 1: Steps 1-5.5 (implement model, register, CLI, tests)
 - Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
@@ -112,8 +112,8 @@ For a `[Model]` issue with an explicit direct ILP claim, use:
 - Otherwise, ensure the information provided is enough to implement a solver.
 
 **Example rules:**
-- Implement the user-provided example instance in the canonical `example_db` path for the issue (`src/example_db/model_builders.rs` or `src/example_db/rule_builders.rs`, as appropriate).
-- Run the relevant export and fixture regeneration steps; verify the generated example data against the user-provided information.
+- Implement the user-provided example in `src/example_db/model_builders.rs` for a model, or in the rule-local `canonical_rule_example_specs()` for a rule.
+- Run the relevant exports and verify the generated example data against the user-provided information.
 - Present in `docs/paper/reductions.typ` in tutorial style with clear intuition (see KColoring->QUBO section for reference).
 
 ### 6. Create PR (or Resume Existing)

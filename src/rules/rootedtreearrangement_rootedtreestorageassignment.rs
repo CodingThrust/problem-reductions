@@ -40,6 +40,8 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_vertices;
             // target_solution is the parent array of the rooted tree on X = V

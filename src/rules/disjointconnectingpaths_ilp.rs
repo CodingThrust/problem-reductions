@@ -38,6 +38,8 @@ impl ReductionResult for ReductionDCPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Mark an edge selected iff some orientation carries flow for some commodity.
             let m = self.edges.len();

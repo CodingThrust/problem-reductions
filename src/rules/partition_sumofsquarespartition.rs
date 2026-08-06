@@ -49,13 +49,8 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        let expected = self.target.num_elements();
-        if target_solution.len() != expected {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {expected} group assignments, got {}",
-                target_solution.len()
-            )));
-        }
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(target_solution[..self.source_n].to_vec())
     }
 }

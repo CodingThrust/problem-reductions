@@ -10,7 +10,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::SubgraphIsomorphism;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_assignment_constraints;
+use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode_rows};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -38,16 +38,14 @@ impl ReductionResult for ReductionSubIsoToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let n_host = self.num_host_vertices;
-            (0..self.num_pattern_vertices)
-                .map(|v| {
-                    (0..n_host)
-                        .find(|&u| target_solution[v * n_host + u] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(
+            target_solution,
+            self.num_pattern_vertices,
+            self.num_host_vertices,
+            0,
+        )
     }
 }
 

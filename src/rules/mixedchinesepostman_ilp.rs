@@ -30,6 +30,8 @@ impl ReductionResult for ReductionMCPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Return the orientation bits d_k in source edge order
             target_solution[..self.num_undirected_edges].to_vec()

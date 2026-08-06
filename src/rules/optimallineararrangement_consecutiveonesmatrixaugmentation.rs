@@ -49,6 +49,8 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             match &self.construction {
                 // No edges: any arrangement has total length 0 <= k, so emit the
@@ -63,16 +65,10 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
                     // `position`. The OLA arrangement is `f(vertex) = position`, i.e.
                     // the inverse permutation.
                     let n = *num_vertices;
-                    if target_solution.len() != n {
-                        return Err(crate::rules::ExtractionError::invalid(format!(
-                            "expected a permutation of {n} columns, got {} entries",
-                            target_solution.len()
-                        )));
-                    }
                     let mut arrangement = vec![0usize; n];
                     let mut seen = vec![false; n];
                     for (position, &vertex) in target_solution.iter().enumerate() {
-                        if vertex >= n || seen[vertex] {
+                        if seen[vertex] {
                             return Err(crate::rules::ExtractionError::invalid(
                                 "target column order is not a permutation",
                             ));

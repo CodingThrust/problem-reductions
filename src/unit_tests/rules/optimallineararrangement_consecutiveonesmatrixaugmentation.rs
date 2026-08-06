@@ -98,6 +98,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_s
     let arrangement = reduction.extract_solution(&witness).unwrap();
     assert_eq!(arrangement.len(), 3);
     assert_eq!(source.evaluate(&arrangement), Or(true));
+    assert!(reduction.extract_solution(&[]).is_err());
 }
 
 #[test]
@@ -128,6 +129,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_negative_b
         BruteForce::new().find_witness(&source).is_none(),
         "P_6 has no arrangement of length <= 4"
     );
+    assert!(reduction.extract_solution(&[]).is_err());
 }
 
 #[test]
@@ -140,7 +142,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_in
             .extract_solution(&[0, 1, 2])
             .unwrap_err()
             .to_string(),
-        "expected a permutation of 6 columns, got 3 entries"
+        "expected 6 target values, got 3"
     );
     assert_eq!(
         reduction

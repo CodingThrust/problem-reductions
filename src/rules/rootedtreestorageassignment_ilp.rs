@@ -7,6 +7,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 // Index helpers
@@ -75,16 +76,9 @@ impl ReductionResult for ReductionRTSAToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let n = self.n;
-            (0..n)
-                .map(|v| {
-                    (0..n)
-                        .find(|&u| target_solution[idx_p(n, v, u)] == 1)
-                        .unwrap_or(v)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 

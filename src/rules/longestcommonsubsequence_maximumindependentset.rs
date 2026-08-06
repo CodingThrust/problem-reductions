@@ -52,6 +52,8 @@ impl ReductionResult for ReductionLCSToIS {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Collect selected match nodes with their characters
             let mut selected: Vec<(usize, usize)> = target_solution

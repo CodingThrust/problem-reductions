@@ -32,6 +32,8 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let Some(x) = self.target.decode_witness(target_solution) else {
                 return Err(crate::rules::ExtractionError::invalid(

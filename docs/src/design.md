@@ -162,11 +162,45 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
     type Target = MinimumVertexCover<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(&self, target_sol: &[usize]) -> Vec<usize> {
-        target_sol.iter().map(|&x| 1 - x).collect()  // complement
+    fn extract_solution(
+        &self,
+        target_sol: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_sol)?;
+        Ok(target_sol.iter().map(|&x| 1 - x).collect())
     }
 }
 ```
+
+### Solution extraction contract
+
+`ReductionResult::extract_solution` accepts one complete target configuration
+and returns the source configuration defined by the reduction. Extraction is a
+fallible boundary, not a recovery mechanism:
+
+1. In every direct extractor, call `validate_target_solution()` once before
+   indexing or decoding. Composed extractors delegate this check.
+2. Validate any structure required by the inverse mapping, such as exactly-one
+   blocks, permutations, paths, flows, or schedules.
+3. Apply the reduction's mathematical inverse once and return a source
+   configuration with the required length and domains.
+4. Return `ExtractionError` when a precondition is not satisfied.
+
+Do not truncate or pad input, substitute zero for missing data, select the
+first of several invalid candidates, retry with another mapping, or panic on
+caller-provided configuration data. Empty and singleton instances should flow
+through the same mathematical mapping unless the reduction itself has a
+genuine mathematical case distinction.
+
+Zero and sentinel values remain valid when the source model explicitly gives
+them meaning. For example, `MaximumCommonEdgeSubgraph` includes an "unmapped"
+sentinel in its source dimensions. Missing target data must never be
+interpreted as that sentinel.
+
+Each conditional in an extractor should therefore either reject a named
+invariant violation or implement a case in the reduction's mathematics. A
+normal extractor has one validation phase followed by one decoding phase; it
+does not accumulate compatibility or fallback branches.
 
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 

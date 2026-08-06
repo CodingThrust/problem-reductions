@@ -175,18 +175,12 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             self.variable_paths
                 .iter()
-                .map(|paths| {
-                    usize::from(
-                        target_solution
-                            .get(paths.lower_entry_arc)
-                            .copied()
-                            .unwrap_or(0)
-                            > 0,
-                    )
-                })
+                .map(|paths| usize::from(target_solution[paths.lower_entry_arc] > 0))
                 .collect()
         })
     }

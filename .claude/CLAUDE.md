@@ -25,7 +25,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [review-quality](skills/review-quality/SKILL.md) -- Generic code quality review: DRY, KISS, cohesion/coupling, test quality, HCI. Read-only, no code changes. Called by `review-pipeline`.
 - [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments, fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
 - [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-model` Step 6.
-- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 5.
+- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 6.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
 - [fix-issue](skills/fix-issue/SKILL.md) -- Fix quality issues found by check-issue — auto-fixes mechanical problems, brainstorms substantive issues with human, then re-checks and moves to Ready.
@@ -59,7 +59,7 @@ make fmt-check      # Check code formatting
 make clippy         # Run clippy lints
 make doc            # Build mdBook documentation (includes reduction graph export)
 make mdbook         # Build and serve mdBook with live reload
-make paper          # Build Typst paper from checked-in example fixtures
+make paper          # Generate example data and build the Typst paper
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
 make rust-export    # Generate Julia parity test data (mapping stages)
@@ -158,6 +158,8 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
 - `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
 - `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
+- Every direct `extract_solution()` must call `validate_target_solution()` once before decoding; composed extractors delegate validation to the first direct decoder.
+- Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
@@ -208,14 +210,14 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Aggregate-only models are first-class in `declare_variants!`; aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
-- Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
+- Canonical model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
 
 ## Conventions
 
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
-- Canonical examples: builder functions in `src/example_db/rule_builders.rs` and `src/example_db/model_builders.rs`
+- Canonical examples: model builders in `src/example_db/model_builders.rs`; rule-local `canonical_rule_example_specs()` functions collected by `src/rules/mod.rs`
 - Example binaries in `examples/`: utility/export tools and pedagogical demos only (not per-reduction files)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
@@ -261,7 +263,7 @@ Model review automation checks for a dedicated test file under `src/unit_tests/m
 - `.claude/` — Claude Code instructions and skills
 - `docs/book/` — mdBook user documentation (built with `make doc`)
 - `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
-- `src/example_db/` — Canonical model/rule examples: `model_builders.rs`, `rule_builders.rs` (in-memory builders), `specs.rs` (per-module invariant specs), consumed by `pred create --example` and paper exports
+- `src/example_db/` — Model builders, shared example specs, and rule-example aggregation consumed by `pred create --example` and paper exports
 - `examples/` — Export utilities, graph-analysis helpers, and pedagogical demos
 
 ## Documentation Requirements

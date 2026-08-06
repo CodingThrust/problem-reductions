@@ -36,10 +36,16 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let schedule =
                 crate::models::misc::decode_lehmer(target_solution, self.target.num_tasks())
-                    .expect("target solution must be a valid Lehmer code");
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target configuration is not a Lehmer code",
+                        )
+                    })?;
             let mut arrangement = vec![0usize; self.num_vertices];
             let mut next_position = 0usize;
 

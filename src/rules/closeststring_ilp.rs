@@ -55,13 +55,7 @@ impl ReductionResult for ReductionClosestStringToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        if target_solution.len() != self.target.num_vars {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} ILP values, got {}",
-                self.target.num_vars,
-                target_solution.len()
-            )));
-        }
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let q = self.alphabet_size;
         let mut center = Vec::with_capacity(self.string_length);

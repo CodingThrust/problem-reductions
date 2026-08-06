@@ -36,6 +36,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // The target config is a permutation of arc indices.
             // Arc i corresponds to original vertex i (arc from 2i to 2i+1).

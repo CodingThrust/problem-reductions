@@ -182,7 +182,7 @@ impl TheoremConstruction {
         witness
     }
 
-    fn extract_solution(
+    fn decode_solution(
         &self,
         target_problem: &HamiltonianCircuit<SimpleGraph>,
         target_solution: &[usize],
@@ -267,6 +267,8 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             match &self.construction {
                 ConstructionKind::FixedYes { source_cover } => {
@@ -284,7 +286,7 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
                     ))
                 }
                 ConstructionKind::Theorem(construction) => {
-                    construction.extract_solution(&self.target, target_solution)?
+                    construction.decode_solution(&self.target, target_solution)?
                 }
             }
         })

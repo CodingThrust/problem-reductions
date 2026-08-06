@@ -9,6 +9,7 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use std::collections::HashMap;
@@ -38,19 +39,12 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_vertices;
 
-            // For each position p, find the vertex v where x_{v,p} == 1
-            let mut tour = vec![0usize; n];
-            for p in 0..n {
-                for v in 0..n {
-                    if target_solution[v * n + p] == 1 {
-                        tour[p] = v;
-                        break;
-                    }
-                }
-            }
+            let tour = one_hot_decode(target_solution, n, n, 0)?;
 
             // Build edge-based config: for each consecutive pair in the tour, mark the edge
             let mut config = vec![0usize; self.num_edges];
@@ -58,9 +52,12 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
                 let u = tour[p];
                 let v = tour[(p + 1) % n];
                 let key = (u.min(v), u.max(v));
-                if let Some(&idx) = self.edge_index.get(&key) {
-                    config[idx] = 1;
-                }
+                let &edge = self.edge_index.get(&key).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(format!(
+                        "target tour uses absent source edge ({u}, {v})"
+                    ))
+                })?;
+                config[edge] = 1;
             }
 
             config

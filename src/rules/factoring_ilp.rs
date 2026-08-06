@@ -79,15 +79,17 @@ impl ReductionResult for ReductionFactoringToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Extract p bits (first factor)
             let p_bits: Vec<usize> = (0..self.m)
-                .map(|i| target_solution.get(self.p_var(i)).copied().unwrap_or(0))
+                .map(|i| target_solution[self.p_var(i)])
                 .collect();
 
             // Extract q bits (second factor)
             let q_bits: Vec<usize> = (0..self.n)
-                .map(|j| target_solution.get(self.q_var(j)).copied().unwrap_or(0))
+                .map(|j| target_solution[self.q_var(j)])
                 .collect();
 
             // Concatenate p and q bits

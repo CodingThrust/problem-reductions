@@ -31,6 +31,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.n;
             if n == 0 {

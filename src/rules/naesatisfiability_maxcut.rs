@@ -40,6 +40,8 @@ impl ReductionResult for ReductionNAESATToMaxCut {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             (0..self.source_num_vars)
                 .map(|i| target_solution[2 * i])

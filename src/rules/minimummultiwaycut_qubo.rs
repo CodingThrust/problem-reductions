@@ -40,18 +40,15 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let k = self.num_terminals;
             let n = self.num_vertices;
 
             // For each vertex, find which terminal position it is assigned to
-            let assignments: Vec<usize> = (0..n)
-                .map(|u| {
-                    (0..k)
-                        .find(|&t| target_solution[u * k + t] == 1)
-                        .unwrap_or(0)
-                })
-                .collect();
+            let assignments =
+                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, k, 0)?;
 
             // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
             self.edges

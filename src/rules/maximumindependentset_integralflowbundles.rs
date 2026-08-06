@@ -47,15 +47,11 @@ impl ReductionResult for ReductionMISToIFB {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             (0..self.num_source_vertices)
-                .map(|i| {
-                    if target_solution.get(2 * i + 1).copied().unwrap_or(0) > 0 {
-                        1
-                    } else {
-                        0
-                    }
-                })
+                .map(|i| if target_solution[2 * i + 1] > 0 { 1 } else { 0 })
                 .collect()
         })
     }

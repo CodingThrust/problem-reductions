@@ -49,14 +49,15 @@ impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             if let Some(witness) = &self.trivial_yes {
                 return Ok(witness.clone());
             }
             let mut cover = vec![0; self.num_source_vertices];
-            for (vertex, &selected) in target_solution
+            for (vertex, &selected) in target_solution[..self.num_source_vertices]
                 .iter()
-                .take(self.num_source_vertices)
                 .enumerate()
             {
                 cover[vertex] = selected;

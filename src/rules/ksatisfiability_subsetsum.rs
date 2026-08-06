@@ -39,6 +39,8 @@ impl ReductionResult for Reduction3SATToSubsetSum {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Variable integers are the first 2n elements in 0-based indexing:
             // for variable i (0 <= i < n), y_i is stored at index 2*i and z_i at index 2*i + 1.

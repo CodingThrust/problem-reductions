@@ -29,9 +29,11 @@ impl ReductionResult for Reduction3SatToKernel {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             (0..self.source_num_vars)
-                .map(|i| usize::from(target_solution.get(2 * i).copied().unwrap_or(0) == 1))
+                .map(|i| usize::from(target_solution[2 * i] == 1))
                 .collect()
         })
     }

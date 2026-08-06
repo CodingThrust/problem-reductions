@@ -30,6 +30,8 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         if target_solution.len() != self.source_n {
             return Err(crate::rules::ExtractionError::invalid(format!(
                 "expected {} subset-selection values, got {}",

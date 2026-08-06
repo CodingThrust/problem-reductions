@@ -298,6 +298,8 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreePartition {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let mut groups = vec![Vec::new(); self.target.num_groups()];
             for (element_index, &group_index) in target_solution.iter().enumerate() {

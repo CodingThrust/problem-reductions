@@ -46,6 +46,8 @@ impl ReductionResult for ReductionFactoringToCircuit {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let var_names = self.target.variable_names();
 
@@ -53,27 +55,20 @@ impl ReductionResult for ReductionFactoringToCircuit {
             let var_map: std::collections::HashMap<&str, usize> = var_names
                 .iter()
                 .enumerate()
-                .map(|(i, name)| (name.as_str(), target_solution.get(i).copied().unwrap_or(0)))
+                .map(|(i, name)| (name.as_str(), target_solution[i]))
                 .collect();
 
-            // Extract p bits
-            let p_bits: Vec<usize> = self
-                .p_vars
+            self.p_vars
                 .iter()
-                .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-                .collect();
-
-            // Extract q bits
-            let q_bits: Vec<usize> = self
-                .q_vars
-                .iter()
-                .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-                .collect();
-
-            // Concatenate p and q bits
-            let mut result = p_bits;
-            result.extend(q_bits);
-            result
+                .chain(&self.q_vars)
+                .map(|name| {
+                    var_map.get(name.as_str()).copied().ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target circuit does not contain factor variable {name}"
+                        ))
+                    })
+                })
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
         })
     }
 }

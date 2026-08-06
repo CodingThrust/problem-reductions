@@ -46,6 +46,8 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // First m variables are edge selectors
             target_solution[..self.num_edges].to_vec()

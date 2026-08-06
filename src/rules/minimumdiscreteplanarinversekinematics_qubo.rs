@@ -43,18 +43,28 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            self.block_offsets
-                .iter()
-                .zip(&self.block_sizes)
-                .map(|(&start, &size)| {
-                    target_solution[start..start + size]
-                        .iter()
-                        .position(|&bit| bit == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        self.block_offsets
+            .iter()
+            .zip(&self.block_sizes)
+            .enumerate()
+            .map(|(link, (&start, &size))| {
+                let mut selected = target_solution[start..start + size]
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(orientation, &bit)| (bit == 1).then_some(orientation));
+                match (selected.next(), selected.next()) {
+                    (Some(orientation), None) => Ok(orientation),
+                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "link {link} has no selected orientation"
+                    ))),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "link {link} has multiple selected orientations"
+                    ))),
+                }
+            })
+            .collect()
     }
 }
 

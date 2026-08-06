@@ -30,9 +30,11 @@ impl ReductionResult for ReductionMTSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_tasks;
-            let schedule = one_hot_decode(target_solution, n, n, 0);
+            let schedule = one_hot_decode(target_solution, n, n, 0)?;
             permutation_to_lehmer(&schedule)
         })
     }
@@ -57,9 +59,11 @@ impl ReductionResult for ReductionMTSWeightedToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_tasks;
-            let schedule = one_hot_decode(target_solution, n, n, 0);
+            let schedule = one_hot_decode(target_solution, n, n, 0)?;
             permutation_to_lehmer(&schedule)
         })
     }

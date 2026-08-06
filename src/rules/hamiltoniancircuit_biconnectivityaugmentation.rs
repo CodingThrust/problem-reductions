@@ -48,6 +48,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_vertices;
             if n < 3 {
@@ -59,7 +61,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
             // Collect selected edges (those with config value 1)
             let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
             for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
-                if i < target_solution.len() && target_solution[i] == 1 {
+                if target_solution[i] == 1 {
                     adj[u].push(v);
                     adj[v].push(u);
                 }

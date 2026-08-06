@@ -38,6 +38,34 @@ impl ExtractionError {
 
 pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 
+/// Validate that a target configuration matches its declared discrete space.
+pub(crate) fn validate_target_solution<P: Problem>(
+    target: &P,
+    solution: &[usize],
+) -> ExtractionResult<()> {
+    let dims = target.dims();
+    if solution.len() != dims.len() {
+        return Err(ExtractionError::invalid(format!(
+            "expected {} target values, got {}",
+            dims.len(),
+            solution.len()
+        )));
+    }
+
+    if let Some((index, (&value, &dimension))) = solution
+        .iter()
+        .zip(&dims)
+        .enumerate()
+        .find(|(_, (value, dimension))| value >= dimension)
+    {
+        return Err(ExtractionError::invalid(format!(
+            "target value {value} at position {index} is outside dimension {dimension}"
+        )));
+    }
+
+    Ok(())
+}
+
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods
@@ -157,6 +185,8 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(target_solution.to_vec())
     }
 }

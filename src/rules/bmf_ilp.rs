@@ -29,6 +29,8 @@ impl ReductionResult for ReductionBMFToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // Extract B (m x k) then C (k x n) — first m*k + k*n variables
             let total = self.m * self.k + self.k * self.n;

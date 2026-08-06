@@ -31,8 +31,10 @@ impl ReductionResult for Reduction3SATToSimultaneousIncongruences {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
-            let x = target_solution.first().copied().unwrap_or(0) as u64;
+            let x = target_solution[0] as u64;
             self.variable_primes
                 .iter()
                 .map(|&prime| if x % prime == 1 { 1 } else { 0 })

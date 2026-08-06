@@ -62,19 +62,13 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let m = self.source_num_subsets;
             let root_to_set_offset = 2;
             (0..m)
-                .map(|i| {
-                    usize::from(
-                        target_solution
-                            .get(root_to_set_offset + i)
-                            .copied()
-                            .unwrap_or(0)
-                            == 1,
-                    )
-                })
+                .map(|i| usize::from(target_solution[root_to_set_offset + i] == 1))
                 .collect()
         })
     }

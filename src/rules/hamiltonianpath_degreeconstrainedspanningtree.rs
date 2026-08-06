@@ -25,6 +25,8 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         extract_hamiltonian_order(self.target.graph(), target_solution)
     }
 }
@@ -57,14 +59,6 @@ fn extract_hamiltonian_order(
     }
 
     let edges = graph.edges();
-    if target_solution.len() != edges.len() {
-        return Err(crate::rules::ExtractionError::invalid(format!(
-            "expected {} edge-selection values, got {}",
-            edges.len(),
-            target_solution.len()
-        )));
-    }
-
     let mut adjacency = vec![Vec::new(); num_vertices];
     for ((u, v), &selected) in edges.iter().copied().zip(target_solution.iter()) {
         if selected != 1 {

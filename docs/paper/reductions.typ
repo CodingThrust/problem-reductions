@@ -65,7 +65,7 @@
 #show: thmrules.with(qed-symbol: $square$)
 
 // === Example JSON helpers ===
-// Load canonical example database directly from the checked-in fixture file.
+// Load the generated canonical example database.
 #let example-db = json("data/examples.json")
 
 // Pre-index rules by (source, target) and models by name so lookups are O(bucket)

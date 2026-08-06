@@ -26,16 +26,14 @@ impl ReductionResult for ReductionSMCToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            // For each row r, output the unique zero-based shift g with x_{r,g} = 1
-            (0..self.num_rows)
-                .map(|r| {
-                    (0..self.bound_k)
-                        .find(|&g| target_solution[r * self.bound_k + g] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_rows,
+            self.bound_k,
+            0,
+        )
     }
 }
 

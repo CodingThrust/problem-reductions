@@ -64,13 +64,7 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        if target_solution.len() != self.clusters.len() {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {} cluster-selection values, got {}",
-                self.clusters.len(),
-                target_solution.len()
-            )));
-        }
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
         for (c, cluster) in self.clusters.iter().enumerate() {

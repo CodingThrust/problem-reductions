@@ -36,13 +36,7 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
                     "the fixed infeasible target instance has no extractable witness",
                 )
             })?;
-            if target_solution.len() < item_arc_count {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "expected at least {} flow values, got {}",
-                    item_arc_count,
-                    target_solution.len()
-                )));
-            }
+            crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
             target_solution[..item_arc_count].to_vec()
         })

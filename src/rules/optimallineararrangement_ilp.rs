@@ -38,16 +38,14 @@ impl ReductionResult for ReductionOLAToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let n = self.num_vertices;
-            (0..n)
-                .map(|v| {
-                    (0..n)
-                        .find(|&p| target_solution[v * n + p] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_vertices,
+            0,
+        )
     }
 }
 

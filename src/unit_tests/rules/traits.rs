@@ -4,8 +4,8 @@ fn test_traits_compile() {
 }
 
 use crate::rules::traits::{
-    AggregateReductionResult, DynAggregateReductionResult, ReduceTo, ReduceToAggregate,
-    ReductionResult,
+    validate_target_solution, AggregateReductionResult, DynAggregateReductionResult, ReduceTo,
+    ReduceToAggregate, ReductionResult,
 };
 use crate::traits::Problem;
 use crate::types::Sum;
@@ -79,6 +79,16 @@ fn test_reduction() {
     let target = result.target_problem();
     assert_eq!(target.evaluate(&[1, 1]), 2);
     assert_eq!(result.extract_solution(&[1, 0]).unwrap(), vec![1, 0]);
+}
+
+#[test]
+fn target_solution_validation_rejects_shape_and_domain_errors() {
+    let target = TargetProblem;
+
+    assert!(validate_target_solution(&target, &[1, 0]).is_ok());
+    assert!(validate_target_solution(&target, &[1]).is_err());
+    assert!(validate_target_solution(&target, &[1, 0, 0]).is_err());
+    assert!(validate_target_solution(&target, &[1, 2]).is_err());
 }
 
 #[derive(Clone)]

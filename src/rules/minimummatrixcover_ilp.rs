@@ -31,6 +31,8 @@ impl ReductionResult for ReductionMinimumMatrixCoverToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // First n variables are the sign variables x_0,...,x_{n-1}
             target_solution[..self.n].to_vec()

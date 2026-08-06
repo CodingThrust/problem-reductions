@@ -42,16 +42,14 @@ impl ReductionResult for ReductionPCSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let d = self.deadline;
-            (0..self.num_tasks)
-                .map(|j| {
-                    (0..d)
-                        .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.deadline,
+            0,
+        )
     }
 }
 

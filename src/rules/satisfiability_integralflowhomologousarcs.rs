@@ -106,18 +106,12 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             self.variable_paths
                 .iter()
-                .map(|paths| {
-                    usize::from(
-                        target_solution
-                            .get(paths.true_base_arc)
-                            .copied()
-                            .unwrap_or(0)
-                            > 0,
-                    )
-                })
+                .map(|paths| usize::from(target_solution[paths.true_base_arc] > 0))
                 .collect()
         })
     }

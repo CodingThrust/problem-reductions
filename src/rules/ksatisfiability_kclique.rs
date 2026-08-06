@@ -40,6 +40,8 @@ impl ReductionResult for Reduction3SATToKClique {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.source_num_vars;
             // Start with all variables unset (false = 0).
