@@ -117,7 +117,7 @@ impl ReductionResult for ReductionXToY {
 }
 ```
 
-Follow the extraction contract in `.claude/CLAUDE.md`: reject malformed structure with `ExtractionError`; do not default, truncate, clamp, panic, or recover. `validate_target_solution()` checks only length and value domains, not feasibility, optimality, or rule-specific structure.
+Every direct extractor must call `validate_target_solution()` once before decoding. It checks only length and value domains, not feasibility, optimality, or rule-specific structure; reject malformed structure with `ExtractionError`.
 
 **ReduceTo with `#[reduction]` macro** (overhead is **required**):
 ```rust

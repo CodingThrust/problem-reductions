@@ -166,6 +166,7 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
         &self,
         target_sol: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_sol)?;
         Ok(target_sol.iter().map(|&x| 1 - x).collect())
     }
 }
@@ -177,8 +178,8 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
 and returns the source configuration defined by the reduction. Extraction is a
 fallible boundary, not a recovery mechanism:
 
-1. Validate the target configuration's exact length and value domains before
-   indexing or decoding it.
+1. In every direct extractor, call `validate_target_solution()` once before
+   indexing or decoding. Composed extractors delegate this check.
 2. Validate any structure required by the inverse mapping, such as exactly-one
    blocks, permutations, paths, flows, or schedules.
 3. Apply the reduction's mathematical inverse once and return a source

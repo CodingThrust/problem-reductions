@@ -32,25 +32,9 @@ impl ReductionResult for ReductionSATToNAESAT {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        let n = self.source_num_vars;
-        let expected = n + 1;
-        if target_solution.len() != expected {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {expected} values including the sentinel, got {}",
-                target_solution.len()
-            )));
-        }
-        if let Some((index, value)) = target_solution
-            .iter()
-            .copied()
-            .enumerate()
-            .find(|(_, value)| *value > 1)
-        {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected a binary value at position {index}, got {value}"
-            )));
-        }
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
+        let n = self.source_num_vars;
         let sentinel = target_solution[n];
         Ok(target_solution[..n]
             .iter()
