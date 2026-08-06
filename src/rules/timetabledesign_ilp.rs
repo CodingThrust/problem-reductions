@@ -32,6 +32,8 @@ impl ReductionResult for ReductionTDToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(target_solution.to_vec())
     }
 }

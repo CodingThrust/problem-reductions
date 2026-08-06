@@ -339,6 +339,8 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let d_max = self.target.d_max();
             self.positive_start_jobs

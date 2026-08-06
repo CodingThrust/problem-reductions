@@ -39,12 +39,9 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok(one_hot_decode(
-            target_solution,
-            self.num_vertices,
-            self.num_vertices,
-            0,
-        ))
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode(target_solution, self.num_vertices, self.num_vertices, 0)
     }
 }
 

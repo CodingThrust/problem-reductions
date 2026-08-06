@@ -84,6 +84,8 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             if !self.target.evaluate(target_solution).is_valid() {
                 return Err(crate::rules::ExtractionError::invalid(

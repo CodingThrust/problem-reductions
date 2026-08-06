@@ -55,6 +55,8 @@ impl ReductionResult for ReductionU2CIFToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(target_solution[..4 * self.num_edges].to_vec())
     }
 }

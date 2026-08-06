@@ -35,6 +35,8 @@ impl ReductionResult for ReductionCVPToQUBO {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             self.encodings
                 .iter()
@@ -43,13 +45,7 @@ impl ReductionResult for ReductionCVPToQUBO {
                         .weights
                         .iter()
                         .enumerate()
-                        .map(|(offset, weight)| {
-                            target_solution
-                                .get(encoding.start + offset)
-                                .copied()
-                                .unwrap_or(0)
-                                * weight
-                        })
+                        .map(|(offset, weight)| target_solution[encoding.start + offset] * weight)
                         .sum()
                 })
                 .collect()

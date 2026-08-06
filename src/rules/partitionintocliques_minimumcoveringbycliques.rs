@@ -108,17 +108,11 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.source_graph.num_vertices();
             let target_edges = self.target.graph().edges();
-            if target_solution.len() != target_edges.len() {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "expected {} edge labels, got {}",
-                    target_edges.len(),
-                    target_solution.len()
-                )));
-            }
-
             let mut matching_labels = vec![None; n];
             for ((u, v), &label) in target_edges.iter().zip(target_solution.iter()) {
                 let matching_index = if *u < n && *v == n + *u {
@@ -134,21 +128,19 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
                 }
             }
 
-            if matching_labels.iter().any(Option::is_none) {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target cover does not label every matching gadget edge",
-                ));
-            }
-
             let mut label_map = BTreeMap::new();
             let extracted = matching_labels
                 .into_iter()
                 .map(|label| {
-                    let label = label.expect("checked above");
+                    let label = label.ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target cover does not label every matching gadget edge",
+                        )
+                    })?;
                     let next = label_map.len();
-                    *label_map.entry(label).or_insert(next)
+                    Ok(*label_map.entry(label).or_insert(next))
                 })
-                .collect::<Vec<_>>();
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
 
             if label_map.len() > self.source_num_cliques {
                 return Err(crate::rules::ExtractionError::invalid(format!(

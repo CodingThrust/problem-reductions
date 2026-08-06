@@ -29,12 +29,14 @@ impl ReductionResult for ReductionSTMTTWToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_tasks;
             // Decode the n*n block of x_{j,p} variables into a schedule permutation.
             // The source uses direct permutation encoding (config = schedule directly),
             // so return the schedule as-is (it is already a permutation of 0..n).
-            one_hot_decode(target_solution, n, n, 0)
+            one_hot_decode(target_solution, n, n, 0)?
         })
     }
 }

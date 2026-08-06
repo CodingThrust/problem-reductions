@@ -10,6 +10,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::KColoring;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K1, K2, K3, K4, KN};
@@ -26,13 +27,6 @@ pub struct ReductionKColoringToILP<K: KValue, G> {
     num_vertices: usize,
     num_colors: usize,
     _phantom: std::marker::PhantomData<(K, G)>,
-}
-
-impl<K: KValue, G> ReductionKColoringToILP<K, G> {
-    /// Get the variable index for vertex v with color c.
-    fn var_index(&self, vertex: usize, color: usize) -> usize {
-        vertex * self.num_colors + color
-    }
 }
 
 impl<K: KValue, G> ReductionResult for ReductionKColoringToILP<K, G>
@@ -54,19 +48,9 @@ where
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let k = self.num_colors;
-            (0..self.num_vertices)
-                .map(|v| {
-                    (0..k)
-                        .find(|&c| {
-                            let var_idx = self.var_index(v, c);
-                            var_idx < target_solution.len() && target_solution[var_idx] == 1
-                        })
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
     }
 }
 

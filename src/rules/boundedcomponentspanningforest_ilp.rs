@@ -7,6 +7,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BoundedComponentSpanningForest;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -30,17 +31,9 @@ impl ReductionResult for ReductionBCSFToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let n = self.n;
-            let k = self.k;
-            (0..n)
-                .map(|v| {
-                    (0..k)
-                        .find(|&c| target_solution[v * k + c] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.n, self.k, 0)
     }
 }
 

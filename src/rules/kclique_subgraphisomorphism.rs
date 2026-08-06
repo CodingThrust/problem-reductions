@@ -38,6 +38,8 @@ impl ReductionResult for ReductionKCliqueToSubIso {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             KClique::<SimpleGraph>::config_from_vertices(self.num_source_vertices, target_solution)
         })

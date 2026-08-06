@@ -52,11 +52,17 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.target.num_tasks();
             // Decode Lehmer code to permutation
-            let schedule = crate::models::misc::decode_lehmer(target_solution, n)
-                .expect("target_solution must be a valid Lehmer code");
+            let schedule =
+                crate::models::misc::decode_lehmer(target_solution, n).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "target configuration is not a Lehmer code",
+                    )
+                })?;
 
             // Simulate the schedule to find start times
             let mut current_time: u64 = 0;

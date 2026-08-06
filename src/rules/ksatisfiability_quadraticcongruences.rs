@@ -35,6 +35,8 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let mut source_assignment = vec![0; self.source_num_vars];
             let Some(x) = self.target.decode_witness(target_solution) else {

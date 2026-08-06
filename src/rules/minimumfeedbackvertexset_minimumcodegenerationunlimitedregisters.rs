@@ -41,6 +41,8 @@ impl ReductionResult for ReductionFVSToCodeGen {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_source_vertices;
             let mut source_config = vec![0usize; n];

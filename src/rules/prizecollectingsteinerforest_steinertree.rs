@@ -73,6 +73,8 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_source_vertices;
             let m = self.num_source_edges;
@@ -97,7 +99,7 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
             // (this also covers prize-zero endpoints, which have no gadget).
             let edges = self.target.graph().edges();
             for (target_idx, &(_, _)) in edges.iter().enumerate() {
-                if target_solution.get(target_idx).copied() != Some(1) {
+                if target_solution[target_idx] != 1 {
                     continue;
                 }
                 if let Some(src_edge) = self.target_to_source_edge[target_idx] {

@@ -30,12 +30,18 @@ impl ReductionResult for ReductionN3DMToNMTS {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let mut x_indices_by_pair_sum: BTreeMap<i64, Vec<usize>> = BTreeMap::new();
             for (x_index, &y_index) in target_solution.iter().enumerate() {
                 let pair_sum = self.target.sizes_x()[x_index]
                     .checked_add(self.target.sizes_y()[y_index])
-                    .expect("NMTS witness must not overflow i64 pair sums");
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target pair sum overflows the target numeric domain",
+                        )
+                    })?;
                 x_indices_by_pair_sum
                     .entry(pair_sum)
                     .or_default()
@@ -49,7 +55,11 @@ impl ReductionResult for ReductionN3DMToNMTS {
                 let x_index = x_indices_by_pair_sum
                     .get_mut(&target_sum)
                     .and_then(Vec::pop)
-                    .expect("satisfying NMTS witness must realize every target complement");
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target matching does not realize required pair sum {target_sum}"
+                        ))
+                    })?;
                 x_perm.push(x_index);
                 y_perm.push(target_solution[x_index]);
             }

@@ -58,6 +58,8 @@ impl ReductionResult for ReductionSTSCToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.n;
             let k = self.bound;
@@ -76,28 +78,27 @@ impl ReductionResult for ReductionSTSCToILP {
                     .filter(|&p| target_solution[idx_e(n, k, t - 1, p)] == 0)
                     .count();
 
+                let mut selected = Vec::new();
                 if target_solution[idx_nu(n, k, t)] == 1 {
-                    ops.push(noop_code);
-                } else {
-                    let mut found = false;
-                    for j in 0..n {
-                        if target_solution[idx_d(n, k, t, j)] == 1 {
-                            ops.push(j);
-                            found = true;
-                            break;
-                        }
+                    selected.push(noop_code);
+                }
+                selected.extend((0..n).filter(|&j| target_solution[idx_d(n, k, t, j)] == 1));
+                selected.extend(
+                    (0..nm1)
+                        .filter(|&j| target_solution[idx_s(n, k, t, j)] == 1)
+                        .map(|j| current_len + j),
+                );
+                match selected.as_slice() {
+                    [operation] => ops.push(*operation),
+                    [] => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "edit step {t} has no selected operation"
+                        )))
                     }
-                    if !found {
-                        for j in 0..nm1 {
-                            if target_solution[idx_s(n, k, t, j)] == 1 {
-                                ops.push(current_len + j);
-                                found = true;
-                                break;
-                            }
-                        }
-                        if !found {
-                            ops.push(noop_code);
-                        }
+                    _ => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "edit step {t} has multiple selected operations"
+                        )))
                     }
                 }
             }

@@ -46,6 +46,8 @@ impl ReductionResult for ReductionFactoringToCircuit {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let var_names = self.target.variable_names();
 
@@ -53,7 +55,7 @@ impl ReductionResult for ReductionFactoringToCircuit {
             let var_map: std::collections::HashMap<&str, usize> = var_names
                 .iter()
                 .enumerate()
-                .map(|(i, name)| (name.as_str(), target_solution.get(i).copied().unwrap_or(0)))
+                .map(|(i, name)| (name.as_str(), target_solution[i]))
                 .collect();
 
             // Extract p bits

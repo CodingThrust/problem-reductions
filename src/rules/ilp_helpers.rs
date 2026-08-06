@@ -140,12 +140,56 @@ pub fn one_hot_decode(
     num_items: usize,
     num_slots: usize,
     var_offset: usize,
-) -> Vec<usize> {
-    (0..num_slots)
+) -> crate::rules::ExtractionResult<Vec<usize>> {
+    let assignment: Vec<usize> = (0..num_slots)
         .map(|p| {
-            (0..num_items)
-                .find(|&v| solution[var_offset + v * num_slots + p] == 1)
-                .unwrap_or(0)
+            let mut selected =
+                (0..num_items).filter(|&v| solution[var_offset + v * num_slots + p] == 1);
+            let item = selected.next().ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(format!(
+                    "assignment slot {p} has no selected item"
+                ))
+            })?;
+            if selected.next().is_some() {
+                return Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment slot {p} has multiple selected items"
+                )));
+            }
+            Ok(item)
+        })
+        .collect::<crate::rules::ExtractionResult<_>>()?;
+
+    let mut assigned = vec![false; num_items];
+    for &item in &assignment {
+        if std::mem::replace(&mut assigned[item], true) {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "item {item} is selected for multiple assignment slots"
+            )));
+        }
+    }
+    Ok(assignment)
+}
+
+/// Decode one selected column from each row of a row-major binary matrix.
+pub fn one_hot_decode_rows(
+    solution: &[usize],
+    num_rows: usize,
+    num_columns: usize,
+    var_offset: usize,
+) -> crate::rules::ExtractionResult<Vec<usize>> {
+    (0..num_rows)
+        .map(|row| {
+            let mut selected = (0..num_columns)
+                .filter(|&column| solution[var_offset + row * num_columns + column] == 1);
+            match (selected.next(), selected.next()) {
+                (Some(column), None) => Ok(column),
+                (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment row {row} has no selected column"
+                ))),
+                (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                    "assignment row {row} has multiple selected columns"
+                ))),
+            }
         })
         .collect()
 }

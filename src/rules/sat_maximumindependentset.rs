@@ -80,6 +80,8 @@ impl ReductionResult for ReductionSATToIS {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let mut assignment = vec![0usize; self.num_source_variables];
             let mut covered = vec![false; self.num_source_variables];

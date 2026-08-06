@@ -25,6 +25,8 @@ impl ReductionResult for ReductionVCToLCS {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let mut cover = vec![1; self.num_vertices];
             for &symbol in target_solution {

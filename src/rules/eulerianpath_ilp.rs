@@ -74,6 +74,8 @@ impl ReductionResult for ReductionEulerianPathToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let m = self.num_arcs;
             if m == 0 {
@@ -81,9 +83,7 @@ impl ReductionResult for ReductionEulerianPathToILP {
             }
 
             // Find the unique active start arc.
-            let mut current = match (0..m)
-                .find(|&a| target_solution.get(self.s_idx(a)).copied().unwrap_or(0) == 1)
-            {
+            let mut current = match (0..m).find(|&a| target_solution[self.s_idx(a)] == 1) {
                 Some(a) => a,
                 None => {
                     return Err(crate::rules::ExtractionError::invalid(
@@ -103,9 +103,7 @@ impl ReductionResult for ReductionEulerianPathToILP {
                     .pairs
                     .iter()
                     .enumerate()
-                    .find(|&(k, &(a, _))| {
-                        a == current && target_solution.get(k).copied().unwrap_or(0) == 1
-                    })
+                    .find(|&(k, &(a, _))| a == current && target_solution[k] == 1)
                     .map(|(_, &(_, b))| b);
 
                 match next {

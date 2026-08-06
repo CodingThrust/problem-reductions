@@ -55,9 +55,11 @@ impl ReductionResult for ReductionPSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let nd = self.num_tasks * self.d_max;
-            target_solution[..nd.min(target_solution.len())].to_vec()
+            target_solution[..nd].to_vec()
         })
     }
 }

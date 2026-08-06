@@ -297,13 +297,9 @@ impl ReductionResult for ReductionCircuitSATToSAT {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            target_solution
-                .iter()
-                .take(self.source_var_count)
-                .copied()
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_var_count].to_vec())
     }
 }
 

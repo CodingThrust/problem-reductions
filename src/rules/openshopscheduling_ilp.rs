@@ -92,6 +92,8 @@ impl ReductionResult for ReductionOSSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_jobs;
             let m = self.num_machines;
@@ -99,7 +101,7 @@ impl ReductionResult for ReductionOSSToILP {
             // Read start times s_{j,i} for each (j, i)
             let start = |j: usize, i: usize| -> usize {
                 let idx = self.num_order_vars + j * m + i;
-                target_solution.get(idx).copied().unwrap_or(0)
+                target_solution[idx]
             };
 
             // For each machine, sort jobs by their start time on that machine

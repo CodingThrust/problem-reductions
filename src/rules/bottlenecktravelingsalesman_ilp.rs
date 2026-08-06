@@ -10,6 +10,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::BottleneckTravelingSalesman;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
+use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -39,31 +40,28 @@ impl ReductionResult for ReductionBTSPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_vertices;
 
-            // Decode tour: for each position p, find vertex v with x_{v,p} = 1
-            let mut tour = vec![0usize; n];
-            for p in 0..n {
-                for v in 0..n {
-                    if target_solution[v * n + p] == 1 {
-                        tour[p] = v;
-                        break;
-                    }
-                }
-            }
+            let tour = one_hot_decode(target_solution, n, n, 0)?;
 
             // Map tour to edge selection
             let mut edge_selection = vec![0usize; self.source_edges.len()];
             for p in 0..n {
                 let u = tour[p];
                 let v = tour[(p + 1) % n];
-                for (idx, &(a, b)) in self.source_edges.iter().enumerate() {
-                    if (a == u && b == v) || (a == v && b == u) {
-                        edge_selection[idx] = 1;
-                        break;
-                    }
-                }
+                let edge = self
+                    .source_edges
+                    .iter()
+                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target tour uses absent source edge ({u}, {v})"
+                        ))
+                    })?;
+                edge_selection[edge] = 1;
             }
 
             edge_selection

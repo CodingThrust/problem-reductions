@@ -31,6 +31,8 @@ impl ReductionResult for ReductionISSimpleToTriangular {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             self.mapping_result
                 .map_config_back_via_centers(target_solution)

@@ -18,12 +18,6 @@ pub struct ReductionClusteringToILP {
     num_clusters: usize,
 }
 
-impl ReductionClusteringToILP {
-    fn var_index(&self, element: usize, cluster: usize) -> usize {
-        element * self.num_clusters + cluster
-    }
-}
-
 impl ReductionResult for ReductionClusteringToILP {
     type Source = Clustering;
     type Target = ILP<bool>;
@@ -36,18 +30,14 @@ impl ReductionResult for ReductionClusteringToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            (0..self.num_elements)
-                .map(|element| {
-                    (0..self.num_clusters)
-                        .find(|&cluster| {
-                            let idx = self.var_index(element, cluster);
-                            idx < target_solution.len() && target_solution[idx] == 1
-                        })
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_elements,
+            self.num_clusters,
+            0,
+        )
     }
 }
 

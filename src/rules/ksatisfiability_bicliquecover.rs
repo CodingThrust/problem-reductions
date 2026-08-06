@@ -102,22 +102,11 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n = self.normalized_n;
         let left_size = self.target.left_size();
         let k = self.target.k();
-        let expected_len = (left_size + self.target.right_size()) * k;
-        if target_solution.len() != expected_len {
-            return Err(crate::rules::ExtractionError::invalid(format!(
-                "expected {expected_len} biclique-membership values, got {}",
-                target_solution.len()
-            )));
-        }
-        if target_solution.iter().any(|&value| value > 1) {
-            return Err(crate::rules::ExtractionError::invalid(
-                "biclique-membership values must be binary",
-            ));
-        }
-
         // Unified-vertex helpers for the named gadget anchors.
         let s11_u = self.s1_left_offset; // s_{1,1}^u
         let s11_v = left_size + self.s1_right_offset; // s_{1,1}^v

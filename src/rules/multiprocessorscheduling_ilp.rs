@@ -37,16 +37,14 @@ impl ReductionResult for ReductionMSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let num_processors = self.num_processors;
-            (0..self.num_tasks)
-                .map(|j| {
-                    (0..num_processors)
-                        .find(|&p| target_solution[j * num_processors + p] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.num_processors,
+            0,
+        )
     }
 }
 

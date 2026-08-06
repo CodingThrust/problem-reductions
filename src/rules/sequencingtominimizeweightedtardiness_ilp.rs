@@ -53,11 +53,13 @@ impl ReductionResult for ReductionSTMWTToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_tasks;
             let c_offset = self.num_order_vars;
             let mut jobs: Vec<usize> = (0..n).collect();
-            jobs.sort_by_key(|&j| (target_solution.get(c_offset + j).copied().unwrap_or(0), j));
+            jobs.sort_by_key(|&j| (target_solution[c_offset + j], j));
             Self::encode_schedule_as_lehmer(&jobs)
         })
     }

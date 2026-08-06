@@ -50,6 +50,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             // The target solution is edge multiplicities.
             // Required edges are indices 0..n (the {v_i^a, v_i^b} edges).
@@ -69,8 +71,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
                 let fwd_idx = n + 2 * k; // {v_i^b, v_j^a}
                 let bwd_idx = n + 2 * k + 1; // {v_j^b, v_i^a}
 
-                let fwd_mult = target_solution.get(fwd_idx).copied().unwrap_or(0);
-                let bwd_mult = target_solution.get(bwd_idx).copied().unwrap_or(0);
+                let fwd_mult = target_solution[fwd_idx];
+                let bwd_mult = target_solution[bwd_idx];
 
                 // In an optimal HC solution, each connectivity edge is used 0 or 1 times.
                 // Each vertex should have exactly one outgoing connectivity edge.

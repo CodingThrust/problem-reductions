@@ -28,6 +28,8 @@ impl ReductionResult for ReductionBCBSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(target_solution[..self.num_vertices].to_vec())
     }
 }

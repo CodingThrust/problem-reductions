@@ -8,6 +8,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -19,13 +20,6 @@ pub struct ReductionTSPToILP {
     num_vertices: usize,
     /// Edges of the source graph (for solution extraction).
     source_edges: Vec<(usize, usize)>,
-}
-
-impl ReductionTSPToILP {
-    /// Variable index for x_{v,k}: vertex v at position k.
-    fn x_index(&self, v: usize, k: usize) -> usize {
-        v * self.num_vertices + k
-    }
 }
 
 impl ReductionResult for ReductionTSPToILP {
@@ -42,32 +36,28 @@ impl ReductionResult for ReductionTSPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_vertices;
 
-            // Read tour: for each position k, find vertex v with x_{v,k} = 1
-            let mut tour = vec![0usize; n];
-            for k in 0..n {
-                for v in 0..n {
-                    if target_solution[self.x_index(v, k)] == 1 {
-                        tour[k] = v;
-                        break;
-                    }
-                }
-            }
+            let tour = one_hot_decode(target_solution, n, n, 0)?;
 
             // Map tour to edge selection
             let mut edge_selection = vec![0usize; self.source_edges.len()];
             for k in 0..n {
                 let u = tour[k];
                 let v = tour[(k + 1) % n];
-                // Find the edge index for (u, v) or (v, u)
-                for (idx, &(a, b)) in self.source_edges.iter().enumerate() {
-                    if (a == u && b == v) || (a == v && b == u) {
-                        edge_selection[idx] = 1;
-                        break;
-                    }
-                }
+                let edge = self
+                    .source_edges
+                    .iter()
+                    .position(|&(a, b)| (a == u && b == v) || (a == v && b == u))
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target tour uses absent source edge ({u}, {v})"
+                        ))
+                    })?;
+                edge_selection[edge] = 1;
             }
 
             edge_selection

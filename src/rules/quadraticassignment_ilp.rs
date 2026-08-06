@@ -38,16 +38,14 @@ impl ReductionResult for ReductionQAPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let loc = self.num_locations;
-            (0..self.num_facilities)
-                .map(|i| {
-                    (0..loc)
-                        .find(|&p| target_solution[i * loc + p] == 1)
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_facilities,
+            self.num_locations,
+            0,
+        )
     }
 }
 

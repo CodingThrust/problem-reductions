@@ -60,19 +60,14 @@ impl ReductionResult for ReductionSSPToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        Ok({
-            let num_groups = self.num_groups;
-            (0..self.num_elements)
-                .map(|i| {
-                    (0..num_groups)
-                        .find(|&g| {
-                            let idx = i * num_groups + g;
-                            idx < target_solution.len() && target_solution[idx] == 1
-                        })
-                        .unwrap_or(0)
-                })
-                .collect()
-        })
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_elements,
+            self.num_groups,
+            0,
+        )
     }
 }
 

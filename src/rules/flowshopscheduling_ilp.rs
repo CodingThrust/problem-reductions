@@ -57,6 +57,8 @@ impl ReductionResult for ReductionFSSToILP {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let n = self.num_jobs;
             let m = self.num_machines;
@@ -64,7 +66,7 @@ impl ReductionResult for ReductionFSSToILP {
             let mut jobs: Vec<usize> = (0..n).collect();
             jobs.sort_by_key(|&j| {
                 let idx = c_offset + j * m + (m - 1);
-                (target_solution.get(idx).copied().unwrap_or(0), j)
+                (target_solution[idx], j)
             });
             let perm = permutation_to_lehmer(&jobs);
             Self::encode_schedule_as_lehmer(&jobs)

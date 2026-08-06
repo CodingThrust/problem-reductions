@@ -40,6 +40,8 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok(config_bmf_to_bc(target_solution, self.m, self.n, self.k))
     }
 }

@@ -749,6 +749,8 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let num_tasks = self.target.num_tasks();
             let num_periods = self.target.num_periods();

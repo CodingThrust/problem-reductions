@@ -97,6 +97,8 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
         &self,
         target_solution: &[usize],
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         Ok({
             let graph = self.source.graph();
             let edges = graph.edges();
@@ -125,12 +127,16 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
                 .zip(target_ones.iter())
                 .filter_map(|(&sel, &cell)| {
                     if sel == 1 {
-                        cell_to_source_edge.get(&cell).copied()
+                        Some(cell_to_source_edge.get(&cell).copied().ok_or_else(|| {
+                            crate::rules::ExtractionError::invalid(format!(
+                                "selected matrix cell {cell:?} has no source edge"
+                            ))
+                        }))
                     } else {
                         None
                     }
                 })
-                .collect();
+                .collect::<crate::rules::ExtractionResult<_>>()?;
 
             // Step 2: Yannakakis-Gavril EDS -> independent EDS (maximal matching).
             // Loop invariants: `d` is an EDS of the source graph; each iteration
@@ -145,13 +151,23 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
 
                 // Try dropping e1_idx or e2_idx if the remainder is still an EDS.
                 let mut without_e1 = d.clone();
-                without_e1.swap_remove(d.iter().position(|&x| x == e1_idx).unwrap());
+                let e1_position = d.iter().position(|&x| x == e1_idx).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "edge-domination transformation lost its selected edge",
+                    )
+                })?;
+                without_e1.swap_remove(e1_position);
                 if is_edge_dominating_set(&without_e1, &edges) {
                     d = without_e1;
                     continue;
                 }
                 let mut without_e2 = d.clone();
-                without_e2.swap_remove(d.iter().position(|&x| x == e2_idx).unwrap());
+                let e2_position = d.iter().position(|&x| x == e2_idx).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "edge-domination transformation lost its selected edge",
+                    )
+                })?;
+                without_e2.swap_remove(e2_position);
                 if is_edge_dominating_set(&without_e2, &edges) {
                     d = without_e2;
                     continue;
@@ -173,12 +189,12 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
                 // Try to swap e1 := (u, x) where x ∉ V(d \ {e1}). The YG proof
                 // guarantees such x exists when neither drop succeeded.
                 if let Some(new_idx) = find_swap_edge(u, e1_idx, &d, &edges) {
-                    replace_in(&mut d, e1_idx, new_idx);
+                    d[e1_position] = new_idx;
                     continue;
                 }
                 // Symmetric swap on e2.
                 if let Some(new_idx) = find_swap_edge(w, e2_idx, &d, &edges) {
-                    replace_in(&mut d, e2_idx, new_idx);
+                    d[e2_position] = new_idx;
                     continue;
                 }
 
@@ -186,10 +202,9 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
                 // above succeeds. Reaching this point implies the input was not
                 // a valid EDS (i.e., not a feasible MMD witness on the constructed
                 // instance), which violates the reduction's precondition.
-                unreachable!(
-                    "Yannakakis-Gavril EDS->IEDS transformation could not progress; \
-                 target witness must be a feasible (dominating) MMD configuration"
-                );
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target matrix entries do not encode an edge-dominating set",
+                ));
             }
 
             // Step 3: encode the matching as a binary configuration over source edges.
@@ -275,16 +290,6 @@ fn find_swap_edge(
         }
     }
     None
-}
-
-/// Replace `old_idx` with `new_idx` inside `d` in-place. Panics if `old_idx`
-/// is not present.
-fn replace_in(d: &mut [usize], old_idx: usize, new_idx: usize) {
-    let pos = d
-        .iter()
-        .position(|&x| x == old_idx)
-        .expect("old_idx must be present in d");
-    d[pos] = new_idx;
 }
 
 #[reduction(
