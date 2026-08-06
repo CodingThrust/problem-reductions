@@ -81,9 +81,10 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 6 | Test file exists | `Glob("src/unit_tests/rules/{R}.rs")` |
 | 7 | Closed-loop test present | `Grep("fn test_.*closed_loop\|fn test_.*to_.*basic", test_file)` |
 | 8 | Registered in `rules/mod.rs` | `Grep("mod {R}", "src/rules/mod.rs")` |
-| 9 | Canonical rule example registered | `Grep("{S}|{T}|{R}", "src/example_db/rule_builders.rs")` |
+| 9 | Canonical rule example registered | `Grep("canonical_rule_example_specs", rule file)` and verify it is included by `src/rules/mod.rs` |
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
+| 12 | Extraction contract | Direct decoders validate before indexing; malformed structures have focused tests. Composed extractors may delegate. |
 
 ## Step 2b: Blacklisted File Check
 
@@ -113,7 +114,7 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 4. **Weight handling** — Are weights managed via inherent methods, not traits?
 
 ### For Rules:
-1. **`extract_solution` correctness** — Does it correctly invert the reduction? Does the returned solution have the right length (source dimensions)?
+1. **`extract_solution` correctness** — Does it implement the mathematical inverse? Is every branch either a defined mathematical case or an `ExtractionError`, with no defaulting, truncation, clamping, panic, or recovery?
 2. **Overhead accuracy** — Does `overhead = { field = "expr" }` reflect the actual size relationship?
 3. **Example quality** — Is it tutorial-style? Does the JSON export include both source and target data?
 4. **Paper quality** — Is the reduction-rule statement precise? Is the proof sketch sound?

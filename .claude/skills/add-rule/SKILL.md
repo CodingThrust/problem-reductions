@@ -106,12 +106,18 @@ impl ReductionResult for ReductionXToY {
     type Source = SourceType;
     type Target = TargetType;
     fn target_problem(&self) -> &Self::Target { &self.target }
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Map target solution back to source solution
-        // If Step 1 ran: translate the verified Python extract_solution() logic
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let source_solution = /* translate the verified mathematical mapping exactly */;
+        Ok(source_solution)
     }
 }
 ```
+
+Follow the extraction contract in `.claude/CLAUDE.md`: reject malformed structure with `ExtractionError`; do not default, truncate, clamp, panic, or recover. Mathematical alternatives and sentinels are allowed only when defined by the reduction.
 
 **ReduceTo with `#[reduction]` macro** (overhead is **required**):
 ```rust
@@ -156,6 +162,8 @@ Additional recommended tests:
 - Edge cases (empty graph, single vertex, etc.)
 - Weight preservation (if applicable)
 
+Test every malformed representation distinguished by the decoder (for example, zero or multiple one-hot selections, or duplicate permutation entries). The canonical example supplies shared wrong-length and out-of-domain tests.
+
 For aggregate-only reductions, replace the closed-loop witness test with value-chain tests:
 - Solve the target with `Solver::solve()`
 - Map the aggregate value back with `extract_value()`
@@ -163,9 +171,9 @@ For aggregate-only reductions, replace the closed-loop witness test with value-c
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
-## Step 5: Add canonical example to example_db
+## Step 5: Add canonical example
 
-Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
+Define `canonical_rule_example_specs()` in the rule module and include it from `src/rules/mod.rs::canonical_rule_example_specs()`. This enrolls the rule in shared round-trip, wrong-length, and out-of-domain extraction tests.
 
 ## Step 6: Document in paper (MANDATORY — DO NOT SKIP)
 
@@ -251,6 +259,8 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 
 Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
 
+`ExtractionError` already propagates through `pred extract` and bundle `pred solve`; add a rule-specific CLI test only when the CLI surface changes.
+
 Aggregate-only reductions currently have a narrower CLI surface:
 - `pred solve <problem.json>` can still compute direct aggregate values for aggregate-only problems
 - `pred reduce` and `pred solve bundle.json` remain witness-only workflows and reject aggregate-only paths
@@ -261,7 +271,7 @@ Aggregate-only reductions currently have a narrower CLI surface:
 - Rule file: `src/rules/<sourcelower>_<targetlower>.rs` -- no underscores within a problem name
   - e.g., `maximumindependentset_qubo.rs`, `minimumvertexcover_maximumindependentset.rs`
 - Test file: `src/unit_tests/rules/<sourcelower>_<targetlower>.rs`
-- Canonical example: builder function in `src/example_db/rule_builders.rs`
+- Canonical example: `canonical_rule_example_specs()` in the rule module, included from `src/rules/mod.rs`
 
 ## Common Mistakes
 
@@ -272,9 +282,10 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
+| Permissive extraction | Validate first, then map exactly or return `ExtractionError` |
+| Not adding a canonical example | Add the rule-local spec and include it from `src/rules/mod.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
-| Skipping Step 5 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
+| Skipping Step 6 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
 | Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
 | Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
 | Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |
