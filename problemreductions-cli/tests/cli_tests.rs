@@ -9264,6 +9264,67 @@ fn test_extract_roundtrip_mis_to_qubo() {
 }
 
 #[test]
+fn test_extract_rejects_structurally_invalid_one_hot_config() {
+    let problem_file = std::env::temp_dir().join("pred_test_extract_tsp_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_extract_tsp_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "TSP",
+            "--graph",
+            "0-1,1-2,0-2",
+            "--edge-weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let extract_out = pred()
+        .args([
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "0,0,0,0,0,0,0,0,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!extract_out.status.success());
+    let stderr = String::from_utf8(extract_out.stderr).unwrap();
+    assert!(
+        stderr.contains("assignment slot 0 has no selected item"),
+        "unexpected stderr: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
 fn test_extract_rejects_plain_problem_file() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_plain.json");
 
