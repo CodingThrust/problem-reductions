@@ -640,6 +640,34 @@ mod tests {
     }
 
     #[test]
+    fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability() {
+        let server = McpServer::new();
+
+        for (clauses, evaluation, has_solution) in
+            [("1;-1", "Or(false)", false), ("1", "Or(true)", true)]
+        {
+            let problem_json = server
+                .create_problem_inner(
+                    "Satisfiability",
+                    &serde_json::json!({"num_vars": 1, "clauses": clauses}),
+                )
+                .unwrap();
+            let bundle_json = server
+                .reduce_inner(&problem_json, "NAESatisfiability", &SearchParams::default())
+                .unwrap();
+            let solved = server
+                .solve_inner(&bundle_json, Some("brute-force"), None)
+                .unwrap();
+            let json: serde_json::Value = serde_json::from_str(&solved).unwrap();
+
+            assert_eq!(json["evaluation"], evaluation);
+            assert_eq!(json["solution"].is_array(), has_solution);
+            assert_eq!(json["intermediate"]["evaluation"], evaluation);
+            assert_eq!(json["intermediate"]["solution"].is_array(), has_solution);
+        }
+    }
+
+    #[test]
     fn test_solve_bundle_rejects_removed_customized_override() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);

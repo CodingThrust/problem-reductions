@@ -125,41 +125,19 @@ fn solve_problem(
 /// Solve a reduction bundle: solve the target problem, then map the solution back.
 fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputConfig) -> Result<()> {
     let replay = BundleReplay::prepare(&bundle)?;
-
-    let target_result = replay
-        .target
-        .solve_deterministically(request)
-        .map_err(add_solver_hint)?;
-    let target_config = target_result.config.as_ref().ok_or_else(|| {
-        anyhow::anyhow!(
-            "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
-            replay.target_name
-        )
-    })?;
-
-    let (source_config, source_eval) = replay.extract(target_config)?;
+    let result = replay.solve(request).map_err(add_solver_hint)?;
 
     let solver_desc = format!(
         "{} (via {})",
-        solver_text(&target_result.solver),
-        replay.target_name
+        solver_text(&result.solver),
+        result.target_name
     );
-    let text = format!(
-        "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
-        replay.source_name, solver_desc, source_config, source_eval,
-    );
-
-    let json = serde_json::json!({
-        "problem": replay.source_name,
-        "solver": &target_result.solver,
-        "solution": source_config,
-        "evaluation": source_eval,
-        "intermediate": {
-            "problem": replay.target_name,
-            "solution": target_config,
-            "evaluation": target_result.evaluation,
-        },
-    });
+    let mut text = format!("Problem: {}\nSolver: {}", result.source_name, solver_desc);
+    if let Some(config) = &result.source_config {
+        text.push_str(&format!("\nSolution: {:?}", config));
+    }
+    text.push_str(&format!("\nEvaluation: {}", result.source_evaluation));
+    let json = result.to_json();
 
     let result = out.emit_with_default_name("", &text, &json);
     if out.output.is_none() && crate::output::stderr_is_tty() {

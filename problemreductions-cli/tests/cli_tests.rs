@@ -3196,6 +3196,84 @@ fn test_solve_bundle() {
     std::fs::remove_file(&bundle_file).ok();
 }
 
+fn solve_sat_to_nae_bundle(case: &str, clauses: &str) -> serde_json::Value {
+    let temp_dir = std::env::temp_dir();
+    let process_id = std::process::id();
+    let problem_file = temp_dir.join(format!("pred_test_{case}_{process_id}_sat.json"));
+    let bundle_file = temp_dir.join(format!("pred_test_{case}_{process_id}_sat_nae_bundle.json"));
+
+    let create = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "Satisfiability",
+            "--num-vars",
+            "1",
+            "--clauses",
+            clauses,
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let reduce = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "NAESatisfiability",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce.stderr)
+    );
+
+    let solve = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "solve stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(problem_file).unwrap();
+    std::fs::remove_file(bundle_file).unwrap();
+    serde_json::from_slice(&solve.stdout).unwrap()
+}
+
+#[test]
+fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability() {
+    let infeasible = solve_sat_to_nae_bundle("infeasible", "1;-1");
+    assert_eq!(infeasible["evaluation"], "Or(false)");
+    assert!(infeasible["solution"].is_null());
+    assert_eq!(infeasible["intermediate"]["evaluation"], "Or(false)");
+    assert!(infeasible["intermediate"]["solution"].is_null());
+
+    let feasible = solve_sat_to_nae_bundle("feasible", "1");
+    assert_eq!(feasible["evaluation"], "Or(true)");
+    assert!(feasible["solution"].is_array());
+    assert_eq!(feasible["intermediate"]["evaluation"], "Or(true)");
+    assert!(feasible["intermediate"]["solution"].is_array());
+}
+
 #[test]
 fn test_solve_bundle_ilp() {
     // Create → Reduce → Solve bundle with ILP

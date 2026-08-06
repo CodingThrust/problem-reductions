@@ -131,6 +131,32 @@ pub fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> se
     json
 }
 
+pub(crate) struct BundleSolveResult {
+    pub(crate) source_name: String,
+    pub(crate) target_name: String,
+    pub(crate) solver: problemreductions::solvers::SolverExecution,
+    pub(crate) source_config: Option<Vec<usize>>,
+    pub(crate) source_evaluation: String,
+    pub(crate) target_config: Option<Vec<usize>>,
+    pub(crate) target_evaluation: String,
+}
+
+impl BundleSolveResult {
+    pub(crate) fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "problem": self.source_name,
+            "solver": self.solver,
+            "solution": self.source_config,
+            "evaluation": self.source_evaluation,
+            "intermediate": {
+                "problem": self.target_name,
+                "solution": self.target_config,
+                "evaluation": self.target_evaluation,
+            },
+        })
+    }
+}
+
 /// A validated reduction bundle ready to replay:
 /// source, target, and the reconstructed reduction chain. Construct via
 /// [`BundleReplay::prepare`]. All three CLI/MCP bundle workflows
@@ -240,6 +266,39 @@ impl BundleReplay {
         let source_config = self.chain.extract_solution(target_config)?;
         let source_eval = self.source.evaluate_dyn(&source_config);
         Ok((source_config, source_eval))
+    }
+
+    /// Solve the target and map the result back to the source problem.
+    ///
+    /// A witness-capable aggregate returns its identity when an instance has no
+    /// witness. Witness preservation therefore makes the source aggregate
+    /// identity the corresponding result without requiring a configuration.
+    pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
+        let target_result = self.target.solve_deterministically(request)?;
+
+        let (source_config, source_evaluation) = match target_result.config.as_deref() {
+            Some(target_config) => {
+                let (source_config, source_evaluation) = self.extract(target_config)?;
+                (Some(source_config), source_evaluation)
+            }
+            None if self.target.supports_witnesses_dyn() => {
+                (None, self.source.aggregate_identity_dyn())
+            }
+            None => anyhow::bail!(
+                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
+                self.target_name
+            ),
+        };
+
+        Ok(BundleSolveResult {
+            source_name: self.source_name.clone(),
+            target_name: self.target_name.clone(),
+            solver: target_result.solver,
+            source_config,
+            source_evaluation,
+            target_config: target_result.config,
+            target_evaluation: target_result.evaluation,
+        })
     }
 }
 

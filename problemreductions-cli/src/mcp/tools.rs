@@ -1629,29 +1629,9 @@ fn solve_problem_inner(
 /// Solve a reduction bundle: solve the target, then map the solution back.
 fn solve_bundle_inner(bundle: ReductionBundle, request: SolverRequest) -> anyhow::Result<String> {
     let replay = BundleReplay::prepare(&bundle)?;
-
-    let target_result = replay.target.solve_deterministically(request)?;
-    let target_config = target_result.config.as_ref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
-                replay.target_name
-            )
-        })?;
-
-    let (source_config, source_eval) = replay.extract(target_config)?;
-
-    let json = serde_json::json!({
-        "problem": replay.source_name,
-        "solver": &target_result.solver,
-        "solution": source_config,
-        "evaluation": source_eval,
-        "intermediate": {
-            "problem": replay.target_name,
-            "solution": target_config,
-            "evaluation": target_result.evaluation,
-        },
-    });
-    Ok(serde_json::to_string_pretty(&json)?)
+    Ok(serde_json::to_string_pretty(
+        &replay.solve(request)?.to_json(),
+    )?)
 }
 
 #[cfg(test)]
