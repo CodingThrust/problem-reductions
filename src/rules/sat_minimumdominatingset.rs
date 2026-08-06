@@ -60,50 +60,29 @@ impl ReductionResult for ReductionSATToDS {
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok({
-            let selected_count: usize = target_solution.iter().sum();
+        let assignment = target_solution[..3 * self.num_literals]
+            .chunks_exact(3)
+            .enumerate()
+            .map(|(variable, gadget)| match gadget {
+                [1, 0, 0] => Ok(1),
+                [0, 1, 0] | [0, 0, 1] => Ok(0),
+                _ => Err(crate::rules::ExtractionError::invalid(format!(
+                    "variable {variable} gadget must select exactly one vertex, got {}",
+                    gadget.iter().sum::<usize>()
+                ))),
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
 
-            // If more vertices selected than variables, not a minimal dominating set
-            // corresponding to a satisfying assignment
-            if selected_count > self.num_literals {
-                return Err(crate::rules::ExtractionError::invalid(format!(
-                    "selected {selected_count} dominating-set vertices for {} source variables",
-                    self.num_literals
-                )));
-            }
+        if let Some(clause) = target_solution[3 * self.num_literals..]
+            .iter()
+            .position(|&selected| selected == 1)
+        {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "clause vertex {clause} is selected"
+            )));
+        }
 
-            let mut assignment = vec![0usize; self.num_literals];
-
-            for (i, &value) in target_solution.iter().enumerate() {
-                if value == 1 {
-                    // Only consider variable gadget vertices (first 3*num_literals vertices)
-                    if i >= 3 * self.num_literals {
-                        continue; // Skip clause vertices
-                    }
-
-                    let var_index = i / 3;
-                    let vertex_type = i % 3;
-
-                    match vertex_type {
-                        0 => {
-                            // Positive literal selected: x_i = true
-                            assignment[var_index] = 1;
-                        }
-                        1 => {
-                            // Negative literal selected: x_i = false
-                            assignment[var_index] = 0;
-                        }
-                        2 => {
-                            // Dummy vertex selected: variable is unconstrained
-                            // Default to false (already 0), but could be anything
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-            }
-
-            assignment
-        })
+        Ok(assignment)
     }
 }
 

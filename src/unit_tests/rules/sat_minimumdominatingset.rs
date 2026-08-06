@@ -136,10 +136,38 @@ fn test_extract_solution_too_many_selected() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
-    let ds_sol = vec![1, 1, 1, 1];
+    let ds_sol = vec![1, 1, 0, 0];
     assert_eq!(
         reduction.extract_solution(&ds_sol).unwrap_err().to_string(),
-        "selected 4 dominating-set vertices for 1 source variables"
+        "variable 0 gadget must select exactly one vertex, got 2"
+    );
+}
+
+#[test]
+fn test_extract_solution_rejects_unselected_variable_gadget() {
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+
+    assert_eq!(
+        reduction
+            .extract_solution(&[0, 0, 0, 0])
+            .unwrap_err()
+            .to_string(),
+        "variable 0 gadget must select exactly one vertex, got 0"
+    );
+}
+
+#[test]
+fn test_extract_solution_rejects_selected_clause_vertex() {
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+
+    assert_eq!(
+        reduction
+            .extract_solution(&[1, 0, 0, 1])
+            .unwrap_err()
+            .to_string(),
+        "clause vertex 0 is selected"
     );
 }
 
