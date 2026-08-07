@@ -66,7 +66,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-| 17 | Numeric contract | Compare issue fields, schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
+| 17 | Numeric contract | Derive the expected representation from the mathematical definition, then compare schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
 
 ### Rule Checklist
 

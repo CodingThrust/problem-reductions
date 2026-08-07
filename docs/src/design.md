@@ -124,9 +124,11 @@ An integer-to-floating conversion is permitted only at an explicitly
 approximate solver boundary, where the exactly representable input range and
 out-of-range behavior are documented.
 
-### Numeric review checklist
+### Numeric implementation review checklist
 
-For every new model or reduction, record:
+Issue authors describe mathematical objects, domains, and constraints; they are
+not expected to choose Rust types. During implementation and review, derive and
+record:
 
 1. every numeric input, its meaning, and its mathematical domain;
 2. every computed total/product and its result type;

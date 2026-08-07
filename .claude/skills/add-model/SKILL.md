@@ -27,7 +27,6 @@ Before any implementation, collect all required information. If called from `iss
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
 | 12 | **Expected outcome from the issue** | Concrete outcome for the issue's example instance | Objective: one optimal solution + optimal value. Witness: one valid/satisfying solution + why it is valid. Aggregate-only: the final aggregate value and how it is derived |
-| 13 | **Numeric contract** | Every numeric input/domain, computed total type, maximum supported value, checked conversion, overflow behavior, and exact/approximate choice | `weight: i32`, `total: i64`, exact, constructor rejects out-of-range input |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -76,7 +75,7 @@ Read these first to understand the patterns:
 ## Pre-review Checklist
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
-- Numeric choices follow `docs/src/design.md#numeric-types-and-arithmetic`; serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the declared maximum without requiring impractical allocation
+- Derive numeric implementation types from the mathematical domains in the issue and follow `docs/src/design.md#numeric-types-and-arithmetic`; serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation
 - `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
 - `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist

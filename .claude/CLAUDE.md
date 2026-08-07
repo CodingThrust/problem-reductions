@@ -224,6 +224,11 @@ arithmetic is exact or approximate. Use `TryFrom` at range boundaries and
 checked arithmetic for derived values that may overflow. Rust construction,
 serde, CLI, and MCP must enforce the same range.
 
+Issue contributors provide the mathematical definition, domains, and
+constraints; implementers derive the Rust representation. Do not require issue
+authors to choose implementation types or add implementation-specific numeric
+fields to issue templates. Changes to issue templates require user approval.
+
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)

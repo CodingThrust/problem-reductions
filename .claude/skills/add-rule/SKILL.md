@@ -33,7 +33,6 @@ Before any implementation, collect all required information. If called from `iss
 | 7 | **Concrete example** | A small worked-out instance (tutorial style, clear intuition) | "Triangle graph: VC={0,1} -> IS={2}" |
 | 8 | **Solving strategy** | How to solve the target problem | "BruteForce, or existing ILP reduction" |
 | 9 | **Reference** | Paper, textbook, or URL for the reduction | URL or citation |
-| 10 | **Numeric contract** | Source/target numeric fields, totals, size arithmetic, coefficients, bounds, auxiliary IDs, maximum values, checked conversions, overflow behavior, and exact/approximate choice | `usize` source count to checked `i32` SAT IDs |
 
 If any item is missing, ask the user to provide it. Put a high standard on item 7 (concrete example): it must be in tutorial style with clear intuition and easy to understand. Do NOT proceed until the checklist is complete.
 
@@ -59,11 +58,13 @@ If incompatible, STOP and comment on the issue explaining the type mismatch and 
 
 ## Numeric Safety Gate
 
-Read `docs/src/design.md#numeric-types-and-arithmetic`. Reject an incomplete
-plan when numeric domains, total types, maxima, or conversions are unspecified.
-Do not use `as` for range/sign changes. Check target-size arithmetic and
-auxiliary identifiers before constructing the target, verify serde/CLI uses the
-same ranges, and add focused tests at the declared boundary.
+Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
+types, supported ranges, and checked conversions from the mathematical source,
+target, and reduction algorithm. Ask the contributor only when a mathematical
+domain or constraint is ambiguous; do not ask them to choose Rust types. Do not
+use `as` for range/sign changes. Check target-size arithmetic and auxiliary
+identifiers before constructing the target, verify serde/CLI uses the same
+ranges, and add focused boundary tests.
 
 ## Reference Implementations
 
