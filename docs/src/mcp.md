@@ -103,5 +103,5 @@ The server provides 7 task-oriented prompt templates:
 | `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
 | `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
 | `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Find the best reduction path between two problems |
+| `find_reduction` | `source` (required), `target` (required) | Compare the symbolic Pareto front between two problems |
 | `overview` | *(none)* | Explore the full landscape of NP-hard problems |

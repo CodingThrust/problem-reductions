@@ -1562,7 +1562,7 @@ fn test_path_front_envelope_has_only_per_item_paths() {
     let path = json["front"][0]["path"]
         .as_array()
         .expect("front item path");
-    assert!(!path.is_empty(), "top-level path must have ≥ 1 step");
+    assert!(!path.is_empty(), "front item path must have ≥ 1 step");
     let first = &path[0];
     assert!(first["from"]["name"].is_string(), "step needs from.name");
     assert!(first["to"]["name"].is_string(), "step needs to.name");
