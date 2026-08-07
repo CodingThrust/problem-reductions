@@ -6093,6 +6093,132 @@ fn test_inspect_problem() {
 }
 
 #[test]
+fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
+    let unit_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_unit.json");
+    let weighted_file = std::env::temp_dir().join("pred_test_inspect_exact_variant_weighted.json");
+
+    let unit_create = pred()
+        .args([
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+            "-o",
+            unit_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        unit_create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&unit_create.stderr)
+    );
+
+    let weighted_create = pred()
+        .args([
+            "create",
+            "MIS/SimpleGraph/i32",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "3,1,2,1",
+            "-o",
+            weighted_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        weighted_create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&weighted_create.stderr)
+    );
+
+    for (source, expected, excluded) in [
+        (&unit_file, "MaximumSetPacking", "IntegralFlowBundles"),
+        (
+            &weighted_file,
+            "IntegralFlowBundles",
+            "MaximumIndependentSet/KingsSubgraph/One",
+        ),
+    ] {
+        let inspect = pred()
+            .args(["inspect", source.to_str().unwrap(), "--json"])
+            .output()
+            .unwrap();
+        assert!(
+            inspect.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&inspect.stderr)
+        );
+        let json: serde_json::Value = serde_json::from_slice(&inspect.stdout).unwrap();
+        let targets = json["reduces_to"].as_array().unwrap();
+        assert!(targets.iter().any(|target| target == expected));
+        assert!(!targets.iter().any(|target| target == excluded));
+
+        for (index, target) in targets.iter().enumerate() {
+            let target = target.as_str().unwrap();
+            let bundle = std::env::temp_dir().join(format!(
+                "pred_test_inspect_exact_variant_bundle_{index}.json"
+            ));
+            let reduce = pred()
+                .args([
+                    "reduce",
+                    source.to_str().unwrap(),
+                    "--to",
+                    target,
+                    "-o",
+                    bundle.to_str().unwrap(),
+                ])
+                .output()
+                .unwrap();
+            assert!(
+                reduce.status.success(),
+                "inspect advertised non-executable target {target}: {}",
+                String::from_utf8_lossy(&reduce.stderr)
+            );
+            std::fs::remove_file(bundle).unwrap();
+        }
+    }
+
+    std::fs::remove_file(unit_file).unwrap();
+    std::fs::remove_file(weighted_file).unwrap();
+}
+
+#[test]
+fn test_inspect_excludes_non_witness_reductions() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_witness_reductions_only.json");
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MinimumDominatingSet",
+            "-o",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let inspect = pred()
+        .args(["inspect", problem_file.to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        inspect.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&inspect.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&inspect.stdout).unwrap();
+    assert_eq!(json["reduces_to"], serde_json::json!(["ILP"]));
+
+    std::fs::remove_file(problem_file).unwrap();
+}
+
+#[test]
 fn test_inspect_minmaxmulticenter_lists_ilp_and_bruteforce() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_minmaxmulticenter.json");
     let create_out = pred()

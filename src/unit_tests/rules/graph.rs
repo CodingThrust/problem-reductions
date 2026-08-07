@@ -1717,6 +1717,55 @@ fn test_compute_source_size_uses_exact_variant_executor() {
 }
 
 #[test]
+fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
+    let graph = ReductionGraph::new();
+    let unit =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
+    let weighted =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+
+    let unit_targets =
+        graph.outgoing_reductions_from("MaximumIndependentSet", &unit, ReductionMode::Witness);
+    assert!(unit_targets
+        .iter()
+        .all(|edge| edge.source_variant == unit && edge.capabilities.witness));
+    assert!(unit_targets.iter().any(|edge| {
+        edge.target_name == "MaximumSetPacking"
+            && edge.target_variant.get("weight").map(String::as_str) == Some("One")
+    }));
+    assert!(!unit_targets
+        .iter()
+        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+
+    let weighted_targets =
+        graph.outgoing_reductions_from("MaximumIndependentSet", &weighted, ReductionMode::Witness);
+    assert!(weighted_targets
+        .iter()
+        .all(|edge| edge.source_variant == weighted && edge.capabilities.witness));
+    assert!(weighted_targets
+        .iter()
+        .any(|edge| edge.target_name == "IntegralFlowBundles"));
+    assert!(!weighted_targets.iter().any(|edge| {
+        edge.target_name == "MaximumIndependentSet"
+            && edge.target_variant.get("graph").map(String::as_str) == Some("KingsSubgraph")
+    }));
+}
+
+#[test]
+#[should_panic(expected = "registered problem variant not found")]
+fn test_outgoing_reductions_from_rejects_unknown_exact_variant() {
+    let graph = ReductionGraph::new();
+    graph.outgoing_reductions_from(
+        "MaximumIndependentSet",
+        &BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i64".to_string()),
+        ]),
+        ReductionMode::Witness,
+    );
+}
+
+#[test]
 fn test_compute_source_size_unknown_problem() {
     let problem = 42u32;
     let size =

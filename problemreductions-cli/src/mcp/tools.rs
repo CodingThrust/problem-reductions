@@ -846,10 +846,8 @@ impl McpServer {
 
         let size_fields = graph.size_field_names(name);
 
-        let outgoing = graph.outgoing_reductions(name);
-        let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
-        targets.sort();
-        targets.dedup();
+        let targets =
+            crate::commands::inspect::executable_reduction_targets(&graph, name, &variant);
         let solver_view = solver_capabilities_view(&problem)?;
 
         let result = serde_json::json!({

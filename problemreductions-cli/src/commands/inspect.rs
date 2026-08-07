@@ -3,7 +3,8 @@ use crate::dispatch::{
 };
 use crate::output::OutputConfig;
 use anyhow::Result;
-use problemreductions::rules::ReductionGraph;
+use problemreductions::rules::{ReductionGraph, ReductionMode};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn inspect(input: &Path, out: &OutputConfig) -> Result<()> {
@@ -59,8 +60,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
 
     // Reductions
-    let outgoing = graph.outgoing_reductions(name);
-    let targets = targets_deduped(&outgoing);
+    let targets = executable_reduction_targets(&graph, name, &variant);
     if !targets.is_empty() {
         text.push_str(&format!("Reduces to: {}\n", targets.join(", ")));
     }
@@ -100,8 +100,29 @@ fn inspect_bundle(bundle: &ReductionBundle, out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("", &text, &json_val)
 }
 
-fn targets_deduped(outgoing: &[problemreductions::rules::ReductionEdgeInfo]) -> Vec<String> {
-    let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
+pub(crate) fn executable_reduction_targets(
+    graph: &ReductionGraph,
+    name: &str,
+    variant: &BTreeMap<String, String>,
+) -> Vec<String> {
+    let mut targets: Vec<String> = graph
+        .outgoing_reductions_from(name, variant, ReductionMode::Witness)
+        .into_iter()
+        .map(|edge| {
+            let default_variant = graph
+                .default_variant_for(edge.target_name)
+                .unwrap_or_else(|| panic!("default variant not found for {}", edge.target_name));
+            if default_variant == edge.target_variant {
+                edge.target_name.to_string()
+            } else {
+                format!(
+                    "{}{}",
+                    edge.target_name,
+                    crate::commands::graph::variant_to_full_slash(&edge.target_variant)
+                )
+            }
+        })
+        .collect();
     targets.sort();
     targets.dedup();
     targets
