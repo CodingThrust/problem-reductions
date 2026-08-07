@@ -131,7 +131,12 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
             }
         }
 
-        let weight_bound: i32 = (4 * q + m + 2) as i32;
+        let weight_bound = q
+            .checked_mul(4)
+            .and_then(|value| value.checked_add(m))
+            .and_then(|value| value.checked_add(2))
+            .and_then(|value| i64::try_from(value).ok())
+            .expect("ExactCoverBy3Sets -> BoundedDiameterSpanningTree weight bound must fit i64");
         let diameter_bound: usize = 4;
 
         let graph = SimpleGraph::new(num_vertices, edges);

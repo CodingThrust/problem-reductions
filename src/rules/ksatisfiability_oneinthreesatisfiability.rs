@@ -2,6 +2,7 @@
 
 use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
 
@@ -38,33 +39,44 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
 
     fn reduce_to(&self) -> Self::Result {
         let source_num_vars = self.num_vars();
-        let z_false = source_num_vars as i32 + 1;
-        let z_true = source_num_vars as i32 + 2;
-        let mut next_var = source_num_vars as i32 + 3;
+        let mut variables = SatVariableAllocator::new(
+            "KSatisfiability -> OneInThreeSatisfiability",
+            source_num_vars,
+        )
+        .unwrap_or_else(|message| panic!("{message}"));
+        let sentinels = variables
+            .allocate_many(2)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let z_false = sentinels[0];
+        let z_true = sentinels[1];
 
-        let mut clauses = Vec::with_capacity(1 + 5 * self.num_clauses());
+        let capacity = self
+            .num_clauses()
+            .checked_mul(5)
+            .and_then(|count| count.checked_add(1))
+            .expect("KSatisfiability -> OneInThreeSatisfiability clause count overflow");
+        let mut clauses = Vec::with_capacity(capacity);
         clauses.push(CNFClause::new(vec![z_false, z_false, z_true]));
 
         for clause in self.clauses() {
             let [l1, l2, l3] = clause.literals.as_slice() else {
                 unreachable!("K3 clauses must have exactly three literals");
             };
-            let a = next_var;
-            let b = next_var + 1;
-            let c = next_var + 2;
-            let d = next_var + 3;
-            let e = next_var + 4;
-            let f = next_var + 5;
-            next_var += 6;
+            let allocated = variables
+                .allocate_many(6)
+                .unwrap_or_else(|message| panic!("{message}"));
+            let [a, b, c, d, e, f] = allocated.as_slice() else {
+                unreachable!("six variables were allocated")
+            };
 
-            clauses.push(CNFClause::new(vec![*l1, a, d]));
-            clauses.push(CNFClause::new(vec![*l2, b, d]));
-            clauses.push(CNFClause::new(vec![a, b, e]));
-            clauses.push(CNFClause::new(vec![c, d, f]));
-            clauses.push(CNFClause::new(vec![*l3, c, z_false]));
+            clauses.push(CNFClause::new(vec![*l1, *a, *d]));
+            clauses.push(CNFClause::new(vec![*l2, *b, *d]));
+            clauses.push(CNFClause::new(vec![*a, *b, *e]));
+            clauses.push(CNFClause::new(vec![*c, *d, *f]));
+            clauses.push(CNFClause::new(vec![*l3, *c, z_false]));
         }
 
-        let target = OneInThreeSatisfiability::new((next_var - 1) as usize, clauses);
+        let target = OneInThreeSatisfiability::new(variables.num_vars(), clauses);
 
         Reduction3SATToOneInThreeSAT {
             source_num_vars,

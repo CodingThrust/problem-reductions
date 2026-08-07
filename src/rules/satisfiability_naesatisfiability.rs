@@ -9,6 +9,7 @@
 
 use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing Satisfiability to NAE-Satisfiability.
@@ -53,8 +54,11 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars();
-        // Sentinel variable has 0-indexed position n, so its 1-indexed literal is n+1.
-        let sentinel_lit = (n + 1) as i32;
+        let mut variables = SatVariableAllocator::new("Satisfiability -> NAESatisfiability", n)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let sentinel_lit = variables
+            .allocate()
+            .unwrap_or_else(|message| panic!("{message}"));
 
         let nae_clauses: Vec<CNFClause> = self
             .clauses()
@@ -72,7 +76,7 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
             })
             .collect();
 
-        let target = NAESatisfiability::new(n + 1, nae_clauses);
+        let target = NAESatisfiability::new(variables.num_vars(), nae_clauses);
 
         ReductionSATToNAESAT {
             source_num_vars: n,

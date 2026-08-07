@@ -56,6 +56,16 @@ grep "type Value = " src/models/*/<source_file>.rs src/models/*/<target_file>.rs
 
 If incompatible, STOP and comment on the issue explaining the type mismatch and options. Do NOT proceed.
 
+## Numeric Safety Gate
+
+Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
+types, supported ranges, and checked conversions from the mathematical source,
+target, and reduction algorithm. Ask the contributor only when a mathematical
+domain or constraint is ambiguous; do not ask them to choose Rust types. Do not
+use `as` for range/sign changes. Check target-size arithmetic and auxiliary
+identifiers before constructing the target, verify serde/CLI uses the same
+ranges, and add focused boundary tests.
+
 ## Reference Implementations
 
 Read these first to understand the patterns:

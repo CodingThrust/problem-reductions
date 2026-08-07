@@ -39,13 +39,13 @@ inventory::submit! {
 /// Postman subproblem, using all available arcs (including both directions of
 /// every undirected edge) for degree-balancing detours.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MixedChinesePostman<W: WeightElement<Sum = i32>> {
+pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
     graph: MixedGraph,
     arc_weights: Vec<W>,
     edge_weights: Vec<W>,
 }
 
-impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
+impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
     /// Create a new mixed Chinese postman instance.
     ///
     /// # Panics
@@ -157,11 +157,11 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
             .arcs()
             .into_iter()
             .zip(self.arc_weights.iter())
-            .map(|((u, v), weight)| (u, v, i64::from(weight.to_sum())))
+            .map(|((u, v), weight)| (u, v, weight.to_sum()))
             .collect();
 
         for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
-            let cost = i64::from(weight.to_sum());
+            let cost = weight.to_sum();
             arcs.push((*u, *v, cost));
             arcs.push((*v, *u, cost));
         }
@@ -172,19 +172,19 @@ impl<W: WeightElement<Sum = i32>> MixedChinesePostman<W> {
     fn base_cost(&self) -> i64 {
         self.arc_weights
             .iter()
-            .map(|weight| i64::from(weight.to_sum()))
+            .map(WeightElement::to_sum)
             .sum::<i64>()
             + self
                 .edge_weights
                 .iter()
-                .map(|weight| i64::from(weight.to_sum()))
+                .map(WeightElement::to_sum)
                 .sum::<i64>()
     }
 }
 
 impl<W> MixedChinesePostman<W>
 where
-    W: WeightElement<Sum = i32> + crate::variant::VariantParam,
+    W: WeightElement<Sum = i64> + crate::variant::VariantParam,
 {
     /// Check whether a configuration yields a valid orientation (strongly
     /// connected with proper coverage).
@@ -195,7 +195,7 @@ where
 
 impl<W> Problem for MixedChinesePostman<W>
 where
-    W: WeightElement<Sum = i32> + crate::variant::VariantParam,
+    W: WeightElement<Sum = i64> + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MixedChinesePostman";
     type Value = Min<W::Sum>;
@@ -233,7 +233,7 @@ where
         };
 
         let total = self.base_cost() + extra_cost;
-        Min(Some(total as W::Sum))
+        Min(Some(total))
     }
 }
 

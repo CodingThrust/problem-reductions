@@ -104,7 +104,7 @@ fn test_jl_parity_evaluation() {
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
-            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            let jl_size = eval["size"].as_i64().unwrap();
             assert!(result.is_valid(), "MaxCut should always be valid");
             assert_eq!(
                 result.unwrap(),

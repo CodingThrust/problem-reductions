@@ -2,6 +2,9 @@
 
 This guide covers the library internals for contributors.
 
+See [Numeric types and arithmetic](#numeric-types-and-arithmetic) before
+choosing numeric fields or implementing arithmetic in a model or reduction.
+
 ## Module Architecture
 
 <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
@@ -44,6 +47,95 @@ trait Problem: Clone {
 - **Witness-capable feasibility problems** — typically use `Or`.
 - **Aggregate-only problems** — use fold values such as `Sum<W>` or `And`; these solve to a value but do not admit representative witness configurations.
 - **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
+
+## Numeric types and arithmetic
+
+Every numeric field needs a mathematical domain, a supported range, and an
+overflow rule. `NumericSize` only lists operations required by aggregate value
+types; it does not make those operations overflow-safe.
+
+| Quantity | Normal Rust type | Supported range and rule | Repository example |
+|---|---|---|---|
+| Collection index, length, or in-memory configuration dimension | `usize` | Values supported by the current target. Convert external fixed-width values with `usize::try_from`; reject values that do not fit. | `Problem::dims()` and graph vertex indices |
+| Individual exact signed weight or cost | `i32` | The `i32` range, narrowed further when the problem requires nonnegative input. | A vertex weight in `MinimumDominatingSet<_, i32>` |
+| Total of `i32` weights | `i64` | Accumulate exactly in `i64`; reject a derived value that would exceed `i64`. | `WeightElement for i32` uses `Sum = i64` |
+| Unit-weight count | `i64` | Use the same total and bound representation as exact weighted variants. | `WeightElement for One` uses `Sum = i64` |
+| Approximate numeric input | `f64` | Only when approximation belongs to the model or solver interface; model constructors reject NaN and infinity. | Floating-point QUBO coefficients |
+| Fixed-width serialized nonnegative domain value | `u64` | The same JSON range on every target. Convert to `usize` before indexing and reject failure. | Large integer sizes in arithmetic problems |
+| Exact signed objective bound | The objective total type, normally `i64` | A decision bound and the optimization result it compares against use the same type. | `Decision<MinimumVertexCover<_, i32>>` has an `i64` bound |
+| SAT variable count | `usize`, at most `i32::MAX` | Reject larger formulas at construction because signed literals cannot encode them. | `Satisfiability::try_new` |
+| SAT literal | nonzero `i32` | Its magnitude must be in `1..=num_vars`; `0` and `i32::MIN` are invalid. | `CNFClause` literals |
+
+### Indices and collection sizes
+
+Use `usize` for values passed to indexing, collection allocation, and
+configuration dimensions. A serialized `usize` is intentionally machine-sized:
+loading rejects a JSON value that does not fit the target. Use `u64` instead
+when the problem definition requires a fixed serialized range, then perform an
+explicit checked conversion before using it as an index.
+
+### Weights, costs, times, capacities, and bounds
+
+Choose an input type from the mathematical domain, not from the type of a later
+index. Exact signed element weights normally use `i32`. A quantity that bounds
+or compares with a total uses the total's type. Negative values are accepted
+only when the problem definition gives them meaning; otherwise reject them in
+the constructor.
+
+### Totals and derived arithmetic
+
+Do not assume one input element's type can hold a sum or product of many
+elements. `WeightElement` is the source of truth for weight totals: `i32` and
+`One` accumulate into `i64`, while `f64` accumulates into `f64`. For other
+derived integers, choose a result type from the largest supported value and use
+`checked_add`, `checked_sub`, or `checked_mul` when the operation may reach its
+boundary. Overflow is an input/construction error, not an infeasible solution.
+
+### Conversions
+
+Use `From` for conversions that cannot change the value and `TryFrom` when
+range or sign can change. Do not use `as` for a user/model-derived narrowing,
+signedness change, SAT variable number, coefficient, or bound. A failed
+conversion must report the value, destination range, and model or reduction
+that rejected it.
+
+### JSON, CLI, and MCP boundaries
+
+The schema field type is the external contract. Rust constructors and serde
+deserialization must apply the same validation, and schema-driven CLI/MCP
+creation must parse the declared type rather than a smaller intermediate type.
+Do not deserialize directly into private validated fields when doing so bypasses
+the constructor invariant.
+
+### SAT and compact signed encodings
+
+CNF uses one-indexed signed `i32` literals. All CNF-backed models validate the
+same range during construction and deserialization. Reductions that create
+auxiliary SAT variables allocate them through the checked SAT allocator; they
+must stop before constructing a target if the next ID would exceed
+`i32::MAX`. Apply the same explicit-range rule to any new compact signed
+encoding.
+
+### Exact integers and floating point
+
+Keep exact integer calculations in integer types. Do not convert an exact sum,
+product, identifier, or comparison bound to `f64` merely to obtain more range.
+An integer-to-floating conversion is permitted only at an explicitly
+approximate solver boundary, where the exactly representable input range and
+out-of-range behavior are documented.
+
+### Numeric implementation review checklist
+
+Issue authors describe mathematical objects, domains, and constraints; they are
+not expected to choose Rust types. During implementation and review, derive and
+record:
+
+1. every numeric input, its meaning, and its mathematical domain;
+2. every computed total/product and its result type;
+3. the largest supported input and derived value;
+4. every narrowing or signedness-changing conversion;
+5. how construction, deserialization, and reduction report overflow;
+6. whether arithmetic is exact or approximate, with justification for `f64`.
 
 ## Variant System
 

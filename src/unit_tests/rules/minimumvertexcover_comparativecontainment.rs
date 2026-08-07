@@ -10,7 +10,7 @@ use crate::traits::Problem;
 fn decision_mvc(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    k: i32,
+    k: i64,
 ) -> Decision<MinimumVertexCover<SimpleGraph, i32>> {
     Decision::new(
         MinimumVertexCover::new(

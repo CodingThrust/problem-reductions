@@ -137,7 +137,8 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircu
         }
 
         // Budget = n (exactly enough for n weight-1 edges)
-        let budget = n as i32;
+        let budget = i64::try_from(n)
+            .expect("HamiltonianCircuit -> BiconnectivityAugmentation budget must fit i64");
 
         let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget);
 

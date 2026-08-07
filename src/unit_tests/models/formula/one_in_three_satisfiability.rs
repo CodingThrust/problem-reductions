@@ -118,7 +118,7 @@ fn test_one_in_three_satisfiability_wrong_clause_width() {
 }
 
 #[test]
-#[should_panic(expected = "outside range")]
+#[should_panic(expected = "allowed variable numbers are 1..=2")]
 fn test_one_in_three_satisfiability_variable_out_of_range() {
     OneInThreeSatisfiability::new(2, vec![CNFClause::new(vec![1, 2, 3])]);
 }

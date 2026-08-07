@@ -456,7 +456,7 @@ pub(super) fn resolve_schema_field_type(
 
 pub(super) fn weight_sum_type(weight_type: &str) -> &'static str {
     match weight_type {
-        "One" | "i32" => "i32",
+        "One" | "i32" => "i64",
         "f64" => "f64",
         _ => "i32",
     }

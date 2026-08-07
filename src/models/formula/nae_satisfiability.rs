@@ -7,7 +7,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -50,6 +50,7 @@ impl NAESatisfiability {
     /// Create a new NAE-SAT problem, returning an error instead of panicking
     /// when a clause has fewer than two literals.
     pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
         validate_clause_lengths(&clauses)?;
         Ok(Self { num_vars, clauses })
     }

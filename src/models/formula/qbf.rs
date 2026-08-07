@@ -8,7 +8,7 @@
 //! ∀ (ForAll) or ∃ (Exists) and E is a Boolean expression in CNF,
 //! determine whether F is true.
 
-use crate::models::formula::CNFClause;
+use crate::models::formula::{sat::validate_cnf_literals, CNFClause};
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,7 @@ pub enum Quantifier {
 /// assert!(problem.is_true());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "QuantifiedBooleanFormulasDef")]
 pub struct QuantifiedBooleanFormulas {
     /// Number of variables.
     num_vars: usize,
@@ -79,18 +80,27 @@ impl QuantifiedBooleanFormulas {
     ///
     /// Panics if `quantifiers.len() != num_vars`.
     pub fn new(num_vars: usize, quantifiers: Vec<Quantifier>, clauses: Vec<CNFClause>) -> Self {
-        assert_eq!(
-            quantifiers.len(),
-            num_vars,
-            "quantifiers length ({}) must equal num_vars ({})",
-            quantifiers.len(),
-            num_vars
-        );
-        Self {
+        Self::try_new(num_vars, quantifiers, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a QBF problem after validating its quantifiers and CNF literals.
+    pub fn try_new(
+        num_vars: usize,
+        quantifiers: Vec<Quantifier>,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, String> {
+        if quantifiers.len() != num_vars {
+            return Err(format!(
+                "quantifiers length ({}) must equal num_vars ({num_vars})",
+                quantifiers.len()
+            ));
+        }
+        validate_cnf_literals(num_vars, &clauses)?;
+        Ok(Self {
             num_vars,
             quantifiers,
             clauses,
-        }
+        })
     }
 
     /// Get the number of variables.
@@ -179,6 +189,21 @@ impl Problem for QuantifiedBooleanFormulas {
 
 crate::declare_variants! {
     default QuantifiedBooleanFormulas => "2^num_vars",
+}
+
+#[derive(Deserialize)]
+struct QuantifiedBooleanFormulasDef {
+    num_vars: usize,
+    quantifiers: Vec<Quantifier>,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<QuantifiedBooleanFormulasDef> for QuantifiedBooleanFormulas {
+    type Error = String;
+
+    fn try_from(value: QuantifiedBooleanFormulasDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.quantifiers, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]

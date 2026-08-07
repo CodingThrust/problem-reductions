@@ -54,7 +54,10 @@ impl CNFClause {
     /// * `assignment` - Boolean assignment, 0-indexed
     pub fn is_satisfied(&self, assignment: &[bool]) -> bool {
         self.literals.iter().any(|&lit| {
-            let var = lit.unsigned_abs() as usize - 1; // Convert to 0-indexed
+            let var = usize::try_from(lit.unsigned_abs())
+                .expect("u32 literal magnitude must fit usize")
+                .checked_sub(1)
+                .expect("CNF literal 0 is invalid");
             let value = assignment.get(var).copied().unwrap_or(false);
             if lit > 0 {
                 value
@@ -68,7 +71,12 @@ impl CNFClause {
     pub fn variables(&self) -> Vec<usize> {
         self.literals
             .iter()
-            .map(|&lit| lit.unsigned_abs() as usize - 1)
+            .map(|&lit| {
+                usize::try_from(lit.unsigned_abs())
+                    .expect("u32 literal magnitude must fit usize")
+                    .checked_sub(1)
+                    .expect("CNF literal 0 is invalid")
+            })
             .collect()
     }
 
@@ -114,6 +122,7 @@ impl CNFClause {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "SatisfiabilityDef")]
 pub struct Satisfiability {
     /// Number of variables.
     num_vars: usize,
@@ -124,7 +133,13 @@ pub struct Satisfiability {
 impl Satisfiability {
     /// Create a new SAT problem.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
-        Self { num_vars, clauses }
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a new SAT problem after validating its literal encoding.
+    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
+        Ok(Self { num_vars, clauses })
     }
 
     /// Get the number of variables.
@@ -195,6 +210,49 @@ impl Problem for Satisfiability {
 
 crate::declare_variants! {
     default Satisfiability => "2^num_variables",
+}
+
+#[derive(Deserialize)]
+struct SatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<SatisfiabilityDef> for Satisfiability {
+    type Error = String;
+
+    fn try_from(value: SatisfiabilityDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.clauses)
+    }
+}
+
+pub(super) fn validate_cnf_literals(num_vars: usize, clauses: &[CNFClause]) -> Result<(), String> {
+    if num_vars > i32::MAX as usize {
+        return Err(format!(
+            "num_vars {num_vars} exceeds the SAT literal limit {}",
+            i32::MAX
+        ));
+    }
+
+    for (clause_index, clause) in clauses.iter().enumerate() {
+        for &literal in &clause.literals {
+            if literal == 0 || literal == i32::MIN {
+                return Err(format!(
+                    "clause {clause_index} contains invalid literal {literal}; allowed variable numbers are 1..={num_vars} with either sign"
+                ));
+            }
+            if usize::try_from(literal.unsigned_abs())
+                .expect("SAT literal magnitude must fit usize")
+                > num_vars
+            {
+                return Err(format!(
+                    "clause {clause_index} contains invalid literal {literal}; allowed variable numbers are 1..={num_vars} with either sign"
+                ));
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Check if an assignment satisfies a SAT formula.
