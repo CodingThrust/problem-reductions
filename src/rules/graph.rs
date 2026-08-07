@@ -1408,9 +1408,9 @@ impl ReductionGraph {
         variant: &BTreeMap<String, String>,
         mode: ReductionMode,
     ) -> Vec<ReductionEdgeInfo> {
-        let Some(source) = self.lookup_node(name, variant) else {
-            return vec![];
-        };
+        let source = self
+            .lookup_node(name, variant)
+            .unwrap_or_else(|| panic!("registered problem variant not found: {name} {variant:?}"));
 
         self.ordered_outgoing_edges(source, mode)
             .into_iter()

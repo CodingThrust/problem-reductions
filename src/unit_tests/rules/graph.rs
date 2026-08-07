@@ -1752,6 +1752,20 @@ fn test_outgoing_reductions_from_uses_exact_variant_and_mode() {
 }
 
 #[test]
+#[should_panic(expected = "registered problem variant not found")]
+fn test_outgoing_reductions_from_rejects_unknown_exact_variant() {
+    let graph = ReductionGraph::new();
+    graph.outgoing_reductions_from(
+        "MaximumIndependentSet",
+        &BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i64".to_string()),
+        ]),
+        ReductionMode::Witness,
+    );
+}
+
+#[test]
 fn test_compute_source_size_unknown_problem() {
     let problem = 42u32;
     let size =

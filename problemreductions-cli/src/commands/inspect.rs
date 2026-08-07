@@ -109,7 +109,10 @@ pub(crate) fn executable_reduction_targets(
         .outgoing_reductions_from(name, variant, ReductionMode::Witness)
         .into_iter()
         .map(|edge| {
-            if graph.default_variant_for(edge.target_name).as_ref() == Some(&edge.target_variant) {
+            let default_variant = graph
+                .default_variant_for(edge.target_name)
+                .unwrap_or_else(|| panic!("default variant not found for {}", edge.target_name));
+            if default_variant == edge.target_variant {
                 edge.target_name.to_string()
             } else {
                 format!(
