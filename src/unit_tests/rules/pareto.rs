@@ -20,7 +20,7 @@ use crate::traits::Problem;
 use crate::types::{Or, ProblemSize};
 use std::any::Any;
 use std::cell::Cell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -828,6 +828,42 @@ fn test_symbolic_front_excludes_unknown_with_analysis_reason() {
 }
 
 #[test]
+fn test_symbolic_coverage_counts_dominated_analyzable_paths() {
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["MaximumIndependentSet", "Small", "Large", "T"],
+        &[
+            (
+                "MaximumIndependentSet",
+                "Small",
+                growth_edge(vec![("x", Expr::Const(1.0))]),
+            ),
+            ("Small", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "MaximumIndependentSet",
+                "Large",
+                growth_edge(vec![("x", Expr::Var("num_vertices"))]),
+            ),
+            ("Large", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+        ],
+    );
+    let result = graph
+        .asymptotic_front(
+            "MaximumIndependentSet",
+            &empty,
+            "T",
+            &empty,
+            ReductionMode::Witness,
+            crate::rules::SearchMode::Exact,
+        )
+        .value
+        .expect("both routes are analyzable");
+    assert_eq!(result.front.len(), 1);
+    assert_eq!(result.coverage.analyzed_paths, 2);
+    assert_eq!(result.coverage.excluded_paths, 0);
+}
+
+#[test]
 fn test_symbolic_front_all_unknown_is_explicit_error() {
     let empty = BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
@@ -1416,14 +1452,11 @@ impl PathLabel for ContractLabel {
             .get("downstream")
             .map(|expr| expr.eval(&empty))
             .unwrap_or(self.downstream_cost);
-        let agenda_cost = if edge.target_name == "T" {
-            downstream_cost
-        } else {
-            edge.overhead
-                .get("agenda")
-                .map(|expr| expr.eval(&empty))
-                .unwrap_or(self.agenda_cost)
-        };
+        let agenda_cost = edge
+            .overhead
+            .get("agenda")
+            .map(|expr| expr.eval(&empty))
+            .unwrap_or(self.agenda_cost);
         Some(Self {
             agenda_cost,
             downstream_cost,
@@ -1536,7 +1569,12 @@ fn test_search_mode_exact_and_approximate_contract() {
         SearchMode::Exact,
     );
     assert_eq!(exact_bag.completeness, SearchCompleteness::Exact);
-    assert!(!exact_bag.value.is_empty());
+    let exact_labels: BTreeSet<_> = exact_bag
+        .value
+        .iter()
+        .map(|(_, label)| (label.agenda_cost as usize, label.downstream_cost as usize))
+        .collect();
+    assert_eq!(exact_labels.len(), 33);
 
     let capped_bag = make_bag_graph(false).pareto_search_by_name(
         "S",
@@ -1550,7 +1588,13 @@ fn test_search_mode_exact_and_approximate_contract() {
             ..Default::default()
         })),
     );
-    assert!(!capped_bag.value.is_empty());
+    let capped_labels: BTreeSet<_> = capped_bag
+        .value
+        .iter()
+        .map(|(_, label)| (label.agenda_cost as usize, label.downstream_cost as usize))
+        .collect();
+    assert_eq!(capped_labels.len(), 32);
+    assert_eq!(exact_labels.difference(&capped_labels).count(), 1);
     assert!(capped_bag
         .completeness
         .reasons()
@@ -1566,7 +1610,12 @@ fn test_search_mode_exact_and_approximate_contract() {
         SearchMode::Exact,
     );
     assert_eq!(reversed.completeness, SearchCompleteness::Exact);
-    assert_eq!(reversed.value.len(), exact_bag.value.len());
+    let reversed_labels: BTreeSet<_> = reversed
+        .value
+        .iter()
+        .map(|(_, label)| (label.agenda_cost as usize, label.downstream_cost as usize))
+        .collect();
+    assert_eq!(reversed_labels, exact_labels);
 }
 
 /// Equal coarse labels with different paths must both survive. The route through Y is the

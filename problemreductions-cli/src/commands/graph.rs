@@ -450,9 +450,9 @@ fn format_path_text(
 
     // Show composed overall overhead for multi-step paths
     if reduction_path.len() > 1 {
-        let composed = graph.compose_path_overhead(reduction_path);
+        let composed = overheads.iter().cloned().reduce(|acc, oh| acc.compose(&oh));
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
-        for (field, poly) in &composed.output_size {
+        for (field, poly) in &composed.expect("multi-step path has overheads").output_size {
             text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
         }
     }
@@ -460,7 +460,7 @@ fn format_path_text(
     text
 }
 
-fn format_path_json(
+pub(crate) fn format_path_json(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> serde_json::Value {
@@ -480,8 +480,10 @@ fn format_path_json(
         })
         .collect();
 
-    let composed = graph.compose_path_overhead(reduction_path);
-    let overall = overhead_to_json(&composed.output_size);
+    let composed = overheads.into_iter().reduce(|acc, oh| acc.compose(&oh));
+    let overall = composed
+        .as_ref()
+        .map_or_else(Vec::new, |overhead| overhead_to_json(&overhead.output_size));
 
     serde_json::json!({
         "steps": reduction_path.len(),
@@ -515,7 +517,7 @@ fn format_front_text(
     let front = &result.front;
     let mut text = format!(
         "Asymptotic Pareto front: {} path{} from {} to {}\n\
-         (no --size given; each path shows its composed O(...) per {} size field)\n",
+         (each path shows its composed O(...) per {} size field)\n",
         front.len(),
         if front.len() == 1 { "" } else { "s" },
         src_name,
@@ -553,7 +555,7 @@ fn format_front_text(
 ///
 /// Every front element carries its complete executable route. The envelope itself
 /// deliberately has no selected route; callers must explicitly choose a front item.
-fn format_front_json(
+pub(crate) fn format_front_json(
     graph: &ReductionGraph,
     src_name: &str,
     dst_name: &str,
@@ -718,7 +720,7 @@ pub fn path(
     let dst_ref = resolve_problem_ref(target, &graph)?;
     if all && search.has_nondefault_policy() {
         anyhow::bail!(
-            "--search-mode and search limits apply to ranked path search, not --all; use --max-paths to bound all-path enumeration"
+            "--search-mode and search limits apply to Pareto-front search, not --all; use --max-paths to bound all-path enumeration"
         );
     }
     let _ = search.mode()?;

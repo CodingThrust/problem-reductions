@@ -317,6 +317,7 @@ impl<L: PathLabel> ExactParetoDfs<'_, '_, L> {
         visited: &mut [bool],
     ) {
         if node == self.dst {
+            self.tracker.record_completed(1);
             let candidate = (self.graph.node_path_to_reduction_path(path), label);
             self.graph
                 .insert_terminal_candidate(self.front, candidate, self.tracker);
@@ -693,6 +694,7 @@ impl ReductionGraph {
             .collect();
 
         completed.sort_by(Self::compare_front_entries);
+        tracker.record_completed(completed.len());
 
         let mut front = Vec::new();
         for candidate in completed {
@@ -742,9 +744,7 @@ impl ReductionGraph {
         a: &(ReductionPath, L),
         b: &(ReductionPath, L),
     ) -> std::cmp::Ordering {
-        a.0.len()
-            .cmp(&b.0.len())
-            .then_with(|| reduction_path_key(&a.0).cmp(&reduction_path_key(&b.0)))
+        compare_reduction_paths(&a.0, &b.0)
     }
 
     fn insert_terminal_candidate<L: PathLabel>(
@@ -856,6 +856,29 @@ impl ReductionGraph {
             tracker.reach(LimitReached::LabelsPerNodeLimit);
             return Vec::new();
         }
+        if tracker.is_exact_mode() {
+            let mut adjacency = vec![Vec::new(); self.graph.node_count()];
+            for node in self.graph.node_indices() {
+                adjacency[node.index()] = self.ordered_outgoing_edges(node, mode);
+            }
+            tracker.observe_bag(1);
+            let mut path = vec![src];
+            let mut visited = vec![false; self.graph.node_count()];
+            visited[src.index()] = true;
+            let mut front = Vec::new();
+            self.measured_exact_visit(
+                src,
+                targets,
+                initial,
+                &adjacency,
+                &mut path,
+                &mut visited,
+                &mut front,
+                tracker,
+            );
+            front.sort_by(|a, b| compare_reduction_paths(&a.0, &b.0));
+            return front;
+        }
         let mut stack = vec![(src, vec![src], initial)];
         let mut retained_per_node: HashMap<NodeIndex, usize> = HashMap::new();
         retained_per_node.insert(src, 1);
@@ -868,24 +891,9 @@ impl ReductionGraph {
                 *retained -= 1;
             }
             if targets.contains(&node) {
+                tracker.record_completed(1);
                 let candidate = (self.node_path_to_reduction_path(&node_path), label);
-                let precedes =
-                    |a: &(ReductionPath, MeasuredLabel<'a>),
-                     b: &(ReductionPath, MeasuredLabel<'a>)| {
-                        measured_size_le(a.1.measured_size(), b.1.measured_size())
-                            && (!measured_size_le(b.1.measured_size(), a.1.measured_size())
-                                || a.0.len() < b.0.len()
-                                || (a.0.len() == b.0.len()
-                                    && reduction_path_key(&a.0) <= reduction_path_key(&b.0)))
-                    };
-                if front.iter().any(|existing| precedes(existing, &candidate)) {
-                    tracker.record_dominated(1);
-                    continue;
-                }
-                let before = front.len();
-                front.retain(|existing| !precedes(&candidate, existing));
-                tracker.record_dominated(before - front.len());
-                front.push(candidate);
+                self.insert_terminal_candidate(&mut front, candidate, tracker);
                 continue;
             }
 
@@ -936,12 +944,57 @@ impl ReductionGraph {
             }
         }
 
-        front.sort_by(|a, b| {
-            a.0.len()
-                .cmp(&b.0.len())
-                .then_with(|| reduction_path_key(&a.0).cmp(&reduction_path_key(&b.0)))
-        });
+        front.sort_by(|a, b| compare_reduction_paths(&a.0, &b.0));
         front
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn measured_exact_visit<'a>(
+        &self,
+        node: NodeIndex,
+        targets: &HashSet<NodeIndex>,
+        label: MeasuredLabel<'a>,
+        adjacency: &[Vec<(NodeIndex, EdgeIndex)>],
+        path: &mut Vec<NodeIndex>,
+        visited: &mut [bool],
+        front: &mut Vec<(ReductionPath, MeasuredLabel<'a>)>,
+        tracker: &mut SearchTracker,
+    ) {
+        if targets.contains(&node) {
+            tracker.record_completed(1);
+            let candidate = (self.node_path_to_reduction_path(path), label);
+            self.insert_terminal_candidate(front, candidate, tracker);
+            return;
+        }
+        if adjacency[node.index()].is_empty() {
+            return;
+        }
+        tracker.record_expanded();
+        for &(target, edge_idx) in &adjacency[node.index()] {
+            if visited[target.index()] {
+                continue;
+            }
+            let weight = &self.graph[edge_idx];
+            let target_node = &self.nodes[self.graph[target]];
+            let edge = ReductionEdge {
+                overhead: &weight.overhead,
+                reduce_fn: weight.reduce_fn,
+                target_name: target_node.name,
+                target_variant: &target_node.variant,
+            };
+            let Some(next_label) = label.extend(&edge) else {
+                tracker.record_infeasible();
+                continue;
+            };
+            tracker.record_generated();
+            visited[target.index()] = true;
+            path.push(target);
+            self.measured_exact_visit(
+                target, targets, next_label, adjacency, path, visited, front, tracker,
+            );
+            path.pop();
+            visited[target.index()] = false;
+        }
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -1376,11 +1429,19 @@ impl ReductionGraph {
     }
 
     fn validate_size_budget(&self, budget: &SizeBudget) -> Result<(), UnknownSizeField> {
-        let known: HashSet<&str> = self
-            .nodes
-            .iter()
-            .flat_map(|node| self.size_field_names(node.name))
+        let mut known: HashSet<&str> = self
+            .name_to_nodes
+            .keys()
+            .flat_map(|name| crate::registry::declared_size_fields(name))
             .collect();
+        for entry in inventory::iter::<ReductionEntry> {
+            if self.name_to_nodes.contains_key(entry.source_name) {
+                known.extend(entry.overhead().input_variable_names());
+            }
+            if self.name_to_nodes.contains_key(entry.target_name) {
+                known.extend(entry.overhead().output_size.iter().map(|(field, _)| *field));
+            }
+        }
         if let Some(field) = budget.fields().find(|field| !known.contains(field)) {
             return Err(UnknownSizeField(field.to_string()));
         }
@@ -2046,30 +2107,17 @@ impl std::fmt::Display for NoAnalyzablePath {
 
 impl std::error::Error for NoAnalyzablePath {}
 
-fn measured_size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
-    if a.components.len() != b.components.len()
-        || a.components.iter().any(|(field, _)| b.get(field).is_none())
-    {
-        return false;
-    }
-    a.components
-        .iter()
-        .all(|(field, value)| *value <= b.get(field).expect("field sets were compared"))
-}
-
-fn reduction_path_key(path: &ReductionPath) -> Vec<(&str, Vec<(&str, &str)>)> {
-    path.steps
-        .iter()
-        .map(|step| {
-            (
-                step.name.as_str(),
-                step.variant
+fn compare_reduction_paths(a: &ReductionPath, b: &ReductionPath) -> std::cmp::Ordering {
+    a.len().cmp(&b.len()).then_with(|| {
+        a.steps
+            .iter()
+            .map(|step| (step.name.as_str(), &step.variant))
+            .cmp(
+                b.steps
                     .iter()
-                    .map(|(field, value)| (field.as_str(), value.as_str()))
-                    .collect(),
+                    .map(|step| (step.name.as_str(), &step.variant)),
             )
-        })
-        .collect()
+    })
 }
 
 impl MeasuredPath {
@@ -2225,7 +2273,7 @@ impl ReductionGraph {
                 .then_with(|| a.path.type_names().cmp(&b.path.type_names()))
         });
         let coverage = AnalysisCoverage {
-            analyzed_paths: front.len(),
+            analyzed_paths: tracker.completed_states() - excluded.len(),
             excluded_paths: excluded.len(),
         };
         if front.is_empty() && !excluded.is_empty() {

@@ -19,7 +19,7 @@ use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use serde::Serialize;
 use std::any::Any;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 /// Per-field post-construction limits for measured search.
@@ -150,7 +150,7 @@ pub struct MeasuredLabel<'a> {
     /// Current constructed position.
     pos: MeasuredPos<'a>,
     /// Per-field post-construction budget.
-    budget: SizeBudget,
+    budget: Rc<SizeBudget>,
 }
 
 impl<'a> MeasuredLabel<'a> {
@@ -162,7 +162,7 @@ impl<'a> MeasuredLabel<'a> {
         Self {
             size: source_size,
             pos: MeasuredPos::Source(source),
-            budget,
+            budget: Rc::new(budget),
         }
     }
 
@@ -215,8 +215,24 @@ impl<'a> MeasuredLabel<'a> {
         Some(Self {
             size: measured,
             pos: MeasuredPos::Reduced(step),
-            budget: self.budget.clone(),
+            budget: Rc::clone(&self.budget),
         })
+    }
+}
+
+impl PathLabel for MeasuredLabel<'_> {
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        MeasuredLabel::extend(self, edge)
+    }
+
+    fn final_dominates(&self, other: &Self) -> bool {
+        self.size.components.len() == other.size.components.len()
+            && self.size.components.iter().all(|(field, value)| {
+                other
+                    .size
+                    .get(field)
+                    .is_some_and(|other_value| *value <= other_value)
+            })
     }
 }
 
@@ -239,10 +255,9 @@ impl<'a> MeasuredLabel<'a> {
 ///
 /// [`final_dominates`](PathLabel::final_dominates) is componentwise in the **search**
 /// sense (smaller growth = better): `self` terminally dominates `other` iff for every field
-/// `self` grows no faster than `other`. It is used only at the destination. Because
-/// `Unknown` is the top of the growth order, a label with an `Unknown` field is
-/// dominated by any fully-known label — undecidable paths rank last, the honest
-/// ranking.
+/// `self` grows no faster than `other`. It is used only at the destination. A label
+/// containing `Unknown` is outside this dominance relation. Such a path is
+/// reported as an analysis failure and excluded from the symbolic Pareto front.
 ///
 #[derive(Clone, Debug, PartialEq)]
 pub struct GrowthLabel {
@@ -329,27 +344,30 @@ impl PathLabel for GrowthLabel {
     }
 
     fn final_dominates(&self, other: &Self) -> bool {
-        if self.analysis_failure().is_some() || other.analysis_failure().is_some() {
+        if self
+            .fields
+            .values()
+            .chain(other.fields.values())
+            .any(|growth| matches!(growth, Growth::Unknown))
+        {
             return false;
         }
-        // Search-sense componentwise terminal dominance over the union of fields
-        // (labels compared are at the same node, so their field sets coincide; the
-        // union is defensive). Equality counts so the terminal front has one
+        // Labels compared at the same terminal node have the same field set. Equality
+        // counts so the terminal front has one
         // deterministic representative per growth vector.
         //
         // `Growth::dominates(a, b)` means "a grows ≥ b", with `Unknown` as top. So:
         //   self ≤ other on field f  ⟺  other_f.dominates(self_f)
-        let o1 = Growth::Terms(Vec::new()); // O(1): the bottom, for absent fields.
-        let keys: BTreeSet<&'static str> = self
-            .fields
-            .keys()
-            .chain(other.fields.keys())
-            .copied()
-            .collect();
-        for k in keys {
-            let s = self.fields.get(k).unwrap_or(&o1);
-            let o = other.fields.get(k).unwrap_or(&o1);
-            if !o.dominates(s) {
+        assert_eq!(
+            self.fields.len(),
+            other.fields.len(),
+            "terminal growth fields differ"
+        );
+        for ((self_field, self_growth), (other_field, other_growth)) in
+            self.fields.iter().zip(&other.fields)
+        {
+            assert_eq!(self_field, other_field, "terminal growth fields differ");
+            if !other_growth.dominates(self_growth) {
                 // self grows strictly faster than other here → self does not dominate.
                 return false;
             }

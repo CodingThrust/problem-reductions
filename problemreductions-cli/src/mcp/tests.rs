@@ -107,7 +107,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_all_rejects_ranked_search_policy() {
+    fn test_find_path_all_rejects_pareto_search_policy() {
         let server = McpServer::new();
         let result = server.find_path_inner(
             "MIS",
@@ -120,7 +120,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let error = result.expect_err("all-path enumeration must reject ranked search policy");
+        let error = result.expect_err("all-path enumeration must reject Pareto search policy");
         assert!(error.to_string().contains("not all-path enumeration"));
     }
 

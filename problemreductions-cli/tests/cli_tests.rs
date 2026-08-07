@@ -440,7 +440,7 @@ fn test_path_all() {
 }
 
 #[test]
-fn test_path_all_rejects_ranked_search_policy() {
+fn test_path_all_rejects_pareto_search_policy() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--all", "--search-mode", "exact"])
         .output()
@@ -5269,21 +5269,12 @@ fn test_path_overall_overhead_text() {
 
 #[test]
 fn test_path_overall_overhead_json() {
-    let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
     let output = pred()
-        .args([
-            "path",
-            "KSAT/K3",
-            "MIS",
-            "--all",
-            "-o",
-            tmp.to_str().unwrap(),
-        ])
+        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let envelope: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let json = &envelope["paths"][0];
     assert!(
         json["overall_overhead"].is_array(),
@@ -5293,7 +5284,6 @@ fn test_path_overall_overhead_json() {
     assert!(!items.is_empty(), "overall_overhead should have entries");
     assert!(items[0]["field"].is_string());
     assert!(items[0]["formula"].is_string());
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
@@ -5301,25 +5291,16 @@ fn test_path_overall_overhead_composition() {
     // Verify that overall overhead is the symbolic composition of per-step overheads,
     // not just the last step's overhead. For a multi-step path A→B→C, the overall
     // should substitute B's output expressions into C's input expressions.
-    let tmp = std::env::temp_dir().join("pred_test_path_composition.json");
     // 3SAT → SAT → MIS gives a 2-step path where:
     //   Step 1 (3SAT→SAT): num_literals = num_literals (identity)
     //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
     //   Overall: num_vertices = num_literals, num_edges = num_literals^2
     let output = pred()
-        .args([
-            "path",
-            "KSAT/K3",
-            "MIS",
-            "--all",
-            "-o",
-            tmp.to_str().unwrap(),
-        ])
+        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let envelope: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let json = envelope["paths"]
         .as_array()
         .unwrap()
@@ -5363,8 +5344,6 @@ fn test_path_overall_overhead_composition() {
         "num_edges should be in terms of source vars, got: {}",
         overall["num_edges"]
     );
-
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]

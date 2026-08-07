@@ -15,15 +15,32 @@ fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
 }
 
 pub(crate) fn parse_path_json(content: &str) -> Result<ReductionPath> {
-    let json: serde_json::Value = serde_json::from_str(content).context("Failed to parse path")?;
+    #[derive(serde::Deserialize)]
+    struct RouteNode {
+        name: String,
+        variant: BTreeMap<String, String>,
+    }
 
-    let path_array = json["path"]
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Expected one explicit route with a 'path' array"))?;
+    #[derive(serde::Deserialize)]
+    struct RouteEdge {
+        from: RouteNode,
+        to: RouteNode,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct ExplicitRoute {
+        path: Vec<RouteEdge>,
+    }
+
+    let route: ExplicitRoute =
+        serde_json::from_str(content).context("Expected one explicit route with a 'path' array")?;
 
     let mut steps: Vec<ReductionStep> = Vec::new();
-    for (i, entry) in path_array.iter().enumerate() {
-        let from = parse_path_node(&entry["from"])?;
+    for (i, edge) in route.path.into_iter().enumerate() {
+        let from = ReductionStep {
+            name: edge.from.name,
+            variant: edge.from.variant,
+        };
         if let Some(previous) = steps.last() {
             if previous.name != from.name || previous.variant != from.variant {
                 anyhow::bail!("Explicit route is not continuous at edge {i}");
@@ -31,7 +48,10 @@ pub(crate) fn parse_path_json(content: &str) -> Result<ReductionPath> {
         } else {
             steps.push(from);
         }
-        steps.push(parse_path_node(&entry["to"])?);
+        steps.push(ReductionStep {
+            name: edge.to.name,
+            variant: edge.to.variant,
+        });
     }
 
     if steps.len() < 2 {
@@ -41,40 +61,24 @@ pub(crate) fn parse_path_json(content: &str) -> Result<ReductionPath> {
     Ok(ReductionPath { steps })
 }
 
-fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
-    let name = node["name"]
-        .as_str()
-        .ok_or_else(|| anyhow::anyhow!("Path node missing 'name'"))?
-        .to_string();
-    let variant = serde_json::from_value::<BTreeMap<String, String>>(
-        node.get("variant")
-            .ok_or_else(|| anyhow::anyhow!("Path node missing 'variant'"))?
-            .clone(),
-    )
-    .context("Path node has invalid 'variant'")?;
-    Ok(ReductionStep { name, variant })
-}
-
-pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
-    // 1. Load source problem
-    let content = read_input(input)?;
-    let problem_json: ProblemJson = serde_json::from_str(&content)?;
-
+pub(crate) fn execute_route(
+    problem_json: ProblemJson,
+    reduction_path: ReductionPath,
+) -> Result<ReductionBundle> {
     let source = load_problem(
         &problem_json.problem_type,
         &problem_json.variant,
         problem_json.data.clone(),
     )?;
-
     let source_name = source.problem_name();
     let source_variant = source.variant_map();
-    let graph = ReductionGraph::new();
-
-    let reduction_path = load_path_file(via)?;
-    let first = reduction_path.steps.first().unwrap();
+    let first = reduction_path
+        .steps
+        .first()
+        .expect("route parser requires at least one edge");
     if first.name != source_name || first.variant != source_variant {
         anyhow::bail!(
-            "Path file starts with {}{} but source problem is {}{}",
+            "Explicit route starts with {}{} but source problem is {}{}",
             first.name,
             variant_to_full_slash(&first.variant),
             source_name,
@@ -82,7 +86,7 @@ pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
         );
     }
 
-    // 4. Execute reduction chain via reduce_along_path
+    let graph = ReductionGraph::new();
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
         .ok_or_else(|| {
@@ -90,17 +94,17 @@ pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
                 "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
             )
         })?;
-
-    // 5. Serialize target
-    let target_step = reduction_path.steps.last().unwrap();
+    let target_step = reduction_path
+        .steps
+        .last()
+        .expect("route parser requires at least one edge");
     let target_data = serialize_any_problem(
         &target_step.name,
         &target_step.variant,
         chain.target_problem_any(),
     )?;
 
-    // 6. Build full reduction bundle
-    let bundle = ReductionBundle {
+    Ok(ReductionBundle {
         source: ProblemJsonOutput {
             problem_type: source_name.to_string(),
             variant: source_variant,
@@ -113,23 +117,30 @@ pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
         },
         path: reduction_path
             .steps
-            .iter()
-            .map(|s| PathStep {
-                name: s.name.clone(),
-                variant: s.variant.clone(),
+            .into_iter()
+            .map(|step| PathStep {
+                name: step.name,
+                variant: step.variant,
             })
             .collect(),
-    };
+    })
+}
+
+pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
+    let content = read_input(input)?;
+    let problem_json: ProblemJson = serde_json::from_str(&content)?;
+    let reduction_path = load_path_file(via)?;
+    let route_len = reduction_path.len();
+    let route_text = reduction_path.to_string();
+    let bundle = execute_route(problem_json, reduction_path)?;
 
     let json = serde_json::to_value(&bundle)?;
 
     let mut text = format!(
         "Reduced {} to {} ({} steps)\n",
-        source_name,
-        target_step.name,
-        reduction_path.len(),
+        bundle.source.problem_type, bundle.target.problem_type, route_len,
     );
-    text.push_str(&format!("\nPath: {}\n", reduction_path));
+    text.push_str(&format!("\nPath: {route_text}\n"));
     text.push_str(
         "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
     );

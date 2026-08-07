@@ -19,8 +19,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
-    load_problem, serialize_any_problem, solve_result_json, solver_capabilities_view,
-    solver_request, BundleReplay, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
+    load_problem, solve_result_json, solver_capabilities_view, solver_request, BundleReplay,
+    ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
 use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
 
@@ -299,7 +299,7 @@ impl McpServer {
         let dst_ref = resolve_problem_ref(target, &graph)?;
         if all && search.has_nondefault_policy() {
             anyhow::bail!(
-                "search_mode and search limits apply to ranked path search, not all-path enumeration; use max_paths instead"
+                "search_mode and search limits apply to Pareto-front search, not all-path enumeration; use max_paths instead"
             );
         }
         let _ = search.mode()?;
@@ -357,53 +357,54 @@ impl McpServer {
                 );
             }
             let json = util::add_search_metadata(
-                format_front_json(&graph, &src_ref.name, &dst_ref.name, &result),
+                crate::commands::graph::format_front_json(
+                    &graph,
+                    &src_ref.name,
+                    &dst_ref.name,
+                    &result,
+                ),
                 &outcome.completeness,
                 &outcome.stats,
             )?;
             return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        if all {
-            // Fetch one extra to detect truncation. The library returns paths in a
-            // deterministic length-first, then name+variant-signature order, so the MCP
-            // and CLI `--all` outputs are the identical ordered route list; no local sort.
-            let mut all_paths = graph.find_paths_up_to(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-                max_paths + 1,
+        // Fetch one extra to detect truncation. The library returns paths in a
+        // deterministic length-first, then name+variant-signature order, so the MCP
+        // and CLI `--all` outputs are the identical ordered route list; no local sort.
+        let mut all_paths = graph.find_paths_up_to(
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            max_paths + 1,
+        );
+        if all_paths.is_empty() {
+            anyhow::bail!(
+                "No reduction path from {} to {}",
+                src_ref.name,
+                dst_ref.name
             );
-            if all_paths.is_empty() {
-                anyhow::bail!(
-                    "No reduction path from {} to {}",
-                    src_ref.name,
-                    dst_ref.name
-                );
-            }
-
-            let truncated = all_paths.len() > max_paths;
-            if truncated {
-                all_paths.truncate(max_paths);
-            }
-            let returned = all_paths.len();
-
-            let paths_json: Vec<serde_json::Value> = all_paths
-                .iter()
-                .map(|p| format_path_json(&graph, p))
-                .collect();
-
-            let json = serde_json::json!({
-                "paths": paths_json,
-                "truncated": truncated,
-                "returned": returned,
-                "max_paths": max_paths,
-            });
-            return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        unreachable!("all-path mode returns above")
+        let truncated = all_paths.len() > max_paths;
+        if truncated {
+            all_paths.truncate(max_paths);
+        }
+        let returned = all_paths.len();
+
+        let paths_json: Vec<serde_json::Value> = all_paths
+            .iter()
+            .map(|p| crate::commands::graph::format_path_json(&graph, p))
+            .collect();
+
+        let json = serde_json::json!({
+            "paths": paths_json,
+            "truncated": truncated,
+            "returned": returned,
+            "max_paths": max_paths,
+        });
+        Ok(serde_json::to_string_pretty(&json)?)
     }
 
     pub fn export_graph_inner(&self) -> anyhow::Result<String> {
@@ -843,60 +844,8 @@ impl McpServer {
 
     pub fn reduce_inner(&self, problem_json: &str, path_json: &str) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
-        let source = load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?;
-
-        let source_name = source.problem_name();
-        let source_variant = source.variant_map();
-        let graph = ReductionGraph::new();
-
         let reduction_path = crate::commands::reduce::parse_path_json(path_json)?;
-        let first = reduction_path
-            .steps
-            .first()
-            .expect("path parser requires a step");
-        if first.name != source_name || first.variant != source_variant {
-            anyhow::bail!("explicit path does not start at the supplied source problem");
-        }
-
-        // Execute reduction chain
-        let chain = graph
-            .reduce_along_path(&reduction_path, source.as_any())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."
-                )
-            })?;
-
-        // Serialize target
-        let target_step = reduction_path.steps.last().unwrap();
-        let target_data = serialize_any_problem(
-            &target_step.name,
-            &target_step.variant,
-            chain.target_problem_any(),
-        )?;
-
-        // Build reduction bundle
-        let bundle = ReductionBundle {
-            source: ProblemJsonOutput {
-                problem_type: source_name.to_string(),
-                variant: source_variant,
-                data: pj.data,
-            },
-            target: ProblemJsonOutput {
-                problem_type: target_step.name.clone(),
-                variant: target_step.variant.clone(),
-                data: target_data,
-            },
-            path: reduction_path
-                .steps
-                .iter()
-                .map(|s| PathStep {
-                    name: s.name.clone(),
-                    variant: s.variant.clone(),
-                })
-                .collect(),
-        };
-
+        let bundle = crate::commands::reduce::execute_route(pj, reduction_path)?;
         Ok(serde_json::to_string_pretty(&bundle)?)
     }
 
@@ -1134,95 +1083,6 @@ fn parse_direction(s: &str) -> anyhow::Result<TraversalFlow> {
         "both" => Ok(TraversalFlow::Both),
         _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
     }
-}
-
-fn format_path_json(
-    graph: &ReductionGraph,
-    reduction_path: &problemreductions::rules::ReductionPath,
-) -> serde_json::Value {
-    let overheads = graph.path_overheads(reduction_path);
-    let steps_json: Vec<serde_json::Value> = reduction_path
-        .steps
-        .windows(2)
-        .zip(overheads.iter())
-        .enumerate()
-        .map(|(i, (pair, oh))| {
-            serde_json::json!({
-                "from": {"name": pair[0].name, "variant": pair[0].variant},
-                "to": {"name": pair[1].name, "variant": pair[1].variant},
-                "step": i + 1,
-                "overhead": oh.output_size.iter().map(|(field, poly)| {
-                    serde_json::json!({"field": field, "formula": poly.to_string()})
-                }).collect::<Vec<_>>(),
-            })
-        })
-        .collect();
-
-    let composed = graph.compose_path_overhead(reduction_path);
-    let overall: Vec<serde_json::Value> = composed
-        .output_size
-        .iter()
-        .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
-        .collect();
-
-    serde_json::json!({
-        "steps": reduction_path.len(),
-        "path": steps_json,
-        "overall_overhead": overall,
-    })
-}
-
-/// JSON rendering of the asymptotic Pareto front for the `find_path` tool. Each
-/// path carries structured `Growth` serialization plus a rendered `O(...)`
-/// string per target size field. `Unknown` growth renders `O(?)`.
-///
-/// Every front element carries its complete executable route. The envelope itself
-/// deliberately has no selected route; callers must explicitly choose a front item.
-fn format_front_json(
-    graph: &ReductionGraph,
-    source: &str,
-    target: &str,
-    result: &problemreductions::rules::SymbolicParetoFront,
-) -> serde_json::Value {
-    let paths: Vec<serde_json::Value> = result
-        .front
-        .iter()
-        .map(|(reduction_path, label)| {
-            let big_o: BTreeMap<&str, String> = label
-                .fields()
-                .iter()
-                .map(|(f, g)| (*f, g.to_big_o()))
-                .collect();
-            let route = format_path_json(graph, reduction_path);
-            serde_json::json!({
-                "steps": route["steps"],
-                "path": route["path"],
-                "overall_overhead": route["overall_overhead"],
-                "growth": label.fields(),
-                "big_o": big_o,
-            })
-        })
-        .collect();
-    let excluded: Vec<_> = result
-        .excluded
-        .iter()
-        .map(|item| {
-            let route = format_path_json(graph, &item.path);
-            serde_json::json!({
-                "steps": route["steps"],
-                "path": route["path"],
-                "analysis_failure": item.failure,
-            })
-        })
-        .collect();
-    serde_json::json!({
-        "source": source,
-        "target": target,
-        "mode": "asymptotic",
-        "front": paths,
-        "analysis_coverage": result.coverage,
-        "excluded_paths": excluded,
-    })
 }
 
 // ---------------------------------------------------------------------------
