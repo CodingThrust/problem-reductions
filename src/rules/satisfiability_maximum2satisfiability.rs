@@ -1,9 +1,8 @@
 //! Reduction from Satisfiability to Maximum 2-Satisfiability.
 
-use crate::models::formula::{
-    CNFClause, Maximum2Satisfiability, SatVariableAllocator, Satisfiability,
-};
+use crate::models::formula::{CNFClause, Maximum2Satisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SAT to MAX-2-SAT.

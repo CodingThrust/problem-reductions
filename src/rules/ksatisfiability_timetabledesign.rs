@@ -20,9 +20,10 @@
 //! graph; the colors on the two special variable edges recover the satisfying
 //! truth assignment.
 
-use crate::models::formula::{CNFClause, KSatisfiability, SatVariableAllocator};
+use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 #[cfg(any(test, feature = "example-db"))]
 use crate::traits::Problem;

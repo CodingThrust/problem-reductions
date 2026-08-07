@@ -7,8 +7,9 @@
 //! has at least one false literal (the sentinel itself when s=false, or
 //! the complement of the original satisfied literal when s=true).
 
-use crate::models::formula::{CNFClause, NAESatisfiability, SatVariableAllocator, Satisfiability};
+use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing Satisfiability to NAE-Satisfiability.

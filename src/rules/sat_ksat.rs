@@ -6,8 +6,9 @@
 //!
 //! K-SAT -> SAT: Trivial embedding (K-SAT is a special case of SAT)
 
-use crate::models::formula::{CNFClause, KSatisfiability, SatVariableAllocator, Satisfiability};
+use crate::models::formula::{CNFClause, KSatisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::{KValue, K2, K3, KN};
 

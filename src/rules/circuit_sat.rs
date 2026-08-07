@@ -1,9 +1,10 @@
 //! Reduction from CircuitSAT to Satisfiability via Tseitin encoding.
 
 use crate::models::formula::{
-    Assignment, BooleanExpr, BooleanOp, CNFClause, CircuitSAT, SatVariableAllocator, Satisfiability,
+    Assignment, BooleanExpr, BooleanOp, CNFClause, CircuitSAT, Satisfiability,
 };
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::collections::HashMap;
 

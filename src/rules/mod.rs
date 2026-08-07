@@ -130,6 +130,7 @@ pub(crate) mod prizecollectingsteinerforest_steinertree;
 pub(crate) mod rootedtreearrangement_rootedtreestorageassignment;
 pub(crate) mod sat_circuitsat;
 pub(crate) mod sat_coloring;
+pub(crate) mod sat_helpers;
 pub(crate) mod sat_ksat;
 pub(crate) mod sat_maximumindependentset;
 pub(crate) mod sat_minimumdominatingset;

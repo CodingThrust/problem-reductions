@@ -1,9 +1,8 @@
 //! Reduction from KSatisfiability (3-SAT) to One-In-Three Satisfiability.
 
-use crate::models::formula::{
-    CNFClause, KSatisfiability, OneInThreeSatisfiability, SatVariableAllocator,
-};
+use crate::models::formula::{CNFClause, KSatisfiability, OneInThreeSatisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
 
