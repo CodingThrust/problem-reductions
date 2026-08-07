@@ -1,12 +1,12 @@
 //! Kth Largest m-Tuple problem implementation.
 //!
-//! Given m sets of positive integers and thresholds K and B, count how many
-//! distinct m-tuples (one element per set) have total size at least B.
-//! The answer is YES iff the count is at least K. Garey & Johnson MP10.
+//! Given m sets of positive integers and thresholds K and B, determine whether
+//! at least K distinct m-tuples (one element per set) have total size at least B.
+//! Garey & Johnson MP10.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
-use crate::types::Sum;
+use crate::types::Or;
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -36,15 +36,14 @@ inventory::submit! {
 /// The Kth Largest m-Tuple problem.
 ///
 /// Given sets `X_1, ..., X_m` of positive integers, a threshold `K`, and a
-/// bound `B`, count how many distinct m-tuples `(x_1, ..., x_m)` in
-/// `X_1 x ... x X_m` satisfy `sum(x_i) >= B`. The answer is YES iff the
-/// count is at least `K`.
+/// bound `B`, determine whether at least `K` distinct m-tuples
+/// `(x_1, ..., x_m)` in `X_1 x ... x X_m` satisfy `sum(x_i) >= B`.
 ///
 /// # Representation
 ///
-/// Variable `i` selects an element from set `X_i`, ranging over `{0, ..., |X_i|-1}`.
-/// `evaluate` returns `Sum(1)` if the tuple sum >= B, else `Sum(0)`.
-/// The aggregate over all configurations gives the total count of qualifying tuples.
+/// The empty configuration triggers enumeration of the Cartesian product.
+/// `evaluate` returns `Or(true)` as soon as `K` qualifying tuples have been
+/// found and `Or(false)` if the complete product contains fewer than `K`.
 ///
 /// # Example
 ///
@@ -58,9 +57,9 @@ inventory::submit! {
 ///     12,
 /// );
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
-/// // 14 of the 18 tuples have sum >= 12
-/// assert_eq!(value, problemreductions::types::Sum(14));
+/// let answer = solver.solve(&problem);
+/// // 14 of the 18 tuples have sum >= 12, so count >= K.
+/// assert_eq!(answer, problemreductions::types::Or(true));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct KthLargestMTuple {
@@ -126,7 +125,42 @@ impl KthLargestMTuple {
 
     /// Returns the total number of m-tuples (product of set sizes).
     pub fn total_tuples(&self) -> usize {
-        self.sets.iter().map(|s| s.len()).product()
+        self.sets
+            .iter()
+            .try_fold(1usize, |total, set| total.checked_mul(set.len()))
+            .expect("KthLargestMTuple total tuple count exceeds usize")
+    }
+
+    fn has_at_least_k_qualifying_tuples(&self) -> bool {
+        let mut choices = vec![0; self.sets.len()];
+        let mut qualifying = 0;
+
+        loop {
+            let mut remaining_bound = self.bound;
+            for (set, &choice) in self.sets.iter().zip(&choices) {
+                remaining_bound = remaining_bound.saturating_sub(set[choice]);
+            }
+            if remaining_bound == 0 {
+                qualifying += 1;
+                if qualifying == self.k {
+                    return true;
+                }
+            }
+
+            let mut advanced = false;
+            for set_index in (0..choices.len()).rev() {
+                choices[set_index] += 1;
+                if choices[set_index] == self.sets[set_index].len() {
+                    choices[set_index] = 0;
+                } else {
+                    advanced = true;
+                    break;
+                }
+            }
+            if !advanced {
+                return false;
+            }
+        }
     }
 }
 
@@ -149,35 +183,18 @@ impl<'de> Deserialize<'de> for KthLargestMTuple {
 
 impl Problem for KthLargestMTuple {
     const NAME: &'static str = "KthLargestMTuple";
-    type Value = Sum<u64>;
+    type Value = Or;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
     fn dims(&self) -> Vec<usize> {
-        self.sets.iter().map(|s| s.len()).collect()
+        vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Sum<u64> {
-        if config.len() != self.num_sets() {
-            return Sum(0);
-        }
-        for (i, &choice) in config.iter().enumerate() {
-            if choice >= self.sets[i].len() {
-                return Sum(0);
-            }
-        }
-        let total: u64 = config
-            .iter()
-            .enumerate()
-            .map(|(i, &choice)| self.sets[i][choice])
-            .sum();
-        if total >= self.bound {
-            Sum(1)
-        } else {
-            Sum(0)
-        }
+    fn evaluate(&self, config: &[usize]) -> Or {
+        Or(config.is_empty() && self.has_at_least_k_qualifying_tuples())
     }
 }
 
@@ -190,7 +207,7 @@ crate::declare_variants! {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12, K=14.
-    // 14 of 18 tuples have sum >= 12. The config [2,1,2] picks (8,6,7) with sum=21 >= 12.
+    // 14 of 18 tuples have sum >= 12, so the answer is YES at K=14.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kth_largest_m_tuple",
         instance: Box::new(KthLargestMTuple::new(
@@ -198,8 +215,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             14,
             12,
         )),
-        optimal_config: vec![2, 1, 2],
-        optimal_value: serde_json::json!(1),
+        optimal_config: vec![],
+        optimal_value: serde_json::json!(true),
     }]
 }
 

@@ -8147,7 +8147,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sets = x.instance.sets
   let k = x.instance.k
   let bound = x.instance.bound
-  let config = x.optimal_config
   let m = sets.len()
   // Count qualifying tuples by enumerating the Cartesian product
   let total = sets.fold(1, (acc, s) => acc * s.len())
@@ -8157,12 +8156,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
 
-      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. For instance, the tuple $(#config.enumerate().map(((i, c)) => str(sets.at(i).at(c))).join(", "))$ has sum $#config.enumerate().map(((i, c)) => sets.at(i).at(c)).sum() >= #bound$, contributing 1 to the count. In total, #k of the #total tuples satisfy the bound, so the answer is _yes_ (count $= K$).
+      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. Exactly #k tuples have sum at least #bound, so the answer is _yes_ (count $= K$). The evaluator enumerates the Cartesian product internally and stops once it has found $K$ qualifying tuples.
 
       #pred-commands(
         "pred create --example KthLargestMTuple -o kth-largest-m-tuple.json",
         "pred solve kth-largest-m-tuple.json --solver brute-force",
-        "pred evaluate kth-largest-m-tuple.json --config " + config.map(str).join(","),
       )
     ]
   ]
