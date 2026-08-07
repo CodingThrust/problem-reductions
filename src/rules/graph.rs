@@ -1401,6 +1401,34 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Get executable outgoing reductions from one exact problem variant.
+    pub fn outgoing_reductions_from(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        mode: ReductionMode,
+    ) -> Vec<ReductionEdgeInfo> {
+        let Some(source) = self.lookup_node(name, variant) else {
+            return vec![];
+        };
+
+        self.ordered_outgoing_edges(source, mode)
+            .into_iter()
+            .map(|(target, edge)| {
+                let src = &self.nodes[self.graph[source]];
+                let dst = &self.nodes[self.graph[target]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                    overhead: self.graph[edge].overhead.clone(),
+                    capabilities: self.graph[edge].capabilities(),
+                }
+            })
+            .collect()
+    }
+
     /// Get the problem size field names for a problem type.
     ///
     /// Derives size fields from the overhead expressions of reduction entries
