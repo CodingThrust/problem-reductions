@@ -6,7 +6,7 @@ use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::models::misc::Clustering;
 use crate::prelude::*;
-use crate::rules::{MinimizeSteps, ReductionGraph, ReductionMode, TraversalFlow};
+use crate::rules::{ReductionGraph, ReductionMode, TraversalFlow};
 use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::types::ProblemSize;
 use crate::variant::{K3, KN};
@@ -52,27 +52,17 @@ fn test_reduction_graph_discovers_clustering_to_ilp() {
 // ---- Path finding (by name) ----
 
 #[test]
-fn test_find_path_with_cost_function() {
+fn test_find_direct_route_by_exact_variants() {
     let graph = ReductionGraph::new();
-    let input_size = ProblemSize::new(vec![("num_vertices", 100), ("num_edges", 200)]);
 
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
     let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &input_size,
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value;
-
-    assert!(path.is_some(), "Should find path from IS to VC");
-    let path = path.unwrap();
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("direct route should exist");
     assert_eq!(path.len(), 1, "Should be a 1-step path");
     assert_eq!(path.source(), Some("MaximumIndependentSet"));
     assert_eq!(path.target(), Some("MinimumVertexCover"));
@@ -86,22 +76,10 @@ fn test_multi_step_path() {
     let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
     let path = graph
-        .find_cheapest_path(
-            "Factoring",
-            &src,
-            "SpinGlass",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value;
-
-    assert!(
-        path.is_some(),
-        "Should find path from Factoring to SpinGlass"
-    );
-    let path = path.unwrap();
+        .find_all_paths("Factoring", &src, "SpinGlass", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .expect("explicit CircuitSAT route should exist");
     assert_eq!(path.len(), 2, "Should be a 2-step path");
     assert_eq!(
         path.type_names(),
@@ -115,32 +93,24 @@ fn aggregate_mode_rejects_witness_only_real_edge() {
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
-    assert!(graph
-        .find_cheapest_path_mode(
+    assert!(!graph
+        .find_all_paths_mode(
             "MaximumIndependentSet",
             &src,
             "MinimumVertexCover",
             &dst,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
+            ReductionMode::Witness
         )
-        .value
-        .is_some());
+        .is_empty());
     assert!(graph
-        .find_cheapest_path_mode(
+        .find_all_paths_mode(
             "MaximumIndependentSet",
             &src,
             "MinimumVertexCover",
             &dst,
-            ReductionMode::Aggregate,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
+            ReductionMode::Aggregate
         )
-        .value
-        .is_none());
+        .is_empty());
 }
 
 #[test]
@@ -151,32 +121,24 @@ fn natural_edge_supports_both_modes_public_api() {
     let dst =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i32>::variant());
 
-    assert!(graph
-        .find_cheapest_path_mode(
+    assert!(!graph
+        .find_all_paths_mode(
             "MaximumIndependentSet",
             &src,
             "MaximumIndependentSet",
             &dst,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
+            ReductionMode::Witness
         )
-        .value
-        .is_some());
-    assert!(graph
-        .find_cheapest_path_mode(
+        .is_empty());
+    assert!(!graph
+        .find_all_paths_mode(
             "MaximumIndependentSet",
             &src,
             "MaximumIndependentSet",
             &dst,
-            ReductionMode::Aggregate,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
+            ReductionMode::Aggregate
         )
-        .value
-        .is_some());
+        .is_empty());
 }
 
 #[test]
@@ -188,57 +150,33 @@ fn value_changing_variant_cast_is_not_aggregate_capable() {
     let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<f64>::variant());
 
     assert!(graph
-        .find_cheapest_path_mode(
+        .find_all_paths_mode(
             "MaximumSetPacking",
             &src,
             "MaximumSetPacking",
             &dst,
-            ReductionMode::Aggregate,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
+            ReductionMode::Aggregate
         )
-        .value
-        .is_none());
+        .is_empty());
 }
 
 #[test]
 fn test_problem_size_propagation() {
     let graph = ReductionGraph::new();
-    let input_size = ProblemSize::new(vec![("num_vertices", 50), ("num_edges", 100)]);
 
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
-    let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &input_size,
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value;
-
-    assert!(path.is_some());
+    assert!(!graph
+        .find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst)
+        .is_empty());
 
     let src2 =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst2 = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
-    let path2 = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src2,
-            "MaximumSetPacking",
-            &dst2,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value;
-    assert!(path2.is_some());
+    assert!(!graph
+        .find_all_paths("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2)
+        .is_empty());
 }
 
 // ---- JSON export ----
@@ -336,19 +274,7 @@ fn test_find_indirect_path() {
     let paths = graph.find_all_paths("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
 
-    let shortest = graph
-        .find_cheapest_path(
-            "MaximumSetPacking",
-            &src,
-            "MinimumVertexCover",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value;
-    assert!(shortest.is_some());
-    assert_eq!(shortest.unwrap().len(), 2);
+    assert!(paths.iter().any(|path| path.len() == 2));
 }
 
 #[test]
@@ -369,17 +295,10 @@ fn test_reduction_path_display() {
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
     let path = graph
-        .find_cheapest_path(
-            "Factoring",
-            &src_var,
-            "SpinGlass",
-            &dst_var,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value
-        .unwrap();
+        .find_all_paths("Factoring", &src_var, "SpinGlass", &dst_var)
+        .into_iter()
+        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .expect("explicit CircuitSAT route");
 
     let s = format!("{path}");
     // Should contain arrow-separated problem names with variant info
@@ -419,25 +338,20 @@ fn test_3sat_to_mis_triangular_overhead() {
             CNFClause::new(vec![-1, -2, -3]),
         ],
     );
-    let input_size = ProblemSize::new(vec![
-        ("num_vars", 3),
-        ("num_clauses", 2),
-        ("num_literals", 6),
-    ]);
-
-    // Find the shortest path
     let path = graph
-        .find_cheapest_path(
+        .find_all_paths(
             "KSatisfiability",
             &src_var,
             "MaximumIndependentSet",
             &dst_var,
-            &input_size,
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
         )
-        .value
-        .expect("Should find path from 3-SAT to MIS on triangular lattice");
+        .into_iter()
+        .find(|path| {
+            path.len() == 4
+                && path.type_names()
+                    == ["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
+        })
+        .expect("expected explicit 3-SAT to triangular MIS route");
 
     // Path: K3SAT → KN_SAT (cast) → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     assert_eq!(
@@ -744,7 +658,7 @@ fn find_paths_up_to_no_path() {
 // ---- Exact source+target variant matching ----
 
 #[test]
-fn find_best_entry_rejects_wrong_target_variant() {
+fn find_entry_rejects_wrong_target_variant() {
     let graph = ReductionGraph::new();
     let source =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
@@ -753,7 +667,7 @@ fn find_best_entry_rejects_wrong_target_variant() {
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "f64".to_string()),
     ]);
-    let result = graph.find_best_entry(
+    let result = graph.find_entry(
         "MaximumIndependentSet",
         &source,
         "MinimumVertexCover",
@@ -763,12 +677,12 @@ fn find_best_entry_rejects_wrong_target_variant() {
 }
 
 #[test]
-fn find_best_entry_accepts_exact_source_and_target_variant() {
+fn find_entry_accepts_exact_source_and_target_variant() {
     let graph = ReductionGraph::new();
     let source =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let target = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-    let result = graph.find_best_entry(
+    let result = graph.find_entry(
         "MaximumIndependentSet",
         &source,
         "MinimumVertexCover",

@@ -88,14 +88,14 @@ pred solve lbdp.json --solver brute-force
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
 
-# Reduce to another problem type and solve via brute-force
-pred reduce problem.json --to QUBO -o reduced.json
+# Reduce along an explicitly chosen Pareto-front route and solve via brute-force
+pred reduce problem.json --via route.json -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
-pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json | pred solve -
 ```
 
 > **Note:** When you provide `--weights` with non-unit values (e.g., `3,1,2,1`), the variant is
@@ -144,9 +144,9 @@ Explore which problems the given problem can reduce to, starting **from** it:
 {{#include generated/pred-from-qubo.txt}}
 ```
 
-### `pred path` — Find a reduction path
+### `pred path` — Find reduction paths
 
-Find the cheapest chain of reductions between two problems:
+Find the symbolic Pareto front between two problems:
 
 ```text
 {{#include generated/pred-path-mis-qubo.txt}}
@@ -163,20 +163,16 @@ Show all paths or save for later use with `pred reduce --via`:
 ```bash
 pred path MIS QUBO --all                    # all paths (up to 20)
 pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO -o path.json             # save front + best path for `pred reduce --via`
+pred path MIS QUBO -o front.json            # save the Pareto front
 pred path MIS QUBO --all -o paths/          # save all paths to a folder
 ```
 
 When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
 
-Use `--cost` to change the optimization strategy:
-
-```bash
-pred path MIS QUBO --cost minimize-steps           # default
-pred path MIS QUBO --cost minimize:num_variables   # minimize a size field
-```
-
-Use `pred show <problem>` to see which size fields are available.
+Every front item contains its complete route. The envelope does not select a
+winner; extract the route you want before passing it to `pred reduce --via`.
+Paths with unknown symbolic growth are excluded from the front and listed with
+their analysis-failure reason.
 
 ### `pred export-graph` — Export the reduction graph
 
@@ -320,13 +316,7 @@ pred create MIS --graph 0-1,1-2 | pred inspect -
 
 ### `pred reduce` — Reduce a problem
 
-Reduce a problem to a target type. Outputs a reduction bundle containing source, target, and path:
-
-```bash
-pred reduce problem.json --to QUBO -o reduced.json
-```
-
-Use a specific reduction path (from `pred path -o`). The target is inferred from the path file, so `--to` is not needed:
+Reduce a problem along a specific route. The target is inferred from the route file:
 
 ```bash
 pred reduce problem.json --via path.json -o reduced.json
@@ -335,7 +325,7 @@ pred reduce problem.json --via path.json -o reduced.json
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json
 ```
 
 The bundle contains everything needed to map solutions back:
@@ -429,7 +419,7 @@ This is useful for scripting and piping:
 
 ```bash
 pred list --json | jq '.variants[].name'
-pred path MIS QUBO --json | jq '.path'
+pred path MIS QUBO --json | jq '.front[] | {growth, path}'
 ```
 
 ## Problem Name Aliases

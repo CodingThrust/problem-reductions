@@ -6,7 +6,7 @@
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use problemreductions::prelude::*;
-use problemreductions::rules::{Minimize, ReductionGraph};
+use problemreductions::rules::ReductionGraph;
 #[cfg(feature = "ilp-solver")]
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
@@ -546,20 +546,12 @@ mod qubo_reductions {
             ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
         let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
         let path = graph
-            .find_cheapest_path(
-                "MaximumIndependentSet",
-                &src,
-                "QUBO",
-                &dst,
-                &ProblemSize::new(vec![
-                    ("num_vertices", n),
-                    ("num_edges", is.graph().num_edges()),
-                ]),
-                &Minimize("num_vars"),
-                problemreductions::rules::SearchMode::Exact,
-            )
-            .value
-            .expect("Should find path MaximumIndependentSet -> QUBO");
+            .find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst)
+            .into_iter()
+            .find(|path| {
+                path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
+            })
+            .expect("explicit set-packing route");
         let chain = graph
             .reduce_along_path(&path, &is as &dyn std::any::Any)
             .expect("Should reduce MaximumIndependentSet to QUBO");
@@ -843,20 +835,18 @@ mod qubo_reductions {
             ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
         let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
         let path = graph
-            .find_cheapest_path(
-                "MinimumVertexCover",
-                &src,
-                "QUBO",
-                &dst,
-                &ProblemSize::new(vec![
-                    ("num_vertices", n),
-                    ("num_edges", vc.graph().num_edges()),
-                ]),
-                &Minimize("num_vars"),
-                problemreductions::rules::SearchMode::Exact,
-            )
-            .value
-            .expect("Should find path MVC -> QUBO");
+            .find_all_paths("MinimumVertexCover", &src, "QUBO", &dst)
+            .into_iter()
+            .find(|path| {
+                path.type_names()
+                    == [
+                        "MinimumVertexCover",
+                        "MaximumIndependentSet",
+                        "MaximumSetPacking",
+                        "QUBO",
+                    ]
+            })
+            .expect("explicit MIS route");
         assert_eq!(
             path.type_names(),
             vec![

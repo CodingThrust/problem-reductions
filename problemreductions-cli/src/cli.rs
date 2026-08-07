@@ -18,7 +18,7 @@ Piping (use - to read from stdin):
   pred create MIS --graph 0-1,1-2 | pred solve -                    # when an ILP reduction path exists
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
-  pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
+  pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json
 
 JSON output (any command):
   pred list --json                 # JSON to stdout
@@ -158,14 +158,13 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
         hops: usize,
     },
 
-    /// Find the cheapest reduction path between two problems
+    /// Find reduction paths between two problems
     #[command(after_help = "\
 Examples:
   pred path MIS QUBO                              # asymptotic Pareto front (Big-O per size field)
   pred path MIS QUBO --all                        # all paths
-  pred path MIS QUBO -o path.json                 # save front + best path for `pred reduce --via`
+  pred path MIS QUBO -o front.json                # save the Pareto front
   pred path MIS QUBO --all -o paths/              # save all paths to a folder
-  pred path MIS QUBO --cost minimize:num_variables  # single cheapest path by a scalar cost (also -o for --via)
 
 Use `pred list` to see available problems.")]
     Path {
@@ -175,11 +174,7 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Scalar cost function ('minimize-steps' or 'minimize:<field>') for a single
-        /// best path. Omit to get the instance-free asymptotic Pareto front.
-        #[arg(long)]
-        cost: Option<String>,
-        /// Show all paths instead of just the cheapest
+        /// Show all paths instead of the Pareto front
         #[arg(long)]
         all: bool,
         /// Maximum paths to return in --all mode
@@ -1288,7 +1283,7 @@ Typical workflow:
   pred solve problem.json
 
 Solve via explicit reduction:
-  pred reduce problem.json --to QUBO -o reduced.json
+  pred reduce problem.json --via route.json -o reduced.json
   pred solve reduced.json
 
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
@@ -1314,28 +1309,19 @@ pub struct SolveArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
-  pred reduce problem.json --to QUBO -o reduced.json
-  pred reduce problem.json --to ILP -o reduced.json
   pred reduce problem.json --via path.json -o reduced.json
-  pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO  # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred reduce - --via path.json  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.
-The --via path file is from `pred path <SRC> <DST> -o path.json` (its
-top-level `path` is the best path; add --cost to pick a scalar-optimal one).
-When --via is given, --to is inferred from the path file.
+The --via file must be one explicit entry selected by the caller from a Pareto front.
 Output is a reduction bundle with source, target, and path.
 Use `pred solve reduced.json` to solve and map the solution back.")]
 pub struct ReduceArgs {
     /// Problem JSON file (from `pred create`). Use - for stdin.
     pub input: PathBuf,
-    /// Target problem type (e.g., QUBO, SpinGlass). Inferred from --via if omitted.
-    #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
-    pub to: Option<String>,
-    /// Reduction route file (from `pred path ... -o`)
-    #[arg(long)]
-    pub via: Option<PathBuf>,
-    #[command(flatten)]
-    pub search: SearchArgs,
+    /// Explicit reduction route selected from a Pareto-front entry.
+    #[arg(long, required = true)]
+    pub via: PathBuf,
 }
 
 #[derive(clap::Args)]

@@ -2,9 +2,9 @@ use problemreductions::models::algebraic::ILP;
 use problemreductions::models::formula::{CNFClause, KSatisfiability};
 use problemreductions::models::misc::FeasibleRegisterAssignment;
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath};
+use problemreductions::rules::{ReductionGraph, ReductionPath};
 use problemreductions::solvers::ILPSolver;
-use problemreductions::types::{Or, ProblemSize};
+use problemreductions::types::Or;
 use problemreductions::variant::K3;
 
 fn ksat_to_fra_path() -> ReductionPath {
@@ -12,17 +12,10 @@ fn ksat_to_fra_path() -> ReductionPath {
     let src = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
     let dst = ReductionGraph::variant_to_map(&FeasibleRegisterAssignment::variant());
     graph
-        .find_cheapest_path(
-            "KSatisfiability",
-            &src,
-            "FeasibleRegisterAssignment",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            problemreductions::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("expected a direct KSatisfiability<K3> -> FeasibleRegisterAssignment path")
+        .find_all_paths("KSatisfiability", &src, "FeasibleRegisterAssignment", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("expected direct route")
 }
 
 fn fra_to_ilp_path() -> ReductionPath {
@@ -30,17 +23,10 @@ fn fra_to_ilp_path() -> ReductionPath {
     let src = ReductionGraph::variant_to_map(&FeasibleRegisterAssignment::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<i32>::variant());
     graph
-        .find_cheapest_path(
-            "FeasibleRegisterAssignment",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            problemreductions::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("expected a direct FeasibleRegisterAssignment -> ILP<i32> path")
+        .find_all_paths("FeasibleRegisterAssignment", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("expected direct route")
 }
 
 #[test]

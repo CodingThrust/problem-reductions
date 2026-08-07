@@ -3,6 +3,29 @@ mod tests {
     use crate::mcp::tools::{McpServer, SearchModeParam, SearchParams};
     use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
+    fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
+        let response = server
+            .find_path_inner(source, target, false, 20, &SearchParams::default())
+            .expect("front search");
+        let json: serde_json::Value = serde_json::from_str(&response).unwrap();
+        let entry = json["front"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| {
+                let edges = entry["path"].as_array().unwrap();
+                let mut actual = vec![edges[0]["from"]["name"].as_str().unwrap()];
+                actual.extend(
+                    edges
+                        .iter()
+                        .map(|edge| edge["to"]["name"].as_str().unwrap()),
+                );
+                actual == names
+            })
+            .expect("requested explicit route");
+        serde_json::to_string(entry).unwrap()
+    }
+
     #[test]
     fn test_list_problems_returns_json() {
         let server = McpServer::new();
@@ -32,17 +55,10 @@ mod tests {
     #[test]
     fn test_find_path() {
         let server = McpServer::new();
-        let result = server.find_path_inner(
-            "MIS",
-            "QUBO",
-            Some("minimize-steps"),
-            false,
-            20,
-            &SearchParams::default(),
-        );
+        let result = server.find_path_inner("MIS", "QUBO", false, 20, &SearchParams::default());
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert!(json["path"].as_array().unwrap().len() > 0);
+        assert!(!json["front"].as_array().unwrap().is_empty());
     }
 
     #[test]
@@ -52,7 +68,6 @@ mod tests {
         let result = server.find_path_inner(
             "KSatisfiability",
             "QUBO",
-            None,
             false,
             20,
             &SearchParams {
@@ -79,7 +94,6 @@ mod tests {
         let result = server.find_path_inner(
             "MIS",
             "QUBO",
-            None,
             false,
             20,
             &SearchParams {
@@ -98,7 +112,6 @@ mod tests {
         let result = server.find_path_inner(
             "MIS",
             "QUBO",
-            None,
             true,
             20,
             &SearchParams {
@@ -112,19 +125,14 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_asymptotic_front_has_top_level_path() {
-        // The default (no-cost) find_path envelope must also carry a top-level `path`
-        // step array (the best path) so it stays consumable as a reduction route.
+    fn test_find_path_front_has_no_top_level_winner() {
         let server = McpServer::new();
-        let result =
-            server.find_path_inner("MIS", "QUBO", None, false, 20, &SearchParams::default());
+        let result = server.find_path_inner("MIS", "QUBO", false, 20, &SearchParams::default());
         assert!(result.is_ok(), "err: {:?}", result.err());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["mode"], "asymptotic");
-        let path = json["path"].as_array().expect("top-level path array");
-        assert!(!path.is_empty(), "top-level path must have ≥ 1 step");
-        // Each step parses as a from→to node pair with names.
-        let first = &path[0];
+        assert!(json.get("path").is_none());
+        let first = &json["front"][0]["path"][0];
         assert!(first["from"]["name"].is_string());
         assert!(first["to"]["name"].is_string());
         assert_eq!(first["from"]["name"], "MaximumIndependentSet");
@@ -133,14 +141,7 @@ mod tests {
     #[test]
     fn test_find_path_all() {
         let server = McpServer::new();
-        let result = server.find_path_inner(
-            "MIS",
-            "QUBO",
-            Some("minimize-steps"),
-            true,
-            20,
-            &SearchParams::default(),
-        );
+        let result = server.find_path_inner("MIS", "QUBO", true, 20, &SearchParams::default());
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         // --all returns a structured envelope
@@ -153,14 +154,7 @@ mod tests {
     #[test]
     fn test_find_path_all_structured_response() {
         let server = McpServer::new();
-        let result = server.find_path_inner(
-            "MIS",
-            "QUBO",
-            Some("minimize-steps"),
-            true,
-            20,
-            &SearchParams::default(),
-        );
+        let result = server.find_path_inner("MIS", "QUBO", true, 20, &SearchParams::default());
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         // Verify the structured envelope fields
@@ -191,7 +185,6 @@ mod tests {
             .find_path_inner(
                 "KSatisfiability",
                 "QUBO",
-                None,
                 true,
                 max_paths,
                 &SearchParams::default(),
@@ -276,14 +269,8 @@ mod tests {
     fn test_find_path_no_route() {
         let server = McpServer::new();
         // Pick two problems with no path (if any). Use an unknown problem to trigger an error.
-        let result = server.find_path_inner(
-            "NonExistent",
-            "QUBO",
-            Some("minimize-steps"),
-            false,
-            20,
-            &SearchParams::default(),
-        );
+        let result =
+            server.find_path_inner("NonExistent", "QUBO", false, 20, &SearchParams::default());
         assert!(result.is_err());
     }
 
@@ -525,8 +512,19 @@ mod tests {
     fn test_reduce() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
-        let result = server.reduce_inner(&problem_json, "QUBO", &SearchParams::default());
-        assert!(result.is_ok());
+        let route = explicit_route(
+            &server,
+            "MIS/SimpleGraph/i32",
+            "QUBO",
+            &[
+                "MaximumIndependentSet",
+                "MaximumSetPacking",
+                "MaximumSetPacking",
+                "QUBO",
+            ],
+        );
+        let result = server.reduce_inner(&problem_json, &route);
+        assert!(result.is_ok(), "{result:?}");
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["target"].is_object());
         assert!(json["source"].is_object());
@@ -537,8 +535,31 @@ mod tests {
     fn test_reduce_unknown_target() {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
-        let result = server.reduce_inner(&problem_json, "NonExistent", &SearchParams::default());
+        let result = server.reduce_inner(&problem_json, "{}");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_reduce_rejects_discontinuous_explicit_route() {
+        let server = McpServer::new();
+        let problem_json = create_test_mis(&server);
+        let route = explicit_route(
+            &server,
+            "MIS/SimpleGraph/i32",
+            "QUBO",
+            &[
+                "MaximumIndependentSet",
+                "MaximumSetPacking",
+                "MaximumSetPacking",
+                "QUBO",
+            ],
+        );
+        let mut route: serde_json::Value = serde_json::from_str(&route).unwrap();
+        route["path"][1]["from"]["name"] = serde_json::json!("MinimumVertexCover");
+        let error = server
+            .reduce_inner(&problem_json, &route.to_string())
+            .expect_err("discontinuous route must be rejected");
+        assert!(error.to_string().contains("not continuous"));
     }
 
     #[test]
@@ -630,7 +651,20 @@ mod tests {
         let problem_json = create_test_mis(&server);
         // Reduce first, then solve the bundle
         let bundle_json = server
-            .reduce_inner(&problem_json, "QUBO", &SearchParams::default())
+            .reduce_inner(
+                &problem_json,
+                &explicit_route(
+                    &server,
+                    "MIS/SimpleGraph/i32",
+                    "QUBO",
+                    &[
+                        "MaximumIndependentSet",
+                        "MaximumSetPacking",
+                        "MaximumSetPacking",
+                        "QUBO",
+                    ],
+                ),
+            )
             .unwrap();
         let result = server.solve_inner(&bundle_json, Some("brute-force"), None);
         assert!(result.is_ok());
@@ -653,7 +687,15 @@ mod tests {
                 )
                 .unwrap();
             let bundle_json = server
-                .reduce_inner(&problem_json, "NAESatisfiability", &SearchParams::default())
+                .reduce_inner(
+                    &problem_json,
+                    &explicit_route(
+                        &server,
+                        "Satisfiability",
+                        "NAESatisfiability",
+                        &["Satisfiability", "NAESatisfiability"],
+                    ),
+                )
                 .unwrap();
             let solved = server
                 .solve_inner(&bundle_json, Some("brute-force"), None)
@@ -672,7 +714,20 @@ mod tests {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
         let bundle_json = server
-            .reduce_inner(&problem_json, "QUBO", &SearchParams::default())
+            .reduce_inner(
+                &problem_json,
+                &explicit_route(
+                    &server,
+                    "MIS/SimpleGraph/i32",
+                    "QUBO",
+                    &[
+                        "MaximumIndependentSet",
+                        "MaximumSetPacking",
+                        "MaximumSetPacking",
+                        "QUBO",
+                    ],
+                ),
+            )
             .unwrap();
         let result = server.solve_inner(&bundle_json, Some("customized"), None);
         assert!(result.is_err());
@@ -688,7 +743,20 @@ mod tests {
         let server = McpServer::new();
         let problem_json = create_test_mis(&server);
         let bundle_json = server
-            .reduce_inner(&problem_json, "QUBO", &SearchParams::default())
+            .reduce_inner(
+                &problem_json,
+                &explicit_route(
+                    &server,
+                    "MIS/SimpleGraph/i32",
+                    "QUBO",
+                    &[
+                        "MaximumIndependentSet",
+                        "MaximumSetPacking",
+                        "MaximumSetPacking",
+                        "QUBO",
+                    ],
+                ),
+            )
             .unwrap();
         let result = server.inspect_problem_inner(&bundle_json);
         assert!(result.is_ok());
@@ -760,11 +828,12 @@ mod tests {
     #[test]
     fn test_reduce_rejects_aggregate_only_path() {
         let server = McpServer::new();
-        let result = server.reduce_inner(
-            &aggregate_problem_json(),
-            "CliTestAggregateValueTarget",
-            &SearchParams::default(),
-        );
+        let route = serde_json::json!({"path": [{
+            "from": {"name": "CliTestAggregateValueSource", "variant": {}},
+            "to": {"name": "CliTestAggregateValueTarget", "variant": {}}
+        }]})
+        .to_string();
+        let result = server.reduce_inner(&aggregate_problem_json(), &route);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("witness"), "unexpected error: {err}");

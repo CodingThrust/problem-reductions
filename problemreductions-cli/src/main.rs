@@ -62,32 +62,17 @@ fn main() -> anyhow::Result<()> {
         Commands::Path {
             source,
             target,
-            cost,
             all,
             max_paths,
             search,
-        } => commands::graph::path(
-            &source,
-            &target,
-            cost.as_deref(),
-            all,
-            max_paths,
-            &search,
-            &out,
-        ),
+        } => commands::graph::path(&source, &target, all, max_paths, &search, &out),
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),
         Commands::Solve(args) => {
             commands::solve::solve(&args.input, args.solver.as_deref(), args.timeout, &out)
         }
-        Commands::Reduce(args) => commands::reduce::reduce(
-            &args.input,
-            args.to.as_deref(),
-            args.via.as_deref(),
-            &args.search,
-            &out,
-        ),
+        Commands::Reduce(args) => commands::reduce::reduce(&args.input, &args.via, &out),
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Extract(args) => commands::extract::extract(&args.input, &args.config, &out),
         #[cfg(feature = "mcp")]

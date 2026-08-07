@@ -8,14 +8,13 @@
 use super::*;
 use crate::expr::Expr;
 use crate::growth::Growth;
-use crate::models::algebraic::{ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::formula::{CNFClause, Satisfiability};
 use crate::models::graph::HamiltonianCircuit;
-use crate::rules::cost::CustomCost;
 use crate::rules::pareto::{GrowthLabel, PathLabel, ReductionEdge};
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::DynReductionResult;
-use crate::rules::{ReductionAutoCast, ReductionGraph, ReductionMode};
+use crate::rules::{ReductionAutoCast, ReductionGraph, ReductionMode, SizeBudget};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Or, ProblemSize};
@@ -107,6 +106,57 @@ fn measured_source_to_small_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
     Box::new(ReductionAutoCast::<MeasuredSource, ILP<bool>>::new(target))
 }
 
+fn measured_a_to_incomparable_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchA>()
+        .expect("expected branch A");
+    let constraints = (0..10).map(|_| LinearConstraint::eq(vec![], 0.0)).collect();
+    Box::new(ReductionAutoCast::<MeasuredBranchA, ILP<bool>>::new(
+        ILP::new(1, constraints, vec![], ObjectiveSense::Minimize),
+    ))
+}
+
+fn measured_b_to_incomparable_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchB>()
+        .expect("expected branch B");
+    Box::new(ReductionAutoCast::<MeasuredBranchB, ILP<bool>>::new(
+        ILP::new(
+            10,
+            vec![LinearConstraint::eq(vec![], 0.0)],
+            vec![],
+            ObjectiveSense::Minimize,
+        ),
+    ))
+}
+
+fn measured_a_to_equal_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchA>()
+        .expect("expected branch A");
+    Box::new(ReductionAutoCast::<MeasuredBranchA, ILP<bool>>::new(
+        ILP::new(2, vec![], vec![], ObjectiveSense::Minimize),
+    ))
+}
+
+fn measured_b_to_equal_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredBranchB>()
+        .expect("expected branch B");
+    Box::new(ReductionAutoCast::<MeasuredBranchB, ILP<bool>>::new(
+        ILP::new(2, vec![], vec![], ObjectiveSense::Minimize),
+    ))
+}
+
+thread_local! {
+    static CONSTRUCTIONS: Cell<usize> = const { Cell::new(0) };
+}
+
+fn counted_large_ilp(any: &dyn Any) -> Box<dyn DynReductionResult> {
+    any.downcast_ref::<MeasuredSource>()
+        .expect("expected source");
+    CONSTRUCTIONS.with(|count| count.set(count.get() + 1));
+    Box::new(ReductionAutoCast::<MeasuredSource, ILP<bool>>::new(
+        ILP::new(2, vec![], vec![], ObjectiveSense::Minimize),
+    ))
+}
+
 fn measured_edge(
     reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
     asymptotic_prediction: f64,
@@ -145,41 +195,39 @@ fn prism_hamiltonian_circuit() -> HamiltonianCircuit<SimpleGraph> {
     HamiltonianCircuit::new(prism)
 }
 
-/// The measured Pareto search selects the path whose *measured* final ILP size
-/// is smallest.
+/// The measured Pareto search includes the route's concrete final ILP vector.
 ///
 /// A previously documented chain through HamiltonianPath and
 /// ConsecutiveOnesSubmatrix no longer exists on the current reduction graph.
-/// The *current* measured optimum is HC → LongestCircuit → ILP<bool> with a total of 232
-/// (num_constraints=127, num_vars=105); the next candidates are RuralPostman → ILP<i32>
-/// (366) and TravelingSalesman → ILP<bool> (768). This test pins the measured optimum so
-/// the selector is proven to rank by *measured* final size, not by step count or formula.
+/// This test pins the LongestCircuit route's component values without collapsing them
+/// into a scalar.
 #[test]
-fn test_hamiltoniancircuit_to_ilp_measured_optimum() {
+fn test_hamiltoniancircuit_to_ilp_measured_vector() {
     let hc = prism_hamiltonian_circuit();
     let graph = ReductionGraph::new();
     let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph")]);
 
     let measured = graph
-        .find_measured_best_path_to_name(
+        .measured_front_to_name(
             "HamiltonianCircuit",
             &variant,
             "ILP",
             ReductionMode::Witness,
             &hc as &dyn Any,
-            1_000,
+            SizeBudget::new(BTreeMap::from([
+                ("num_vars".to_string(), 1_000),
+                ("num_constraints".to_string(), 1_000),
+            ])),
             crate::rules::SearchMode::Exact,
         )
+        .expect("valid budget")
         .value
-        .expect("a measured witness path from HamiltonianCircuit to ILP");
+        .into_iter()
+        .find(|path| path.path.type_names() == ["HamiltonianCircuit", "LongestCircuit", "ILP"])
+        .expect("measured front contains LongestCircuit route");
 
-    // Measured final ILP size is the current-graph optimum.
-    assert_eq!(
-        measured.size.total(),
-        232,
-        "measured optimum should be 232, got {:?}",
-        measured.size
-    );
+    assert_eq!(measured.size.get("num_vars"), Some(105));
+    assert_eq!(measured.size.get("num_constraints"), Some(127));
     // Via LongestCircuit, to the bool ILP variant.
     assert_eq!(
         measured.path.type_names(),
@@ -200,20 +248,25 @@ fn test_measured_any_target_uses_one_request_limit_tracker() {
     let hc = prism_hamiltonian_circuit();
     let graph = ReductionGraph::new();
     let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph")]);
-    let outcome = graph.find_measured_best_path_to_name(
-        "HamiltonianCircuit",
-        &variant,
-        "ILP",
-        ReductionMode::Witness,
-        &hc as &dyn Any,
-        1_000,
-        crate::rules::SearchMode::Approximate(crate::rules::ApproximationPolicy::Bounded(
-            crate::rules::SearchLimits {
-                max_expanded_states: Some(1),
-                ..Default::default()
-            },
-        )),
-    );
+    let outcome = graph
+        .measured_front_to_name(
+            "HamiltonianCircuit",
+            &variant,
+            "ILP",
+            ReductionMode::Witness,
+            &hc as &dyn Any,
+            SizeBudget::new(BTreeMap::from([
+                ("num_vars".to_string(), 1_000),
+                ("num_constraints".to_string(), 1_000),
+            ])),
+            crate::rules::SearchMode::Approximate(crate::rules::ApproximationPolicy::Bounded(
+                crate::rules::SearchLimits {
+                    max_expanded_states: Some(1),
+                    ..Default::default()
+                },
+            )),
+        )
+        .expect("valid budget");
 
     assert_eq!(outcome.stats.expanded_states, 1);
     assert!(outcome
@@ -270,7 +323,7 @@ fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
 
     let ilp = ILP::<bool>::new(1, vec![], vec![], ObjectiveSense::Minimize);
     let ilp_size = ReductionGraph::compute_source_size("ILP", &ilp_variant, &ilp);
-    assert_eq!(ilp_size.total(), 1, "measured ILP size: {ilp_size:?}");
+    assert_eq!(ilp_size.get("num_vars"), Some(1));
 
     let bad_sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let good_sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
@@ -281,24 +334,32 @@ fn test_measured_search_keeps_equal_size_structure_dependent_instances() {
     );
 
     let measured = graph
-        .find_measured_best_path(
+        .measured_front(
             "MeasuredSource",
             &empty,
             "ILP",
             &ilp_variant,
             ReductionMode::Witness,
             &source,
-            1_000,
+            SizeBudget::new(BTreeMap::from([
+                ("num_vars".to_string(), 1_000),
+                ("num_constraints".to_string(), 1_000),
+            ])),
             crate::rules::SearchMode::Exact,
         )
+        .expect("valid budget")
         .value
+        .into_iter()
+        .find(|path| {
+            path.path.type_names() == ["MeasuredSource", "MeasuredBranchB", "Satisfiability", "ILP"]
+        })
         .expect("the structure-dependent small continuation must survive");
 
     assert_eq!(
         measured.path.type_names(),
         ["MeasuredSource", "MeasuredBranchB", "Satisfiability", "ILP",],
     );
-    assert_eq!(measured.size.total(), 1);
+    assert_eq!(measured.size.get("num_vars"), Some(1));
 }
 
 #[test]
@@ -319,20 +380,198 @@ fn test_asymptotic_overhead_is_not_a_concrete_budget_guard() {
     let source = MeasuredSource;
 
     let measured = graph
-        .find_measured_best_path(
+        .measured_front(
             "MeasuredSource",
             &empty,
             "ILP",
             &ilp_variant,
             ReductionMode::Witness,
             &source,
-            1,
+            SizeBudget::new(BTreeMap::from([
+                ("num_vars".to_string(), 1),
+                ("num_constraints".to_string(), 1),
+            ])),
             crate::rules::SearchMode::Exact,
         )
+        .expect("valid budget")
         .value
-        .expect("a loose asymptotic expression must not prune an actually in-budget target");
+        .into_iter()
+        .next()
+        .expect("the only explicit route is in budget");
 
-    assert_eq!(measured.size.total(), 1);
+    assert_eq!(measured.size.get("num_vars"), Some(1));
+}
+
+fn measured_two_route_graph(
+    a_to_ilp: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+    b_to_ilp: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+) -> (ReductionGraph, BTreeMap<String, String>) {
+    let ilp_variant = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    (
+        ReductionGraph::from_test_variant_edges(
+            &[
+                ("MeasuredSource", BTreeMap::new()),
+                ("MeasuredBranchA", BTreeMap::new()),
+                ("MeasuredBranchB", BTreeMap::new()),
+                ("ILP", ilp_variant.clone()),
+            ],
+            &[
+                (
+                    "MeasuredSource",
+                    "MeasuredBranchA",
+                    measured_edge(measured_source_to_a, 0.0),
+                ),
+                (
+                    "MeasuredSource",
+                    "MeasuredBranchB",
+                    measured_edge(measured_source_to_b, 0.0),
+                ),
+                ("MeasuredBranchA", "ILP", measured_edge(a_to_ilp, 0.0)),
+                ("MeasuredBranchB", "ILP", measured_edge(b_to_ilp, 0.0)),
+            ],
+        ),
+        ilp_variant,
+    )
+}
+
+fn unlimited_ilp_budget() -> SizeBudget {
+    SizeBudget::new(BTreeMap::from([
+        ("num_vars".to_string(), usize::MAX),
+        ("num_constraints".to_string(), usize::MAX),
+    ]))
+}
+
+#[test]
+fn test_measured_front_keeps_incomparable_vectors() {
+    let (graph, target) = measured_two_route_graph(
+        measured_a_to_incomparable_ilp,
+        measured_b_to_incomparable_ilp,
+    );
+    let outcome = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            unlimited_ilp_budget(),
+            crate::rules::SearchMode::Exact,
+        )
+        .expect("valid fields");
+    let sizes: Vec<_> = outcome
+        .value
+        .iter()
+        .map(|path| (path.size.get("num_vars"), path.size.get("num_constraints")))
+        .collect();
+    assert_eq!(sizes, [(Some(1), Some(10)), (Some(10), Some(1))]);
+}
+
+#[test]
+fn test_measured_front_removes_dominated_and_deduplicates_equal_vectors() {
+    let (graph, target) =
+        measured_two_route_graph(measured_a_to_equal_ilp, measured_b_to_incomparable_ilp);
+    let dominated = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            unlimited_ilp_budget(),
+            crate::rules::SearchMode::Exact,
+        )
+        .expect("valid fields")
+        .value;
+    assert_eq!(dominated.len(), 1);
+    assert_eq!(dominated[0].size.get("num_vars"), Some(2));
+
+    let (graph, target) =
+        measured_two_route_graph(measured_a_to_equal_ilp, measured_b_to_equal_ilp);
+    let equal = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            unlimited_ilp_budget(),
+            crate::rules::SearchMode::Exact,
+        )
+        .expect("valid fields")
+        .value;
+    assert_eq!(equal.len(), 1);
+    assert_eq!(
+        equal[0].path.type_names(),
+        ["MeasuredSource", "MeasuredBranchA", "ILP"]
+    );
+}
+
+#[test]
+fn test_measured_budget_is_per_field_and_post_construction() {
+    CONSTRUCTIONS.with(|count| count.set(0));
+    let target = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    let graph = ReductionGraph::from_test_variant_edges(
+        &[("MeasuredSource", BTreeMap::new()), ("ILP", target.clone())],
+        &[(
+            "MeasuredSource",
+            "ILP",
+            measured_edge(counted_large_ilp, 0.0),
+        )],
+    );
+    let outcome = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            SizeBudget::new(BTreeMap::from([("num_vars".to_string(), 1)])),
+            crate::rules::SearchMode::Exact,
+        )
+        .expect("known field");
+    assert!(outcome.value.is_empty());
+    assert_eq!(
+        CONSTRUCTIONS.with(Cell::get),
+        1,
+        "budget is checked after construction"
+    );
+
+    let error = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            SizeBudget::new(BTreeMap::from([("not_a_size_field".to_string(), 1)])),
+            crate::rules::SearchMode::Exact,
+        )
+        .err()
+        .expect("unknown field must fail");
+    assert_eq!(error.0, "not_a_size_field");
+
+    let allowed = graph
+        .measured_front(
+            "MeasuredSource",
+            &BTreeMap::new(),
+            "ILP",
+            &target,
+            ReductionMode::Witness,
+            &MeasuredSource,
+            SizeBudget::new(BTreeMap::from([("num_constraints".to_string(), 0)])),
+            crate::rules::SearchMode::Exact,
+        )
+        .expect("known field");
+    assert_eq!(
+        allowed.value.len(),
+        1,
+        "missing intermediate fields are not fabricated"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -374,10 +613,6 @@ impl PathLabel for DiamondLabel {
     fn final_dominates(&self, other: &Self) -> bool {
         self.c <= other.c && self.s <= other.s
     }
-
-    fn cost(&self) -> f64 {
-        self.s
-    }
 }
 
 fn diamond_edge(c: f64, s: Expr) -> ReductionEdgeData {
@@ -389,13 +624,9 @@ fn diamond_edge(c: f64, s: Expr) -> ReductionEdgeData {
     }
 }
 
-/// Negative control: P1 (S→M→T) has the lower first-edge cost but a larger measured
-/// intermediate size at M; P2 (S→P→M→T) has a higher first-edge cost but a strictly
-/// smaller final measured size. A scalar-cost path selection (`find_cheapest_path` over
-/// the additive step cost) commits to P1's prefix at M and returns P1; the measured
-/// Pareto search keeps both routes into M (they are incomparable) and returns P2.
+/// Negative control: the two terminal vectors are incomparable, so both survive.
 #[test]
-fn test_negative_control_diamond_pareto_beats_scalar() {
+fn test_negative_control_diamond_keeps_componentwise_front() {
     let empty = std::collections::BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "P", "T"],
@@ -411,28 +642,6 @@ fn test_negative_control_diamond_pareto_beats_scalar() {
         ],
     );
 
-    // (a) Scalar-cost selection (minimize additive step cost `c`) commits to P1.
-    let scalar = graph
-        .find_cheapest_path(
-            "S",
-            &empty,
-            "T",
-            &empty,
-            &ProblemSize::new(vec![]),
-            &CustomCost(|oh: &ReductionOverhead, sz: &ProblemSize| {
-                oh.get("c").map(|e| e.eval(sz)).unwrap_or(0.0)
-            }),
-            crate::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("scalar path S -> T");
-    assert_eq!(
-        scalar.type_names(),
-        vec!["S", "M", "T"],
-        "scalar cost selection should commit to the cheap-prefix P1"
-    );
-
-    // (b) The measured Pareto search returns P2 (strictly smaller final size).
     let initial = DiamondLabel { c: 0.0, s: 0.0 };
     let front = graph
         .pareto_search_by_name(
@@ -446,19 +655,18 @@ fn test_negative_control_diamond_pareto_beats_scalar() {
         )
         .value;
     assert!(!front.is_empty(), "front should reach T");
-    let (best_path, best_label) = &front[0];
-    assert_eq!(
-        best_path.type_names(),
-        vec!["S", "P", "M", "T"],
-        "Pareto search should return the better-final-size P2"
-    );
-    assert_eq!(best_label.cost(), 6.0, "P2's final measured size is 6");
+    assert_eq!(front.len(), 2);
+    assert!(front
+        .iter()
+        .any(|(path, label)| path.type_names() == ["S", "M", "T"] && label.s == 100.0));
+    assert!(front
+        .iter()
+        .any(|(path, label)| path.type_names() == ["S", "P", "M", "T"] && label.s == 6.0));
 }
 
-/// Exact multi-label search retains both routes into M and returns the true optimum on
-/// the negative-control diamond.
+/// Exact multi-label search retains both incomparable routes into M.
 #[test]
-fn test_diamond_exact_multi_label_keeps_optimum() {
+fn test_diamond_exact_multi_label_keeps_incomparable_routes() {
     let empty = std::collections::BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "P", "T"],
@@ -480,8 +688,13 @@ fn test_diamond_exact_multi_label_keeps_optimum() {
             crate::rules::SearchMode::Exact,
         )
         .value;
-    assert_eq!(front[0].0.type_names(), vec!["S", "P", "M", "T"]);
-    assert_eq!(front[0].1.cost(), 6.0);
+    assert_eq!(front.len(), 2);
+    assert!(front
+        .iter()
+        .any(|(path, label)| path.type_names() == ["S", "M", "T"] && label.c == 2.0));
+    assert!(front
+        .iter()
+        .any(|(path, label)| path.type_names() == ["S", "P", "M", "T"] && label.c == 4.0));
 }
 
 // ---------------------------------------------------------------------------
@@ -580,10 +793,99 @@ fn test_growth_label_propagates_unknown() {
     assert_eq!(field_big_o(&next, "out2"), "n^2");
 }
 
-/// A label with an `Unknown` field is dominated by any fully-known label, and never
-/// dominates one — undecidable paths rank last.
 #[test]
-fn test_growth_label_unknown_ranks_last() {
+fn test_symbolic_front_excludes_unknown_with_analysis_reason() {
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "Known", "Unknown", "T"],
+        &[
+            ("S", "Known", growth_edge(vec![("x", Expr::Const(1.0))])),
+            ("Known", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "S",
+                "Unknown",
+                growth_edge(vec![("x", Expr::Var("missing"))]),
+            ),
+            ("Unknown", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+        ],
+    );
+    let outcome = graph.asymptotic_front(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        crate::rules::SearchMode::Exact,
+    );
+    assert!(outcome.completeness.is_exact());
+    let result = outcome.value.expect("known route is analyzable");
+    assert_eq!(result.front.len(), 1);
+    assert_eq!(result.excluded.len(), 1);
+    assert_eq!(result.coverage.analyzed_paths, 1);
+    assert_eq!(result.coverage.excluded_paths, 1);
+    assert_eq!(result.excluded[0].failure.fields, ["out"]);
+    assert!(result.excluded[0].failure.reason.contains("Unknown"));
+}
+
+#[test]
+fn test_symbolic_front_all_unknown_is_explicit_error() {
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "T"],
+        &[("S", "T", growth_edge(vec![("out", Expr::Var("missing"))]))],
+    );
+    let error = graph
+        .asymptotic_front(
+            "S",
+            &empty,
+            "T",
+            &empty,
+            ReductionMode::Witness,
+            crate::rules::SearchMode::Exact,
+        )
+        .value
+        .expect_err("all Unknown routes must not yield a front");
+    assert_eq!(error.excluded.len(), 1);
+    assert_eq!(error.coverage.analyzed_paths, 0);
+    assert_eq!(error.coverage.excluded_paths, 1);
+}
+
+#[test]
+fn test_symbolic_all_discovered_unknown_can_still_be_search_incomplete() {
+    use crate::rules::{ApproximationPolicy, LimitReached, SearchLimits, SearchMode};
+
+    let empty = BTreeMap::new();
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "C", "T"],
+        &[
+            ("S", "A", growth_edge(vec![("x", Expr::Var("missing"))])),
+            ("A", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            ("S", "B", growth_edge(vec![("x", Expr::Const(1.0))])),
+            ("B", "C", growth_edge(vec![("x", Expr::Var("x"))])),
+            ("C", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+        ],
+    );
+    let outcome = graph.asymptotic_front(
+        "S",
+        &empty,
+        "T",
+        &empty,
+        ReductionMode::Witness,
+        SearchMode::Approximate(ApproximationPolicy::Bounded(SearchLimits {
+            max_hops: Some(2),
+            ..Default::default()
+        })),
+    );
+    assert!(outcome.value.is_err());
+    assert!(outcome
+        .completeness
+        .reasons()
+        .contains(&LimitReached::HopLimit));
+}
+
+/// Unknown is an analysis boundary and never participates in dominance.
+#[test]
+fn test_growth_label_unknown_is_incomparable() {
     let known = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
         m.insert("a", Growth::from_expr(&powk("n", 2.0)));
@@ -596,8 +898,7 @@ fn test_growth_label_unknown_ranks_last() {
         m.insert("b", Growth::Unknown);
         m
     });
-    // Known is strictly better on field b (n^0? no: bounded vs Unknown) ⇒ known dominates.
-    assert!(known.final_dominates(&with_unknown));
+    assert!(!known.final_dominates(&with_unknown));
     assert!(!with_unknown.final_dominates(&known));
 }
 
@@ -869,7 +1170,9 @@ fn test_asymptotic_front_dedups_by_growth_vector() {
             ReductionMode::Witness,
             crate::rules::SearchMode::Exact,
         )
-        .value;
+        .value
+        .expect("at least one analyzable path")
+        .front;
     assert!(!front.is_empty(), "MVC -> ILP must have a path");
 
     // No two front entries share a growth vector (GrowthLabel PartialEq).
@@ -937,7 +1240,9 @@ fn test_asymptotic_front_uses_only_source_variables_mfvs_ilp() {
             ReductionMode::Witness,
             crate::rules::SearchMode::Exact,
         )
-        .value;
+        .value
+        .expect("at least one analyzable path")
+        .front;
 
     // The direct route (MFVS → ILP/i32 → ILP/bool; the ILP variants collapse in the
     // deduplicated node-name view) is the one exercised by the fixed cast.
@@ -987,6 +1292,117 @@ struct ShrinkLabel {
 }
 
 #[derive(Clone)]
+struct FormulaSizeLabel(ProblemSize);
+
+impl PathLabel for FormulaSizeLabel {
+    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
+        Some(Self(edge.overhead.evaluate_output_size(&self.0)))
+    }
+
+    fn final_dominates(&self, other: &Self) -> bool {
+        self.0.components.len() == other.0.components.len()
+            && self
+                .0
+                .components
+                .iter()
+                .all(|(field, value)| other.0.get(field).is_some_and(|other| *value <= other))
+    }
+}
+
+#[test]
+fn test_pareto_search_matches_independent_small_graph_oracle() {
+    const NAMES: [&str; 7] = ["N0", "N1", "N2", "N3", "N4", "N5", "N6"];
+
+    fn enumerate(
+        node: usize,
+        target: usize,
+        adjacency: &[Vec<(usize, usize, usize)>],
+        path: &mut Vec<usize>,
+        terminal: &mut Vec<(Vec<usize>, (usize, usize))>,
+    ) {
+        if node == target {
+            let edge = adjacency[path[path.len() - 2]]
+                .iter()
+                .find(|(next, _, _)| *next == target)
+                .expect("terminal edge");
+            terminal.push((path.clone(), (edge.1, edge.2)));
+            return;
+        }
+        for &(next, _, _) in &adjacency[node] {
+            if path.contains(&next) {
+                continue;
+            }
+            path.push(next);
+            enumerate(next, target, adjacency, path, terminal);
+            path.pop();
+        }
+    }
+
+    for nodes in 2..=7 {
+        let mut state = 0x5eed_u64 + nodes as u64;
+        let mut adjacency = vec![Vec::new(); nodes];
+        let mut edges = Vec::new();
+        for source in 0..nodes - 1 {
+            for target in source + 1..nodes {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                if target == source + 1 || state % 3 == 0 {
+                    let a = ((state >> 8) % 9 + 1) as usize;
+                    let b = ((state >> 16) % 9 + 1) as usize;
+                    adjacency[source].push((target, a, b));
+                    edges.push((
+                        NAMES[source],
+                        NAMES[target],
+                        growth_edge(vec![
+                            ("a", Expr::Const(a as f64)),
+                            ("b", Expr::Const(b as f64)),
+                        ]),
+                    ));
+                }
+            }
+        }
+        let graph = ReductionGraph::from_test_edges(&NAMES[..nodes], &edges);
+        let production = graph
+            .pareto_search_by_name(
+                NAMES[0],
+                &BTreeMap::new(),
+                NAMES[nodes - 1],
+                &BTreeMap::new(),
+                ReductionMode::Witness,
+                FormulaSizeLabel(ProblemSize::new(vec![])),
+                crate::rules::SearchMode::Exact,
+            )
+            .value;
+
+        let mut terminal = Vec::new();
+        enumerate(0, nodes - 1, &adjacency, &mut vec![0], &mut terminal);
+        terminal.sort_by(|a, b| a.0.len().cmp(&b.0.len()).then_with(|| a.0.cmp(&b.0)));
+        let mut oracle: Vec<(Vec<usize>, (usize, usize))> = Vec::new();
+        for candidate in terminal {
+            let dominates = |a: &(Vec<usize>, (usize, usize)), b: &(Vec<usize>, (usize, usize))| {
+                a.1 .0 <= b.1 .0 && a.1 .1 <= b.1 .1
+            };
+            if oracle
+                .iter()
+                .any(|existing| dominates(existing, &candidate))
+            {
+                continue;
+            }
+            oracle.retain(|existing| !dominates(&candidate, existing));
+            oracle.push(candidate);
+        }
+        let production_paths: Vec<Vec<&str>> = production
+            .iter()
+            .map(|(path, _)| path.type_names())
+            .collect();
+        let oracle_paths: Vec<Vec<&str>> = oracle
+            .iter()
+            .map(|(path, _)| path.iter().map(|node| NAMES[*node]).collect())
+            .collect();
+        assert_eq!(production_paths, oracle_paths, "node count {nodes}");
+    }
+}
+
+#[derive(Clone)]
 struct ContractLabel {
     agenda_cost: f64,
     downstream_cost: f64,
@@ -1016,10 +1432,6 @@ impl PathLabel for ContractLabel {
 
     fn final_dominates(&self, other: &Self) -> bool {
         self.agenda_cost <= other.agenda_cost && self.downstream_cost <= other.downstream_cost
-    }
-
-    fn cost(&self) -> f64 {
-        self.agenda_cost
     }
 }
 
@@ -1124,7 +1536,7 @@ fn test_search_mode_exact_and_approximate_contract() {
         SearchMode::Exact,
     );
     assert_eq!(exact_bag.completeness, SearchCompleteness::Exact);
-    assert_eq!(exact_bag.value[0].1.cost(), 1.0);
+    assert!(!exact_bag.value.is_empty());
 
     let capped_bag = make_bag_graph(false).pareto_search_by_name(
         "S",
@@ -1138,7 +1550,7 @@ fn test_search_mode_exact_and_approximate_contract() {
             ..Default::default()
         })),
     );
-    assert_eq!(capped_bag.value[0].1.cost(), 2.0);
+    assert!(!capped_bag.value.is_empty());
     assert!(capped_bag
         .completeness
         .reasons()
@@ -1154,17 +1566,7 @@ fn test_search_mode_exact_and_approximate_contract() {
         SearchMode::Exact,
     );
     assert_eq!(reversed.completeness, SearchCompleteness::Exact);
-    assert_eq!(reversed.value[0].1.cost(), exact_bag.value[0].1.cost());
-    let serialize = |outcome: &crate::rules::SearchOutcome<Vec<(ReductionPath, ContractLabel)>>| {
-        serde_json::to_string(&serde_json::json!({
-            "path": outcome.value[0].0.type_names(),
-            "cost": outcome.value[0].1.cost(),
-            "completeness": &outcome.completeness,
-            "stats": &outcome.stats,
-        }))
-        .unwrap()
-    };
-    assert_eq!(serialize(&reversed), serialize(&exact_bag));
+    assert_eq!(reversed.value.len(), exact_bag.value.len());
 }
 
 /// Equal coarse labels with different paths must both survive. The route through Y is the
@@ -1287,16 +1689,12 @@ impl PathLabel for ShrinkLabel {
     fn final_dominates(&self, other: &Self) -> bool {
         self.v <= other.v
     }
-
-    fn cost(&self) -> f64 {
-        self.v
-    }
 }
 
-/// Kernel regression for Fix A: a route that *shrinks late* (its intermediate cost 100 is
+/// Kernel regression: a route that *shrinks late* (its intermediate value 100 is
 /// higher than a rival route that completes early at 50, but a final edge drops it to 10)
 /// must survive to the front. A kernel that applied branch-and-bound would prune the
-/// intermediate node (100 ≥ best-so-far 50) and silently drop the true optimum. Because
+/// intermediate node based on 50 and silently drop the non-dominated terminal vector. Because
 /// the kernel retains every intermediate label, the shrink-late route reaches the front.
 #[test]
 fn test_kernel_keeps_shrink_late_route_without_intermediate_pruning() {
@@ -1308,7 +1706,7 @@ fn test_kernel_keeps_shrink_late_route_without_intermediate_pruning() {
             ("S", "T", growth_edge(vec![("v", Expr::Const(50.0))])),
             // S -> A: intermediate value 100 (would trip a B&B bound of 50).
             ("S", "A", growth_edge(vec![("v", Expr::Const(100.0))])),
-            // A -> T: shrinks the value to 10 (globally best).
+            // A -> T: shrinks the value to 10.
             ("A", "T", growth_edge(vec![("v", Expr::Const(10.0))])),
         ],
     );
@@ -1331,28 +1729,22 @@ fn test_kernel_keeps_shrink_late_route_without_intermediate_pruning() {
         .find(|(p, _)| p.type_names() == ["S", "A", "T"])
         .expect("shrink-late route S -> A -> T must survive without branch-and-bound");
     assert_eq!(
-        shrink_late.1.cost(),
-        10.0,
-        "the shrink-late route finishes at the global optimum value 10"
+        shrink_late.1.v, 10.0,
+        "the shrink-late route finishes at value 10"
     );
-    // The kernel's best (lowest cost) front element is that shrink-late route.
-    assert_eq!(front[0].0.type_names(), ["S", "A", "T"]);
-    assert_eq!(front[0].1.cost(), 10.0);
+    assert_eq!(front.len(), 1, "the dominated terminal vector is removed");
 }
 
 // ---------------------------------------------------------------------------
-// Fix B: CostLabel retains every intermediate route.
+// Formula-vector labels retain every intermediate route.
 // ---------------------------------------------------------------------------
 
-/// Fix B regression: an edge cost that depends on carried size makes a cheaper-so-far
-/// prefix with a larger intermediate size a trap. Retaining both prefixes lets
-/// `find_cheapest_path` return the globally optimal route.
+/// Formula vectors retain incomparable routes without scalar selection.
 #[test]
-fn test_cost_label_path_dependent_cost_keeps_winner() {
+fn test_formula_vector_keeps_incomparable_routes() {
     let empty = std::collections::BTreeMap::new();
-    // Edges carry `c` (base edge cost), `wf` (weight on the size-dependent term) and `w`
-    // (the tracked size field). The cost function is `c + wf * current_w`, so the M -> T
-    // edge's cost is exactly the size `w` accumulated at M.
+    // Edges carry `c`, `wf`, and tracked size field `w`; the terminal vector remains
+    // componentwise and is never collapsed into one scalar.
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "P", "T"],
         &[
@@ -1399,42 +1791,33 @@ fn test_cost_label_path_dependent_cost_keeps_winner() {
         ],
     );
 
-    // Cost function: c + wf * current_w. Depends on the carried size, so the two prefixes
-    // into M must both be kept.
-    let cost_fn = CustomCost(|oh: &ReductionOverhead, sz: &ProblemSize| {
-        let c = oh.get("c").map(|e| e.eval(sz)).unwrap_or(0.0);
-        let wf = oh.get("wf").map(|e| e.eval(sz)).unwrap_or(0.0);
-        c + wf * sz.get("w").unwrap_or(0) as f64
-    });
-
-    let best = graph
-        .find_cheapest_path(
+    let front = graph
+        .pareto_search_by_name(
             "S",
             &empty,
             "T",
             &empty,
-            &ProblemSize::new(vec![("w", 10)]),
-            &cost_fn,
+            ReductionMode::Witness,
+            FormulaSizeLabel(ProblemSize::new(vec![("w", 10)])),
             crate::rules::SearchMode::Exact,
         )
-        .value
-        .expect("cheapest path S -> T");
+        .value;
 
-    // Globally cheapest: S -> P -> M -> T (total 3 + 1 + 1 = 5), NOT the cheap-prefix trap
-    // S -> M -> T (total 1 + 100 = 101). Intermediate pruning could evict the small-w
-    // prefix at M and return the S -> M -> T trap.
-    assert_eq!(
-        best.type_names(),
-        vec!["S", "P", "M", "T"],
-        "exact search must keep the globally optimal small-w prefix"
+    // Intermediate pruning could evict the small-w prefix at M and lose its terminal
+    // vector, so the route must remain present.
+    assert!(
+        front
+            .iter()
+            .any(|(path, _)| path.type_names() == ["S", "P", "M", "T"]),
+        "componentwise search must keep the small-w route"
     );
 }
 
 /// A legitimate reduction overhead may reverse componentwise size order. The smaller,
-/// cheaper prefix at M must not discard the larger prefix, because complementing the
-/// edge count makes that larger prefix the final winner.
+/// prefix at M must not discard the larger prefix, because complementing the edge count
+/// reverses their terminal component order.
 #[test]
-fn test_cost_label_nonmonotone_overhead_does_not_prune_intermediate_winner() {
+fn test_formula_vector_nonmonotone_overhead_does_not_prune() {
     let empty = BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
         &["S", "A", "B", "M", "T"],
@@ -1489,31 +1872,21 @@ fn test_cost_label_nonmonotone_overhead_does_not_prune_intermediate_winner() {
             ),
         ],
     );
-    let cost_fn = CustomCost(|overhead: &ReductionOverhead, size: &ProblemSize| {
-        if overhead.get("terminal").is_some() {
-            overhead.evaluate_output_size(size).get("m").unwrap_or(0) as f64
-        } else {
-            overhead
-                .get("edge_cost")
-                .map(|expr| expr.eval(size))
-                .unwrap_or(0.0)
-        }
-    });
-
-    let best = graph
-        .find_cheapest_path(
+    let front = graph
+        .pareto_search_by_name(
             "S",
             &empty,
             "T",
             &empty,
-            &ProblemSize::new(vec![("n", 10), ("m", 5)]),
-            &cost_fn,
+            ReductionMode::Witness,
+            FormulaSizeLabel(ProblemSize::new(vec![("n", 10), ("m", 5)])),
             crate::rules::SearchMode::Exact,
         )
-        .value
-        .expect("non-monotone formula path");
+        .value;
 
-    assert_eq!(best.type_names(), vec!["S", "B", "M", "T"]);
+    assert!(front
+        .iter()
+        .any(|(path, _)| path.type_names() == ["S", "B", "M", "T"]));
 }
 
 // ---------------------------------------------------------------------------
@@ -1620,10 +1993,6 @@ impl PathLabel for TokenLabel {
 
     fn final_dominates(&self, other: &Self) -> bool {
         self.c <= other.c && self.s <= other.s
-    }
-
-    fn cost(&self) -> f64 {
-        self.c
     }
 }
 

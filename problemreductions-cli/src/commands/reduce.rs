@@ -1,37 +1,37 @@
-use crate::cli::SearchArgs;
 use crate::dispatch::{
     load_problem, read_input, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput,
     ReductionBundle,
 };
 use crate::output::OutputConfig;
-use crate::problem_name::resolve_problem_ref;
-use crate::util::{add_search_metadata, append_search_warning};
 use anyhow::{Context, Result};
-use problemreductions::rules::{
-    MinimizeSteps, ReductionGraph, ReductionMode, ReductionPath, ReductionStep,
-};
-use problemreductions::types::ProblemSize;
+use problemreductions::rules::{ReductionGraph, ReductionPath, ReductionStep};
 use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Parse a path JSON file (produced by `pred path ... -o`) into a ReductionPath.
 fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
     let content = std::fs::read_to_string(path_file).context("Failed to read path file")?;
-    let json: serde_json::Value =
-        serde_json::from_str(&content).context("Failed to parse path file")?;
+    parse_path_json(&content)
+}
+
+pub(crate) fn parse_path_json(content: &str) -> Result<ReductionPath> {
+    let json: serde_json::Value = serde_json::from_str(content).context("Failed to parse path")?;
 
     let path_array = json["path"]
         .as_array()
-        .ok_or_else(|| anyhow::anyhow!("Path file missing 'path' array"))?;
+        .ok_or_else(|| anyhow::anyhow!("Expected one explicit route with a 'path' array"))?;
 
     let mut steps: Vec<ReductionStep> = Vec::new();
     for (i, entry) in path_array.iter().enumerate() {
-        if i == 0 {
-            let from = &entry["from"];
-            steps.push(parse_path_node(from)?);
+        let from = parse_path_node(&entry["from"])?;
+        if let Some(previous) = steps.last() {
+            if previous.name != from.name || previous.variant != from.variant {
+                anyhow::bail!("Explicit route is not continuous at edge {i}");
+            }
+        } else {
+            steps.push(from);
         }
-        let to = &entry["to"];
-        steps.push(parse_path_node(to)?);
+        steps.push(parse_path_node(&entry["to"])?);
     }
 
     if steps.len() < 2 {
@@ -46,20 +46,16 @@ fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
         .as_str()
         .ok_or_else(|| anyhow::anyhow!("Path node missing 'name'"))?
         .to_string();
-    let variant: BTreeMap<String, String> = node
-        .get("variant")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_default();
+    let variant = serde_json::from_value::<BTreeMap<String, String>>(
+        node.get("variant")
+            .ok_or_else(|| anyhow::anyhow!("Path node missing 'variant'"))?
+            .clone(),
+    )
+    .context("Path node has invalid 'variant'")?;
     Ok(ReductionStep { name, variant })
 }
 
-pub fn reduce(
-    input: &Path,
-    target: Option<&str>,
-    via: Option<&Path>,
-    search: &SearchArgs,
-    out: &OutputConfig,
-) -> Result<()> {
+pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
     // 1. Load source problem
     let content = read_input(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
@@ -74,88 +70,17 @@ pub fn reduce(
     let source_variant = source.variant_map();
     let graph = ReductionGraph::new();
 
-    // 3. Get reduction path: from --via file or auto-discover
-    let (reduction_path, search_metadata) = if let Some(path_file) = via {
-        if search.has_nondefault_policy() {
-            anyhow::bail!(
-                "--search-mode and search limits cannot be used with --via because the path is already explicit"
-            );
-        }
-        let path = load_path_file(path_file)?;
-        // Validate that the path starts with the source
-        let first = path.steps.first().unwrap();
-        let last = path.steps.last().unwrap();
-        if first.name != source_name || first.variant != source_variant {
-            anyhow::bail!(
-                "Path file starts with {}{} but source problem is {}{}",
-                first.name,
-                variant_to_full_slash(&first.variant),
-                source_name,
-                variant_to_full_slash(&source_variant),
-            );
-        }
-        // If --to is given, validate it matches the path's target
-        if let Some(target) = target {
-            let dst_ref = resolve_problem_ref(target, &graph)?;
-            if last.name != dst_ref.name || last.variant != dst_ref.variant {
-                anyhow::bail!(
-                    "Path file ends with {}{} but --to specifies {}{}",
-                    last.name,
-                    variant_to_full_slash(&last.variant),
-                    dst_ref.name,
-                    variant_to_full_slash(&dst_ref.variant),
-                );
-            }
-        }
-        (path, None)
-    } else {
-        // --to is required when --via is not given
-        let target = target.ok_or_else(|| {
-            anyhow::anyhow!(
-                "Either --to or --via is required.\n\n\
-                 Usage:\n\
-                   pred reduce problem.json --to QUBO\n\
-                   pred reduce problem.json --via path.json"
-            )
-        })?;
-        let dst_ref = resolve_problem_ref(target, &graph)?;
-
-        // Auto-discover cheapest path
-        let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path_mode(
+    let reduction_path = load_path_file(via)?;
+    let first = reduction_path.steps.first().unwrap();
+    if first.name != source_name || first.variant != source_variant {
+        anyhow::bail!(
+            "Path file starts with {}{} but source problem is {}{}",
+            first.name,
+            variant_to_full_slash(&first.variant),
             source_name,
-            &source_variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            ReductionMode::Witness,
-            &input_size,
-            &MinimizeSteps,
-            search.mode()?,
+            variant_to_full_slash(&source_variant),
         );
-
-        let path = best_path.value.ok_or_else(|| {
-            if !best_path.completeness.is_exact() {
-                return anyhow::anyhow!(
-                    "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
-                    best_path.completeness.reasons()
-                );
-            }
-            let variant_hint = variant_hint_for(&graph, &dst_ref.name);
-            anyhow::anyhow!(
-                "No witness-capable reduction path from {} to {}\n\
-                 {variant_hint}\n\
-                 Hint: generate a path file first, then pass it with --via:\n\
-                   pred path {} {} -o path.json\n\
-                   pred reduce {} --via path.json -o reduced.json",
-                source_name,
-                dst_ref.name,
-                source_name,
-                dst_ref.name,
-                input.display(),
-            )
-        })?;
-        (path, Some((best_path.completeness, best_path.stats)))
-    };
+    }
 
     // 4. Execute reduction chain via reduce_along_path
     let chain = graph
@@ -196,10 +121,7 @@ pub fn reduce(
             .collect(),
     };
 
-    let mut json = serde_json::to_value(&bundle)?;
-    if let Some((completeness, stats)) = search_metadata.as_ref() {
-        json = add_search_metadata(json, completeness, stats)?;
-    }
+    let json = serde_json::to_value(&bundle)?;
 
     let mut text = format!(
         "Reduced {} to {} ({} steps)\n",
@@ -208,9 +130,6 @@ pub fn reduce(
         reduction_path.len(),
     );
     text.push_str(&format!("\nPath: {}\n", reduction_path));
-    if let Some((completeness, _)) = search_metadata.as_ref() {
-        append_search_warning(&mut text, completeness);
-    }
     text.push_str(
         "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
     );
@@ -220,4 +139,4 @@ pub fn reduce(
     Ok(())
 }
 
-use super::graph::{variant_hint_for, variant_to_full_slash};
+use super::graph::variant_to_full_slash;

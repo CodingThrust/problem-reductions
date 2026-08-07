@@ -117,7 +117,7 @@ pub struct ExampleDb {
     pub rules: Vec<RuleExample>,
 }
 
-/// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
+/// Look up `ReductionOverhead` for an exact direct reduction entry.
 pub fn lookup_overhead(
     source_name: &str,
     source_variant: &BTreeMap<String, String>,
@@ -125,8 +125,7 @@ pub fn lookup_overhead(
     target_variant: &BTreeMap<String, String>,
 ) -> Option<ReductionOverhead> {
     let graph = ReductionGraph::new();
-    let matched =
-        graph.find_best_entry(source_name, source_variant, target_name, target_variant)?;
+    let matched = graph.find_entry(source_name, source_variant, target_name, target_variant)?;
     Some(matched.overhead)
 }
 

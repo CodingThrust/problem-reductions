@@ -69,7 +69,7 @@ pub fn list_prompts() -> Vec<Prompt> {
         ),
         Prompt::new(
             "find_reduction",
-            Some("Find the best reduction path between two problems, with cost analysis"),
+            Some("Find the Pareto front of reduction paths between two problems"),
             Some(vec![
                 PromptArgument::new("source")
                     .with_description("Source problem name or alias")
@@ -195,10 +195,10 @@ pub fn get_prompt(
             Some(prompt_result(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
-                    "Find the best way to reduce \"{source}\" to \"{target}\".\n\n\
-                     Show me the cheapest reduction path and explain the cost at each step. \
-                     Are there alternative paths? If so, compare them — which is better for \
-                     small instances vs. large instances?"
+                    "Find the symbolic Pareto front for reducing \"{source}\" to \"{target}\".\n\n\
+                     Show every non-dominated analyzable path, its per-field growth, and any \
+                     excluded paths with their analysis-failure reasons. Do not recommend a \
+                     single route; explain the trade-offs so I can choose explicitly."
                 ),
             ))
         }

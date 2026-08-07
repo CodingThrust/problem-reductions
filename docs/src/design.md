@@ -361,20 +361,16 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 
 | Method | Algorithm | Use case |
 |--------|-----------|----------|
-| `find_cheapest_path(src, src_var, dst, dst_var, input_size, cost_fn)` | Dijkstra | Optimal path under a cost function |
+| `asymptotic_front(...)` | Symbolic componentwise Pareto search | Compare per-field growth; report unanalyzable paths separately |
+| `measured_front(...)` | Measured componentwise Pareto search | Compare constructed terminal size vectors under optional per-field budgets |
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
 
-Use `find_cheapest_path` with `MinimizeSteps` for fewest-hops search.
-
-The `PathCostFn` trait (used by `find_cheapest_path`) computes edge cost from overhead and current problem size:
-
-| Cost function | Strategy |
-|--------------|----------|
-| `MinimizeSteps` | Minimize number of hops (unit edge cost) |
-| `Minimize("field")` | Minimize a single output field (e.g., `Minimize("num_variables")`) |
-| `CustomCost(closure)` | User-defined: `\|overhead: &ReductionOverhead, size: &ProblemSize\| -> f64` |
-
-`CustomCost` wraps a closure that receives the edge's `ReductionOverhead` (polynomial mapping from input to output size fields) and the current `ProblemSize` (accumulated field values at that point in the path), and returns an `f64` edge cost. Dijkstra minimizes the total cost along the path.
+Neither Pareto API selects a winner. Distinct, mutually non-dominating vectors are all
+returned. Equal terminal vectors keep one deterministic representative, using fewer hops
+and then stable path order only to deduplicate equivalent results. Symbolic `Unknown`
+growth is an analysis failure: those routes are excluded from the symbolic front and
+returned with an explicit reason. If every discovered route is unknown, the call returns
+`NoAnalyzablePath`.
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 
@@ -388,9 +384,12 @@ MIS{KingsSubgraph,i32} -> MIS{UnitDiskGraph,i32} -> MIS{SimpleGraph,i32} -> VC{S
 Convert a `ReductionPath` into a typed `ExecutablePath<S, T>` via `make_executable()`, then call `reduce()`:
 
 ```rust,ignore
-// find_cheapest_path returns a ReductionPath (list of variant node IDs)
-let rpath = graph.find_cheapest_path("Factoring", &src_var,
-    "SpinGlass", &dst_var, &ProblemSize::new(vec![]), &MinimizeSteps).unwrap();
+let result = graph.asymptotic_front("Factoring", &src_var,
+    "SpinGlass", &dst_var, ReductionMode::Witness, SearchMode::Exact);
+let front = result.value.expect("at least one analyzable route");
+let rpath = &front.front.iter()
+    .find(|(path, _)| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+    .expect("required route").0;
 
 // make_executable converts it into a typed, callable chain
 let path = graph.make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath).unwrap();

@@ -1,10 +1,10 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
-use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Max, ProblemSize};
+use crate::types::Max;
 
 fn reduce_mis_to_ilp(
     problem: &MaximumIndependentSet<SimpleGraph, i32>,
@@ -13,17 +13,10 @@ fn reduce_mis_to_ilp(
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("Should find path MaximumIndependentSet -> ILP");
+        .find_all_paths("MaximumIndependentSet", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "ILP"])
+        .expect("expected explicit MaximumSetPacking route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
         .expect("Should reduce MaximumIndependentSet to ILP along path");

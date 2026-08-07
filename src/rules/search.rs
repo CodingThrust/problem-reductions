@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 pub enum SearchMode {
     /// Search every elementary path allowed by the selected label semantics.
     Exact,
-    /// Return valid best-so-far results under an approximation policy.
+    /// Return valid partial results under an approximation policy.
     Approximate(ApproximationPolicy),
 }
 
@@ -104,7 +104,7 @@ pub struct SearchStats {
 #[must_use]
 #[derive(Debug)]
 pub struct SearchOutcome<T> {
-    /// Complete result or valid best-so-far result.
+    /// Complete result or valid partial result.
     pub value: T,
     /// Whether configured limits affected the explored search space.
     pub completeness: SearchCompleteness,

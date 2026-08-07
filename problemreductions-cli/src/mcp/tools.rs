@@ -7,14 +7,11 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, ReductionMode, SearchMode, TraversalFlow,
-};
+use problemreductions::rules::{ReductionGraph, ReductionMode, SearchMode, TraversalFlow};
 use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
-use problemreductions::types::ProblemSize;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
@@ -53,9 +50,7 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Cost function: minimize-steps (default), or minimize:<field>")]
-    pub cost: Option<String>,
-    #[schemars(description = "Return all paths instead of just the cheapest")]
+    #[schemars(description = "Return all paths instead of the symbolic Pareto front")]
     pub all: Option<bool>,
     #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
     pub max_paths: Option<usize>,
@@ -139,10 +134,8 @@ pub struct EvaluateParams {
 pub struct ReduceParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(description = "Target problem type (e.g., QUBO, ILP, SpinGlass)")]
-    pub target: String,
-    #[serde(flatten)]
-    pub search: SearchParams,
+    #[schemars(description = "One explicit path entry selected from find_path's Pareto front")]
+    pub path_json: String,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -297,7 +290,6 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        cost: Option<&str>,
         all: bool,
         max_paths: usize,
         search: &SearchParams,
@@ -312,9 +304,7 @@ impl McpServer {
         }
         let _ = search.mode()?;
 
-        // No `cost` and not `all`: return the instance-free asymptotic Pareto
-        // front using structured `Growth` serialization.
-        if cost.is_none() && !all {
+        if !all {
             let outcome = graph.asymptotic_front(
                 &src_ref.name,
                 &src_ref.variant,
@@ -323,7 +313,37 @@ impl McpServer {
                 ReductionMode::Witness,
                 search.mode()?,
             );
-            if outcome.value.is_empty() {
+            if !outcome.completeness.is_exact() && outcome.value.is_err() {
+                anyhow::bail!(
+                    "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
+                    outcome.completeness.reasons()
+                );
+            }
+            let result = match outcome.value {
+                Ok(result) => result,
+                Err(error) => {
+                    let details = error
+                        .excluded
+                        .iter()
+                        .map(|item| {
+                            format!(
+                                "{}: {} ({})",
+                                item.path,
+                                item.failure.reason,
+                                item.failure.fields.join(", ")
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    anyhow::bail!(
+                        "NoAnalyzablePath: no analyzable path from {} to {}\n{}",
+                        src_ref.name,
+                        dst_ref.name,
+                        details
+                    )
+                }
+            };
+            if result.front.is_empty() {
                 if !outcome.completeness.is_exact() {
                     anyhow::bail!(
                         "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
@@ -337,7 +357,7 @@ impl McpServer {
                 );
             }
             let json = util::add_search_metadata(
-                format_front_json(&graph, &src_ref.name, &dst_ref.name, &outcome.value),
+                format_front_json(&graph, &src_ref.name, &dst_ref.name, &result),
                 &outcome.completeness,
                 &outcome.stats,
             )?;
@@ -383,72 +403,7 @@ impl McpServer {
             return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        // Single best path (an explicit `cost` was given; `all` is handled above).
-        let input_size = ProblemSize::new(vec![]);
-        let cost = cost.expect("cost is Some in the single-best branch");
-
-        let cost_field: Option<String> = if cost == "minimize-steps" {
-            None
-        } else if let Some(field) = cost.strip_prefix("minimize:") {
-            Some(field.to_string())
-        } else {
-            anyhow::bail!(
-                "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
-                cost
-            );
-        };
-
-        let best_path = match cost_field {
-            None => graph.find_cheapest_path(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-                &input_size,
-                &MinimizeSteps,
-                search.mode()?,
-            ),
-            Some(ref f) => {
-                let cost_fn = CustomCost(
-                    |overhead: &problemreductions::rules::ReductionOverhead, size: &ProblemSize| {
-                        overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
-                    },
-                );
-                graph.find_cheapest_path(
-                    &src_ref.name,
-                    &src_ref.variant,
-                    &dst_ref.name,
-                    &dst_ref.variant,
-                    &input_size,
-                    &cost_fn,
-                    search.mode()?,
-                )
-            }
-        };
-
-        match &best_path.value {
-            Some(ref reduction_path) => {
-                let json = util::add_search_metadata(
-                    format_path_json(&graph, reduction_path),
-                    &best_path.completeness,
-                    &best_path.stats,
-                )?;
-                Ok(serde_json::to_string_pretty(&json)?)
-            }
-            None => {
-                if !best_path.completeness.is_exact() {
-                    anyhow::bail!(
-                        "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
-                        best_path.completeness.reasons()
-                    );
-                }
-                anyhow::bail!(
-                    "No reduction path from {} to {}",
-                    src_ref.name,
-                    dst_ref.name
-                );
-            }
-        }
+        unreachable!("all-path mode returns above")
     }
 
     pub fn export_graph_inner(&self) -> anyhow::Result<String> {
@@ -886,12 +841,7 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&json)?)
     }
 
-    pub fn reduce_inner(
-        &self,
-        problem_json: &str,
-        target: &str,
-        search: &SearchParams,
-    ) -> anyhow::Result<String> {
+    pub fn reduce_inner(&self, problem_json: &str, path_json: &str) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let source = load_problem(&pj.problem_type, &pj.variant, pj.data.clone())?;
 
@@ -899,34 +849,14 @@ impl McpServer {
         let source_variant = source.variant_map();
         let graph = ReductionGraph::new();
 
-        let dst_ref = resolve_problem_ref(target, &graph)?;
-
-        // Auto-discover cheapest path
-        let input_size = ProblemSize::new(vec![]);
-        let best_path = graph.find_cheapest_path_mode(
-            source_name,
-            &source_variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            ReductionMode::Witness,
-            &input_size,
-            &MinimizeSteps,
-            search.mode()?,
-        );
-
-        let reduction_path = best_path.value.as_ref().ok_or_else(|| {
-            if !best_path.completeness.is_exact() {
-                return anyhow::anyhow!(
-                    "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
-                    best_path.completeness.reasons()
-                );
-            }
-            anyhow::anyhow!(
-                "No witness-capable reduction path from {} to {}",
-                source_name,
-                dst_ref.name
-            )
-        })?;
+        let reduction_path = crate::commands::reduce::parse_path_json(path_json)?;
+        let first = reduction_path
+            .steps
+            .first()
+            .expect("path parser requires a step");
+        if first.name != source_name || first.variant != source_variant {
+            anyhow::bail!("explicit path does not start at the supplied source problem");
+        }
 
         // Execute reduction chain
         let chain = graph
@@ -967,12 +897,7 @@ impl McpServer {
                 .collect(),
         };
 
-        let json = util::add_search_metadata(
-            serde_json::to_value(&bundle)?,
-            &best_path.completeness,
-            &best_path.stats,
-        )?;
-        Ok(serde_json::to_string_pretty(&json)?)
+        Ok(serde_json::to_string_pretty(&bundle)?)
     }
 
     pub fn solve_inner(
@@ -1075,7 +1000,6 @@ impl McpServer {
         self.find_path_inner(
             &params.source,
             &params.target,
-            params.cost.as_deref(),
             all,
             max_paths,
             &params.search,
@@ -1128,13 +1052,13 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Reduce a problem instance to a target problem type, returning a reduction bundle
+    /// Reduce a problem instance along an explicit Pareto-front route
     #[tool(
         name = "reduce",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn reduce(&self, Parameters(params): Parameters<ReduceParams>) -> Result<String, String> {
-        self.reduce_inner(&params.problem_json, &params.target, &params.search)
+        self.reduce_inner(&params.problem_json, &params.path_json)
             .map_err(|e| e.to_string())
     }
 
@@ -1252,20 +1176,16 @@ fn format_path_json(
 /// path carries structured `Growth` serialization plus a rendered `O(...)`
 /// string per target size field. `Unknown` growth renders `O(?)`.
 ///
-/// The top-level `path` key carries the best front element's steps in the same shape
-/// `format_path_json` emits, so the default `find_path` envelope stays consumable as a
-/// reduction path (front[0] is the deterministic best path). Each front element's own
-/// step chain is under `front[i].path`.
+/// Every front element carries its complete executable route. The envelope itself
+/// deliberately has no selected route; callers must explicitly choose a front item.
 fn format_front_json(
     graph: &ReductionGraph,
     source: &str,
     target: &str,
-    front: &[(
-        problemreductions::rules::ReductionPath,
-        problemreductions::rules::GrowthLabel,
-    )],
+    result: &problemreductions::rules::SymbolicParetoFront,
 ) -> serde_json::Value {
-    let paths: Vec<serde_json::Value> = front
+    let paths: Vec<serde_json::Value> = result
+        .front
         .iter()
         .map(|(reduction_path, label)| {
             let big_o: BTreeMap<&str, String> = label
@@ -1273,24 +1193,35 @@ fn format_front_json(
                 .iter()
                 .map(|(f, g)| (*f, g.to_big_o()))
                 .collect();
+            let route = format_path_json(graph, reduction_path);
             serde_json::json!({
-                "steps": reduction_path.len(),
-                "path": reduction_path.type_names(),
+                "steps": route["steps"],
+                "path": route["path"],
+                "overall_overhead": route["overall_overhead"],
                 "growth": label.fields(),
                 "big_o": big_o,
             })
         })
         .collect();
-    // Reuse format_path_json for the best path so the top-level `path` array matches
-    // the step shape the reduce/bundle tooling consumes.
-    let best = format_path_json(graph, &front[0].0);
+    let excluded: Vec<_> = result
+        .excluded
+        .iter()
+        .map(|item| {
+            let route = format_path_json(graph, &item.path);
+            serde_json::json!({
+                "steps": route["steps"],
+                "path": route["path"],
+                "analysis_failure": item.failure,
+            })
+        })
+        .collect();
     serde_json::json!({
         "source": source,
         "target": target,
         "mode": "asymptotic",
         "front": paths,
-        "steps": best["steps"].clone(),
-        "path": best["path"].clone(),
+        "analysis_coverage": result.coverage,
+        "excluded_paths": excluded,
     })
 }
 

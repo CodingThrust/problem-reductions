@@ -7,30 +7,69 @@
 //! are retained as distinct intermediate states. See [`ReductionGraph::pareto_search`].
 //!
 //! Two search domains are provided:
-//! - [`CostLabel`]: a scalar formula label that reproduces Dijkstra's behavior for the
-//!   existing `PathCostFn` cost functions (used by `find_cheapest_path*`). It carries the
-//!   accumulated `ProblemSize` (from overhead formulas) and an additive scalar cost.
+//! - [`GrowthLabel`]: symbolic componentwise growth for the asymptotic front.
 //! - [`MeasuredLabel`]: concrete-instance state used by a separate simple-path search. It
 //!   *actually executes* each reduction and measures the real constructed target size.
 //!   Asymptotic overhead formulas are not used as concrete budget bounds.
 
 use crate::expr::Expr;
 use crate::growth::Growth;
-use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReduceFn, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
+use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
-/// Default post-construction total-size budget for the measured search (in "size units",
-/// i.e. the sum of all `ProblemSize` components).
-///
-/// A reduction's target must exist before it can be measured, so this limits which
-/// constructed instances remain eligible for further search; it cannot prevent the
-/// construction itself from exhausting memory.
-pub const DEFAULT_SIZE_BUDGET: usize = 10_000_000;
+/// Per-field post-construction limits for measured search.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SizeBudget {
+    limits: BTreeMap<String, usize>,
+}
+
+impl SizeBudget {
+    /// Create limits keyed by registered [`ProblemSize`] field name.
+    pub fn new(limits: BTreeMap<String, usize>) -> Self {
+        Self { limits }
+    }
+
+    pub(crate) fn fields(&self) -> impl Iterator<Item = &str> {
+        self.limits.keys().map(String::as_str)
+    }
+
+    pub(crate) fn permits(&self, size: &ProblemSize) -> bool {
+        size.components
+            .iter()
+            .all(|(field, value)| self.limits.get(field).is_none_or(|limit| value <= limit))
+    }
+}
+
+/// A configured measured-budget field does not exist in the registry.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UnknownSizeField(pub String);
+
+impl std::fmt::Display for UnknownSizeField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unknown problem-size field: {}", self.0)
+    }
+}
+
+impl std::error::Error for UnknownSizeField {}
+
+/// Coverage of symbolic analysis, independent of graph-search completeness.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AnalysisCoverage {
+    pub analyzed_paths: usize,
+    pub excluded_paths: usize,
+}
+
+/// Why a searched path could not participate in the symbolic front.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct AnalysisFailure {
+    pub fields: Vec<&'static str>,
+    pub reason: &'static str,
+}
 
 /// A borrowed view of one reduction edge, handed to [`PathLabel::extend`].
 ///
@@ -53,8 +92,8 @@ pub struct ReductionEdge<'g> {
 /// The kernel never prunes or coalesces an intermediate state: the built-in labels do
 /// not contain enough information to prove that two constructed problems are identical.
 /// Terminal dominance is applied only after a path reaches the destination, where no
-/// future extension can reverse the order. [`cost`](PathLabel::cost) is used only for
-/// agenda ordering and deterministic result ordering.
+/// future extension can reverse the order. Agenda and result ordering use only hops and
+/// the stable path key; they do not select an objective winner.
 pub trait PathLabel: Clone {
     /// Advance this label across `edge`. Returns `None` when a label-domain guard rejects
     /// the edge.
@@ -63,69 +102,9 @@ pub trait PathLabel: Clone {
     /// Weak Pareto order used only to filter completed labels at the destination.
     ///
     /// Implementations must provide a reflexive and transitive relation. Mutual
-    /// dominance denotes the same terminal objective vector; the kernel then retains the
-    /// deterministic best path representative.
+    /// dominance denotes the same terminal objective vector; the kernel then retains one
+    /// deterministic representative.
     fn final_dominates(&self, other: &Self) -> bool;
-
-    /// Scalar summary used only for frontier ordering and the deterministic final
-    /// tie-break — never for pruning. Smaller
-    /// is better. It need not be monotone along `extend`.
-    ///
-    fn cost(&self) -> f64;
-}
-
-/// Formula-based label for a [`PathCostFn`].
-///
-/// Carries the accumulated `ProblemSize` (advanced through overhead formulas) and the
-/// additive scalar cost. Neither value identifies the actual constructed problem, so
-/// equal or componentwise-better labels are never used to remove an intermediate path.
-/// Componentwise Pareto order over `(cost, size)` is used only at the destination.
-pub struct CostLabel<'c, C: PathCostFn> {
-    size: ProblemSize,
-    cost: f64,
-    cost_fn: &'c C,
-}
-
-// Manual `Clone` (the derive would wrongly require `C: Clone`; `cost_fn` is a reference).
-impl<C: PathCostFn> Clone for CostLabel<'_, C> {
-    fn clone(&self) -> Self {
-        Self {
-            size: self.size.clone(),
-            cost: self.cost,
-            cost_fn: self.cost_fn,
-        }
-    }
-}
-
-impl<'c, C: PathCostFn> CostLabel<'c, C> {
-    /// Create the initial label at the source node.
-    pub fn new(input_size: ProblemSize, cost_fn: &'c C) -> Self {
-        Self {
-            size: input_size,
-            cost: 0.0,
-            cost_fn,
-        }
-    }
-}
-
-impl<C: PathCostFn> PathLabel for CostLabel<'_, C> {
-    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        let increment = self.cost_fn.edge_cost(edge.overhead, &self.size);
-        let new_size = edge.overhead.evaluate_output_size(&self.size);
-        Some(Self {
-            size: new_size,
-            cost: self.cost + increment,
-            cost_fn: self.cost_fn,
-        })
-    }
-
-    fn final_dominates(&self, other: &Self) -> bool {
-        self.cost <= other.cost && size_le(&self.size, &other.size)
-    }
-
-    fn cost(&self) -> f64 {
-        self.cost
-    }
 }
 
 /// The current constructed position of a [`MeasuredLabel`].
@@ -170,8 +149,8 @@ pub struct MeasuredLabel<'a> {
     size: ProblemSize,
     /// Current constructed position.
     pos: MeasuredPos<'a>,
-    /// Hard total-size budget.
-    budget: usize,
+    /// Per-field post-construction budget.
+    budget: SizeBudget,
 }
 
 impl<'a> MeasuredLabel<'a> {
@@ -179,7 +158,7 @@ impl<'a> MeasuredLabel<'a> {
     ///
     /// `source_size` is the measured size of `source` (typically
     /// `ReductionGraph::compute_source_size`).
-    pub fn new(source: &'a dyn Any, source_size: ProblemSize, budget: usize) -> Self {
+    pub fn new(source: &'a dyn Any, source_size: ProblemSize, budget: SizeBudget) -> Self {
         Self {
             size: source_size,
             pos: MeasuredPos::Source(source),
@@ -224,7 +203,7 @@ impl<'a> MeasuredLabel<'a> {
             edge.target_variant,
             result.target_problem_any(),
         );
-        if measured.total() > self.budget {
+        if !self.budget.permits(&measured) {
             return None;
         }
 
@@ -236,17 +215,9 @@ impl<'a> MeasuredLabel<'a> {
         Some(Self {
             size: measured,
             pos: MeasuredPos::Reduced(step),
-            budget: self.budget,
+            budget: self.budget.clone(),
         })
     }
-}
-
-/// Componentwise "less-or-equal in every field" test between two sizes.
-/// Missing fields are treated as `0`.
-fn size_le(a: &ProblemSize, b: &ProblemSize) -> bool {
-    a.components
-        .iter()
-        .all(|(name, av)| *av <= b.get(name).unwrap_or(0))
 }
 
 /// Asymptotic, **instance-free** label domain (design doc M3/F3a).
@@ -301,6 +272,19 @@ impl GrowthLabel {
     pub fn fields(&self) -> &BTreeMap<&'static str, Growth> {
         &self.fields
     }
+
+    /// Return the explicit failure boundary when any field is unanalyzable.
+    pub fn analysis_failure(&self) -> Option<AnalysisFailure> {
+        let fields: Vec<_> = self
+            .fields
+            .iter()
+            .filter_map(|(field, growth)| matches!(growth, Growth::Unknown).then_some(*field))
+            .collect();
+        (!fields.is_empty()).then_some(AnalysisFailure {
+            fields,
+            reason: "symbolic growth analysis returned Unknown",
+        })
+    }
 }
 
 impl PathLabel for GrowthLabel {
@@ -345,6 +329,9 @@ impl PathLabel for GrowthLabel {
     }
 
     fn final_dominates(&self, other: &Self) -> bool {
+        if self.analysis_failure().is_some() || other.analysis_failure().is_some() {
+            return false;
+        }
         // Search-sense componentwise terminal dominance over the union of fields
         // (labels compared are at the same node, so their field sets coincide; the
         // union is defensive). Equality counts so the terminal front has one
@@ -368,12 +355,5 @@ impl PathLabel for GrowthLabel {
             }
         }
         true
-    }
-
-    fn cost(&self) -> f64 {
-        // Heuristic scalar summary for frontier ordering and the deterministic final
-        // tie-break ONLY — never for intermediate pruning. Summed field magnitudes;
-        // `Unknown` fields dominate the sum, ranking undecidable paths last.
-        self.fields.values().map(|g| g.magnitude()).sum()
     }
 }
