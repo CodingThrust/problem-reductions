@@ -108,6 +108,8 @@ Report pass/fail. If tests fail, identify which tests. **Do NOT fix anything** �
 
 ## Step 4: Semantic Review
 
+For both review types, verify that changed mathematical comments state exactly what the code proves and that changed failure messages name the actual rejected quantity and remain meaningful at zero and boundary values.
+
 ### For Models:
 1. **`evaluate()` correctness** — Does it check feasibility before computing the objective when the model has invalid configurations? Objective models should return `Max/Min/Extremum(None)` for infeasible configs, witness problems should return `false`, and aggregate-only models should return the per-configuration contribution that matches the intended fold semantics.
 2. **`dims()` correctness** — Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
