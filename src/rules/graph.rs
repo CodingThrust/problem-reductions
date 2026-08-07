@@ -1402,6 +1402,10 @@ impl ReductionGraph {
     }
 
     /// Get executable outgoing reductions from one exact problem variant.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `name` and `variant` do not identify an exactly registered problem variant.
     pub fn outgoing_reductions_from(
         &self,
         name: &str,
