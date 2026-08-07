@@ -2625,6 +2625,56 @@ fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() 
 }
 
 #[test]
+fn test_kth_largest_m_tuple_solve_uses_k_threshold() {
+    let solve = |k: u64| {
+        let create = pred()
+            .args([
+                "create",
+                "KthLargestMTuple",
+                "--sets",
+                "2,5,8;3,6;1,4,7",
+                "--k",
+                &k.to_string(),
+                "--bound",
+                "12",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            create.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&create.stderr)
+        );
+
+        let path = std::env::temp_dir().join(format!(
+            "pred_test_kth_largest_m_tuple_{}_{}.json",
+            std::process::id(),
+            k
+        ));
+        std::fs::write(&path, create.stdout).unwrap();
+
+        let output = pred()
+            .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+            .output()
+            .unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
+
+    let at_threshold = solve(14);
+    let above_threshold = solve(15);
+
+    assert_eq!(at_threshold["evaluation"], "Or(true)");
+    assert_eq!(above_threshold["evaluation"], "Or(false)");
+    assert_ne!(at_threshold["evaluation"], above_threshold["evaluation"]);
+}
+
+#[test]
 fn test_create_acyclic_partition() {
     let output = pred()
         .args([
