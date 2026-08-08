@@ -587,27 +587,35 @@ fn rule_specs_solution_pairs_are_consistent() {
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
 
-        // Try witness path first; fall back to aggregate for aggregate-only edges.
-        // Some authored direct reductions are proof-only and intentionally have
-        // no runtime capability in any mode.
-        let witness_paths = graph.find_all_paths(
-            &example.source.problem,
-            &example.source.variant,
-            &example.target.problem,
-            &example.target.variant,
-        );
-        if witness_paths.is_empty() {
-            let aggregate_paths = graph.find_all_paths_mode(
+        // Inspect the authored direct reduction. Indirect paths between the same
+        // problem variants do not implement this rule's stored solution pairs.
+        let witness_path = graph
+            .find_all_paths(
                 &example.source.problem,
                 &example.source.variant,
                 &example.target.problem,
                 &example.target.variant,
-                crate::rules::ReductionMode::Aggregate,
-            );
-            if aggregate_paths.is_empty() {
+            )
+            .into_iter()
+            .find(|path| path.len() == 1);
+        if witness_path.is_none() {
+            let has_aggregate_path = graph
+                .find_all_paths_mode(
+                    &example.source.problem,
+                    &example.source.variant,
+                    &example.target.problem,
+                    &example.target.variant,
+                    crate::rules::ReductionMode::Aggregate,
+                )
+                .iter()
+                .any(|path| path.len() == 1);
+            if !has_aggregate_path {
                 assert!(
-                    graph.has_direct_reduction_by_name(&example.source.problem, &example.target.problem),
-                    "No reduction path (witness or aggregate) or direct proof-only edge for {label}"
+                    graph.has_direct_reduction_by_name(
+                        &example.source.problem,
+                        &example.target.problem
+                    ),
+                    "No direct witness, aggregate, or proof-only reduction for {label}"
                 );
                 assert!(
                     !graph.has_direct_reduction_by_name_mode(
@@ -629,7 +637,9 @@ fn rule_specs_solution_pairs_are_consistent() {
         }
 
         // Only do witness round-trip when a witness path exists
-        let chain = witness_path.and_then(|path| graph.reduce_along_path(&path, source.as_any()));
+        let chain = witness_path
+            .as_ref()
+            .and_then(|path| graph.reduce_along_path(path, source.as_any()));
 
         for pair in &example.solutions {
             // Verify config lengths match problem dimensions

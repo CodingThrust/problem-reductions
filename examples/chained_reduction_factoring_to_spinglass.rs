@@ -62,7 +62,7 @@ pub fn run() {
 
     // ANCHOR: overhead
     // Print per-edge overhead polynomials
-    let edge_overheads = graph.path_overheads(&rpath);
+    let edge_overheads = graph.path_overheads(rpath);
     for (i, overhead) in edge_overheads.iter().enumerate() {
         println!("{} → {}:", rpath.steps[i], rpath.steps[i + 1]);
         for (field, poly) in &overhead.output_size {
@@ -71,7 +71,7 @@ pub fn run() {
     }
 
     // Compose overheads symbolically along the full path
-    let composed = graph.compose_path_overhead(&rpath);
+    let composed = graph.compose_path_overhead(rpath);
     println!("Composed (source → target):");
     for (field, poly) in &composed.output_size {
         println!("  {} = {}", field, poly);
