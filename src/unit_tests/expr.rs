@@ -1,9 +1,57 @@
 use super::*;
 use crate::types::ProblemSize;
-use std::collections::{BTreeSet, HashMap};
+use serde::Deserialize;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn eval(expression: &Expr, size: &ProblemSize) -> f64 {
     evaluate_approximate(expression, size).unwrap()
+}
+
+#[derive(Deserialize)]
+struct SympyApproximateFixture {
+    approximate_cases: Vec<SympyApproximateCase>,
+}
+
+#[derive(Deserialize)]
+struct SympyApproximateCase {
+    name: String,
+    source: String,
+    bindings: BTreeMap<String, usize>,
+    decimal_result: String,
+}
+
+#[test]
+fn test_approximate_evaluation_against_sympy_fixture() {
+    let fixture: SympyApproximateFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.approximate_cases.len(), 12);
+
+    for case in fixture.approximate_cases {
+        let expression = Expr::try_parse(&case.source)
+            .unwrap_or_else(|error| panic!("{} failed to parse: {error}", case.name));
+        let size = ProblemSize::new(
+            case.bindings
+                .iter()
+                .map(|(name, value)| (name.as_str(), *value))
+                .collect(),
+        );
+        let actual = evaluate_approximate(&expression, &size)
+            .unwrap_or_else(|error| panic!("{} failed to evaluate: {error}", case.name));
+        let expected: f64 = case.decimal_result.parse().unwrap();
+
+        if expected.is_infinite() {
+            assert_eq!(actual, expected, "{} value", case.name);
+        } else {
+            let relative_error = (actual - expected).abs() / expected.abs().max(1.0);
+            assert!(
+                relative_error <= 1e-14,
+                "{} value: actual={actual}, expected={expected}, relative error={relative_error}",
+                case.name
+            );
+        }
+    }
 }
 
 #[test]

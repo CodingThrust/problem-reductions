@@ -111,6 +111,25 @@ CASES = [
 ]
 
 
+# These cases exercise the production f64 boundary. Expected values are emitted
+# at 80 decimal digits so the Rust test, rather than Python's float conversion,
+# performs the final rounding to f64.
+APPROXIMATE_CASES = [
+    ("exp_one", "exp(1)", {}),
+    ("exp_fraction", "exp(n / 3)", {"n": 5}),
+    ("log_two", "log(2)", {}),
+    ("log_large", "log(1000000)", {}),
+    ("sqrt_two", "sqrt(2)", {}),
+    ("sqrt_large", "sqrt(1234567)", {}),
+    ("fractional_power", "7^2.372", {}),
+    ("mixed_transcendental", "exp(log(n)) + sqrt(m)", {"n": 13, "m": 2}),
+    ("complexity_formula", "2^(2.372 * n / 3)", {"n": 19}),
+    ("factorial_ten", "factorial(10)", {}),
+    ("factorial_f64_boundary", "factorial(170)", {}),
+    ("factorial_f64_overflow", "factorial(171)", {}),
+]
+
+
 def parse(source: str) -> sympy.Expr:
     return parse_expr(source, transformations=TRANSFORMATIONS, evaluate=False)
 
@@ -131,6 +150,8 @@ def generate_case(
 ) -> dict:
     expression = parse(source)
     symbols = sorted(str(symbol) for symbol in expression.free_symbols)
+    if set(symbols) != set(bindings):
+        raise ValueError(f"{name} bindings do not match free symbols")
     substitutions = {sympy.Symbol(name): value for name, value in bindings.items()}
     result = expression.subs(substitutions)
     polynomial = expression.is_polynomial(
@@ -144,6 +165,27 @@ def generate_case(
         "exact_result": exact_fraction(result),
         "compare_polynomial": compare_polynomial,
         "is_polynomial": polynomial is True,
+    }
+
+
+def generate_approximate_case(
+    name: str,
+    source: str,
+    bindings: dict[str, int],
+) -> dict:
+    expression = parse(source)
+    symbols = sorted(str(symbol) for symbol in expression.free_symbols)
+    if set(symbols) != set(bindings):
+        raise ValueError(f"{name} bindings do not match free symbols")
+    substitutions = {sympy.Symbol(name): value for name, value in bindings.items()}
+    result = expression.subs(substitutions).doit()
+    if result.is_real is not True or result.is_finite is not True:
+        raise ValueError(f"{name} result is not a finite real number: {result!r}")
+    return {
+        "name": name,
+        "source": source,
+        "bindings": bindings,
+        "decimal_result": str(sympy.N(result, 80)),
     }
 
 
@@ -162,10 +204,16 @@ def main() -> None:
             },
         },
         "cases": [generate_case(*case) for case in CASES],
+        "approximate_cases": [
+            generate_approximate_case(*case) for case in APPROXIMATE_CASES
+        ],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {len(fixture['cases'])} cases to {OUTPUT}")
+    print(
+        f"wrote {len(fixture['cases'])} exact and "
+        f"{len(fixture['approximate_cases'])} approximate cases to {OUTPUT}"
+    )
 
 
 if __name__ == "__main__":
