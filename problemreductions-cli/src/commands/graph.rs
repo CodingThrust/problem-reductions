@@ -5,10 +5,9 @@ use crate::util::{add_search_metadata, append_search_warning};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
-    GrowthLabel, Minimize, MinimizeSteps, ReductionGraph, ReductionMode, ReductionPath,
+    ExcludedSymbolicPath, ReductionGraph, ReductionMode, ReductionPath, SymbolicParetoFront,
     TraversalFlow,
 };
-use problemreductions::types::ProblemSize;
 use problemreductions::{Expr, Growth};
 use std::collections::BTreeMap;
 
@@ -255,7 +254,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         }
     }
 
-    // Show size fields (used with `pred path --cost minimize:<field>`)
+    // Show the named size fields used by measured Pareto analysis and budgets.
     let size_fields = graph.size_field_names(name);
     if !size_fields.is_empty() {
         text.push_str(&format!(
@@ -451,9 +450,9 @@ fn format_path_text(
 
     // Show composed overall overhead for multi-step paths
     if reduction_path.len() > 1 {
-        let composed = graph.compose_path_overhead(reduction_path);
+        let composed = overheads.iter().cloned().reduce(|acc, oh| acc.compose(&oh));
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
-        for (field, poly) in &composed.output_size {
+        for (field, poly) in &composed.expect("multi-step path has overheads").output_size {
             text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
         }
     }
@@ -461,7 +460,7 @@ fn format_path_text(
     text
 }
 
-fn format_path_json(
+pub(crate) fn format_path_json(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> serde_json::Value {
@@ -481,8 +480,10 @@ fn format_path_json(
         })
         .collect();
 
-    let composed = graph.compose_path_overhead(reduction_path);
-    let overall = overhead_to_json(&composed.output_size);
+    let composed = overheads.into_iter().reduce(|acc, oh| acc.compose(&oh));
+    let overall = composed
+        .as_ref()
+        .map_or_else(Vec::new, |overhead| overhead_to_json(&overhead.output_size));
 
     serde_json::json!({
         "steps": reduction_path.len(),
@@ -511,11 +512,12 @@ fn format_front_text(
     graph: &ReductionGraph,
     src_name: &str,
     dst_name: &str,
-    front: &[(ReductionPath, GrowthLabel)],
+    result: &SymbolicParetoFront,
 ) -> String {
+    let front = &result.front;
     let mut text = format!(
         "Asymptotic Pareto front: {} path{} from {} to {}\n\
-         (no --size given; each path shows its composed O(...) per {} size field)\n",
+         (each path shows its composed O(...) per {} size field)\n",
         front.len(),
         if front.len() == 1 { "" } else { "s" },
         src_name,
@@ -533,23 +535,34 @@ fn format_front_text(
             text.push_str(&format!("  {field} = {}\n", growth.to_big_o()));
         }
     }
+    text.push_str(&format!(
+        "\nAnalysis coverage: {} analyzable, {} excluded\n",
+        result.coverage.analyzed_paths, result.coverage.excluded_paths
+    ));
+    for excluded in &result.excluded {
+        text.push_str(&format!(
+            "  Excluded {}: {} ({})\n",
+            path_arrow_summary(graph, &excluded.path),
+            excluded.failure.reason,
+            excluded.failure.fields.join(", ")
+        ));
+    }
     text
 }
 
 /// JSON rendering of the asymptotic Pareto front. Growth is emitted both as the
 /// structured `Growth` serialization and as a rendered `O(...)` string.
 ///
-/// The top-level `path` key carries the best front element's steps in exactly the
-/// format `format_path_json` emits, so the saved envelope stays consumable by
-/// `pred reduce --via` (the documented round-trip; front[0] is the deterministic
-/// best path). Each front element's own step chain is under `front[i].path`.
-fn format_front_json(
+/// Every front element carries its complete executable route. The envelope itself
+/// deliberately has no selected route; callers must explicitly choose a front item.
+pub(crate) fn format_front_json(
     graph: &ReductionGraph,
     src_name: &str,
     dst_name: &str,
-    front: &[(ReductionPath, GrowthLabel)],
+    result: &SymbolicParetoFront,
 ) -> serde_json::Value {
-    let paths: Vec<serde_json::Value> = front
+    let paths: Vec<serde_json::Value> = result
+        .front
         .iter()
         .map(|(reduction_path, label)| {
             let big_o: BTreeMap<&str, String> = label
@@ -557,28 +570,44 @@ fn format_front_json(
                 .iter()
                 .map(|(f, g)| (*f, g.to_big_o()))
                 .collect();
+            let route = format_path_json(graph, reduction_path);
             serde_json::json!({
-                "steps": reduction_path.len(),
-                "path": reduction_path.type_names(),
+                "steps": route["steps"],
+                "path": route["path"],
+                "overall_overhead": route["overall_overhead"],
                 "growth": label.fields(),
                 "big_o": big_o,
             })
         })
         .collect();
-    // Reuse format_path_json for the best path to guarantee the top-level `path`
-    // array is byte-for-byte the shape `pred reduce --via` (load_path_file) parses.
-    let best = format_path_json(graph, &front[0].0);
+    let excluded: Vec<_> = result
+        .excluded
+        .iter()
+        .map(|excluded| format_excluded_json(graph, excluded))
+        .collect();
     serde_json::json!({
         "source": src_name,
         "target": dst_name,
         "mode": "asymptotic",
         "front": paths,
-        "steps": best["steps"].clone(),
-        "path": best["path"].clone(),
+        "analysis_coverage": result.coverage,
+        "excluded_paths": excluded,
     })
 }
 
-/// Asymptotic Pareto-front mode of `pred path` (no `--size`/`--cost`): print the
+fn format_excluded_json(
+    graph: &ReductionGraph,
+    excluded: &ExcludedSymbolicPath,
+) -> serde_json::Value {
+    let route = format_path_json(graph, &excluded.path);
+    serde_json::json!({
+        "steps": route["steps"],
+        "path": route["path"],
+        "analysis_failure": excluded.failure,
+    })
+}
+
+/// Asymptotic Pareto-front mode of `pred path`: print the
 /// front of asymptotically optimal reduction paths, each annotated with its composed
 /// Big-O per target size field. See design doc M3/F3a.
 fn path_front(
@@ -599,7 +628,35 @@ fn path_front(
         search.mode()?,
     );
 
-    if outcome.value.is_empty() {
+    if !outcome.completeness.is_exact() && outcome.value.is_err() {
+        anyhow::bail!(
+            "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
+            outcome.completeness.reasons()
+        );
+    }
+
+    let result = match outcome.value {
+        Ok(result) => result,
+        Err(error) => {
+            let excluded = error
+                .excluded
+                .iter()
+                .map(|item| {
+                    format!(
+                        "{}: {} ({})",
+                        path_arrow_summary(graph, &item.path),
+                        item.failure.reason,
+                        item.failure.fields.join(", ")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            anyhow::bail!(
+                "NoAnalyzablePath: no analyzable path from {src_name} to {dst_name}\n{excluded}"
+            )
+        }
+    };
+    if result.front.is_empty() {
         if !outcome.completeness.is_exact() {
             anyhow::bail!(
                 "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
@@ -620,10 +677,10 @@ fn path_front(
         );
     }
 
-    let mut text = format_front_text(graph, src_name, dst_name, &outcome.value);
+    let mut text = format_front_text(graph, src_name, dst_name, &result);
     append_search_warning(&mut text, &outcome.completeness);
     let json = add_search_metadata(
-        format_front_json(graph, src_name, dst_name, &outcome.value),
+        format_front_json(graph, src_name, dst_name, &result),
         &outcome.completeness,
         &outcome.stats,
     )?;
@@ -633,7 +690,6 @@ fn path_front(
 pub fn path(
     source: &str,
     target: &str,
-    cost: Option<&str>,
     all: bool,
     max_paths: usize,
     search: &SearchArgs,
@@ -664,7 +720,7 @@ pub fn path(
     let dst_ref = resolve_problem_ref(target, &graph)?;
     if all && search.has_nondefault_policy() {
         anyhow::bail!(
-            "--search-mode and search limits apply to ranked path search, not --all; use --max-paths to bound all-path enumeration"
+            "--search-mode and search limits apply to Pareto-front search, not --all; use --max-paths to bound all-path enumeration"
         );
     }
     let _ = search.mode()?;
@@ -681,93 +737,15 @@ pub fn path(
         );
     }
 
-    // No `--cost` (and no `--all`): run the instance-free asymptotic Pareto search and
-    // print the front of asymptotically optimal paths (design M3/F3a).
-    // Passing `--cost` opts into the single-best scalar mode.
-    let Some(cost) = cost else {
-        return path_front(
-            &graph,
-            &src_ref.name,
-            &src_ref.variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            search,
-            out,
-        );
-    };
-
-    let input_size = ProblemSize::new(vec![]);
-
-    // Parse cost function once (validate before the search loop)
-    enum CostChoice {
-        Steps,
-        Field(&'static str),
-    }
-    let cost_choice = if cost == "minimize-steps" {
-        CostChoice::Steps
-    } else if let Some(field) = cost.strip_prefix("minimize:") {
-        // Leak the field name to get &'static str (fine for a CLI that exits immediately)
-        CostChoice::Field(Box::leak(field.to_string().into_boxed_str()))
-    } else {
-        anyhow::bail!(
-            "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
-            cost
-        );
-    };
-
-    let best_path = match cost_choice {
-        CostChoice::Steps => graph.find_cheapest_path(
-            &src_ref.name,
-            &src_ref.variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            &input_size,
-            &MinimizeSteps,
-            search.mode()?,
-        ),
-        CostChoice::Field(f) => graph.find_cheapest_path(
-            &src_ref.name,
-            &src_ref.variant,
-            &dst_ref.name,
-            &dst_ref.variant,
-            &input_size,
-            &Minimize(f),
-            search.mode()?,
-        ),
-    };
-
-    match &best_path.value {
-        Some(ref reduction_path) => {
-            let mut text = format_path_text(&graph, reduction_path);
-            append_search_warning(&mut text, &best_path.completeness);
-            let json = add_search_metadata(
-                format_path_json(&graph, reduction_path),
-                &best_path.completeness,
-                &best_path.stats,
-            )?;
-            out.emit_with_default_name("", &text, &json)
-        }
-        None => {
-            if !best_path.completeness.is_exact() {
-                anyhow::bail!(
-                    "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
-                    best_path.completeness.reasons()
-                );
-            }
-            let variant_hint = variant_hint_for(&graph, &dst_spec.name);
-            anyhow::bail!(
-                "No reduction path from {} to {}\n\
-                 {variant_hint}\n\
-                 Usage: pred path <SOURCE> <TARGET>\n\
-                 Example: pred path MIS QUBO\n\n\
-                 Run `pred show {}` and `pred show {}` to check available reductions.",
-                src_spec.name,
-                dst_spec.name,
-                src_spec.name,
-                dst_spec.name,
-            );
-        }
-    }
+    path_front(
+        &graph,
+        &src_ref.name,
+        &src_ref.variant,
+        &dst_ref.name,
+        &dst_ref.variant,
+        search,
+        out,
+    )
 }
 
 fn path_all(

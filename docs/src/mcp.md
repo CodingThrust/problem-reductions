@@ -79,7 +79,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `cost` (string, default: "minimize-steps"), `all` (bool, default: false) | Find a reduction path between two problems, optionally minimizing a size field or returning all paths |
+| `find_path` | `source` (string), `target` (string), `all` (bool, default: false) | Return the symbolic Pareto front, including full routes and excluded analysis failures, or enumerate all paths |
 | `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, overheads) |
 
 ### Instance Tools
@@ -89,7 +89,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `create_problem` | `problem_type` (string), `params` (JSON object) | Create a problem instance from parameters and return its JSON representation. Supports graph problems, SAT, QUBO, SpinGlass, KColoring, Factoring, and random graph generation |
 | `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
 | `evaluate` | `problem_json` (string), `config` (array of int) | Evaluate a configuration against a problem instance and return the objective value or feasibility |
-| `reduce` | `problem_json` (string), `target` (string) | Reduce a problem instance to a target type, returning a reduction bundle with the transformed instance and path metadata |
+| `reduce` | `problem_json` (string), `path_json` (string) | Reduce a problem instance along an explicitly supplied route, returning a bundle with the transformed instance and path metadata |
 | `solve` | `problem_json` (string), `solver` ("ilp"\|"brute-force", default: "ilp"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using ILP or brute-force, with optional timeout |
 
 ## Available Prompts
@@ -103,5 +103,5 @@ The server provides 7 task-oriented prompt templates:
 | `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
 | `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
 | `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Find the best reduction path between two problems |
+| `find_reduction` | `source` (required), `target` (required) | Compare the symbolic Pareto front between two problems |
 | `overview` | *(none)* | Explore the full landscape of NP-hard problems |

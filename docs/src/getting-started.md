@@ -119,9 +119,10 @@ Let's walk through each step.
 
 #### Step 1 — Discover the reduction path
 
-`ReductionGraph` holds every registered reduction. `find_cheapest_path`
-searches for the shortest chain from a source problem variant to a target
-variant.
+`ReductionGraph` holds every registered reduction. `asymptotic_front` returns
+the non-dominated per-field growth vectors and reports paths whose growth could
+not be analyzed. The example consumes that front and explicitly selects the
+documented `Factoring -> CircuitSAT -> SpinGlass` route.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}

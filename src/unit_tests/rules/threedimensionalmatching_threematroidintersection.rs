@@ -1,9 +1,8 @@
 use crate::models::set::{ThreeDimensionalMatching, ThreeMatroidIntersection};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
-use crate::rules::{MinimizeSteps, ReduceTo, ReductionGraph, ReductionResult};
+use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 fn feasible_problem() -> ThreeDimensionalMatching {
     ThreeDimensionalMatching::new(
@@ -76,26 +75,20 @@ fn test_threedimensionalmatching_to_threematroidintersection_missing_coordinate_
 
 #[test]
 fn test_threedimensionalmatching_to_threematroidintersection_direct_path_exists() {
-    let source = feasible_problem();
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&ThreeDimensionalMatching::variant());
     let dst = ReductionGraph::variant_to_map(&ThreeMatroidIntersection::variant());
 
     let path = graph
-        .find_cheapest_path(
+        .find_all_paths(
             "ThreeDimensionalMatching",
             &src,
             "ThreeMatroidIntersection",
             &dst,
-            &ProblemSize::new(vec![
-                ("universe_size", source.universe_size()),
-                ("num_triples", source.num_triples()),
-            ]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
         )
-        .value
-        .expect("reduction graph should find the direct 3DM -> 3MI edge");
+        .into_iter()
+        .find(|path| path.type_names() == ["ThreeDimensionalMatching", "ThreeMatroidIntersection"])
+        .expect("reduction graph should contain the direct 3DM -> 3MI edge");
 
     assert_eq!(
         path.type_names(),

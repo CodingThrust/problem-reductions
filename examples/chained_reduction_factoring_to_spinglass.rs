@@ -7,10 +7,9 @@
 // ANCHOR: imports
 use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{ReductionGraph, ReductionMode, SearchMode};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
-use problemreductions::types::ProblemSize;
 // ANCHOR_END: imports
 
 pub fn run() {
@@ -19,18 +18,23 @@ pub fn run() {
     let graph = ReductionGraph::new(); // all registered reductions
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant()); // {} (no variant params)
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant()); // {graph: "SimpleGraph", weight: "f64"}
-    let rpath = graph
-        .find_cheapest_path(
-            "Factoring",               // source problem name
-            &src_var,                  // source variant map
-            "SpinGlass",               // target problem name
-            &dst_var,                  // target variant map
-            &ProblemSize::new(vec![]), // input size (empty = unknown)
-            &MinimizeSteps,            // cost function: fewest hops
-            problemreductions::rules::SearchMode::Exact,
+    let front = graph
+        .asymptotic_front(
+            "Factoring",
+            &src_var,
+            "SpinGlass",
+            &dst_var,
+            ReductionMode::Witness,
+            SearchMode::Exact,
         )
         .value
-        .unwrap();
+        .expect("all candidate paths should be analyzable");
+    let rpath = front
+        .front
+        .iter()
+        .find(|(path, _)| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .map(|(path, _)| path)
+        .expect("explicit Factoring -> CircuitSAT -> SpinGlass route");
     println!("  {}", rpath);
     // ANCHOR_END: step1
 

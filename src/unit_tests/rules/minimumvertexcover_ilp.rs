@@ -1,10 +1,10 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MinimumVertexCover;
-use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Min, ProblemSize};
+use crate::types::Min;
 
 fn reduce_vc_to_ilp(
     problem: &MinimumVertexCover<SimpleGraph, i32>,
@@ -13,17 +13,10 @@ fn reduce_vc_to_ilp(
     let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MinimumVertexCover",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-            crate::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("Should find path MinimumVertexCover -> ILP");
+        .find_all_paths("MinimumVertexCover", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["MinimumVertexCover", "MinimumSetCovering", "ILP"])
+        .expect("expected explicit MinimumSetCovering route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
         .expect("Should reduce MinimumVertexCover to ILP along path");

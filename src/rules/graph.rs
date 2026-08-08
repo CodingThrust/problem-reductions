@@ -7,11 +7,13 @@
 //!
 //! This module implements:
 //! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
-//! - Exact and bounded-approximate Pareto path search with custom cost functions
+//! - Exact and bounded-approximate symbolic and measured Pareto path search
 //! - JSON export for documentation and visualization
 
-use crate::rules::cost::PathCostFn;
-use crate::rules::pareto::{CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge};
+use crate::rules::pareto::{
+    AnalysisCoverage, AnalysisFailure, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge,
+    SizeBudget, UnknownSizeField,
+};
 use crate::rules::registry::{
     AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
 };
@@ -19,7 +21,6 @@ use crate::rules::search::SearchTracker;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::rules::{LimitReached, SearchMode, SearchOutcome};
 use crate::types::ProblemSize;
-use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -286,7 +287,7 @@ pub struct NeighborTree {
 ///
 /// The graph supports:
 /// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
-/// - Exact and bounded-approximate Pareto search with custom cost functions
+/// - Exact and bounded-approximate symbolic and measured Pareto search
 /// - Path finding by problem type or by name
 pub struct ReductionGraph {
     /// Graph with node indices as node data, edge weights as ReductionEdgeData.
@@ -316,6 +317,7 @@ impl<L: PathLabel> ExactParetoDfs<'_, '_, L> {
         visited: &mut [bool],
     ) {
         if node == self.dst {
+            self.tracker.record_completed(1);
             let candidate = (self.graph.node_path_to_reduction_path(path), label);
             self.graph
                 .insert_terminal_candidate(self.front, candidate, self.tracker);
@@ -524,69 +526,6 @@ impl ReductionGraph {
         })
     }
 
-    /// Find the cheapest path between two specific problem variants.
-    ///
-    /// Searches the variant-level graph from the exact source variant node to the exact
-    /// target variant node under the caller's explicit completeness policy. `Exact`
-    /// covers every elementary path permitted by the formula label semantics;
-    /// `Approximate` returns a valid best-so-far path and records every reached limit.
-    /// Formula-search exactness does not imply that a predicted size equals a later
-    /// constructed instance size.
-    #[allow(clippy::too_many_arguments)]
-    pub fn find_cheapest_path<C: PathCostFn>(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        input_size: &ProblemSize,
-        cost_fn: &C,
-        search_mode: SearchMode,
-    ) -> SearchOutcome<Option<ReductionPath>> {
-        self.find_cheapest_path_mode(
-            source,
-            source_variant,
-            target,
-            target_variant,
-            ReductionMode::Witness,
-            input_size,
-            cost_fn,
-            search_mode,
-        )
-    }
-
-    /// Find the cheapest path between two specific problem variants while
-    /// requiring a specific edge capability.
-    ///
-    /// Runs the generic [multi-label elementary-path search](Self::pareto_search) with a
-    /// [`CostLabel`] domain. Returns the front's best element under the deterministic
-    /// tie-break (smallest cost, then fewest hops, then lexicographic node names).
-    /// `Exact` covers the full elementary-path space for those formula semantics;
-    /// `Approximate` may return a best-so-far result with structured limit reasons.
-    #[allow(clippy::too_many_arguments)]
-    pub fn find_cheapest_path_mode<C: PathCostFn>(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        input_size: &ProblemSize,
-        cost_fn: &C,
-        search_mode: SearchMode,
-    ) -> SearchOutcome<Option<ReductionPath>> {
-        let mut tracker = SearchTracker::new(&search_mode);
-        let (Some(src), Some(dst)) = (
-            self.lookup_node(source, source_variant),
-            self.lookup_node(target, target_variant),
-        ) else {
-            return tracker.finish(None);
-        };
-        let initial = CostLabel::new(input_size.clone(), cost_fn);
-        let mut front = self.pareto_search(src, dst, mode, initial, &mut tracker);
-        tracker.finish(self.pick_best_front(&mut front).map(|(path, _)| path))
-    }
-
     /// Generic multi-label elementary-path search from `src` to `dst`.
     ///
     /// Intermediate pruning and coalescing are forbidden because arbitrary reduction
@@ -596,7 +535,7 @@ impl ReductionGraph {
     /// explicit and reported.
     ///
     /// Returns the Pareto front at `dst`: `(path, label)` pairs, deterministically
-    /// ordered by (cost, hops, node-name path).
+    /// ordered by (hops, stable path key).
     pub(crate) fn pareto_search<L: PathLabel>(
         &self,
         src: NodeIndex,
@@ -619,7 +558,7 @@ impl ReductionGraph {
 
         let mut arena: Vec<Entry<L>> = Vec::new();
         let mut bags: HashMap<NodeIndex, Vec<usize>> = HashMap::new();
-        let mut frontier: BinaryHeap<Reverse<(OrderedFloat<f64>, usize)>> = BinaryHeap::new();
+        let mut frontier: BinaryHeap<Reverse<(usize, usize)>> = BinaryHeap::new();
         let mut adjacency: HashMap<NodeIndex, Vec<(NodeIndex, EdgeIndex)>> = HashMap::new();
 
         tracker.record_generated();
@@ -639,7 +578,7 @@ impl ReductionGraph {
         });
         bags.entry(src).or_default().push(0);
         tracker.observe_bag(1);
-        frontier.push(Reverse((OrderedFloat(initial.cost()), 0)));
+        frontier.push(Reverse((0, 0)));
 
         let node_path = |arena: &Vec<Entry<L>>, idx: usize| -> Vec<NodeIndex> {
             let mut nodes = Vec::new();
@@ -651,7 +590,7 @@ impl ReductionGraph {
             nodes.reverse();
             nodes
         };
-        while let Some(Reverse((_cost, idx))) = frontier.pop() {
+        while let Some(Reverse((_hops, idx))) = frontier.pop() {
             let node = arena[idx].node;
             if arena[idx].label.is_none() {
                 continue;
@@ -697,7 +636,6 @@ impl ReductionGraph {
                     continue;
                 };
                 tracker.record_generated();
-                let new_cost = new_label.cost();
                 let mut new_visited = cur_visited.clone();
                 new_visited[target.index()] = true;
 
@@ -710,7 +648,7 @@ impl ReductionGraph {
                     visited: new_visited,
                 });
                 bags.entry(target).or_default().push(nidx);
-                frontier.push(Reverse((OrderedFloat(new_cost), nidx)));
+                frontier.push(Reverse((hops + 1, nidx)));
                 tracker.observe_bag(bags[&target].len());
 
                 if let Some(limit) = tracker.label_limit() {
@@ -719,22 +657,11 @@ impl ReductionGraph {
                     }
                     tracker.reach(LimitReached::LabelsPerNodeLimit);
                     let mut entries = bags[&target].clone();
-                    let entry_cost = |i: usize| {
-                        arena[i]
-                            .label
-                            .as_ref()
-                            .map(|l| l.cost())
-                            .unwrap_or(f64::INFINITY)
-                    };
                     entries.sort_by(|&a, &b| {
-                        entry_cost(a)
-                            .partial_cmp(&entry_cost(b))
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                            .then_with(|| arena[a].hops.cmp(&arena[b].hops))
-                            .then_with(|| {
-                                self.path_order_key(&node_path(&arena, a))
-                                    .cmp(&self.path_order_key(&node_path(&arena, b)))
-                            })
+                        arena[a].hops.cmp(&arena[b].hops).then_with(|| {
+                            self.path_order_key(&node_path(&arena, a))
+                                .cmp(&self.path_order_key(&node_path(&arena, b)))
+                        })
                     });
                     for &j in &entries[limit..] {
                         arena[j].label = None;
@@ -767,6 +694,7 @@ impl ReductionGraph {
             .collect();
 
         completed.sort_by(Self::compare_front_entries);
+        tracker.record_completed(completed.len());
 
         let mut front = Vec::new();
         for candidate in completed {
@@ -816,11 +744,7 @@ impl ReductionGraph {
         a: &(ReductionPath, L),
         b: &(ReductionPath, L),
     ) -> std::cmp::Ordering {
-        a.1.cost()
-            .partial_cmp(&b.1.cost())
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.0.len().cmp(&b.0.len()))
-            .then_with(|| a.0.type_names().cmp(&b.0.type_names()))
+        compare_reduction_paths(&a.0, &b.0)
     }
 
     fn insert_terminal_candidate<L: PathLabel>(
@@ -872,21 +796,6 @@ impl ReductionGraph {
         tracker.finish(front)
     }
 
-    /// Pick the best element of a Pareto front under the deterministic tie-break
-    /// (smallest cost, then fewest hops, then lexicographic node names). The front is
-    /// already sorted by [`pareto_search`](Self::pareto_search), so this returns the
-    /// first element.
-    fn pick_best_front<L: PathLabel>(
-        &self,
-        front: &mut Vec<(ReductionPath, L)>,
-    ) -> Option<(ReductionPath, L)> {
-        if front.is_empty() {
-            None
-        } else {
-            Some(front.remove(0))
-        }
-    }
-
     /// Deterministic total-order key for a node-index path.
     ///
     /// Reproduces the `Name/val1/val2` slash signature the CLI historically used
@@ -927,55 +836,64 @@ impl ReductionGraph {
         ReductionPath { steps }
     }
 
-    /// Enumerate witness-capable simple paths from `src` to any target, executing each
-    /// reduction as it is reached and retaining the measured-smallest completed target.
+    /// Enumerate witness-capable simple paths and retain the measured terminal Pareto front.
     ///
     /// This is deliberately separate from [`pareto_search`](Self::pareto_search): no
     /// dominance relation, hop cap, bag cap, or scalar branch-and-bound is valid for a
     /// structure-dependent concrete instance. Repeated nodes are excluded because this
     /// API searches graph paths (not unbounded walks); that is the sole structural
     /// termination condition.
-    fn measured_best_simple_path<'a>(
+    fn measured_simple_path_front<'a>(
         &self,
         src: NodeIndex,
         targets: &HashSet<NodeIndex>,
         mode: ReductionMode,
         initial: MeasuredLabel<'a>,
         tracker: &mut SearchTracker,
-    ) -> Option<(ReductionPath, MeasuredLabel<'a>)> {
+    ) -> Vec<(ReductionPath, MeasuredLabel<'a>)> {
         tracker.record_generated();
         if tracker.label_limit() == Some(0) {
             tracker.reach(LimitReached::LabelsPerNodeLimit);
-            return None;
+            return Vec::new();
+        }
+        if tracker.is_exact_mode() {
+            let mut adjacency = vec![Vec::new(); self.graph.node_count()];
+            for node in self.graph.node_indices() {
+                adjacency[node.index()] = self.ordered_outgoing_edges(node, mode);
+            }
+            tracker.observe_bag(1);
+            let mut path = vec![src];
+            let mut visited = vec![false; self.graph.node_count()];
+            visited[src.index()] = true;
+            let mut front = Vec::new();
+            self.measured_exact_visit(
+                src,
+                targets,
+                initial,
+                &adjacency,
+                &mut path,
+                &mut visited,
+                &mut front,
+                tracker,
+            );
+            front.sort_by(|a, b| compare_reduction_paths(&a.0, &b.0));
+            return front;
         }
         let mut stack = vec![(src, vec![src], initial)];
         let mut retained_per_node: HashMap<NodeIndex, usize> = HashMap::new();
         retained_per_node.insert(src, 1);
         tracker.observe_bag(1);
         let mut adjacency: HashMap<NodeIndex, Vec<(NodeIndex, EdgeIndex)>> = HashMap::new();
-        let mut best: Option<(Vec<NodeIndex>, MeasuredLabel<'a>)> = None;
+        let mut front: Vec<(ReductionPath, MeasuredLabel<'a>)> = Vec::new();
 
         while let Some((node, node_path, label)) = stack.pop() {
             if let Some(retained) = retained_per_node.get_mut(&node) {
                 *retained -= 1;
             }
             if targets.contains(&node) {
-                let candidate_key = (
-                    label.measured_size().total(),
-                    node_path.len(),
-                    self.path_order_key(&node_path),
-                );
-                let is_better = best.as_ref().is_none_or(|(best_path, best_label)| {
-                    let best_key = (
-                        best_label.measured_size().total(),
-                        best_path.len(),
-                        self.path_order_key(best_path),
-                    );
-                    candidate_key < best_key
-                });
-                if is_better {
-                    best = Some((node_path, label));
-                }
+                tracker.record_completed(1);
+                let candidate = (self.node_path_to_reduction_path(&node_path), label);
+                self.insert_terminal_candidate(&mut front, candidate, tracker);
                 continue;
             }
 
@@ -1026,7 +944,57 @@ impl ReductionGraph {
             }
         }
 
-        best.map(|(path, label)| (self.node_path_to_reduction_path(&path), label))
+        front.sort_by(|a, b| compare_reduction_paths(&a.0, &b.0));
+        front
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn measured_exact_visit<'a>(
+        &self,
+        node: NodeIndex,
+        targets: &HashSet<NodeIndex>,
+        label: MeasuredLabel<'a>,
+        adjacency: &[Vec<(NodeIndex, EdgeIndex)>],
+        path: &mut Vec<NodeIndex>,
+        visited: &mut [bool],
+        front: &mut Vec<(ReductionPath, MeasuredLabel<'a>)>,
+        tracker: &mut SearchTracker,
+    ) {
+        if targets.contains(&node) {
+            tracker.record_completed(1);
+            let candidate = (self.node_path_to_reduction_path(path), label);
+            self.insert_terminal_candidate(front, candidate, tracker);
+            return;
+        }
+        if adjacency[node.index()].is_empty() {
+            return;
+        }
+        tracker.record_expanded();
+        for &(target, edge_idx) in &adjacency[node.index()] {
+            if visited[target.index()] {
+                continue;
+            }
+            let weight = &self.graph[edge_idx];
+            let target_node = &self.nodes[self.graph[target]];
+            let edge = ReductionEdge {
+                overhead: &weight.overhead,
+                reduce_fn: weight.reduce_fn,
+                target_name: target_node.name,
+                target_variant: &target_node.variant,
+            };
+            let Some(next_label) = label.extend(&edge) else {
+                tracker.record_infeasible();
+                continue;
+            };
+            tracker.record_generated();
+            visited[target.index()] = true;
+            path.push(target);
+            self.measured_exact_visit(
+                target, targets, next_label, adjacency, path, visited, front, tracker,
+            );
+            path.pop();
+            visited[target.index()] = false;
+        }
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -1460,6 +1428,26 @@ impl ReductionGraph {
         result
     }
 
+    fn validate_size_budget(&self, budget: &SizeBudget) -> Result<(), UnknownSizeField> {
+        let mut known: HashSet<&str> = self
+            .name_to_nodes
+            .keys()
+            .flat_map(|name| crate::registry::declared_size_fields(name))
+            .collect();
+        for entry in inventory::iter::<ReductionEntry> {
+            if self.name_to_nodes.contains_key(entry.source_name) {
+                known.extend(entry.overhead().input_variable_names());
+            }
+            if self.name_to_nodes.contains_key(entry.target_name) {
+                known.extend(entry.overhead().output_size.iter().map(|(field, _)| *field));
+            }
+        }
+        if let Some(field) = budget.fields().find(|field| !known.contains(field)) {
+            return Err(UnknownSizeField(field.to_string()));
+        }
+        Ok(())
+    }
+
     /// Evaluate the cumulative output size along a reduction path.
     ///
     /// Walks the path from start to end, applying each edge's overhead
@@ -1871,7 +1859,7 @@ impl ReductionGraph {
     /// Returns `Some(MatchedEntry)` only when both the source and target variants
     /// match exactly. No fallback is attempted — callers that need fuzzy matching
     /// should resolve variants before calling this method.
-    pub fn find_best_entry(
+    pub fn find_entry(
         &self,
         source_name: &str,
         source_variant: &BTreeMap<String, String>,
@@ -1900,7 +1888,7 @@ impl ReductionGraph {
     }
 }
 
-/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
+/// A matched reduction entry returned by [`ReductionGraph::find_entry`].
 pub struct MatchedEntry {
     /// The entry's source variant.
     pub source_variant: BTreeMap<String, String>,
@@ -2075,9 +2063,9 @@ impl ReductionGraph {
     }
 }
 
-/// A concrete reduction path selected by the measured Pareto search.
+/// A concrete reduction path returned by the measured Pareto search.
 ///
-/// Holds the winning [`ReductionPath`], its **measured** final target
+/// Holds a [`ReductionPath`], its **measured** final target
 /// [`ProblemSize`], and the already-constructed reduction chain so downstream
 /// solve/witness extraction reuses it without re-executing the reductions.
 pub struct MeasuredPath {
@@ -2087,6 +2075,49 @@ pub struct MeasuredPath {
     pub size: ProblemSize,
     /// The executed reduction steps (one per hop), shared via `Rc`.
     steps: Vec<Rc<dyn DynReductionResult>>,
+}
+
+/// A searched route excluded from symbolic optimization at the analysis boundary.
+#[derive(Debug)]
+pub struct ExcludedSymbolicPath {
+    pub path: ReductionPath,
+    pub failure: AnalysisFailure,
+}
+
+/// Symbolic Pareto result with analysis coverage reported separately from search completeness.
+#[derive(Debug)]
+pub struct SymbolicParetoFront {
+    pub front: Vec<(ReductionPath, GrowthLabel)>,
+    pub excluded: Vec<ExcludedSymbolicPath>,
+    pub coverage: AnalysisCoverage,
+}
+
+/// Every searched terminal route crossed the symbolic analysis-failure boundary.
+#[derive(Debug)]
+pub struct NoAnalyzablePath {
+    pub excluded: Vec<ExcludedSymbolicPath>,
+    pub coverage: AnalysisCoverage,
+}
+
+impl std::fmt::Display for NoAnalyzablePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "no analyzable reduction path")
+    }
+}
+
+impl std::error::Error for NoAnalyzablePath {}
+
+fn compare_reduction_paths(a: &ReductionPath, b: &ReductionPath) -> std::cmp::Ordering {
+    a.len().cmp(&b.len()).then_with(|| {
+        a.steps
+            .iter()
+            .map(|step| (step.name.as_str(), &step.variant))
+            .cmp(
+                b.steps
+                    .iter()
+                    .map(|step| (step.name.as_str(), &step.variant)),
+            )
+    })
 }
 
 impl MeasuredPath {
@@ -2112,17 +2143,12 @@ impl MeasuredPath {
 }
 
 impl ReductionGraph {
-    /// Find the reduction path with the smallest **measured** final target size.
+    /// Return the componentwise measured Pareto front for one exact target variant.
     ///
-    /// Unlike [`find_cheapest_path_mode`](Self::find_cheapest_path_mode), which ranks
-    /// paths by overhead *formulas* (scaling upper bounds that can be arbitrarily loose
-    /// on structure-dependent constructions), this runs the [`MeasuredLabel`] domain:
-    /// it *actually executes* each reduction on `source_instance` and measures the real
-    /// constructed target size. Asymptotic overhead formulas are not treated as concrete
-    /// bounds and do not prune candidates. See design doc M3/F3b.
+    /// This executes each reduction on `source_instance` and measures the real constructed
+    /// target size. Asymptotic overhead formulas are not concrete bounds and do not prune.
     ///
-    /// `budget` is the hard total-size limit (sum of `ProblemSize` components); use
-    /// [`DEFAULT_SIZE_BUDGET`](crate::rules::DEFAULT_SIZE_BUDGET) for the default.
+    /// `budget` contains independent limits for registered `ProblemSize` fields.
     /// Exact search enumerates witness-capable simple paths without dominance pruning or
     /// branch-and-bound. Approximate search applies only the limits explicitly carried by
     /// `search_mode`. Neither size vectors nor serialized state equality discard a route.
@@ -2130,9 +2156,10 @@ impl ReductionGraph {
     /// Because the target must be built before it can be measured, the budget is not an
     /// anti-OOM guarantee.
     ///
-    /// Returns `None` if no in-budget witness-capable path exists (or `source == target`).
+    /// Returns an empty front if no in-budget witness-capable path exists (or
+    /// `source == target`).
     #[allow(clippy::too_many_arguments)]
-    pub fn find_measured_best_path(
+    pub fn measured_front(
         &self,
         source: &str,
         source_variant: &BTreeMap<String, String>,
@@ -2140,26 +2167,29 @@ impl ReductionGraph {
         target_variant: &BTreeMap<String, String>,
         mode: ReductionMode,
         source_instance: &dyn Any,
-        budget: usize,
+        budget: SizeBudget,
         search_mode: SearchMode,
-    ) -> SearchOutcome<Option<MeasuredPath>> {
+    ) -> Result<SearchOutcome<Vec<MeasuredPath>>, UnknownSizeField> {
+        self.validate_size_budget(&budget)?;
         let mut tracker = SearchTracker::new(&search_mode);
         let (Some(src), Some(dst)) = (
             self.lookup_node(source, source_variant),
             self.lookup_node(target, target_variant),
         ) else {
-            return tracker.finish(None);
+            return Ok(tracker.finish(Vec::new()));
         };
         if src == dst {
-            return tracker.finish(None);
+            return Ok(tracker.finish(Vec::new()));
         }
         let source_size = Self::compute_source_size(source, source_variant, source_instance);
         let initial = MeasuredLabel::new(source_instance, source_size, budget);
         let targets = HashSet::from([dst]);
-        let result = self
-            .measured_best_simple_path(src, &targets, mode, initial, &mut tracker)
-            .and_then(|(path, label)| Self::measured_path_from_label(path, label));
-        tracker.finish(result)
+        let front = self
+            .measured_simple_path_front(src, &targets, mode, initial, &mut tracker)
+            .into_iter()
+            .filter_map(|(path, label)| Self::measured_path_from_label(path, label))
+            .collect();
+        Ok(tracker.finish(front))
     }
 
     /// Compute the **asymptotic Pareto front** of reduction paths from `source` to
@@ -2171,9 +2201,10 @@ impl ReductionGraph {
     /// variables), read off the returned label. Because asymptotic growth over several
     /// size variables is a *partial* order, the answer is a front: possibly several
     /// mutually incomparable optimal paths (one better in one size field, another in a
-    /// different one). Paths whose composed growth is [`Growth::Unknown`] (nonlinear
-    /// exponent, factorial) are still returned, with those fields marked `Unknown` —
-    /// never a fabricated bound.
+    /// different one). Paths whose composed growth is [`Growth::Unknown`] cross the
+    /// analysis boundary: they are excluded from the front and returned with an explicit
+    /// failure reason. If every discovered path is excluded, the result is
+    /// [`NoAnalyzablePath`].
     ///
     /// The terminal front reports **one representative path per distinct growth vector**:
     /// the asymptotic front is a Pareto set over *growth vectors*, not routes. Many
@@ -2181,7 +2212,7 @@ impl ReductionGraph {
     /// field (e.g. dozens of `MinimumVertexCover → … → ILP` routes all yield
     /// `num_constraints = O(num_edges), num_vars = O(num_vertices)`); reporting each
     /// route would drown the genuinely distinct trade-offs the user cares about.
-    /// So terminal equality filtering keeps the deterministic best per group: fewest
+    /// So terminal equality filtering keeps one deterministic representative per group: fewest
     /// hops, then lexicographic node-name path. Equality is purely by the growth vector,
     /// so two paths that
     /// reach *different* target variants (e.g. `ILP/bool` vs `ILP/i32`) with the same
@@ -2192,7 +2223,7 @@ impl ReductionGraph {
     /// the output is byte-identical across runs and platforms. Returns an empty vector
     /// if either endpoint is unregistered or no path exists. `Exact` covers every
     /// elementary path under the symbolic growth domain; `Approximate` may return a
-    /// best-so-far front and reports any reached limits. Symbolic exactness is not a
+    /// partial front and reports any reached limits. Symbolic exactness is not a
     /// statement about concrete constructed target sizes.
     pub fn asymptotic_front(
         &self,
@@ -2202,50 +2233,82 @@ impl ReductionGraph {
         target_variant: &BTreeMap<String, String>,
         mode: ReductionMode,
         search_mode: SearchMode,
-    ) -> SearchOutcome<Vec<(ReductionPath, GrowthLabel)>> {
+    ) -> SearchOutcome<Result<SymbolicParetoFront, NoAnalyzablePath>> {
         let mut tracker = SearchTracker::new(&search_mode);
         let (Some(src), Some(dst)) = (
             self.lookup_node(source, source_variant),
             self.lookup_node(target, target_variant),
         ) else {
-            return tracker.finish(vec![]);
+            return tracker.finish(Ok(SymbolicParetoFront {
+                front: Vec::new(),
+                excluded: Vec::new(),
+                coverage: AnalysisCoverage {
+                    analyzed_paths: 0,
+                    excluded_paths: 0,
+                },
+            }));
         };
         let source_fields = self.size_field_names(source);
         let initial = GrowthLabel::source(&source_fields);
-        let mut front = self.pareto_search(src, dst, mode, initial, &mut tracker);
-        // Order per the public contract: (hops, lexicographic node names). The kernel's
-        // own ordering leads with `cost()`, which is only an agenda heuristic.
+        let searched = self.pareto_search(src, dst, mode, initial, &mut tracker);
+        let mut front = Vec::new();
+        let mut excluded = Vec::new();
+        for (path, label) in searched {
+            if let Some(failure) = label.analysis_failure() {
+                excluded.push(ExcludedSymbolicPath { path, failure });
+            } else {
+                front.push((path, label));
+            }
+        }
+        // Order per the public contract: (hops, lexicographic node names).
         front.sort_by(|a, b| {
             a.0.len()
                 .cmp(&b.0.len())
                 .then_with(|| a.0.type_names().cmp(&b.0.type_names()))
         });
-        tracker.finish(front)
+        excluded.sort_by(|a, b| {
+            a.path
+                .len()
+                .cmp(&b.path.len())
+                .then_with(|| a.path.type_names().cmp(&b.path.type_names()))
+        });
+        let coverage = AnalysisCoverage {
+            analyzed_paths: tracker.completed_states() - excluded.len(),
+            excluded_paths: excluded.len(),
+        };
+        if front.is_empty() && !excluded.is_empty() {
+            tracker.finish(Err(NoAnalyzablePath { excluded, coverage }))
+        } else {
+            tracker.finish(Ok(SymbolicParetoFront {
+                front,
+                excluded,
+                coverage,
+            }))
+        }
     }
 
-    /// Find the measured-smallest path from `source` to **any** variant of the target
-    /// problem name `target`.
+    /// Return the componentwise measured Pareto front across all target variants.
     ///
     /// Performs one traversal whose terminal set contains every target variant, so limits,
-    /// statistics, and constructed prefixes are shared across the whole request. Returns
-    /// the overall measured-smallest result with a deterministic tie-break by measured
-    /// total size, hops, and node-name path. Exactness is relative to in-budget elementary
+    /// statistics, and constructed prefixes are shared across the whole request. Exactness
+    /// is relative to in-budget elementary
     /// paths: the concrete budget is checked after each intermediate is constructed and
     /// is not an allocation-safety guarantee.
     #[allow(clippy::too_many_arguments)]
-    pub fn find_measured_best_path_to_name(
+    pub fn measured_front_to_name(
         &self,
         source: &str,
         source_variant: &BTreeMap<String, String>,
         target: &str,
         mode: ReductionMode,
         source_instance: &dyn Any,
-        budget: usize,
+        budget: SizeBudget,
         search_mode: SearchMode,
-    ) -> SearchOutcome<Option<MeasuredPath>> {
+    ) -> Result<SearchOutcome<Vec<MeasuredPath>>, UnknownSizeField> {
+        self.validate_size_budget(&budget)?;
         let mut tracker = SearchTracker::new(&search_mode);
         let Some(src) = self.lookup_node(source, source_variant) else {
-            return tracker.finish(None);
+            return Ok(tracker.finish(Vec::new()));
         };
         let targets: HashSet<NodeIndex> = self
             .variants_for(target)
@@ -2254,15 +2317,17 @@ impl ReductionGraph {
             .filter(|target_node| *target_node != src)
             .collect();
         if targets.is_empty() {
-            return tracker.finish(None);
+            return Ok(tracker.finish(Vec::new()));
         }
 
         let source_size = Self::compute_source_size(source, source_variant, source_instance);
         let initial = MeasuredLabel::new(source_instance, source_size, budget);
-        let result = self
-            .measured_best_simple_path(src, &targets, mode, initial, &mut tracker)
-            .and_then(|(path, label)| Self::measured_path_from_label(path, label));
-        tracker.finish(result)
+        let front = self
+            .measured_simple_path_front(src, &targets, mode, initial, &mut tracker)
+            .into_iter()
+            .filter_map(|(path, label)| Self::measured_path_from_label(path, label))
+            .collect();
+        Ok(tracker.finish(front))
     }
 }
 

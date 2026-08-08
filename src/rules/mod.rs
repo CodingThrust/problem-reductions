@@ -1,13 +1,9 @@
 //! Reduction rules between NP-hard problems.
 
 pub mod analysis;
-pub mod cost;
 pub mod pareto;
 pub mod registry;
 pub mod search;
-pub use cost::{
-    CustomCost, Minimize, MinimizeOutputSize, MinimizeSteps, MinimizeStepsThenOverhead, PathCostFn,
-};
 pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod bicliquecover_bmf;
@@ -408,11 +404,13 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 #[cfg(test)]
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
-    AggregateReductionChain, MeasuredPath, NeighborInfo, NeighborTree, ReductionChain,
-    ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
+    AggregateReductionChain, ExcludedSymbolicPath, MeasuredPath, NeighborInfo, NeighborTree,
+    NoAnalyzablePath, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
+    ReductionPath, ReductionStep, SymbolicParetoFront, TraversalFlow,
 };
 pub use pareto::{
-    CostLabel, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge, DEFAULT_SIZE_BUDGET,
+    AnalysisCoverage, AnalysisFailure, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge,
+    SizeBudget, UnknownSizeField,
 };
 pub use search::{
     ApproximationPolicy, LimitReached, SearchCompleteness, SearchLimits, SearchMode, SearchOutcome,

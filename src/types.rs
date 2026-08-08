@@ -558,11 +558,6 @@ impl ProblemSize {
             .find(|(k, _)| k == name)
             .map(|(_, v)| *v)
     }
-
-    /// Sum of all component values.
-    pub fn total(&self) -> usize {
-        self.components.iter().map(|(_, v)| *v).sum()
-    }
 }
 
 impl fmt::Display for ProblemSize {

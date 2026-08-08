@@ -1,10 +1,10 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::MinimumVertexCover;
-use crate::rules::{Minimize, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::BruteForce;
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Min, ProblemSize};
+use crate::types::Min;
 
 fn reduce_vc_to_qubo(
     problem: &MinimumVertexCover<SimpleGraph, i32>,
@@ -13,20 +13,18 @@ fn reduce_vc_to_qubo(
     let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MinimumVertexCover",
-            &src,
-            "QUBO",
-            &dst,
-            &ProblemSize::new(vec![
-                ("num_vertices", problem.graph().num_vertices()),
-                ("num_edges", problem.graph().num_edges()),
-            ]),
-            &Minimize("num_vars"),
-            crate::rules::SearchMode::Exact,
-        )
-        .value
-        .expect("Should find path MinimumVertexCover -> QUBO");
+        .find_all_paths("MinimumVertexCover", &src, "QUBO", &dst)
+        .into_iter()
+        .find(|path| {
+            path.type_names()
+                == [
+                    "MinimumVertexCover",
+                    "MaximumIndependentSet",
+                    "MaximumSetPacking",
+                    "QUBO",
+                ]
+        })
+        .expect("expected explicit MaximumIndependentSet route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
         .expect("Should reduce MinimumVertexCover to QUBO along path");

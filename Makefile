@@ -289,12 +289,12 @@ cli-demo: cli
 	$$PRED from QUBO --hops 1; \
 	\
 	echo ""; \
-	echo "--- 5. path: asymptotic Pareto front (no --size) ---"; \
+	echo "--- 5. path: asymptotic Pareto front ---"; \
 	$$PRED path MIS QUBO; \
 	$$PRED path Factoring SpinGlass; \
-	echo "--- 5b. path --cost: single concrete path (for reduce --via) ---"; \
-	$$PRED path MIS QUBO --cost minimize-steps -o $(CLI_DEMO_DIR)/path_mis_qubo.json; \
-	$$PRED path MIS QUBO --cost minimize:num_variables; \
+	echo "--- 5b. explicitly choose one semantic route from the Pareto front ---"; \
+	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/front_mis_qubo.json; \
+	jq -e 'first(.front[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MaximumSetPacking", "MaximumSetPacking", "QUBO"]))' $(CLI_DEMO_DIR)/front_mis_qubo.json > $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	\
 	echo ""; \
 	echo "--- 6. path --all: enumerate all paths ---"; \
@@ -341,8 +341,8 @@ cli-demo: cli
 	$$PRED solve $(CLI_DEMO_DIR)/mis_weighted.json; \
 	\
 	echo ""; \
-	echo "--- 13. reduce: MIS → QUBO (auto-discover path) ---"; \
-	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to QUBO -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
+	echo "--- 13. reduce: MIS → QUBO along the chosen Pareto route ---"; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
 	\
 	echo ""; \
 	echo "--- 14. solve bundle: brute-force on reduced QUBO ---"; \
@@ -354,7 +354,9 @@ cli-demo: cli
 	\
 	echo ""; \
 	echo "--- 16. solve bundle with ILP: MIS → MVC → ILP ---"; \
-	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to MVC -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
+	$$PRED path MIS MVC -o $(CLI_DEMO_DIR)/front_mis_mvc.json; \
+	jq -e 'first(.front[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MinimumVertexCover"]))' $(CLI_DEMO_DIR)/front_mis_mvc.json > $(CLI_DEMO_DIR)/path_mis_mvc.json; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_mvc.json -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
 	$$PRED solve $(CLI_DEMO_DIR)/bundle_mvc.json --solver ilp; \
 	\
 	echo ""; \
@@ -371,7 +373,7 @@ cli-demo: cli
 	echo "Solving with ILP..."; \
 	$$PRED solve $(CLI_DEMO_DIR)/big.json -o $(CLI_DEMO_DIR)/big_sol.json; \
 	echo "Reducing to QUBO and solving with brute-force..."; \
-	$$PRED reduce $(CLI_DEMO_DIR)/big.json --to QUBO -o $(CLI_DEMO_DIR)/big_qubo.json; \
+	$$PRED reduce $(CLI_DEMO_DIR)/big.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/big_qubo.json; \
 	$$PRED solve $(CLI_DEMO_DIR)/big_qubo.json --solver brute-force -o $(CLI_DEMO_DIR)/big_qubo_sol.json; \
 	echo "Verifying both solutions have the same evaluation..."; \
 	ILP_EVAL=$$(jq -r '.evaluation' $(CLI_DEMO_DIR)/big_sol.json); \

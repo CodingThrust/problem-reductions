@@ -4,6 +4,75 @@ fn pred() -> Command {
     Command::new(env!("CARGO_BIN_EXE_pred"))
 }
 
+fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
+    let command = pred()
+        .args(["path", source, target, "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        command.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&command.stderr)
+    );
+    let envelope: serde_json::Value = serde_json::from_slice(&command.stdout).unwrap();
+    let entry = envelope["front"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| {
+            let edges = entry["path"].as_array().unwrap();
+            let mut actual = vec![edges[0]["from"]["name"].as_str().unwrap()];
+            actual.extend(
+                edges
+                    .iter()
+                    .map(|edge| edge["to"]["name"].as_str().unwrap()),
+            );
+            actual == names
+        })
+        .expect("requested route must be present in the Pareto front");
+    std::fs::write(output, serde_json::to_vec_pretty(entry).unwrap()).unwrap();
+}
+
+fn reduce_named_to_file(
+    problem: &std::path::Path,
+    source: &str,
+    target: &str,
+    names: &[&str],
+    output: &std::path::Path,
+) -> std::process::Output {
+    let route = output.with_extension("route.json");
+    write_named_route(source, target, names, &route);
+    let result = pred()
+        .args([
+            "-o",
+            output.to_str().unwrap(),
+            "reduce",
+            problem.to_str().unwrap(),
+            "--via",
+            route.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    std::fs::remove_file(route).ok();
+    result
+}
+
+fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
+    let command = pred()
+        .args(["path", source, target, "--all", "--json"])
+        .output()
+        .unwrap();
+    assert!(command.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&command.stdout).unwrap();
+    let route = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| path["steps"] == 1)
+        .expect("advertised direct reduction must have a direct route");
+    std::fs::write(output, serde_json::to_vec_pretty(route).unwrap()).unwrap();
+}
+
 #[test]
 fn test_help() {
     let output = pred().arg("--help").output().unwrap();
@@ -343,24 +412,18 @@ fn test_path_empty_bounded_result_is_reported_as_incomplete() {
 #[test]
 fn test_path_save() {
     let tmp = std::env::temp_dir().join("pred_test_path.json");
-    // `--cost` selects the single-path save format (consumed by `reduce --via`).
     let output = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "--cost",
-            "minimize-steps",
-            "-o",
-            tmp.to_str().unwrap(),
-        ])
+        .args(["path", "MIS", "QUBO", "-o", tmp.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(output.status.success());
     assert!(tmp.exists());
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["path"].is_array());
+    assert!(json.get("path").is_none());
+    assert!(json["front"]
+        .as_array()
+        .is_some_and(|front| !front.is_empty()));
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -377,7 +440,7 @@ fn test_path_all() {
 }
 
 #[test]
-fn test_path_all_rejects_ranked_search_policy() {
+fn test_path_all_rejects_pareto_search_policy() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--all", "--search-mode", "exact"])
         .output()
@@ -1270,7 +1333,19 @@ fn test_reduce() {
     }"#;
     let input = std::env::temp_dir().join("pred_test_reduce_in.json");
     let output_file = std::env::temp_dir().join("pred_test_reduce_out.json");
+    let route_file = std::env::temp_dir().join("pred_test_reduce_route.json");
     std::fs::write(&input, problem_json).unwrap();
+    write_named_route(
+        "MIS/SimpleGraph/i32",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
         .args([
@@ -1278,8 +1353,8 @@ fn test_reduce() {
             output_file.to_str().unwrap(),
             "reduce",
             input.to_str().unwrap(),
-            "--to",
-            "QUBO",
+            "--via",
+            route_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
@@ -1297,6 +1372,7 @@ fn test_reduce() {
     assert!(bundle["path"].is_array());
 
     std::fs::remove_file(&input).ok();
+    std::fs::remove_file(&route_file).ok();
     std::fs::remove_file(&output_file).ok();
 }
 
@@ -1319,22 +1395,19 @@ fn test_reduce_via_path() {
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Generate path file (use same variant as the problem)
+    // 2. Explicitly extract a named route from the Pareto front.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
+    write_named_route(
+        "MIS/SimpleGraph/i32",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-            // A single concrete path (not the asymptotic front) for `reduce --via`.
-            "--cost",
-            "minimize-steps",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(path_out.status.success());
+        ],
+        &path_file,
+    );
 
     // 3. Reduce via path file
     let output_file = std::env::temp_dir().join("pred_test_reduce_via_out.json");
@@ -1344,8 +1417,6 @@ fn test_reduce_via_path() {
             output_file.to_str().unwrap(),
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
             "--via",
             path_file.to_str().unwrap(),
         ])
@@ -1363,31 +1434,64 @@ fn test_reduce_via_path() {
     assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
     assert_eq!(bundle["target"]["type"], "QUBO");
 
-    let rejected = pred()
-        .args([
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--via",
-            path_file.to_str().unwrap(),
-            "--search-mode",
-            "exact",
-        ])
-        .output()
-        .unwrap();
-    assert!(!rejected.status.success());
-    let stderr = String::from_utf8(rejected.stderr).unwrap();
-    assert!(stderr.contains("cannot be used with --via"), "{stderr}");
-
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&path_file).ok();
     std::fs::remove_file(&output_file).ok();
 }
 
-/// The documented round-trip: a *bare* `pred path S T -o path.json` (no `--cost`)
-/// saves the asymptotic front plus a top-level best `path`, which `pred reduce --via`
-/// must consume.
 #[test]
-fn test_reduce_via_bare_path() {
+fn test_reduce_rejects_discontinuous_explicit_route() {
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_discontinuous_in.json");
+    let route_file = std::env::temp_dir().join("pred_test_reduce_discontinuous_route.json");
+    let create = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS/SimpleGraph/i32",
+            "--graph",
+            "0-1,1-2",
+            "--weights",
+            "1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create.status.success());
+    write_named_route(
+        "MIS/SimpleGraph/i32",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
+    let mut route: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&route_file).unwrap()).unwrap();
+    route["path"][1]["from"]["name"] = serde_json::json!("MinimumVertexCover");
+    std::fs::write(&route_file, serde_json::to_vec_pretty(&route).unwrap()).unwrap();
+
+    let output = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            route_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("not continuous"));
+
+    std::fs::remove_file(problem_file).ok();
+    std::fs::remove_file(route_file).ok();
+}
+
+/// A Pareto-front envelope is not itself an executable route.
+#[test]
+fn test_reduce_rejects_unselected_front() {
     // 1. Create a small source problem (small so the target brute-force stays tiny).
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_bare_in.json");
     let create_out = pred()
@@ -1405,7 +1509,7 @@ fn test_reduce_via_bare_path() {
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Bare path save (NO --cost): asymptotic front + best path.
+    // 2. Save the complete front without choosing a route.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_bare_path.json");
     let path_out = pred()
         .args([
@@ -1423,12 +1527,8 @@ fn test_reduce_via_bare_path() {
         String::from_utf8_lossy(&path_out.stderr)
     );
 
-    // 3. Reduce via the bare path file (target inferred from the file).
-    let output_file = std::env::temp_dir().join("pred_test_reduce_via_bare_out.json");
     let reduce_out = pred()
         .args([
-            "-o",
-            output_file.to_str().unwrap(),
             "reduce",
             problem_file.to_str().unwrap(),
             "--via",
@@ -1436,25 +1536,16 @@ fn test_reduce_via_bare_path() {
         ])
         .output()
         .unwrap();
-    assert!(
-        reduce_out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&reduce_out.stderr)
-    );
-    let content = std::fs::read_to_string(&output_file).unwrap();
-    let bundle: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
-    assert_eq!(bundle["target"]["type"], "QUBO");
+    assert!(!reduce_out.status.success());
+    assert!(String::from_utf8_lossy(&reduce_out.stderr).contains("explicit route"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&path_file).ok();
-    std::fs::remove_file(&output_file).ok();
 }
 
-/// The bare-path envelope must expose BOTH the asymptotic `front` and a top-level
-/// `path` step array (the best path) so it remains a valid `reduce --via` route file.
+/// Every Pareto item carries its route, while the envelope selects none.
 #[test]
-fn test_path_front_envelope_has_front_and_path() {
+fn test_path_front_envelope_has_only_per_item_paths() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--json"])
         .output()
@@ -1467,9 +1558,11 @@ fn test_path_front_envelope_has_front_and_path() {
     assert_eq!(json["mode"], "asymptotic");
     assert!(json["front"].as_array().is_some_and(|f| !f.is_empty()));
 
-    // Top-level best path, in the step shape `reduce --via` parses.
-    let path = json["path"].as_array().expect("top-level path array");
-    assert!(!path.is_empty(), "top-level path must have ≥ 1 step");
+    assert!(json.get("path").is_none());
+    let path = json["front"][0]["path"]
+        .as_array()
+        .expect("front item path");
+    assert!(!path.is_empty(), "front item path must have ≥ 1 step");
     let first = &path[0];
     assert!(first["from"]["name"].is_string(), "step needs from.name");
     assert!(first["to"]["name"].is_string(), "step needs to.name");
@@ -1496,20 +1589,17 @@ fn test_reduce_via_infer_target() {
     assert!(create_out.status.success());
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
+    write_named_route(
+        "MIS/SimpleGraph/i32",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-            // A single concrete path (not the asymptotic front) for `reduce --via`.
-            "--cost",
-            "minimize-steps",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(path_out.status.success());
+        ],
+        &path_file,
+    );
 
     let output_file = std::env::temp_dir().join("pred_test_reduce_via_infer_out.json");
     let reduce_out = pred()
@@ -1540,7 +1630,7 @@ fn test_reduce_via_infer_target() {
 }
 
 #[test]
-fn test_reduce_via_rejects_target_variant_mismatch() {
+fn test_reduce_via_preserves_explicit_target_variant() {
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_variant_in.json");
     let create_out = pred()
         .args([
@@ -1558,53 +1648,36 @@ fn test_reduce_via_rejects_target_variant_mismatch() {
     assert!(create_out.status.success());
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_variant_path.json");
-    let path_out = pred()
-        .args([
-            "path",
-            "MIS/SimpleGraph/i32",
-            "ILP/bool",
-            // A single concrete path (not the asymptotic front) for `reduce --via`.
-            "--cost",
-            "minimize-steps",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        path_out.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&path_out.stderr)
+    write_named_route(
+        "MIS/SimpleGraph/i32",
+        "ILP/bool",
+        &["MaximumIndependentSet", "MaximumClique", "ILP"],
+        &path_file,
     );
 
     let reduce_out = pred()
         .args([
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "ILP/i32",
             "--via",
             path_file.to_str().unwrap(),
         ])
         .output()
         .unwrap();
     assert!(
-        !reduce_out.status.success(),
+        reduce_out.status.success(),
         "stderr: {}",
         String::from_utf8_lossy(&reduce_out.stderr)
     );
-    let stderr = String::from_utf8_lossy(&reduce_out.stderr);
-    assert!(
-        stderr.contains("ILP") && stderr.contains("i32") && stderr.contains("bool"),
-        "expected variant mismatch details, got: {stderr}"
-    );
+    let bundle: serde_json::Value = serde_json::from_slice(&reduce_out.stdout).unwrap();
+    assert_eq!(bundle["target"]["variant"]["variable"], "bool");
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&path_file).ok();
 }
 
 #[test]
-fn test_reduce_missing_to_and_via() {
+fn test_reduce_missing_via() {
     let problem_file = std::env::temp_dir().join("pred_test_reduce_missing.json");
     let create_out = pred()
         .args([
@@ -1625,7 +1698,7 @@ fn test_reduce_missing_to_and_via() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--to") || stderr.contains("--via"));
+    assert!(stderr.contains("--via"));
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -3205,17 +3278,19 @@ fn test_solve_bundle() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -3271,17 +3346,13 @@ fn solve_sat_to_nae_bundle(case: &str, clauses: &str) -> serde_json::Value {
         String::from_utf8_lossy(&create.stderr)
     );
 
-    let reduce = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "NAESatisfiability",
-        ])
-        .output()
-        .unwrap();
+    let reduce = reduce_named_to_file(
+        &problem_file,
+        "Satisfiability",
+        "NAESatisfiability",
+        &["Satisfiability", "NAESatisfiability"],
+        &bundle_file,
+    );
     assert!(
         reduce.status.success(),
         "reduce stderr: {}",
@@ -3344,17 +3415,17 @@ fn test_solve_bundle_ilp() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "MVC",
-        ])
-        .output()
-        .unwrap();
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "MVC/SimpleGraph/i32",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MinimumVertexCover",
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -5172,37 +5243,20 @@ fn test_path_unknown_target() {
 }
 
 #[test]
-fn test_path_with_cost_minimize_field() {
+fn test_path_rejects_removed_cost_selection() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--cost", "minimize:num_variables"])
         .output()
         .unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Path"));
-}
-
-#[test]
-fn test_path_unknown_cost() {
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "--cost", "bad-cost"])
-        .output()
-        .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown cost function"));
+    assert!(stderr.contains("unexpected argument '--cost'"));
 }
 
 #[test]
 fn test_path_overall_overhead_text() {
-    // Use a multi-step path so the "Overall" section appears. `--cost` selects the
-    // single-best mode (the asymptotic front default does not render "Overall").
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--cost", "minimize-steps"])
+        .args(["path", "KSAT/K3", "MIS", "--all"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5215,22 +5269,13 @@ fn test_path_overall_overhead_text() {
 
 #[test]
 fn test_path_overall_overhead_json() {
-    let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
     let output = pred()
-        .args([
-            "path",
-            "KSAT/K3",
-            "MIS",
-            "--cost",
-            "minimize-steps",
-            "-o",
-            tmp.to_str().unwrap(),
-        ])
+        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let json = &envelope["paths"][0];
     assert!(
         json["overall_overhead"].is_array(),
         "JSON should contain overall_overhead"
@@ -5239,7 +5284,6 @@ fn test_path_overall_overhead_json() {
     assert!(!items.is_empty(), "overall_overhead should have entries");
     assert!(items[0]["field"].is_string());
     assert!(items[0]["formula"].is_string());
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
@@ -5247,26 +5291,22 @@ fn test_path_overall_overhead_composition() {
     // Verify that overall overhead is the symbolic composition of per-step overheads,
     // not just the last step's overhead. For a multi-step path A→B→C, the overall
     // should substitute B's output expressions into C's input expressions.
-    let tmp = std::env::temp_dir().join("pred_test_path_composition.json");
     // 3SAT → SAT → MIS gives a 2-step path where:
     //   Step 1 (3SAT→SAT): num_literals = num_literals (identity)
     //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
     //   Overall: num_vertices = num_literals, num_edges = num_literals^2
     let output = pred()
-        .args([
-            "path",
-            "KSAT/K3",
-            "MIS",
-            "--cost",
-            "minimize-steps",
-            "-o",
-            tmp.to_str().unwrap(),
-        ])
+        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let json = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| path["steps"].as_u64().is_some_and(|steps| steps >= 2))
+        .expect("multi-step route");
 
     // Must have at least 2 steps (K3→KN variant cast adds an extra step)
     assert!(json["steps"].as_u64().unwrap() >= 2);
@@ -5304,8 +5344,6 @@ fn test_path_overall_overhead_composition() {
         "num_edges should be in terms of source vars, got: {}",
         overall["num_edges"]
     );
-
-    std::fs::remove_file(&tmp).ok();
 }
 
 #[test]
@@ -5346,7 +5384,7 @@ fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
     // MaxCut -> SpinGlass is a genuine 1-step path with matching default variants
     let output = pred()
-        .args(["path", "MaxCut", "SpinGlass", "--cost", "minimize-steps"])
+        .args(["path", "MaxCut", "SpinGlass", "--all"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5384,36 +5422,6 @@ fn test_show_size_fields() {
 }
 
 #[test]
-fn test_reduce_unknown_target() {
-    let problem_file = std::env::temp_dir().join("pred_test_reduce_unknown.json");
-    let create_out = pred()
-        .args([
-            "-o",
-            problem_file.to_str().unwrap(),
-            "create",
-            "MIS",
-            "--graph",
-            "0-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(create_out.status.success());
-
-    let output = pred()
-        .args([
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "NonExistent",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-
-    std::fs::remove_file(&problem_file).ok();
-}
-
-#[test]
 fn test_reduce_stdout() {
     // Reduce without -o prints to stdout
     let problem_file = std::env::temp_dir().join("pred_test_reduce_stdout.json");
@@ -5429,13 +5437,26 @@ fn test_reduce_stdout() {
         .output()
         .unwrap();
     assert!(create_out.status.success());
+    let route_file = std::env::temp_dir().join("pred_test_reduce_stdout_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
         .args([
             "reduce",
             problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
+            "--via",
+            route_file.to_str().unwrap(),
             "--json",
         ])
         .output()
@@ -5451,6 +5472,7 @@ fn test_reduce_stdout() {
     assert!(json["target"].is_object());
 
     std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&route_file).ok();
 }
 
 #[test]
@@ -5469,9 +5491,27 @@ fn test_reduce_auto_json_output() {
         .output()
         .unwrap();
     assert!(create_out.status.success());
+    let route_file = std::env::temp_dir().join("pred_test_reduce_human_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     let output = pred()
-        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO"])
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            route_file.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(
@@ -5495,6 +5535,7 @@ fn test_reduce_auto_json_output() {
     );
 
     std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&route_file).ok();
 }
 
 // ---- Hint suppression tests ----
@@ -5576,17 +5617,19 @@ fn test_solve_bundle_no_hint_when_piped() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(reduce_out.status.success());
 
     let output = pred()
@@ -6058,7 +6101,7 @@ fn test_create_pipe_to_evaluate() {
 
 #[test]
 fn test_create_pipe_to_reduce() {
-    // pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
+    // pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json
     let create_out = pred()
         .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
@@ -6068,10 +6111,29 @@ fn test_create_pipe_to_reduce() {
         "create stderr: {}",
         String::from_utf8_lossy(&create_out.stderr)
     );
+    let route_file = std::env::temp_dir().join("pred_test_pipe_reduce_route.json");
+    write_named_route(
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
+            "QUBO",
+        ],
+        &route_file,
+    );
 
     use std::io::Write;
     let mut child = pred()
-        .args(["reduce", "-", "--to", "QUBO", "--json"])
+        .args([
+            "reduce",
+            "-",
+            "--via",
+            route_file.to_str().unwrap(),
+            "--json",
+        ])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -6095,6 +6157,7 @@ fn test_create_pipe_to_reduce() {
         json["source"].is_object(),
         "expected source object in reduction bundle, got: {stdout}"
     );
+    std::fs::remove_file(route_file).ok();
 }
 
 // ---- Inspect command tests ----
@@ -6183,10 +6246,16 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
         String::from_utf8_lossy(&weighted_create.stderr)
     );
 
-    for (source, expected, excluded) in [
-        (&unit_file, "MaximumSetPacking", "IntegralFlowBundles"),
+    for (source, source_ref, expected, excluded) in [
+        (
+            &unit_file,
+            "MIS/SimpleGraph/One",
+            "MaximumSetPacking",
+            "IntegralFlowBundles",
+        ),
         (
             &weighted_file,
+            "MIS/SimpleGraph/i32",
             "IntegralFlowBundles",
             "MaximumIndependentSet/KingsSubgraph/One",
         ),
@@ -6210,12 +6279,14 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
             let bundle = std::env::temp_dir().join(format!(
                 "pred_test_inspect_exact_variant_bundle_{index}.json"
             ));
+            let route = bundle.with_extension("route.json");
+            write_direct_route(source_ref, target, &route);
             let reduce = pred()
                 .args([
                     "reduce",
                     source.to_str().unwrap(),
-                    "--to",
-                    target,
+                    "--via",
+                    route.to_str().unwrap(),
                     "-o",
                     bundle.to_str().unwrap(),
                 ])
@@ -6226,6 +6297,7 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
                 "inspect advertised non-executable target {target}: {}",
                 String::from_utf8_lossy(&reduce.stderr)
             );
+            std::fs::remove_file(route).unwrap();
             std::fs::remove_file(bundle).unwrap();
         }
     }
@@ -6330,17 +6402,19 @@ fn test_inspect_bundle() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -9224,17 +9298,19 @@ fn test_solve_bundle_rejects_removed_customized_override_without_panicking() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce failed: {}",
@@ -9360,17 +9436,19 @@ fn test_extract_roundtrip_mis_to_qubo() {
         .unwrap();
     assert!(create_out.status.success());
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -9463,17 +9541,13 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
         String::from_utf8_lossy(&create_out.stderr)
     );
 
-    let reduce_out = pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
-        ])
-        .output()
-        .unwrap();
+    let reduce_out = reduce_named_to_file(
+        &problem_file,
+        "TSP/SimpleGraph/i32",
+        "QUBO",
+        &["TravelingSalesman", "QUBO"],
+        &bundle_file,
+    );
     assert!(
         reduce_out.status.success(),
         "reduce stderr: {}",
@@ -9552,17 +9626,19 @@ fn test_extract_rejects_wrong_config_length() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     let extract_out = pred()
         .args(["extract", bundle_file.to_str().unwrap(), "--config", "0,1"])
@@ -9595,17 +9671,19 @@ fn test_extract_rejects_out_of_range_config_value() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     // Build a valid-length config from pred solve, then flip one entry to 9
     // (always out of range for a binary QUBO regardless of path).
@@ -9653,17 +9731,19 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
     let mut bundle: serde_json::Value = serde_json::from_str(&bundle_text).unwrap();
@@ -9717,17 +9797,19 @@ fn test_extract_rejects_tampered_target_data() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
 
     // Tamper: flip one QUBO matrix entry so target.data no longer matches
     // what the reduction chain actually produces.
@@ -9802,17 +9884,19 @@ fn test_extract_reads_bundle_from_stdin() {
         ])
         .output()
         .unwrap();
-    pred()
-        .args([
-            "-o",
-            bundle_file.to_str().unwrap(),
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
+    reduce_named_to_file(
+        &problem_file,
+        "MIS/SimpleGraph/One",
+        "QUBO",
+        &[
+            "MaximumIndependentSet",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "MaximumSetPacking",
             "QUBO",
-        ])
-        .output()
-        .unwrap();
+        ],
+        &bundle_file,
+    );
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
     let bundle_text = std::fs::read_to_string(&bundle_file).unwrap();
 

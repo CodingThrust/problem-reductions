@@ -627,7 +627,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         bail!(
             "CLI creation is not yet supported for {canonical}.\n\n\
              {canonical} instances are typically created via reduction:\n\
-               pred create MIS --graph 0-1,1-2 | pred reduce - --to {canonical}\n\n\
+               pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json\n\n\
              Or use the Rust API for direct construction."
         );
     }
