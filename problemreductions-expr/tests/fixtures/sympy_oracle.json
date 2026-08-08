@@ -1,0 +1,666 @@
+{
+  "oracle": {
+    "engine": "SymPy",
+    "version": "1.14.0",
+    "parse_evaluate": false,
+    "decimal_mode": "rationalize base-10 spelling",
+    "documentation": {
+      "parser": "https://docs.sympy.org/latest/modules/parsing.html",
+      "expression_core": "https://docs.sympy.org/latest/modules/core.html"
+    }
+  },
+  "cases": [
+    {
+      "name": "zero",
+      "source": "0",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "0/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "integer",
+      "source": "42",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "42/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "exact_decimal",
+      "source": "2.372",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "593/250",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "leading_decimal_point",
+      "source": ".125",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "1/8",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "arbitrary_precision_integer",
+      "source": "100000000000000000000000000000000000000000000000001",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "100000000000000000000000000000000000000000000000001/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "variable",
+      "source": "n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 7
+      },
+      "exact_result": "7/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "negation",
+      "source": "-n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 7
+      },
+      "exact_result": "-7/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "addition",
+      "source": "n + m",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 3,
+        "m": 4
+      },
+      "exact_result": "7/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "subtraction",
+      "source": "n - m",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 3,
+        "m": 7
+      },
+      "exact_result": "-4/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "multiplication",
+      "source": "n * m",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 6,
+        "m": 7
+      },
+      "exact_result": "42/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "rational_coefficient",
+      "source": "n / 2",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 3
+      },
+      "exact_result": "3/2",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "variable_divisor",
+      "source": "n / m",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 12,
+        "m": 5
+      },
+      "exact_result": "12/5",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "nested_divisor",
+      "source": "n / (m + 1)",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 10,
+        "m": 4
+      },
+      "exact_result": "2/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "exact_size_formula",
+      "source": "n * (n - 1) / 2 - m",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 5,
+        "m": 4
+      },
+      "exact_result": "6/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "zero_power",
+      "source": "n^0",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 9
+      },
+      "exact_result": "1/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "integer_power",
+      "source": "n^3",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 4
+      },
+      "exact_result": "64/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "negative_power",
+      "source": "2^-3",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "1/8",
+      "compare_polynomial": false,
+      "is_polynomial": true
+    },
+    {
+      "name": "symbolic_exponent",
+      "source": "2^n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 10
+      },
+      "exact_result": "1024/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "unary_precedence",
+      "source": "-n^2",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 3
+      },
+      "exact_result": "-9/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "parenthesized_negative_base",
+      "source": "(-n)^2",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 3
+      },
+      "exact_result": "9/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "fractional_power",
+      "source": "n^0.5",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 81
+      },
+      "exact_result": "9/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "square_root",
+      "source": "sqrt(n)",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 81
+      },
+      "exact_result": "9/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "pythagorean_root",
+      "source": "sqrt(n^2 + m^2)",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 3,
+        "m": 4
+      },
+      "exact_result": "5/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "exponential_identity",
+      "source": "exp(n)",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 0
+      },
+      "exact_result": "1/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "logarithm_identity",
+      "source": "log(n)",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 1
+      },
+      "exact_result": "0/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "factorial",
+      "source": "factorial(n)",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 6
+      },
+      "exact_result": "720/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "factorial_subexpression",
+      "source": "factorial(n - 1)",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 6
+      },
+      "exact_result": "120/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "decimal_scaling",
+      "source": "2.372 * n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 1000
+      },
+      "exact_result": "2372/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "difference_of_squares",
+      "source": "(n + m) * (n - m)",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 10,
+        "m": 3
+      },
+      "exact_result": "91/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "multivariate_polynomial",
+      "source": "n^2 + 2 * n * m + m^2",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 3,
+        "m": 4
+      },
+      "exact_result": "49/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "nested_rational",
+      "source": "n / (2 * m)",
+      "variables": [
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 12,
+        "m": 3
+      },
+      "exact_result": "2/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "long_decimal",
+      "source": "1.0000000000000000000000000000000000000001",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "10000000000000000000000000000000000000001/10000000000000000000000000000000000000000",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "nested_subtraction",
+      "source": "n - (m - k)",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 10,
+        "m": 7,
+        "k": 2
+      },
+      "exact_result": "5/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "left_subtraction",
+      "source": "(n - m) - k",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 10,
+        "m": 7,
+        "k": 2
+      },
+      "exact_result": "1/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "nested_division",
+      "source": "n / (m / k)",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 12,
+        "m": 6,
+        "k": 3
+      },
+      "exact_result": "6/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "left_division",
+      "source": "(n / m) / k",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 12,
+        "m": 6,
+        "k": 2
+      },
+      "exact_result": "1/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "right_associative_power",
+      "source": "n^(m^k)",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 2,
+        "m": 3,
+        "k": 2
+      },
+      "exact_result": "512/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "parenthesized_power",
+      "source": "(n^m)^k",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 2,
+        "m": 3,
+        "k": 2
+      },
+      "exact_result": "64/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "double_negation",
+      "source": "--n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 7
+      },
+      "exact_result": "7/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "zero_factorial",
+      "source": "factorial(0)",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "1/1",
+      "compare_polynomial": false,
+      "is_polynomial": true
+    },
+    {
+      "name": "zero_square_root",
+      "source": "sqrt(0)",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "0/1",
+      "compare_polynomial": false,
+      "is_polynomial": true
+    },
+    {
+      "name": "constant_functions",
+      "source": "exp(0) + log(1) + factorial(5)",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "121/1",
+      "compare_polynomial": false,
+      "is_polynomial": true
+    },
+    {
+      "name": "zero_product",
+      "source": "n * 0 + 7",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 999
+      },
+      "exact_result": "7/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "self_division",
+      "source": "n / n",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 5
+      },
+      "exact_result": "1/1",
+      "compare_polynomial": true,
+      "is_polynomial": false
+    },
+    {
+      "name": "identity_power",
+      "source": "n^1",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 13
+      },
+      "exact_result": "13/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "decimal_integer_power",
+      "source": "n^2.0",
+      "variables": [
+        "n"
+      ],
+      "bindings": {
+        "n": 9
+      },
+      "exact_result": "81/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "decimal_sum",
+      "source": "0.1 + 0.2",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "3/10",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "large_mixed_decimal",
+      "source": "99999999999999999999.00000000000000000001",
+      "variables": [],
+      "bindings": {},
+      "exact_result": "9999999999999999999900000000000000000001/100000000000000000000",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "identifier_shapes",
+      "source": "n_1 + size2",
+      "variables": [
+        "n_1",
+        "size2"
+      ],
+      "bindings": {
+        "n_1": 8,
+        "size2": 9
+      },
+      "exact_result": "17/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    },
+    {
+      "name": "mixed_precedence",
+      "source": "n + m * k^2",
+      "variables": [
+        "k",
+        "m",
+        "n"
+      ],
+      "bindings": {
+        "n": 1,
+        "m": 2,
+        "k": 3
+      },
+      "exact_result": "19/1",
+      "compare_polynomial": true,
+      "is_polynomial": true
+    }
+  ]
+}
