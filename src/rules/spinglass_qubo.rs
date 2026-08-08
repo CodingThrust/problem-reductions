@@ -39,6 +39,7 @@ impl ReductionResult for ReductionQUBOToSG {
 #[reduction(
     overhead = {
         num_spins = "num_vars",
+        num_interactions = "num_vars^2",
     }
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
