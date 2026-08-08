@@ -743,5 +743,105 @@
       "bindings": {},
       "decimal_result": "1.2410180702176678234248405241031039926166055775016931853889518036119960752216918e+309"
     }
+  ],
+  "growth_cases": [
+    {
+      "name": "constant_factor",
+      "left": "3 * n^2",
+      "right": "n^2",
+      "ratio_limit": "3",
+      "relation": "equivalent"
+    },
+    {
+      "name": "lower_order_sum",
+      "left": "n^2 + n",
+      "right": "n^2",
+      "ratio_limit": "1",
+      "relation": "equivalent"
+    },
+    {
+      "name": "shifted_power",
+      "left": "(n + 1)^2",
+      "right": "n^2",
+      "ratio_limit": "1",
+      "relation": "equivalent"
+    },
+    {
+      "name": "log_constant_power",
+      "left": "log(n^3)",
+      "right": "log(n)",
+      "ratio_limit": "3",
+      "relation": "equivalent"
+    },
+    {
+      "name": "higher_polynomial_degree",
+      "left": "n^3",
+      "right": "n^2",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "polynomial_over_log",
+      "left": "n",
+      "right": "log(n)^5",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "polylog_tie_break",
+      "left": "n^3 * log(n)",
+      "right": "n^3",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "small_base_exponential",
+      "left": "1.001^n",
+      "right": "n^100",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "exponential_base",
+      "left": "3^n",
+      "right": "2^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "exponential_rate",
+      "left": "2^(2 * n)",
+      "right": "2^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "natural_exponential",
+      "left": "exp(n)",
+      "right": "n^100",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "exponential_poly_tie_break",
+      "left": "2^n * n",
+      "right": "2^n",
+      "ratio_limit": "oo",
+      "relation": "left_dominates"
+    },
+    {
+      "name": "reverse_polynomial_degree",
+      "left": "n",
+      "right": "n^2",
+      "ratio_limit": "0",
+      "relation": "right_dominates"
+    },
+    {
+      "name": "reverse_exponential",
+      "left": "n^100",
+      "right": "exp(n)",
+      "ratio_limit": "0",
+      "relation": "right_dominates"
+    }
   ]
 }

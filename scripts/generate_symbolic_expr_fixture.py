@@ -130,6 +130,26 @@ APPROXIMATE_CASES = [
 ]
 
 
+# Univariate, eventually positive cases where asymptotic order is decided by
+# the exact limit of left / right as n tends to positive infinity.
+GROWTH_CASES = [
+    ("constant_factor", "3 * n^2", "n^2"),
+    ("lower_order_sum", "n^2 + n", "n^2"),
+    ("shifted_power", "(n + 1)^2", "n^2"),
+    ("log_constant_power", "log(n^3)", "log(n)"),
+    ("higher_polynomial_degree", "n^3", "n^2"),
+    ("polynomial_over_log", "n", "log(n)^5"),
+    ("polylog_tie_break", "n^3 * log(n)", "n^3"),
+    ("small_base_exponential", "1.001^n", "n^100"),
+    ("exponential_base", "3^n", "2^n"),
+    ("exponential_rate", "2^(2 * n)", "2^n"),
+    ("natural_exponential", "exp(n)", "n^100"),
+    ("exponential_poly_tie_break", "2^n * n", "2^n"),
+    ("reverse_polynomial_degree", "n", "n^2"),
+    ("reverse_exponential", "n^100", "exp(n)"),
+]
+
+
 def parse(source: str) -> sympy.Expr:
     return parse_expr(source, transformations=TRANSFORMATIONS, evaluate=False)
 
@@ -189,6 +209,39 @@ def generate_approximate_case(
     }
 
 
+def generate_growth_case(name: str, left: str, right: str) -> dict:
+    variable = sympy.Symbol("n", positive=True)
+    local_dict = {"n": variable}
+    left_expression = parse_expr(
+        left,
+        local_dict=local_dict,
+        transformations=TRANSFORMATIONS,
+        evaluate=False,
+    )
+    right_expression = parse_expr(
+        right,
+        local_dict=local_dict,
+        transformations=TRANSFORMATIONS,
+        evaluate=False,
+    )
+    ratio_limit = sympy.limit(left_expression / right_expression, variable, sympy.oo)
+    if ratio_limit == 0:
+        relation = "right_dominates"
+    elif ratio_limit == sympy.oo:
+        relation = "left_dominates"
+    elif ratio_limit.is_positive is True and ratio_limit.is_finite is True:
+        relation = "equivalent"
+    else:
+        raise ValueError(f"{name} has unsupported ratio limit {ratio_limit!r}")
+    return {
+        "name": name,
+        "left": left,
+        "right": right,
+        "ratio_limit": str(ratio_limit),
+        "relation": relation,
+    }
+
+
 def main() -> None:
     if sympy.__version__ != "1.14.0":
         raise RuntimeError(f"expected SymPy 1.14.0, found {sympy.__version__}")
@@ -207,12 +260,14 @@ def main() -> None:
         "approximate_cases": [
             generate_approximate_case(*case) for case in APPROXIMATE_CASES
         ],
+        "growth_cases": [generate_growth_case(*case) for case in GROWTH_CASES],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
     print(
         f"wrote {len(fixture['cases'])} exact and "
-        f"{len(fixture['approximate_cases'])} approximate cases to {OUTPUT}"
+        f"{len(fixture['approximate_cases'])} approximate and "
+        f"{len(fixture['growth_cases'])} growth cases to {OUTPUT}"
     )
 
 

@@ -6,6 +6,7 @@ use super::{
 use crate::expr::{
     constant_approximation, evaluate_approximate, expression_from_approximation, Expr,
 };
+use serde::Deserialize;
 use std::cmp::Ordering;
 
 /// Build a term from `(exp, poly, logs)` entry lists.
@@ -40,6 +41,53 @@ fn terms_of(g: &Growth) -> &[GrowthTerm] {
 
 fn g(s: &str) -> Growth {
     Growth::from_expr(&Expr::parse(s))
+}
+
+#[derive(Deserialize)]
+struct SympyGrowthFixture {
+    growth_cases: Vec<SympyGrowthCase>,
+}
+
+#[derive(Deserialize)]
+struct SympyGrowthCase {
+    name: String,
+    left: String,
+    right: String,
+    ratio_limit: String,
+    relation: SympyGrowthRelation,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SympyGrowthRelation {
+    Equivalent,
+    LeftDominates,
+    RightDominates,
+}
+
+#[test]
+fn test_growth_relations_against_sympy_limits() {
+    let fixture: SympyGrowthFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.growth_cases.len(), 14);
+
+    for case in fixture.growth_cases {
+        let left = g(&case.left);
+        let right = g(&case.right);
+        let actual = (left.dominates(&right), right.dominates(&left));
+        let expected = match case.relation {
+            SympyGrowthRelation::Equivalent => (true, true),
+            SympyGrowthRelation::LeftDominates => (true, false),
+            SympyGrowthRelation::RightDominates => (false, true),
+        };
+        assert_eq!(
+            actual, expected,
+            "{} with SymPy ratio limit {}",
+            case.name, case.ratio_limit
+        );
+    }
 }
 
 fn exp_product(factors: &[(f64, f64)]) -> ExpProduct {
