@@ -12,7 +12,6 @@ use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
-use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
 use serde::Serialize;
@@ -153,9 +152,7 @@ pub struct SolveParams {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
-pub struct McpServer {
-    tool_router: ToolRouter<Self>,
-}
+pub struct McpServer;
 
 // Tool implementations on the server struct.  Each `*_inner` method returns
 // `anyhow::Result<String>` (a JSON string) so unit tests can call them directly
@@ -163,9 +160,7 @@ pub struct McpServer {
 
 impl McpServer {
     pub fn new() -> Self {
-        Self {
-            tool_router: Self::tool_router(),
-        }
+        Self
     }
 
     // -- inner helpers (return JSON strings) ---------------------------------
