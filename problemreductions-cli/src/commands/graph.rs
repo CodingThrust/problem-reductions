@@ -568,7 +568,7 @@ pub(crate) fn format_front_json(
             let big_o: BTreeMap<&str, String> = label
                 .fields()
                 .iter()
-                .map(|(f, g)| (*f, g.to_big_o()))
+                .map(|(field, growth)| (field.as_str(), growth.to_big_o()))
                 .collect();
             let route = format_path_json(graph, reduction_path);
             serde_json::json!({

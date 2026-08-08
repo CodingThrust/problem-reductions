@@ -57,8 +57,8 @@ inventory::submit! {
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
         overhead_fn: || ReductionOverhead::new(vec![
-            ("num_items", Expr::Var("num_elements")),
-            ("capacity", Expr::Var("target")),
+            ("num_items", Expr::variable("num_elements")),
+            ("capacity", Expr::variable("target")),
         ]),
         module_path: module_path!(),
         reduce_fn: None,

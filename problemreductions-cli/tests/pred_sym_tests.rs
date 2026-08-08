@@ -51,18 +51,11 @@ fn test_pred_sym_big_o_signed_polynomial() {
 }
 
 #[test]
-fn test_pred_sym_big_o_sqrt_display() {
-    // A fractional polynomial degree renders with sqrt notation.
-    // (`2^sqrt(n)` — a nonlinear exponent — is now unsupported, so use an
-    // in-domain sqrt input instead.)
+fn test_pred_sym_big_o_preserves_fractional_degrees() {
     let output = pred_sym().args(["big-o", "sqrt(n * m)"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("sqrt"),
-        "expected sqrt notation, got: {}",
-        stdout.trim()
-    );
+    assert_eq!(stdout.trim(), "O(m^0.5 * n^0.5)");
 }
 
 #[test]

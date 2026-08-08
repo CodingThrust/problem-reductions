@@ -5,8 +5,9 @@
 //! and the `declare_variants!` proc macro for compile-time validated variant
 //! registration.
 
-pub(crate) mod parser;
+mod expr_codegen;
 
+use expr_codegen::ExprCodegen;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -230,7 +231,7 @@ fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStr
     let mut field_tokens = Vec::new();
 
     for (field_name, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
                 format!("error parsing overhead expression \"{expr_str}\": {e}"),
@@ -259,7 +260,7 @@ fn generate_overhead_eval_fn(
 
     let mut field_eval_tokens = Vec::new();
     for (field_name, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
                 format!("error parsing overhead expression \"{expr_str}\": {e}"),
@@ -292,7 +293,7 @@ fn generate_source_size_fn(
     // Collect all unique variable names from overhead expressions
     let mut var_names = std::collections::BTreeSet::new();
     for (_, expr_str) in fields {
-        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
                 format!("error parsing overhead expression \"{expr_str}\": {e}"),
@@ -617,7 +618,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
 
         // Parse the complexity expression to validate syntax
-        let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
+        let parsed = problemreductions_expr::Expr::try_parse(&complexity_str).map_err(|e| {
             syn::Error::new(
                 entry.complexity.span(),
                 format!("invalid complexity expression \"{complexity_str}\": {e}"),
@@ -713,7 +714,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 /// Produces a closure that downcasts `&dyn Any` to the problem type, calls getter
 /// methods for all variables, and returns the worst-case time complexity as f64.
 fn generate_complexity_eval_fn(
-    parsed: &parser::ParsedExpr,
+    parsed: &problemreductions_expr::Expr,
     ty: &Type,
 ) -> syn::Result<TokenStream2> {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());

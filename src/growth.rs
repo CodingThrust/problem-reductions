@@ -28,9 +28,9 @@
 //! `add = antichain union + prune`. All bounds produced are **upper** bounds.
 //!
 //! Widening (always toward a valid upper bound):
-//! - Subtraction `a − b ⇝ a + b`: `a - b` is stored as `Add(a, Mul(-1, b))`;
-//!   the constant `-1` is dropped by [`Growth::from_expr`], so `from_expr` of a
-//!   subtraction is exactly the union of the two operands. This also covers the
+//! - Subtraction `a − b ⇝ a + b`: [`Expr::Sub`] remains explicit in the source
+//!   tree, and [`Growth::from_expr`] widens it to the union of both operands.
+//!   This also covers the
 //!   `sqrt((a − b)^2)` absolute-value idiom (`|a − b| ≤ a + b`).
 //! - Constants and constant multipliers/divisors are dropped on entry.
 //! - Exponentials with a **linear** exponent (`c^x`, `c^(r·x)`, `exp(x)`) are
@@ -39,7 +39,8 @@
 //!   and never reconstructed by rounding. Nonlinear exponents (`2^(n·k)`,
 //!   `2^sqrt(n)`), `factorial(·)`, and negative polynomial exponents widen to
 //!   [`Growth::Unknown`], which absorbs through every operation.
-//! - [`Expr::Log`] evaluates numerically as the natural logarithm, but all fixed
+//! - The explicit approximation boundary treats [`Expr::Log`] as the natural
+//!   logarithm, but all fixed
 //!   logarithm bases greater than one have the same asymptotic class and are
 //!   intentionally represented by the single `log(v)` factor.
 //!
@@ -51,7 +52,7 @@
 //! binomial cross term is introduced — and it is what makes the widening chain
 //! `sqrt((n − m)^2) ≍ n + m` hold exactly.
 
-use crate::expr::Expr;
+use crate::expr::{constant_approximation, expression_from_approximation, Expr};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -69,43 +70,6 @@ enum ExpBase {
     Natural,
 }
 
-#[derive(serde::Deserialize)]
-enum OwnedExpr {
-    Const(f64),
-    Var(String),
-    Add(Box<OwnedExpr>, Box<OwnedExpr>),
-    Mul(Box<OwnedExpr>, Box<OwnedExpr>),
-    Pow(Box<OwnedExpr>, Box<OwnedExpr>),
-    Exp(Box<OwnedExpr>),
-    Log(Box<OwnedExpr>),
-    Sqrt(Box<OwnedExpr>),
-    Factorial(Box<OwnedExpr>),
-}
-
-impl OwnedExpr {
-    fn into_constant_expr(self) -> Option<Expr> {
-        match self {
-            OwnedExpr::Const(value) => Some(Expr::Const(value)),
-            OwnedExpr::Var(name) => {
-                drop(name);
-                None
-            }
-            OwnedExpr::Add(a, b) => Some(a.into_constant_expr()? + b.into_constant_expr()?),
-            OwnedExpr::Mul(a, b) => Some(a.into_constant_expr()? * b.into_constant_expr()?),
-            OwnedExpr::Pow(base, exponent) => Some(Expr::pow(
-                base.into_constant_expr()?,
-                exponent.into_constant_expr()?,
-            )),
-            OwnedExpr::Exp(value) => Some(Expr::Exp(Box::new(value.into_constant_expr()?))),
-            OwnedExpr::Log(value) => Some(Expr::Log(Box::new(value.into_constant_expr()?))),
-            OwnedExpr::Sqrt(value) => Some(Expr::Sqrt(Box::new(value.into_constant_expr()?))),
-            OwnedExpr::Factorial(value) => {
-                Some(Expr::Factorial(Box::new(value.into_constant_expr()?)))
-            }
-        }
-    }
-}
-
 impl<'de> serde::Deserialize<'de> for ExpBase {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -113,17 +77,14 @@ impl<'de> serde::Deserialize<'de> for ExpBase {
     {
         #[derive(serde::Deserialize)]
         enum Repr {
-            Constant(OwnedExpr),
+            Constant(Expr),
             Natural,
         }
 
         match Repr::deserialize(deserializer)? {
             Repr::Natural => Ok(ExpBase::Natural),
             Repr::Constant(base) => {
-                let base = base.into_constant_expr();
-                if let Some(base) =
-                    base.filter(|base| base.constant_value().is_some_and(|value| value.is_finite()))
-                {
+                if constant_approximation(&base).is_some_and(f64::is_finite) {
                     Ok(ExpBase::Constant(base))
                 } else {
                     Err(serde::de::Error::custom(
@@ -147,7 +108,9 @@ impl ExpBase {
     /// `Expr::Exp`; arbitrary constant subtrees remain structural-only.
     fn directly_comparable_value(&self) -> Option<f64> {
         match self {
-            ExpBase::Constant(Expr::Const(value)) => Some(*value),
+            ExpBase::Constant(Expr::Const(value)) => {
+                constant_approximation(&Expr::Const(value.clone()))
+            }
             ExpBase::Natural => Some(std::f64::consts::E),
             ExpBase::Constant(_) => None,
         }
@@ -155,9 +118,9 @@ impl ExpBase {
 
     fn value(&self) -> f64 {
         match self {
-            ExpBase::Constant(base) => base
-                .constant_value()
-                .expect("ExpBase::Constant must remain constant"),
+            ExpBase::Constant(base) => {
+                constant_approximation(base).expect("ExpBase::Constant must remain constant")
+            }
             ExpBase::Natural => std::f64::consts::E,
         }
     }
@@ -381,11 +344,11 @@ impl ExpProduct {
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct GrowthTerm {
     /// Variable → canonical product of symbolic exponential factors.
-    exp: BTreeMap<&'static str, ExpProduct>,
+    exp: BTreeMap<Box<str>, ExpProduct>,
     /// variable → polynomial degree (`0.5` covers `sqrt`).
-    poly: BTreeMap<&'static str, f64>,
+    poly: BTreeMap<Box<str>, f64>,
     /// variable → log power.
-    logs: BTreeMap<&'static str, u32>,
+    logs: BTreeMap<Box<str>, u32>,
 }
 
 /// The asymptotic growth class of an [`Expr`].
@@ -447,14 +410,14 @@ impl GrowthTerm {
         for (v, product) in &self.exp {
             let product = product.powf(k);
             if !product.is_empty() {
-                r.exp.insert(v, product);
+                r.exp.insert(v.clone(), product);
             }
         }
         for (v, deg) in &self.poly {
-            r.poly.insert(v, deg * k);
+            r.poly.insert(v.clone(), deg * k);
         }
         for (v, p) in &self.logs {
-            r.logs.insert(v, ((*p as f64) * k).ceil() as u32);
+            r.logs.insert(v.clone(), ((*p as f64) * k).ceil() as u32);
         }
         r
     }
@@ -470,14 +433,14 @@ impl GrowthTerm {
             if combined.is_empty() {
                 t.exp.remove(k);
             } else {
-                t.exp.insert(k, combined);
+                t.exp.insert(k.clone(), combined);
             }
         }
         for (k, v) in &other.poly {
-            *t.poly.entry(k).or_insert(0.0) += *v;
+            *t.poly.entry(k.clone()).or_insert(0.0) += *v;
         }
         for (k, v) in &other.logs {
-            *t.logs.entry(k).or_insert(0) += *v;
+            *t.logs.entry(k.clone()).or_insert(0) += *v;
         }
         t
     }
@@ -488,21 +451,21 @@ impl GrowthTerm {
     /// polynomial degree and log power then break proven exponential ties.
     /// Returns `None` for incomparable or unproved terms.
     fn cmp(&self, other: &GrowthTerm) -> Option<Ordering> {
-        let mut vars: BTreeSet<&'static str> = BTreeSet::new();
+        let mut vars: BTreeSet<&str> = BTreeSet::new();
         for m in [&self.exp, &other.exp] {
-            vars.extend(m.keys().copied());
+            vars.extend(m.keys().map(Box::as_ref));
         }
         for m in [&self.poly, &other.poly] {
-            vars.extend(m.keys().copied());
+            vars.extend(m.keys().map(Box::as_ref));
         }
         for m in [&self.logs, &other.logs] {
-            vars.extend(m.keys().copied());
+            vars.extend(m.keys().map(Box::as_ref));
         }
 
         let mut saw_gt = false;
         let mut saw_lt = false;
         let empty_exp = ExpProduct::empty();
-        for v in &vars {
+        for v in vars {
             let exp_a = self.exp.get(v).unwrap_or(&empty_exp);
             let exp_b = other.exp.get(v).unwrap_or(&empty_exp);
             let exp_order = exp_a.cmp_proven(exp_b)?;
@@ -568,7 +531,7 @@ impl Growth {
         // Any wholly constant subexpression is O(1). Handling it up front keeps
         // constant idioms (`n / 2` = `n * 2^(-1)`, `factorial(3)`, `2^3`) out of
         // the negative-exponent / factorial `Unknown` bails below.
-        if expr.constant_value().is_some() {
+        if constant_approximation(expr).is_some() {
             return Growth::Terms(vec![GrowthTerm::one()]);
         }
         match expr {
@@ -576,12 +539,21 @@ impl Growth {
             Expr::Const(_) => Growth::Terms(vec![GrowthTerm::one()]),
             Expr::Var(v) => {
                 let mut t = GrowthTerm::one();
-                t.poly.insert(*v, 1.0);
+                t.poly.insert(v.clone(), 1.0);
                 Growth::Terms(vec![t])
             }
             Expr::Add(a, b) => add(Growth::from_expr(a), Growth::from_expr(b)),
+            Expr::Sub(a, b) => add(Growth::from_expr(a), Growth::from_expr(b)),
             Expr::Mul(a, b) => mul(Growth::from_expr(a), Growth::from_expr(b)),
+            Expr::Div(a, b) => {
+                if constant_approximation(b).is_some() {
+                    Growth::from_expr(a)
+                } else {
+                    Growth::Unknown
+                }
+            }
             Expr::Pow(base, exp) => pow_expr(base, exp),
+            Expr::Neg(value) => Growth::from_expr(value),
             Expr::Exp(a) => exponential(ExpBase::Natural, a),
             Expr::Log(a) => log_growth(Growth::from_expr(a)),
             Expr::Sqrt(a) => pow_const(Growth::from_expr(a), 0.5),
@@ -631,7 +603,7 @@ impl Growth {
             Growth::Unknown => None,
             Growth::Terms(terms) => {
                 if terms.is_empty() {
-                    return Some(Expr::Const(1.0));
+                    return Some(Expr::integer(1));
                 }
                 let mut it = terms.iter().map(term_to_expr);
                 let mut acc = it.next().unwrap();
@@ -670,17 +642,17 @@ fn term_to_expr(t: &GrowthTerm) -> Expr {
     }
     let mut it = factors.into_iter();
     match it.next() {
-        None => Expr::Const(1.0),
+        None => Expr::integer(1),
         Some(first) => it.fold(first, |acc, f| acc * f),
     }
 }
 
 /// Render a stored exponential factor without changing its base or coefficient.
-fn exp_factor(v: &'static str, factor: &ExpFactor) -> Expr {
+fn exp_factor(v: &str, factor: &ExpFactor) -> Expr {
     let exponent = if factor.coefficient == 1.0 {
-        Expr::Var(v)
+        Expr::variable(v)
     } else {
-        Expr::Const(factor.coefficient) * Expr::Var(v)
+        expression_from_approximation(factor.coefficient) * Expr::variable(v)
     };
     match &factor.base {
         ExpBase::Constant(base) => Expr::pow(base.clone(), exponent),
@@ -689,21 +661,21 @@ fn exp_factor(v: &'static str, factor: &ExpFactor) -> Expr {
 }
 
 /// Render `v^degree` (`Display` turns degree `0.5` into `sqrt(v)`).
-fn poly_factor(v: &'static str, degree: f64) -> Expr {
+fn poly_factor(v: &str, degree: f64) -> Expr {
     if degree == 1.0 {
-        Expr::Var(v)
+        Expr::variable(v)
     } else {
-        Expr::pow(Expr::Var(v), Expr::Const(degree))
+        Expr::pow(Expr::variable(v), expression_from_approximation(degree))
     }
 }
 
 /// Render `(log v)^power`.
-fn log_factor(v: &'static str, power: u32) -> Expr {
-    let log = Expr::Log(Box::new(Expr::Var(v)));
+fn log_factor(v: &str, power: u32) -> Expr {
+    let log = Expr::Log(Box::new(Expr::variable(v)));
     if power == 1 {
         log
     } else {
-        Expr::pow(log, Expr::Const(power as f64))
+        Expr::pow(log, Expr::integer(power))
     }
 }
 
@@ -732,9 +704,9 @@ fn componentwise_max(terms: &[GrowthTerm]) -> Option<GrowthTerm> {
     let mut m = GrowthTerm::one();
     let mut vars = BTreeSet::new();
     for term in terms {
-        vars.extend(term.exp.keys().copied());
-        vars.extend(term.poly.keys().copied());
-        vars.extend(term.logs.keys().copied());
+        vars.extend(term.exp.keys().cloned());
+        vars.extend(term.poly.keys().cloned());
+        vars.extend(term.logs.keys().cloned());
     }
 
     for var in vars {
@@ -742,7 +714,7 @@ fn componentwise_max(terms: &[GrowthTerm]) -> Option<GrowthTerm> {
         let mut maximum = &empty_exp;
         for product in terms
             .iter()
-            .map(|term| term.exp.get(var).unwrap_or(&empty_exp))
+            .map(|term| term.exp.get(&var).unwrap_or(&empty_exp))
         {
             if matches!(product.cmp_proven(maximum), Some(Ordering::Greater)) {
                 maximum = product;
@@ -750,28 +722,28 @@ fn componentwise_max(terms: &[GrowthTerm]) -> Option<GrowthTerm> {
         }
         if !terms.iter().all(|term| {
             matches!(
-                maximum.cmp_proven(term.exp.get(var).unwrap_or(&empty_exp)),
+                maximum.cmp_proven(term.exp.get(&var).unwrap_or(&empty_exp)),
                 Some(Ordering::Greater | Ordering::Equal)
             )
         }) {
             return None;
         }
         if !maximum.is_empty() {
-            m.exp.insert(var, maximum.clone());
+            m.exp.insert(var.clone(), maximum.clone());
         }
 
         let mut max_poly = 0.0_f64;
         let mut max_logs = 0_u32;
         for term in terms {
-            let degree = term.poly.get(var).copied().unwrap_or(0.0);
+            let degree = term.poly.get(&var).copied().unwrap_or(0.0);
             if !degree.is_finite() {
                 return None;
             }
             max_poly = max_poly.max(degree);
-            max_logs = max_logs.max(term.logs.get(var).copied().unwrap_or(0));
+            max_logs = max_logs.max(term.logs.get(&var).copied().unwrap_or(0));
         }
         if max_poly > 0.0 {
-            m.poly.insert(var, max_poly);
+            m.poly.insert(var.clone(), max_poly);
         }
         if max_logs > 0 {
             m.logs.insert(var, max_logs);
@@ -847,7 +819,7 @@ fn pow_const(g: Growth, k: f64) -> Growth {
 
 /// Transfer function for `Pow(base, exp)`.
 fn pow_expr(base: &Expr, exp: &Expr) -> Growth {
-    if let Some(k) = exp.constant_value() {
+    if let Some(k) = constant_approximation(exp) {
         // Constant exponent → polynomial power.
         if k < 0.0 {
             return Growth::Unknown; // negative exponent
@@ -856,7 +828,7 @@ fn pow_expr(base: &Expr, exp: &Expr) -> Growth {
             return Growth::Terms(vec![GrowthTerm::one()]); // x^0 = O(1)
         }
         pow_const(Growth::from_expr(base), k)
-    } else if let Some(c) = base.constant_value() {
+    } else if let Some(c) = constant_approximation(base) {
         // Constant base, variable exponent → exponential.
         if c.is_finite() {
             exponential(ExpBase::Constant(base.clone()), exp)
@@ -902,14 +874,14 @@ fn exponential(base: ExpBase, exp: &Expr) -> Growth {
 /// Extract the linear coefficients of an expression (variable → coefficient),
 /// or `None` if the expression is not linear in its variables. The additive
 /// constant term is ignored (dropped). Pure constants map to the empty form.
-fn linear_form(expr: &Expr) -> Option<BTreeMap<&'static str, f64>> {
-    if expr.constant_value().is_some() {
+fn linear_form(expr: &Expr) -> Option<BTreeMap<Box<str>, f64>> {
+    if constant_approximation(expr).is_some() {
         return Some(BTreeMap::new());
     }
     match expr {
         Expr::Var(v) => {
             let mut m = BTreeMap::new();
-            m.insert(*v, 1.0);
+            m.insert(v.clone(), 1.0);
             Some(m)
         }
         Expr::Add(a, b) => {
@@ -919,17 +891,24 @@ fn linear_form(expr: &Expr) -> Option<BTreeMap<&'static str, f64>> {
             }
             Some(m)
         }
+        Expr::Sub(a, b) => {
+            let mut m = linear_form(a)?;
+            for (k, v) in linear_form(b)? {
+                *m.entry(k).or_insert(0.0) -= v;
+            }
+            Some(m)
+        }
         Expr::Mul(a, b) => {
             // A linear term times a variable is nonlinear, so one side must be
             // a constant scalar.
-            if let Some(c) = a.constant_value() {
+            if let Some(c) = constant_approximation(a) {
                 Some(
                     linear_form(b)?
                         .into_iter()
                         .map(|(k, v)| (k, v * c))
                         .collect(),
                 )
-            } else if let Some(c) = b.constant_value() {
+            } else if let Some(c) = constant_approximation(b) {
                 Some(
                     linear_form(a)?
                         .into_iter()
@@ -940,6 +919,21 @@ fn linear_form(expr: &Expr) -> Option<BTreeMap<&'static str, f64>> {
                 None
             }
         }
+        Expr::Div(a, b) => {
+            let divisor = constant_approximation(b)?;
+            Some(
+                linear_form(a)?
+                    .into_iter()
+                    .map(|(variable, coefficient)| (variable, coefficient / divisor))
+                    .collect(),
+            )
+        }
+        Expr::Neg(value) => Some(
+            linear_form(value)?
+                .into_iter()
+                .map(|(variable, coefficient)| (variable, -coefficient))
+                .collect(),
+        ),
         // Pow / Exp / Log / Sqrt / Factorial of variables are nonlinear.
         _ => None,
     }
@@ -973,20 +967,25 @@ fn log_growth(g: Growth) -> Growth {
 fn log_term(t: &GrowthTerm) -> Vec<GrowthTerm> {
     let mut out = Vec::new();
     // Every stored exponential product grows, so its logarithm is linear.
-    for v in t.exp.keys().copied() {
+    for v in t.exp.keys().cloned() {
         let mut g = GrowthTerm::one();
         g.poly.insert(v, 1.0);
         out.push(g);
     }
     // log(v^a) ≍ log v: each positive-degree polynomial factor becomes a log.
-    for v in t.poly.iter().filter(|(_, d)| **d > 0.0).map(|(k, _)| *k) {
+    for v in t
+        .poly
+        .iter()
+        .filter(|(_, degree)| **degree > 0.0)
+        .map(|(variable, _)| variable.clone())
+    {
         let mut g = GrowthTerm::one();
         g.logs.insert(v, 1);
         out.push(g);
     }
     // log((log v)^s) = log log v, upper-bounded by log v (log log v ≤ log v for
     // v ≥ 2): each log factor stays a single log.
-    for v in t.logs.keys().copied() {
+    for v in t.logs.keys().cloned() {
         let mut g = GrowthTerm::one();
         g.logs.insert(v, 1);
         out.push(g);
@@ -1000,11 +999,8 @@ fn log_term(t: &GrowthTerm) -> Vec<GrowthTerm> {
 
 // --- serde ---
 //
-// `GrowthTerm` uses `&'static str` keys (to align with `Expr::Var`), which serde
-// cannot deserialize directly. `Deserialize` reads owned `String` keys and leaks
-// them to `&'static str`, matching the convention of `Expr`'s runtime parser.
-// Each unique key leaks a small allocation that is never freed; acceptable for
-// the CLI's one-shot serialization, not for hot loops with adversarial input.
+// Deserialize through an unchecked representation, then enforce the growth
+// domain's invariants before constructing a term.
 
 impl<'de> serde::Deserialize<'de> for GrowthTerm {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -1017,18 +1013,23 @@ impl<'de> serde::Deserialize<'de> for GrowthTerm {
             poly: BTreeMap<String, f64>,
             logs: BTreeMap<String, u32>,
         }
-        fn leak(s: String) -> &'static str {
-            Box::leak(s.into_boxed_str())
-        }
         let r = Repr::deserialize(deserializer)?;
         let term = GrowthTerm {
             exp: r
                 .exp
                 .into_iter()
-                .map(|(k, product)| (leak(k), ExpProduct::new(product.factors)))
+                .map(|(key, product)| (key.into_boxed_str(), ExpProduct::new(product.factors)))
                 .collect(),
-            poly: r.poly.into_iter().map(|(k, v)| (leak(k), v)).collect(),
-            logs: r.logs.into_iter().map(|(k, v)| (leak(k), v)).collect(),
+            poly: r
+                .poly
+                .into_iter()
+                .map(|(key, value)| (key.into_boxed_str(), value))
+                .collect(),
+            logs: r
+                .logs
+                .into_iter()
+                .map(|(key, value)| (key.into_boxed_str(), value))
+                .collect(),
         };
         if growth_term_is_valid(&term) {
             Ok(term)

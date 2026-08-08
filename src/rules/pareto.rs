@@ -67,7 +67,7 @@ pub struct AnalysisCoverage {
 /// Why a searched path could not participate in the symbolic front.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AnalysisFailure {
-    pub fields: Vec<&'static str>,
+    pub fields: Vec<String>,
     pub reason: &'static str,
 }
 
@@ -262,7 +262,7 @@ impl PathLabel for MeasuredLabel<'_> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GrowthLabel {
     /// Current node's size fields → growth in the source problem's variables.
-    fields: BTreeMap<&'static str, Growth>,
+    fields: BTreeMap<String, Growth>,
 }
 
 impl GrowthLabel {
@@ -270,21 +270,34 @@ impl GrowthLabel {
     ///
     /// `source_fields` is the source problem's list of size-field names (e.g. from
     /// [`ReductionGraph::size_field_names`](crate::rules::ReductionGraph::size_field_names)).
-    pub fn source(source_fields: &[&'static str]) -> Self {
+    pub fn source(source_fields: &[String]) -> Self {
         let fields = source_fields
             .iter()
-            .map(|&f| (f, Growth::from_expr(&Expr::Var(f))))
+            .map(|field| {
+                (
+                    field.clone(),
+                    Growth::from_expr(&Expr::variable(field.as_str())),
+                )
+            })
             .collect();
         GrowthLabel { fields }
     }
 
     /// Construct directly from a field → growth map (test/introspection helper).
-    pub fn from_fields(fields: BTreeMap<&'static str, Growth>) -> Self {
-        GrowthLabel { fields }
+    pub fn from_fields<K>(fields: BTreeMap<K, Growth>) -> Self
+    where
+        K: Into<String> + Ord,
+    {
+        GrowthLabel {
+            fields: fields
+                .into_iter()
+                .map(|(field, growth)| (field.into(), growth))
+                .collect(),
+        }
     }
 
     /// The current node's size fields mapped to their growth in source variables.
-    pub fn fields(&self) -> &BTreeMap<&'static str, Growth> {
+    pub fn fields(&self) -> &BTreeMap<String, Growth> {
         &self.fields
     }
 
@@ -293,7 +306,8 @@ impl GrowthLabel {
         let fields: Vec<_> = self
             .fields
             .iter()
-            .filter_map(|(field, growth)| matches!(growth, Growth::Unknown).then_some(*field))
+            .filter(|(_, growth)| matches!(growth, Growth::Unknown))
+            .map(|(field, _)| field.clone())
             .collect();
         (!fields.is_empty()).then_some(AnalysisFailure {
             fields,
@@ -307,8 +321,11 @@ impl PathLabel for GrowthLabel {
         // Render each current field's growth back to a display `Expr` in the source
         // variables. `Unknown` growth has no `Expr` (`None`) and taints any target
         // field that references it.
-        let rendered: BTreeMap<&'static str, Option<Expr>> =
-            self.fields.iter().map(|(k, g)| (*k, g.to_expr())).collect();
+        let rendered: BTreeMap<&str, Option<Expr>> = self
+            .fields
+            .iter()
+            .map(|(field, growth)| (field.as_str(), growth.to_expr()))
+            .collect();
 
         // Substitution map from current field name to its rendered growth `Expr` (in
         // source variables). Depends only on `rendered`, so build it once for all edges'
@@ -319,10 +336,10 @@ impl PathLabel for GrowthLabel {
         // references it must be tainted (see below) rather than leaked verbatim.
         let mapping: HashMap<&str, &Expr> = rendered
             .iter()
-            .filter_map(|(k, opt)| opt.as_ref().map(|e| (*k, e)))
+            .filter_map(|(field, expression)| expression.as_ref().map(|value| (*field, value)))
             .collect();
 
-        let mut new_fields: BTreeMap<&'static str, Growth> = BTreeMap::new();
+        let mut new_fields: BTreeMap<String, Growth> = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
             // Taint the target field if this overhead references any variable we cannot
             // express in the source's variables: either a present-but-`Unknown` current
@@ -331,13 +348,13 @@ impl PathLabel for GrowthLabel {
             // variable). Both cases are exactly "not in `mapping`".
             let taints = expr.variables().iter().any(|v| !mapping.contains_key(v));
             if taints {
-                new_fields.insert(target_field, Growth::Unknown);
+                new_fields.insert((*target_field).to_string(), Growth::Unknown);
                 continue;
             }
             // Substitute rendered growths into the overhead, then reduce in the growth
             // domain.
             let substituted = expr.substitute(&mapping);
-            new_fields.insert(target_field, Growth::from_expr(&substituted));
+            new_fields.insert((*target_field).to_string(), Growth::from_expr(&substituted));
         }
         // Asymptotic mode has no budget, so `extend` never prunes.
         Some(GrowthLabel { fields: new_fields })

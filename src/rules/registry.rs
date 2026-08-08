@@ -1,6 +1,6 @@
 //! Automatic reduction registration via inventory.
 
-use crate::expr::Expr;
+use crate::expr::{evaluate_approximate, Expr};
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemSize;
 use std::any::Any;
@@ -23,7 +23,10 @@ impl ReductionOverhead {
     /// Used by variant cast reductions where problem size doesn't change.
     pub fn identity(fields: &[&'static str]) -> Self {
         Self {
-            output_size: fields.iter().map(|&f| (f, Expr::Var(f))).collect(),
+            output_size: fields
+                .iter()
+                .map(|&field| (field, Expr::variable(field)))
+                .collect(),
         }
     }
 
@@ -36,13 +39,17 @@ impl ReductionOverhead {
         let fields: Vec<_> = self
             .output_size
             .iter()
-            .map(|(name, expr)| (*name, expr.eval(input).round() as usize))
+            .map(|(name, expr)| {
+                let value = evaluate_approximate(expr, input)
+                    .expect("overhead approximation requires every expression variable");
+                (*name, value.round() as usize)
+            })
             .collect();
         ProblemSize::new(fields)
     }
 
     /// Collect all input variable names referenced by the overhead expressions.
-    pub fn input_variable_names(&self) -> HashSet<&'static str> {
+    pub fn input_variable_names(&self) -> HashSet<&str> {
         self.output_size
             .iter()
             .flat_map(|(_, expr)| expr.variables())

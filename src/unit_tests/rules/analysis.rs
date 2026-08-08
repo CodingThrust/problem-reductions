@@ -10,8 +10,8 @@ use crate::rules::registry::ReductionOverhead;
 
 #[test]
 fn test_compare_overhead_equal() {
-    let a = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    let b = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
+    let a = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
+    let b = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     assert_eq!(compare_overhead(&a, &b), ComparisonStatus::Dominated);
 }
 
@@ -20,19 +20,19 @@ fn test_compare_overhead_composite_smaller_degree() {
     // primitive: num_vars = n^2, composite: num_vars = n → dominated
     let prim = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
+        Expr::pow(Expr::variable("n"), Expr::integer(2)),
     )]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
 fn test_compare_overhead_composite_worse() {
     // primitive: num_vars = n, composite: num_vars = n^2 → not dominated
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     let comp = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
+        Expr::pow(Expr::variable("n"), Expr::integer(2)),
     )]);
     assert_eq!(
         compare_overhead(&prim, &comp),
@@ -44,15 +44,15 @@ fn test_compare_overhead_composite_worse() {
 fn test_compare_overhead_multi_field_mixed() {
     // One field better, one worse → not dominated
     let prim = ReductionOverhead::new(vec![
-        ("num_vars", Expr::Var("n")),
+        ("num_vars", Expr::variable("n")),
         (
             "num_constraints",
-            Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
+            Expr::pow(Expr::variable("n"), Expr::integer(2)),
         ),
     ]);
     let comp = ReductionOverhead::new(vec![
-        ("num_vars", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
-        ("num_constraints", Expr::Var("n")),
+        ("num_vars", Expr::pow(Expr::variable("n"), Expr::integer(2))),
+        ("num_constraints", Expr::variable("n")),
     ]);
     assert_eq!(
         compare_overhead(&prim, &comp),
@@ -62,8 +62,8 @@ fn test_compare_overhead_multi_field_mixed() {
 
 #[test]
 fn test_compare_overhead_no_common_fields() {
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    let comp = ReductionOverhead::new(vec![("num_spins", Expr::Var("n"))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
+    let comp = ReductionOverhead::new(vec![("num_spins", Expr::variable("n"))]);
     assert_eq!(
         compare_overhead(&prim, &comp),
         ComparisonStatus::NotDominated
@@ -75,8 +75,8 @@ fn test_compare_overhead_exp_dominates_poly() {
     // primitive exp(n) grows faster than composite n, so composite ≤ primitive
     // on the only common field → dominated. (The old polynomial engine rejected
     // exp outright and returned Unknown; the growth domain decides it.)
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::Var("n"))))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::variable("n"))))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
@@ -85,8 +85,8 @@ fn test_compare_overhead_poly_dominates_log() {
     // primitive n vs composite log(n): n grows faster than log(n), so the
     // composite is dominated. Previously Unknown (the polynomial engine could
     // not normalize `log`); now decided by the growth domain.
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::Var("n"))))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::variable("n"))))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
@@ -139,12 +139,18 @@ fn test_compare_overhead_negative_control_cubic_worse() {
     // the differing field, so this MUST be NotDominated — a direction inversion
     // or an ignored field would flip it to Dominated.
     let prim = ReductionOverhead::new(vec![
-        ("num_vertices", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
-        ("num_edges", Expr::Var("n")),
+        (
+            "num_vertices",
+            Expr::pow(Expr::variable("n"), Expr::integer(2)),
+        ),
+        ("num_edges", Expr::variable("n")),
     ]);
     let comp = ReductionOverhead::new(vec![
-        ("num_vertices", Expr::pow(Expr::Var("n"), Expr::Const(3.0))),
-        ("num_edges", Expr::Var("n")),
+        (
+            "num_vertices",
+            Expr::pow(Expr::variable("n"), Expr::integer(3)),
+        ),
+        ("num_edges", Expr::variable("n")),
     ]);
     assert_eq!(
         compare_overhead(&prim, &comp),
@@ -164,8 +170,14 @@ fn test_compare_overhead_multivariate_product_vs_sum() {
     // primitive n + m ≍ {n, m} (two incomparable terms) vs composite n * m ≍
     // {n·m}. The single composite term n·m is dominated by neither n nor m, so
     // the primitive does not dominate the composite → not dominated.
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") + Expr::Var("m"))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") * Expr::Var("m"))]);
+    let prim = ReductionOverhead::new(vec![(
+        "num_vars",
+        Expr::variable("n") + Expr::variable("m"),
+    )]);
+    let comp = ReductionOverhead::new(vec![(
+        "num_vars",
+        Expr::variable("n") * Expr::variable("m"),
+    )]);
     assert_eq!(
         compare_overhead(&prim, &comp),
         ComparisonStatus::NotDominated
@@ -179,9 +191,12 @@ fn test_compare_overhead_incomparable_field_not_dominated() {
     // other (n^2 wins on n, n·m wins on m) → not dominated.
     let prim = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
+        Expr::pow(Expr::variable("n"), Expr::integer(2)),
     )]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") * Expr::Var("m"))]);
+    let comp = ReductionOverhead::new(vec![(
+        "num_vars",
+        Expr::variable("n") * Expr::variable("m"),
+    )]);
     assert_eq!(
         compare_overhead(&prim, &comp),
         ComparisonStatus::NotDominated
@@ -191,16 +206,19 @@ fn test_compare_overhead_incomparable_field_not_dominated() {
 #[test]
 fn test_compare_overhead_sum_vs_single_var() {
     // composite: n, primitive: n + m → composite ≤ primitive (n dominated by n)
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n") + Expr::Var("m"))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
+    let prim = ReductionOverhead::new(vec![(
+        "num_vars",
+        Expr::variable("n") + Expr::variable("m"),
+    )]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]
 fn test_compare_overhead_constant_factor() {
     // 3*n vs n → same asymptotic class → dominated (equal)
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Const(3.0) * Expr::Var("n"))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::integer(3) * Expr::variable("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
@@ -213,11 +231,11 @@ fn test_compare_overhead_polynomial_expansion() {
     // large.
     let prim = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(Expr::Var("n"), Expr::Const(3.0)),
+        Expr::pow(Expr::variable("n"), Expr::integer(3)),
     )]);
     let comp = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(Expr::Var("n") + Expr::Var("m"), Expr::Const(2.0)),
+        Expr::pow(Expr::variable("n") + Expr::variable("m"), Expr::integer(2)),
     )]);
     assert_eq!(
         compare_overhead(&prim, &comp),
@@ -229,15 +247,15 @@ fn test_compare_overhead_polynomial_expansion() {
 fn test_compare_overhead_multi_field_all_smaller() {
     // Both fields: composite has smaller degree → dominated
     let prim = ReductionOverhead::new(vec![
-        ("num_vars", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
+        ("num_vars", Expr::pow(Expr::variable("n"), Expr::integer(2))),
         (
             "num_constraints",
-            Expr::pow(Expr::Var("n"), Expr::Const(3.0)),
+            Expr::pow(Expr::variable("n"), Expr::integer(3)),
         ),
     ]);
     let comp = ReductionOverhead::new(vec![
-        ("num_vars", Expr::Var("n")),
-        ("num_constraints", Expr::Var("n")),
+        ("num_vars", Expr::variable("n")),
+        ("num_constraints", Expr::variable("n")),
     ]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }

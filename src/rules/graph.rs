@@ -1407,42 +1407,67 @@ impl ReductionGraph {
     /// where this problem appears as source or target. When the problem is a
     /// source, its size fields are the input variables referenced in the overhead
     /// expressions. When it's a target, its size fields are the output field names.
-    pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
-        let mut fields: std::collections::HashSet<&'static str> =
+    pub fn size_field_names(&self, name: &str) -> Vec<String> {
+        let mut fields: std::collections::HashSet<String> =
             crate::registry::declared_size_fields(name)
                 .into_iter()
+                .map(str::to_string)
                 .collect();
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
                 // Source's size fields are the input variables of the overhead.
-                fields.extend(entry.overhead().input_variable_names());
+                fields.extend(
+                    entry
+                        .overhead()
+                        .input_variable_names()
+                        .into_iter()
+                        .map(str::to_string),
+                );
             }
             if entry.target_name == name {
                 // Target's size fields are the output field names.
                 let overhead = entry.overhead();
-                fields.extend(overhead.output_size.iter().map(|(name, _)| *name));
+                fields.extend(
+                    overhead
+                        .output_size
+                        .iter()
+                        .map(|(field, _)| (*field).to_string()),
+                );
             }
         }
-        let mut result: Vec<&'static str> = fields.into_iter().collect();
+        let mut result: Vec<String> = fields.into_iter().collect();
         result.sort_unstable();
         result
     }
 
     fn validate_size_budget(&self, budget: &SizeBudget) -> Result<(), UnknownSizeField> {
-        let mut known: HashSet<&str> = self
+        let mut known: HashSet<String> = self
             .name_to_nodes
             .keys()
             .flat_map(|name| crate::registry::declared_size_fields(name))
+            .map(str::to_string)
             .collect();
         for entry in inventory::iter::<ReductionEntry> {
             if self.name_to_nodes.contains_key(entry.source_name) {
-                known.extend(entry.overhead().input_variable_names());
+                known.extend(
+                    entry
+                        .overhead()
+                        .input_variable_names()
+                        .into_iter()
+                        .map(str::to_string),
+                );
             }
             if self.name_to_nodes.contains_key(entry.target_name) {
-                known.extend(entry.overhead().output_size.iter().map(|(field, _)| *field));
+                known.extend(
+                    entry
+                        .overhead()
+                        .output_size
+                        .iter()
+                        .map(|(field, _)| (*field).to_string()),
+                );
             }
         }
-        if let Some(field) = budget.fields().find(|field| !known.contains(field)) {
+        if let Some(field) = budget.fields().find(|field| !known.contains(*field)) {
             return Err(UnknownSizeField(field.to_string()));
         }
         Ok(())

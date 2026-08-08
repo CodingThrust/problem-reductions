@@ -1,5 +1,6 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
+use crate::expr::evaluate_approximate;
 #[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
 use crate::models::decision::Decision;
@@ -372,28 +373,26 @@ fn test_3sat_to_mis_triangular_overhead() {
         ("num_vertices", 10),
         ("num_edges", 15),
     ]);
+    let approximate = |expression| evaluate_approximate(expression, &test_size).unwrap();
 
     // Edge 0: K3SAT → KN_SAT (variant cast, identity for num_vars + num_clauses)
-    assert_eq!(edges[0].get("num_vars").unwrap().eval(&test_size), 3.0);
-    assert_eq!(edges[0].get("num_clauses").unwrap().eval(&test_size), 2.0);
+    assert_eq!(approximate(edges[0].get("num_vars").unwrap()), 3.0);
+    assert_eq!(approximate(edges[0].get("num_clauses").unwrap()), 2.0);
 
     // Edge 1: KN_SAT → SAT (identity)
-    assert_eq!(edges[1].get("num_vars").unwrap().eval(&test_size), 3.0);
-    assert_eq!(edges[1].get("num_clauses").unwrap().eval(&test_size), 2.0);
-    assert_eq!(edges[1].get("num_literals").unwrap().eval(&test_size), 6.0);
+    assert_eq!(approximate(edges[1].get("num_vars").unwrap()), 3.0);
+    assert_eq!(approximate(edges[1].get("num_clauses").unwrap()), 2.0);
+    assert_eq!(approximate(edges[1].get("num_literals").unwrap()), 6.0);
 
     // Edge 2: SAT → MIS{SimpleGraph,One}
     // num_vertices = num_literals, num_edges = num_literals^2
-    assert_eq!(edges[2].get("num_vertices").unwrap().eval(&test_size), 6.0);
-    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 36.0);
+    assert_eq!(approximate(edges[2].get("num_vertices").unwrap()), 6.0);
+    assert_eq!(approximate(edges[2].get("num_edges").unwrap()), 36.0);
 
     // Edge 3: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     // num_vertices = num_vertices², num_edges = num_vertices²
-    assert_eq!(
-        edges[3].get("num_vertices").unwrap().eval(&test_size),
-        100.0
-    );
-    assert_eq!(edges[3].get("num_edges").unwrap().eval(&test_size), 100.0);
+    assert_eq!(approximate(edges[3].get("num_vertices").unwrap()), 100.0);
+    assert_eq!(approximate(edges[3].get("num_edges").unwrap()), 100.0);
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
@@ -406,8 +405,8 @@ fn test_3sat_to_mis_triangular_overhead() {
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
     // Evaluate composed at input: L=6, so L²=36
-    assert_eq!(composed.get("num_vertices").unwrap().eval(&test_size), 36.0);
-    assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0);
+    assert_eq!(approximate(composed.get("num_vertices").unwrap()), 36.0);
+    assert_eq!(approximate(composed.get("num_edges").unwrap()), 36.0);
 }
 
 // ---- k-neighbor BFS ----
@@ -970,7 +969,7 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
         }
 
         ReductionEdgeData {
-            overhead: ReductionOverhead::new(vec![("n", Expr::Var("n"))]),
+            overhead: ReductionOverhead::new(vec![("n", Expr::variable("n"))]),
             reduce_fn: Some(reduce),
             reduce_aggregate_fn: None,
             turing: false,

@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use problemreductions::{big_o_normal_form, Expr, ProblemSize};
+use problemreductions::{big_o_normal_form, evaluate_approximate, Expr, ProblemSize};
 
 #[derive(Parser)]
 #[command(
@@ -112,22 +112,20 @@ fn main() {
         }
         Commands::Eval { expr, vars } => {
             let parsed = parse_expr_or_exit(&expr);
-            let bindings: Vec<(&str, usize)> = vars
+            let bindings: Vec<(String, usize)> = vars
                 .split(',')
                 .filter_map(|pair| {
                     let mut parts = pair.splitn(2, '=');
                     let name = parts.next()?.trim();
                     let value: usize = parts.next()?.trim().parse().ok()?;
-                    // Leak the name for &'static str compatibility
-                    let leaked: &'static str = Box::leak(name.to_string().into_boxed_str());
-                    Some((leaked, value))
+                    Some((name.to_string(), value))
                 })
                 .collect();
 
             // Check for unbound variables
             let expr_vars = parsed.variables();
             let bound_vars: std::collections::HashSet<&str> =
-                bindings.iter().map(|(k, _)| *k).collect();
+                bindings.iter().map(|(name, _)| name.as_str()).collect();
             let mut unbound: Vec<&str> = expr_vars
                 .iter()
                 .filter(|v| !bound_vars.contains(*v))
@@ -143,8 +141,13 @@ fn main() {
                 std::process::exit(1);
             }
 
-            let size = ProblemSize::new(bindings);
-            let result = parsed.eval(&size);
+            let size = ProblemSize {
+                components: bindings,
+            };
+            let result = evaluate_approximate(&parsed, &size).unwrap_or_else(|error| {
+                eprintln!("Error: {error}");
+                std::process::exit(1);
+            });
 
             // Format as integer if it's a whole number
             if (result - result.round()).abs() < 1e-10 {

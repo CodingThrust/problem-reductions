@@ -3,27 +3,31 @@
 use super::{
     add, componentwise_max, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthTerm,
 };
-use crate::expr::Expr;
+use crate::expr::{
+    constant_approximation, evaluate_approximate, expression_from_approximation, Expr,
+};
 use std::cmp::Ordering;
 
 /// Build a term from `(exp, poly, logs)` entry lists.
-fn term(
-    exp: &[(&'static str, f64)],
-    poly: &[(&'static str, f64)],
-    logs: &[(&'static str, u32)],
-) -> GrowthTerm {
+fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> GrowthTerm {
     GrowthTerm {
         exp: exp
             .iter()
             .map(|(variable, rate)| {
                 (
-                    *variable,
-                    ExpProduct::single(ExpBase::Constant(Expr::Const(2.0)), *rate),
+                    (*variable).into(),
+                    ExpProduct::single(ExpBase::Constant(Expr::integer(2)), *rate),
                 )
             })
             .collect(),
-        poly: poly.iter().copied().collect(),
-        logs: logs.iter().copied().collect(),
+        poly: poly
+            .iter()
+            .map(|(variable, degree)| ((*variable).into(), *degree))
+            .collect(),
+        logs: logs
+            .iter()
+            .map(|(variable, power)| ((*variable).into(), *power))
+            .collect(),
     }
 }
 
@@ -43,7 +47,7 @@ fn exp_product(factors: &[(f64, f64)]) -> ExpProduct {
         factors
             .iter()
             .map(|(base, coefficient)| ExpFactor {
-                base: ExpBase::Constant(Expr::Const(*base)),
+                base: ExpBase::Constant(expression_from_approximation(*base)),
                 coefficient: *coefficient,
             })
             .collect(),
@@ -199,15 +203,15 @@ fn test_exponential_product_proof_rules() {
 fn test_exponential_product_canonicalization() {
     let combined = ExpProduct::new(vec![
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 1.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 2.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(3.0)),
+            base: ExpBase::Constant(Expr::integer(3)),
             coefficient: 0.0,
         },
     ]);
@@ -215,11 +219,11 @@ fn test_exponential_product_canonicalization() {
 
     let cancelled = ExpProduct::new(vec![
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 1.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: -1.0,
         },
     ]);
@@ -420,10 +424,11 @@ fn test_growth_unknown_dominance() {
 #[test]
 fn test_growth_antichain_cap_widens() {
     // 40 distinct single-variable terms are pairwise incomparable.
-    let vars: Vec<&'static str> = (0..40)
-        .map(|i| &*Box::leak(format!("v{i}").into_boxed_str()))
+    let vars: Vec<String> = (0..40).map(|index| format!("v{index}")).collect();
+    let many: Vec<GrowthTerm> = vars
+        .iter()
+        .map(|variable| term(&[], &[(variable, 1.0)], &[]))
         .collect();
-    let many: Vec<GrowthTerm> = vars.iter().map(|v| term(&[], &[(*v, 1.0)], &[])).collect();
 
     let widened = make_growth(many);
     let ts = terms_of(&widened);
@@ -431,7 +436,7 @@ fn test_growth_antichain_cap_widens() {
     // The single term dominates every original (it carries all variables).
     for v in &vars {
         assert!(
-            ts[0].dominates(&term(&[], &[(*v, 1.0)], &[])) || ts[0] == term(&[], &[(*v, 1.0)], &[])
+            ts[0].dominates(&term(&[], &[(v, 1.0)], &[])) || ts[0] == term(&[], &[(v, 1.0)], &[])
         );
     }
 }
@@ -448,7 +453,7 @@ fn test_growth_componentwise_max_with_symbolic_exponentials() {
 
     let invalid = GrowthTerm {
         exp: BTreeMap::new(),
-        poly: [("n", f64::NAN)].into_iter().collect(),
+        poly: [("n".into(), f64::NAN)].into_iter().collect(),
         logs: BTreeMap::new(),
     };
     assert_eq!(componentwise_max(&[invalid]), None);
@@ -460,9 +465,12 @@ fn test_growth_componentwise_max_with_symbolic_exponentials() {
 fn test_growth_antichain_cap_with_unproved_exponentials_is_unknown() {
     let terms = (1..=33)
         .map(|i| GrowthTerm {
-            exp: [("n", exp_product(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]))]
-                .into_iter()
-                .collect(),
+            exp: [(
+                "n".into(),
+                exp_product(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]),
+            )]
+            .into_iter()
+            .collect(),
             poly: BTreeMap::new(),
             logs: BTreeMap::new(),
         })
@@ -471,7 +479,7 @@ fn test_growth_antichain_cap_with_unproved_exponentials_is_unknown() {
     assert_eq!(make_growth(terms), Growth::Unknown);
 }
 
-/// Structured serde round-trips (with `&'static str` keys leaked on read), and
+/// Structured serde round-trips with owned variable names, and
 /// `Unknown` round-trips.
 #[test]
 fn test_growth_serde_roundtrip() {
@@ -511,7 +519,7 @@ fn test_growth_serde_roundtrip() {
     assert!(serde_json::from_str::<ExpBase>(variable_base).is_err());
 
     let invalid = Growth::Terms(vec![GrowthTerm {
-        exp: [("n", ExpProduct::empty())].into_iter().collect(),
+        exp: [("n".into(), ExpProduct::empty())].into_iter().collect(),
         poly: BTreeMap::new(),
         logs: BTreeMap::new(),
     }]);
@@ -586,12 +594,11 @@ fn b(e: Expr) -> Box<Expr> {
     Box::new(e)
 }
 
-/// Variable pool — `&'static str` literals so they satisfy `Expr::Var` and match
-/// the `ProblemSize` keys built by [`joint_size`].
+/// Variable pool used by generated expressions and [`joint_size`].
 const VARS: [&str; 3] = ["n", "m", "k"];
 
 fn gen_var(rng: &mut SplitMix64) -> Expr {
-    Expr::Var(VARS[rng.below(VARS.len() as u64) as usize])
+    Expr::variable(VARS[rng.below(VARS.len() as u64) as usize])
 }
 
 /// All variables set jointly to `s` (the contracts evaluate on the diagonal).
@@ -611,7 +618,7 @@ const MAX_DEPTH: u32 = 5;
 fn gen_leaf(rng: &mut SplitMix64) -> Expr {
     // Bias toward variables; keep constants small and positive.
     if rng.below(4) == 0 {
-        Expr::Const((1 + rng.below(4)) as f64)
+        Expr::integer(1 + rng.below(4))
     } else {
         gen_var(rng)
     }
@@ -634,7 +641,7 @@ fn gen_lin_term(rng: &mut SplitMix64) -> Expr {
     if c == 1 {
         v
     } else {
-        Expr::Const(c as f64) * v
+        Expr::integer(c) * v
     }
 }
 
@@ -653,7 +660,7 @@ const STABLE_EXPONENTIAL_BASES: &[f64] = &[2.0, E_BELOW, E_ABOVE, 3.0];
 const ADVERSARIAL_EXPONENTIAL_BASES: &[f64] = &[1.0000000001, 2.0, E_BELOW, E_ABOVE, 3.0];
 
 fn gen_exponential_base(rng: &mut SplitMix64, bases: &[f64]) -> Expr {
-    Expr::Const(bases[rng.below(bases.len() as u64) as usize])
+    expression_from_approximation(bases[rng.below(bases.len() as u64) as usize])
 }
 
 fn gen_expr(rng: &mut SplitMix64, depth: u32, exponential_bases: &[f64]) -> Expr {
@@ -672,7 +679,7 @@ fn gen_expr(rng: &mut SplitMix64, depth: u32, exponential_bases: &[f64]) -> Expr
         ),
         55..=69 => Expr::pow(
             gen_expr(rng, depth - 1, exponential_bases),
-            Expr::Const((1 + rng.below(3)) as f64),
+            Expr::integer(1 + rng.below(3)),
         ),
         70..=79 => Expr::Sqrt(b(gen_expr(rng, depth - 1, exponential_bases))),
         80..=89 => Expr::Log(b(gen_expr(rng, depth - 1, exponential_bases))),
@@ -698,14 +705,14 @@ fn gen_factor(rng: &mut SplitMix64) -> Expr {
     let v = gen_var(rng);
     match rng.below(6) {
         0 => v,
-        1 => Expr::pow(v, Expr::Const((1 + rng.below(3)) as f64)),
+        1 => Expr::pow(v, Expr::integer(1 + rng.below(3))),
         2 => Expr::Sqrt(b(v)),
         3 => Expr::Log(b(v)),
         // Keep the numeric dominance harness on one common base: different
         // fixed bases can have crossovers beyond its finite observation window.
         // Multi-base behavior is covered by symbolic proof tests above.
-        4 => Expr::pow(Expr::Const(2.0), v),
-        _ => Expr::pow(Expr::Const(2.0), Expr::Const((1 + rng.below(3)) as f64) * v),
+        4 => Expr::pow(Expr::integer(2), v),
+        _ => Expr::pow(Expr::integer(2), Expr::integer(1 + rng.below(3)) * v),
     }
 }
 
@@ -762,8 +769,8 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 
         // Calibrate C from the observed ratio at the (smaller) anchor.
         let sz0 = joint_size(anchor as usize);
-        let ve0 = e.eval(&sz0);
-        let vg0 = gexpr.eval(&sz0);
+        let ve0 = evaluate_approximate(&e, &sz0).unwrap();
+        let vg0 = evaluate_approximate(&gexpr, &sz0).unwrap();
         // Nonnegativity is a domain precondition. A negative anchor value means
         // the generated expression is outside the domain's contract (e.g. deeply
         // nested `log`s that are negative at these sizes) — skip it, don't hold
@@ -777,8 +784,8 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
         let mut conclusive = false;
         for &s in &large {
             let sz = joint_size(s as usize);
-            let ve = e.eval(&sz);
-            let vg = gexpr.eval(&sz);
+            let ve = evaluate_approximate(&e, &sz).unwrap();
+            let vg = evaluate_approximate(&gexpr, &sz).unwrap();
             if ve.is_nan() || vg.is_nan() {
                 continue;
             }
@@ -830,21 +837,29 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 /// Every other node mirrors the real `Growth::from_expr` (reusing its private
 /// transfer helpers), so the only defect is the seeded `Add` bug.
 fn broken_from_expr(e: &Expr) -> Growth {
-    if e.constant_value().is_some() {
+    if constant_approximation(e).is_some() {
         return Growth::Terms(vec![GrowthTerm::one()]);
     }
     match e {
         Expr::Const(_) => Growth::Terms(vec![GrowthTerm::one()]),
         Expr::Var(v) => {
             let mut t = GrowthTerm::one();
-            t.poly.insert(v, 1.0);
+            t.poly.insert(v.clone(), 1.0);
             Growth::Terms(vec![t])
         }
         // The seeded bug: drop the second summand.
         Expr::Add(a, _b) => broken_from_expr(a),
+        Expr::Sub(a, b) => add(broken_from_expr(a), broken_from_expr(b)),
         Expr::Mul(a, b) => mul(broken_from_expr(a), broken_from_expr(b)),
+        Expr::Div(a, b) => {
+            if constant_approximation(b).is_some() {
+                broken_from_expr(a)
+            } else {
+                Growth::Unknown
+            }
+        }
         Expr::Pow(base, exp) => {
-            if let Some(k) = exp.constant_value() {
+            if let Some(k) = constant_approximation(exp) {
                 if k < 0.0 {
                     Growth::Unknown
                 } else if k == 0.0 {
@@ -852,13 +867,14 @@ fn broken_from_expr(e: &Expr) -> Growth {
                 } else {
                     pow_const(broken_from_expr(base), k)
                 }
-            } else if base.constant_value().is_some() {
+            } else if constant_approximation(base).is_some() {
                 exponential(ExpBase::Constant(base.as_ref().clone()), exp)
             } else {
                 Growth::Unknown
             }
         }
         Expr::Exp(a) => exponential(ExpBase::Natural, a),
+        Expr::Neg(value) => broken_from_expr(value),
         Expr::Log(a) => log_growth(broken_from_expr(a)),
         Expr::Sqrt(a) => pow_const(broken_from_expr(a), 0.5),
         Expr::Factorial(_) => Growth::Unknown,
@@ -911,7 +927,7 @@ fn test_growth_property_upper_bound_negative_control() {
 
 /// Exponential factors round-trip exactly. Polynomial degrees retain the
 /// pre-existing tolerance for unrelated floating-point power composition.
-fn map_approx_eq(a: &BTreeMap<&'static str, f64>, b: &BTreeMap<&'static str, f64>) -> bool {
+fn map_approx_eq(a: &BTreeMap<Box<str>, f64>, b: &BTreeMap<Box<str>, f64>) -> bool {
     a.len() == b.len()
         && a.iter()
             .all(|(k, v)| b.get(k).is_some_and(|w| (v - w).abs() < 1e-6))
@@ -1072,8 +1088,14 @@ fn test_growth_property_dominance_sound() {
         let a = Growth::Terms(vec![lo.clone()]).to_expr().unwrap();
         let bx = Growth::Terms(vec![hi.clone()]).to_expr().unwrap();
         let (z1, z2) = (joint_size(s1), joint_size(s2));
-        let (a1, a2) = (a.eval(&z1), a.eval(&z2));
-        let (b1, b2) = (bx.eval(&z1), bx.eval(&z2));
+        let (a1, a2) = (
+            evaluate_approximate(&a, &z1).unwrap(),
+            evaluate_approximate(&a, &z2).unwrap(),
+        );
+        let (b1, b2) = (
+            evaluate_approximate(&bx, &z1).unwrap(),
+            evaluate_approximate(&bx, &z2).unwrap(),
+        );
         if [a1, a2, b1, b2].iter().any(|v| !v.is_finite() || *v <= 0.0) {
             skipped += 1;
             continue;
