@@ -1379,15 +1379,15 @@ fn test_pareto_search_matches_independent_small_graph_oracle() {
         let mut adjacency = vec![Vec::new(); nodes];
         let mut edges = Vec::new();
         for source in 0..nodes - 1 {
-            for target in source + 1..nodes {
+            for (target, target_name) in NAMES.iter().enumerate().take(nodes).skip(source + 1) {
                 state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-                if target == source + 1 || state % 3 == 0 {
+                if target == source + 1 || state.is_multiple_of(3) {
                     let a = ((state >> 8) % 9 + 1) as usize;
                     let b = ((state >> 16) % 9 + 1) as usize;
                     adjacency[source].push((target, a, b));
                     edges.push((
                         NAMES[source],
-                        NAMES[target],
+                        *target_name,
                         growth_edge(vec![
                             ("a", Expr::Const(a as f64)),
                             ("b", Expr::Const(b as f64)),
