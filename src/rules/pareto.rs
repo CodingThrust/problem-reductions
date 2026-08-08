@@ -284,16 +284,8 @@ impl GrowthLabel {
     }
 
     /// Construct directly from a field → growth map (test/introspection helper).
-    pub fn from_fields<K>(fields: BTreeMap<K, Growth>) -> Self
-    where
-        K: Into<String> + Ord,
-    {
-        GrowthLabel {
-            fields: fields
-                .into_iter()
-                .map(|(field, growth)| (field.into(), growth))
-                .collect(),
-        }
+    pub fn from_fields(fields: BTreeMap<String, Growth>) -> Self {
+        GrowthLabel { fields }
     }
 
     /// The current node's size fields mapped to their growth in source variables.
@@ -341,20 +333,10 @@ impl PathLabel for GrowthLabel {
 
         let mut new_fields: BTreeMap<String, Growth> = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
-            // Taint the target field if this overhead references any variable we cannot
-            // express in the source's variables: either a present-but-`Unknown` current
-            // field, or a variable absent from the label entirely (an intermediate-only
-            // field that would otherwise leak through `substitute` as a fake source
-            // variable). Both cases are exactly "not in `mapping`".
-            let taints = expr.variables().iter().any(|v| !mapping.contains_key(v));
-            if taints {
-                new_fields.insert((*target_field).to_string(), Growth::Unknown);
-                continue;
-            }
-            // Substitute rendered growths into the overhead, then reduce in the growth
-            // domain.
-            let substituted = expr.substitute(&mapping);
-            new_fields.insert((*target_field).to_string(), Growth::from_expr(&substituted));
+            let growth = expr
+                .substitute_complete(&mapping)
+                .map_or(Growth::Unknown, |expression| Growth::from_expr(&expression));
+            new_fields.insert((*target_field).to_string(), growth);
         }
         // Asymptotic mode has no budget, so `extend` never prunes.
         Some(GrowthLabel { fields: new_fields })

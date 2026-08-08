@@ -555,7 +555,7 @@ fn test_growth_serde_roundtrip() {
 // comparison (`GrowthTerm::cmp`) at the heart of the order, so the restriction
 // is well-aimed, not vacuous.
 
-use super::{exponential, log_growth, pow_const};
+use super::{analyze_expr, exponential, log_growth, pow_const};
 use crate::types::ProblemSize;
 use std::collections::BTreeMap;
 
@@ -868,12 +868,15 @@ fn broken_from_expr(e: &Expr) -> Growth {
                     pow_const(broken_from_expr(base), k)
                 }
             } else if constant_approximation(base).is_some() {
-                exponential(ExpBase::Constant(base.as_ref().clone()), exp)
+                exponential(
+                    ExpBase::Constant(base.as_ref().clone()),
+                    analyze_expr(exp).linear,
+                )
             } else {
                 Growth::Unknown
             }
         }
-        Expr::Exp(a) => exponential(ExpBase::Natural, a),
+        Expr::Exp(a) => exponential(ExpBase::Natural, analyze_expr(a).linear),
         Expr::Neg(value) => broken_from_expr(value),
         Expr::Log(a) => log_growth(broken_from_expr(a)),
         Expr::Sqrt(a) => pow_const(broken_from_expr(a), 0.5),

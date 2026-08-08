@@ -47,30 +47,7 @@ pub fn evaluate_approximate(
 
 /// Approximate a wholly constant expression; return `None` for expressions with variables.
 pub(crate) fn constant_approximation(expression: &Expr) -> Option<f64> {
-    match expression {
-        Expr::Const(value) => rational_to_f64(value).ok(),
-        Expr::Var(_) => None,
-        Expr::Add(left, right) => {
-            Some(constant_approximation(left)? + constant_approximation(right)?)
-        }
-        Expr::Sub(left, right) => {
-            Some(constant_approximation(left)? - constant_approximation(right)?)
-        }
-        Expr::Mul(left, right) => {
-            Some(constant_approximation(left)? * constant_approximation(right)?)
-        }
-        Expr::Div(left, right) => {
-            Some(constant_approximation(left)? / constant_approximation(right)?)
-        }
-        Expr::Pow(base, exponent) => {
-            Some(constant_approximation(base)?.powf(constant_approximation(exponent)?))
-        }
-        Expr::Neg(value) => Some(-constant_approximation(value)?),
-        Expr::Exp(value) => Some(constant_approximation(value)?.exp()),
-        Expr::Log(value) => Some(constant_approximation(value)?.ln()),
-        Expr::Sqrt(value) => Some(constant_approximation(value)?.sqrt()),
-        Expr::Factorial(value) => Some(approximate_factorial(constant_approximation(value)?)),
-    }
+    evaluate_approximate(expression, &ProblemSize::default()).ok()
 }
 
 /// Convert an approximation produced by the growth domain back to an exact AST constant.
@@ -81,16 +58,20 @@ pub(crate) fn expression_from_approximation(value: f64) -> Expr {
     )
 }
 
-fn rational_to_f64(value: &BigRational) -> Result<f64, ApproximationError> {
+pub(crate) fn rational_to_f64(value: &BigRational) -> Result<f64, ApproximationError> {
     value
         .to_f64()
         .ok_or_else(|| ApproximationError::OutOfRange(value.to_string()))
 }
 
-fn approximate_factorial(value: f64) -> f64 {
+pub(crate) fn approximate_factorial(value: f64) -> f64 {
     let rounded = value.round();
     if value >= 0.0 && value == rounded {
-        (2..=rounded as u64).fold(1.0, |product, factor| product * factor as f64)
+        if rounded > 170.0 {
+            f64::INFINITY
+        } else {
+            (2..=rounded as u64).fold(1.0, |product, factor| product * factor as f64)
+        }
     } else {
         (2.0 * std::f64::consts::PI * value).sqrt() * (value / std::f64::consts::E).powf(value)
     }

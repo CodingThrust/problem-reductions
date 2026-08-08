@@ -773,10 +773,10 @@ fn test_growth_label_propagates_unknown() {
     // Build a label whose field `x` is Unknown (factorial growth).
     let mut fields = BTreeMap::new();
     fields.insert(
-        "x",
+        "x".to_string(),
         Growth::from_expr(&Expr::Factorial(Box::new(Expr::variable("n")))),
     );
-    fields.insert("y", Growth::from_expr(&Expr::variable("n")));
+    fields.insert("y".to_string(), Growth::from_expr(&Expr::variable("n")));
     let label = GrowthLabel::from_fields(fields);
     assert!(matches!(label.fields().get("x"), Some(Growth::Unknown)));
 
@@ -952,14 +952,14 @@ fn test_symbolic_all_discovered_unknown_can_still_be_search_incomplete() {
 fn test_growth_label_unknown_is_incomparable() {
     let known = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b", Growth::from_expr(&Expr::variable("m")));
+        m.insert("a".to_string(), Growth::from_expr(&powk("n", 2.0)));
+        m.insert("b".to_string(), Growth::from_expr(&Expr::variable("m")));
         m
     });
     let with_unknown = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b", Growth::Unknown);
+        m.insert("a".to_string(), Growth::from_expr(&powk("n", 2.0)));
+        m.insert("b".to_string(), Growth::Unknown);
         m
     });
     assert!(!known.final_dominates(&with_unknown));
@@ -972,14 +972,14 @@ fn test_growth_label_unknown_is_incomparable() {
 fn test_growth_label_terminal_dominance_partial_order() {
     let a = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&Expr::variable("n"))); // n
-        m.insert("e", Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), Growth::from_expr(&Expr::variable("n"))); // n
+        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
         m
     });
     let b = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e", Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), Growth::from_expr(&powk("n", 2.0))); // n^2
+        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
         m
     });
     // a (n, m) grows slower in v, equal in e ⇒ a dominates b; b does not dominate a.
@@ -990,14 +990,14 @@ fn test_growth_label_terminal_dominance_partial_order() {
     // Incomparable pair: one better in v, the other better in e.
     let c = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e", Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), Growth::from_expr(&powk("n", 2.0))); // n^2
+        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
         m
     });
     let d = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&Expr::variable("n"))); // n
-        m.insert("e", Growth::from_expr(&powk("m", 2.0))); // m^2
+        m.insert("v".to_string(), Growth::from_expr(&Expr::variable("n"))); // n
+        m.insert("e".to_string(), Growth::from_expr(&powk("m", 2.0))); // m^2
         m
     });
     assert!(!c.final_dominates(&d));
@@ -1180,8 +1180,8 @@ fn test_growth_label_monotone_overhead_preserves_order() {
     let a = GrowthLabel::source(&["n".to_string(), "m".to_string()]);
     let b = GrowthLabel::from_fields({
         let mut mm = BTreeMap::new();
-        mm.insert("n", Growth::from_expr(&powk("n", 2.0)));
-        mm.insert("m", Growth::from_expr(&powk("m", 2.0)));
+        mm.insert("n".to_string(), Growth::from_expr(&powk("n", 2.0)));
+        mm.insert("m".to_string(), Growth::from_expr(&powk("m", 2.0)));
         mm
     });
     assert!(a.final_dominates(&b));

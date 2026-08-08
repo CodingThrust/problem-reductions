@@ -606,6 +606,12 @@ fn test_expr_factorial_eval() {
 }
 
 #[test]
+fn test_expr_factorial_above_f64_range_is_infinite() {
+    let expression = Expr::Factorial(Box::new(Expr::integer(171)));
+    assert_eq!(eval(&expression, &ProblemSize::default()), f64::INFINITY);
+}
+
+#[test]
 fn test_expr_factorial_display() {
     let e = Expr::Factorial(Box::new(Expr::variable("n")));
     assert_eq!(format!("{e}"), "factorial(n)");

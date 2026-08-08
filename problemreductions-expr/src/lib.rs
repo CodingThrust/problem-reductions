@@ -108,6 +108,49 @@ impl Expr {
         }
     }
 
+    /// Substitute every variable, returning `None` when any replacement is missing.
+    pub fn substitute_complete(&self, replacements: &HashMap<&str, &Expr>) -> Option<Expr> {
+        match self {
+            Self::Const(value) => Some(Self::Const(value.clone())),
+            Self::Var(name) => replacements
+                .get(name.as_ref())
+                .map(|value| (*value).clone()),
+            Self::Add(left, right) => Some(
+                left.substitute_complete(replacements)?
+                    + right.substitute_complete(replacements)?,
+            ),
+            Self::Sub(left, right) => Some(
+                left.substitute_complete(replacements)?
+                    - right.substitute_complete(replacements)?,
+            ),
+            Self::Mul(left, right) => Some(
+                left.substitute_complete(replacements)?
+                    * right.substitute_complete(replacements)?,
+            ),
+            Self::Div(left, right) => Some(
+                left.substitute_complete(replacements)?
+                    / right.substitute_complete(replacements)?,
+            ),
+            Self::Pow(base, exponent) => Some(Self::pow(
+                base.substitute_complete(replacements)?,
+                exponent.substitute_complete(replacements)?,
+            )),
+            Self::Neg(value) => Some(-value.substitute_complete(replacements)?),
+            Self::Exp(value) => Some(Self::Exp(Box::new(
+                value.substitute_complete(replacements)?,
+            ))),
+            Self::Log(value) => Some(Self::Log(Box::new(
+                value.substitute_complete(replacements)?,
+            ))),
+            Self::Sqrt(value) => Some(Self::Sqrt(Box::new(
+                value.substitute_complete(replacements)?,
+            ))),
+            Self::Factorial(value) => Some(Self::Factorial(Box::new(
+                value.substitute_complete(replacements)?,
+            ))),
+        }
+    }
+
     pub fn is_constant(&self) -> bool {
         match self {
             Self::Const(_) => true,
@@ -131,16 +174,16 @@ impl Expr {
             Self::Add(left, right) | Self::Sub(left, right) | Self::Mul(left, right) => {
                 left.is_polynomial() && right.is_polynomial()
             }
+            Self::Div(numerator, denominator) => {
+                numerator.is_polynomial()
+                    && matches!(denominator.as_ref(), Self::Const(value) if !value.is_zero())
+            }
             Self::Pow(base, exponent) => {
                 base.is_polynomial()
                     && matches!(exponent.as_ref(), Self::Const(value) if value.is_integer() && !value.is_negative())
             }
-            Self::Div(_, _)
-            | Self::Neg(_)
-            | Self::Exp(_)
-            | Self::Log(_)
-            | Self::Sqrt(_)
-            | Self::Factorial(_) => false,
+            Self::Neg(value) => value.is_polynomial(),
+            Self::Exp(_) | Self::Log(_) | Self::Sqrt(_) | Self::Factorial(_) => false,
         }
     }
 
@@ -437,20 +480,21 @@ fn parse_decimal(spelling: &str) -> Option<BigRational> {
 }
 
 struct Parser {
-    tokens: Vec<Token>,
-    position: usize,
+    tokens: std::iter::Peekable<std::vec::IntoIter<Token>>,
+    end_position: usize,
 }
 
 impl Parser {
     fn new(tokens: Vec<Token>) -> Self {
+        let end_position = tokens.last().map_or(0, |token| token.position + 1);
         Self {
-            tokens,
-            position: 0,
+            tokens: tokens.into_iter().peekable(),
+            end_position,
         }
     }
 
     fn parse(mut self) -> Result<Expr, ParseError> {
-        if self.tokens.is_empty() {
+        if self.tokens.peek().is_none() {
             return Err(ParseError::new(0, "expected expression"));
         }
         let expression = self.parse_additive()?;
@@ -460,19 +504,17 @@ impl Parser {
         Ok(expression)
     }
 
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.position)
+    fn peek(&mut self) -> Option<&Token> {
+        self.tokens.peek()
     }
 
     fn advance(&mut self) -> Option<Token> {
-        let token = self.tokens.get(self.position).cloned();
-        self.position += usize::from(token.is_some());
-        token
+        self.tokens.next()
     }
 
     fn consume(&mut self, kind: &TokenKind) -> bool {
         if self.peek().is_some_and(|token| &token.kind == kind) {
-            self.position += 1;
+            self.tokens.next();
             true
         } else {
             false
@@ -566,10 +608,7 @@ impl Parser {
     }
 
     fn end_position(&self) -> usize {
-        self.peek().map_or_else(
-            || self.tokens.last().map_or(0, |token| token.position + 1),
-            |token| token.position,
-        )
+        self.end_position
     }
 }
 
@@ -598,6 +637,28 @@ mod tests {
         let expression = Expr::parse(&name);
         drop(name);
         assert_eq!(expression.variables(), BTreeSet::from(["dynamic_size"]));
+    }
+
+    #[test]
+    fn complete_substitution_rejects_missing_variables() {
+        let expression = Expr::parse("n + m");
+        let n = Expr::integer(3);
+        let replacements = HashMap::from([("n", &n)]);
+        assert_eq!(expression.substitute_complete(&replacements), None);
+
+        let m = Expr::integer(4);
+        let replacements = HashMap::from([("n", &n), ("m", &m)]);
+        assert_eq!(
+            expression.substitute_complete(&replacements),
+            Some(Expr::integer(3) + Expr::integer(4))
+        );
+    }
+
+    #[test]
+    fn polynomial_accepts_exact_rational_coefficients() {
+        assert!(Expr::parse("-n / 2").is_polynomial());
+        assert!(!Expr::parse("n / 0").is_polynomial());
+        assert!(!Expr::parse("n / m").is_polynomial());
     }
 
     #[test]

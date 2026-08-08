@@ -7,7 +7,7 @@
 
 mod expr_codegen;
 
-use expr_codegen::ExprCodegen;
+use expr_codegen::{eval_tokens, expr_tokens};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -58,6 +58,11 @@ enum OverheadSpec {
     Legacy(TokenStream2),
     /// New syntax: list of (field_name, expression_string) pairs
     Parsed(Vec<(String, String)>),
+}
+
+struct ParsedOverheadField {
+    name: String,
+    expression: problemreductions_expr::Expr,
 }
 
 /// Parsed attributes from #[reduction(...)]
@@ -227,25 +232,34 @@ fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Resu
 /// Generate overhead code from the new parsed syntax.
 ///
 /// Produces a `ReductionOverhead` constructor that uses `Expr` AST values.
-fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStream2> {
-    let mut field_tokens = Vec::new();
+fn parse_overhead_fields(fields: &[(String, String)]) -> syn::Result<Vec<ParsedOverheadField>> {
+    fields
+        .iter()
+        .map(|(name, source)| {
+            let expression = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
+                syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    format!("error parsing overhead expression \"{source}\": {error}"),
+                )
+            })?;
+            Ok(ParsedOverheadField {
+                name: name.clone(),
+                expression,
+            })
+        })
+        .collect()
+}
 
-    for (field_name, expr_str) in fields {
-        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
+fn generate_parsed_overhead(fields: &[ParsedOverheadField]) -> TokenStream2 {
+    let field_tokens = fields.iter().map(|field| {
+        let expression = expr_tokens(&field.expression);
+        let name = field.name.as_str();
+        quote! { (#name, #expression) }
+    });
 
-        let expr_ast = parsed.to_expr_tokens();
-        let name_lit = field_name.as_str();
-        field_tokens.push(quote! { (#name_lit, #expr_ast) });
-    }
-
-    Ok(quote! {
+    quote! {
         crate::rules::registry::ReductionOverhead::new(vec![#(#field_tokens),*])
-    })
+    }
 }
 
 /// Generate a compiled overhead evaluation function from parsed overhead fields.
@@ -253,24 +267,18 @@ fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStr
 /// Produces a closure that downcasts `&dyn Any` to `&SourceType`, calls getter methods
 /// for each variable in the expressions, and returns a `ProblemSize`.
 fn generate_overhead_eval_fn(
-    fields: &[(String, String)],
+    fields: &[ParsedOverheadField],
     source_type: &Type,
 ) -> syn::Result<TokenStream2> {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-
-    let mut field_eval_tokens = Vec::new();
-    for (field_name, expr_str) in fields {
-        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
-
-        let eval_tokens = parsed.to_eval_tokens(&src_ident);
-        let name_lit = field_name.as_str();
-        field_eval_tokens.push(quote! { (#name_lit, (#eval_tokens).round() as usize) });
-    }
+    let field_eval_tokens = fields
+        .iter()
+        .map(|field| {
+            let expression = eval_tokens(&field.expression, &src_ident)?;
+            let name = field.name.as_str();
+            Ok(quote! { (#name, (#expression).round() as usize) })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
@@ -285,33 +293,26 @@ fn generate_overhead_eval_fn(
 /// Collects all variable names referenced in the overhead expressions, generates
 /// getter calls for each, and returns a `ProblemSize`.
 fn generate_source_size_fn(
-    fields: &[(String, String)],
+    fields: &[ParsedOverheadField],
     source_type: &Type,
 ) -> syn::Result<TokenStream2> {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-
-    // Collect all unique variable names from overhead expressions
-    let mut var_names = std::collections::BTreeSet::new();
-    for (_, expr_str) in fields {
-        let parsed = problemreductions_expr::Expr::try_parse(expr_str).map_err(|e| {
-            syn::Error::new(
-                proc_macro2::Span::call_site(),
-                format!("error parsing overhead expression \"{expr_str}\": {e}"),
-            )
-        })?;
-        for v in parsed.variables() {
-            var_names.insert(v.to_string());
-        }
-    }
-
-    let getter_tokens: Vec<_> = var_names
+    let var_names: std::collections::BTreeSet<_> = fields
         .iter()
-        .map(|var| {
-            let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
-            let name_lit = var.as_str();
-            quote! { (#name_lit, #src_ident.#getter() as usize) }
-        })
+        .flat_map(|field| field.expression.variables())
         .collect();
+    let getter_tokens = var_names
+        .into_iter()
+        .map(|name| {
+            let getter = syn::parse_str::<syn::Ident>(name).map_err(|_| {
+                syn::Error::new(
+                    proc_macro2::Span::call_site(),
+                    format!("expression variable {name:?} is not a valid Rust getter name"),
+                )
+            })?;
+            Ok(quote! { (#name, #src_ident.#getter() as usize) })
+        })
+        .collect::<syn::Result<Vec<_>>>()?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
@@ -385,9 +386,10 @@ fn generate_reduction_entry(
             (tokens.clone(), eval_fn, size_fn)
         }
         Some(OverheadSpec::Parsed(fields)) => {
-            let overhead_tokens = generate_parsed_overhead(fields)?;
-            let eval_fn = generate_overhead_eval_fn(fields, source_type)?;
-            let size_fn = generate_source_size_fn(fields, source_type)?;
+            let fields = parse_overhead_fields(fields)?;
+            let overhead_tokens = generate_parsed_overhead(&fields);
+            let eval_fn = generate_overhead_eval_fn(&fields, source_type)?;
+            let size_fn = generate_source_size_fn(&fields, source_type)?;
             (overhead_tokens, eval_fn, size_fn)
         }
         None => {
@@ -718,7 +720,7 @@ fn generate_complexity_eval_fn(
     ty: &Type,
 ) -> syn::Result<TokenStream2> {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-    let eval_tokens = parsed.to_eval_tokens(&src_ident);
+    let eval_tokens = eval_tokens(parsed, &src_ident)?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> f64 {
