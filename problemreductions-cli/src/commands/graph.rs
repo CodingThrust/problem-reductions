@@ -450,10 +450,16 @@ fn format_path_text(
 
     // Show composed overall overhead for multi-step paths
     if reduction_path.len() > 1 {
-        let composed = overheads.iter().cloned().reduce(|acc, oh| acc.compose(&oh));
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
-        for (field, poly) in &composed.expect("multi-step path has overheads").output_size {
-            text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+        match graph.compose_path_overhead(reduction_path) {
+            Ok(composed) => {
+                for (field, poly) in &composed.output_size {
+                    text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+                }
+            }
+            Err(error) => {
+                text.push_str(&format!("    unavailable: {error}\n"));
+            }
         }
     }
 
@@ -480,15 +486,19 @@ pub(crate) fn format_path_json(
         })
         .collect();
 
-    let composed = overheads.into_iter().reduce(|acc, oh| acc.compose(&oh));
-    let overall = composed
-        .as_ref()
-        .map_or_else(Vec::new, |overhead| overhead_to_json(&overhead.output_size));
+    let (overall, overall_error) = match graph.compose_path_overhead(reduction_path) {
+        Ok(composed) => (
+            Some(overhead_to_json(&composed.output_size)),
+            None::<String>,
+        ),
+        Err(error) => (None, Some(error.to_string())),
+    };
 
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
         "overall_overhead": overall,
+        "overall_overhead_error": overall_error,
     })
 }
 
@@ -574,6 +584,7 @@ pub(crate) fn format_front_json(
                 "steps": route["steps"],
                 "path": route["path"],
                 "overall_overhead": route["overall_overhead"],
+                "overall_overhead_error": route["overall_overhead_error"],
                 "growth": label.fields(),
                 "big_o": big_o,
             })
@@ -1024,7 +1035,7 @@ mod tests {
 mod path_overhead_rendering_tests {
     use super::big_o_of;
     use problemreductions::big_o_normal_form;
-    use problemreductions::rules::{ReductionGraph, ReductionPath};
+    use problemreductions::rules::{PathOverheadCompositionError, ReductionGraph, ReductionPath};
 
     /// A deeply composed path as a node-name chain (KSat → QUBO through
     /// QuadraticAssignment/ILP). Used to reconstruct the path from the live graph
@@ -1065,7 +1076,7 @@ mod path_overhead_rendering_tests {
         let graph = ReductionGraph::new();
         let path = named_exploding_path(&graph);
 
-        let composed = graph.compose_path_overhead(&path);
+        let composed = graph.compose_path_overhead(&path).unwrap();
         assert!(
             !composed.output_size.is_empty(),
             "composed overhead has no size fields"
@@ -1126,13 +1137,26 @@ mod path_overhead_rendering_tests {
             for path in &paths {
                 // Per-step overheads plus the composed overall overhead.
                 let per_step = graph.path_overheads(path);
-                let overall = graph.compose_path_overhead(path);
-                for oh in per_step.iter().chain(std::iter::once(&overall)) {
+                for oh in &per_step {
                     for (field, expr) in &oh.output_size {
                         big_o_normal_form(expr).unwrap_or_else(|error| {
                             panic!("{src}->{dst} field {field} failed analysis: {error}")
                         });
                     }
+                }
+                match graph.compose_path_overhead(path) {
+                    Ok(overall) => {
+                        for (field, expr) in &overall.output_size {
+                            big_o_normal_form(expr).unwrap_or_else(|error| {
+                                panic!("{src}->{dst} field {field} failed analysis: {error}")
+                            });
+                        }
+                    }
+                    Err(PathOverheadCompositionError::Step { error, .. }) => assert!(
+                        !error.field_errors().is_empty(),
+                        "composition error must identify a failing output field"
+                    ),
+                    Err(error) => panic!("unexpected path composition error: {error}"),
                 }
             }
         }

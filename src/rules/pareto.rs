@@ -21,6 +21,7 @@ use serde::Serialize;
 use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
+use std::sync::OnceLock;
 
 /// Per-field post-construction limits for measured search.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -258,20 +259,11 @@ impl PathLabel for MeasuredLabel<'_> {
 
 /// Asymptotic, **instance-free** label domain (design doc M3/F3a).
 ///
-/// Each entry maps one size field of the **current** node to its
-/// [`Growth`](crate::growth::Growth) expressed in the **source problem's** size
-/// variables. The initial label at source `S` maps every one of `S`'s size fields
-/// `f` to `Growth::from_expr(Var(f))` — "field `f` grows like itself".
-///
-/// [`extend`](PathLabel::extend) composes an edge's overhead into the label: each
-/// target size-field's overhead `Expr` is written over the *current* node's field
-/// names, so we substitute each current field's rendered growth
-/// ([`Growth::to_expr`](crate::growth::Growth::to_expr)) into it and run
-/// [`Growth::from_expr`](crate::growth::Growth::from_expr) on the result. This reuses
-/// the whole M1+M2 growth pipeline and needs no new growth-domain primitive. A field
-/// whose growth is [`Growth::Unknown`](crate::growth::Growth::Unknown) (nonlinear
-/// exponent, factorial) has no `Expr`; any target field depending on it becomes
-/// `Unknown` too — the bound is never fabricated.
+/// Each entry maps one size field of the **current** node to its exact symbolic
+/// expression in the **source problem's** size variables. Edge extension performs
+/// exact substitution and preserves information, such as constant coefficients,
+/// that may become asymptotically significant in a later operation. Growth analysis
+/// is computed lazily only when a completed path is compared or reported.
 ///
 /// [`final_dominates`](PathLabel::final_dominates) is componentwise in the **search**
 /// sense (smaller growth = better): `self` terminally dominates `other` iff for every field
@@ -279,10 +271,16 @@ impl PathLabel for MeasuredLabel<'_> {
 /// containing `Unknown` is outside this dominance relation. Such a path is
 /// reported as an analysis failure and excluded from the symbolic Pareto front.
 ///
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct GrowthLabel {
-    /// Current node's size fields → growth in the source problem's variables.
-    fields: BTreeMap<String, Growth>,
+    expressions: BTreeMap<String, SymbolicField>,
+    analyzed: OnceLock<BTreeMap<String, Growth>>,
+}
+
+#[derive(Clone, Debug)]
+enum SymbolicField {
+    Exact(Expr),
+    Failed(Vec<GrowthFailure>),
 }
 
 impl GrowthLabel {
@@ -291,32 +289,71 @@ impl GrowthLabel {
     /// `source_fields` is the source problem's list of size-field names (e.g. from
     /// [`ReductionGraph::size_field_names`](crate::rules::ReductionGraph::size_field_names)).
     pub fn source(source_fields: &[String]) -> Self {
-        let fields = source_fields
+        let expressions = source_fields
             .iter()
             .map(|field| {
                 (
                     field.clone(),
-                    Growth::from_expr(&Expr::variable(field.as_str())),
+                    SymbolicField::Exact(Expr::variable(field.as_str())),
                 )
             })
             .collect();
-        GrowthLabel { fields }
+        GrowthLabel {
+            expressions,
+            analyzed: OnceLock::new(),
+        }
     }
 
-    /// Construct directly from a field → growth map (test/introspection helper).
-    pub fn from_fields(fields: BTreeMap<String, Growth>) -> Self {
-        GrowthLabel { fields }
+    #[cfg(test)]
+    pub(crate) fn from_expressions(fields: BTreeMap<String, Expr>) -> Self {
+        GrowthLabel {
+            expressions: fields
+                .into_iter()
+                .map(|(field, expression)| (field, SymbolicField::Exact(expression)))
+                .collect(),
+            analyzed: OnceLock::new(),
+        }
     }
 
     /// The current node's size fields mapped to their growth in source variables.
     pub fn fields(&self) -> &BTreeMap<String, Growth> {
-        &self.fields
+        self.analyzed.get_or_init(|| {
+            let exact_expressions: Vec<_> = self
+                .expressions
+                .values()
+                .filter_map(|expression| match expression {
+                    SymbolicField::Exact(expression) => Some(expression),
+                    SymbolicField::Failed(_) => None,
+                })
+                .collect();
+            let mut exact_growths = Growth::from_expr_batch(&exact_expressions).into_iter();
+            self.expressions
+                .iter()
+                .map(|(field, expression)| {
+                    let growth = match expression {
+                        SymbolicField::Exact(_) => exact_growths
+                            .next()
+                            .expect("every exact expression was analyzed"),
+                        SymbolicField::Failed(failures) => Growth::Unknown(failures.clone()),
+                    };
+                    (field.clone(), growth)
+                })
+                .collect()
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) fn expression_node_count(&self, field: &str) -> Option<usize> {
+        match self.expressions.get(field)? {
+            SymbolicField::Exact(expression) => Some(expression.unique_node_count()),
+            SymbolicField::Failed(_) => None,
+        }
     }
 
     /// Return the explicit failure boundary when any field is unanalyzable.
     pub fn analysis_failure(&self) -> Option<AnalysisFailure> {
         let reasons: BTreeMap<_, _> = self
-            .fields
+            .fields()
             .iter()
             .filter_map(|(field, growth)| match growth {
                 Growth::Terms(_) => None,
@@ -332,57 +369,46 @@ impl GrowthLabel {
 
 impl PathLabel for GrowthLabel {
     fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        // Render each current field's growth back to a display `Expr` in the source
-        // variables. `Unknown` growth has no `Expr` (`None`) and taints any target
-        // field that references it.
-        let rendered: BTreeMap<&str, Option<Expr>> = self
-            .fields
+        let mapping: HashMap<&str, &Expr> = self
+            .expressions
             .iter()
-            .map(|(field, growth)| (field.as_str(), growth.to_expr()))
+            .filter_map(|(field, value)| match value {
+                SymbolicField::Exact(expression) => Some((field.as_str(), expression)),
+                SymbolicField::Failed(_) => None,
+            })
             .collect();
 
-        // Substitution map from current field name to its rendered growth `Expr` (in
-        // source variables). Depends only on `rendered`, so build it once for all edges'
-        // output fields rather than per target field. Only present-and-known fields are
-        // mapped. Unlike `ReductionOverhead::compose`, an overhead variable ABSENT from
-        // this map is NOT a passthrough source variable: in the asymptotic label it is an
-        // intermediate-only field with no source-variable growth, so any target field that
-        // references it must be tainted (see below) rather than leaked verbatim.
-        let mapping: HashMap<&str, &Expr> = rendered
-            .iter()
-            .filter_map(|(field, expression)| expression.as_ref().map(|value| (*field, value)))
-            .collect();
-
-        let mut new_fields: BTreeMap<String, Growth> = BTreeMap::new();
+        let mut expressions = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
-            let growth = match expr.substitute_complete(&mapping) {
-                Some(expression) => Growth::from_expr(&expression),
-                None => {
-                    let mut failures: Vec<_> = expr
-                        .variables()
-                        .into_iter()
-                        .filter(|variable| !mapping.contains_key(variable))
-                        .flat_map(|variable| match self.fields.get(variable) {
-                            Some(Growth::Unknown(failures)) => failures.clone(),
+            let value = match expr.substitute_complete(&mapping) {
+                Ok(expression) => SymbolicField::Exact(expression),
+                Err(error) => {
+                    let mut failures: Vec<_> = error
+                        .missing_variables()
+                        .flat_map(|variable| match self.expressions.get(variable) {
+                            Some(SymbolicField::Failed(failures)) => failures.clone(),
                             _ => vec![GrowthFailure::MissingSubstitution(variable.to_string())],
                         })
                         .collect();
                     failures.sort();
                     failures.dedup();
-                    Growth::Unknown(failures)
+                    SymbolicField::Failed(failures)
                 }
             };
-            new_fields.insert((*target_field).to_string(), growth);
+            expressions.insert((*target_field).to_string(), value);
         }
-        // Asymptotic mode has no budget, so `extend` never prunes.
-        Some(GrowthLabel { fields: new_fields })
+        Some(GrowthLabel {
+            expressions,
+            analyzed: OnceLock::new(),
+        })
     }
 
     fn final_dominates(&self, other: &Self) -> bool {
-        if self
-            .fields
+        let self_fields = self.fields();
+        let other_fields = other.fields();
+        if self_fields
             .values()
-            .chain(other.fields.values())
+            .chain(other_fields.values())
             .any(|growth| matches!(growth, Growth::Unknown(_)))
         {
             return false;
@@ -394,12 +420,12 @@ impl PathLabel for GrowthLabel {
         // `Growth::dominates(a, b)` means "a grows ≥ b", with `Unknown` as top. So:
         //   self ≤ other on field f  ⟺  other_f.dominates(self_f)
         assert_eq!(
-            self.fields.len(),
-            other.fields.len(),
+            self_fields.len(),
+            other_fields.len(),
             "terminal growth fields differ"
         );
         for ((self_field, self_growth), (other_field, other_growth)) in
-            self.fields.iter().zip(&other.fields)
+            self_fields.iter().zip(other_fields)
         {
             assert_eq!(self_field, other_field, "terminal growth fields differ");
             if !other_growth.dominates(self_growth) {

@@ -25,22 +25,19 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
-/// - `overhead = { expr }` — overhead specification
+/// - `overhead = { field = expression, ... }` — overhead specification; a bare
+///   identifier is an identity expression and a string literal is parsed as a formula
 /// - `aggregate = identity` — explicitly register an aggregate executor; compilation
 ///   requires the reduction result to prove source/target value-type equality
 ///
-/// ## New syntax (preferred):
+/// ## Syntax
 /// ```ignore
 /// #[reduction(overhead = {
 ///     num_vars = "num_vertices^2",
-///     num_constraints = "num_edges",
+///     num_constraints = num_edges,
 /// })]
 /// ```
 ///
-/// ## Legacy syntax (still supported):
-/// ```ignore
-/// #[reduction(overhead = { ReductionOverhead::new(vec![...]) })]
-/// ```
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = parse_macro_input!(attr as ReductionAttrs);
@@ -52,14 +49,6 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// Overhead specification: either new parsed syntax or legacy raw tokens.
-enum OverheadSpec {
-    /// Legacy syntax: raw token stream (e.g., `ReductionOverhead::new(...)`)
-    Legacy(TokenStream2),
-    /// New syntax: list of (field_name, expression_string) pairs
-    Parsed(Vec<(String, String)>),
-}
-
 struct ParsedOverheadField {
     name: String,
     expression: problemreductions_expr::Expr,
@@ -67,7 +56,7 @@ struct ParsedOverheadField {
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    overhead: Option<OverheadSpec>,
+    overhead: Option<Vec<(String, String)>>,
     identity_aggregate: bool,
 }
 
@@ -112,38 +101,23 @@ impl syn::parse::Parse for ReductionAttrs {
     }
 }
 
-/// Detect and parse the overhead content as either new or legacy syntax.
-///
-/// New syntax detection: the first tokens are `ident = "string_literal"`.
-/// Legacy syntax: everything else (starts with a path like `ReductionOverhead::...`).
-fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<OverheadSpec> {
-    // Fork to peek ahead without consuming
-    let fork = content.fork();
+fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<Vec<(String, String)>> {
+    let mut fields = Vec::new();
+    while !content.is_empty() {
+        let field_name: syn::Ident = content.parse()?;
+        content.parse::<syn::Token![=]>()?;
+        let expression = if content.peek(syn::LitStr) {
+            content.parse::<syn::LitStr>()?.value()
+        } else {
+            content.parse::<syn::Ident>()?.to_string()
+        };
+        fields.push((field_name.to_string(), expression));
 
-    // Try to detect new syntax: ident = "string"
-    let is_new_syntax = fork.parse::<syn::Ident>().is_ok()
-        && fork.parse::<syn::Token![=]>().is_ok()
-        && fork.parse::<syn::LitStr>().is_ok();
-
-    if is_new_syntax {
-        // Parse new syntax: field_name = "expression", ...
-        let mut fields = Vec::new();
-        while !content.is_empty() {
-            let field_name: syn::Ident = content.parse()?;
-            content.parse::<syn::Token![=]>()?;
-            let expr_str: syn::LitStr = content.parse()?;
-            fields.push((field_name.to_string(), expr_str.value()));
-
-            if content.peek(syn::Token![,]) {
-                content.parse::<syn::Token![,]>()?;
-            }
+        if content.peek(syn::Token![,]) {
+            content.parse::<syn::Token![,]>()?;
         }
-        Ok(OverheadSpec::Parsed(fields))
-    } else {
-        // Legacy syntax: parse as raw token stream
-        let tokens: TokenStream2 = content.parse()?;
-        Ok(OverheadSpec::Legacy(tokens))
     }
+    Ok(fields)
 }
 
 /// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i32>").
@@ -371,21 +345,7 @@ fn generate_reduction_entry(
 
     // Generate overhead, eval fn, and source size fn
     let (overhead, overhead_eval_fn, source_size_fn) = match &attrs.overhead {
-        Some(OverheadSpec::Legacy(tokens)) => {
-            let eval_fn = quote! {
-                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
-                    panic!("overhead_eval_fn not available for legacy overhead syntax; \
-                            migrate to parsed syntax: field = \"expression\"")
-                }
-            };
-            let size_fn = quote! {
-                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
-                    crate::types::ProblemSize::new(vec![])
-                }
-            };
-            (tokens.clone(), eval_fn, size_fn)
-        }
-        Some(OverheadSpec::Parsed(fields)) => {
+        Some(fields) => {
             let fields = parse_overhead_fields(fields)?;
             let overhead_tokens = generate_parsed_overhead(&fields);
             let eval_fn = generate_overhead_eval_fn(&fields, source_type)?;
@@ -941,9 +901,23 @@ mod tests {
     #[test]
     fn reduction_accepts_overhead_attribute() {
         let attrs: ReductionAttrs = syn::parse_quote! {
-            overhead = { n = "n" }
+            overhead = { n = n, squared = "n^2" }
         };
-        assert!(attrs.overhead.is_some());
+        assert_eq!(
+            attrs.overhead,
+            Some(vec![
+                ("n".to_string(), "n".to_string()),
+                ("squared".to_string(), "n^2".to_string()),
+            ])
+        );
+    }
+
+    #[test]
+    fn reduction_rejects_unparsed_overhead_tokens() {
+        let result = syn::parse2::<ReductionAttrs>(quote! {
+            overhead = { ReductionOverhead::default() }
+        });
+        assert!(result.is_err());
     }
 
     #[test]

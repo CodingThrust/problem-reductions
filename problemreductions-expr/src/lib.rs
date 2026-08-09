@@ -3,12 +3,13 @@
 use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::{One, Signed, Zero};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt;
 use std::str::FromStr;
+use std::sync::Arc;
 
 /// A validated problem-size variable name.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
 #[serde(transparent)]
 pub struct Symbol(Box<str>);
 
@@ -122,30 +123,210 @@ fn is_valid_symbol(name: &str) -> bool {
     )
 }
 
-/// A symbolic expression over named problem-size variables.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum Expr {
+/// One immutable node in a symbolic expression DAG.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ExprNode {
     Const(BigRational),
     Var(Symbol),
-    Add(Box<Expr>, Box<Expr>),
-    Sub(Box<Expr>, Box<Expr>),
-    Mul(Box<Expr>, Box<Expr>),
-    Div(Box<Expr>, Box<Expr>),
-    Pow(Box<Expr>, Box<Expr>),
-    Neg(Box<Expr>),
-    Exp(Box<Expr>),
-    Log(Box<Expr>),
-    Sqrt(Box<Expr>),
-    Factorial(Box<Expr>),
+    Add(Box<[Expr]>),
+    Mul(Box<[Expr]>),
+    Pow(Expr, Expr),
+    Exp(Expr),
+    Log(Expr),
+    Factorial(Expr),
+}
+
+/// A cheap, immutable handle to a shared symbolic expression node.
+#[derive(Clone, Debug)]
+pub struct Expr(Arc<ExprNode>);
+
+impl PartialEq for Expr {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.node() == other.node()
+    }
+}
+
+impl Eq for Expr {}
+
+impl std::hash::Hash for Expr {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(self.node(), state);
+    }
+}
+
+impl PartialOrd for Expr {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Expr {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if Arc::ptr_eq(&self.0, &other.0) {
+            std::cmp::Ordering::Equal
+        } else {
+            self.node().cmp(other.node())
+        }
+    }
+}
+
+/// Opaque identity used to memoize one traversal of an expression DAG.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ExprNodeId(usize);
+
+impl serde::Serialize for Expr {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        ExprDocument::from_expression(self).serialize(serializer)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Expr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        ExprDocument::deserialize(deserializer)?
+            .into_expression()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ExprDocument {
+    nodes: Vec<SerializedNode>,
+    root: usize,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+enum SerializedNode {
+    Const(BigRational),
+    Var(Symbol),
+    Add(Vec<usize>),
+    Mul(Vec<usize>),
+    Pow(usize, usize),
+    Exp(usize),
+    Log(usize),
+    Factorial(usize),
+}
+
+impl ExprDocument {
+    fn from_expression(root: &Expr) -> Self {
+        let mut ids = HashMap::new();
+        let mut nodes = Vec::new();
+        let mut pending = vec![(root, false)];
+        while let Some((expression, expanded)) = pending.pop() {
+            if ids.contains_key(&expression.node_identity()) {
+                continue;
+            }
+            if !expanded {
+                pending.push((expression, true));
+                match expression.node() {
+                    ExprNode::Add(values) | ExprNode::Mul(values) => {
+                        pending.extend(values.iter().rev().map(|value| (value, false)));
+                    }
+                    ExprNode::Pow(base, exponent) => {
+                        pending.push((exponent, false));
+                        pending.push((base, false));
+                    }
+                    ExprNode::Exp(value) | ExprNode::Log(value) | ExprNode::Factorial(value) => {
+                        pending.push((value, false))
+                    }
+                    ExprNode::Const(_) | ExprNode::Var(_) => {}
+                }
+                continue;
+            }
+
+            let child_id = |child: &Expr| ids[&child.node_identity()];
+            let node = match expression.node() {
+                ExprNode::Const(value) => SerializedNode::Const(value.clone()),
+                ExprNode::Var(symbol) => SerializedNode::Var(symbol.clone()),
+                ExprNode::Add(values) => SerializedNode::Add(values.iter().map(child_id).collect()),
+                ExprNode::Mul(values) => SerializedNode::Mul(values.iter().map(child_id).collect()),
+                ExprNode::Pow(base, exponent) => {
+                    SerializedNode::Pow(child_id(base), child_id(exponent))
+                }
+                ExprNode::Exp(value) => SerializedNode::Exp(child_id(value)),
+                ExprNode::Log(value) => SerializedNode::Log(child_id(value)),
+                ExprNode::Factorial(value) => SerializedNode::Factorial(child_id(value)),
+            };
+            let id = nodes.len();
+            nodes.push(node);
+            ids.insert(expression.node_identity(), id);
+        }
+        Self {
+            nodes,
+            root: ids[&root.node_identity()],
+        }
+    }
+
+    fn into_expression(self) -> Result<Expr, InvalidExpressionDocument> {
+        let mut expressions = Vec::with_capacity(self.nodes.len());
+        for (node_id, node) in self.nodes.into_iter().enumerate() {
+            let child = |id: usize| {
+                expressions
+                    .get(id)
+                    .cloned()
+                    .ok_or(InvalidExpressionDocument::UnavailableChild { node_id, id })
+            };
+            let expression = match node {
+                SerializedNode::Const(value) => Expr::constant(value),
+                SerializedNode::Var(symbol) => Expr::from_node(ExprNode::Var(symbol)),
+                SerializedNode::Add(ids) => {
+                    Expr::add_all(ids.into_iter().map(child).collect::<Result<_, _>>()?)
+                }
+                SerializedNode::Mul(ids) => {
+                    Expr::mul_all(ids.into_iter().map(child).collect::<Result<_, _>>()?)
+                }
+                SerializedNode::Pow(base, exponent) => Expr::pow(child(base)?, child(exponent)?),
+                SerializedNode::Exp(value) => Expr::exp(child(value)?),
+                SerializedNode::Log(value) => Expr::log(child(value)?),
+                SerializedNode::Factorial(value) => Expr::factorial(child(value)?),
+            };
+            expressions.push(expression);
+        }
+        expressions
+            .get(self.root)
+            .cloned()
+            .ok_or(InvalidExpressionDocument::UnavailableRoot(self.root))
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+enum InvalidExpressionDocument {
+    #[error("expression node {node_id} references unavailable child node {id}")]
+    UnavailableChild { node_id: usize, id: usize },
+    #[error("expression root references unavailable node {0}")]
+    UnavailableRoot(usize),
 }
 
 impl Expr {
+    fn from_node(node: ExprNode) -> Self {
+        Self(Arc::new(node))
+    }
+
+    pub fn node(&self) -> &ExprNode {
+        &self.0
+    }
+
+    /// Identity of this allocation for operation-local DAG memoization.
+    /// The value is process-local and remains valid while any clone of the node lives.
+    pub fn node_identity(&self) -> ExprNodeId {
+        ExprNodeId(Arc::as_ptr(&self.0) as usize)
+    }
+
     pub fn integer(value: impl Into<BigInt>) -> Self {
-        Self::Const(BigRational::from_integer(value.into()))
+        Self::constant(BigRational::from_integer(value.into()))
     }
 
     pub fn rational(numerator: impl Into<BigInt>, denominator: impl Into<BigInt>) -> Self {
-        Self::Const(BigRational::new(numerator.into(), denominator.into()))
+        Self::constant(BigRational::new(numerator.into(), denominator.into()))
+    }
+
+    pub fn constant(value: BigRational) -> Self {
+        Self::from_node(ExprNode::Const(value))
     }
 
     pub fn variable(name: impl Into<Box<str>>) -> Self {
@@ -153,11 +334,33 @@ impl Expr {
     }
 
     pub fn try_variable(name: impl Into<Box<str>>) -> Result<Self, InvalidSymbol> {
-        Symbol::new(name).map(Self::Var)
+        Symbol::new(name).map(|symbol| Self::from_node(ExprNode::Var(symbol)))
     }
 
     pub fn pow(base: Expr, exponent: Expr) -> Self {
-        Self::Pow(Box::new(base), Box::new(exponent))
+        if exponent.is_exact_integer(0) || base.is_exact_integer(1) {
+            return Self::integer(1);
+        }
+        if exponent.is_exact_integer(1) {
+            return base;
+        }
+        Self::from_node(ExprNode::Pow(base, exponent))
+    }
+
+    pub fn exp(value: Expr) -> Self {
+        Self::from_node(ExprNode::Exp(value))
+    }
+
+    pub fn log(value: Expr) -> Self {
+        Self::from_node(ExprNode::Log(value))
+    }
+
+    pub fn sqrt(value: Expr) -> Self {
+        Self::pow(value, Self::rational(1, 2))
+    }
+
+    pub fn factorial(value: Expr) -> Self {
+        Self::from_node(ExprNode::Factorial(value))
     }
 
     pub fn parse(input: &str) -> Self {
@@ -171,199 +374,372 @@ impl Expr {
 
     pub fn variables(&self) -> BTreeSet<&str> {
         let mut variables = BTreeSet::new();
-        self.collect_variables(&mut variables);
+        let mut visited = HashSet::new();
+        self.collect_variables(&mut variables, &mut visited);
         variables
     }
 
-    fn collect_variables<'a>(&'a self, variables: &mut BTreeSet<&'a str>) {
-        match self {
-            Self::Const(_) => {}
-            Self::Var(name) => {
+    fn collect_variables<'a>(
+        &'a self,
+        variables: &mut BTreeSet<&'a str>,
+        visited: &mut HashSet<ExprNodeId>,
+    ) {
+        if !visited.insert(self.node_identity()) {
+            return;
+        }
+        match self.node() {
+            ExprNode::Const(_) => {}
+            ExprNode::Var(name) => {
                 variables.insert(name.as_str());
             }
-            Self::Add(left, right)
-            | Self::Sub(left, right)
-            | Self::Mul(left, right)
-            | Self::Div(left, right)
-            | Self::Pow(left, right) => {
-                left.collect_variables(variables);
-                right.collect_variables(variables);
+            ExprNode::Add(values) | ExprNode::Mul(values) => {
+                for value in values {
+                    value.collect_variables(variables, visited);
+                }
             }
-            Self::Neg(value)
-            | Self::Exp(value)
-            | Self::Log(value)
-            | Self::Sqrt(value)
-            | Self::Factorial(value) => value.collect_variables(variables),
+            ExprNode::Pow(base, exponent) => {
+                base.collect_variables(variables, visited);
+                exponent.collect_variables(variables, visited);
+            }
+            ExprNode::Exp(value) | ExprNode::Log(value) | ExprNode::Factorial(value) => {
+                value.collect_variables(variables, visited);
+            }
         }
     }
 
-    pub fn substitute(&self, replacements: &HashMap<&str, &Expr>) -> Expr {
-        match self {
-            Self::Const(value) => Self::Const(value.clone()),
-            Self::Var(name) => replacements
-                .get(name.as_ref())
-                .map_or_else(|| self.clone(), |replacement| (*replacement).clone()),
-            Self::Add(left, right) => {
-                left.substitute(replacements) + right.substitute(replacements)
-            }
-            Self::Sub(left, right) => {
-                left.substitute(replacements) - right.substitute(replacements)
-            }
-            Self::Mul(left, right) => {
-                left.substitute(replacements) * right.substitute(replacements)
-            }
-            Self::Div(left, right) => {
-                left.substitute(replacements) / right.substitute(replacements)
-            }
-            Self::Pow(base, exponent) => Self::pow(
-                base.substitute(replacements),
-                exponent.substitute(replacements),
-            ),
-            Self::Neg(value) => -value.substitute(replacements),
-            Self::Exp(value) => Self::Exp(Box::new(value.substitute(replacements))),
-            Self::Log(value) => Self::Log(Box::new(value.substitute(replacements))),
-            Self::Sqrt(value) => Self::Sqrt(Box::new(value.substitute(replacements))),
-            Self::Factorial(value) => Self::Factorial(Box::new(value.substitute(replacements))),
-        }
+    /// Replace every variable or report the complete set of missing replacements.
+    pub fn substitute_complete(
+        &self,
+        replacements: &HashMap<&str, &Expr>,
+    ) -> Result<Expr, SubstitutionError> {
+        self.substitute_inner(replacements, &mut HashMap::new())
+            .map_err(SubstitutionError::new)
     }
 
-    /// Substitute every variable, returning `None` when any replacement is missing.
-    pub fn substitute_complete(&self, replacements: &HashMap<&str, &Expr>) -> Option<Expr> {
-        match self {
-            Self::Const(value) => Some(Self::Const(value.clone())),
-            Self::Var(name) => replacements
-                .get(name.as_ref())
-                .map(|value| (*value).clone()),
-            Self::Add(left, right) => Some(
-                left.substitute_complete(replacements)?
-                    + right.substitute_complete(replacements)?,
-            ),
-            Self::Sub(left, right) => Some(
-                left.substitute_complete(replacements)?
-                    - right.substitute_complete(replacements)?,
-            ),
-            Self::Mul(left, right) => Some(
-                left.substitute_complete(replacements)?
-                    * right.substitute_complete(replacements)?,
-            ),
-            Self::Div(left, right) => Some(
-                left.substitute_complete(replacements)?
-                    / right.substitute_complete(replacements)?,
-            ),
-            Self::Pow(base, exponent) => Some(Self::pow(
-                base.substitute_complete(replacements)?,
-                exponent.substitute_complete(replacements)?,
-            )),
-            Self::Neg(value) => Some(-value.substitute_complete(replacements)?),
-            Self::Exp(value) => Some(Self::Exp(Box::new(
-                value.substitute_complete(replacements)?,
-            ))),
-            Self::Log(value) => Some(Self::Log(Box::new(
-                value.substitute_complete(replacements)?,
-            ))),
-            Self::Sqrt(value) => Some(Self::Sqrt(Box::new(
-                value.substitute_complete(replacements)?,
-            ))),
-            Self::Factorial(value) => Some(Self::Factorial(Box::new(
-                value.substitute_complete(replacements)?,
-            ))),
+    fn substitute_inner(
+        &self,
+        replacements: &HashMap<&str, &Expr>,
+        memo: &mut HashMap<ExprNodeId, Result<Expr, BTreeSet<Box<str>>>>,
+    ) -> Result<Expr, BTreeSet<Box<str>>> {
+        let identity = self.node_identity();
+        if let Some(result) = memo.get(&identity) {
+            return result.clone();
+        }
+        let result = match self.node() {
+            ExprNode::Const(_) => Ok(self.clone()),
+            ExprNode::Var(name) => match replacements.get(name.as_ref()) {
+                Some(replacement) => Ok((*replacement).clone()),
+                None => Err(BTreeSet::from([name.as_str().into()])),
+            },
+            ExprNode::Add(values) => {
+                Self::substitute_values(values, replacements, memo).map(Self::add_all)
+            }
+            ExprNode::Mul(values) => {
+                Self::substitute_values(values, replacements, memo).map(Self::mul_all)
+            }
+            ExprNode::Pow(base, exponent) => {
+                let base = base.substitute_inner(replacements, memo);
+                let exponent = exponent.substitute_inner(replacements, memo);
+                match (base, exponent) {
+                    (Ok(base), Ok(exponent)) => Ok(Self::pow(base, exponent)),
+                    (Err(mut left), Err(right)) => {
+                        left.extend(right);
+                        Err(left)
+                    }
+                    (Err(missing), _) | (_, Err(missing)) => Err(missing),
+                }
+            }
+            ExprNode::Exp(value) => value.substitute_inner(replacements, memo).map(Self::exp),
+            ExprNode::Log(value) => value.substitute_inner(replacements, memo).map(Self::log),
+            ExprNode::Factorial(value) => value
+                .substitute_inner(replacements, memo)
+                .map(Self::factorial),
+        };
+        memo.insert(identity, result.clone());
+        result
+    }
+
+    fn substitute_values(
+        values: &[Expr],
+        replacements: &HashMap<&str, &Expr>,
+        memo: &mut HashMap<ExprNodeId, Result<Expr, BTreeSet<Box<str>>>>,
+    ) -> Result<Vec<Expr>, BTreeSet<Box<str>>> {
+        let mut substituted = Vec::with_capacity(values.len());
+        let mut missing = BTreeSet::new();
+        for value in values {
+            match value.substitute_inner(replacements, memo) {
+                Ok(value) => substituted.push(value),
+                Err(variables) => missing.extend(variables),
+            }
+        }
+        if missing.is_empty() {
+            Ok(substituted)
+        } else {
+            Err(missing)
         }
     }
 
     pub fn is_constant(&self) -> bool {
-        match self {
-            Self::Const(_) => true,
-            Self::Var(_) => false,
-            Self::Add(left, right)
-            | Self::Sub(left, right)
-            | Self::Mul(left, right)
-            | Self::Div(left, right)
-            | Self::Pow(left, right) => left.is_constant() && right.is_constant(),
-            Self::Neg(value)
-            | Self::Exp(value)
-            | Self::Log(value)
-            | Self::Sqrt(value)
-            | Self::Factorial(value) => value.is_constant(),
+        self.is_constant_inner(&mut HashMap::new())
+    }
+
+    fn is_constant_inner(&self, memo: &mut HashMap<ExprNodeId, bool>) -> bool {
+        if let Some(result) = memo.get(&self.node_identity()) {
+            return *result;
         }
+        let result = match self.node() {
+            ExprNode::Const(_) => true,
+            ExprNode::Var(_) => false,
+            ExprNode::Add(values) | ExprNode::Mul(values) => {
+                values.iter().all(|value| value.is_constant_inner(memo))
+            }
+            ExprNode::Pow(base, exponent) => {
+                base.is_constant_inner(memo) && exponent.is_constant_inner(memo)
+            }
+            ExprNode::Exp(value) | ExprNode::Log(value) | ExprNode::Factorial(value) => {
+                value.is_constant_inner(memo)
+            }
+        };
+        memo.insert(self.node_identity(), result);
+        result
     }
 
     pub fn is_polynomial(&self) -> bool {
-        match self {
-            Self::Const(_) | Self::Var(_) => true,
-            Self::Add(left, right) | Self::Sub(left, right) | Self::Mul(left, right) => {
-                left.is_polynomial() && right.is_polynomial()
-            }
-            Self::Div(numerator, denominator) => {
-                numerator.is_polynomial()
-                    && matches!(denominator.as_ref(), Self::Const(value) if !value.is_zero())
-            }
-            Self::Pow(base, exponent) => {
-                base.is_polynomial()
-                    && matches!(exponent.as_ref(), Self::Const(value) if value.is_integer() && !value.is_negative())
-            }
-            Self::Neg(value) => value.is_polynomial(),
-            Self::Exp(_) | Self::Log(_) | Self::Sqrt(_) | Self::Factorial(_) => false,
+        self.is_polynomial_inner(&mut HashMap::new())
+    }
+
+    fn is_polynomial_inner(&self, polynomial_memo: &mut HashMap<ExprNodeId, bool>) -> bool {
+        if let Some(result) = polynomial_memo.get(&self.node_identity()) {
+            return *result;
         }
+        let result = match self.node() {
+            ExprNode::Const(_) | ExprNode::Var(_) => true,
+            ExprNode::Add(values) | ExprNode::Mul(values) => values
+                .iter()
+                .all(|value| value.is_polynomial_inner(polynomial_memo)),
+            ExprNode::Pow(base, exponent) => {
+                (matches!((base.node(), exponent.node()),
+                    (ExprNode::Const(base), ExprNode::Const(exponent))
+                        if exponent.is_integer()
+                            && (!exponent.is_negative() || !base.is_zero())))
+                    || (base.is_polynomial_inner(polynomial_memo)
+                        && matches!(exponent.node(), ExprNode::Const(value) if value.is_integer() && !value.is_negative()))
+            }
+            ExprNode::Exp(_) | ExprNode::Log(_) | ExprNode::Factorial(_) => false,
+        };
+        polynomial_memo.insert(self.node_identity(), result);
+        result
     }
 
     pub fn is_valid_complexity_notation(&self) -> bool {
-        match self {
-            Self::Const(value) => value.is_one(),
-            Self::Var(_) => true,
-            Self::Add(left, right) | Self::Mul(left, right) => {
-                !left.is_constant()
-                    && !right.is_constant()
-                    && left.is_valid_complexity_notation()
-                    && right.is_valid_complexity_notation()
+        self.complexity_notation_analysis(&mut HashMap::new()).1
+    }
+
+    fn complexity_notation_analysis(
+        &self,
+        memo: &mut HashMap<ExprNodeId, (bool, bool)>,
+    ) -> (bool, bool) {
+        if let Some(analysis) = memo.get(&self.node_identity()) {
+            return *analysis;
+        }
+        let analysis = match self.node() {
+            ExprNode::Const(value) => (true, value.is_one()),
+            ExprNode::Var(_) => (false, true),
+            ExprNode::Add(values) | ExprNode::Mul(values) => {
+                let mut all_constant = true;
+                let mut all_valid_nonconstant = true;
+                for value in values {
+                    let (constant, valid) = value.complexity_notation_analysis(memo);
+                    all_constant &= constant;
+                    all_valid_nonconstant &= !constant && valid;
+                }
+                (all_constant, all_valid_nonconstant)
             }
-            Self::Pow(base, exponent) => {
-                let base_valid = if let Self::Const(value) = base.as_ref() {
-                    value.is_positive()
-                } else {
-                    base.is_valid_complexity_notation()
+            ExprNode::Pow(base, exponent) => {
+                let base_analysis = base.complexity_notation_analysis(memo);
+                let exponent_analysis = exponent.complexity_notation_analysis(memo);
+                let base_valid = match base.node() {
+                    ExprNode::Const(value) => value.is_positive(),
+                    _ => base_analysis.1,
                 };
-                base_valid && (exponent.is_constant() || exponent.is_valid_complexity_notation())
+                (
+                    base_analysis.0 && exponent_analysis.0,
+                    base_valid && (exponent_analysis.0 || exponent_analysis.1),
+                )
             }
-            Self::Exp(value) | Self::Log(value) | Self::Sqrt(value) | Self::Factorial(value) => {
-                value.is_valid_complexity_notation()
+            ExprNode::Exp(value) | ExprNode::Log(value) | ExprNode::Factorial(value) => {
+                value.complexity_notation_analysis(memo)
             }
-            Self::Sub(_, _) | Self::Div(_, _) | Self::Neg(_) => false,
+        };
+        memo.insert(self.node_identity(), analysis);
+        analysis
+    }
+
+    pub fn unique_node_count(&self) -> usize {
+        let mut visited = HashSet::new();
+        let mut pending = vec![self];
+        while let Some(expression) = pending.pop() {
+            if !visited.insert(expression.node_identity()) {
+                continue;
+            }
+            match expression.node() {
+                ExprNode::Add(values) | ExprNode::Mul(values) => pending.extend(values),
+                ExprNode::Pow(base, exponent) => {
+                    pending.push(base);
+                    pending.push(exponent);
+                }
+                ExprNode::Exp(value) | ExprNode::Log(value) | ExprNode::Factorial(value) => {
+                    pending.push(value);
+                }
+                ExprNode::Const(_) | ExprNode::Var(_) => {}
+            }
+        }
+        visited.len()
+    }
+
+    fn is_exact_integer(&self, expected: i64) -> bool {
+        matches!(self.node(), ExprNode::Const(value) if *value == BigRational::from_integer(expected.into()))
+    }
+
+    fn add_all(values: Vec<Expr>) -> Expr {
+        let mut constant = BigRational::zero();
+        let mut coefficients: std::collections::BTreeMap<Expr, BigRational> =
+            std::collections::BTreeMap::new();
+        let mut pending = values;
+        while let Some(value) = pending.pop() {
+            match value.node() {
+                ExprNode::Add(nested) => pending.extend(nested.iter().cloned()),
+                ExprNode::Const(value) => constant += value,
+                ExprNode::Mul(factors)
+                    if matches!(factors.first().map(Expr::node), Some(ExprNode::Const(_))) =>
+                {
+                    let ExprNode::Const(coefficient) = factors[0].node() else {
+                        unreachable!()
+                    };
+                    let base = Self::mul_all(factors[1..].to_vec());
+                    *coefficients.entry(base).or_insert_with(BigRational::zero) += coefficient;
+                }
+                _ => {
+                    *coefficients.entry(value).or_insert_with(BigRational::zero) +=
+                        BigRational::one();
+                }
+            }
+        }
+        let mut terms = Vec::with_capacity(coefficients.len() + usize::from(!constant.is_zero()));
+        for (base, coefficient) in coefficients {
+            if coefficient.is_zero() {
+                continue;
+            }
+            if coefficient.is_one() {
+                terms.push(base);
+            } else {
+                terms.push(Self::mul_all(vec![Self::constant(coefficient), base]));
+            }
+        }
+        if !constant.is_zero() {
+            terms.push(Self::constant(constant));
+        }
+        terms.sort();
+        match terms.len() {
+            0 => Self::integer(0),
+            1 => terms.pop().expect("single normalized sum term"),
+            _ => Self::from_node(ExprNode::Add(terms.into_boxed_slice())),
+        }
+    }
+
+    fn mul_all(values: Vec<Expr>) -> Expr {
+        let mut constant = BigRational::one();
+        let mut powers: std::collections::BTreeMap<Expr, Vec<Expr>> =
+            std::collections::BTreeMap::new();
+        let mut pending = values;
+        while let Some(value) = pending.pop() {
+            match value.node() {
+                ExprNode::Mul(nested) => pending.extend(nested.iter().cloned()),
+                ExprNode::Const(value) => constant *= value,
+                ExprNode::Pow(base, exponent) => {
+                    powers
+                        .entry(base.clone())
+                        .or_default()
+                        .push(exponent.clone());
+                }
+                _ => powers.entry(value).or_default().push(Self::integer(1)),
+            }
+        }
+        let mut factors = Vec::with_capacity(powers.len() + usize::from(!constant.is_one()));
+        for (base, exponents) in powers {
+            factors.push(Self::pow(base, Self::add_all(exponents)));
+        }
+        if !constant.is_one() {
+            factors.push(Self::constant(constant));
+        }
+        factors.sort();
+        match factors.len() {
+            0 => Self::integer(1),
+            1 => factors.pop().expect("single normalized product factor"),
+            _ => Self::from_node(ExprNode::Mul(factors.into_boxed_slice())),
         }
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SubstitutionError {
+    missing: BTreeSet<Box<str>>,
+}
+
+impl SubstitutionError {
+    fn new(missing: BTreeSet<Box<str>>) -> Self {
+        Self { missing }
+    }
+
+    pub fn missing_variables(&self) -> impl Iterator<Item = &str> {
+        self.missing.iter().map(AsRef::as_ref)
+    }
+}
+
+impl fmt::Display for SubstitutionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "missing substitutions for {}",
+            self.missing_variables().collect::<Vec<_>>().join(", ")
+        )
+    }
+}
+
+impl std::error::Error for SubstitutionError {}
+
 impl std::ops::Add for Expr {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
-        Self::Add(Box::new(self), Box::new(rhs))
+        Self::add_all(vec![self, rhs])
     }
 }
 
 impl std::ops::Sub for Expr {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
-        Self::Sub(Box::new(self), Box::new(rhs))
+        Self::add_all(vec![self, -rhs])
     }
 }
 
 impl std::ops::Mul for Expr {
     type Output = Self;
     fn mul(self, rhs: Self) -> Self::Output {
-        Self::Mul(Box::new(self), Box::new(rhs))
+        Self::mul_all(vec![self, rhs])
     }
 }
 
 impl std::ops::Div for Expr {
     type Output = Self;
     fn div(self, rhs: Self) -> Self::Output {
-        Self::Div(Box::new(self), Box::new(rhs))
+        Self::mul_all(vec![self, Self::pow(rhs, Self::integer(-1))])
     }
 }
 
 impl std::ops::Neg for Expr {
     type Output = Self;
     fn neg(self) -> Self::Output {
-        Self::Neg(Box::new(self))
+        Self::mul_all(vec![Self::integer(-1), self])
     }
 }
 
@@ -375,11 +751,10 @@ impl fmt::Display for Expr {
 
 impl Expr {
     fn precedence(&self) -> u8 {
-        match self {
-            Self::Add(_, _) | Self::Sub(_, _) => 1,
-            Self::Mul(_, _) | Self::Div(_, _) => 2,
-            Self::Neg(_) => 3,
-            Self::Pow(_, _) => 4,
+        match self.node() {
+            ExprNode::Add(_) => 1,
+            ExprNode::Mul(_) => 2,
+            ExprNode::Pow(_, _) => 4,
             _ => 5,
         }
     }
@@ -394,50 +769,40 @@ impl Expr {
         let needs_parentheses = precedence < parent_precedence
             || (right_child
                 && precedence == parent_precedence
-                && matches!(
-                    self,
-                    Self::Add(_, _) | Self::Sub(_, _) | Self::Mul(_, _) | Self::Div(_, _)
-                ))
-            || (!right_child && precedence == parent_precedence && matches!(self, Self::Pow(_, _)));
+                && matches!(self.node(), ExprNode::Add(_) | ExprNode::Mul(_)))
+            || (!right_child
+                && precedence == parent_precedence
+                && matches!(self.node(), ExprNode::Pow(_, _)));
         if needs_parentheses {
             write!(formatter, "(")?;
         }
-        match self {
-            Self::Const(value) => fmt_rational(value, formatter)?,
-            Self::Var(name) => write!(formatter, "{name}")?,
-            Self::Add(left, right) => {
-                left.fmt_with_precedence(formatter, precedence, false)?;
-                write!(formatter, " + ")?;
-                right.fmt_with_precedence(formatter, precedence, true)?;
+        match self.node() {
+            ExprNode::Const(value) => fmt_rational(value, formatter)?,
+            ExprNode::Var(name) => write!(formatter, "{name}")?,
+            ExprNode::Add(values) => {
+                for (index, value) in values.iter().enumerate() {
+                    if index > 0 {
+                        write!(formatter, " + ")?;
+                    }
+                    value.fmt_with_precedence(formatter, precedence, index > 0)?;
+                }
             }
-            Self::Sub(left, right) => {
-                left.fmt_with_precedence(formatter, precedence, false)?;
-                write!(formatter, " - ")?;
-                right.fmt_with_precedence(formatter, precedence, true)?;
+            ExprNode::Mul(values) => {
+                for (index, value) in values.iter().enumerate() {
+                    if index > 0 {
+                        write!(formatter, " * ")?;
+                    }
+                    value.fmt_with_precedence(formatter, precedence, index > 0)?;
+                }
             }
-            Self::Mul(left, right) => {
-                left.fmt_with_precedence(formatter, precedence, false)?;
-                write!(formatter, " * ")?;
-                right.fmt_with_precedence(formatter, precedence, true)?;
-            }
-            Self::Div(left, right) => {
-                left.fmt_with_precedence(formatter, precedence, false)?;
-                write!(formatter, " / ")?;
-                right.fmt_with_precedence(formatter, precedence, true)?;
-            }
-            Self::Pow(base, exponent) => {
+            ExprNode::Pow(base, exponent) => {
                 base.fmt_with_precedence(formatter, precedence, false)?;
                 write!(formatter, "^")?;
                 exponent.fmt_with_precedence(formatter, precedence, true)?;
             }
-            Self::Neg(value) => {
-                write!(formatter, "-")?;
-                value.fmt_with_precedence(formatter, precedence, true)?;
-            }
-            Self::Exp(value) => write!(formatter, "exp({value})")?,
-            Self::Log(value) => write!(formatter, "log({value})")?,
-            Self::Sqrt(value) => write!(formatter, "sqrt({value})")?,
-            Self::Factorial(value) => write!(formatter, "factorial({value})")?,
+            ExprNode::Exp(value) => write!(formatter, "exp({value})")?,
+            ExprNode::Log(value) => write!(formatter, "log({value})")?,
+            ExprNode::Factorial(value) => write!(formatter, "factorial({value})")?,
         }
         if needs_parentheses {
             write!(formatter, ")")?;
@@ -658,8 +1023,16 @@ impl Parser {
         loop {
             if self.consume(&TokenKind::Star) {
                 expression = expression * self.parse_unary()?;
-            } else if self.consume(&TokenKind::Slash) {
-                expression = expression / self.parse_unary()?;
+            } else if self
+                .peek()
+                .is_some_and(|token| token.kind == TokenKind::Slash)
+            {
+                let position = self.advance().expect("peeked division token").position;
+                let denominator = self.parse_unary()?;
+                if denominator.is_exact_integer(0) {
+                    return Err(ParseError::new(position, "division by zero"));
+                }
+                expression = expression / denominator;
             } else {
                 return Ok(expression);
             }
@@ -676,8 +1049,22 @@ impl Parser {
 
     fn parse_power(&mut self) -> Result<Expr, ParseError> {
         let base = self.parse_primary()?;
-        if self.consume(&TokenKind::Caret) {
-            Ok(Expr::pow(base, self.parse_unary()?))
+        if self
+            .peek()
+            .is_some_and(|token| token.kind == TokenKind::Caret)
+        {
+            let position = self.advance().expect("peeked power token").position;
+            let exponent = self.parse_unary()?;
+            if matches!((base.node(), exponent.node()),
+                (ExprNode::Const(base), ExprNode::Const(exponent))
+                    if base.is_zero() && exponent.is_negative())
+            {
+                return Err(ParseError::new(
+                    position,
+                    "zero cannot have a negative power",
+                ));
+            }
+            Ok(Expr::pow(base, exponent))
         } else {
             Ok(base)
         }
@@ -688,7 +1075,7 @@ impl Parser {
             .advance()
             .ok_or_else(|| ParseError::new(self.end_position(), "expected expression"))?;
         match token.kind {
-            TokenKind::Number(value) => Ok(Expr::Const(value)),
+            TokenKind::Number(value) => Ok(Expr::constant(value)),
             TokenKind::Ident(name) => {
                 if !self.consume(&TokenKind::LeftParen) {
                     return Expr::try_variable(name)
@@ -697,10 +1084,41 @@ impl Parser {
                 let argument = self.parse_additive()?;
                 self.expect_right_paren()?;
                 match name.as_ref() {
-                    "exp" => Ok(Expr::Exp(Box::new(argument))),
-                    "log" => Ok(Expr::Log(Box::new(argument))),
-                    "sqrt" => Ok(Expr::Sqrt(Box::new(argument))),
-                    "factorial" => Ok(Expr::Factorial(Box::new(argument))),
+                    "exp" => Ok(Expr::exp(argument)),
+                    "log" => {
+                        if matches!(argument.node(), ExprNode::Const(value) if !value.is_positive())
+                        {
+                            Err(ParseError::new(
+                                token.position,
+                                "logarithm argument must be positive",
+                            ))
+                        } else {
+                            Ok(Expr::log(argument))
+                        }
+                    }
+                    "sqrt" => {
+                        if matches!(argument.node(), ExprNode::Const(value) if value.is_negative())
+                        {
+                            Err(ParseError::new(
+                                token.position,
+                                "square-root argument must be non-negative",
+                            ))
+                        } else {
+                            Ok(Expr::sqrt(argument))
+                        }
+                    }
+                    "factorial" => {
+                        if matches!(argument.node(), ExprNode::Const(value)
+                            if !value.is_integer() || value.is_negative())
+                        {
+                            Err(ParseError::new(
+                                token.position,
+                                "factorial argument must be a non-negative integer",
+                            ))
+                        } else {
+                            Ok(Expr::factorial(argument))
+                        }
+                    }
                     _ => Err(ParseError::new(
                         token.position,
                         format!("unknown function {name:?}"),
@@ -742,13 +1160,25 @@ mod tests {
     }
 
     #[test]
-    fn parser_preserves_source_operators() {
+    fn parser_normalizes_source_operators() {
         let expression = Expr::parse("n * (n - 1) / 2 - m");
-        assert!(matches!(expression, Expr::Sub(_, _)));
-        let Expr::Sub(left, _) = expression else {
-            unreachable!()
-        };
-        assert!(matches!(left.as_ref(), Expr::Div(_, _)));
+        assert!(matches!(expression.node(), ExprNode::Add(_)));
+        assert_eq!(expression.variables(), BTreeSet::from(["m", "n"]));
+    }
+
+    #[test]
+    fn parser_rejects_statically_undefined_expressions() {
+        for source in [
+            "0 / 0",
+            "0^-1",
+            "log(0)",
+            "log(-1)",
+            "sqrt(-1)",
+            "factorial(-1)",
+            "factorial(3.5)",
+        ] {
+            assert!(Expr::try_parse(source).is_err(), "accepted {source}");
+        }
     }
 
     #[test]
@@ -770,7 +1200,7 @@ mod tests {
                 "parsed {invalid_expression:?}"
             );
         }
-        assert!(matches!(Expr::parse("n-m"), Expr::Sub(_, _)));
+        assert!(matches!(Expr::parse("n-m").node(), ExprNode::Add(_)));
         for valid in ["n", "_n", "n_1", "num_vertices"] {
             let expression = Expr::try_variable(valid).unwrap();
             assert_eq!(
@@ -782,7 +1212,27 @@ mod tests {
 
     #[test]
     fn deserialization_rejects_invalid_variable_names() {
-        assert!(serde_json::from_str::<Expr>(r#"{"Var":"n-m"}"#).is_err());
+        assert!(serde_json::from_str::<Expr>(r#"{"nodes":[{"Var":"n-m"}],"root":0}"#).is_err());
+    }
+
+    #[test]
+    fn serialization_preserves_shared_nodes() {
+        let shared = Expr::variable("a") + Expr::variable("b");
+        let expression = Expr::pow(shared.clone(), shared);
+        let encoded = serde_json::to_value(&expression).unwrap();
+        assert_eq!(encoded["nodes"].as_array().unwrap().len(), 4);
+
+        let decoded: Expr = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded, expression);
+        assert_eq!(decoded.unique_node_count(), 4);
+    }
+
+    #[test]
+    fn deserialization_rejects_forward_node_references() {
+        let error =
+            serde_json::from_str::<Expr>(r#"{"nodes":[{"Pow":[1,1]},{"Var":"n"}],"root":0}"#)
+                .unwrap_err();
+        assert!(error.to_string().contains("unavailable child node 1"));
     }
 
     #[test]
@@ -790,20 +1240,23 @@ mod tests {
         let expression = Expr::parse("n + m");
         let n = Expr::integer(3);
         let replacements = HashMap::from([("n", &n)]);
-        assert_eq!(expression.substitute_complete(&replacements), None);
+        let error = expression.substitute_complete(&replacements).unwrap_err();
+        assert_eq!(error.missing_variables().collect::<Vec<_>>(), ["m"]);
 
         let m = Expr::integer(4);
         let replacements = HashMap::from([("n", &n), ("m", &m)]);
         assert_eq!(
             expression.substitute_complete(&replacements),
-            Some(Expr::integer(3) + Expr::integer(4))
+            Ok(Expr::integer(3) + Expr::integer(4))
         );
     }
 
     #[test]
     fn polynomial_accepts_exact_rational_coefficients() {
         assert!(Expr::parse("-n / 2").is_polynomial());
-        assert!(!Expr::parse("n / 0").is_polynomial());
+        assert!(
+            !(Expr::variable("n") * Expr::pow(Expr::integer(0), Expr::integer(-1))).is_polynomial()
+        );
         assert!(!Expr::parse("n / m").is_polynomial());
     }
 
@@ -822,8 +1275,40 @@ mod tests {
     #[test]
     fn display_preserves_grouping() {
         let expression = Expr::parse("n * (n - 1) / 2 - m");
-        assert_eq!(expression.to_string(), "n * (n - 1) / 2 - m");
+        assert_eq!(expression.to_string(), "-1 * m + n * (-1 + n) * 2^-1");
         assert_eq!(Expr::parse(&expression.to_string()), expression);
+    }
+
+    #[test]
+    fn repeated_substitution_keeps_a_constant_number_of_nodes() {
+        let template = Expr::parse("x + x");
+        let mut expression = Expr::variable("n");
+        for _ in 0..100 {
+            let replacements = HashMap::from([("x", &expression)]);
+            expression = template
+                .substitute_complete(&replacements)
+                .expect("x has an exact replacement");
+        }
+
+        assert_eq!(expression.unique_node_count(), 3);
+        assert_eq!(expression.variables(), BTreeSet::from(["n"]));
+    }
+
+    #[test]
+    fn constructors_combine_coefficients_and_exponents() {
+        assert_eq!(Expr::parse("2*x + 3*x"), Expr::parse("5*x"));
+        assert_eq!(Expr::parse("x^2 * x^3"), Expr::parse("x^5"));
+        assert_eq!(Expr::parse("x * x^-1"), Expr::integer(1));
+    }
+
+    #[test]
+    fn canonicalization_preserves_deep_shared_subexpressions() {
+        let mut expression = Expr::variable("n");
+        for _ in 0..100 {
+            expression = Expr::pow(expression.clone(), Expr::integer(2)) + expression;
+        }
+
+        assert_eq!(expression.unique_node_count(), 301);
     }
 
     #[test]

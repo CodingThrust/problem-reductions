@@ -3,6 +3,7 @@
     "engine": "SymPy",
     "version": "1.14.0",
     "parse_evaluate": false,
+    "polynomial_mode": "simplify before classification",
     "decimal_mode": "rationalize base-10 spelling",
     "documentation": {
       "parser": "https://docs.sympy.org/latest/modules/parsing.html",
@@ -187,9 +188,7 @@
     {
       "name": "zero_power",
       "source": "n^0",
-      "variables": [
-        "n"
-      ],
+      "variables": [],
       "bindings": {
         "n": 9
       },
@@ -563,9 +562,7 @@
     {
       "name": "zero_product",
       "source": "n * 0 + 7",
-      "variables": [
-        "n"
-      ],
+      "variables": [],
       "bindings": {
         "n": 999
       },
@@ -576,15 +573,13 @@
     {
       "name": "self_division",
       "source": "n / n",
-      "variables": [
-        "n"
-      ],
+      "variables": [],
       "bindings": {
         "n": 5
       },
       "exact_result": "1/1",
       "compare_polynomial": true,
-      "is_polynomial": false
+      "is_polynomial": true
     },
     {
       "name": "identity_power",
@@ -668,7 +663,8 @@
       "name": "exp_one",
       "source": "exp(1)",
       "bindings": {},
-      "decimal_result": "2.7182818284590452353602874713526624977572470936999595749669676277240766303535476"
+      "decimal_result": "2.7182818284590452353602874713526624977572470936999595749669676277240766303535476",
+      "finite_f64": true
     },
     {
       "name": "exp_fraction",
@@ -676,37 +672,43 @@
       "bindings": {
         "n": 5
       },
-      "decimal_result": "5.2944900504700293668273720041970084836945003393922853071798661344646724034457350"
+      "decimal_result": "5.2944900504700293668273720041970084836945003393922853071798661344646724034457350",
+      "finite_f64": true
     },
     {
       "name": "log_two",
       "source": "log(2)",
       "bindings": {},
-      "decimal_result": "0.69314718055994530941723212145817656807550013436025525412068000949339362196969472"
+      "decimal_result": "0.69314718055994530941723212145817656807550013436025525412068000949339362196969472",
+      "finite_f64": true
     },
     {
       "name": "log_large",
       "source": "log(1000000)",
       "bindings": {},
-      "decimal_result": "13.815510557964274104107948728106185245606608931772637856199967405805435658064115"
+      "decimal_result": "13.815510557964274104107948728106185245606608931772637856199967405805435658064115",
+      "finite_f64": true
     },
     {
       "name": "sqrt_two",
       "source": "sqrt(2)",
       "bindings": {},
-      "decimal_result": "1.4142135623730950488016887242096980785696718753769480731766797379907324784621070"
+      "decimal_result": "1.4142135623730950488016887242096980785696718753769480731766797379907324784621070",
+      "finite_f64": true
     },
     {
       "name": "sqrt_large",
       "source": "sqrt(1234567)",
       "bindings": {},
-      "decimal_result": "1111.1107055554815416396515848965904897963992832303701857506256489602822366577437"
+      "decimal_result": "1111.1107055554815416396515848965904897963992832303701857506256489602822366577437",
+      "finite_f64": true
     },
     {
       "name": "fractional_power",
       "source": "7^2.372",
       "bindings": {},
-      "decimal_result": "101.05843092384223958212718059829945761475621729782192940886273940327749873565595"
+      "decimal_result": "101.05843092384223958212718059829945761475621729782192940886273940327749873565595",
+      "finite_f64": true
     },
     {
       "name": "mixed_transcendental",
@@ -715,7 +717,8 @@
         "n": 13,
         "m": 2
       },
-      "decimal_result": "14.414213562373095048801688724209698078569671875376948073176679737990732478462107"
+      "decimal_result": "14.414213562373095048801688724209698078569671875376948073176679737990732478462107",
+      "finite_f64": true
     },
     {
       "name": "complexity_formula",
@@ -723,25 +726,29 @@
       "bindings": {
         "n": 19
       },
-      "decimal_result": "33286.894651335198492304106719929283764371367866374006692959786883373657361699408"
+      "decimal_result": "33286.894651335198492304106719929283764371367866374006692959786883373657361699408",
+      "finite_f64": true
     },
     {
       "name": "factorial_ten",
       "source": "factorial(10)",
       "bindings": {},
-      "decimal_result": "3628800.0000000000000000000000000000000000000000000000000000000000000000000000000"
+      "decimal_result": "3628800.0000000000000000000000000000000000000000000000000000000000000000000000000",
+      "finite_f64": true
     },
     {
       "name": "factorial_f64_boundary",
       "source": "factorial(170)",
       "bindings": {},
-      "decimal_result": "7.2574156153079989673967282111292631147169916812964513765435777989005618434017062e+306"
+      "decimal_result": "7.2574156153079989673967282111292631147169916812964513765435777989005618434017062e+306",
+      "finite_f64": true
     },
     {
       "name": "factorial_f64_overflow",
       "source": "factorial(171)",
       "bindings": {},
-      "decimal_result": "1.2410180702176678234248405241031039926166055775016931853889518036119960752216918e+309"
+      "decimal_result": "1.2410180702176678234248405241031039926166055775016931853889518036119960752216918e+309",
+      "finite_f64": false
     }
   ],
   "growth_cases": [
@@ -848,42 +855,50 @@
     {
       "source": "0",
       "exact_argument": "0",
-      "accepted": true
+      "accepted": true,
+      "finite_f64": true
     },
     {
       "source": "1",
       "exact_argument": "1",
-      "accepted": true
+      "accepted": true,
+      "finite_f64": true
     },
     {
       "source": "10",
       "exact_argument": "10",
-      "accepted": true
+      "accepted": true,
+      "finite_f64": true
     },
     {
       "source": "170",
       "exact_argument": "170",
-      "accepted": true
+      "accepted": true,
+      "finite_f64": true
     },
     {
       "source": "171",
       "exact_argument": "171",
-      "accepted": true
+      "accepted": true,
+      "finite_f64": false
     },
     {
       "source": "-1",
       "exact_argument": "-1",
-      "accepted": false
+      "accepted": false,
+      "finite_f64": false
     },
     {
       "source": "3.5",
       "exact_argument": "7/2",
-      "accepted": false
+      "accepted": false,
+      "finite_f64": false
     },
     {
       "source": "1 / 2",
       "exact_argument": "1/2",
-      "accepted": false
+      "accepted": false,
+      "finite_f64": false
     }
   ]
 }

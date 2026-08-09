@@ -85,8 +85,7 @@ fn test_big_o_composed_overhead_duplicate() {
 #[test]
 fn test_big_o_exp_with_polynomial() {
     // exp(n) dominates n^10
-    let e = Expr::Exp(Box::new(Expr::variable("n")))
-        + Expr::pow(Expr::variable("n"), Expr::integer(10));
+    let e = Expr::exp(Expr::variable("n")) + Expr::pow(Expr::variable("n"), Expr::integer(10));
     let result = big_o_normal_form(&e).unwrap();
     let s = result.to_string();
     assert!(s.contains("exp"), "expected exp term to survive, got: {s}");
@@ -104,12 +103,12 @@ fn test_big_o_pure_constant_returns_one() {
 }
 
 #[test]
-fn test_big_o_rejects_division() {
+fn test_big_o_rejects_negative_symbolic_power() {
     let e = Expr::variable("n") / Expr::variable("m");
     let error = big_o_normal_form(&e).unwrap_err();
     assert_eq!(
         error.to_string(),
-        "unsupported asymptotic expression: variable denominator is unsupported: m"
+        "unsupported asymptotic expression: negative exponent is unsupported: -1"
     );
 }
 

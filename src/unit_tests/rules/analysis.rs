@@ -75,7 +75,7 @@ fn test_compare_overhead_exp_dominates_poly() {
     // primitive exp(n) grows faster than composite n, so composite ≤ primitive
     // on the only common field → dominated. (The old polynomial engine rejected
     // exp outright and returned Unknown; the growth domain decides it.)
-    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::variable("n"))))]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::exp(Expr::variable("n")))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
@@ -86,7 +86,7 @@ fn test_compare_overhead_poly_dominates_log() {
     // composite is dominated. Previously Unknown (the polynomial engine could
     // not normalize `log`); now decided by the growth domain.
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::variable("n"))]);
-    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::variable("n"))))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::log(Expr::variable("n")))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
@@ -302,13 +302,6 @@ fn test_find_dominated_rules_returns_known_set() {
     let allowed: std::collections::HashSet<(&str, &str)> = [
         // Composite through CircuitSAT → ILP is better
         ("Factoring", "ILP {variable: \"i32\"}"),
-        // KClique → BCBS → ILP is better than direct KClique → ILP
-        (
-            "KClique {graph: \"SimpleGraph\"}",
-            "ILP {variable: \"bool\"}",
-        ),
-        // K2-SAT → QUBO via SAT → NAESAT → MaxCut → SpinGlass chain
-        ("KSatisfiability {k: \"K2\"}", "QUBO {weight: \"f64\"}"),
         // K3-SAT → QUBO via MVC → MIS → MaxSetPacking chain
         ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
         // Knapsack -> ILP -> QUBO is better than the direct penalty reduction
@@ -330,12 +323,7 @@ fn test_find_dominated_rules_returns_known_set() {
             "KSatisfiability {k: \"K3\"}",
             "MinimumVertexCover {graph: \"SimpleGraph\", weight: \"i32\"}",
         ),
-        // Newly decided by the growth-domain rewrite: PartitionIntoPathsOfLength2
-        // → BCSF → ILP{i32} → ILP{bool}. The composite's composed num_vars/num_constraints
-        // carry a `num_vertices / 3` factor (from max_components = V/3); the old polynomial
-        // engine rejected that constant divisor as a negative-exponent power and returned
-        // Unknown, while the growth domain drops constant divisors, giving both fields
-        // growth {V^2, E*V} — asymptotically equal to the direct edge, hence Dominated.
+        // PartitionIntoPathsOfLength2 → BCSF → ILP{i32} → ILP{bool} is equal or better.
         (
             "PartitionIntoPathsOfLength2 {graph: \"SimpleGraph\"}",
             "ILP {variable: \"bool\"}",
@@ -343,6 +331,10 @@ fn test_find_dominated_rules_returns_known_set() {
     ]
     .into_iter()
     .collect();
+
+    assert!(unknown
+        .iter()
+        .any(|comparison| comparison.reason.contains("missing substitutions for ")));
 
     // Check: no unexpected dominated rules
     for rule in &dominated {

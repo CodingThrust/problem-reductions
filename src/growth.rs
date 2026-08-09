@@ -30,8 +30,8 @@
 //! `add = antichain union + prune`. All bounds produced are **upper** bounds.
 //!
 //! Widening (always toward a valid upper bound):
-//! - Subtraction `a − b ⇝ a + b`: [`Expr::Sub`] remains explicit in the source
-//!   tree, and [`Growth::from_expr`] widens it to the union of both operands.
+//! - Subtraction is normalized to addition of a negative term, and
+//!   [`Growth::from_expr`] widens it to the union of both operands.
 //!   This also covers the
 //!   `sqrt((a − b)^2)` absolute-value idiom (`|a − b| ≤ a + b`).
 //! - Constants and constant multipliers/divisors are dropped on entry.
@@ -41,7 +41,7 @@
 //!   and never reconstructed by rounding. Nonlinear exponents (`2^(n·k)`,
 //!   `2^sqrt(n)`), `factorial(·)`, and negative polynomial exponents widen to
 //!   [`Growth::Unknown`], which preserves its reasons through every operation.
-//! - The explicit approximation boundary treats [`Expr::Log`] as the natural
+//! - The explicit approximation boundary treats [`Expr::log`] as the natural
 //!   logarithm, but all fixed
 //!   logarithm bases greater than one have the same asymptotic class and are
 //!   intentionally represented by the single `log(v)` factor.
@@ -56,10 +56,10 @@
 
 use crate::expr::{
     approximate_factorial, constant_approximation, expression_from_approximation, rational_to_f64,
-    Expr,
+    Expr, ExprNode, ExprNodeId,
 };
 use std::cmp::Ordering;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// A base retained exactly as it appeared in the input expression.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
@@ -103,12 +103,15 @@ impl ExpBase {
     }
 
     /// Directly comparable base values. `Natural` uses the same `E` constant as
-    /// `Expr::Exp`; arbitrary constant subtrees remain structural-only.
+    /// `Expr::exp`; arbitrary constant subtrees remain structural-only.
     fn directly_comparable_value(&self) -> Option<f64> {
         match self {
-            ExpBase::Constant(Expr::Const(value)) => Some(
-                rational_to_f64(value)
-                    .expect("direct exponential constants are validated when constructed"),
+            ExpBase::Constant(base) if matches!(base.node(), ExprNode::Const(_)) => Some(
+                rational_to_f64(match base.node() {
+                    ExprNode::Const(value) => value,
+                    _ => unreachable!(),
+                })
+                .expect("direct exponential constants are validated when constructed"),
             ),
             ExpBase::Natural => Some(std::f64::consts::E),
             ExpBase::Constant(_) => None,
@@ -318,15 +321,6 @@ impl ExpProduct {
         }
     }
 
-    /// Test-only independent approximation of the retained exponential rate.
-    #[cfg(test)]
-    fn log2_estimate(&self) -> f64 {
-        self.factors
-            .iter()
-            .map(|factor| factor.coefficient * factor.base.value().log2())
-            .sum()
-    }
-
     fn sort_key(&self) -> String {
         self.factors
             .iter()
@@ -375,8 +369,6 @@ pub enum Growth {
 pub enum GrowthFailure {
     #[error("cannot approximate constant {expression}: {error}")]
     Approximation { expression: String, error: String },
-    #[error("variable denominator is unsupported: {0}")]
-    VariableDenominator(String),
     #[error("negative exponent is unsupported: {0}")]
     NegativeExponent(String),
     #[error("nonlinear exponent is unsupported: {0}")]
@@ -572,6 +564,15 @@ impl Growth {
         analyze_expr(expr).growth
     }
 
+    /// Compute several growth classes with one memo so shared DAG nodes are analyzed once.
+    pub(crate) fn from_expr_batch(expressions: &[&Expr]) -> Vec<Growth> {
+        let mut memo = HashMap::new();
+        expressions
+            .iter()
+            .map(|expression| analyze_expr_inner(expression, &mut memo).growth)
+            .collect()
+    }
+
     /// Partial order: `true` iff `self` grows at least as fast as `other`.
     ///
     /// Per the growth-rate reading, [`Growth::Unknown`] is the top element (it
@@ -625,6 +626,7 @@ impl Growth {
     }
 }
 
+#[derive(Clone)]
 struct ExprAnalysis {
     growth: Growth,
     constant: Option<f64>,
@@ -632,8 +634,18 @@ struct ExprAnalysis {
 }
 
 fn analyze_expr(expression: &Expr) -> ExprAnalysis {
-    match expression {
-        Expr::Const(value) => match rational_to_f64(value) {
+    analyze_expr_inner(expression, &mut HashMap::new())
+}
+
+fn analyze_expr_inner(
+    expression: &Expr,
+    memo: &mut HashMap<ExprNodeId, ExprAnalysis>,
+) -> ExprAnalysis {
+    if let Some(analysis) = memo.get(&expression.node_identity()) {
+        return analysis.clone();
+    }
+    let analysis = match expression.node() {
+        ExprNode::Const(value) => match rational_to_f64(value) {
             Ok(constant) => ExprAnalysis {
                 growth: constant_growth(),
                 linear: Some(BTreeMap::new()),
@@ -641,7 +653,7 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
             },
             Err(error) => failed_analysis(expression, error.to_string()),
         },
-        Expr::Var(variable) => {
+        ExprNode::Var(variable) => {
             let mut term = GrowthTerm::one();
             term.poly.insert(variable.as_str().into(), 1.0);
             let mut linear = BTreeMap::new();
@@ -652,85 +664,25 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
                 linear: Some(linear),
             }
         }
-        Expr::Add(left, right) => analyze_sum(left, right, 1.0),
-        Expr::Sub(left, right) => analyze_sum(left, right, -1.0),
-        Expr::Mul(left, right) => {
-            let left = analyze_expr(left);
-            let right = analyze_expr(right);
-            let constant = left
-                .constant
-                .zip(right.constant)
-                .map(|(left, right)| left * right);
-            let linear = if constant.is_some() {
-                Some(BTreeMap::new())
-            } else if let Some(coefficient) = left.constant {
-                scale_linear(right.linear, coefficient)
-            } else if let Some(coefficient) = right.constant {
-                scale_linear(left.linear, coefficient)
-            } else {
-                None
-            };
-            ExprAnalysis {
-                growth: if constant.is_some() {
-                    constant_growth()
-                } else {
-                    mul(left.growth, right.growth)
-                },
-                constant,
-                linear,
-            }
-        }
-        Expr::Div(numerator, denominator) => {
-            let numerator = analyze_expr(numerator);
-            let denominator = analyze_expr(denominator);
-            let constant = match numerator.constant.zip(denominator.constant) {
-                Some((_, 0.0)) => None,
-                Some((numerator, denominator)) => Some(numerator / denominator),
-                None => None,
-            };
-            let linear = if constant.is_some() {
-                Some(BTreeMap::new())
-            } else if let Some(divisor) = denominator.constant {
-                if divisor == 0.0 {
-                    None
-                } else {
-                    scale_linear(numerator.linear, 1.0 / divisor)
-                }
-            } else {
-                None
-            };
-            ExprAnalysis {
-                growth: if constant.is_some() {
-                    constant_growth()
-                } else if denominator.constant == Some(0.0) {
-                    unknown(GrowthFailure::Approximation {
-                        expression: expression.to_string(),
-                        error: "division by zero".to_string(),
-                    })
-                } else if matches!(&numerator.growth, Growth::Unknown(_))
-                    || matches!(&denominator.growth, Growth::Unknown(_))
-                {
-                    merge_unknown(numerator.growth, denominator.growth)
-                } else if denominator.constant.is_some() {
-                    numerator.growth
-                } else {
-                    unknown(GrowthFailure::VariableDenominator(denominator_expression(
-                        expression,
-                    )))
-                },
-                constant,
-                linear,
-            }
-        }
-        Expr::Pow(base, exponent) => {
-            let base_analysis = analyze_expr(base);
-            let exponent_analysis = analyze_expr(exponent);
+        ExprNode::Add(values) => values
+            .iter()
+            .map(|value| analyze_expr_inner(value, memo))
+            .reduce(combine_sum_analysis)
+            .expect("normalized sum has at least two terms"),
+        ExprNode::Mul(values) => values
+            .iter()
+            .map(|value| analyze_expr_inner(value, memo))
+            .reduce(combine_product_analysis)
+            .expect("normalized product has at least two factors"),
+        ExprNode::Pow(base, exponent) => {
+            let base_analysis = analyze_expr_inner(base, memo);
+            let exponent_analysis = analyze_expr_inner(exponent, memo);
             let constant = base_analysis
                 .constant
                 .zip(exponent_analysis.constant)
                 .and_then(|(base, exponent)| {
                     let value = base.powf(exponent);
-                    (!value.is_nan()).then_some(value)
+                    value.is_finite().then_some(value)
                 });
             let growth = if matches!(&base_analysis.growth, Growth::Unknown(_))
                 || matches!(&exponent_analysis.growth, Growth::Unknown(_))
@@ -753,7 +705,7 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
                 }
             } else if base_analysis.constant.is_some_and(f64::is_finite) {
                 exponential(
-                    ExpBase::Constant(base.as_ref().clone()),
+                    ExpBase::Constant(base.clone()),
                     exponent_analysis.linear,
                     exponent,
                 )
@@ -768,21 +720,8 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
                 linear: constant.map(|_| BTreeMap::new()),
             }
         }
-        Expr::Neg(value) => {
-            let value = analyze_expr(value);
-            let constant = value.constant.map(|constant| -constant);
-            ExprAnalysis {
-                growth: if constant.is_some() {
-                    constant_growth()
-                } else {
-                    value.growth
-                },
-                constant,
-                linear: scale_linear(value.linear, -1.0),
-            }
-        }
-        Expr::Exp(value) => {
-            let value = analyze_expr(value);
+        ExprNode::Exp(value) => {
+            let value = analyze_expr_inner(value, memo);
             let constant = value.constant.map(f64::exp);
             ExprAnalysis {
                 growth: if constant.is_some() {
@@ -796,9 +735,10 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
                 linear: constant.map(|_| BTreeMap::new()),
             }
         }
-        Expr::Log(value) => analyze_unary(
+        ExprNode::Log(value) => analyze_unary(
             expression,
             value,
+            memo,
             |constant| {
                 (constant > 0.0)
                     .then(|| constant.ln())
@@ -806,53 +746,69 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
             },
             log_growth,
         ),
-        Expr::Sqrt(value) => analyze_unary(
-            expression,
-            value,
-            |constant| {
-                (constant >= 0.0)
-                    .then(|| constant.sqrt())
-                    .ok_or("square-root argument must be non-negative")
-            },
-            |growth| pow_const(growth, 0.5),
-        ),
-        Expr::Factorial(value) => {
-            let value = analyze_expr(value);
+        ExprNode::Factorial(value) => {
+            let value = analyze_expr_inner(value, memo);
             if matches!(&value.growth, Growth::Unknown(_)) {
-                return ExprAnalysis {
+                ExprAnalysis {
                     growth: value.growth,
                     constant: None,
                     linear: None,
-                };
-            }
-            match value.constant {
-                Some(constant) => match approximate_factorial(constant) {
-                    Ok(constant) => ExprAnalysis {
-                        growth: constant_growth(),
-                        constant: Some(constant),
-                        linear: Some(BTreeMap::new()),
+                }
+            } else {
+                match value.constant {
+                    Some(constant) => match approximate_factorial(constant) {
+                        Ok(constant) => ExprAnalysis {
+                            growth: constant_growth(),
+                            constant: Some(constant),
+                            linear: Some(BTreeMap::new()),
+                        },
+                        Err(error) => failed_analysis(expression, error.to_string()),
                     },
-                    Err(error) => failed_analysis(expression, error.to_string()),
-                },
-                None => ExprAnalysis {
-                    growth: unknown(GrowthFailure::FactorialOfNonconstant(
-                        expression.to_string(),
-                    )),
-                    constant: None,
-                    linear: None,
-                },
+                    None => ExprAnalysis {
+                        growth: unknown(GrowthFailure::FactorialOfNonconstant(
+                            expression.to_string(),
+                        )),
+                        constant: None,
+                        linear: None,
+                    },
+                }
             }
         }
-    }
+    };
+    memo.insert(expression.node_identity(), analysis.clone());
+    analysis
 }
 
-fn analyze_sum(left: &Expr, right: &Expr, right_sign: f64) -> ExprAnalysis {
-    let left = analyze_expr(left);
-    let right = analyze_expr(right);
+fn combine_product_analysis(left: ExprAnalysis, right: ExprAnalysis) -> ExprAnalysis {
     let constant = left
         .constant
         .zip(right.constant)
-        .map(|(left, right)| left + right_sign * right);
+        .map(|(left, right)| left * right);
+    let linear = if constant.is_some() {
+        Some(BTreeMap::new())
+    } else if let Some(coefficient) = left.constant {
+        scale_linear(right.linear, coefficient)
+    } else if let Some(coefficient) = right.constant {
+        scale_linear(left.linear, coefficient)
+    } else {
+        None
+    };
+    ExprAnalysis {
+        growth: if constant.is_some() {
+            constant_growth()
+        } else {
+            mul(left.growth, right.growth)
+        },
+        constant,
+        linear,
+    }
+}
+
+fn combine_sum_analysis(left: ExprAnalysis, right: ExprAnalysis) -> ExprAnalysis {
+    let constant = left
+        .constant
+        .zip(right.constant)
+        .map(|(left, right)| left + right);
     ExprAnalysis {
         growth: if constant.is_some() {
             constant_growth()
@@ -860,17 +816,18 @@ fn analyze_sum(left: &Expr, right: &Expr, right_sign: f64) -> ExprAnalysis {
             add(left.growth, right.growth)
         },
         constant,
-        linear: combine_linear(left.linear, right.linear, right_sign),
+        linear: combine_linear(left.linear, right.linear, 1.0),
     }
 }
 
 fn analyze_unary(
     expression: &Expr,
     value: &Expr,
+    memo: &mut HashMap<ExprNodeId, ExprAnalysis>,
     evaluate: impl FnOnce(f64) -> Result<f64, &'static str>,
     transform_growth: impl FnOnce(Growth) -> Growth,
 ) -> ExprAnalysis {
-    let value = analyze_expr(value);
+    let value = analyze_expr_inner(value, memo);
     if matches!(&value.growth, Growth::Unknown(_)) {
         return ExprAnalysis {
             growth: value.growth,
@@ -903,13 +860,6 @@ fn failed_analysis(expression: &Expr, error: String) -> ExprAnalysis {
         }),
         constant: None,
         linear: None,
-    }
-}
-
-fn denominator_expression(expression: &Expr) -> String {
-    match expression {
-        Expr::Div(_, denominator) => denominator.to_string(),
-        _ => unreachable!("denominator_expression requires division"),
     }
 }
 
@@ -987,7 +937,7 @@ fn exp_factor(v: &str, factor: &ExpFactor) -> Expr {
     };
     match &factor.base {
         ExpBase::Constant(base) => Expr::pow(base.clone(), exponent),
-        ExpBase::Natural => Expr::Exp(Box::new(exponent)),
+        ExpBase::Natural => Expr::exp(exponent),
     }
 }
 
@@ -1002,7 +952,7 @@ fn poly_factor(v: &str, degree: f64) -> Expr {
 
 /// Render `(log v)^power`.
 fn log_factor(v: &str, power: u32) -> Expr {
-    let log = Expr::Log(Box::new(Expr::variable(v)));
+    let log = Expr::log(Expr::variable(v));
     if power == 1 {
         log
     } else {

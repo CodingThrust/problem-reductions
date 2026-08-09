@@ -15,7 +15,8 @@ use crate::rules::pareto::{
     SizeBudget, UnknownSizeField,
 };
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
+    AggregateReduceFn, EdgeCapabilities, OverheadCompositionError, ReduceFn, ReductionEntry,
+    ReductionOverhead,
 };
 use crate::rules::search::SearchTracker;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
@@ -135,6 +136,21 @@ pub(crate) struct EdgeJson {
 pub struct ReductionPath {
     /// Variant-level steps in the path.
     pub steps: Vec<ReductionStep>,
+}
+
+/// Why exact symbolic overhead composition could not be completed for a path.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum PathOverheadCompositionError {
+    #[error("cannot compose an empty reduction path")]
+    EmptyPath,
+    #[error("cannot compose reduction step {step} ({source} -> {target}): {error}")]
+    Step {
+        step: usize,
+        source: String,
+        target: String,
+        #[source]
+        error: OverheadCompositionError,
+    },
 }
 
 impl ReductionPath {
@@ -1284,11 +1300,34 @@ impl ReductionGraph {
     ///
     /// Returns a single `ReductionOverhead` whose expressions map from the
     /// source problem's size variables directly to the final target's size variables.
-    pub fn compose_path_overhead(&self, path: &ReductionPath) -> ReductionOverhead {
-        self.path_overheads(path)
-            .into_iter()
-            .reduce(|acc, oh| acc.compose(&oh))
-            .unwrap_or_default()
+    /// A one-node path has no reduction producing output fields, so its overhead is empty.
+    pub fn compose_path_overhead(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<ReductionOverhead, PathOverheadCompositionError> {
+        if path.steps.is_empty() {
+            return Err(PathOverheadCompositionError::EmptyPath);
+        }
+        if path.steps.len() == 1 {
+            return Ok(ReductionOverhead::default());
+        }
+
+        let mut overheads = self.path_overheads(path).into_iter();
+        let mut composed = overheads
+            .next()
+            .expect("a multi-node path has at least one edge overhead");
+        for (offset, overhead) in overheads.enumerate() {
+            let edge_index = offset + 1;
+            composed = composed.compose(&overhead).map_err(|error| {
+                PathOverheadCompositionError::Step {
+                    step: edge_index + 1,
+                    source: path.steps[edge_index].name.clone(),
+                    target: path.steps[edge_index + 1].name.clone(),
+                    error,
+                }
+            })?;
+        }
+        Ok(composed)
     }
 
     /// Get all variant maps registered for a problem name.

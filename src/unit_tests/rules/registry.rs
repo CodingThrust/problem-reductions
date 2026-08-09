@@ -42,6 +42,33 @@ fn test_reduction_overhead_default() {
 }
 
 #[test]
+fn composition_reports_every_failing_output_field() {
+    let first = ReductionOverhead::new(vec![("x", Expr::variable("n"))]);
+    let second = ReductionOverhead::new(vec![
+        ("a", Expr::variable("missing_a")),
+        ("b", Expr::variable("x") + Expr::variable("missing_b")),
+    ]);
+
+    let error = first.compose(&second).unwrap_err();
+    assert_eq!(
+        error.field_errors().keys().copied().collect::<Vec<_>>(),
+        ["a", "b"]
+    );
+    assert_eq!(
+        error.field_errors()["a"]
+            .missing_variables()
+            .collect::<Vec<_>>(),
+        ["missing_a"]
+    );
+    assert_eq!(
+        error.field_errors()["b"]
+            .missing_variables()
+            .collect::<Vec<_>>(),
+        ["missing_b"]
+    );
+}
+
+#[test]
 fn test_reduction_entry_overhead() {
     let entry = ReductionEntry {
         source_name: "TestSource",

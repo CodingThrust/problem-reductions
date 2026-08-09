@@ -1,10 +1,10 @@
 //! Automatic reduction registration via inventory.
 
-use crate::expr::{evaluate_approximate, Expr};
+use crate::expr::{evaluate_approximate, Expr, SubstitutionError};
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::types::ProblemSize;
 use std::any::Any;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -13,6 +13,32 @@ pub struct ReductionOverhead {
     /// Each entry is (output_field_name, expression).
     pub output_size: Vec<(&'static str, Expr)>,
 }
+
+/// Output fields whose formulas cannot be expressed through the preceding overhead.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OverheadCompositionError {
+    field_errors: BTreeMap<&'static str, SubstitutionError>,
+}
+
+impl OverheadCompositionError {
+    pub fn field_errors(&self) -> &BTreeMap<&'static str, SubstitutionError> {
+        &self.field_errors
+    }
+}
+
+impl std::fmt::Display for OverheadCompositionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (index, (field, error)) in self.field_errors.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str("; ")?;
+            }
+            write!(formatter, "{field}: {error}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for OverheadCompositionError {}
 
 impl ReductionOverhead {
     pub fn new(output_size: Vec<(&'static str, Expr)>) -> Self {
@@ -60,7 +86,10 @@ impl ReductionOverhead {
     ///
     /// Returns a new overhead whose expressions map from self's input variables
     /// directly to `next`'s output variables.
-    pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
+    pub fn compose(
+        &self,
+        next: &ReductionOverhead,
+    ) -> Result<ReductionOverhead, OverheadCompositionError> {
         use std::collections::HashMap;
 
         // Build substitution map: output field name → output expression
@@ -70,14 +99,20 @@ impl ReductionOverhead {
             .map(|(name, expr)| (*name, expr))
             .collect();
 
-        let composed = next
-            .output_size
-            .iter()
-            .map(|(name, expr)| (*name, expr.substitute(&mapping)))
-            .collect();
-
-        ReductionOverhead {
-            output_size: composed,
+        let mut composed = Vec::with_capacity(next.output_size.len());
+        let mut field_errors = BTreeMap::new();
+        for (name, expression) in &next.output_size {
+            match expression.substitute_complete(&mapping) {
+                Ok(expression) => composed.push((*name, expression)),
+                Err(error) => {
+                    field_errors.insert(*name, error);
+                }
+            }
+        }
+        if field_errors.is_empty() {
+            Ok(Self::new(composed))
+        } else {
+            Err(OverheadCompositionError { field_errors })
         }
     }
 

@@ -8,6 +8,7 @@ Usage:
 """
 
 import json
+import math
 from pathlib import Path
 
 import sympy
@@ -172,12 +173,14 @@ def generate_case(
     compare_polynomial: bool,
 ) -> dict:
     expression = parse(source)
-    symbols = sorted(str(symbol) for symbol in expression.free_symbols)
-    if set(symbols) != set(bindings):
+    source_symbols = sorted(str(symbol) for symbol in expression.free_symbols)
+    if set(source_symbols) != set(bindings):
         raise ValueError(f"{name} bindings do not match free symbols")
+    canonical = sympy.simplify(expression)
+    symbols = sorted(str(symbol) for symbol in canonical.free_symbols)
     substitutions = {sympy.Symbol(name): value for name, value in bindings.items()}
     result = expression.subs(substitutions)
-    polynomial = expression.is_polynomial(
+    polynomial = canonical.is_polynomial(
         *(sympy.Symbol(name) for name in symbols)
     )
     return {
@@ -209,6 +212,7 @@ def generate_approximate_case(
         "source": source,
         "bindings": bindings,
         "decimal_result": str(sympy.N(result, 80)),
+        "finite_f64": math.isfinite(float(result)),
     }
 
 
@@ -247,10 +251,12 @@ def generate_growth_case(name: str, left: str, right: str) -> dict:
 
 def generate_factorial_domain_case(source: str) -> dict:
     argument = parse(source).doit()
+    accepted = argument.is_integer is True and argument.is_nonnegative is True
     return {
         "source": source,
         "exact_argument": str(argument),
-        "accepted": argument.is_integer is True and argument.is_nonnegative is True,
+        "accepted": accepted,
+        "finite_f64": bool(accepted and argument <= 170),
     }
 
 
@@ -262,6 +268,7 @@ def main() -> None:
             "engine": "SymPy",
             "version": sympy.__version__,
             "parse_evaluate": False,
+            "polynomial_mode": "simplify before classification",
             "decimal_mode": "rationalize base-10 spelling",
             "documentation": {
                 "parser": "https://docs.sympy.org/latest/modules/parsing.html",

@@ -9,7 +9,7 @@ fn test_pred_sym_parse() {
     let output = pred_sym().args(["parse", "n + m"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert_eq!(stdout.trim(), "n + m");
+    assert_eq!(stdout.trim(), "m + n");
 }
 
 #[test]

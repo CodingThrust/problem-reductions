@@ -766,18 +766,69 @@ fn test_growth_label_extend_composes_overhead() {
     assert_eq!(field_big_o(&composed, "c"), "m * n^2");
 }
 
+/// Path composition keeps exact coefficients until the terminal growth analysis.
+/// A constant factor is asymptotically irrelevant in `2*n`, but becomes part of
+/// the exponential rate when a later rule uses that field as an exponent.
+#[test]
+fn test_growth_label_preserves_coefficients_across_exponential_composition() {
+    let first = growth_edge(vec![("x", Expr::integer(2) * Expr::variable("n"))]);
+    let target_variant = BTreeMap::new();
+    let first_edge = ReductionEdge {
+        overhead: &first.overhead,
+        reduce_fn: None,
+        target_name: "Intermediate",
+        target_variant: &target_variant,
+    };
+    let second = growth_edge(vec![(
+        "out",
+        Expr::pow(Expr::integer(2), Expr::variable("x")),
+    )]);
+    let second_edge = ReductionEdge {
+        overhead: &second.overhead,
+        reduce_fn: None,
+        target_name: "Target",
+        target_variant: &target_variant,
+    };
+
+    let label = GrowthLabel::source(&["n".to_string()])
+        .extend(&first_edge)
+        .expect("symbolic extension is exhaustive")
+        .extend(&second_edge)
+        .expect("symbolic extension is exhaustive");
+
+    assert_eq!(field_big_o(&label, "out"), "2^(2 * n)");
+}
+
+#[test]
+fn test_growth_label_repeated_composition_keeps_constant_dag_size() {
+    let doubling = growth_edge(vec![("x", Expr::variable("x") + Expr::variable("x"))]);
+    let target_variant = BTreeMap::new();
+    let edge = ReductionEdge {
+        overhead: &doubling.overhead,
+        reduce_fn: None,
+        target_name: "Intermediate",
+        target_variant: &target_variant,
+    };
+    let mut label = GrowthLabel::source(&["x".to_string()]);
+    for _ in 0..100 {
+        label = label
+            .extend(&edge)
+            .expect("symbolic extension is exhaustive");
+    }
+
+    assert_eq!(label.expression_node_count("x"), Some(3));
+    assert_eq!(field_big_o(&label, "x"), "x");
+}
+
 /// An overhead field that depends on an `Unknown`-growth current field stays
 /// `Unknown` — the bound is never fabricated.
 #[test]
 fn test_growth_label_propagates_unknown() {
     // Build a label whose field `x` is Unknown (factorial growth).
     let mut fields = BTreeMap::new();
-    fields.insert(
-        "x".to_string(),
-        Growth::from_expr(&Expr::Factorial(Box::new(Expr::variable("n")))),
-    );
-    fields.insert("y".to_string(), Growth::from_expr(&Expr::variable("n")));
-    let label = GrowthLabel::from_fields(fields);
+    fields.insert("x".to_string(), Expr::factorial(Expr::variable("n")));
+    fields.insert("y".to_string(), Expr::variable("n"));
+    let label = GrowthLabel::from_expressions(fields);
     assert!(matches!(label.fields().get("x"), Some(Growth::Unknown(_))));
 
     // out1 uses x (Unknown) → Unknown; out2 uses only y → bounded.
@@ -959,19 +1010,16 @@ fn test_symbolic_all_discovered_unknown_can_still_be_search_incomplete() {
 /// Unknown is an analysis boundary and never participates in dominance.
 #[test]
 fn test_growth_label_unknown_is_incomparable() {
-    let known = GrowthLabel::from_fields({
+    let known = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("a".to_string(), Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b".to_string(), Growth::from_expr(&Expr::variable("m")));
+        m.insert("a".to_string(), powk("n", 2.0));
+        m.insert("b".to_string(), Expr::variable("m"));
         m
     });
-    let with_unknown = GrowthLabel::from_fields({
+    let with_unknown = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("a".to_string(), Growth::from_expr(&powk("n", 2.0)));
-        m.insert(
-            "b".to_string(),
-            Growth::from_expr(&Expr::Factorial(Box::new(Expr::variable("n")))),
-        );
+        m.insert("a".to_string(), powk("n", 2.0));
+        m.insert("b".to_string(), Expr::factorial(Expr::variable("n")));
         m
     });
     assert!(!known.final_dominates(&with_unknown));
@@ -982,16 +1030,16 @@ fn test_growth_label_unknown_is_incomparable() {
 /// every field, including equality.
 #[test]
 fn test_growth_label_terminal_dominance_partial_order() {
-    let a = GrowthLabel::from_fields({
+    let a = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v".to_string(), Growth::from_expr(&Expr::variable("n"))); // n
-        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), Expr::variable("n")); // n
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
-    let b = GrowthLabel::from_fields({
+    let b = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v".to_string(), Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), powk("n", 2.0)); // n^2
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
     // a (n, m) grows slower in v, equal in e ⇒ a dominates b; b does not dominate a.
@@ -1000,16 +1048,16 @@ fn test_growth_label_terminal_dominance_partial_order() {
     assert!(a.final_dominates(&a.clone()));
 
     // Incomparable pair: one better in v, the other better in e.
-    let c = GrowthLabel::from_fields({
+    let c = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v".to_string(), Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e".to_string(), Growth::from_expr(&Expr::variable("m"))); // m
+        m.insert("v".to_string(), powk("n", 2.0)); // n^2
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
-    let d = GrowthLabel::from_fields({
+    let d = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v".to_string(), Growth::from_expr(&Expr::variable("n"))); // n
-        m.insert("e".to_string(), Growth::from_expr(&powk("m", 2.0))); // m^2
+        m.insert("v".to_string(), Expr::variable("n")); // n
+        m.insert("e".to_string(), powk("m", 2.0)); // m^2
         m
     });
     assert!(!c.final_dominates(&d));
@@ -1190,10 +1238,10 @@ fn test_growth_asymmetric_incomparable_front_complete() {
 fn test_growth_label_monotone_overhead_preserves_order() {
     // A = (n, m) dominates B = (n^2, m^2) componentwise.
     let a = GrowthLabel::source(&["n".to_string(), "m".to_string()]);
-    let b = GrowthLabel::from_fields({
+    let b = GrowthLabel::from_expressions({
         let mut mm = BTreeMap::new();
-        mm.insert("n".to_string(), Growth::from_expr(&powk("n", 2.0)));
-        mm.insert("m".to_string(), Growth::from_expr(&powk("m", 2.0)));
+        mm.insert("n".to_string(), powk("n", 2.0));
+        mm.insert("m".to_string(), powk("m", 2.0));
         mm
     });
     assert!(a.final_dominates(&b));
@@ -1212,10 +1260,10 @@ fn test_growth_label_monotone_overhead_preserves_order() {
         };
         let ea = a.extend(&redge).unwrap();
         let eb = b.extend(&redge).unwrap();
-        // A ⪰ B ⇒ extend(A) ⪰ extend(B) (dominates-or-equal). Equality is possible
-        // when the overhead collapses the difference, so accept dominate-or-equal.
+        // A ⪰ B ⇒ extend(A) ⪰ extend(B). `final_dominates` is a weak order, so
+        // equality is already included.
         assert!(
-            ea.final_dominates(&eb) || ea == eb,
+            ea.final_dominates(&eb),
             "monotone overhead reversed growth order: {ea:?} vs {eb:?}"
         );
     }
@@ -1251,11 +1299,12 @@ fn test_asymptotic_front_dedups_by_growth_vector() {
         .front;
     assert!(!front.is_empty(), "MVC -> ILP must have a path");
 
-    // No two front entries share a growth vector (GrowthLabel PartialEq).
+    // Mutual terminal dominance denotes the same growth vector.
     for i in 0..front.len() {
         for j in (i + 1)..front.len() {
             assert!(
-                front[i].1 != front[j].1,
+                !(front[i].1.final_dominates(&front[j].1)
+                    && front[j].1.final_dominates(&front[i].1)),
                 "duplicate growth vector in front:\n  {}\n  {}",
                 front[i].0.type_names().join("→"),
                 front[j].0.type_names().join("→"),

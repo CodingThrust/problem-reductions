@@ -1,11 +1,11 @@
 use num_traits::ToPrimitive;
-use problemreductions_expr::Expr;
+use problemreductions_expr::{Expr, ExprNode};
 use proc_macro2::TokenStream;
 use quote::quote;
 
 pub(crate) fn expr_tokens(expression: &Expr) -> TokenStream {
-    match expression {
-        Expr::Const(value) => {
+    match expression.node() {
+        ExprNode::Const(value) => {
             let numerator = value.numer().to_string();
             let denominator = value.denom().to_string();
             quote! {
@@ -15,53 +15,37 @@ pub(crate) fn expr_tokens(expression: &Expr) -> TokenStream {
                 )
             }
         }
-        Expr::Var(name) => {
+        ExprNode::Var(name) => {
             let name = name.as_str();
             quote! { crate::expr::Expr::variable(#name) }
         }
-        Expr::Add(left, right) => {
-            binary_expr_tokens(left, right, |left, right| quote! { (#left) + (#right) })
+        ExprNode::Add(values) => {
+            nary_expr_tokens(values, |left, right| quote! { (#left) + (#right) })
         }
-        Expr::Sub(left, right) => {
-            binary_expr_tokens(left, right, |left, right| quote! { (#left) - (#right) })
+        ExprNode::Mul(values) => {
+            nary_expr_tokens(values, |left, right| quote! { (#left) * (#right) })
         }
-        Expr::Mul(left, right) => {
-            binary_expr_tokens(left, right, |left, right| quote! { (#left) * (#right) })
-        }
-        Expr::Div(left, right) => {
-            binary_expr_tokens(left, right, |left, right| quote! { (#left) / (#right) })
-        }
-        Expr::Pow(base, exponent) => {
+        ExprNode::Pow(base, exponent) => {
             let base = expr_tokens(base);
             let exponent = expr_tokens(exponent);
             quote! { crate::expr::Expr::pow(#base, #exponent) }
         }
-        Expr::Neg(value) => {
-            let value = expr_tokens(value);
-            quote! { -(#value) }
+        ExprNode::Exp(value) => {
+            unary_expr_tokens(value, |value| quote! { crate::expr::Expr::exp(#value) })
         }
-        Expr::Exp(value) => unary_expr_tokens(
+        ExprNode::Log(value) => {
+            unary_expr_tokens(value, |value| quote! { crate::expr::Expr::log(#value) })
+        }
+        ExprNode::Factorial(value) => unary_expr_tokens(
             value,
-            |value| quote! { crate::expr::Expr::Exp(Box::new(#value)) },
-        ),
-        Expr::Log(value) => unary_expr_tokens(
-            value,
-            |value| quote! { crate::expr::Expr::Log(Box::new(#value)) },
-        ),
-        Expr::Sqrt(value) => unary_expr_tokens(
-            value,
-            |value| quote! { crate::expr::Expr::Sqrt(Box::new(#value)) },
-        ),
-        Expr::Factorial(value) => unary_expr_tokens(
-            value,
-            |value| quote! { crate::expr::Expr::Factorial(Box::new(#value)) },
+            |value| quote! { crate::expr::Expr::factorial(#value) },
         ),
     }
 }
 
 pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result<TokenStream> {
-    Ok(match expression {
-        Expr::Const(value) => {
+    Ok(match expression.node() {
+        ExprNode::Const(value) => {
             let value = value.to_f64().ok_or_else(|| {
                 syn::Error::new(
                     proc_macro2::Span::call_site(),
@@ -70,7 +54,7 @@ pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result
             })?;
             quote! { #value }
         }
-        Expr::Var(name) => {
+        ExprNode::Var(name) => {
             let getter = syn::parse_str::<syn::Ident>(name.as_str()).map_err(|_| {
                 syn::Error::new(
                     proc_macro2::Span::call_site(),
@@ -79,46 +63,27 @@ pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result
             })?;
             quote! { (#source.#getter() as f64) }
         }
-        Expr::Add(left, right) => binary_eval_tokens(
-            left,
-            right,
-            source,
-            |left, right| quote! { (#left + #right) },
-        )?,
-        Expr::Sub(left, right) => binary_eval_tokens(
-            left,
-            right,
-            source,
-            |left, right| quote! { (#left - #right) },
-        )?,
-        Expr::Mul(left, right) => binary_eval_tokens(
-            left,
-            right,
+        ExprNode::Add(values) => {
+            nary_eval_tokens(values, source, |left, right| quote! { (#left + #right) })?
+        }
+        ExprNode::Mul(values) => nary_eval_tokens(
+            values,
             source,
             |left, right| quote! { ::std::ops::Mul::mul(#left, #right) },
         )?,
-        Expr::Div(left, right) => binary_eval_tokens(
-            left,
-            right,
-            source,
-            |left, right| quote! { (#left / #right) },
-        )?,
-        Expr::Pow(base, exponent) => binary_eval_tokens(
+        ExprNode::Pow(base, exponent) => binary_eval_tokens(
             base,
             exponent,
             source,
             |base, exponent| quote! { f64::powf(#base, #exponent) },
         )?,
-        Expr::Neg(value) => {
-            let value = eval_tokens(value, source)?;
-            quote! { -(#value) }
+        ExprNode::Exp(value) => {
+            unary_eval_tokens(value, source, |value| quote! { f64::exp(#value) })?
         }
-        Expr::Exp(value) => unary_eval_tokens(value, source, |value| quote! { f64::exp(#value) })?,
-        Expr::Log(value) => unary_eval_tokens(value, source, |value| quote! { f64::ln(#value) })?,
-        Expr::Sqrt(value) => {
-            unary_eval_tokens(value, source, |value| quote! { f64::sqrt(#value) })?
+        ExprNode::Log(value) => {
+            unary_eval_tokens(value, source, |value| quote! { f64::ln(#value) })?
         }
-        Expr::Factorial(value) => {
+        ExprNode::Factorial(value) => {
             let value = eval_tokens(value, source)?;
             quote! {
                 crate::expr::approximate_factorial(#value)
@@ -128,12 +93,15 @@ pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result
     })
 }
 
-fn binary_expr_tokens(
-    left: &Expr,
-    right: &Expr,
-    build: impl FnOnce(TokenStream, TokenStream) -> TokenStream,
+fn nary_expr_tokens(
+    values: &[Expr],
+    build: impl Fn(TokenStream, TokenStream) -> TokenStream,
 ) -> TokenStream {
-    build(expr_tokens(left), expr_tokens(right))
+    let mut values = values.iter().map(expr_tokens);
+    let first = values
+        .next()
+        .expect("normalized n-ary expression has at least two operands");
+    values.fold(first, build)
 }
 
 fn unary_expr_tokens(value: &Expr, build: impl FnOnce(TokenStream) -> TokenStream) -> TokenStream {
@@ -152,6 +120,23 @@ fn binary_eval_tokens(
     ))
 }
 
+fn nary_eval_tokens(
+    values: &[Expr],
+    source: &syn::Ident,
+    build: impl Fn(TokenStream, TokenStream) -> TokenStream,
+) -> syn::Result<TokenStream> {
+    let mut values = values.iter();
+    let first = eval_tokens(
+        values
+            .next()
+            .expect("normalized n-ary expression has at least two operands"),
+        source,
+    )?;
+    values.try_fold(first, |left, value| {
+        Ok(build(left, eval_tokens(value, source)?))
+    })
+}
+
 fn unary_eval_tokens(
     value: &Expr,
     source: &syn::Ident,
@@ -167,7 +152,7 @@ mod tests {
     #[test]
     fn shared_parser_drives_codegen() {
         let expression = Expr::parse("n * (n - 1) / 2 - m");
-        assert!(matches!(expression, Expr::Sub(_, _)));
+        assert!(matches!(expression.node(), ExprNode::Add(_)));
         assert_eq!(
             expression.variables().into_iter().collect::<Vec<_>>(),
             vec!["m", "n"]
