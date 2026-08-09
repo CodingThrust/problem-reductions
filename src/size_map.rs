@@ -1,6 +1,7 @@
 //! Exact symbolic maps between problem-size vectors.
 
 use crate::expr::{Expr, ExprNode, ExprNodeId, Symbol};
+use crate::growth::Growth;
 use crate::types::ProblemSize;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_traits::{One, Signed, Zero};
@@ -163,6 +164,17 @@ impl SizeMap {
             fields.push((field.name.clone(), expression));
         }
         Self::new(composed_edge, fields)
+    }
+
+    /// Explicitly project terminal exact expressions into the Growth domain.
+    pub fn project_growth(&self) -> Vec<(Box<str>, Growth)> {
+        let expressions: Vec<_> = self.fields.iter().map(|field| &field.expression).collect();
+        let growth = Growth::from_expr_batch(&expressions);
+        self.fields
+            .iter()
+            .zip(growth)
+            .map(|(field, growth)| (field.name.clone(), growth))
+            .collect()
     }
 }
 

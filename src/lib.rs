@@ -34,6 +34,7 @@ pub mod io;
 pub mod models;
 pub mod registry;
 pub mod rules;
+pub mod size_bound;
 pub mod size_map;
 pub mod solvers;
 pub mod topology;

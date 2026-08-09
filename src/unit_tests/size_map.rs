@@ -1,5 +1,6 @@
 use super::{ExactPlanNode, SizeMap, SizeMapError};
 use crate::expr::Expr;
+use crate::growth::Growth;
 use crate::types::ProblemSize;
 use std::sync::Arc;
 
@@ -173,6 +174,16 @@ fn checks_a_root_reciprocal_as_exact_division() {
         map("2 ^ -1").evaluate(&ProblemSize::default()).unwrap_err(),
         SizeMapError::NonIntegralResult { .. }
     ));
+}
+
+#[test]
+fn growth_projection_is_explicit_and_terminal() {
+    let size_map = SizeMap::new("A -> B", [("size", Expr::parse("n ^ 2 + n"))]).unwrap();
+
+    assert_eq!(
+        size_map.project_growth(),
+        vec![("size".into(), Growth::from_expr(&Expr::parse("n ^ 2 + n")))]
+    );
 }
 
 #[test]
