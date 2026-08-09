@@ -843,5 +843,47 @@
       "ratio_limit": "0",
       "relation": "right_dominates"
     }
+  ],
+  "factorial_domain_cases": [
+    {
+      "source": "0",
+      "exact_argument": "0",
+      "accepted": true
+    },
+    {
+      "source": "1",
+      "exact_argument": "1",
+      "accepted": true
+    },
+    {
+      "source": "10",
+      "exact_argument": "10",
+      "accepted": true
+    },
+    {
+      "source": "170",
+      "exact_argument": "170",
+      "accepted": true
+    },
+    {
+      "source": "171",
+      "exact_argument": "171",
+      "accepted": true
+    },
+    {
+      "source": "-1",
+      "exact_argument": "-1",
+      "accepted": false
+    },
+    {
+      "source": "3.5",
+      "exact_argument": "7/2",
+      "accepted": false
+    },
+    {
+      "source": "1 / 2",
+      "exact_argument": "1/2",
+      "accepted": false
+    }
   ]
 }

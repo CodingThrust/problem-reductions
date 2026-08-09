@@ -320,6 +320,8 @@ fn test_growth_determinism() {
 fn test_growth_unknown_negative_control() {
     assert_eq!(g("2^(n*k)"), Growth::Unknown);
     assert_eq!(g("factorial(n)"), Growth::Unknown);
+    assert_eq!(g("factorial(3.5)"), Growth::Unknown);
+    assert_eq!(g("factorial(-1)"), Growth::Unknown);
 
     // Absorption through the real `from_expr` add/mul paths.
     assert_eq!(g("factorial(n) + n^2"), Growth::Unknown);
@@ -892,7 +894,7 @@ fn broken_from_expr(e: &Expr) -> Growth {
         Expr::Const(_) => Growth::Terms(vec![GrowthTerm::one()]),
         Expr::Var(v) => {
             let mut t = GrowthTerm::one();
-            t.poly.insert(v.clone(), 1.0);
+            t.poly.insert(v.as_str().into(), 1.0);
             Growth::Terms(vec![t])
         }
         // The seeded bug: drop the second summand.

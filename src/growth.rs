@@ -617,9 +617,9 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
         }
         Expr::Var(variable) => {
             let mut term = GrowthTerm::one();
-            term.poly.insert(variable.clone(), 1.0);
+            term.poly.insert(variable.as_str().into(), 1.0);
             let mut linear = BTreeMap::new();
-            linear.insert(variable.clone(), 1.0);
+            linear.insert(variable.as_str().into(), 1.0);
             ExprAnalysis {
                 growth: Growth::Terms(vec![term]),
                 constant: None,
@@ -741,7 +741,9 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
         Expr::Sqrt(value) => analyze_unary(value, f64::sqrt, |growth| pow_const(growth, 0.5)),
         Expr::Factorial(value) => {
             let value = analyze_expr(value);
-            let constant = value.constant.map(approximate_factorial);
+            let constant = value
+                .constant
+                .and_then(|constant| approximate_factorial(constant).ok());
             ExprAnalysis {
                 growth: if constant.is_some() {
                     constant_growth()

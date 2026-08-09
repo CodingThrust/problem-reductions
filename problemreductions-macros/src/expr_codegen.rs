@@ -15,7 +15,10 @@ pub(crate) fn expr_tokens(expression: &Expr) -> TokenStream {
                 )
             }
         }
-        Expr::Var(name) => quote! { crate::expr::Expr::variable(#name) },
+        Expr::Var(name) => {
+            let name = name.as_str();
+            quote! { crate::expr::Expr::variable(#name) }
+        }
         Expr::Add(left, right) => {
             binary_expr_tokens(left, right, |left, right| quote! { (#left) + (#right) })
         }
@@ -68,7 +71,7 @@ pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result
             quote! { #value }
         }
         Expr::Var(name) => {
-            let getter = syn::parse_str::<syn::Ident>(name).map_err(|_| {
+            let getter = syn::parse_str::<syn::Ident>(name.as_str()).map_err(|_| {
                 syn::Error::new(
                     proc_macro2::Span::call_site(),
                     format!("expression variable {name:?} is not a valid Rust getter name"),
@@ -117,7 +120,10 @@ pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result
         }
         Expr::Factorial(value) => {
             let value = eval_tokens(value, source)?;
-            quote! { crate::expr::approximate_factorial(#value) }
+            quote! {
+                crate::expr::approximate_factorial(#value)
+                    .expect("factorial argument must evaluate to a non-negative integer")
+            }
         }
     })
 }
@@ -167,12 +173,7 @@ mod tests {
             vec!["m", "n"]
         );
         assert!(!expr_tokens(&expression).is_empty());
-    }
-
-    #[test]
-    fn invalid_getter_name_is_reported() {
-        let expression = Expr::variable("type");
         let source = syn::Ident::new("source", proc_macro2::Span::call_site());
-        assert!(eval_tokens(&expression, &source).is_err());
+        assert!(!eval_tokens(&expression, &source).unwrap().is_empty());
     }
 }

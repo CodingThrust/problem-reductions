@@ -16,7 +16,7 @@ pub fn evaluate_approximate(
     match expression {
         Expr::Const(value) => rational_to_f64(value),
         Expr::Var(name) => variables
-            .get(name)
+            .get(name.as_str())
             .map(|value| value as f64)
             .ok_or_else(|| ApproximationError::MissingVariable(name.to_string())),
         Expr::Add(left, right) => {
@@ -39,9 +39,7 @@ pub fn evaluate_approximate(
         Expr::Exp(value) => Ok(evaluate_approximate(value, variables)?.exp()),
         Expr::Log(value) => Ok(evaluate_approximate(value, variables)?.ln()),
         Expr::Sqrt(value) => Ok(evaluate_approximate(value, variables)?.sqrt()),
-        Expr::Factorial(value) => Ok(approximate_factorial(evaluate_approximate(
-            value, variables,
-        )?)),
+        Expr::Factorial(value) => approximate_factorial(evaluate_approximate(value, variables)?),
     }
 }
 
@@ -64,16 +62,16 @@ pub(crate) fn rational_to_f64(value: &BigRational) -> Result<f64, ApproximationE
         .ok_or_else(|| ApproximationError::OutOfRange(value.to_string()))
 }
 
-pub(crate) fn approximate_factorial(value: f64) -> f64 {
-    let rounded = value.round();
-    if value >= 0.0 && value == rounded {
-        if rounded > 170.0 {
-            f64::INFINITY
-        } else {
-            (2..=rounded as u64).fold(1.0, |product, factor| product * factor as f64)
-        }
+pub(crate) fn approximate_factorial(value: f64) -> Result<f64, ApproximationError> {
+    if !value.is_finite() || value < 0.0 || value.fract() != 0.0 {
+        return Err(ApproximationError::InvalidFactorialArgument(
+            value.to_string(),
+        ));
+    }
+    if value > 170.0 {
+        Ok(f64::INFINITY)
     } else {
-        (2.0 * std::f64::consts::PI * value).sqrt() * (value / std::f64::consts::E).powf(value)
+        Ok((2..=value as u64).fold(1.0, |product, factor| product * factor as f64))
     }
 }
 
@@ -83,6 +81,8 @@ pub enum ApproximationError {
     MissingVariable(String),
     #[error("exact constant {0} is outside the f64 approximation domain")]
     OutOfRange(String),
+    #[error("factorial argument must be a non-negative integer, found {0}")]
+    InvalidFactorialArgument(String),
 }
 
 /// Error returned when analyzing asymptotic behavior.

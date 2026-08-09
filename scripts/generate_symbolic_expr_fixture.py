@@ -150,6 +150,9 @@ GROWTH_CASES = [
 ]
 
 
+FACTORIAL_ARGUMENTS = ["0", "1", "10", "170", "171", "-1", "3.5", "1 / 2"]
+
+
 def parse(source: str) -> sympy.Expr:
     return parse_expr(source, transformations=TRANSFORMATIONS, evaluate=False)
 
@@ -242,6 +245,15 @@ def generate_growth_case(name: str, left: str, right: str) -> dict:
     }
 
 
+def generate_factorial_domain_case(source: str) -> dict:
+    argument = parse(source).doit()
+    return {
+        "source": source,
+        "exact_argument": str(argument),
+        "accepted": argument.is_integer is True and argument.is_nonnegative is True,
+    }
+
+
 def main() -> None:
     if sympy.__version__ != "1.14.0":
         raise RuntimeError(f"expected SymPy 1.14.0, found {sympy.__version__}")
@@ -261,13 +273,17 @@ def main() -> None:
             generate_approximate_case(*case) for case in APPROXIMATE_CASES
         ],
         "growth_cases": [generate_growth_case(*case) for case in GROWTH_CASES],
+        "factorial_domain_cases": [
+            generate_factorial_domain_case(source) for source in FACTORIAL_ARGUMENTS
+        ],
     }
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
     print(
         f"wrote {len(fixture['cases'])} exact and "
         f"{len(fixture['approximate_cases'])} approximate and "
-        f"{len(fixture['growth_cases'])} growth cases to {OUTPUT}"
+        f"{len(fixture['growth_cases'])} growth cases plus "
+        f"{len(fixture['factorial_domain_cases'])} factorial domain cases to {OUTPUT}"
     )
 
 

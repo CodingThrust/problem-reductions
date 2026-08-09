@@ -10,6 +10,7 @@ fn eval(expression: &Expr, size: &ProblemSize) -> f64 {
 #[derive(Deserialize)]
 struct SympyApproximateFixture {
     approximate_cases: Vec<SympyApproximateCase>,
+    factorial_domain_cases: Vec<SympyFactorialDomainCase>,
 }
 
 #[derive(Deserialize)]
@@ -18,6 +19,13 @@ struct SympyApproximateCase {
     source: String,
     bindings: BTreeMap<String, usize>,
     decimal_result: String,
+}
+
+#[derive(Deserialize)]
+struct SympyFactorialDomainCase {
+    source: String,
+    exact_argument: String,
+    accepted: bool,
 }
 
 #[test]
@@ -51,6 +59,27 @@ fn test_approximate_evaluation_against_sympy_fixture() {
                 case.name
             );
         }
+    }
+}
+
+#[test]
+fn test_factorial_domain_against_sympy_fixture() {
+    let fixture: SympyApproximateFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.factorial_domain_cases.len(), 8);
+
+    for case in fixture.factorial_domain_cases {
+        let expression = Expr::try_parse(&format!("factorial({})", case.source)).unwrap();
+        let result = evaluate_approximate(&expression, &ProblemSize::default());
+        assert_eq!(
+            result.is_ok(),
+            case.accepted,
+            "factorial argument {} ({})",
+            case.source,
+            case.exact_argument
+        );
     }
 }
 
@@ -657,6 +686,18 @@ fn test_expr_factorial_eval() {
 fn test_expr_factorial_above_f64_range_is_infinite() {
     let expression = Expr::Factorial(Box::new(Expr::integer(171)));
     assert_eq!(eval(&expression, &ProblemSize::default()), f64::INFINITY);
+}
+
+#[test]
+fn test_expr_factorial_rejects_non_integer_and_negative_arguments() {
+    for (source, argument) in [("factorial(3.5)", "3.5"), ("factorial(-1)", "-1")] {
+        assert_eq!(
+            evaluate_approximate(&Expr::parse(source), &ProblemSize::default()),
+            Err(ApproximationError::InvalidFactorialArgument(
+                argument.to_string()
+            ))
+        );
+    }
 }
 
 #[test]

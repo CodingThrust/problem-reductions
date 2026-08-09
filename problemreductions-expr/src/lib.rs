@@ -7,11 +7,126 @@ use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::str::FromStr;
 
+/// A validated problem-size variable name.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize)]
+#[serde(transparent)]
+pub struct Symbol(Box<str>);
+
+impl Symbol {
+    pub fn new(name: impl Into<Box<str>>) -> Result<Self, InvalidSymbol> {
+        let name = name.into();
+        if is_valid_symbol(&name) {
+            Ok(Self(name))
+        } else {
+            Err(InvalidSymbol(name))
+        }
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for Symbol {
+    fn as_ref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl fmt::Display for Symbol {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Symbol {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let name = Box::<str>::deserialize(deserializer)?;
+        Self::new(name).map_err(serde::de::Error::custom)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("invalid expression variable name {0:?}")]
+pub struct InvalidSymbol(Box<str>);
+
+fn is_valid_symbol(name: &str) -> bool {
+    let mut bytes = name.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == b'_')
+        || !bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        || name == "_"
+    {
+        return false;
+    }
+    !matches!(
+        name,
+        "abstract"
+            | "as"
+            | "async"
+            | "await"
+            | "become"
+            | "box"
+            | "break"
+            | "const"
+            | "continue"
+            | "crate"
+            | "do"
+            | "dyn"
+            | "else"
+            | "enum"
+            | "extern"
+            | "false"
+            | "final"
+            | "fn"
+            | "for"
+            | "gen"
+            | "if"
+            | "impl"
+            | "in"
+            | "let"
+            | "loop"
+            | "macro"
+            | "match"
+            | "mod"
+            | "move"
+            | "mut"
+            | "override"
+            | "priv"
+            | "pub"
+            | "ref"
+            | "return"
+            | "self"
+            | "Self"
+            | "static"
+            | "struct"
+            | "super"
+            | "trait"
+            | "true"
+            | "try"
+            | "type"
+            | "typeof"
+            | "union"
+            | "unsafe"
+            | "unsized"
+            | "use"
+            | "virtual"
+            | "where"
+            | "while"
+            | "yield"
+    )
+}
+
 /// A symbolic expression over named problem-size variables.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Expr {
     Const(BigRational),
-    Var(Box<str>),
+    Var(Symbol),
     Add(Box<Expr>, Box<Expr>),
     Sub(Box<Expr>, Box<Expr>),
     Mul(Box<Expr>, Box<Expr>),
@@ -34,7 +149,11 @@ impl Expr {
     }
 
     pub fn variable(name: impl Into<Box<str>>) -> Self {
-        Self::Var(name.into())
+        Self::try_variable(name).unwrap_or_else(|error| panic!("{error}"))
+    }
+
+    pub fn try_variable(name: impl Into<Box<str>>) -> Result<Self, InvalidSymbol> {
+        Symbol::new(name).map(Self::Var)
     }
 
     pub fn pow(base: Expr, exponent: Expr) -> Self {
@@ -60,7 +179,7 @@ impl Expr {
         match self {
             Self::Const(_) => {}
             Self::Var(name) => {
-                variables.insert(name);
+                variables.insert(name.as_str());
             }
             Self::Add(left, right)
             | Self::Sub(left, right)
@@ -572,7 +691,8 @@ impl Parser {
             TokenKind::Number(value) => Ok(Expr::Const(value)),
             TokenKind::Ident(name) => {
                 if !self.consume(&TokenKind::LeftParen) {
-                    return Ok(Expr::Var(name));
+                    return Expr::try_variable(name)
+                        .map_err(|error| ParseError::new(token.position, error.to_string()));
                 }
                 let argument = self.parse_additive()?;
                 self.expect_right_paren()?;
@@ -637,6 +757,32 @@ mod tests {
         let expression = Expr::parse(&name);
         drop(name);
         assert_eq!(expression.variables(), BTreeSet::from(["dynamic_size"]));
+    }
+
+    #[test]
+    fn variables_enforce_one_identifier_grammar() {
+        for invalid in ["", "_", "1n", "n-m", "type"] {
+            assert!(Expr::try_variable(invalid).is_err(), "accepted {invalid:?}");
+        }
+        for invalid_expression in ["", "_", "1n", "type"] {
+            assert!(
+                Expr::try_parse(invalid_expression).is_err(),
+                "parsed {invalid_expression:?}"
+            );
+        }
+        assert!(matches!(Expr::parse("n-m"), Expr::Sub(_, _)));
+        for valid in ["n", "_n", "n_1", "num_vertices"] {
+            let expression = Expr::try_variable(valid).unwrap();
+            assert_eq!(
+                Expr::try_parse(&expression.to_string()).unwrap(),
+                expression
+            );
+        }
+    }
+
+    #[test]
+    fn deserialization_rejects_invalid_variable_names() {
+        assert!(serde_json::from_str::<Expr>(r#"{"Var":"n-m"}"#).is_err());
     }
 
     #[test]
