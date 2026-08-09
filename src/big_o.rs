@@ -1,7 +1,7 @@
 //! Big-O asymptotic normal form.
 //!
 //! Thin wrapper over the [growth domain](crate::growth): compute the growth
-//! class of an expression bottom-up (linear cost, no monomial expansion) and
+//! class of an expression bottom-up (without fully distributing the source AST) and
 //! render it back to a display [`Expr`]. Content the growth domain cannot bound
 //! symbolically ([`Growth::Unknown`] — nonlinear exponents, factorials, negative
 //! exponents) maps to the [`AsymptoticAnalysisError::Unsupported`] error.
@@ -15,9 +15,19 @@ use crate::growth::Growth;
 /// [`AsymptoticAnalysisError::Unsupported`] when the growth domain widens the
 /// input to [`Growth::Unknown`].
 pub fn big_o_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
-    Growth::from_expr(expr)
-        .to_expr()
-        .ok_or_else(|| AsymptoticAnalysisError::Unsupported(expr.to_string()))
+    let growth = Growth::from_expr(expr);
+    match growth.to_expr() {
+        Some(expression) => Ok(expression),
+        None => Err(AsymptoticAnalysisError::Unsupported(
+            growth
+                .failures()
+                .expect("growth without an expression must contain failure reasons")
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; "),
+        )),
+    }
 }
 
 #[cfg(test)]

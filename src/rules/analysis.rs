@@ -134,7 +134,7 @@ pub fn compare_overhead(
 
         // A field whose growth we cannot bound symbolically makes the whole
         // comparison undecidable.
-        if matches!(pg, Growth::Unknown) || matches!(cg, Growth::Unknown) {
+        if matches!(pg, Growth::Unknown(_)) || matches!(cg, Growth::Unknown(_)) {
             return ComparisonStatus::Unknown;
         }
 

@@ -1,7 +1,7 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, componentwise_max, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthTerm,
+    add, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthFailure, GrowthTerm,
 };
 use crate::expr::{
     constant_approximation, evaluate_approximate, expression_from_approximation, Expr,
@@ -35,7 +35,7 @@ fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> Grow
 fn terms_of(g: &Growth) -> &[GrowthTerm] {
     match g {
         Growth::Terms(t) => t,
-        Growth::Unknown => panic!("expected Terms, got Unknown"),
+        Growth::Unknown(failures) => panic!("expected Terms, got {failures:?}"),
     }
 }
 
@@ -318,23 +318,55 @@ fn test_growth_determinism() {
 /// and mul — unsupported content can never silently produce a fake bound.
 #[test]
 fn test_growth_unknown_negative_control() {
-    assert_eq!(g("2^(n*k)"), Growth::Unknown);
-    assert_eq!(g("factorial(n)"), Growth::Unknown);
-    assert_eq!(g("factorial(3.5)"), Growth::Unknown);
-    assert_eq!(g("factorial(-1)"), Growth::Unknown);
+    assert_eq!(
+        g("2^(n*k)").failures(),
+        Some([GrowthFailure::NonlinearExponent("n * k".to_string())].as_slice())
+    );
+    assert!(matches!(
+        g("factorial(n)").failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+    assert!(matches!(
+        g("factorial(3.5)").failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+    assert!(matches!(
+        g("factorial(-1)").failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+    assert_eq!(
+        g("factorial(n) + 2^(n*k)").failures(),
+        Some(
+            [
+                GrowthFailure::NonlinearExponent("n * k".to_string()),
+                GrowthFailure::FactorialOfNonconstant("factorial(n)".to_string()),
+            ]
+            .as_slice()
+        )
+    );
 
     // Absorption through the real `from_expr` add/mul paths.
-    assert_eq!(g("factorial(n) + n^2"), Growth::Unknown);
-    assert_eq!(g("n^2 + factorial(n)"), Growth::Unknown);
-    assert_eq!(g("factorial(n) * n^2"), Growth::Unknown);
-    assert_eq!(g("n^2 * factorial(n)"), Growth::Unknown);
+    let factorial_failure = g("factorial(n)");
+    assert_eq!(g("factorial(n) + n^2"), factorial_failure);
+    assert_eq!(g("n^2 + factorial(n)"), factorial_failure);
+    assert_eq!(g("factorial(n) * n^2"), factorial_failure);
+    assert_eq!(g("n^2 * factorial(n)"), factorial_failure);
 
     // Absorption at the operation level too.
     let n2 = g("n^2");
-    assert_eq!(add(Growth::Unknown, n2.clone()), Growth::Unknown);
-    assert_eq!(add(n2.clone(), Growth::Unknown), Growth::Unknown);
-    assert_eq!(mul(Growth::Unknown, n2.clone()), Growth::Unknown);
-    assert_eq!(mul(n2, Growth::Unknown), Growth::Unknown);
+    assert_eq!(
+        add(factorial_failure.clone(), n2.clone()),
+        factorial_failure
+    );
+    assert_eq!(
+        add(n2.clone(), factorial_failure.clone()),
+        factorial_failure
+    );
+    assert_eq!(
+        mul(factorial_failure.clone(), n2.clone()),
+        factorial_failure
+    );
+    assert_eq!(mul(n2, factorial_failure.clone()), factorial_failure);
 }
 
 // --- Additional coverage ---
@@ -358,9 +390,15 @@ fn test_growth_constants_are_o1() {
 #[test]
 fn test_growth_pow_special_cases() {
     assert_eq!(terms_of(&g("n^0")), [GrowthTerm::one()]);
-    assert_eq!(g("n^(-1)"), Growth::Unknown);
+    assert!(matches!(
+        g("n^(-1)").failures(),
+        Some([GrowthFailure::NegativeExponent(_)])
+    ));
     // Variable base with variable exponent is not representable.
-    assert_eq!(g("n^m"), Growth::Unknown);
+    assert!(matches!(
+        g("n^m").failures(),
+        Some([GrowthFailure::VariableBaseAndExponent(_)])
+    ));
 }
 
 /// Canonical Big-O rendering: bounded classes get `O(<expr>)`, `Unknown` gets `O(?)`.
@@ -370,7 +408,7 @@ fn test_growth_to_big_o() {
     assert_eq!(g("n^2 + n").to_big_o(), "O(n^2)");
     assert_eq!(g("2^n").to_big_o(), "O(2^n)");
     assert_eq!(g("5").to_big_o(), "O(1)");
-    assert_eq!(Growth::Unknown.to_big_o(), "O(?)");
+    assert_eq!(g("factorial(n)").to_big_o(), "O(?)");
     // Renders exactly `O(<to_expr>)` for bounded classes.
     let bounded = g("n * m");
     assert_eq!(
@@ -408,17 +446,27 @@ fn test_growth_exponential_roundtrip_is_exact() {
     }
 }
 
-/// `exp(n)` uses base e; a decaying/unit base is bounded by O(1).
+/// `exp(n)` uses base e; unit bases are constant, while decaying directions
+/// remain explicit analysis failures rather than silently widening to O(1).
 #[test]
 fn test_growth_exponential_variants() {
     // exp(n) is represented directly as e^n: exponential, dominates any polynomial.
     let en = g("exp(n)");
     assert!(en.dominates(&g("n^5")));
-    // 2^(n-m) ≤ 2^n after dropping the negative rate.
-    assert_eq!(g("2^(n - m)"), g("2^n"));
-    // Unit base is O(1); a decaying base with a growing exponent is O(1) too.
+    assert!(matches!(
+        g("2^(n - m)").failures(),
+        Some([GrowthFailure::DecayingExponential { variable, .. }]) if variable == "m"
+    ));
+    // Unit base is exactly O(1).
     assert_eq!(g("1^n"), g("7"));
-    assert_eq!(g("0.5^n"), g("7"));
+    assert!(matches!(
+        g("0.5^n").failures(),
+        Some([GrowthFailure::DecayingExponential {
+            variable,
+            coefficient,
+            ..
+        }]) if variable == "n" && coefficient == "1"
+    ));
     // A fractional base with a negative exponent grows and retains that exact
     // symbolic base instead of being translated through a common logarithm.
     assert_eq!(g("0.5^(-n)").to_big_o(), "O(0.5^(-1 * n))");
@@ -464,15 +512,15 @@ fn test_growth_log_levels() {
 #[test]
 fn test_growth_unknown_dominance() {
     let n2 = g("n^2");
-    assert!(Growth::Unknown.dominates(&n2));
-    assert!(!n2.dominates(&Growth::Unknown));
-    assert!(Growth::Unknown.dominates(&Growth::Unknown));
+    let unknown = g("factorial(n)");
+    assert!(unknown.dominates(&n2));
+    assert!(!n2.dominates(&unknown));
+    assert!(unknown.dominates(&unknown));
 }
 
-/// On antichain-cap overflow the domain widens up to the single componentwise
-/// max term (a valid upper bound), never truncating by iteration order.
+/// Large antichains remain exact; growth analysis has no hidden size cap.
 #[test]
-fn test_growth_antichain_cap_widens() {
+fn test_growth_preserves_large_antichain() {
     // 40 distinct single-variable terms are pairwise incomparable.
     let vars: Vec<String> = (0..40).map(|index| format!("v{index}")).collect();
     let many: Vec<GrowthTerm> = vars
@@ -480,39 +528,14 @@ fn test_growth_antichain_cap_widens() {
         .map(|variable| term(&[], &[(variable, 1.0)], &[]))
         .collect();
 
-    let widened = make_growth(many);
-    let ts = terms_of(&widened);
-    assert_eq!(ts.len(), 1, "cap overflow should widen to one term");
-    // The single term dominates every original (it carries all variables).
-    for v in &vars {
-        assert!(
-            ts[0].dominates(&term(&[], &[(v, 1.0)], &[])) || ts[0] == term(&[], &[(v, 1.0)], &[])
-        );
-    }
+    let growth = make_growth(many.clone());
+    assert_eq!(terms_of(&growth).len(), many.len());
+    assert!(many.iter().all(|term| terms_of(&growth).contains(term)));
 }
 
+/// Unproved exponential comparisons also remain as a complete antichain.
 #[test]
-fn test_growth_componentwise_max_with_symbolic_exponentials() {
-    let inputs = vec![
-        terms_of(&g("2^n * n")).first().unwrap().clone(),
-        terms_of(&g("3^n * log(n)")).first().unwrap().clone(),
-    ];
-    let upper = componentwise_max(&inputs).expect("3^n is a proven exponential maximum");
-    assert!(inputs.iter().all(|term| upper.dominates_or_eq(term)));
-    assert_eq!(Growth::Terms(vec![upper]).to_big_o(), "O(3^n * n * log(n))");
-
-    let invalid = GrowthTerm {
-        exp: BTreeMap::new(),
-        poly: [("n".into(), f64::NAN)].into_iter().collect(),
-        logs: BTreeMap::new(),
-    };
-    assert_eq!(componentwise_max(&[invalid]), None);
-}
-
-/// If symbolic exponential products have no provable componentwise maximum,
-/// cap overflow widens to Unknown instead of guessing an under-bound.
-#[test]
-fn test_growth_antichain_cap_with_unproved_exponentials_is_unknown() {
+fn test_growth_preserves_large_unproved_exponential_antichain() {
     let terms = (1..=33)
         .map(|i| GrowthTerm {
             exp: [(
@@ -524,9 +547,9 @@ fn test_growth_antichain_cap_with_unproved_exponentials_is_unknown() {
             poly: BTreeMap::new(),
             logs: BTreeMap::new(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    assert_eq!(make_growth(terms), Growth::Unknown);
+    assert_eq!(terms_of(&make_growth(terms.clone())).len(), terms.len());
 }
 
 /// Structured serde round-trips with owned variable names, and
@@ -538,10 +561,11 @@ fn test_growth_serde_roundtrip() {
     let back: Growth = serde_json::from_str(&json).unwrap();
     assert_eq!(value, back);
 
-    let unknown_json = serde_json::to_string(&Growth::Unknown).unwrap();
+    let unknown = g("factorial(n)");
+    let unknown_json = serde_json::to_string(&unknown).unwrap();
     assert_eq!(
         serde_json::from_str::<Growth>(&unknown_json).unwrap(),
-        Growth::Unknown
+        unknown
     );
 
     // Every constant Expr form admitted as a symbolic base remains lossless.
@@ -887,7 +911,7 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 /// Every other node mirrors the real `Growth::from_expr` (reusing its private
 /// transfer helpers), so the only defect is the seeded `Add` bug.
 fn broken_from_expr(e: &Expr) -> Growth {
-    if constant_approximation(e).is_some() {
+    if constant_approximation(e).unwrap().is_some() {
         return Growth::Terms(vec![GrowthTerm::one()]);
     }
     match e {
@@ -902,35 +926,38 @@ fn broken_from_expr(e: &Expr) -> Growth {
         Expr::Sub(a, b) => add(broken_from_expr(a), broken_from_expr(b)),
         Expr::Mul(a, b) => mul(broken_from_expr(a), broken_from_expr(b)),
         Expr::Div(a, b) => {
-            if constant_approximation(b).is_some() {
+            if constant_approximation(b).unwrap().is_some() {
                 broken_from_expr(a)
             } else {
-                Growth::Unknown
+                Growth::unknown(GrowthFailure::VariableDenominator(b.to_string()))
             }
         }
         Expr::Pow(base, exp) => {
-            if let Some(k) = constant_approximation(exp) {
+            if let Some(k) = constant_approximation(exp).unwrap() {
                 if k < 0.0 {
-                    Growth::Unknown
+                    Growth::unknown(GrowthFailure::NegativeExponent(exp.to_string()))
                 } else if k == 0.0 {
                     Growth::Terms(vec![GrowthTerm::one()])
                 } else {
                     pow_const(broken_from_expr(base), k)
                 }
-            } else if constant_approximation(base).is_some() {
+            } else if constant_approximation(base).unwrap().is_some() {
                 exponential(
                     ExpBase::Constant(base.as_ref().clone()),
                     analyze_expr(exp).linear,
+                    exp,
                 )
             } else {
-                Growth::Unknown
+                Growth::unknown(GrowthFailure::VariableBaseAndExponent(e.to_string()))
             }
         }
-        Expr::Exp(a) => exponential(ExpBase::Natural, analyze_expr(a).linear),
+        Expr::Exp(a) => exponential(ExpBase::Natural, analyze_expr(a).linear, a),
         Expr::Neg(value) => broken_from_expr(value),
         Expr::Log(a) => log_growth(broken_from_expr(a)),
         Expr::Sqrt(a) => pow_const(broken_from_expr(a), 0.5),
-        Expr::Factorial(_) => Growth::Unknown,
+        Expr::Factorial(value) => {
+            Growth::unknown(GrowthFailure::FactorialOfNonconstant(value.to_string()))
+        }
     }
 }
 
@@ -992,7 +1019,7 @@ fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
 
 fn growth_approx_eq(a: &Growth, b: &Growth) -> bool {
     match (a, b) {
-        (Growth::Unknown, Growth::Unknown) => true,
+        (Growth::Unknown(_), Growth::Unknown(_)) => true,
         (Growth::Terms(ta), Growth::Terms(tb)) => {
             ta.len() == tb.len()
                 && ta.iter().all(|t| tb.iter().any(|u| term_approx_eq(t, u)))

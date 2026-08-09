@@ -106,7 +106,11 @@ fn test_big_o_pure_constant_returns_one() {
 #[test]
 fn test_big_o_rejects_division() {
     let e = Expr::variable("n") / Expr::variable("m");
-    assert!(big_o_normal_form(&e).is_err());
+    let error = big_o_normal_form(&e).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "unsupported asymptotic expression: variable denominator is unsupported: m"
+    );
 }
 
 #[test]

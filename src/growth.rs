@@ -3,8 +3,10 @@
 //!
 //! Where [`crate::canonical`] answers Big-O questions by fully expanding an
 //! [`Expr`] to monomial normal form, with exponential cost in nesting depth, the
-//! growth domain computes an asymptotic upper bound *bottom-up* in a single pass,
-//! linear in the tree size, without ever expanding nested sums.
+//! growth domain computes an asymptotic upper bound bottom-up without rewriting
+//! the source AST into a fully distributed polynomial. Work is output-sensitive:
+//! exact antichains are never truncated, so genuinely large Pareto fronts remain
+//! large and visible to the caller.
 //!
 //! # Representation
 //!
@@ -16,8 +18,8 @@
 //! ```
 //!
 //! and a [`Growth`] is an *antichain* of pairwise-incomparable dominant terms
-//! (each summand of an asymptotic sum), or the absorbing [`Growth::Unknown`]
-//! sentinel for content we cannot bound symbolically.
+//! (each summand of an asymptotic sum), or [`Growth::Unknown`] with explicit
+//! reasons for content we cannot bound symbolically.
 //!
 //! # Semantic foundation (the trust contract)
 //!
@@ -38,7 +40,7 @@
 //!   authoritative: it is never normalized through a floating-point logarithm
 //!   and never reconstructed by rounding. Nonlinear exponents (`2^(n·k)`,
 //!   `2^sqrt(n)`), `factorial(·)`, and negative polynomial exponents widen to
-//!   [`Growth::Unknown`], which absorbs through every operation.
+//!   [`Growth::Unknown`], which preserves its reasons through every operation.
 //! - The explicit approximation boundary treats [`Expr::Log`] as the natural
 //!   logarithm, but all fixed
 //!   logarithm bases greater than one have the same asymptotic class and are
@@ -58,11 +60,6 @@ use crate::expr::{
 };
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet};
-
-/// Maximum number of terms kept in an antichain. On overflow the antichain is
-/// widened to a proven componentwise upper bound when one is representable;
-/// otherwise it becomes [`Growth::Unknown`]. It is never truncated by order.
-const ANTICHAIN_CAP: usize = 32;
 
 /// A base retained exactly as it appeared in the input expression.
 #[derive(Clone, Debug, PartialEq, serde::Serialize)]
@@ -86,15 +83,13 @@ impl<'de> serde::Deserialize<'de> for ExpBase {
 
         match Repr::deserialize(deserializer)? {
             Repr::Natural => Ok(ExpBase::Natural),
-            Repr::Constant(base) => {
-                if constant_approximation(&base).is_some_and(f64::is_finite) {
-                    Ok(ExpBase::Constant(base))
-                } else {
-                    Err(serde::de::Error::custom(
-                        "symbolic exponential base must be a finite constant",
-                    ))
-                }
-            }
+            Repr::Constant(base) => match constant_approximation(&base) {
+                Ok(Some(value)) if value.is_finite() => Ok(ExpBase::Constant(base)),
+                Ok(_) => Err(serde::de::Error::custom(
+                    "symbolic exponential base must be a finite constant",
+                )),
+                Err(error) => Err(serde::de::Error::custom(error)),
+            },
         }
     }
 }
@@ -111,7 +106,10 @@ impl ExpBase {
     /// `Expr::Exp`; arbitrary constant subtrees remain structural-only.
     fn directly_comparable_value(&self) -> Option<f64> {
         match self {
-            ExpBase::Constant(Expr::Const(value)) => rational_to_f64(value).ok(),
+            ExpBase::Constant(Expr::Const(value)) => Some(
+                rational_to_f64(value)
+                    .expect("direct exponential constants are validated when constructed"),
+            ),
             ExpBase::Natural => Some(std::f64::consts::E),
             ExpBase::Constant(_) => None,
         }
@@ -119,9 +117,9 @@ impl ExpBase {
 
     fn value(&self) -> f64 {
         match self {
-            ExpBase::Constant(base) => {
-                constant_approximation(base).expect("ExpBase::Constant must remain constant")
-            }
+            ExpBase::Constant(base) => constant_approximation(base)
+                .expect("ExpBase::Constant must remain evaluable")
+                .expect("ExpBase::Constant must remain constant"),
             ExpBase::Natural => std::f64::consts::E,
         }
     }
@@ -320,9 +318,8 @@ impl ExpProduct {
         }
     }
 
-    /// Approximate common-base rate used only to order search work. It is not
-    /// stored and never participates in equality, dominance, pruning, widening,
-    /// serialization, or rendering.
+    /// Test-only independent approximation of the retained exponential rate.
+    #[cfg(test)]
     fn log2_estimate(&self) -> f64 {
         self.factors
             .iter()
@@ -358,9 +355,52 @@ pub enum Growth {
     /// Antichain of pairwise-incomparable dominant terms, sorted by a
     /// deterministic total order for platform-stable output/serialization.
     Terms(Vec<GrowthTerm>),
-    /// Absorbing sentinel: exp/factorial/negative exponents, or cap overflow
-    /// that even widening cannot represent. Absorbs through all operations.
-    Unknown,
+    /// Content outside the represented growth domain, with every reason that
+    /// contributed to the result.
+    Unknown(Vec<GrowthFailure>),
+}
+
+/// A precise reason why an expression has no represented [`Growth`] value.
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+    thiserror::Error,
+)]
+pub enum GrowthFailure {
+    #[error("cannot approximate constant {expression}: {error}")]
+    Approximation { expression: String, error: String },
+    #[error("variable denominator is unsupported: {0}")]
+    VariableDenominator(String),
+    #[error("negative exponent is unsupported: {0}")]
+    NegativeExponent(String),
+    #[error("nonlinear exponent is unsupported: {0}")]
+    NonlinearExponent(String),
+    #[error("variable base and exponent are unsupported: {0}")]
+    VariableBaseAndExponent(String),
+    #[error("factorial of a nonconstant expression is unsupported: {0}")]
+    FactorialOfNonconstant(String),
+    #[error("invalid exponential base: {0}")]
+    InvalidExponentialBase(String),
+    #[error("non-finite linear coefficient for {0}")]
+    NonFiniteLinearCoefficient(String),
+    #[error(
+        "exponential factor {base}^({coefficient} * {variable}) decreases as {variable} grows"
+    )]
+    DecayingExponential {
+        base: String,
+        variable: String,
+        coefficient: String,
+    },
+    #[error("growth construction produced an invalid term")]
+    InvalidGrowthTerm,
+    #[error("missing substitution for {0}")]
+    MissingSubstitution(String),
 }
 
 impl GrowthTerm {
@@ -513,20 +553,20 @@ impl GrowthTerm {
             Some(Ordering::Greater) | Some(Ordering::Equal)
         )
     }
-
-    /// A monotone scalar summary of this monomial's growth rate. Exponential rate
-    /// dominates polynomial degree, which dominates log power. Bigger ⇒ grows
-    /// faster. Used only as a search-ordering / branch-and-bound heuristic, never
-    /// for asymptotic dominance decisions (those go through [`GrowthTerm::cmp`]).
-    fn magnitude(&self) -> f64 {
-        let e: f64 = self.exp.values().map(ExpProduct::log2_estimate).sum();
-        let p: f64 = self.poly.values().sum();
-        let l: f64 = self.logs.values().map(|&x| x as f64).sum();
-        1e6 * e + p + 1e-3 * l
-    }
 }
 
 impl Growth {
+    pub(crate) fn unknown(failure: GrowthFailure) -> Self {
+        Self::Unknown(vec![failure])
+    }
+
+    pub fn failures(&self) -> Option<&[GrowthFailure]> {
+        match self {
+            Self::Terms(_) => None,
+            Self::Unknown(failures) => Some(failures),
+        }
+    }
+
     /// Compute the growth class of an expression in a single bottom-up pass.
     pub fn from_expr(expr: &Expr) -> Growth {
         analyze_expr(expr).growth
@@ -541,25 +581,11 @@ impl Growth {
     /// some term of `self` — the standard antichain (Pareto) comparison.
     pub fn dominates(&self, other: &Growth) -> bool {
         match (self, other) {
-            (Growth::Unknown, _) => true,
-            (Growth::Terms(_), Growth::Unknown) => false,
+            (Growth::Unknown(_), _) => true,
+            (Growth::Terms(_), Growth::Unknown(_)) => false,
             (Growth::Terms(a), Growth::Terms(b)) => {
                 b.iter().all(|tb| a.iter().any(|ta| ta.dominates_or_eq(tb)))
             }
-        }
-    }
-
-    /// A deterministic, monotone scalar summary of this growth class (the maximum
-    /// over its antichain terms). Exponential rate ≫ polynomial degree ≫ log
-    /// power; [`Growth::Unknown`] maps to a very large finite value so undecidable
-    /// growth sorts last. This is a *search-ordering* heuristic only (frontier
-    /// order, branch-and-bound bound); asymptotic dominance is decided exactly by
-    /// [`Growth::dominates`], never by this scalar.
-    pub fn magnitude(&self) -> f64 {
-        match self {
-            // Large but finite (and well below f64::MAX so sums stay finite).
-            Growth::Unknown => 1e18,
-            Growth::Terms(terms) => terms.iter().map(GrowthTerm::magnitude).fold(0.0, f64::max),
         }
     }
 
@@ -571,7 +597,7 @@ impl Growth {
     /// symbolic bases and coefficients; no base reconstruction is performed.
     pub fn to_expr(&self) -> Option<Expr> {
         match self {
-            Growth::Unknown => None,
+            Growth::Unknown(_) => None,
             Growth::Terms(terms) => {
                 if terms.is_empty() {
                     return Some(Expr::integer(1));
@@ -607,14 +633,14 @@ struct ExprAnalysis {
 
 fn analyze_expr(expression: &Expr) -> ExprAnalysis {
     match expression {
-        Expr::Const(value) => {
-            let constant = rational_to_f64(value).ok();
-            ExprAnalysis {
+        Expr::Const(value) => match rational_to_f64(value) {
+            Ok(constant) => ExprAnalysis {
                 growth: constant_growth(),
-                linear: constant.map(|_| BTreeMap::new()),
-                constant,
-            }
-        }
+                linear: Some(BTreeMap::new()),
+                constant: Some(constant),
+            },
+            Err(error) => failed_analysis(expression, error.to_string()),
+        },
         Expr::Var(variable) => {
             let mut term = GrowthTerm::one();
             term.poly.insert(variable.as_str().into(), 1.0);
@@ -657,24 +683,40 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
         Expr::Div(numerator, denominator) => {
             let numerator = analyze_expr(numerator);
             let denominator = analyze_expr(denominator);
-            let constant = numerator
-                .constant
-                .zip(denominator.constant)
-                .map(|(numerator, denominator)| numerator / denominator);
+            let constant = match numerator.constant.zip(denominator.constant) {
+                Some((_, 0.0)) => None,
+                Some((numerator, denominator)) => Some(numerator / denominator),
+                None => None,
+            };
             let linear = if constant.is_some() {
                 Some(BTreeMap::new())
             } else if let Some(divisor) = denominator.constant {
-                scale_linear(numerator.linear, 1.0 / divisor)
+                if divisor == 0.0 {
+                    None
+                } else {
+                    scale_linear(numerator.linear, 1.0 / divisor)
+                }
             } else {
                 None
             };
             ExprAnalysis {
                 growth: if constant.is_some() {
                     constant_growth()
+                } else if denominator.constant == Some(0.0) {
+                    unknown(GrowthFailure::Approximation {
+                        expression: expression.to_string(),
+                        error: "division by zero".to_string(),
+                    })
+                } else if matches!(&numerator.growth, Growth::Unknown(_))
+                    || matches!(&denominator.growth, Growth::Unknown(_))
+                {
+                    merge_unknown(numerator.growth, denominator.growth)
                 } else if denominator.constant.is_some() {
                     numerator.growth
                 } else {
-                    Growth::Unknown
+                    unknown(GrowthFailure::VariableDenominator(denominator_expression(
+                        expression,
+                    )))
                 },
                 constant,
                 linear,
@@ -686,12 +728,24 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
             let constant = base_analysis
                 .constant
                 .zip(exponent_analysis.constant)
-                .map(|(base, exponent)| base.powf(exponent));
-            let growth = if constant.is_some() {
+                .and_then(|(base, exponent)| {
+                    let value = base.powf(exponent);
+                    (!value.is_nan()).then_some(value)
+                });
+            let growth = if matches!(&base_analysis.growth, Growth::Unknown(_))
+                || matches!(&exponent_analysis.growth, Growth::Unknown(_))
+            {
+                merge_unknown(base_analysis.growth, exponent_analysis.growth)
+            } else if constant.is_some() {
                 constant_growth()
+            } else if base_analysis.constant.is_some() && exponent_analysis.constant.is_some() {
+                unknown(GrowthFailure::Approximation {
+                    expression: expression.to_string(),
+                    error: "power has no real value".to_string(),
+                })
             } else if let Some(power) = exponent_analysis.constant {
                 if power < 0.0 {
-                    Growth::Unknown
+                    unknown(GrowthFailure::NegativeExponent(exponent.to_string()))
                 } else if power == 0.0 {
                     constant_growth()
                 } else {
@@ -701,9 +755,12 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
                 exponential(
                     ExpBase::Constant(base.as_ref().clone()),
                     exponent_analysis.linear,
+                    exponent,
                 )
             } else {
-                Growth::Unknown
+                unknown(GrowthFailure::VariableBaseAndExponent(
+                    expression.to_string(),
+                ))
             };
             ExprAnalysis {
                 growth,
@@ -730,28 +787,60 @@ fn analyze_expr(expression: &Expr) -> ExprAnalysis {
             ExprAnalysis {
                 growth: if constant.is_some() {
                     constant_growth()
+                } else if matches!(&value.growth, Growth::Unknown(_)) {
+                    value.growth
                 } else {
-                    exponential(ExpBase::Natural, value.linear)
+                    exponential(ExpBase::Natural, value.linear, expression)
                 },
                 constant,
                 linear: constant.map(|_| BTreeMap::new()),
             }
         }
-        Expr::Log(value) => analyze_unary(value, f64::ln, log_growth),
-        Expr::Sqrt(value) => analyze_unary(value, f64::sqrt, |growth| pow_const(growth, 0.5)),
+        Expr::Log(value) => analyze_unary(
+            expression,
+            value,
+            |constant| {
+                (constant > 0.0)
+                    .then(|| constant.ln())
+                    .ok_or("logarithm argument must be positive")
+            },
+            log_growth,
+        ),
+        Expr::Sqrt(value) => analyze_unary(
+            expression,
+            value,
+            |constant| {
+                (constant >= 0.0)
+                    .then(|| constant.sqrt())
+                    .ok_or("square-root argument must be non-negative")
+            },
+            |growth| pow_const(growth, 0.5),
+        ),
         Expr::Factorial(value) => {
             let value = analyze_expr(value);
-            let constant = value
-                .constant
-                .and_then(|constant| approximate_factorial(constant).ok());
-            ExprAnalysis {
-                growth: if constant.is_some() {
-                    constant_growth()
-                } else {
-                    Growth::Unknown
+            if matches!(&value.growth, Growth::Unknown(_)) {
+                return ExprAnalysis {
+                    growth: value.growth,
+                    constant: None,
+                    linear: None,
+                };
+            }
+            match value.constant {
+                Some(constant) => match approximate_factorial(constant) {
+                    Ok(constant) => ExprAnalysis {
+                        growth: constant_growth(),
+                        constant: Some(constant),
+                        linear: Some(BTreeMap::new()),
+                    },
+                    Err(error) => failed_analysis(expression, error.to_string()),
                 },
-                constant,
-                linear: constant.map(|_| BTreeMap::new()),
+                None => ExprAnalysis {
+                    growth: unknown(GrowthFailure::FactorialOfNonconstant(
+                        expression.to_string(),
+                    )),
+                    constant: None,
+                    linear: None,
+                },
             }
         }
     }
@@ -776,20 +865,51 @@ fn analyze_sum(left: &Expr, right: &Expr, right_sign: f64) -> ExprAnalysis {
 }
 
 fn analyze_unary(
+    expression: &Expr,
     value: &Expr,
-    evaluate: impl FnOnce(f64) -> f64,
+    evaluate: impl FnOnce(f64) -> Result<f64, &'static str>,
     transform_growth: impl FnOnce(Growth) -> Growth,
 ) -> ExprAnalysis {
     let value = analyze_expr(value);
-    let constant = value.constant.map(evaluate);
-    ExprAnalysis {
-        growth: if constant.is_some() {
-            constant_growth()
-        } else {
-            transform_growth(value.growth)
+    if matches!(&value.growth, Growth::Unknown(_)) {
+        return ExprAnalysis {
+            growth: value.growth,
+            constant: None,
+            linear: None,
+        };
+    }
+    match value.constant {
+        Some(constant) => match evaluate(constant) {
+            Ok(constant) => ExprAnalysis {
+                growth: constant_growth(),
+                constant: Some(constant),
+                linear: Some(BTreeMap::new()),
+            },
+            Err(error) => failed_analysis(expression, error.to_string()),
         },
-        constant,
-        linear: constant.map(|_| BTreeMap::new()),
+        None => ExprAnalysis {
+            growth: transform_growth(value.growth),
+            constant: None,
+            linear: None,
+        },
+    }
+}
+
+fn failed_analysis(expression: &Expr, error: String) -> ExprAnalysis {
+    ExprAnalysis {
+        growth: unknown(GrowthFailure::Approximation {
+            expression: expression.to_string(),
+            error,
+        }),
+        constant: None,
+        linear: None,
+    }
+}
+
+fn denominator_expression(expression: &Expr) -> String {
+    match expression {
+        Expr::Div(_, denominator) => denominator.to_string(),
+        _ => unreachable!("denominator_expression requires division"),
     }
 }
 
@@ -820,6 +940,23 @@ fn scale_linear(
 
 fn constant_growth() -> Growth {
     Growth::Terms(vec![GrowthTerm::one()])
+}
+
+fn unknown(failure: GrowthFailure) -> Growth {
+    Growth::unknown(failure)
+}
+
+fn merge_unknown(left: Growth, right: Growth) -> Growth {
+    let mut failures = Vec::new();
+    if let Growth::Unknown(left) = left {
+        failures.extend(left);
+    }
+    if let Growth::Unknown(right) = right {
+        failures.extend(right);
+    }
+    failures.sort();
+    failures.dedup();
+    Growth::Unknown(failures)
 }
 
 /// Render one monomial as a product of its factors (or `Const(1)` when empty).
@@ -892,60 +1029,6 @@ fn prune(mut terms: Vec<GrowthTerm>) -> Vec<GrowthTerm> {
     result
 }
 
-/// Construct a componentwise upper bound when every exponential component has
-/// a symbolically proven maximal product.
-fn componentwise_max(terms: &[GrowthTerm]) -> Option<GrowthTerm> {
-    let mut m = GrowthTerm::one();
-    let mut vars = BTreeSet::new();
-    for term in terms {
-        vars.extend(term.exp.keys().cloned());
-        vars.extend(term.poly.keys().cloned());
-        vars.extend(term.logs.keys().cloned());
-    }
-
-    for var in vars {
-        let empty_exp = ExpProduct::empty();
-        let mut maximum = &empty_exp;
-        for product in terms
-            .iter()
-            .map(|term| term.exp.get(&var).unwrap_or(&empty_exp))
-        {
-            if matches!(product.cmp_proven(maximum), Some(Ordering::Greater)) {
-                maximum = product;
-            }
-        }
-        if !terms.iter().all(|term| {
-            matches!(
-                maximum.cmp_proven(term.exp.get(&var).unwrap_or(&empty_exp)),
-                Some(Ordering::Greater | Ordering::Equal)
-            )
-        }) {
-            return None;
-        }
-        if !maximum.is_empty() {
-            m.exp.insert(var.clone(), maximum.clone());
-        }
-
-        let mut max_poly = 0.0_f64;
-        let mut max_logs = 0_u32;
-        for term in terms {
-            let degree = term.poly.get(&var).copied().unwrap_or(0.0);
-            if !degree.is_finite() {
-                return None;
-            }
-            max_poly = max_poly.max(degree);
-            max_logs = max_logs.max(term.logs.get(&var).copied().unwrap_or(0));
-        }
-        if max_poly > 0.0 {
-            m.poly.insert(var.clone(), max_poly);
-        }
-        if max_logs > 0 {
-            m.logs.insert(var, max_logs);
-        }
-    }
-    Some(m)
-}
-
 fn growth_term_is_valid(term: &GrowthTerm) -> bool {
     term.exp
         .values()
@@ -956,22 +1039,12 @@ fn growth_term_is_valid(term: &GrowthTerm) -> bool {
             .all(|degree| degree.is_finite() && *degree >= 0.0)
 }
 
-/// Prune, apply the antichain cap (widening upward on overflow), and sort into
-/// the deterministic total order.
+/// Prune to the exact maximal antichain and sort deterministically.
 fn make_growth(terms: Vec<GrowthTerm>) -> Growth {
     if !terms.iter().all(growth_term_is_valid) {
-        return Growth::Unknown;
+        return unknown(GrowthFailure::InvalidGrowthTerm);
     }
-    let mut pruned = prune(terms);
-    if pruned.len() > ANTICHAIN_CAP {
-        let Some(widened) = componentwise_max(&pruned) else {
-            return Growth::Unknown;
-        };
-        if !pruned.iter().all(|term| widened.dominates_or_eq(term)) {
-            return Growth::Unknown;
-        }
-        pruned = vec![widened];
-    }
+    let pruned = prune(terms);
     debug_assert!(pruned.iter().all(growth_term_is_valid));
     Growth::Terms(pruned)
 }
@@ -979,7 +1052,9 @@ fn make_growth(terms: Vec<GrowthTerm>) -> Growth {
 /// Antichain union (asymptotic `+ ≍ max`).
 fn add(a: Growth, b: Growth) -> Growth {
     match (a, b) {
-        (Growth::Unknown, _) | (_, Growth::Unknown) => Growth::Unknown,
+        (left @ Growth::Unknown(_), right) | (left, right @ Growth::Unknown(_)) => {
+            merge_unknown(left, right)
+        }
         (Growth::Terms(mut x), Growth::Terms(y)) => {
             x.extend(y);
             make_growth(x)
@@ -990,7 +1065,9 @@ fn add(a: Growth, b: Growth) -> Growth {
 /// Pairwise product of two antichains.
 fn mul(a: Growth, b: Growth) -> Growth {
     match (a, b) {
-        (Growth::Unknown, _) | (_, Growth::Unknown) => Growth::Unknown,
+        (left @ Growth::Unknown(_), right) | (left, right @ Growth::Unknown(_)) => {
+            merge_unknown(left, right)
+        }
         (Growth::Terms(x), Growth::Terms(y)) => {
             let mut prod = Vec::with_capacity(x.len() * y.len());
             for tx in &x {
@@ -1006,34 +1083,38 @@ fn mul(a: Growth, b: Growth) -> Growth {
 /// Raise a whole antichain to a nonnegative real power `k` (raise each term).
 fn pow_const(g: Growth, k: f64) -> Growth {
     match g {
-        Growth::Unknown => Growth::Unknown,
+        Growth::Unknown(failures) => Growth::Unknown(failures),
         Growth::Terms(terms) => make_growth(terms.iter().map(|t| t.powf(k)).collect()),
     }
 }
 
 /// Transfer function for a symbolic fixed-base exponential. The base's numeric
 /// value is used only for domain and monotonic-direction checks.
-fn exponential(base: ExpBase, linear: Option<BTreeMap<Box<str>, f64>>) -> Growth {
+fn exponential(base: ExpBase, linear: Option<BTreeMap<Box<str>, f64>>, exponent: &Expr) -> Growth {
     let c = base.value();
     if !c.is_finite() || c <= 0.0 {
-        return Growth::Unknown;
+        return unknown(GrowthFailure::InvalidExponentialBase(c.to_string()));
     }
     if c == 1.0 {
         // 1^x = 1 for every x: bounded by O(1).
         return Growth::Terms(vec![GrowthTerm::one()]);
     }
     match linear {
-        None => Growth::Unknown, // nonlinear exponent
+        None => unknown(GrowthFailure::NonlinearExponent(exponent.to_string())),
         Some(coeffs) => {
             let mut term = GrowthTerm::one();
             for (v, coeff) in coeffs {
                 if !coeff.is_finite() {
-                    return Growth::Unknown;
+                    return unknown(GrowthFailure::NonFiniteLinearCoefficient(v.to_string()));
                 }
-                // Drop decaying directions as an upward widening. A fractional
-                // base grows only along negative exponent coefficients.
                 if (c > 1.0 && coeff > 0.0) || (c < 1.0 && coeff < 0.0) {
                     term.exp.insert(v, ExpProduct::single(base.clone(), coeff));
+                } else if coeff != 0.0 {
+                    return unknown(GrowthFailure::DecayingExponential {
+                        base: c.to_string(),
+                        variable: v.to_string(),
+                        coefficient: coeff.to_string(),
+                    });
                 }
             }
             make_growth(vec![term])
@@ -1046,7 +1127,7 @@ fn exponential(base: ExpBase, linear: Option<BTreeMap<Box<str>, f64>>) -> Growth
 /// `log(2^(r·n)) ≍ n`.
 fn log_growth(g: Growth) -> Growth {
     match g {
-        Growth::Unknown => Growth::Unknown,
+        Growth::Unknown(failures) => Growth::Unknown(failures),
         Growth::Terms(terms) => {
             let mut out = Vec::new();
             for t in &terms {

@@ -13,7 +13,7 @@
 //!   Asymptotic overhead formulas are not used as concrete budget bounds.
 
 use crate::expr::Expr;
-use crate::growth::Growth;
+use crate::growth::{Growth, GrowthFailure};
 use crate::rules::registry::{ReduceFn, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
@@ -68,7 +68,27 @@ pub struct AnalysisCoverage {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct AnalysisFailure {
     pub fields: Vec<String>,
-    pub reason: &'static str,
+    pub reasons: BTreeMap<String, Vec<GrowthFailure>>,
+}
+
+impl std::fmt::Display for AnalysisFailure {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first_field = true;
+        for (field, reasons) in &self.reasons {
+            if !first_field {
+                formatter.write_str("; ")?;
+            }
+            first_field = false;
+            write!(formatter, "{field}: ")?;
+            for (index, reason) in reasons.iter().enumerate() {
+                if index > 0 {
+                    formatter.write_str(", ")?;
+                }
+                write!(formatter, "{reason}")?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// A borrowed view of one reduction edge, handed to [`PathLabel::extend`].
@@ -295,15 +315,17 @@ impl GrowthLabel {
 
     /// Return the explicit failure boundary when any field is unanalyzable.
     pub fn analysis_failure(&self) -> Option<AnalysisFailure> {
-        let fields: Vec<_> = self
+        let reasons: BTreeMap<_, _> = self
             .fields
             .iter()
-            .filter(|(_, growth)| matches!(growth, Growth::Unknown))
-            .map(|(field, _)| field.clone())
+            .filter_map(|(field, growth)| match growth {
+                Growth::Terms(_) => None,
+                Growth::Unknown(reasons) => Some((field.clone(), reasons.clone())),
+            })
             .collect();
-        (!fields.is_empty()).then_some(AnalysisFailure {
-            fields,
-            reason: "symbolic growth analysis returned Unknown",
+        (!reasons.is_empty()).then(|| AnalysisFailure {
+            fields: reasons.keys().cloned().collect(),
+            reasons,
         })
     }
 }
@@ -333,9 +355,23 @@ impl PathLabel for GrowthLabel {
 
         let mut new_fields: BTreeMap<String, Growth> = BTreeMap::new();
         for (target_field, expr) in &edge.overhead.output_size {
-            let growth = expr
-                .substitute_complete(&mapping)
-                .map_or(Growth::Unknown, |expression| Growth::from_expr(&expression));
+            let growth = match expr.substitute_complete(&mapping) {
+                Some(expression) => Growth::from_expr(&expression),
+                None => {
+                    let mut failures: Vec<_> = expr
+                        .variables()
+                        .into_iter()
+                        .filter(|variable| !mapping.contains_key(variable))
+                        .flat_map(|variable| match self.fields.get(variable) {
+                            Some(Growth::Unknown(failures)) => failures.clone(),
+                            _ => vec![GrowthFailure::MissingSubstitution(variable.to_string())],
+                        })
+                        .collect();
+                    failures.sort();
+                    failures.dedup();
+                    Growth::Unknown(failures)
+                }
+            };
             new_fields.insert((*target_field).to_string(), growth);
         }
         // Asymptotic mode has no budget, so `extend` never prunes.
@@ -347,7 +383,7 @@ impl PathLabel for GrowthLabel {
             .fields
             .values()
             .chain(other.fields.values())
-            .any(|growth| matches!(growth, Growth::Unknown))
+            .any(|growth| matches!(growth, Growth::Unknown(_)))
         {
             return false;
         }

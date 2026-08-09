@@ -541,10 +541,9 @@ fn format_front_text(
     ));
     for excluded in &result.excluded {
         text.push_str(&format!(
-            "  Excluded {}: {} ({})\n",
+            "  Excluded {}: {}\n",
             path_arrow_summary(graph, &excluded.path),
-            excluded.failure.reason,
-            excluded.failure.fields.join(", ")
+            excluded.failure,
         ));
     }
     text
@@ -643,10 +642,9 @@ fn path_front(
                 .iter()
                 .map(|item| {
                     format!(
-                        "{}: {} ({})",
+                        "{}: {}",
                         path_arrow_summary(graph, &item.path),
-                        item.failure.reason,
-                        item.failure.fields.join(", ")
+                        item.failure,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -1012,7 +1010,7 @@ mod tests {
     }
 }
 
-/// Regression and budget tests for bounded `pred path --all` overhead rendering.
+/// Regression tests for `pred path --all` overhead rendering.
 /// All tests run **in-process** against the CLI's own private rendering helpers —
 /// no `pred` binary is spawned.
 ///
@@ -1020,19 +1018,13 @@ mod tests {
 /// multivariate polynomial normal forms (an antichain of pairwise-incomparable
 /// monomials). These are the correct, tight Big-O answers, not raw fallbacks — a
 /// degree-8 trivariate form like `O(a^8 + a^6 b^2 + … + c^8)` legitimately runs
-/// several hundred chars. The guarantee is *structural boundedness*: the
-/// antichain is capped at `growth::ANTICHAIN_CAP = 32` terms and computed
-/// bottom-up in linear time.
+/// several hundred chars. Antichains are retained exactly; there is no hidden
+/// term cap or componentwise widening.
 #[cfg(test)]
 mod path_overhead_rendering_tests {
     use super::big_o_of;
     use problemreductions::big_o_normal_form;
     use problemreductions::rules::{ReductionGraph, ReductionPath};
-
-    /// Structural upper bound on a single rendered `O(...)` field: an antichain of
-    /// at most 32 terms (`ANTICHAIN_CAP`) over a handful of variables, each term a
-    /// short monomial and independent of path length.
-    const RENDER_LEN_BOUND: usize = 2000;
 
     /// A deeply composed path as a node-name chain (KSat → QUBO through
     /// QuadraticAssignment/ILP). Used to reconstruct the path from the live graph
@@ -1091,13 +1083,6 @@ mod path_overhead_rendering_tests {
                 !rendered.contains("O(?)"),
                 "field {field} rendered as unbounded O(?): expr = {expr}"
             );
-            // Structurally bounded — no raw-expression explosion.
-            assert!(
-                rendered.len() < RENDER_LEN_BOUND,
-                "field {field} rendered {} chars (>= {RENDER_LEN_BOUND}); \
-                 raw fallback may have returned: {rendered}",
-                rendered.len()
-            );
             // The rendered normal form is never *longer* than the raw composed
             // expression: proof that normalization (not passthrough) happened.
             let raw_len = expr.to_string().len();
@@ -1121,12 +1106,11 @@ mod path_overhead_rendering_tests {
     }
 
     /// Whole-graph budget: rendering Big-O for **every** path of representative
-    /// hot pairs must finish well within the CI budget and never produce an
-    /// unbounded-length string. This is the "can't OOM/hang again" guard: it walks
-    /// the *complete* path set (`find_all_paths`), so no enumeration cap can hide a
-    /// runaway rendering.
+    /// hot pairs must finish within the CI budget and every result must either
+    /// normalize or expose a concrete analysis error. It walks the *complete*
+    /// path set (`find_all_paths`), so no enumeration cap can hide work.
     #[test]
-    fn all_path_overhead_rendering_stays_bounded() {
+    fn all_path_overhead_rendering_finishes() {
         let graph = ReductionGraph::new();
         let start = std::time::Instant::now();
         for (src, dst) in [("KSat", "QUBO"), ("MIS", "QUBO")] {
@@ -1145,12 +1129,9 @@ mod path_overhead_rendering_tests {
                 let overall = graph.compose_path_overhead(path);
                 for oh in per_step.iter().chain(std::iter::once(&overall)) {
                     for (field, expr) in &oh.output_size {
-                        let rendered = big_o_of(expr);
-                        assert!(
-                            rendered.len() < RENDER_LEN_BOUND,
-                            "{src}->{dst} field {field} rendered {} chars (>= {RENDER_LEN_BOUND})",
-                            rendered.len()
-                        );
+                        big_o_normal_form(expr).unwrap_or_else(|error| {
+                            panic!("{src}->{dst} field {field} failed analysis: {error}")
+                        });
                     }
                 }
             }

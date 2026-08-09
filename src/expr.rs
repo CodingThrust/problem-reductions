@@ -43,9 +43,13 @@ pub fn evaluate_approximate(
     }
 }
 
-/// Approximate a wholly constant expression; return `None` for expressions with variables.
-pub(crate) fn constant_approximation(expression: &Expr) -> Option<f64> {
-    evaluate_approximate(expression, &ProblemSize::default()).ok()
+/// Approximate a wholly constant expression without conflating variables with errors.
+pub(crate) fn constant_approximation(expression: &Expr) -> Result<Option<f64>, ApproximationError> {
+    if expression.is_constant() {
+        evaluate_approximate(expression, &ProblemSize::default()).map(Some)
+    } else {
+        Ok(None)
+    }
 }
 
 /// Convert an approximation produced by the growth domain back to an exact AST constant.

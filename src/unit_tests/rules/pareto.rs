@@ -7,7 +7,7 @@
 
 use super::*;
 use crate::expr::{evaluate_approximate, expression_from_approximation, Expr};
-use crate::growth::Growth;
+use crate::growth::{Growth, GrowthFailure};
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::formula::{CNFClause, Satisfiability};
 use crate::models::graph::HamiltonianCircuit;
@@ -778,7 +778,7 @@ fn test_growth_label_propagates_unknown() {
     );
     fields.insert("y".to_string(), Growth::from_expr(&Expr::variable("n")));
     let label = GrowthLabel::from_fields(fields);
-    assert!(matches!(label.fields().get("x"), Some(Growth::Unknown)));
+    assert!(matches!(label.fields().get("x"), Some(Growth::Unknown(_))));
 
     // out1 uses x (Unknown) → Unknown; out2 uses only y → bounded.
     let edge = growth_edge(vec![
@@ -795,6 +795,12 @@ fn test_growth_label_propagates_unknown() {
     let next = label.extend(&redge).expect("extend");
     assert_eq!(field_big_o(&next, "out1"), "?");
     assert_eq!(field_big_o(&next, "out2"), "n^2");
+    assert!(matches!(
+        next.fields()["out1"]
+            .failures()
+            .expect("propagated reasons"),
+        [GrowthFailure::FactorialOfNonconstant(expression)] if expression == "factorial(n)"
+    ));
 }
 
 #[test]
@@ -836,7 +842,10 @@ fn test_symbolic_front_excludes_unknown_with_analysis_reason() {
     assert_eq!(result.coverage.analyzed_paths, 1);
     assert_eq!(result.coverage.excluded_paths, 1);
     assert_eq!(result.excluded[0].failure.fields, ["out"]);
-    assert!(result.excluded[0].failure.reason.contains("Unknown"));
+    assert!(matches!(
+        result.excluded[0].failure.reasons["out"].as_slice(),
+        [GrowthFailure::MissingSubstitution(variable)] if variable == "missing"
+    ));
 }
 
 #[test]
@@ -959,7 +968,10 @@ fn test_growth_label_unknown_is_incomparable() {
     let with_unknown = GrowthLabel::from_fields({
         let mut m = BTreeMap::new();
         m.insert("a".to_string(), Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b".to_string(), Growth::Unknown);
+        m.insert(
+            "b".to_string(),
+            Growth::from_expr(&Expr::Factorial(Box::new(Expr::variable("n")))),
+        );
         m
     });
     assert!(!known.final_dominates(&with_unknown));
@@ -2000,10 +2012,14 @@ fn test_growth_label_taints_absent_variable() {
     // References an unmapped, intermediate-only variable ⇒ tainted to Unknown, never
     // leaked as `O(n * tseitin)`.
     assert!(
-        matches!(next.fields().get("leaky"), Some(Growth::Unknown)),
+        matches!(next.fields().get("leaky"), Some(Growth::Unknown(_))),
         "a target field referencing an absent variable must become Unknown, got {:?}",
         next.fields().get("leaky")
     );
+    assert!(matches!(
+        next.fields()["leaky"].failures().expect("unknown reasons"),
+        [GrowthFailure::MissingSubstitution(variable)] if variable == "tseitin"
+    ));
 }
 
 // ---------------------------------------------------------------------------
