@@ -169,6 +169,20 @@ fn test_pred_sym_eval_unbound_variable_error() {
 }
 
 #[test]
+fn test_pred_sym_eval_non_finite_result_is_an_error() {
+    let output = pred_sym()
+        .args(["eval", "log(n)", "--vars", "n=0"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("no finite real approximation"),
+        "got: {stderr}"
+    );
+}
+
+#[test]
 fn test_pred_sym_compare_unequal_exits_nonzero() {
     let output = pred_sym().args(["compare", "n^2", "n^3"]).output().unwrap();
     assert!(

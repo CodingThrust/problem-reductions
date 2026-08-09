@@ -106,15 +106,14 @@ impl ExpBase {
     /// `Expr::exp`; arbitrary constant subtrees remain structural-only.
     fn directly_comparable_value(&self) -> Option<f64> {
         match self {
-            ExpBase::Constant(base) if matches!(base.node(), ExprNode::Const(_)) => Some(
-                rational_to_f64(match base.node() {
-                    ExprNode::Const(value) => value,
-                    _ => unreachable!(),
-                })
-                .expect("direct exponential constants are validated when constructed"),
-            ),
+            ExpBase::Constant(base) => match base.node() {
+                ExprNode::Const(value) => Some(
+                    rational_to_f64(value)
+                        .expect("direct exponential constants are validated when constructed"),
+                ),
+                _ => None,
+            },
             ExpBase::Natural => Some(std::f64::consts::E),
-            ExpBase::Constant(_) => None,
         }
     }
 
@@ -698,8 +697,6 @@ fn analyze_expr_inner(
             } else if let Some(power) = exponent_analysis.constant {
                 if power < 0.0 {
                     unknown(GrowthFailure::NegativeExponent(exponent.to_string()))
-                } else if power == 0.0 {
-                    constant_growth()
                 } else {
                     pow_const(base_analysis.growth, power)
                 }

@@ -266,10 +266,7 @@ fn generate_overhead_eval_fn(
 ///
 /// Collects all variable names referenced in the overhead expressions, generates
 /// getter calls for each, and returns a `ProblemSize`.
-fn generate_source_size_fn(
-    fields: &[ParsedOverheadField],
-    source_type: &Type,
-) -> syn::Result<TokenStream2> {
+fn generate_source_size_fn(fields: &[ParsedOverheadField], source_type: &Type) -> TokenStream2 {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
     let var_names: std::collections::BTreeSet<_> = fields
         .iter()
@@ -278,22 +275,17 @@ fn generate_source_size_fn(
     let getter_tokens = var_names
         .into_iter()
         .map(|name| {
-            let getter = syn::parse_str::<syn::Ident>(name).map_err(|_| {
-                syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("expression variable {name:?} is not a valid Rust getter name"),
-                )
-            })?;
-            Ok(quote! { (#name, #src_ident.#getter() as usize) })
+            let getter = syn::Ident::new(name, proc_macro2::Span::call_site());
+            quote! { (#name, #src_ident.#getter() as usize) }
         })
-        .collect::<syn::Result<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
-    Ok(quote! {
+    quote! {
         |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
             let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
             crate::types::ProblemSize::new(vec![#(#getter_tokens),*])
         }
-    })
+    }
 }
 
 /// Generate the reduction entry code
@@ -349,7 +341,7 @@ fn generate_reduction_entry(
             let fields = parse_overhead_fields(fields)?;
             let overhead_tokens = generate_parsed_overhead(&fields);
             let eval_fn = generate_overhead_eval_fn(&fields, source_type)?;
-            let size_fn = generate_source_size_fn(&fields, source_type)?;
+            let size_fn = generate_source_size_fn(&fields, source_type);
             (overhead_tokens, eval_fn, size_fn)
         }
         None => {
@@ -694,6 +686,15 @@ fn generate_complexity_eval_fn(
 mod tests {
     use super::*;
     use syn::{parse_str, Type};
+
+    #[test]
+    fn overhead_fields_report_expression_domain_errors() {
+        let fields = vec![("num_vertices".to_string(), "0 / 0".to_string())];
+        let Err(error) = parse_overhead_fields(&fields) else {
+            panic!("invalid overhead expression was accepted");
+        };
+        assert!(error.to_string().contains("division by zero"));
+    }
 
     #[test]
     fn extract_type_name_strips_non_decision_generics() {

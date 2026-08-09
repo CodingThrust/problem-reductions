@@ -369,6 +369,55 @@ fn test_growth_unknown_negative_control() {
     assert_eq!(mul(n2, factorial_failure.clone()), factorial_failure);
 }
 
+#[test]
+fn test_growth_reports_nested_and_numeric_failures() {
+    let huge_constant = Expr::parse(&format!("1{}", "0".repeat(400)));
+    assert!(matches!(
+        Growth::from_expr(&huge_constant).failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+
+    let unsupported = Expr::factorial(Expr::variable("n"));
+    assert!(matches!(
+        Growth::from_expr(&Expr::exp(unsupported.clone())).failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+    assert!(matches!(
+        Growth::from_expr(&Expr::factorial(unsupported)).failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+
+    assert_eq!(Growth::from_expr(&Expr::variable("n")).failures(), None);
+    assert_eq!(Growth::Terms(Vec::new()).to_expr(), Some(Expr::integer(1)));
+}
+
+#[test]
+fn test_growth_rejects_invalid_internal_terms_explicitly() {
+    let mut invalid = GrowthTerm::one();
+    invalid.poly.insert("n".into(), -1.0);
+    assert_eq!(
+        make_growth(vec![invalid]).failures(),
+        Some([GrowthFailure::InvalidGrowthTerm].as_slice())
+    );
+
+    let mut coefficients = std::collections::BTreeMap::new();
+    coefficients.insert("n".into(), f64::INFINITY);
+    let exponent = Expr::variable("n");
+    assert!(matches!(
+        super::exponential(ExpBase::Natural, Some(coefficients), &exponent).failures(),
+        Some([GrowthFailure::NonFiniteLinearCoefficient(_)])
+    ));
+}
+
+#[test]
+fn test_exponential_base_deserialization_reports_invalid_constant_domain() {
+    let invalid = serde_json::json!({
+        "Constant": serde_json::to_value(Expr::log(Expr::integer(0))).unwrap()
+    });
+    let error = serde_json::from_value::<ExpBase>(invalid).unwrap_err();
+    assert!(error.to_string().contains("finite real approximation"));
+}
+
 // --- Additional coverage ---
 
 /// Pure constants, constant factors, and constant division are all O(1) / dropped.

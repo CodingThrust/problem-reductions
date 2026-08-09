@@ -1325,4 +1325,32 @@ mod tests {
         assert_eq!(power.to_string(), "n^0.5");
         assert_eq!(Expr::parse(&power.to_string()), power);
     }
+
+    #[test]
+    fn shared_dag_queries_reuse_nodes_without_losing_errors() {
+        let shared = Expr::variable("n") + Expr::variable("m");
+        let expression = Expr::pow(shared.clone(), shared);
+
+        assert_eq!(expression.variables(), BTreeSet::from(["m", "n"]));
+        assert!(!expression.is_constant());
+        assert!(!expression.is_polynomial());
+        assert!(expression.is_valid_complexity_notation());
+        assert_eq!(expression.unique_node_count(), 4);
+
+        let error = expression.substitute_complete(&HashMap::new()).unwrap_err();
+        assert_eq!(
+            error.missing_variables().collect::<Vec<_>>(),
+            vec!["m", "n"]
+        );
+
+        let mut expressions = HashSet::new();
+        assert!(expressions.insert(expression.clone()));
+        assert!(!expressions.insert(expression));
+    }
+
+    #[test]
+    fn display_and_parser_cover_non_decimal_rationals() {
+        assert_eq!(Expr::rational(1, 3).to_string(), "1/3");
+        assert!(Expr::try_parse(".").is_err());
+    }
 }

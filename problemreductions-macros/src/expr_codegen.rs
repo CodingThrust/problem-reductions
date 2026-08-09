@@ -46,21 +46,19 @@ pub(crate) fn expr_tokens(expression: &Expr) -> TokenStream {
 pub(crate) fn eval_tokens(expression: &Expr, source: &syn::Ident) -> syn::Result<TokenStream> {
     Ok(match expression.node() {
         ExprNode::Const(value) => {
-            let value = value.to_f64().ok_or_else(|| {
-                syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("exact expression constant {value} is outside the f64 evaluator"),
-                )
-            })?;
+            let value = value
+                .to_f64()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| {
+                    syn::Error::new(
+                        proc_macro2::Span::call_site(),
+                        format!("exact expression constant {value} is outside the f64 evaluator"),
+                    )
+                })?;
             quote! { #value }
         }
         ExprNode::Var(name) => {
-            let getter = syn::parse_str::<syn::Ident>(name.as_str()).map_err(|_| {
-                syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    format!("expression variable {name:?} is not a valid Rust getter name"),
-                )
-            })?;
+            let getter = syn::Ident::new(name.as_str(), proc_macro2::Span::call_site());
             quote! { (#source.#getter() as f64) }
         }
         ExprNode::Add(values) => {
@@ -160,5 +158,30 @@ mod tests {
         assert!(!expr_tokens(&expression).is_empty());
         let source = syn::Ident::new("source", proc_macro2::Span::call_site());
         assert!(!eval_tokens(&expression, &source).unwrap().is_empty());
+    }
+
+    #[test]
+    fn codegen_covers_every_semantic_operator() {
+        let expression = Expr::parse("exp(n) + log(n) + factorial(n) + n^2");
+        let constructed = expr_tokens(&expression).to_string();
+        assert!(constructed.contains("Expr :: exp"));
+        assert!(constructed.contains("Expr :: log"));
+        assert!(constructed.contains("Expr :: factorial"));
+        assert!(constructed.contains("Expr :: pow"));
+
+        let source = syn::Ident::new("source", proc_macro2::Span::call_site());
+        let evaluated = eval_tokens(&expression, &source).unwrap().to_string();
+        assert!(evaluated.contains("f64 :: exp"));
+        assert!(evaluated.contains("f64 :: ln"));
+        assert!(evaluated.contains("approximate_factorial"));
+        assert!(evaluated.contains("f64 :: powf"));
+    }
+
+    #[test]
+    fn compiled_evaluator_rejects_constants_outside_f64() {
+        let expression = Expr::parse(&format!("1{}", "0".repeat(400)));
+        let source = syn::Ident::new("source", proc_macro2::Span::call_site());
+        let error = eval_tokens(&expression, &source).unwrap_err();
+        assert!(error.to_string().contains("outside the f64 evaluator"));
     }
 }

@@ -72,6 +72,7 @@ pub(crate) fn expression_from_approximation(value: f64) -> Expr {
 pub(crate) fn rational_to_f64(value: &BigRational) -> Result<f64, ApproximationError> {
     value
         .to_f64()
+        .filter(|value| value.is_finite())
         .ok_or_else(|| ApproximationError::OutOfRange(value.to_string()))
 }
 
