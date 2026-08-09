@@ -450,10 +450,16 @@ fn format_path_text(
 
     // Show composed overall overhead for multi-step paths
     if reduction_path.len() > 1 {
-        let composed = overheads.iter().cloned().reduce(|acc, oh| acc.compose(&oh));
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
-        for (field, poly) in &composed.expect("multi-step path has overheads").output_size {
-            text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+        match graph.compose_path_overhead(reduction_path) {
+            Ok(composed) => {
+                for (field, poly) in &composed.output_size {
+                    text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+                }
+            }
+            Err(error) => {
+                text.push_str(&format!("    unavailable: {error}\n"));
+            }
         }
     }
 
@@ -480,15 +486,19 @@ pub(crate) fn format_path_json(
         })
         .collect();
 
-    let composed = overheads.into_iter().reduce(|acc, oh| acc.compose(&oh));
-    let overall = composed
-        .as_ref()
-        .map_or_else(Vec::new, |overhead| overhead_to_json(&overhead.output_size));
+    let (overall, overall_error) = match graph.compose_path_overhead(reduction_path) {
+        Ok(composed) => (
+            Some(overhead_to_json(&composed.output_size)),
+            None::<String>,
+        ),
+        Err(error) => (None, Some(error.to_string())),
+    };
 
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
         "overall_overhead": overall,
+        "overall_overhead_error": overall_error,
     })
 }
 
@@ -541,10 +551,9 @@ fn format_front_text(
     ));
     for excluded in &result.excluded {
         text.push_str(&format!(
-            "  Excluded {}: {} ({})\n",
+            "  Excluded {}: {}\n",
             path_arrow_summary(graph, &excluded.path),
-            excluded.failure.reason,
-            excluded.failure.fields.join(", ")
+            excluded.failure,
         ));
     }
     text
@@ -568,13 +577,14 @@ pub(crate) fn format_front_json(
             let big_o: BTreeMap<&str, String> = label
                 .fields()
                 .iter()
-                .map(|(f, g)| (*f, g.to_big_o()))
+                .map(|(field, growth)| (field.as_str(), growth.to_big_o()))
                 .collect();
             let route = format_path_json(graph, reduction_path);
             serde_json::json!({
                 "steps": route["steps"],
                 "path": route["path"],
                 "overall_overhead": route["overall_overhead"],
+                "overall_overhead_error": route["overall_overhead_error"],
                 "growth": label.fields(),
                 "big_o": big_o,
             })
@@ -643,10 +653,9 @@ fn path_front(
                 .iter()
                 .map(|item| {
                     format!(
-                        "{}: {} ({})",
+                        "{}: {}",
                         path_arrow_summary(graph, &item.path),
-                        item.failure.reason,
-                        item.failure.fields.join(", ")
+                        item.failure,
                     )
                 })
                 .collect::<Vec<_>>()
@@ -1012,7 +1021,7 @@ mod tests {
     }
 }
 
-/// Regression and budget tests for bounded `pred path --all` overhead rendering.
+/// Regression tests for `pred path --all` overhead rendering.
 /// All tests run **in-process** against the CLI's own private rendering helpers —
 /// no `pred` binary is spawned.
 ///
@@ -1020,19 +1029,13 @@ mod tests {
 /// multivariate polynomial normal forms (an antichain of pairwise-incomparable
 /// monomials). These are the correct, tight Big-O answers, not raw fallbacks — a
 /// degree-8 trivariate form like `O(a^8 + a^6 b^2 + … + c^8)` legitimately runs
-/// several hundred chars. The guarantee is *structural boundedness*: the
-/// antichain is capped at `growth::ANTICHAIN_CAP = 32` terms and computed
-/// bottom-up in linear time.
+/// several hundred chars. Antichains are retained exactly; there is no hidden
+/// term cap or componentwise widening.
 #[cfg(test)]
 mod path_overhead_rendering_tests {
     use super::big_o_of;
     use problemreductions::big_o_normal_form;
-    use problemreductions::rules::{ReductionGraph, ReductionPath};
-
-    /// Structural upper bound on a single rendered `O(...)` field: an antichain of
-    /// at most 32 terms (`ANTICHAIN_CAP`) over a handful of variables, each term a
-    /// short monomial and independent of path length.
-    const RENDER_LEN_BOUND: usize = 2000;
+    use problemreductions::rules::{PathOverheadCompositionError, ReductionGraph, ReductionPath};
 
     /// A deeply composed path as a node-name chain (KSat → QUBO through
     /// QuadraticAssignment/ILP). Used to reconstruct the path from the live graph
@@ -1073,7 +1076,7 @@ mod path_overhead_rendering_tests {
         let graph = ReductionGraph::new();
         let path = named_exploding_path(&graph);
 
-        let composed = graph.compose_path_overhead(&path);
+        let composed = graph.compose_path_overhead(&path).unwrap();
         assert!(
             !composed.output_size.is_empty(),
             "composed overhead has no size fields"
@@ -1090,13 +1093,6 @@ mod path_overhead_rendering_tests {
             assert!(
                 !rendered.contains("O(?)"),
                 "field {field} rendered as unbounded O(?): expr = {expr}"
-            );
-            // Structurally bounded — no raw-expression explosion.
-            assert!(
-                rendered.len() < RENDER_LEN_BOUND,
-                "field {field} rendered {} chars (>= {RENDER_LEN_BOUND}); \
-                 raw fallback may have returned: {rendered}",
-                rendered.len()
             );
             // The rendered normal form is never *longer* than the raw composed
             // expression: proof that normalization (not passthrough) happened.
@@ -1121,12 +1117,11 @@ mod path_overhead_rendering_tests {
     }
 
     /// Whole-graph budget: rendering Big-O for **every** path of representative
-    /// hot pairs must finish well within the CI budget and never produce an
-    /// unbounded-length string. This is the "can't OOM/hang again" guard: it walks
-    /// the *complete* path set (`find_all_paths`), so no enumeration cap can hide a
-    /// runaway rendering.
+    /// hot pairs must finish within the CI budget and every result must either
+    /// normalize or expose a concrete analysis error. It walks the *complete*
+    /// path set (`find_all_paths`), so no enumeration cap can hide work.
     #[test]
-    fn all_path_overhead_rendering_stays_bounded() {
+    fn all_path_overhead_rendering_finishes() {
         let graph = ReductionGraph::new();
         let start = std::time::Instant::now();
         for (src, dst) in [("KSat", "QUBO"), ("MIS", "QUBO")] {
@@ -1142,16 +1137,26 @@ mod path_overhead_rendering_tests {
             for path in &paths {
                 // Per-step overheads plus the composed overall overhead.
                 let per_step = graph.path_overheads(path);
-                let overall = graph.compose_path_overhead(path);
-                for oh in per_step.iter().chain(std::iter::once(&overall)) {
+                for oh in &per_step {
                     for (field, expr) in &oh.output_size {
-                        let rendered = big_o_of(expr);
-                        assert!(
-                            rendered.len() < RENDER_LEN_BOUND,
-                            "{src}->{dst} field {field} rendered {} chars (>= {RENDER_LEN_BOUND})",
-                            rendered.len()
-                        );
+                        big_o_normal_form(expr).unwrap_or_else(|error| {
+                            panic!("{src}->{dst} field {field} failed analysis: {error}")
+                        });
                     }
+                }
+                match graph.compose_path_overhead(path) {
+                    Ok(overall) => {
+                        for (field, expr) in &overall.output_size {
+                            big_o_normal_form(expr).unwrap_or_else(|error| {
+                                panic!("{src}->{dst} field {field} failed analysis: {error}")
+                            });
+                        }
+                    }
+                    Err(PathOverheadCompositionError::Step { error, .. }) => assert!(
+                        !error.field_errors().is_empty(),
+                        "composition error must identify a failing output field"
+                    ),
+                    Err(error) => panic!("unexpected path composition error: {error}"),
                 }
             }
         }

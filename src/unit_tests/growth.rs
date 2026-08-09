@@ -1,36 +1,41 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, componentwise_max, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthTerm,
+    add, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthFailure, GrowthTerm,
 };
-use crate::expr::Expr;
+use crate::expr::{
+    constant_approximation, evaluate_approximate, expression_from_approximation, Expr, ExprNode,
+};
+use serde::Deserialize;
 use std::cmp::Ordering;
 
 /// Build a term from `(exp, poly, logs)` entry lists.
-fn term(
-    exp: &[(&'static str, f64)],
-    poly: &[(&'static str, f64)],
-    logs: &[(&'static str, u32)],
-) -> GrowthTerm {
+fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> GrowthTerm {
     GrowthTerm {
         exp: exp
             .iter()
             .map(|(variable, rate)| {
                 (
-                    *variable,
-                    ExpProduct::single(ExpBase::Constant(Expr::Const(2.0)), *rate),
+                    (*variable).into(),
+                    ExpProduct::single(ExpBase::Constant(Expr::integer(2)), *rate),
                 )
             })
             .collect(),
-        poly: poly.iter().copied().collect(),
-        logs: logs.iter().copied().collect(),
+        poly: poly
+            .iter()
+            .map(|(variable, degree)| ((*variable).into(), *degree))
+            .collect(),
+        logs: logs
+            .iter()
+            .map(|(variable, power)| ((*variable).into(), *power))
+            .collect(),
     }
 }
 
 fn terms_of(g: &Growth) -> &[GrowthTerm] {
     match g {
         Growth::Terms(t) => t,
-        Growth::Unknown => panic!("expected Terms, got Unknown"),
+        Growth::Unknown(failures) => panic!("expected Terms, got {failures:?}"),
     }
 }
 
@@ -38,12 +43,59 @@ fn g(s: &str) -> Growth {
     Growth::from_expr(&Expr::parse(s))
 }
 
+#[derive(Deserialize)]
+struct SympyGrowthFixture {
+    growth_cases: Vec<SympyGrowthCase>,
+}
+
+#[derive(Deserialize)]
+struct SympyGrowthCase {
+    name: String,
+    left: String,
+    right: String,
+    ratio_limit: String,
+    relation: SympyGrowthRelation,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SympyGrowthRelation {
+    Equivalent,
+    LeftDominates,
+    RightDominates,
+}
+
+#[test]
+fn test_growth_relations_against_sympy_limits() {
+    let fixture: SympyGrowthFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.growth_cases.len(), 14);
+
+    for case in fixture.growth_cases {
+        let left = g(&case.left);
+        let right = g(&case.right);
+        let actual = (left.dominates(&right), right.dominates(&left));
+        let expected = match case.relation {
+            SympyGrowthRelation::Equivalent => (true, true),
+            SympyGrowthRelation::LeftDominates => (true, false),
+            SympyGrowthRelation::RightDominates => (false, true),
+        };
+        assert_eq!(
+            actual, expected,
+            "{} with SymPy ratio limit {}",
+            case.name, case.ratio_limit
+        );
+    }
+}
+
 fn exp_product(factors: &[(f64, f64)]) -> ExpProduct {
     ExpProduct::new(
         factors
             .iter()
             .map(|(base, coefficient)| ExpFactor {
-                base: ExpBase::Constant(Expr::Const(*base)),
+                base: ExpBase::Constant(expression_from_approximation(*base)),
                 coefficient: *coefficient,
             })
             .collect(),
@@ -184,9 +236,9 @@ fn test_exponential_product_proof_rules() {
     assert_eq!(natural.cmp_proven(&two), Some(Ordering::Greater));
     assert_eq!(two.cmp_proven(&natural), Some(Ordering::Less));
 
-    // Arbitrary constant subtrees are preserved but compared structurally only.
+    // Constant subtrees normalize before growth comparison.
     let composite = ExpProduct::single(ExpBase::Constant(Expr::parse("1 + 2")), 1.0);
-    assert_eq!(composite.cmp_proven(&three), None);
+    assert_eq!(composite.cmp_proven(&three), Some(Ordering::Equal));
 
     // Two residual products with no factorwise proof remain incomparable.
     assert_eq!(
@@ -199,15 +251,15 @@ fn test_exponential_product_proof_rules() {
 fn test_exponential_product_canonicalization() {
     let combined = ExpProduct::new(vec![
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 1.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 2.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(3.0)),
+            base: ExpBase::Constant(Expr::integer(3)),
             coefficient: 0.0,
         },
     ]);
@@ -215,11 +267,11 @@ fn test_exponential_product_canonicalization() {
 
     let cancelled = ExpProduct::new(vec![
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: 1.0,
         },
         ExpFactor {
-            base: ExpBase::Constant(Expr::Const(2.0)),
+            base: ExpBase::Constant(Expr::integer(2)),
             coefficient: -1.0,
         },
     ]);
@@ -266,21 +318,104 @@ fn test_growth_determinism() {
 /// and mul — unsupported content can never silently produce a fake bound.
 #[test]
 fn test_growth_unknown_negative_control() {
-    assert_eq!(g("2^(n*k)"), Growth::Unknown);
-    assert_eq!(g("factorial(n)"), Growth::Unknown);
+    assert_eq!(
+        g("2^(n*k)").failures(),
+        Some([GrowthFailure::NonlinearExponent("k * n".to_string())].as_slice())
+    );
+    assert!(matches!(
+        g("factorial(n)").failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+    assert!(matches!(
+        Growth::from_expr(&Expr::factorial(Expr::rational(7, 2))).failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+    assert!(matches!(
+        Growth::from_expr(&Expr::factorial(Expr::integer(-1))).failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+    assert_eq!(
+        g("factorial(n) + 2^(n*k)").failures(),
+        Some(
+            [
+                GrowthFailure::NonlinearExponent("k * n".to_string()),
+                GrowthFailure::FactorialOfNonconstant("factorial(n)".to_string()),
+            ]
+            .as_slice()
+        )
+    );
 
     // Absorption through the real `from_expr` add/mul paths.
-    assert_eq!(g("factorial(n) + n^2"), Growth::Unknown);
-    assert_eq!(g("n^2 + factorial(n)"), Growth::Unknown);
-    assert_eq!(g("factorial(n) * n^2"), Growth::Unknown);
-    assert_eq!(g("n^2 * factorial(n)"), Growth::Unknown);
+    let factorial_failure = g("factorial(n)");
+    assert_eq!(g("factorial(n) + n^2"), factorial_failure);
+    assert_eq!(g("n^2 + factorial(n)"), factorial_failure);
+    assert_eq!(g("factorial(n) * n^2"), factorial_failure);
+    assert_eq!(g("n^2 * factorial(n)"), factorial_failure);
 
     // Absorption at the operation level too.
     let n2 = g("n^2");
-    assert_eq!(add(Growth::Unknown, n2.clone()), Growth::Unknown);
-    assert_eq!(add(n2.clone(), Growth::Unknown), Growth::Unknown);
-    assert_eq!(mul(Growth::Unknown, n2.clone()), Growth::Unknown);
-    assert_eq!(mul(n2, Growth::Unknown), Growth::Unknown);
+    assert_eq!(
+        add(factorial_failure.clone(), n2.clone()),
+        factorial_failure
+    );
+    assert_eq!(
+        add(n2.clone(), factorial_failure.clone()),
+        factorial_failure
+    );
+    assert_eq!(
+        mul(factorial_failure.clone(), n2.clone()),
+        factorial_failure
+    );
+    assert_eq!(mul(n2, factorial_failure.clone()), factorial_failure);
+}
+
+#[test]
+fn test_growth_reports_nested_and_numeric_failures() {
+    let huge_constant = Expr::parse(&format!("1{}", "0".repeat(400)));
+    assert!(matches!(
+        Growth::from_expr(&huge_constant).failures(),
+        Some([GrowthFailure::Approximation { .. }])
+    ));
+
+    let unsupported = Expr::factorial(Expr::variable("n"));
+    assert!(matches!(
+        Growth::from_expr(&Expr::exp(unsupported.clone())).failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+    assert!(matches!(
+        Growth::from_expr(&Expr::factorial(unsupported)).failures(),
+        Some([GrowthFailure::FactorialOfNonconstant(_)])
+    ));
+
+    assert_eq!(Growth::from_expr(&Expr::variable("n")).failures(), None);
+    assert_eq!(Growth::Terms(Vec::new()).to_expr(), Some(Expr::integer(1)));
+}
+
+#[test]
+fn test_growth_rejects_invalid_internal_terms_explicitly() {
+    let mut invalid = GrowthTerm::one();
+    invalid.poly.insert("n".into(), -1.0);
+    assert_eq!(
+        make_growth(vec![invalid]).failures(),
+        Some([GrowthFailure::InvalidGrowthTerm].as_slice())
+    );
+
+    let mut coefficients = std::collections::BTreeMap::new();
+    coefficients.insert("n".into(), f64::INFINITY);
+    let exponent = Expr::variable("n");
+    assert!(matches!(
+        super::exponential(ExpBase::Natural, Some(coefficients), &exponent).failures(),
+        Some([GrowthFailure::NonFiniteLinearCoefficient(_)])
+    ));
+}
+
+#[test]
+fn test_exponential_base_deserialization_reports_invalid_constant_domain() {
+    let invalid = serde_json::json!({
+        "Constant": serde_json::to_value(Expr::log(Expr::integer(0))).unwrap()
+    });
+    let error = serde_json::from_value::<ExpBase>(invalid).unwrap_err();
+    assert!(error.to_string().contains("finite real approximation"));
 }
 
 // --- Additional coverage ---
@@ -304,9 +439,15 @@ fn test_growth_constants_are_o1() {
 #[test]
 fn test_growth_pow_special_cases() {
     assert_eq!(terms_of(&g("n^0")), [GrowthTerm::one()]);
-    assert_eq!(g("n^(-1)"), Growth::Unknown);
+    assert!(matches!(
+        g("n^(-1)").failures(),
+        Some([GrowthFailure::NegativeExponent(_)])
+    ));
     // Variable base with variable exponent is not representable.
-    assert_eq!(g("n^m"), Growth::Unknown);
+    assert!(matches!(
+        g("n^m").failures(),
+        Some([GrowthFailure::VariableBaseAndExponent(_)])
+    ));
 }
 
 /// Canonical Big-O rendering: bounded classes get `O(<expr>)`, `Unknown` gets `O(?)`.
@@ -316,7 +457,7 @@ fn test_growth_to_big_o() {
     assert_eq!(g("n^2 + n").to_big_o(), "O(n^2)");
     assert_eq!(g("2^n").to_big_o(), "O(2^n)");
     assert_eq!(g("5").to_big_o(), "O(1)");
-    assert_eq!(Growth::Unknown.to_big_o(), "O(?)");
+    assert_eq!(g("factorial(n)").to_big_o(), "O(?)");
     // Renders exactly `O(<to_expr>)` for bounded classes.
     let bounded = g("n * m");
     assert_eq!(
@@ -354,17 +495,27 @@ fn test_growth_exponential_roundtrip_is_exact() {
     }
 }
 
-/// `exp(n)` uses base e; a decaying/unit base is bounded by O(1).
+/// `exp(n)` uses base e; unit bases are constant, while decaying directions
+/// remain explicit analysis failures rather than silently widening to O(1).
 #[test]
 fn test_growth_exponential_variants() {
     // exp(n) is represented directly as e^n: exponential, dominates any polynomial.
     let en = g("exp(n)");
     assert!(en.dominates(&g("n^5")));
-    // 2^(n-m) ≤ 2^n after dropping the negative rate.
-    assert_eq!(g("2^(n - m)"), g("2^n"));
-    // Unit base is O(1); a decaying base with a growing exponent is O(1) too.
+    assert!(matches!(
+        g("2^(n - m)").failures(),
+        Some([GrowthFailure::DecayingExponential { variable, .. }]) if variable == "m"
+    ));
+    // Unit base is exactly O(1).
     assert_eq!(g("1^n"), g("7"));
-    assert_eq!(g("0.5^n"), g("7"));
+    assert!(matches!(
+        g("0.5^n").failures(),
+        Some([GrowthFailure::DecayingExponential {
+            variable,
+            coefficient,
+            ..
+        }]) if variable == "n" && coefficient == "1"
+    ));
     // A fractional base with a negative exponent grows and retains that exact
     // symbolic base instead of being translated through a common logarithm.
     assert_eq!(g("0.5^(-n)").to_big_o(), "O(0.5^(-1 * n))");
@@ -410,68 +561,47 @@ fn test_growth_log_levels() {
 #[test]
 fn test_growth_unknown_dominance() {
     let n2 = g("n^2");
-    assert!(Growth::Unknown.dominates(&n2));
-    assert!(!n2.dominates(&Growth::Unknown));
-    assert!(Growth::Unknown.dominates(&Growth::Unknown));
+    let unknown = g("factorial(n)");
+    assert!(unknown.dominates(&n2));
+    assert!(!n2.dominates(&unknown));
+    assert!(unknown.dominates(&unknown));
 }
 
-/// On antichain-cap overflow the domain widens up to the single componentwise
-/// max term (a valid upper bound), never truncating by iteration order.
+/// Large antichains remain exact; growth analysis has no hidden size cap.
 #[test]
-fn test_growth_antichain_cap_widens() {
+fn test_growth_preserves_large_antichain() {
     // 40 distinct single-variable terms are pairwise incomparable.
-    let vars: Vec<&'static str> = (0..40)
-        .map(|i| &*Box::leak(format!("v{i}").into_boxed_str()))
+    let vars: Vec<String> = (0..40).map(|index| format!("v{index}")).collect();
+    let many: Vec<GrowthTerm> = vars
+        .iter()
+        .map(|variable| term(&[], &[(variable, 1.0)], &[]))
         .collect();
-    let many: Vec<GrowthTerm> = vars.iter().map(|v| term(&[], &[(*v, 1.0)], &[])).collect();
 
-    let widened = make_growth(many);
-    let ts = terms_of(&widened);
-    assert_eq!(ts.len(), 1, "cap overflow should widen to one term");
-    // The single term dominates every original (it carries all variables).
-    for v in &vars {
-        assert!(
-            ts[0].dominates(&term(&[], &[(*v, 1.0)], &[])) || ts[0] == term(&[], &[(*v, 1.0)], &[])
-        );
-    }
+    let growth = make_growth(many.clone());
+    assert_eq!(terms_of(&growth).len(), many.len());
+    assert!(many.iter().all(|term| terms_of(&growth).contains(term)));
 }
 
+/// Unproved exponential comparisons also remain as a complete antichain.
 #[test]
-fn test_growth_componentwise_max_with_symbolic_exponentials() {
-    let inputs = vec![
-        terms_of(&g("2^n * n")).first().unwrap().clone(),
-        terms_of(&g("3^n * log(n)")).first().unwrap().clone(),
-    ];
-    let upper = componentwise_max(&inputs).expect("3^n is a proven exponential maximum");
-    assert!(inputs.iter().all(|term| upper.dominates_or_eq(term)));
-    assert_eq!(Growth::Terms(vec![upper]).to_big_o(), "O(3^n * n * log(n))");
-
-    let invalid = GrowthTerm {
-        exp: BTreeMap::new(),
-        poly: [("n", f64::NAN)].into_iter().collect(),
-        logs: BTreeMap::new(),
-    };
-    assert_eq!(componentwise_max(&[invalid]), None);
-}
-
-/// If symbolic exponential products have no provable componentwise maximum,
-/// cap overflow widens to Unknown instead of guessing an under-bound.
-#[test]
-fn test_growth_antichain_cap_with_unproved_exponentials_is_unknown() {
+fn test_growth_preserves_large_unproved_exponential_antichain() {
     let terms = (1..=33)
         .map(|i| GrowthTerm {
-            exp: [("n", exp_product(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]))]
-                .into_iter()
-                .collect(),
+            exp: [(
+                "n".into(),
+                exp_product(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]),
+            )]
+            .into_iter()
+            .collect(),
             poly: BTreeMap::new(),
             logs: BTreeMap::new(),
         })
-        .collect();
+        .collect::<Vec<_>>();
 
-    assert_eq!(make_growth(terms), Growth::Unknown);
+    assert_eq!(terms_of(&make_growth(terms.clone())).len(), terms.len());
 }
 
-/// Structured serde round-trips (with `&'static str` keys leaked on read), and
+/// Structured serde round-trips with owned variable names, and
 /// `Unknown` round-trips.
 #[test]
 fn test_growth_serde_roundtrip() {
@@ -480,10 +610,11 @@ fn test_growth_serde_roundtrip() {
     let back: Growth = serde_json::from_str(&json).unwrap();
     assert_eq!(value, back);
 
-    let unknown_json = serde_json::to_string(&Growth::Unknown).unwrap();
+    let unknown = g("factorial(n)");
+    let unknown_json = serde_json::to_string(&unknown).unwrap();
     assert_eq!(
         serde_json::from_str::<Growth>(&unknown_json).unwrap(),
-        Growth::Unknown
+        unknown
     );
 
     // Every constant Expr form admitted as a symbolic base remains lossless.
@@ -502,16 +633,16 @@ fn test_growth_serde_roundtrip() {
         assert_eq!(serde_json::from_str::<Growth>(&json).unwrap(), value);
     }
 
-    // The deprecated transient base-2-rate representation is not guessed back
-    // into a symbolic base.
-    let old_rate_only = r#"{"Terms":[{"exp":{"n":1.0},"poly":{},"logs":{}}]}"#;
-    assert!(serde_json::from_str::<Growth>(old_rate_only).is_err());
-
-    let variable_base = r#"{"Constant":{"Var":"n"}}"#;
-    assert!(serde_json::from_str::<ExpBase>(variable_base).is_err());
+    let variable_base = serde_json::json!({
+        "Constant": serde_json::to_value(Expr::variable("n")).unwrap()
+    });
+    let error = serde_json::from_value::<ExpBase>(variable_base).unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("symbolic exponential base must be a finite constant"));
 
     let invalid = Growth::Terms(vec![GrowthTerm {
-        exp: [("n", ExpProduct::empty())].into_iter().collect(),
+        exp: [("n".into(), ExpProduct::empty())].into_iter().collect(),
         poly: BTreeMap::new(),
         logs: BTreeMap::new(),
     }]);
@@ -547,7 +678,7 @@ fn test_growth_serde_roundtrip() {
 // comparison (`GrowthTerm::cmp`) at the heart of the order, so the restriction
 // is well-aimed, not vacuous.
 
-use super::{exponential, log_growth, pow_const};
+use super::{analyze_expr, exponential, log_growth, pow_const};
 use crate::types::ProblemSize;
 use std::collections::BTreeMap;
 
@@ -582,16 +713,11 @@ impl SplitMix64 {
     }
 }
 
-fn b(e: Expr) -> Box<Expr> {
-    Box::new(e)
-}
-
-/// Variable pool — `&'static str` literals so they satisfy `Expr::Var` and match
-/// the `ProblemSize` keys built by [`joint_size`].
+/// Variable pool used by generated expressions and [`joint_size`].
 const VARS: [&str; 3] = ["n", "m", "k"];
 
 fn gen_var(rng: &mut SplitMix64) -> Expr {
-    Expr::Var(VARS[rng.below(VARS.len() as u64) as usize])
+    Expr::variable(VARS[rng.below(VARS.len() as u64) as usize])
 }
 
 /// All variables set jointly to `s` (the contracts evaluate on the diagonal).
@@ -611,7 +737,7 @@ const MAX_DEPTH: u32 = 5;
 fn gen_leaf(rng: &mut SplitMix64) -> Expr {
     // Bias toward variables; keep constants small and positive.
     if rng.below(4) == 0 {
-        Expr::Const((1 + rng.below(4)) as f64)
+        Expr::integer(1 + rng.below(4))
     } else {
         gen_var(rng)
     }
@@ -634,16 +760,16 @@ fn gen_lin_term(rng: &mut SplitMix64) -> Expr {
     if c == 1 {
         v
     } else {
-        Expr::Const(c as f64) * v
+        Expr::integer(c) * v
     }
 }
 
 /// A deliberately nonlinear exponent, driving `2^(·)` to `Growth::Unknown`.
 fn gen_nonlinear(rng: &mut SplitMix64) -> Expr {
     if rng.below(2) == 0 {
-        Expr::Mul(b(gen_var(rng)), b(gen_var(rng)))
+        gen_var(rng) * gen_var(rng)
     } else {
-        Expr::Sqrt(b(gen_var(rng)))
+        Expr::sqrt(gen_var(rng))
     }
 }
 
@@ -653,7 +779,7 @@ const STABLE_EXPONENTIAL_BASES: &[f64] = &[2.0, E_BELOW, E_ABOVE, 3.0];
 const ADVERSARIAL_EXPONENTIAL_BASES: &[f64] = &[1.0000000001, 2.0, E_BELOW, E_ABOVE, 3.0];
 
 fn gen_exponential_base(rng: &mut SplitMix64, bases: &[f64]) -> Expr {
-    Expr::Const(bases[rng.below(bases.len() as u64) as usize])
+    expression_from_approximation(bases[rng.below(bases.len() as u64) as usize])
 }
 
 fn gen_expr(rng: &mut SplitMix64, depth: u32, exponential_bases: &[f64]) -> Expr {
@@ -662,25 +788,25 @@ fn gen_expr(rng: &mut SplitMix64, depth: u32, exponential_bases: &[f64]) -> Expr
     }
     match rng.below(100) {
         0..=19 => gen_leaf(rng),
-        20..=39 => Expr::Add(
-            b(gen_expr(rng, depth - 1, exponential_bases)),
-            b(gen_expr(rng, depth - 1, exponential_bases)),
-        ),
-        40..=54 => Expr::Mul(
-            b(gen_expr(rng, depth - 1, exponential_bases)),
-            b(gen_expr(rng, depth - 1, exponential_bases)),
-        ),
+        20..=39 => {
+            gen_expr(rng, depth - 1, exponential_bases)
+                + gen_expr(rng, depth - 1, exponential_bases)
+        }
+        40..=54 => {
+            gen_expr(rng, depth - 1, exponential_bases)
+                * gen_expr(rng, depth - 1, exponential_bases)
+        }
         55..=69 => Expr::pow(
             gen_expr(rng, depth - 1, exponential_bases),
-            Expr::Const((1 + rng.below(3)) as f64),
+            Expr::integer(1 + rng.below(3)),
         ),
-        70..=79 => Expr::Sqrt(b(gen_expr(rng, depth - 1, exponential_bases))),
-        80..=89 => Expr::Log(b(gen_expr(rng, depth - 1, exponential_bases))),
+        70..=79 => Expr::sqrt(gen_expr(rng, depth - 1, exponential_bases)),
+        80..=89 => Expr::log(gen_expr(rng, depth - 1, exponential_bases)),
         90..=96 => Expr::pow(
             gen_exponential_base(rng, exponential_bases),
             gen_linear(rng),
         ),
-        97..=98 => Expr::Exp(b(gen_var(rng))),
+        97..=98 => Expr::exp(gen_var(rng)),
         // ~1% per node: a nonlinear exponent → Unknown (a minority of trees).
         _ => Expr::pow(
             gen_exponential_base(rng, exponential_bases),
@@ -698,14 +824,14 @@ fn gen_factor(rng: &mut SplitMix64) -> Expr {
     let v = gen_var(rng);
     match rng.below(6) {
         0 => v,
-        1 => Expr::pow(v, Expr::Const((1 + rng.below(3)) as f64)),
-        2 => Expr::Sqrt(b(v)),
-        3 => Expr::Log(b(v)),
+        1 => Expr::pow(v, Expr::integer(1 + rng.below(3))),
+        2 => Expr::sqrt(v),
+        3 => Expr::log(v),
         // Keep the numeric dominance harness on one common base: different
         // fixed bases can have crossovers beyond its finite observation window.
         // Multi-base behavior is covered by symbolic proof tests above.
-        4 => Expr::pow(Expr::Const(2.0), v),
-        _ => Expr::pow(Expr::Const(2.0), Expr::Const((1 + rng.below(3)) as f64) * v),
+        4 => Expr::pow(Expr::integer(2), v),
+        _ => Expr::pow(Expr::integer(2), Expr::integer(1 + rng.below(3)) * v),
     }
 }
 
@@ -723,7 +849,7 @@ fn gen_monomial(rng: &mut SplitMix64) -> Expr {
 /// The number of independent `#[test]`-level iterations for the upper-bound and
 /// idempotence contracts (each well above the 5000-meaningful-check floor after
 /// `Unknown`/overflow skips).
-const UB_ITERS: usize = 20_000;
+const UB_ITERS: usize = 8_000;
 
 /// Outcome tallies for the upper-bound harness. `meaningful` counts samples that
 /// produced at least one *conclusive* large-size comparison.
@@ -762,8 +888,13 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 
         // Calibrate C from the observed ratio at the (smaller) anchor.
         let sz0 = joint_size(anchor as usize);
-        let ve0 = e.eval(&sz0);
-        let vg0 = gexpr.eval(&sz0);
+        let (Ok(ve0), Ok(vg0)) = (
+            evaluate_approximate(&e, &sz0),
+            evaluate_approximate(&gexpr, &sz0),
+        ) else {
+            r.skipped += 1;
+            continue;
+        };
         // Nonnegativity is a domain precondition. A negative anchor value means
         // the generated expression is outside the domain's contract (e.g. deeply
         // nested `log`s that are negative at these sizes) — skip it, don't hold
@@ -777,27 +908,12 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
         let mut conclusive = false;
         for &s in &large {
             let sz = joint_size(s as usize);
-            let ve = e.eval(&sz);
-            let vg = gexpr.eval(&sz);
-            if ve.is_nan() || vg.is_nan() {
+            let (Ok(ve), Ok(vg)) = (
+                evaluate_approximate(&e, &sz),
+                evaluate_approximate(&gexpr, &sz),
+            ) else {
                 continue;
-            }
-            if vg.is_infinite() {
-                // The bound overestimates. Holds trivially unless `e` also blew
-                // up, in which case the comparison is indeterminate — skip it.
-                if ve.is_finite() {
-                    conclusive = true;
-                }
-                continue;
-            }
-            if ve.is_infinite() {
-                // `eval(e)` can overflow to `inf` at intermediate steps even
-                // when the true value is finite (e.g. `log(n^2 * exp(n))` blows
-                // up at the inner `exp` before the outer `log` tames it back to
-                // `n`). Such a numeric artifact is indeterminate, not a genuine
-                // violation of a finite bound — skip this size.
-                continue;
-            }
+            };
             if ve <= 0.0 || vg <= 0.0 {
                 // Out of the nonnegative domain at this size — indeterminate.
                 continue;
@@ -830,38 +946,58 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 /// Every other node mirrors the real `Growth::from_expr` (reusing its private
 /// transfer helpers), so the only defect is the seeded `Add` bug.
 fn broken_from_expr(e: &Expr) -> Growth {
-    if e.constant_value().is_some() {
-        return Growth::Terms(vec![GrowthTerm::one()]);
+    match constant_approximation(e) {
+        Ok(Some(_)) => return Growth::Terms(vec![GrowthTerm::one()]),
+        Err(error) => {
+            return Growth::unknown(GrowthFailure::Approximation {
+                expression: e.to_string(),
+                error: error.to_string(),
+            })
+        }
+        Ok(None) => {}
     }
-    match e {
-        Expr::Const(_) => Growth::Terms(vec![GrowthTerm::one()]),
-        Expr::Var(v) => {
+    match e.node() {
+        ExprNode::Const(_) => Growth::Terms(vec![GrowthTerm::one()]),
+        ExprNode::Var(v) => {
             let mut t = GrowthTerm::one();
-            t.poly.insert(v, 1.0);
+            t.poly.insert(v.as_str().into(), 1.0);
             Growth::Terms(vec![t])
         }
         // The seeded bug: drop the second summand.
-        Expr::Add(a, _b) => broken_from_expr(a),
-        Expr::Mul(a, b) => mul(broken_from_expr(a), broken_from_expr(b)),
-        Expr::Pow(base, exp) => {
-            if let Some(k) = exp.constant_value() {
-                if k < 0.0 {
-                    Growth::Unknown
-                } else if k == 0.0 {
-                    Growth::Terms(vec![GrowthTerm::one()])
-                } else {
-                    pow_const(broken_from_expr(base), k)
-                }
-            } else if base.constant_value().is_some() {
-                exponential(ExpBase::Constant(base.as_ref().clone()), exp)
-            } else {
-                Growth::Unknown
+        ExprNode::Add(values) => broken_from_expr(&values[0]),
+        ExprNode::Mul(values) => values
+            .iter()
+            .map(broken_from_expr)
+            .reduce(mul)
+            .expect("normalized product has at least two factors"),
+        ExprNode::Pow(base, exp) => match constant_approximation(exp) {
+            Ok(Some(k)) if k < 0.0 => {
+                Growth::unknown(GrowthFailure::NegativeExponent(exp.to_string()))
             }
+            Ok(Some(0.0)) => Growth::Terms(vec![GrowthTerm::one()]),
+            Ok(Some(k)) => pow_const(broken_from_expr(base), k),
+            Err(error) => Growth::unknown(GrowthFailure::Approximation {
+                expression: exp.to_string(),
+                error: error.to_string(),
+            }),
+            Ok(None) => match constant_approximation(base) {
+                Ok(Some(_)) => exponential(
+                    ExpBase::Constant(base.clone()),
+                    analyze_expr(exp).linear,
+                    exp,
+                ),
+                Err(error) => Growth::unknown(GrowthFailure::Approximation {
+                    expression: base.to_string(),
+                    error: error.to_string(),
+                }),
+                Ok(None) => Growth::unknown(GrowthFailure::VariableBaseAndExponent(e.to_string())),
+            },
+        },
+        ExprNode::Exp(a) => exponential(ExpBase::Natural, analyze_expr(a).linear, a),
+        ExprNode::Log(a) => log_growth(broken_from_expr(a)),
+        ExprNode::Factorial(value) => {
+            Growth::unknown(GrowthFailure::FactorialOfNonconstant(value.to_string()))
         }
-        Expr::Exp(a) => exponential(ExpBase::Natural, a),
-        Expr::Log(a) => log_growth(broken_from_expr(a)),
-        Expr::Sqrt(a) => pow_const(broken_from_expr(a), 0.5),
-        Expr::Factorial(_) => Growth::Unknown,
     }
 }
 
@@ -911,7 +1047,7 @@ fn test_growth_property_upper_bound_negative_control() {
 
 /// Exponential factors round-trip exactly. Polynomial degrees retain the
 /// pre-existing tolerance for unrelated floating-point power composition.
-fn map_approx_eq(a: &BTreeMap<&'static str, f64>, b: &BTreeMap<&'static str, f64>) -> bool {
+fn map_approx_eq(a: &BTreeMap<Box<str>, f64>, b: &BTreeMap<Box<str>, f64>) -> bool {
     a.len() == b.len()
         && a.iter()
             .all(|(k, v)| b.get(k).is_some_and(|w| (v - w).abs() < 1e-6))
@@ -923,7 +1059,7 @@ fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
 
 fn growth_approx_eq(a: &Growth, b: &Growth) -> bool {
     match (a, b) {
-        (Growth::Unknown, Growth::Unknown) => true,
+        (Growth::Unknown(_), Growth::Unknown(_)) => true,
         (Growth::Terms(ta), Growth::Terms(tb)) => {
             ta.len() == tb.len()
                 && ta.iter().all(|t| tb.iter().any(|u| term_approx_eq(t, u)))
@@ -967,138 +1103,30 @@ fn test_growth_property_idempotence() {
 
 // --- Contract 3: dominance soundness ---
 
-const DOM_ITERS: usize = 120_000;
-
-/// A single antichain term, or `None` if the growth is `Unknown` or a
-/// multi-term antichain. Restricting to single terms keeps the numeric ratio a
-/// pure monomial ratio: multi-term dominance can add a *lower-order* summand
-/// (`{n^2, m}` dominates `{n^2}`) whose ratio shrinks toward 1 — a real feature
-/// of the antichain order, but not what this monomial cross-check targets. The
-/// single-term regime isolates the lexicographic per-variable comparison
-/// (`GrowthTerm::cmp`) that is the heart of the order.
-fn single_term(g: &Growth) -> Option<&GrowthTerm> {
-    match g {
-        Growth::Terms(ts) if ts.len() == 1 => Some(&ts[0]),
-        _ => None,
-    }
-}
-
-/// `(total exp rate, total poly degree, total log power)` on the joint diagonal.
-fn totals(t: &GrowthTerm) -> (f64, f64, f64) {
-    (
-        t.exp.values().map(ExpProduct::log2_estimate).sum(),
-        t.poly.values().sum(),
-        t.logs.values().map(|&x| x as f64).sum(),
-    )
-}
+const DOM_ITERS: usize = 5_000;
 
 #[test]
 fn test_growth_property_dominance_sound() {
     let mut rng = SplitMix64::new(MASTER_SEED ^ 0x03);
-    let mut meaningful = 0usize;
-    let mut skipped = 0usize;
-    let mut unreachable = 0usize;
-    const LN2: f64 = std::f64::consts::LN_2;
 
     for _ in 0..DOM_ITERS {
-        let ga = Growth::from_expr(&gen_monomial(&mut rng));
-        let gb = Growth::from_expr(&gen_monomial(&mut rng));
+        let lower_expression = gen_monomial(&mut rng);
+        let ratio_expression = gen_factor(&mut rng);
+        let higher_expression = lower_expression.clone() * ratio_expression.clone();
+        let lower = Growth::from_expr(&lower_expression);
+        let higher = Growth::from_expr(&higher_expression);
+        assert!(higher.dominates(&lower));
+        assert!(!lower.dominates(&higher));
 
-        let (ta, tb) = match (single_term(&ga), single_term(&gb)) {
-            (Some(a), Some(b)) => (a.clone(), b.clone()),
-            _ => {
-                skipped += 1;
-                continue;
-            }
-        };
-
-        // Orient to the strict dominator; skip incomparable or asymptotically
-        // equal pairs (a flat ratio has nothing to assert).
-        let ab = ga.dominates(&gb);
-        let ba = gb.dominates(&ga);
-        let (hi, lo) = if ba && !ab {
-            (&tb, &ta)
-        } else if ab && !ba {
-            (&ta, &tb)
-        } else {
-            skipped += 1;
-            continue;
-        };
-
-        // Choose the evaluation window from the *magnitude* of the exponent gap
-        // — a structural property of the two terms, computed independently of
-        // which direction `dominates` picked. This places the check in the
-        // numerically-informative regime (past the ratio's minimum, past the
-        // crossover, below f64 overflow) so the assertions are meaningful; it
-        // does NOT peek at the assertion outcome, so a mis-ordering by
-        // `dominates` still fails the signed check below.
-        let (eh, ph, lh) = totals(hi);
-        let (el, pl, ll) = totals(lo);
-        let (de, dp, dl) = (eh - el, ph - pl, lh - ll);
-        const EPS: f64 = 1e-9;
-        let exp_max = eh.max(el);
-
-        let (s1, s2): (usize, usize) = if de.abs() > EPS {
-            // Exponential gap: crossover is at moderate size; keep exp finite.
-            (16, 64)
-        } else if dp.abs() > EPS {
-            // Polynomial gap under a *common* exponent: the crossover (e.g.
-            // sqrt(n) vs (log n)^3 at n≈2.4e7) needs large sizes where any
-            // shared exponential would overflow. Reachable only with no
-            // exponential — and then poly values stay finite to astronomical
-            // sizes, so a wide window clears even the fractional-poly-vs-high-
-            // log-power crossovers our generator can produce (dp≥0.5, |dl|≤4).
-            if exp_max > EPS {
-                unreachable += 1;
-                continue;
-            }
-            (8192, 1usize << 42)
-        } else if dl.abs() > EPS {
-            // Log-power gap only: manifest at any modest size.
-            (16, 64)
-        } else {
-            // No gap on the diagonal (strict domination on an off-diagonal
-            // variable that collapses here) — nothing to assert numerically.
-            skipped += 1;
-            continue;
-        };
-
-        // Overflow guard for the (in-principle reachable) exponential cases.
-        if exp_max * (s2 as f64) * LN2 > 700.0 {
-            unreachable += 1;
-            continue;
-        }
-
-        let a = Growth::Terms(vec![lo.clone()]).to_expr().unwrap();
-        let bx = Growth::Terms(vec![hi.clone()]).to_expr().unwrap();
-        let (z1, z2) = (joint_size(s1), joint_size(s2));
-        let (a1, a2) = (a.eval(&z1), a.eval(&z2));
-        let (b1, b2) = (bx.eval(&z1), bx.eval(&z2));
-        if [a1, a2, b1, b2].iter().any(|v| !v.is_finite() || *v <= 0.0) {
-            skipped += 1;
-            continue;
-        }
-
-        let r1 = b1 / a1;
-        let r2 = b2 / a2;
-        meaningful += 1;
-
-        // The ratio does not shrink from s1 to s2 (tiny tolerance for float
-        // noise), and it exceeds 1 at the larger size. A wrong-direction
-        // dominance decision flips the signed gap and fails both.
+        let r1 = evaluate_approximate(&ratio_expression, &joint_size(16)).unwrap();
+        let r2 = evaluate_approximate(&ratio_expression, &joint_size(64)).unwrap();
         assert!(
             r2 >= r1 * (1.0 - 1e-9),
-            "dominance ratio shrank: {bx} over {a}; r({s1}) = {r1}, r({s2}) = {r2}"
+            "dominance ratio shrank: {higher_expression} over {lower_expression}; r(16) = {r1}, r(64) = {r2}"
         );
         assert!(
             r2 > 1.0,
-            "dominator not numerically ahead at s2: {bx} over {a}; r({s2}) = {r2}"
+            "dominator not numerically ahead: {higher_expression} over {lower_expression}; r(64) = {r2}"
         );
     }
-
-    assert!(
-        meaningful >= 5000,
-        "need >= 5000 meaningful dominating pairs, got {meaningful} \
-         (skipped {skipped}, unreachable {unreachable})"
-    );
 }

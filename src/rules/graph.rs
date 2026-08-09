@@ -15,7 +15,8 @@ use crate::rules::pareto::{
     SizeBudget, UnknownSizeField,
 };
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionOverhead,
+    AggregateReduceFn, EdgeCapabilities, OverheadCompositionError, ReduceFn, ReductionEntry,
+    ReductionOverhead,
 };
 use crate::rules::search::SearchTracker;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
@@ -135,6 +136,21 @@ pub(crate) struct EdgeJson {
 pub struct ReductionPath {
     /// Variant-level steps in the path.
     pub steps: Vec<ReductionStep>,
+}
+
+/// Why exact symbolic overhead composition could not be completed for a path.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum PathOverheadCompositionError {
+    #[error("cannot compose an empty reduction path")]
+    EmptyPath,
+    #[error("cannot compose reduction step {step} ({source} -> {target}): {error}")]
+    Step {
+        step: usize,
+        source: String,
+        target: String,
+        #[source]
+        error: OverheadCompositionError,
+    },
 }
 
 impl ReductionPath {
@@ -1284,11 +1300,34 @@ impl ReductionGraph {
     ///
     /// Returns a single `ReductionOverhead` whose expressions map from the
     /// source problem's size variables directly to the final target's size variables.
-    pub fn compose_path_overhead(&self, path: &ReductionPath) -> ReductionOverhead {
-        self.path_overheads(path)
-            .into_iter()
-            .reduce(|acc, oh| acc.compose(&oh))
-            .unwrap_or_default()
+    /// A one-node path has no reduction producing output fields, so its overhead is empty.
+    pub fn compose_path_overhead(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<ReductionOverhead, PathOverheadCompositionError> {
+        if path.steps.is_empty() {
+            return Err(PathOverheadCompositionError::EmptyPath);
+        }
+        if path.steps.len() == 1 {
+            return Ok(ReductionOverhead::default());
+        }
+
+        let mut overheads = self.path_overheads(path).into_iter();
+        let mut composed = overheads
+            .next()
+            .expect("a multi-node path has at least one edge overhead");
+        for (offset, overhead) in overheads.enumerate() {
+            let edge_index = offset + 1;
+            composed = composed.compose(&overhead).map_err(|error| {
+                PathOverheadCompositionError::Step {
+                    step: edge_index + 1,
+                    source: path.steps[edge_index].name.clone(),
+                    target: path.steps[edge_index + 1].name.clone(),
+                    error,
+                }
+            })?;
+        }
+        Ok(composed)
     }
 
     /// Get all variant maps registered for a problem name.
@@ -1407,42 +1446,67 @@ impl ReductionGraph {
     /// where this problem appears as source or target. When the problem is a
     /// source, its size fields are the input variables referenced in the overhead
     /// expressions. When it's a target, its size fields are the output field names.
-    pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
-        let mut fields: std::collections::HashSet<&'static str> =
+    pub fn size_field_names(&self, name: &str) -> Vec<String> {
+        let mut fields: std::collections::HashSet<String> =
             crate::registry::declared_size_fields(name)
                 .into_iter()
+                .map(str::to_string)
                 .collect();
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
                 // Source's size fields are the input variables of the overhead.
-                fields.extend(entry.overhead().input_variable_names());
+                fields.extend(
+                    entry
+                        .overhead()
+                        .input_variable_names()
+                        .into_iter()
+                        .map(str::to_string),
+                );
             }
             if entry.target_name == name {
                 // Target's size fields are the output field names.
                 let overhead = entry.overhead();
-                fields.extend(overhead.output_size.iter().map(|(name, _)| *name));
+                fields.extend(
+                    overhead
+                        .output_size
+                        .iter()
+                        .map(|(field, _)| (*field).to_string()),
+                );
             }
         }
-        let mut result: Vec<&'static str> = fields.into_iter().collect();
+        let mut result: Vec<String> = fields.into_iter().collect();
         result.sort_unstable();
         result
     }
 
     fn validate_size_budget(&self, budget: &SizeBudget) -> Result<(), UnknownSizeField> {
-        let mut known: HashSet<&str> = self
+        let mut known: HashSet<String> = self
             .name_to_nodes
             .keys()
             .flat_map(|name| crate::registry::declared_size_fields(name))
+            .map(str::to_string)
             .collect();
         for entry in inventory::iter::<ReductionEntry> {
             if self.name_to_nodes.contains_key(entry.source_name) {
-                known.extend(entry.overhead().input_variable_names());
+                known.extend(
+                    entry
+                        .overhead()
+                        .input_variable_names()
+                        .into_iter()
+                        .map(str::to_string),
+                );
             }
             if self.name_to_nodes.contains_key(entry.target_name) {
-                known.extend(entry.overhead().output_size.iter().map(|(field, _)| *field));
+                known.extend(
+                    entry
+                        .overhead()
+                        .output_size
+                        .iter()
+                        .map(|(field, _)| (*field).to_string()),
+                );
             }
         }
-        if let Some(field) = budget.fields().find(|field| !known.contains(field)) {
+        if let Some(field) = budget.fields().find(|field| !known.contains(*field)) {
             return Err(UnknownSizeField(field.to_string()));
         }
         Ok(())

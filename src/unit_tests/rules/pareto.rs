@@ -6,8 +6,8 @@
 //!   returns the path with the strictly-better final measured size.
 
 use super::*;
-use crate::expr::Expr;
-use crate::growth::Growth;
+use crate::expr::{evaluate_approximate, expression_from_approximation, Expr};
+use crate::growth::{Growth, GrowthFailure};
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::formula::{CNFClause, Satisfiability};
 use crate::models::graph::HamiltonianCircuit;
@@ -164,7 +164,7 @@ fn measured_edge(
     ReductionEdgeData {
         overhead: ReductionOverhead::new(vec![(
             "predicted_total",
-            Expr::Const(asymptotic_prediction),
+            expression_from_approximation(asymptotic_prediction),
         )]),
         reduce_fn: Some(reduce_fn),
         reduce_aggregate_fn: None,
@@ -598,11 +598,15 @@ impl DiamondLabel {
 impl PathLabel for DiamondLabel {
     fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
         let ctx = self.ctx();
-        let add_c = edge.overhead.get("c").map(|e| e.eval(&ctx)).unwrap_or(0.0);
+        let add_c = edge
+            .overhead
+            .get("c")
+            .map(|expression| evaluate_approximate(expression, &ctx).unwrap())
+            .unwrap_or(0.0);
         let new_s = edge
             .overhead
             .get("s")
-            .map(|e| e.eval(&ctx))
+            .map(|expression| evaluate_approximate(expression, &ctx).unwrap())
             .unwrap_or(self.s);
         Some(DiamondLabel {
             c: self.c + add_c,
@@ -617,7 +621,7 @@ impl PathLabel for DiamondLabel {
 
 fn diamond_edge(c: f64, s: Expr) -> ReductionEdgeData {
     ReductionEdgeData {
-        overhead: ReductionOverhead::new(vec![("c", Expr::Const(c)), ("s", s)]),
+        overhead: ReductionOverhead::new(vec![("c", expression_from_approximation(c)), ("s", s)]),
         reduce_fn: Some(measured_source_to_a),
         reduce_aggregate_fn: None,
         turing: false,
@@ -632,13 +636,13 @@ fn test_negative_control_diamond_keeps_componentwise_front() {
         &["S", "M", "P", "T"],
         &[
             // S -> M: cheap first edge (c=1), large intermediate size (s=100).
-            ("S", "M", diamond_edge(1.0, Expr::Const(100.0))),
+            ("S", "M", diamond_edge(1.0, Expr::integer(100))),
             // S -> P: pricier first edge (c=2), small size (s=5).
-            ("S", "P", diamond_edge(2.0, Expr::Const(5.0))),
+            ("S", "P", diamond_edge(2.0, Expr::integer(5))),
             // P -> M: small size (s=6).
-            ("P", "M", diamond_edge(1.0, Expr::Const(6.0))),
+            ("P", "M", diamond_edge(1.0, Expr::integer(6))),
             // M -> T: identity on size (final size = size at M).
-            ("M", "T", diamond_edge(1.0, Expr::Var("s"))),
+            ("M", "T", diamond_edge(1.0, Expr::variable("s"))),
         ],
     );
 
@@ -671,10 +675,10 @@ fn test_diamond_exact_multi_label_keeps_incomparable_routes() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "P", "T"],
         &[
-            ("S", "M", diamond_edge(1.0, Expr::Const(100.0))),
-            ("S", "P", diamond_edge(2.0, Expr::Const(5.0))),
-            ("P", "M", diamond_edge(1.0, Expr::Const(6.0))),
-            ("M", "T", diamond_edge(1.0, Expr::Var("s"))),
+            ("S", "M", diamond_edge(1.0, Expr::integer(100))),
+            ("S", "P", diamond_edge(2.0, Expr::integer(5))),
+            ("P", "M", diamond_edge(1.0, Expr::integer(6))),
+            ("M", "T", diamond_edge(1.0, Expr::variable("s"))),
         ],
     );
     let front = graph
@@ -703,7 +707,7 @@ fn test_diamond_exact_multi_label_keeps_incomparable_routes() {
 
 /// A power `Var(v)^k`.
 fn powk(v: &'static str, k: f64) -> Expr {
-    Expr::pow(Expr::Var(v), Expr::Const(k))
+    Expr::pow(Expr::variable(v), expression_from_approximation(k))
 }
 
 /// A test edge carrying only a symbolic overhead (target field → Expr over the
@@ -734,7 +738,7 @@ fn field_big_o(label: &GrowthLabel, field: &str) -> String {
 #[test]
 fn test_growth_label_extend_composes_overhead() {
     // Source S has fields n, m; edge maps a = n^2, b = m (in the source's variables).
-    let edge_data = growth_edge(vec![("a", powk("n", 2.0)), ("b", Expr::Var("m"))]);
+    let edge_data = growth_edge(vec![("a", powk("n", 2.0)), ("b", Expr::variable("m"))]);
     let target_variant = BTreeMap::new();
     let redge = ReductionEdge {
         overhead: &edge_data.overhead,
@@ -743,7 +747,7 @@ fn test_growth_label_extend_composes_overhead() {
         target_variant: &target_variant,
     };
 
-    let initial = GrowthLabel::source(&["n", "m"]);
+    let initial = GrowthLabel::source(&["n".to_string(), "m".to_string()]);
     let next = initial
         .extend(&redge)
         .expect("asymptotic extend never prunes");
@@ -751,7 +755,7 @@ fn test_growth_label_extend_composes_overhead() {
     assert_eq!(field_big_o(&next, "b"), "m");
 
     // A second hop composes: c = a * b substitutes a→n^2, b→m ⇒ n^2 * m.
-    let edge2 = growth_edge(vec![("c", Expr::Var("a") * Expr::Var("b"))]);
+    let edge2 = growth_edge(vec![("c", Expr::variable("a") * Expr::variable("b"))]);
     let redge2 = ReductionEdge {
         overhead: &edge2.overhead,
         reduce_fn: None,
@@ -762,23 +766,74 @@ fn test_growth_label_extend_composes_overhead() {
     assert_eq!(field_big_o(&composed, "c"), "m * n^2");
 }
 
+/// Path composition keeps exact coefficients until the terminal growth analysis.
+/// A constant factor is asymptotically irrelevant in `2*n`, but becomes part of
+/// the exponential rate when a later rule uses that field as an exponent.
+#[test]
+fn test_growth_label_preserves_coefficients_across_exponential_composition() {
+    let first = growth_edge(vec![("x", Expr::integer(2) * Expr::variable("n"))]);
+    let target_variant = BTreeMap::new();
+    let first_edge = ReductionEdge {
+        overhead: &first.overhead,
+        reduce_fn: None,
+        target_name: "Intermediate",
+        target_variant: &target_variant,
+    };
+    let second = growth_edge(vec![(
+        "out",
+        Expr::pow(Expr::integer(2), Expr::variable("x")),
+    )]);
+    let second_edge = ReductionEdge {
+        overhead: &second.overhead,
+        reduce_fn: None,
+        target_name: "Target",
+        target_variant: &target_variant,
+    };
+
+    let label = GrowthLabel::source(&["n".to_string()])
+        .extend(&first_edge)
+        .expect("symbolic extension is exhaustive")
+        .extend(&second_edge)
+        .expect("symbolic extension is exhaustive");
+
+    assert_eq!(field_big_o(&label, "out"), "2^(2 * n)");
+}
+
+#[test]
+fn test_growth_label_repeated_composition_keeps_constant_dag_size() {
+    let doubling = growth_edge(vec![("x", Expr::variable("x") + Expr::variable("x"))]);
+    let target_variant = BTreeMap::new();
+    let edge = ReductionEdge {
+        overhead: &doubling.overhead,
+        reduce_fn: None,
+        target_name: "Intermediate",
+        target_variant: &target_variant,
+    };
+    let mut label = GrowthLabel::source(&["x".to_string()]);
+    for _ in 0..100 {
+        label = label
+            .extend(&edge)
+            .expect("symbolic extension is exhaustive");
+    }
+
+    assert_eq!(label.expression_node_count("x"), Some(3));
+    assert_eq!(field_big_o(&label, "x"), "x");
+}
+
 /// An overhead field that depends on an `Unknown`-growth current field stays
 /// `Unknown` — the bound is never fabricated.
 #[test]
 fn test_growth_label_propagates_unknown() {
     // Build a label whose field `x` is Unknown (factorial growth).
     let mut fields = BTreeMap::new();
-    fields.insert(
-        "x",
-        Growth::from_expr(&Expr::Factorial(Box::new(Expr::Var("n")))),
-    );
-    fields.insert("y", Growth::from_expr(&Expr::Var("n")));
-    let label = GrowthLabel::from_fields(fields);
-    assert!(matches!(label.fields().get("x"), Some(Growth::Unknown)));
+    fields.insert("x".to_string(), Expr::factorial(Expr::variable("n")));
+    fields.insert("y".to_string(), Expr::variable("n"));
+    let label = GrowthLabel::from_expressions(fields);
+    assert!(matches!(label.fields().get("x"), Some(Growth::Unknown(_))));
 
     // out1 uses x (Unknown) → Unknown; out2 uses only y → bounded.
     let edge = growth_edge(vec![
-        ("out1", Expr::Var("x") * Expr::Var("y")),
+        ("out1", Expr::variable("x") * Expr::variable("y")),
         ("out2", powk("y", 2.0)),
     ]);
     let tv = BTreeMap::new();
@@ -791,6 +846,12 @@ fn test_growth_label_propagates_unknown() {
     let next = label.extend(&redge).expect("extend");
     assert_eq!(field_big_o(&next, "out1"), "?");
     assert_eq!(field_big_o(&next, "out2"), "n^2");
+    assert!(matches!(
+        next.fields()["out1"]
+            .failures()
+            .expect("propagated reasons"),
+        [GrowthFailure::FactorialOfNonconstant(expression)] if expression == "factorial(n)"
+    ));
 }
 
 #[test]
@@ -799,14 +860,22 @@ fn test_symbolic_front_excludes_unknown_with_analysis_reason() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "Known", "Unknown", "T"],
         &[
-            ("S", "Known", growth_edge(vec![("x", Expr::Const(1.0))])),
-            ("Known", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            ("S", "Known", growth_edge(vec![("x", Expr::integer(1))])),
+            (
+                "Known",
+                "T",
+                growth_edge(vec![("out", Expr::variable("x"))]),
+            ),
             (
                 "S",
                 "Unknown",
-                growth_edge(vec![("x", Expr::Var("missing"))]),
+                growth_edge(vec![("x", Expr::variable("missing"))]),
             ),
-            ("Unknown", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "Unknown",
+                "T",
+                growth_edge(vec![("out", Expr::variable("x"))]),
+            ),
         ],
     );
     let outcome = graph.asymptotic_front(
@@ -824,7 +893,10 @@ fn test_symbolic_front_excludes_unknown_with_analysis_reason() {
     assert_eq!(result.coverage.analyzed_paths, 1);
     assert_eq!(result.coverage.excluded_paths, 1);
     assert_eq!(result.excluded[0].failure.fields, ["out"]);
-    assert!(result.excluded[0].failure.reason.contains("Unknown"));
+    assert!(matches!(
+        result.excluded[0].failure.reasons["out"].as_slice(),
+        [GrowthFailure::MissingSubstitution(variable)] if variable == "missing"
+    ));
 }
 
 #[test]
@@ -836,15 +908,23 @@ fn test_symbolic_coverage_counts_dominated_analyzable_paths() {
             (
                 "MaximumIndependentSet",
                 "Small",
-                growth_edge(vec![("x", Expr::Const(1.0))]),
+                growth_edge(vec![("x", Expr::integer(1))]),
             ),
-            ("Small", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "Small",
+                "T",
+                growth_edge(vec![("out", Expr::variable("x"))]),
+            ),
             (
                 "MaximumIndependentSet",
                 "Large",
-                growth_edge(vec![("x", Expr::Var("num_vertices"))]),
+                growth_edge(vec![("x", Expr::variable("num_vertices"))]),
             ),
-            ("Large", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "Large",
+                "T",
+                growth_edge(vec![("out", Expr::variable("x"))]),
+            ),
         ],
     );
     let result = graph
@@ -868,7 +948,11 @@ fn test_symbolic_front_all_unknown_is_explicit_error() {
     let empty = BTreeMap::new();
     let graph = ReductionGraph::from_test_edges(
         &["S", "T"],
-        &[("S", "T", growth_edge(vec![("out", Expr::Var("missing"))]))],
+        &[(
+            "S",
+            "T",
+            growth_edge(vec![("out", Expr::variable("missing"))]),
+        )],
     );
     let error = graph
         .asymptotic_front(
@@ -894,11 +978,15 @@ fn test_symbolic_all_discovered_unknown_can_still_be_search_incomplete() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "A", "B", "C", "T"],
         &[
-            ("S", "A", growth_edge(vec![("x", Expr::Var("missing"))])),
-            ("A", "T", growth_edge(vec![("out", Expr::Var("x"))])),
-            ("S", "B", growth_edge(vec![("x", Expr::Const(1.0))])),
-            ("B", "C", growth_edge(vec![("x", Expr::Var("x"))])),
-            ("C", "T", growth_edge(vec![("out", Expr::Var("x"))])),
+            (
+                "S",
+                "A",
+                growth_edge(vec![("x", Expr::variable("missing"))]),
+            ),
+            ("A", "T", growth_edge(vec![("out", Expr::variable("x"))])),
+            ("S", "B", growth_edge(vec![("x", Expr::integer(1))])),
+            ("B", "C", growth_edge(vec![("x", Expr::variable("x"))])),
+            ("C", "T", growth_edge(vec![("out", Expr::variable("x"))])),
         ],
     );
     let outcome = graph.asymptotic_front(
@@ -922,16 +1010,16 @@ fn test_symbolic_all_discovered_unknown_can_still_be_search_incomplete() {
 /// Unknown is an analysis boundary and never participates in dominance.
 #[test]
 fn test_growth_label_unknown_is_incomparable() {
-    let known = GrowthLabel::from_fields({
+    let known = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b", Growth::from_expr(&Expr::Var("m")));
+        m.insert("a".to_string(), powk("n", 2.0));
+        m.insert("b".to_string(), Expr::variable("m"));
         m
     });
-    let with_unknown = GrowthLabel::from_fields({
+    let with_unknown = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("a", Growth::from_expr(&powk("n", 2.0)));
-        m.insert("b", Growth::Unknown);
+        m.insert("a".to_string(), powk("n", 2.0));
+        m.insert("b".to_string(), Expr::factorial(Expr::variable("n")));
         m
     });
     assert!(!known.final_dominates(&with_unknown));
@@ -942,16 +1030,16 @@ fn test_growth_label_unknown_is_incomparable() {
 /// every field, including equality.
 #[test]
 fn test_growth_label_terminal_dominance_partial_order() {
-    let a = GrowthLabel::from_fields({
+    let a = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&Expr::Var("n"))); // n
-        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m.insert("v".to_string(), Expr::variable("n")); // n
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
-    let b = GrowthLabel::from_fields({
+    let b = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m.insert("v".to_string(), powk("n", 2.0)); // n^2
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
     // a (n, m) grows slower in v, equal in e ⇒ a dominates b; b does not dominate a.
@@ -960,16 +1048,16 @@ fn test_growth_label_terminal_dominance_partial_order() {
     assert!(a.final_dominates(&a.clone()));
 
     // Incomparable pair: one better in v, the other better in e.
-    let c = GrowthLabel::from_fields({
+    let c = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&powk("n", 2.0))); // n^2
-        m.insert("e", Growth::from_expr(&Expr::Var("m"))); // m
+        m.insert("v".to_string(), powk("n", 2.0)); // n^2
+        m.insert("e".to_string(), Expr::variable("m")); // m
         m
     });
-    let d = GrowthLabel::from_fields({
+    let d = GrowthLabel::from_expressions({
         let mut m = BTreeMap::new();
-        m.insert("v", Growth::from_expr(&Expr::Var("n"))); // n
-        m.insert("e", Growth::from_expr(&powk("m", 2.0))); // m^2
+        m.insert("v".to_string(), Expr::variable("n")); // n
+        m.insert("e".to_string(), powk("m", 2.0)); // m^2
         m
     });
     assert!(!c.final_dominates(&d));
@@ -990,12 +1078,12 @@ fn test_growth_negative_control_incomparable_front() {
             (
                 "S",
                 "A",
-                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+                growth_edge(vec![("n", Expr::variable("n")), ("m", Expr::variable("m"))]),
             ),
             (
                 "S",
                 "B",
-                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+                growth_edge(vec![("n", Expr::variable("n")), ("m", Expr::variable("m"))]),
             ),
             // Path A: vertices = n^2, edges = m.
             (
@@ -1003,7 +1091,7 @@ fn test_growth_negative_control_incomparable_front() {
                 "T",
                 growth_edge(vec![
                     ("vertices", powk("n", 2.0)),
-                    ("edges", Expr::Var("m")),
+                    ("edges", Expr::variable("m")),
                 ]),
             ),
             // Path B: vertices = n, edges = m^2.
@@ -1011,14 +1099,14 @@ fn test_growth_negative_control_incomparable_front() {
                 "B",
                 "T",
                 growth_edge(vec![
-                    ("vertices", Expr::Var("n")),
+                    ("vertices", Expr::variable("n")),
                     ("edges", powk("m", 2.0)),
                 ]),
             ),
         ],
     );
 
-    let initial = GrowthLabel::source(&["n", "m"]);
+    let initial = GrowthLabel::source(&["n".to_string(), "m".to_string()]);
     let front = graph
         .pareto_search_by_name(
             "S",
@@ -1079,12 +1167,12 @@ fn test_growth_asymmetric_incomparable_front_complete() {
             (
                 "S",
                 "A",
-                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+                growth_edge(vec![("n", Expr::variable("n")), ("m", Expr::variable("m"))]),
             ),
             (
                 "S",
                 "B",
-                growth_edge(vec![("n", Expr::Var("n")), ("m", Expr::Var("m"))]),
+                growth_edge(vec![("n", Expr::variable("n")), ("m", Expr::variable("m"))]),
             ),
             // Path A: vertices = n^2, edges = m   (magnitude 2 + 1 = 3).
             (
@@ -1092,7 +1180,7 @@ fn test_growth_asymmetric_incomparable_front_complete() {
                 "T",
                 growth_edge(vec![
                     ("vertices", powk("n", 2.0)),
-                    ("edges", Expr::Var("m")),
+                    ("edges", Expr::variable("m")),
                 ]),
             ),
             // Path B: vertices = n, edges = m^3   (magnitude 1 + 3 = 4).
@@ -1100,7 +1188,7 @@ fn test_growth_asymmetric_incomparable_front_complete() {
                 "B",
                 "T",
                 growth_edge(vec![
-                    ("vertices", Expr::Var("n")),
+                    ("vertices", Expr::variable("n")),
                     ("edges", powk("m", 3.0)),
                 ]),
             ),
@@ -1114,7 +1202,7 @@ fn test_growth_asymmetric_incomparable_front_complete() {
             "T",
             &empty,
             ReductionMode::Witness,
-            GrowthLabel::source(&["n", "m"]),
+            GrowthLabel::source(&["n".to_string(), "m".to_string()]),
             crate::rules::SearchMode::Exact,
         )
         .value;
@@ -1149,11 +1237,11 @@ fn test_growth_asymmetric_incomparable_front_complete() {
 #[test]
 fn test_growth_label_monotone_overhead_preserves_order() {
     // A = (n, m) dominates B = (n^2, m^2) componentwise.
-    let a = GrowthLabel::source(&["n", "m"]);
-    let b = GrowthLabel::from_fields({
+    let a = GrowthLabel::source(&["n".to_string(), "m".to_string()]);
+    let b = GrowthLabel::from_expressions({
         let mut mm = BTreeMap::new();
-        mm.insert("n", Growth::from_expr(&powk("n", 2.0)));
-        mm.insert("m", Growth::from_expr(&powk("m", 2.0)));
+        mm.insert("n".to_string(), powk("n", 2.0));
+        mm.insert("m".to_string(), powk("m", 2.0));
         mm
     });
     assert!(a.final_dominates(&b));
@@ -1161,8 +1249,8 @@ fn test_growth_label_monotone_overhead_preserves_order() {
     let tv = BTreeMap::new();
     // A monotone overhead in both fields.
     for overhead in [
-        growth_edge(vec![("x", Expr::Var("n") * Expr::Var("m"))]),
-        growth_edge(vec![("x", powk("n", 3.0)), ("y", Expr::Var("m"))]),
+        growth_edge(vec![("x", Expr::variable("n") * Expr::variable("m"))]),
+        growth_edge(vec![("x", powk("n", 3.0)), ("y", Expr::variable("m"))]),
     ] {
         let redge = ReductionEdge {
             overhead: &overhead.overhead,
@@ -1172,10 +1260,10 @@ fn test_growth_label_monotone_overhead_preserves_order() {
         };
         let ea = a.extend(&redge).unwrap();
         let eb = b.extend(&redge).unwrap();
-        // A ⪰ B ⇒ extend(A) ⪰ extend(B) (dominates-or-equal). Equality is possible
-        // when the overhead collapses the difference, so accept dominate-or-equal.
+        // A ⪰ B ⇒ extend(A) ⪰ extend(B). `final_dominates` is a weak order, so
+        // equality is already included.
         assert!(
-            ea.final_dominates(&eb) || ea == eb,
+            ea.final_dominates(&eb),
             "monotone overhead reversed growth order: {ea:?} vs {eb:?}"
         );
     }
@@ -1211,11 +1299,12 @@ fn test_asymptotic_front_dedups_by_growth_vector() {
         .front;
     assert!(!front.is_empty(), "MVC -> ILP must have a path");
 
-    // No two front entries share a growth vector (GrowthLabel PartialEq).
+    // Mutual terminal dominance denotes the same growth vector.
     for i in 0..front.len() {
         for j in (i + 1)..front.len() {
             assert!(
-                front[i].1 != front[j].1,
+                !(front[i].1.final_dominates(&front[j].1)
+                    && front[j].1.final_dominates(&front[i].1)),
                 "duplicate growth vector in front:\n  {}\n  {}",
                 front[i].0.type_names().join("→"),
                 front[j].0.type_names().join("→"),
@@ -1388,10 +1477,7 @@ fn test_pareto_search_matches_independent_small_graph_oracle() {
                     edges.push((
                         NAMES[source],
                         *target_name,
-                        growth_edge(vec![
-                            ("a", Expr::Const(a as f64)),
-                            ("b", Expr::Const(b as f64)),
-                        ]),
+                        growth_edge(vec![("a", Expr::integer(a)), ("b", Expr::integer(b))]),
                     ));
                 }
             }
@@ -1450,12 +1536,12 @@ impl PathLabel for ContractLabel {
         let downstream_cost = edge
             .overhead
             .get("downstream")
-            .map(|expr| expr.eval(&empty))
+            .map(|expression| evaluate_approximate(expression, &empty).unwrap())
             .unwrap_or(self.downstream_cost);
         let agenda_cost = edge
             .overhead
             .get("agenda")
-            .map(|expr| expr.eval(&empty))
+            .map(|expression| evaluate_approximate(expression, &empty).unwrap())
             .unwrap_or(self.agenda_cost);
         Some(Self {
             agenda_cost,
@@ -1546,8 +1632,8 @@ fn test_search_mode_exact_and_approximate_contract() {
                     "S",
                     "M",
                     growth_edge(vec![
-                        ("agenda", Expr::Const((i + 1) as f64)),
-                        ("downstream", Expr::Const((33 - i) as f64)),
+                        ("agenda", Expr::integer(i + 1)),
+                        ("downstream", Expr::integer(33 - i)),
                     ]),
                 )
             })
@@ -1626,12 +1712,12 @@ fn test_equal_labels_keep_incomparable_continuation_state() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "X", "Y", "M", "T"],
         &[
-            ("S", "X", diamond_edge(0.0, Expr::Const(1.0))),
-            ("X", "M", diamond_edge(0.0, Expr::Var("s"))),
-            ("S", "Y", diamond_edge(0.0, Expr::Const(1.0))),
-            ("Y", "M", diamond_edge(0.0, Expr::Var("s"))),
-            ("M", "X", diamond_edge(0.0, Expr::Const(0.0))),
-            ("X", "T", diamond_edge(0.0, Expr::Var("s"))),
+            ("S", "X", diamond_edge(0.0, Expr::integer(1))),
+            ("X", "M", diamond_edge(0.0, Expr::variable("s"))),
+            ("S", "Y", diamond_edge(0.0, Expr::integer(1))),
+            ("Y", "M", diamond_edge(0.0, Expr::variable("s"))),
+            ("M", "X", diamond_edge(0.0, Expr::integer(0))),
+            ("X", "T", diamond_edge(0.0, Expr::variable("s"))),
         ],
     );
 
@@ -1657,10 +1743,10 @@ fn test_equal_intermediate_labels_are_not_coalesced() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "M", "X", "T"],
         &[
-            ("S", "M", diamond_edge(0.0, Expr::Const(1.0))),
-            ("S", "X", diamond_edge(0.0, Expr::Const(1.0))),
-            ("X", "M", diamond_edge(0.0, Expr::Var("s"))),
-            ("M", "T", diamond_edge(0.0, Expr::Var("s"))),
+            ("S", "M", diamond_edge(0.0, Expr::integer(1))),
+            ("S", "X", diamond_edge(0.0, Expr::integer(1))),
+            ("X", "M", diamond_edge(0.0, Expr::variable("s"))),
+            ("M", "T", diamond_edge(0.0, Expr::variable("s"))),
         ],
     );
 
@@ -1731,7 +1817,11 @@ impl PathLabel for ShrinkLabel {
     fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
         // The edge sets a new absolute value (`v`), which may be smaller than the current.
         let z = ProblemSize::new(vec![]);
-        let v = edge.overhead.get("v").map(|e| e.eval(&z)).unwrap_or(self.v);
+        let v = edge
+            .overhead
+            .get("v")
+            .map(|expression| evaluate_approximate(expression, &z).unwrap())
+            .unwrap_or(self.v);
         Some(ShrinkLabel { v })
     }
 
@@ -1752,11 +1842,11 @@ fn test_kernel_keeps_shrink_late_route_without_intermediate_pruning() {
         &["S", "A", "T"],
         &[
             // S -> T: completes early with final value 50.
-            ("S", "T", growth_edge(vec![("v", Expr::Const(50.0))])),
+            ("S", "T", growth_edge(vec![("v", Expr::integer(50))])),
             // S -> A: intermediate value 100 (would trip a B&B bound of 50).
-            ("S", "A", growth_edge(vec![("v", Expr::Const(100.0))])),
+            ("S", "A", growth_edge(vec![("v", Expr::integer(100))])),
             // A -> T: shrinks the value to 10.
-            ("A", "T", growth_edge(vec![("v", Expr::Const(10.0))])),
+            ("A", "T", growth_edge(vec![("v", Expr::integer(10))])),
         ],
     );
 
@@ -1802,9 +1892,9 @@ fn test_formula_vector_keeps_incomparable_routes() {
                 "S",
                 "M",
                 growth_edge(vec![
-                    ("c", Expr::Const(1.0)),
-                    ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Const(10.0) * Expr::Var("w")),
+                    ("c", Expr::integer(1)),
+                    ("wf", Expr::integer(0)),
+                    ("w", Expr::integer(10) * Expr::variable("w")),
                 ]),
             ),
             // S -> P: pricier prefix (c = 3) but shrinks the source size from 10 to 1.
@@ -1812,9 +1902,9 @@ fn test_formula_vector_keeps_incomparable_routes() {
                 "S",
                 "P",
                 growth_edge(vec![
-                    ("c", Expr::Const(3.0)),
-                    ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Var("w") / Expr::Const(10.0)),
+                    ("c", Expr::integer(3)),
+                    ("wf", Expr::integer(0)),
+                    ("w", Expr::variable("w") / Expr::integer(10)),
                 ]),
             ),
             // P -> M: cheap (c = 1), keeps the small size w = 1.
@@ -1822,9 +1912,9 @@ fn test_formula_vector_keeps_incomparable_routes() {
                 "P",
                 "M",
                 growth_edge(vec![
-                    ("c", Expr::Const(1.0)),
-                    ("wf", Expr::Const(0.0)),
-                    ("w", Expr::Var("w")),
+                    ("c", Expr::integer(1)),
+                    ("wf", Expr::integer(0)),
+                    ("w", Expr::variable("w")),
                 ]),
             ),
             // M -> T: cost = current w (wf = 1, c = 0); identity on size.
@@ -1832,9 +1922,9 @@ fn test_formula_vector_keeps_incomparable_routes() {
                 "M",
                 "T",
                 growth_edge(vec![
-                    ("c", Expr::Const(0.0)),
-                    ("wf", Expr::Const(1.0)),
-                    ("w", Expr::Var("w")),
+                    ("c", Expr::integer(0)),
+                    ("wf", Expr::integer(1)),
+                    ("w", Expr::variable("w")),
                 ]),
             ),
         ],
@@ -1875,36 +1965,36 @@ fn test_formula_vector_nonmonotone_overhead_does_not_prune() {
                 "S",
                 "A",
                 growth_edge(vec![
-                    ("n", Expr::Var("n")),
-                    ("m", Expr::Var("m") - Expr::Const(3.0)),
-                    ("edge_cost", Expr::Const(0.0)),
+                    ("n", Expr::variable("n")),
+                    ("m", Expr::variable("m") - Expr::integer(3)),
+                    ("edge_cost", Expr::integer(0)),
                 ]),
             ),
             (
                 "A",
                 "M",
                 growth_edge(vec![
-                    ("n", Expr::Var("n")),
-                    ("m", Expr::Var("m")),
-                    ("edge_cost", Expr::Const(0.0)),
+                    ("n", Expr::variable("n")),
+                    ("m", Expr::variable("m")),
+                    ("edge_cost", Expr::integer(0)),
                 ]),
             ),
             (
                 "S",
                 "B",
                 growth_edge(vec![
-                    ("n", Expr::Var("n")),
-                    ("m", Expr::Var("m") + Expr::Const(3.0)),
-                    ("edge_cost", Expr::Const(1.0)),
+                    ("n", Expr::variable("n")),
+                    ("m", Expr::variable("m") + Expr::integer(3)),
+                    ("edge_cost", Expr::integer(1)),
                 ]),
             ),
             (
                 "B",
                 "M",
                 growth_edge(vec![
-                    ("n", Expr::Var("n")),
-                    ("m", Expr::Var("m")),
-                    ("edge_cost", Expr::Const(0.0)),
+                    ("n", Expr::variable("n")),
+                    ("m", Expr::variable("m")),
+                    ("edge_cost", Expr::integer(0)),
                 ]),
             ),
             (
@@ -1913,10 +2003,11 @@ fn test_formula_vector_nonmonotone_overhead_does_not_prune() {
                 growth_edge(vec![
                     (
                         "m",
-                        Expr::Var("n") * (Expr::Var("n") - Expr::Const(1.0)) / Expr::Const(2.0)
-                            - Expr::Var("m"),
+                        Expr::variable("n") * (Expr::variable("n") - Expr::integer(1))
+                            / Expr::integer(2)
+                            - Expr::variable("m"),
                     ),
-                    ("terminal", Expr::Const(1.0)),
+                    ("terminal", Expr::integer(1)),
                 ]),
             ),
         ],
@@ -1949,12 +2040,12 @@ fn test_formula_vector_nonmonotone_overhead_does_not_prune() {
 #[test]
 fn test_growth_label_taints_absent_variable() {
     // The label knows only the source field `n`.
-    let label = GrowthLabel::source(&["n"]);
+    let label = GrowthLabel::source(&["n".to_string()]);
     // Edge output: `bounded` depends only on `n`; `leaky` references `tseitin`, which is
     // absent from the label (an intermediate-only construction variable).
     let edge = growth_edge(vec![
-        ("bounded", Expr::Var("n")),
-        ("leaky", Expr::Var("n") * Expr::Var("tseitin")),
+        ("bounded", Expr::variable("n")),
+        ("leaky", Expr::variable("n") * Expr::variable("tseitin")),
     ]);
     let tv = BTreeMap::new();
     let redge = ReductionEdge {
@@ -1970,10 +2061,14 @@ fn test_growth_label_taints_absent_variable() {
     // References an unmapped, intermediate-only variable ⇒ tainted to Unknown, never
     // leaked as `O(n * tseitin)`.
     assert!(
-        matches!(next.fields().get("leaky"), Some(Growth::Unknown)),
+        matches!(next.fields().get("leaky"), Some(Growth::Unknown(_))),
         "a target field referencing an absent variable must become Unknown, got {:?}",
         next.fields().get("leaky")
     );
+    assert!(matches!(
+        next.fields()["leaky"].failures().expect("unknown reasons"),
+        [GrowthFailure::MissingSubstitution(variable)] if variable == "tseitin"
+    ));
 }
 
 // ---------------------------------------------------------------------------
@@ -2028,11 +2123,28 @@ struct TokenLabel {
     _tok: Rc<DropToken>,
 }
 
+impl TokenLabel {
+    fn ctx(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("c", self.c.round().max(0.0) as usize),
+            ("s", self.s.round().max(0.0) as usize),
+        ])
+    }
+}
+
 impl PathLabel for TokenLabel {
     fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        let z = ProblemSize::new(vec![]);
-        let c = edge.overhead.get("c").map(|e| e.eval(&z)).unwrap_or(self.c);
-        let s = edge.overhead.get("s").map(|e| e.eval(&z)).unwrap_or(self.s);
+        let ctx = self.ctx();
+        let c = edge
+            .overhead
+            .get("c")
+            .map(|expression| evaluate_approximate(expression, &ctx).unwrap())
+            .unwrap_or(self.c);
+        let s = edge
+            .overhead
+            .get("s")
+            .map(|expression| evaluate_approximate(expression, &ctx).unwrap())
+            .unwrap_or(self.s);
         Some(TokenLabel {
             c,
             s,
@@ -2066,15 +2178,15 @@ fn test_arena_frees_evicted_labels_bounds_live_memory() {
             "S",
             "M",
             growth_edge(vec![
-                ("c", Expr::Const((i + 1) as f64)),
-                ("s", Expr::Const((n - i) as f64)),
+                ("c", Expr::integer(i + 1)),
+                ("s", Expr::integer(n - i)),
             ]),
         ));
     }
     edges.push((
         "M",
         "T",
-        growth_edge(vec![("c", Expr::Var("c")), ("s", Expr::Var("s"))]),
+        growth_edge(vec![("c", Expr::variable("c")), ("s", Expr::variable("s"))]),
     ));
     let graph = ReductionGraph::from_test_edges(&["S", "M", "T"], &edges);
 
@@ -2144,13 +2256,13 @@ fn test_exact_dfs_releases_completed_prefixes() {
         edges.push((
             "S",
             "M",
-            growth_edge(vec![("c", Expr::Const(1.0)), ("s", Expr::Const(1.0))]),
+            growth_edge(vec![("c", Expr::integer(1)), ("s", Expr::integer(1))]),
         ));
     }
     edges.push((
         "M",
         "T",
-        growth_edge(vec![("c", Expr::Var("c")), ("s", Expr::Var("s"))]),
+        growth_edge(vec![("c", Expr::variable("c")), ("s", Expr::variable("s"))]),
     ));
     let graph = ReductionGraph::from_test_edges(&["S", "M", "T"], &edges);
     let empty = BTreeMap::new();

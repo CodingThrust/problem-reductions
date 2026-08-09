@@ -114,7 +114,9 @@ pub mod prelude {
 // Re-export commonly used items at crate root
 pub use big_o::big_o_normal_form;
 pub use error::{ProblemError, Result};
-pub use expr::{AsymptoticAnalysisError, Expr};
+pub use expr::{
+    evaluate_approximate, ApproximationError, AsymptoticAnalysisError, Expr, ParseError,
+};
 pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};

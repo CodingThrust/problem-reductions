@@ -1,144 +1,248 @@
 use super::*;
 use crate::types::ProblemSize;
-use std::collections::{HashMap, HashSet};
+use serde::Deserialize;
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+fn eval(expression: &Expr, size: &ProblemSize) -> f64 {
+    evaluate_approximate(expression, size).unwrap()
+}
+
+#[derive(Deserialize)]
+struct SympyApproximateFixture {
+    approximate_cases: Vec<SympyApproximateCase>,
+    factorial_domain_cases: Vec<SympyFactorialDomainCase>,
+}
+
+#[derive(Deserialize)]
+struct SympyApproximateCase {
+    name: String,
+    source: String,
+    bindings: BTreeMap<String, usize>,
+    decimal_result: String,
+    finite_f64: bool,
+}
+
+#[derive(Deserialize)]
+struct SympyFactorialDomainCase {
+    source: String,
+    exact_argument: String,
+    accepted: bool,
+    finite_f64: bool,
+}
+
+#[test]
+fn test_approximate_evaluation_against_sympy_fixture() {
+    let fixture: SympyApproximateFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.approximate_cases.len(), 12);
+
+    for case in fixture.approximate_cases {
+        let expression = Expr::try_parse(&case.source)
+            .unwrap_or_else(|error| panic!("{} failed to parse: {error}", case.name));
+        let size = ProblemSize::new(
+            case.bindings
+                .iter()
+                .map(|(name, value)| (name.as_str(), *value))
+                .collect(),
+        );
+        let expected: f64 = case.decimal_result.parse().unwrap();
+        let actual = evaluate_approximate(&expression, &size);
+        if case.finite_f64 {
+            let actual =
+                actual.unwrap_or_else(|error| panic!("{} failed to evaluate: {error}", case.name));
+            let relative_error = (actual - expected).abs() / expected.abs().max(1.0);
+            assert!(
+                relative_error <= 1e-14,
+                "{} value: actual={actual}, expected={expected}, relative error={relative_error}",
+                case.name
+            );
+        } else {
+            assert!(
+                matches!(actual, Err(ApproximationError::NonFiniteResult(_))),
+                "{} should report a non-finite approximation",
+                case.name
+            );
+        }
+    }
+}
+
+#[test]
+fn test_factorial_domain_against_sympy_fixture() {
+    let fixture: SympyApproximateFixture = serde_json::from_str(include_str!(
+        "../../problemreductions-expr/tests/fixtures/sympy_oracle.json"
+    ))
+    .unwrap();
+    assert_eq!(fixture.factorial_domain_cases.len(), 8);
+
+    for case in fixture.factorial_domain_cases {
+        let expression = Expr::try_parse(&format!("factorial({})", case.source));
+        if case.accepted {
+            let expression = expression.unwrap_or_else(|error| {
+                panic!(
+                    "valid factorial argument {} ({}) was rejected: {error}",
+                    case.source, case.exact_argument
+                )
+            });
+            assert_eq!(
+                evaluate_approximate(&expression, &ProblemSize::default()).is_ok(),
+                case.finite_f64,
+                "factorial approximation {} ({})",
+                case.source,
+                case.exact_argument
+            );
+        } else if let Ok(expression) = expression {
+            assert!(
+                evaluate_approximate(&expression, &ProblemSize::default()).is_err(),
+                "invalid factorial argument {} ({}) evaluated successfully",
+                case.source,
+                case.exact_argument
+            );
+        }
+    }
+}
 
 #[test]
 fn test_expr_const_eval() {
-    let e = Expr::Const(42.0);
+    let e = Expr::integer(42);
     let size = ProblemSize::new(vec![]);
-    assert_eq!(e.eval(&size), 42.0);
+    assert_eq!(eval(&e, &size), 42.0);
 }
 
 #[test]
 fn test_expr_var_eval() {
-    let e = Expr::Var("n");
+    let e = Expr::variable("n");
     let size = ProblemSize::new(vec![("n", 10)]);
-    assert_eq!(e.eval(&size), 10.0);
+    assert_eq!(eval(&e, &size), 10.0);
 }
 
 #[test]
 fn test_expr_add_eval() {
     // n + 3
-    let e = Expr::Var("n") + Expr::Const(3.0);
+    let e = Expr::variable("n") + Expr::integer(3);
     let size = ProblemSize::new(vec![("n", 7)]);
-    assert_eq!(e.eval(&size), 10.0);
+    assert_eq!(eval(&e, &size), 10.0);
 }
 
 #[test]
 fn test_expr_mul_eval() {
     // 3 * n
-    let e = Expr::Const(3.0) * Expr::Var("n");
+    let e = Expr::integer(3) * Expr::variable("n");
     let size = ProblemSize::new(vec![("n", 5)]);
-    assert_eq!(e.eval(&size), 15.0);
+    assert_eq!(eval(&e, &size), 15.0);
 }
 
 #[test]
 fn test_expr_pow_eval() {
     // n^2
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0));
+    let e = Expr::pow(Expr::variable("n"), Expr::integer(2));
     let size = ProblemSize::new(vec![("n", 4)]);
-    assert_eq!(e.eval(&size), 16.0);
+    assert_eq!(eval(&e, &size), 16.0);
 }
 
 #[test]
 fn test_expr_exp_eval() {
-    let e = Expr::Exp(Box::new(Expr::Const(1.0)));
+    let e = Expr::exp(Expr::integer(1));
     let size = ProblemSize::new(vec![]);
-    assert!((e.eval(&size) - std::f64::consts::E).abs() < 1e-10);
+    assert!((eval(&e, &size) - std::f64::consts::E).abs() < 1e-10);
 }
 
 #[test]
 fn test_expr_log_eval() {
-    let e = Expr::Log(Box::new(Expr::Const(std::f64::consts::E)));
+    let e = Expr::log(expression_from_approximation(std::f64::consts::E));
     let size = ProblemSize::new(vec![]);
-    assert!((e.eval(&size) - 1.0).abs() < 1e-10);
+    assert!((eval(&e, &size) - 1.0).abs() < 1e-10);
 }
 
 #[test]
 fn test_expr_sqrt_eval() {
-    let e = Expr::Sqrt(Box::new(Expr::Const(9.0)));
+    let e = Expr::sqrt(Expr::integer(9));
     let size = ProblemSize::new(vec![]);
-    assert_eq!(e.eval(&size), 3.0);
+    assert_eq!(eval(&e, &size), 3.0);
 }
 
 #[test]
 fn test_expr_complex() {
     // n^2 + 3*m
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0)) + Expr::Const(3.0) * Expr::Var("m");
+    let e =
+        Expr::pow(Expr::variable("n"), Expr::integer(2)) + Expr::integer(3) * Expr::variable("m");
     let size = ProblemSize::new(vec![("n", 4), ("m", 2)]);
-    assert_eq!(e.eval(&size), 22.0); // 16 + 6
+    assert_eq!(eval(&e, &size), 22.0); // 16 + 6
 }
 
 #[test]
 fn test_expr_variables() {
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0)) + Expr::Const(3.0) * Expr::Var("m");
+    let e =
+        Expr::pow(Expr::variable("n"), Expr::integer(2)) + Expr::integer(3) * Expr::variable("m");
     let vars = e.variables();
-    assert_eq!(vars, HashSet::from(["n", "m"]));
+    assert_eq!(vars, BTreeSet::from(["n", "m"]));
 }
 
 #[test]
 fn test_expr_substitute() {
     // n^2, substitute n → (a + b)
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0));
-    let replacement = Expr::Var("a") + Expr::Var("b");
+    let e = Expr::pow(Expr::variable("n"), Expr::integer(2));
+    let replacement = Expr::variable("a") + Expr::variable("b");
     let mut mapping = HashMap::new();
     mapping.insert("n", &replacement);
-    let result = e.substitute(&mapping);
+    let result = e.substitute_complete(&mapping).unwrap();
     // Should be (a + b)^2
     let size = ProblemSize::new(vec![("a", 3), ("b", 2)]);
-    assert_eq!(result.eval(&size), 25.0); // (3+2)^2
+    assert_eq!(eval(&result, &size), 25.0); // (3+2)^2
 }
 
 #[test]
 fn test_expr_display_simple() {
-    assert_eq!(format!("{}", Expr::Const(5.0)), "5");
-    assert_eq!(format!("{}", Expr::Var("n")), "n");
+    assert_eq!(format!("{}", Expr::integer(5)), "5");
+    assert_eq!(format!("{}", Expr::variable("n")), "n");
 }
 
 #[test]
 fn test_expr_display_add() {
-    let e = Expr::Var("n") + Expr::Const(3.0);
-    assert_eq!(format!("{e}"), "n + 3");
+    let e = Expr::variable("n") + Expr::integer(3);
+    assert_eq!(format!("{e}"), "3 + n");
 }
 
 #[test]
 fn test_expr_display_mul() {
-    let e = Expr::Const(3.0) * Expr::Var("n");
+    let e = Expr::integer(3) * Expr::variable("n");
     assert_eq!(format!("{e}"), "3 * n");
 }
 
 #[test]
 fn test_expr_display_pow() {
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0));
+    let e = Expr::pow(Expr::variable("n"), Expr::integer(2));
     assert_eq!(format!("{e}"), "n^2");
 }
 
 #[test]
 fn test_expr_display_exp() {
-    let e = Expr::Exp(Box::new(Expr::Var("n")));
+    let e = Expr::exp(Expr::variable("n"));
     assert_eq!(format!("{e}"), "exp(n)");
 }
 
 #[test]
 fn test_expr_display_nested() {
     // n^2 + 3 * m
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(2.0)) + Expr::Const(3.0) * Expr::Var("m");
-    assert_eq!(format!("{e}"), "n^2 + 3 * m");
+    let e =
+        Expr::pow(Expr::variable("n"), Expr::integer(2)) + Expr::integer(3) * Expr::variable("m");
+    assert_eq!(format!("{e}"), "3 * m + n^2");
 }
 
 #[test]
 fn test_expr_is_polynomial() {
-    assert!(Expr::Var("n").is_polynomial());
-    assert!(Expr::pow(Expr::Var("n"), Expr::Const(2.0)).is_polynomial());
-    assert!(!Expr::Exp(Box::new(Expr::Var("n"))).is_polynomial());
-    assert!(!Expr::Log(Box::new(Expr::Var("n"))).is_polynomial());
-    assert!(!Expr::Sqrt(Box::new(Expr::Var("n"))).is_polynomial());
+    assert!(Expr::variable("n").is_polynomial());
+    assert!(Expr::pow(Expr::variable("n"), Expr::integer(2)).is_polynomial());
+    assert!(!Expr::exp(Expr::variable("n")).is_polynomial());
+    assert!(!Expr::log(Expr::variable("n")).is_polynomial());
+    assert!(!Expr::sqrt(Expr::variable("n")).is_polynomial());
 }
 
 #[test]
 fn test_expr_is_valid_complexity_notation_simple() {
-    assert!(Expr::Var("n").is_valid_complexity_notation());
-    assert!(Expr::pow(Expr::Var("n"), Expr::Const(2.0)).is_valid_complexity_notation());
+    assert!(Expr::variable("n").is_valid_complexity_notation());
+    assert!(Expr::pow(Expr::variable("n"), Expr::integer(2)).is_valid_complexity_notation());
     assert!(Expr::parse("n + m").is_valid_complexity_notation());
     assert!(Expr::parse("2^n").is_valid_complexity_notation());
     assert!(Expr::parse("n^(1/3)").is_valid_complexity_notation());
@@ -158,138 +262,141 @@ fn test_expr_is_valid_complexity_notation_rejects_additive_constants() {
     assert!(!Expr::parse("n + 1").is_valid_complexity_notation());
     assert!(!Expr::parse("log(n + 1)").is_valid_complexity_notation());
     assert!(!Expr::parse("(n + 1)^2").is_valid_complexity_notation());
-    assert!(!Expr::Const(5.0).is_valid_complexity_notation());
-    assert!(Expr::Const(1.0).is_valid_complexity_notation());
+    assert!(!Expr::integer(5).is_valid_complexity_notation());
+    assert!(Expr::integer(1).is_valid_complexity_notation());
 }
 
 #[test]
 fn test_expr_display_pow_with_complex_exponent() {
-    let expr = Expr::pow(Expr::Const(2.0), Expr::Var("m") + Expr::Var("n"));
+    let expr = Expr::pow(Expr::integer(2), Expr::variable("m") + Expr::variable("n"));
     assert_eq!(format!("{expr}"), "2^(m + n)");
 }
 
 #[test]
 fn test_expr_display_fractional_constant() {
-    assert_eq!(format!("{}", Expr::Const(2.75)), "2.75");
-    assert_eq!(format!("{}", Expr::Const(0.5)), "0.5");
+    assert_eq!(format!("{}", Expr::rational(11, 4)), "2.75");
+    assert_eq!(format!("{}", Expr::rational(1, 2)), "0.5");
 }
 
 #[test]
 fn test_expr_display_log() {
-    let e = Expr::Log(Box::new(Expr::Var("n")));
+    let e = Expr::log(Expr::variable("n"));
     assert_eq!(format!("{e}"), "log(n)");
 }
 
 #[test]
 fn test_expr_display_sqrt() {
-    let e = Expr::Sqrt(Box::new(Expr::Var("n")));
-    assert_eq!(format!("{e}"), "sqrt(n)");
+    let e = Expr::sqrt(Expr::variable("n"));
+    assert_eq!(format!("{e}"), "n^0.5");
 }
 
 #[test]
-fn test_expr_display_pow_half_as_sqrt() {
-    let e = Expr::pow(Expr::Var("n"), Expr::Const(0.5));
-    assert_eq!(format!("{e}"), "sqrt(n)");
+fn test_expr_display_preserves_half_power() {
+    let e = Expr::pow(Expr::variable("n"), Expr::rational(1, 2));
+    assert_eq!(format!("{e}"), "n^0.5");
 }
 
 #[test]
-fn test_expr_display_pow_half_complex_base() {
-    let e = Expr::pow(Expr::Var("n") * Expr::Var("m"), Expr::Const(0.5));
-    assert_eq!(format!("{e}"), "sqrt(n * m)");
-}
-
-#[test]
-fn test_expr_display_pow_half_in_exponent() {
-    // 2^(n^0.5) should display as 2^sqrt(n), NOT 2^n^0.5
+fn test_expr_display_preserves_half_power_with_complex_base() {
     let e = Expr::pow(
-        Expr::Const(2.0),
-        Expr::pow(Expr::Var("n"), Expr::Const(0.5)),
+        Expr::variable("n") * Expr::variable("m"),
+        Expr::rational(1, 2),
     );
-    let s = format!("{e}");
-    assert!(s.contains("sqrt"), "expected sqrt notation, got: {s}");
-    assert!(!s.contains("0.5"), "should not contain raw 0.5, got: {s}");
+    assert_eq!(format!("{e}"), "(m * n)^0.5");
+}
+
+#[test]
+fn test_expr_display_preserves_nested_half_power() {
+    let e = Expr::pow(
+        Expr::integer(2),
+        Expr::pow(Expr::variable("n"), Expr::rational(1, 2)),
+    );
+    assert_eq!(format!("{e}"), "2^n^0.5");
 }
 
 #[test]
 fn test_expr_display_mul_with_add_parenthesization() {
-    // (a + b) * c should parenthesize the left side
-    let e = (Expr::Var("a") + Expr::Var("b")) * Expr::Var("c");
-    assert_eq!(format!("{e}"), "(a + b) * c");
+    // Operand order is canonical, independent of construction order.
+    let e = (Expr::variable("a") + Expr::variable("b")) * Expr::variable("c");
+    assert_eq!(format!("{e}"), "c * (a + b)");
 
     // c * (a + b) should parenthesize the right side
-    let e = Expr::Var("c") * (Expr::Var("a") + Expr::Var("b"));
+    let e = Expr::variable("c") * (Expr::variable("a") + Expr::variable("b"));
     assert_eq!(format!("{e}"), "c * (a + b)");
 
     // (a + b) * (c + d) should parenthesize both sides
-    let e = (Expr::Var("a") + Expr::Var("b")) * (Expr::Var("c") + Expr::Var("d"));
+    let e =
+        (Expr::variable("a") + Expr::variable("b")) * (Expr::variable("c") + Expr::variable("d"));
     assert_eq!(format!("{e}"), "(a + b) * (c + d)");
 }
 
 #[test]
 fn test_expr_display_pow_with_complex_base() {
     // (a + b)^2
-    let e = Expr::pow(Expr::Var("a") + Expr::Var("b"), Expr::Const(2.0));
+    let e = Expr::pow(Expr::variable("a") + Expr::variable("b"), Expr::integer(2));
     assert_eq!(format!("{e}"), "(a + b)^2");
 
     // (a * b)^2
-    let e = Expr::pow(Expr::Var("a") * Expr::Var("b"), Expr::Const(2.0));
+    let e = Expr::pow(Expr::variable("a") * Expr::variable("b"), Expr::integer(2));
     assert_eq!(format!("{e}"), "(a * b)^2");
 }
 
 #[test]
 fn test_expr_eval_missing_variable() {
-    // Missing variable should default to 0
-    let e = Expr::Var("missing");
+    let e = Expr::variable("missing");
     let size = ProblemSize::new(vec![("other", 5)]);
-    assert_eq!(e.eval(&size), 0.0);
+    assert_eq!(
+        evaluate_approximate(&e, &size),
+        Err(ApproximationError::MissingVariable("missing".to_string()))
+    );
 }
 
 #[test]
 fn test_expr_scale() {
-    let e = Expr::Var("n").scale(3.0);
+    let e = Expr::integer(3) * Expr::variable("n");
     let size = ProblemSize::new(vec![("n", 5)]);
-    assert_eq!(e.eval(&size), 15.0);
+    assert_eq!(eval(&e, &size), 15.0);
 }
 
 #[test]
 fn test_expr_ops_add_trait() {
-    let a = Expr::Var("a");
-    let b = Expr::Var("b");
+    let a = Expr::variable("a");
+    let b = Expr::variable("b");
     let e = a + b; // uses std::ops::Add
     let size = ProblemSize::new(vec![("a", 3), ("b", 4)]);
-    assert_eq!(e.eval(&size), 7.0);
+    assert_eq!(eval(&e, &size), 7.0);
 }
 
 #[test]
 fn test_expr_substitute_exp_log_sqrt() {
-    let replacement = Expr::Const(2.0);
+    let replacement = Expr::integer(2);
     let mut mapping = HashMap::new();
     mapping.insert("n", &replacement);
 
-    let e = Expr::Exp(Box::new(Expr::Var("n")));
-    let result = e.substitute(&mapping);
+    let e = Expr::exp(Expr::variable("n"));
+    let result = e.substitute_complete(&mapping).unwrap();
     let size = ProblemSize::new(vec![]);
-    assert!((result.eval(&size) - 2.0_f64.exp()).abs() < 1e-10);
+    assert!((eval(&result, &size) - 2.0_f64.exp()).abs() < 1e-10);
 
-    let e = Expr::Log(Box::new(Expr::Var("n")));
-    let result = e.substitute(&mapping);
-    assert!((result.eval(&size) - 2.0_f64.ln()).abs() < 1e-10);
+    let e = Expr::log(Expr::variable("n"));
+    let result = e.substitute_complete(&mapping).unwrap();
+    assert!((eval(&result, &size) - 2.0_f64.ln()).abs() < 1e-10);
 
-    let e = Expr::Sqrt(Box::new(Expr::Var("n")));
-    let result = e.substitute(&mapping);
-    assert!((result.eval(&size) - 2.0_f64.sqrt()).abs() < 1e-10);
+    let e = Expr::sqrt(Expr::variable("n"));
+    let result = e.substitute_complete(&mapping).unwrap();
+    assert!((eval(&result, &size) - 2.0_f64.sqrt()).abs() < 1e-10);
 }
 
 #[test]
 fn test_expr_variables_exp_log_sqrt() {
-    let e = Expr::Exp(Box::new(Expr::Var("a")));
-    assert_eq!(e.variables(), HashSet::from(["a"]));
+    let e = Expr::exp(Expr::variable("a"));
+    assert_eq!(e.variables(), BTreeSet::from(["a"]));
 
-    let e = Expr::Log(Box::new(Expr::Var("b")));
-    assert_eq!(e.variables(), HashSet::from(["b"]));
+    let e = Expr::log(Expr::variable("b"));
+    assert_eq!(e.variables(), BTreeSet::from(["b"]));
 
-    let e = Expr::Sqrt(Box::new(Expr::Var("c")));
-    assert_eq!(e.variables(), HashSet::from(["c"]));
+    let e = Expr::sqrt(Expr::variable("c"));
+    assert_eq!(e.variables(), BTreeSet::from(["c"]));
 }
 
 // --- Runtime parser tests (Expr::parse / parse_to_expr) ---
@@ -298,7 +405,7 @@ fn test_expr_variables_exp_log_sqrt() {
 fn parse_eval(input: &str, vars: &[(&str, usize)]) -> f64 {
     let expr = Expr::parse(input);
     let size = ProblemSize::new(vars.to_vec());
-    expr.eval(&size)
+    eval(&expr, &size)
 }
 
 /// Like parse_eval but accepts f64 variable values for testing transcendental functions.
@@ -307,11 +414,17 @@ fn parse_eval_f64(input: &str, vars: &[(&str, f64)]) -> f64 {
     // Build a ProblemSize-compatible evaluation by using substitute + eval
     // Since ProblemSize only stores usize, we substitute variables with Const nodes.
     let mut mapping = std::collections::HashMap::new();
-    let exprs: Vec<Expr> = vars.iter().map(|(_, v)| Expr::Const(*v)).collect();
+    let exprs: Vec<Expr> = vars
+        .iter()
+        .map(|(_, value)| expression_from_approximation(*value))
+        .collect();
     for ((name, _), expr) in vars.iter().zip(exprs.iter()) {
         mapping.insert(*name, expr);
     }
-    expr.substitute(&mapping).eval(&ProblemSize::new(vec![]))
+    eval(
+        &expr.substitute_complete(&mapping).unwrap(),
+        &ProblemSize::new(vec![]),
+    )
 }
 
 // -- Tokenizer coverage --
@@ -344,12 +457,12 @@ fn test_parse_whitespace_handling() {
 
 #[test]
 fn test_parse_tokenize_invalid_char() {
-    assert!(parse_to_expr("n @ m").is_err());
+    assert!(Expr::try_parse("n @ m").is_err());
 }
 
 #[test]
 fn test_parse_tokenize_invalid_number() {
-    assert!(parse_to_expr("1.2.3").is_err());
+    assert!(Expr::try_parse("1.2.3").is_err());
 }
 
 // -- Additive: +, - --
@@ -463,9 +576,9 @@ fn test_parse_sqrt() {
 
 #[test]
 fn test_parse_unknown_function() {
-    assert!(parse_to_expr("foo(3)").is_err());
-    let err = parse_to_expr("foo(3)").unwrap_err();
-    assert!(err.contains("unknown function"), "got: {err}");
+    assert!(Expr::try_parse("foo(3)").is_err());
+    let err = Expr::try_parse("foo(3)").unwrap_err();
+    assert!(err.to_string().contains("unknown function"), "got: {err}");
 }
 
 #[test]
@@ -519,32 +632,38 @@ fn test_parse_precedence_unary_pow() {
 
 #[test]
 fn test_parse_trailing_tokens_error() {
-    let err = parse_to_expr("n m").unwrap_err();
-    assert!(err.contains("trailing"), "got: {err}");
+    let err = Expr::try_parse("n m").unwrap_err();
+    assert!(err.to_string().contains("trailing"), "got: {err}");
 }
 
 #[test]
 fn test_parse_unexpected_token_error() {
-    let err = parse_to_expr(")").unwrap_err();
-    assert!(err.contains("unexpected token"), "got: {err}");
+    let err = Expr::try_parse(")").unwrap_err();
+    assert!(
+        err.to_string().contains("expected expression"),
+        "got: {err}"
+    );
 }
 
 #[test]
 fn test_parse_empty_input_error() {
-    let err = parse_to_expr("").unwrap_err();
-    assert!(err.contains("end of input"), "got: {err}");
+    let err = Expr::try_parse("").unwrap_err();
+    assert!(
+        err.to_string().contains("expected expression"),
+        "got: {err}"
+    );
 }
 
 #[test]
 fn test_parse_unclosed_paren_error() {
-    let err = parse_to_expr("(n + m").unwrap_err();
-    assert!(err.contains("expected"), "got: {err}");
+    let err = Expr::try_parse("(n + m").unwrap_err();
+    assert!(err.to_string().contains("expected"), "got: {err}");
 }
 
 #[test]
 fn test_parse_unclosed_function_error() {
-    let err = parse_to_expr("exp(n").unwrap_err();
-    assert!(err.contains("expected"), "got: {err}");
+    let err = Expr::try_parse("exp(n").unwrap_err();
+    assert!(err.to_string().contains("expected"), "got: {err}");
 }
 
 #[test]
@@ -552,9 +671,9 @@ fn test_parse_expect_mismatch() {
     // "exp(n]" — expects RParen, gets unexpected token ']'
     // Actually ']' is an invalid char so tokenizer catches it first.
     // Use "exp(n +" to trigger expect mismatch (expects RParen, gets Plus).
-    let err = parse_to_expr("exp(n +").unwrap_err();
+    let err = Expr::try_parse("exp(n +").unwrap_err();
     assert!(
-        err.contains("expected") || err.contains("end of input"),
+        err.to_string().contains("expected") || err.to_string().contains("end of input"),
         "got: {err}"
     );
 }
@@ -581,37 +700,88 @@ fn test_parse_factorial_variable() {
 
 #[test]
 fn test_expr_factorial_eval() {
-    let e = Expr::Factorial(Box::new(Expr::Const(4.0)));
+    let e = Expr::factorial(Expr::integer(4));
     let size = ProblemSize::new(vec![]);
-    assert_eq!(e.eval(&size), 24.0);
+    assert_eq!(eval(&e, &size), 24.0);
+}
+
+#[test]
+fn test_expr_factorial_above_f64_range_is_explicit_error() {
+    let expression = Expr::factorial(Expr::integer(171));
+    assert_eq!(
+        evaluate_approximate(&expression, &ProblemSize::default()),
+        Err(ApproximationError::NonFiniteResult(
+            "factorial(171)".to_string()
+        ))
+    );
+}
+
+#[test]
+fn test_expr_factorial_rejects_non_integer_and_negative_arguments() {
+    for (expression, argument) in [
+        (Expr::factorial(Expr::rational(7, 2)), "3.5"),
+        (Expr::factorial(Expr::integer(-1)), "-1"),
+    ] {
+        assert_eq!(
+            evaluate_approximate(&expression, &ProblemSize::default()),
+            Err(ApproximationError::InvalidFactorialArgument(
+                argument.to_string()
+            ))
+        );
+    }
+}
+
+#[test]
+fn test_non_finite_approximations_are_explicit_errors() {
+    for (expression, rendered) in [
+        (Expr::pow(Expr::integer(0), Expr::integer(-1)), "0^-1"),
+        (Expr::log(Expr::integer(0)), "log(0)"),
+        (Expr::exp(Expr::integer(1000)), "exp(1000)"),
+    ] {
+        assert_eq!(
+            evaluate_approximate(&expression, &ProblemSize::default()),
+            Err(ApproximationError::NonFiniteResult(rendered.to_string()))
+        );
+    }
+}
+
+#[test]
+fn test_zero_does_not_hide_an_undefined_factor() {
+    let undefined = Expr::pow(Expr::integer(0), Expr::integer(-1));
+    let expression = Expr::integer(0) * undefined;
+    assert_eq!(expression.to_string(), "0 * 0^-1");
+    assert_eq!(
+        evaluate_approximate(&expression, &ProblemSize::default()),
+        Err(ApproximationError::NonFiniteResult("0^-1".to_string()))
+    );
 }
 
 #[test]
 fn test_expr_factorial_display() {
-    let e = Expr::Factorial(Box::new(Expr::Var("n")));
+    let e = Expr::factorial(Expr::variable("n"));
     assert_eq!(format!("{e}"), "factorial(n)");
 }
 
 #[test]
 fn test_expr_factorial_variables() {
-    let e = Expr::Factorial(Box::new(Expr::Var("n")));
-    assert_eq!(e.variables(), HashSet::from(["n"]));
+    let e = Expr::factorial(Expr::variable("n"));
+    assert_eq!(e.variables(), BTreeSet::from(["n"]));
 }
 
 #[test]
 fn test_expr_factorial_substitute() {
-    let replacement = Expr::Const(5.0);
+    let replacement = Expr::integer(5);
     let mut mapping = HashMap::new();
     mapping.insert("n", &replacement);
-    let e = Expr::Factorial(Box::new(Expr::Var("n")));
-    let result = e.substitute(&mapping);
+    let e = Expr::factorial(Expr::variable("n"));
+    let result = e.substitute_complete(&mapping).unwrap();
     let size = ProblemSize::new(vec![]);
-    assert_eq!(result.eval(&size), 120.0);
+    assert_eq!(eval(&result, &size), 120.0);
 }
 
 #[test]
 fn test_expr_factorial_is_not_polynomial() {
-    assert!(!Expr::Factorial(Box::new(Expr::Var("n"))).is_polynomial());
+    assert!(!Expr::factorial(Expr::variable("n")).is_polynomial());
 }
 
 #[test]

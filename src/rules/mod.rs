@@ -4,7 +4,7 @@ pub mod analysis;
 pub mod pareto;
 pub mod registry;
 pub mod search;
-pub use registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+pub use registry::{EdgeCapabilities, OverheadCompositionError, ReductionEntry, ReductionOverhead};
 
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
@@ -405,8 +405,9 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
     AggregateReductionChain, ExcludedSymbolicPath, MeasuredPath, NeighborInfo, NeighborTree,
-    NoAnalyzablePath, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
-    ReductionPath, ReductionStep, SymbolicParetoFront, TraversalFlow,
+    NoAnalyzablePath, PathOverheadCompositionError, ReductionChain, ReductionEdgeInfo,
+    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, SymbolicParetoFront,
+    TraversalFlow,
 };
 pub use pareto::{
     AnalysisCoverage, AnalysisFailure, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge,
@@ -739,9 +740,7 @@ macro_rules! impl_variant_reduction {
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
             overhead = {
-                $crate::rules::registry::ReductionOverhead::identity(
-                    &[$(stringify!($field)),+]
-                )
+                $($field = $field),+
             }
             $(, aggregate = $aggregate)?
         )]

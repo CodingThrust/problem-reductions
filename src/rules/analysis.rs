@@ -134,7 +134,7 @@ pub fn compare_overhead(
 
         // A field whose growth we cannot bound symbolically makes the whole
         // comparison undecidable.
-        if matches!(pg, Growth::Unknown) || matches!(cg, Growth::Unknown) {
+        if matches!(pg, Growth::Unknown(_)) || matches!(cg, Growth::Unknown(_)) {
             return ComparisonStatus::Unknown;
         }
 
@@ -196,7 +196,20 @@ pub fn find_dominated_rules(
                 continue; // skip the direct edge itself
             }
 
-            let composed = graph.compose_path_overhead(&path);
+            let composed = match graph.compose_path_overhead(&path) {
+                Ok(composed) => composed,
+                Err(error) => {
+                    unknown.push(UnknownComparison {
+                        source_name: edge_info.source_name,
+                        source_variant: edge_info.source_variant.clone(),
+                        target_name: edge_info.target_name,
+                        target_variant: edge_info.target_variant.clone(),
+                        candidate_path: path,
+                        reason: error.to_string(),
+                    });
+                    continue;
+                }
+            };
 
             match compare_overhead(&edge_info.overhead, &composed) {
                 ComparisonStatus::Dominated => {

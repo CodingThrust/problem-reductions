@@ -320,14 +320,7 @@ impl McpServer {
                     let details = error
                         .excluded
                         .iter()
-                        .map(|item| {
-                            format!(
-                                "{}: {} ({})",
-                                item.path,
-                                item.failure.reason,
-                                item.failure.fields.join(", ")
-                            )
-                        })
+                        .map(|item| format!("{}: {}", item.path, item.failure,))
                         .collect::<Vec<_>>()
                         .join("\n");
                     anyhow::bail!(

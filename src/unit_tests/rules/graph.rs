@@ -1330,18 +1330,18 @@ fn test_size_field_names_returns_own_fields() {
     // not the target's fields from any reduction.
     let mis_fields = graph.size_field_names("MaximumIndependentSet");
     assert!(
-        mis_fields.contains(&"num_vertices"),
+        mis_fields.iter().any(|field| field == "num_vertices"),
         "MIS should have num_vertices, got: {:?}",
         mis_fields
     );
     assert!(
-        mis_fields.contains(&"num_edges"),
+        mis_fields.iter().any(|field| field == "num_edges"),
         "MIS should have num_edges, got: {:?}",
         mis_fields
     );
     // Should NOT contain target fields like num_vars or num_constraints
     assert!(
-        !mis_fields.contains(&"num_constraints"),
+        !mis_fields.iter().any(|field| field == "num_constraints"),
         "MIS should not report ILP's num_constraints, got: {:?}",
         mis_fields
     );
@@ -1349,7 +1349,7 @@ fn test_size_field_names_returns_own_fields() {
     // QUBO should report num_vars
     let qubo_fields = graph.size_field_names("QUBO");
     assert!(
-        qubo_fields.contains(&"num_vars"),
+        qubo_fields.iter().any(|field| field == "num_vars"),
         "QUBO should have num_vars, got: {:?}",
         qubo_fields
     );
@@ -1373,14 +1373,14 @@ fn test_overhead_variables_are_consistent() {
             continue;
         }
 
-        let source_fields: std::collections::HashSet<&str> = graph
+        let source_fields: std::collections::HashSet<String> = graph
             .size_field_names(entry.source_name)
             .into_iter()
             .collect();
 
         for var in &input_vars {
             assert!(
-                source_fields.contains(var),
+                source_fields.contains(*var),
                 "Reduction {} -> {}: overhead references variable '{}' \
                  which is not a known size field of {}. Known fields: {:?}",
                 entry.source_name,

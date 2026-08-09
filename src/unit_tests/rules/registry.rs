@@ -1,5 +1,5 @@
 use super::*;
-use crate::expr::Expr;
+use crate::expr::{evaluate_approximate, Expr};
 use std::path::Path;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
@@ -24,8 +24,8 @@ fn dummy_source_size_fn(_: &dyn std::any::Any) -> ProblemSize {
 #[test]
 fn test_reduction_overhead_evaluate() {
     let overhead = ReductionOverhead::new(vec![
-        ("n", Expr::Const(3.0) * Expr::Var("m")),
-        ("m", Expr::pow(Expr::Var("m"), Expr::Const(2.0))),
+        ("n", Expr::integer(3) * Expr::variable("m")),
+        ("m", Expr::pow(Expr::variable("m"), Expr::integer(2))),
     ]);
 
     let input = ProblemSize::new(vec![("m", 4)]);
@@ -42,13 +42,40 @@ fn test_reduction_overhead_default() {
 }
 
 #[test]
+fn composition_reports_every_failing_output_field() {
+    let first = ReductionOverhead::new(vec![("x", Expr::variable("n"))]);
+    let second = ReductionOverhead::new(vec![
+        ("a", Expr::variable("missing_a")),
+        ("b", Expr::variable("x") + Expr::variable("missing_b")),
+    ]);
+
+    let error = first.compose(&second).unwrap_err();
+    assert_eq!(
+        error.field_errors().keys().copied().collect::<Vec<_>>(),
+        ["a", "b"]
+    );
+    assert_eq!(
+        error.field_errors()["a"]
+            .missing_variables()
+            .collect::<Vec<_>>(),
+        ["missing_a"]
+    );
+    assert_eq!(
+        error.field_errors()["b"]
+            .missing_variables()
+            .collect::<Vec<_>>(),
+        ["missing_b"]
+    );
+}
+
+#[test]
 fn test_reduction_entry_overhead() {
     let entry = ReductionEntry {
         source_name: "TestSource",
         target_name: "TestTarget",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
-        overhead_fn: || ReductionOverhead::new(vec![("n", Expr::Const(2.0) * Expr::Var("n"))]),
+        overhead_fn: || ReductionOverhead::new(vec![("n", Expr::integer(2) * Expr::variable("n"))]),
         module_path: "test::module",
         reduce_fn: Some(dummy_reduce_fn),
         reduce_aggregate_fn: None,
@@ -242,7 +269,7 @@ fn cross_check_complexity(
 ) {
     let compiled = (entry.complexity_eval_fn)(src);
     let parsed = crate::expr::Expr::parse(entry.complexity);
-    let symbolic = parsed.eval(input);
+    let symbolic = evaluate_approximate(&parsed, input).unwrap();
 
     let diff = (compiled - symbolic).abs();
     let tol = 1e-6 * symbolic.abs().max(1.0);

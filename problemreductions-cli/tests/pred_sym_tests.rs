@@ -9,7 +9,7 @@ fn test_pred_sym_parse() {
     let output = pred_sym().args(["parse", "n + m"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert_eq!(stdout.trim(), "n + m");
+    assert_eq!(stdout.trim(), "m + n");
 }
 
 #[test]
@@ -51,18 +51,11 @@ fn test_pred_sym_big_o_signed_polynomial() {
 }
 
 #[test]
-fn test_pred_sym_big_o_sqrt_display() {
-    // A fractional polynomial degree renders with sqrt notation.
-    // (`2^sqrt(n)` — a nonlinear exponent — is now unsupported, so use an
-    // in-domain sqrt input instead.)
+fn test_pred_sym_big_o_preserves_fractional_degrees() {
     let output = pred_sym().args(["big-o", "sqrt(n * m)"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("sqrt"),
-        "expected sqrt notation, got: {}",
-        stdout.trim()
-    );
+    assert_eq!(stdout.trim(), "O(m^0.5 * n^0.5)");
 }
 
 #[test]
@@ -172,6 +165,20 @@ fn test_pred_sym_eval_unbound_variable_error() {
     assert!(
         stderr.contains("n"),
         "should mention variable 'n', got: {stderr}"
+    );
+}
+
+#[test]
+fn test_pred_sym_eval_non_finite_result_is_an_error() {
+    let output = pred_sym()
+        .args(["eval", "log(n)", "--vars", "n=0"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("no finite real approximation"),
+        "got: {stderr}"
     );
 }
 

@@ -71,7 +71,7 @@ pub fn run() {
     }
 
     // Compose overheads symbolically along the full path
-    let composed = graph.compose_path_overhead(rpath);
+    let composed = graph.compose_path_overhead(rpath).unwrap();
     println!("Composed (source → target):");
     for (field, poly) in &composed.output_size {
         println!("  {} = {}", field, poly);
