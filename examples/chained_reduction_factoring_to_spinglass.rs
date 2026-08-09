@@ -7,12 +7,14 @@
 // ANCHOR: imports
 use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
-use problemreductions::rules::{ReductionGraph, ReductionMode, SearchMode};
+use problemreductions::rules::{
+    PathOverheadCompositionError, ReductionGraph, ReductionMode, SearchMode,
+};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 // ANCHOR_END: imports
 
-pub fn run() {
+pub fn run() -> std::result::Result<(), PathOverheadCompositionError> {
     // ANCHOR: example
     // ANCHOR: step1
     let graph = ReductionGraph::new(); // all registered reductions
@@ -71,15 +73,16 @@ pub fn run() {
     }
 
     // Compose overheads symbolically along the full path
-    let composed = graph.compose_path_overhead(rpath).unwrap();
+    let composed = graph.compose_path_overhead(rpath)?;
     println!("Composed (source → target):");
     for (field, poly) in &composed.output_size {
         println!("  {} = {}", field, poly);
     }
     // ANCHOR_END: overhead
     // ANCHOR_END: example
+    Ok(())
 }
 
-fn main() {
+fn main() -> std::result::Result<(), PathOverheadCompositionError> {
     run()
 }

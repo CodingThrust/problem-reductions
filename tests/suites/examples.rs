@@ -14,7 +14,7 @@ mod chained_reduction_factoring_to_spinglass {
 #[cfg(feature = "ilp-solver")]
 #[test]
 fn test_chained_reduction_factoring_to_spinglass() {
-    chained_reduction_factoring_to_spinglass::run();
+    chained_reduction_factoring_to_spinglass::run().unwrap();
 }
 
 // --- Subprocess tests for export utilities ---
