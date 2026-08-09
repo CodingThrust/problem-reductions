@@ -3,7 +3,9 @@
 pub use num_bigint::BigInt;
 use num_rational::BigRational;
 use num_traits::{FromPrimitive, ToPrimitive};
-pub use problemreductions_expr::{Expr, ExprNode, ExprNodeId, ParseError, SubstitutionError};
+pub use problemreductions_expr::{
+    Expr, ExprNode, ExprNodeId, ParseError, SubstitutionError, Symbol,
+};
 use std::collections::HashMap;
 use std::fmt;
 
