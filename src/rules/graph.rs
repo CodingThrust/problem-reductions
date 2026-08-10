@@ -24,7 +24,7 @@ use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 /// A source/target pair from the reduction graph, returned by
@@ -589,31 +589,6 @@ impl ReductionGraph {
         front.push(candidate);
     }
 
-    /// Deterministic total-order key for a node-index path.
-    ///
-    /// Reproduces the `Name/val1/val2` slash signature the CLI historically used
-    /// as an ordering tiebreak, but computed purely from library node data so the
-    /// ordering lives in exactly one place. Within a fixed path length the length
-    /// contributes nothing, so sorting a same-length level by this key yields a
-    /// reproducible, build-independent order (BTreeMap variant iteration is
-    /// deterministic). Distinct simple paths produce distinct keys because each
-    /// node is a unique `(name, variant)` pair.
-    fn path_order_key(&self, node_path: &[NodeIndex]) -> String {
-        let mut key = String::new();
-        for (i, &idx) in node_path.iter().enumerate() {
-            if i > 0 {
-                key.push('>');
-            }
-            let node = &self.nodes[self.graph[idx]];
-            key.push_str(node.name);
-            for v in node.variant.values() {
-                key.push('/');
-                key.push_str(v);
-            }
-        }
-        key
-    }
-
     /// Convert a node index path to a `ReductionPath`.
     fn node_path_to_reduction_path(&self, node_path: &[NodeIndex]) -> ReductionPath {
         let steps = node_path
@@ -907,42 +882,44 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        // Enumerate every simple path in a single DFS pass and keep only the `limit`
-        // that sort smallest under the deterministic total order: fewest nodes first
-        // (shortest routes), then by `path_order_key`. Taking `limit` in petgraph's raw
-        // DFS discovery order (the previous approach) could drop a short route
-        // discovered late while returning a long route discovered early. A single
-        // bounded max-heap keyed by `(node count, order key)` retains exactly those
-        // `limit` paths — push each candidate, and once over capacity pop the current
-        // largest — so ordering and the truncated subset are reproducible and
-        // build-independent with O(limit) memory, however many paths the graph holds.
-        // (`limit == 0` falls out naturally: every push is immediately popped.)
-        let max_intermediate =
-            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
-
-        let mut heap: BinaryHeap<(usize, String, Vec<NodeIndex>)> = BinaryHeap::new();
-        for p in all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
-            &self.graph,
-            src,
-            dst,
-            0,
-            Some(max_intermediate),
-        ) {
-            if !self.node_path_supports_mode(&p, mode) {
-                continue;
-            }
-            let key = self.path_order_key(&p);
-            heap.push((p.len(), key, p));
-            if heap.len() > limit {
-                heap.pop();
-            }
+        if limit == 0 {
+            return Vec::new();
         }
 
-        // `into_sorted_vec` yields ascending `(node count, order key)` order.
-        heap.into_sorted_vec()
-            .into_iter()
-            .map(|(_, _, p)| self.node_path_to_reduction_path(&p))
-            .collect()
+        // Enumerate simple paths breadth-first. Each level is already lexicographic
+        // because both the preceding level and every outgoing edge list are ordered
+        // by canonical node identity. Completed paths therefore arrive in the exact
+        // public order: fewest nodes first, then canonical node identity. Stop immediately
+        // after `limit` results instead of traversing every simple path.
+        let max_intermediate =
+            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
+        let max_nodes = max_intermediate.saturating_add(2);
+        let mut frontier = vec![vec![src]];
+        let mut paths = Vec::with_capacity(limit);
+
+        while !frontier.is_empty() && frontier[0].len() < max_nodes {
+            let mut next_frontier = Vec::new();
+            for path in frontier {
+                let current = path[path.len() - 1];
+                for (next, _) in self.ordered_outgoing_edges(current, mode) {
+                    if path.contains(&next) {
+                        continue;
+                    }
+                    let mut extended = path.clone();
+                    extended.push(next);
+                    if next == dst {
+                        paths.push(self.node_path_to_reduction_path(&extended));
+                        if paths.len() == limit {
+                            return paths;
+                        }
+                    } else {
+                        next_frontier.push(extended);
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+        paths
     }
 
     /// Check if a direct reduction exists from S to T.

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::mcp::tools::McpServer;
+    use crate::mcp::tools::{FindPathParams, McpServer};
     use crate::test_support::{aggregate_bundle, aggregate_problem_json};
     use std::collections::BTreeMap;
 
@@ -63,8 +63,8 @@ mod tests {
     fn test_find_path_sizes_evaluate_the_strongest_symbolic_contract() {
         let server = McpServer::new();
         let sizes = BTreeMap::from([
-            ("num_vertices".to_string(), "5".to_string()),
-            ("num_edges".to_string(), "4".to_string()),
+            ("num_vertices".to_string(), 5),
+            ("num_edges".to_string(), 4),
         ]);
         let result: serde_json::Value = serde_json::from_str(
             &server
@@ -86,6 +86,23 @@ mod tests {
             .unwrap();
         assert_eq!(edges["relation"], "exact");
         assert_eq!(edges["value"], 6);
+    }
+
+    #[test]
+    fn test_find_path_size_schema_uses_json_numbers() {
+        let params: FindPathParams = serde_json::from_value(serde_json::json!({
+            "source": "MIS",
+            "target": "MaximumClique",
+            "sizes": {"num_vertices": 5, "num_edges": 4}
+        }))
+        .unwrap();
+        assert_eq!(params.sizes.unwrap()["num_vertices"], 5);
+        assert!(serde_json::from_value::<FindPathParams>(serde_json::json!({
+            "source": "MIS",
+            "target": "MaximumClique",
+            "sizes": {"num_vertices": "5"}
+        }))
+        .is_err());
     }
 
     #[test]

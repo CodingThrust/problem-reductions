@@ -348,6 +348,36 @@ fn big_o_of(expr: &Expr) -> String {
     Growth::from_expr(expr).to_big_o()
 }
 
+enum StrongestContractRelation<'a> {
+    Exact(&'a Expr),
+    UpperBound(&'a Expr),
+    Unavailable(&'a str),
+}
+
+fn strongest_contract_fields(
+    contract: &problemreductions::rules::ReductionSizeContract,
+) -> BTreeMap<&str, StrongestContractRelation<'_>> {
+    let mut fields = BTreeMap::new();
+    if let Some(exact) = contract.exact() {
+        for (field, expression) in exact.expressions() {
+            fields.insert(field, StrongestContractRelation::Exact(expression));
+        }
+    }
+    if let Some(bounds) = contract.bounds() {
+        for (field, expression) in bounds.expressions() {
+            fields
+                .entry(field)
+                .or_insert(StrongestContractRelation::UpperBound(expression));
+        }
+    }
+    for unavailable in contract.unavailable() {
+        fields
+            .entry(unavailable.field)
+            .or_insert(StrongestContractRelation::Unavailable(unavailable.reason));
+    }
+    fields
+}
+
 fn fmt_size_contract(
     contract: &Result<
         problemreductions::rules::ReductionSizeContract,
@@ -358,25 +388,20 @@ fn fmt_size_contract(
         Ok(contract) => contract,
         Err(error) => return vec![format!("invalid: {error}")],
     };
-    let mut fields = BTreeMap::new();
-    if let Some(exact) = contract.exact() {
-        for (field, expression) in exact.expressions() {
-            fields.insert(field, format!("{field} = {expression}"));
-        }
-    }
-    if let Some(bounds) = contract.bounds() {
-        for (field, expression) in bounds.expressions() {
-            fields
-                .entry(field)
-                .or_insert_with(|| format!("{field} <= {expression}"));
-        }
-    }
-    for unavailable in contract.unavailable() {
-        fields.entry(unavailable.field).or_insert_with(|| {
-            format!("{} unavailable: {}", unavailable.field, unavailable.reason)
-        });
-    }
-    fields.into_values().collect()
+    strongest_contract_fields(contract)
+        .into_iter()
+        .map(|(field, relation)| match relation {
+            StrongestContractRelation::Exact(expression) => {
+                format!("{field} = {expression}")
+            }
+            StrongestContractRelation::UpperBound(expression) => {
+                format!("{field} <= {expression}")
+            }
+            StrongestContractRelation::Unavailable(reason) => {
+                format!("{field} unavailable: {reason}")
+            }
+        })
+        .collect()
 }
 
 fn strongest_size_contract_to_json(
@@ -386,42 +411,28 @@ fn strongest_size_contract_to_json(
     >,
 ) -> serde_json::Value {
     match contract {
-        Ok(contract) => {
-            let mut fields = BTreeMap::new();
-            if let Some(exact) = contract.exact() {
-                for (field, expression) in exact.expressions() {
-                    fields.insert(
-                        field,
-                        serde_json::json!({
-                            "field": field,
-                            "relation": "exact",
-                            "formula": expression.to_string(),
-                        }),
-                    );
-                }
-            }
-            if let Some(bounds) = contract.bounds() {
-                for (field, expression) in bounds.expressions() {
-                    fields.entry(field).or_insert_with(|| {
-                        serde_json::json!({
-                            "field": field,
-                            "relation": "upper_bound",
-                            "formula": expression.to_string(),
-                        })
-                    });
-                }
-            }
-            for unavailable in contract.unavailable() {
-                fields.entry(unavailable.field).or_insert_with(|| {
-                    serde_json::json!({
-                        "field": unavailable.field,
+        Ok(contract) => serde_json::Value::Array(
+            strongest_contract_fields(contract)
+                .into_iter()
+                .map(|(field, relation)| match relation {
+                    StrongestContractRelation::Exact(expression) => serde_json::json!({
+                        "field": field,
+                        "relation": "exact",
+                        "formula": expression.to_string(),
+                    }),
+                    StrongestContractRelation::UpperBound(expression) => serde_json::json!({
+                        "field": field,
+                        "relation": "upper_bound",
+                        "formula": expression.to_string(),
+                    }),
+                    StrongestContractRelation::Unavailable(reason) => serde_json::json!({
+                        "field": field,
                         "relation": "unavailable",
-                        "reason": unavailable.reason,
-                    })
-                });
-            }
-            serde_json::Value::Array(fields.into_values().collect())
-        }
+                        "reason": reason,
+                    }),
+                })
+                .collect(),
+        ),
         Err(error) => serde_json::json!({"error": error.to_string()}),
     }
 }
@@ -483,28 +494,63 @@ fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, Stri
 }
 
 struct ComposedPathSize {
-    exact: Result<Option<problemreductions::size_map::SizeMap>, String>,
-    bound: Result<Option<problemreductions::size_bound::SizeBound>, String>,
+    exact: Result<
+        Option<problemreductions::size_map::SizeMap>,
+        problemreductions::rules::PathSizeMapError,
+    >,
+    bound: Result<
+        Option<problemreductions::size_bound::SizeBound>,
+        problemreductions::rules::PathSizeBoundError,
+    >,
+    explicit_unavailable: BTreeMap<String, String>,
 }
 
 impl ComposedPathSize {
-    fn unavailable_reason(&self) -> Option<&str> {
-        match (&self.bound, &self.exact) {
-            (Err(error), _) => Some(error),
-            (_, Err(error)) => Some(error),
-            _ => None,
+    fn unavailable_reason(&self, field: &str) -> String {
+        if let Some(reason) = self.explicit_unavailable.get(field) {
+            return reason.clone();
         }
+        if let Err(error) = &self.bound {
+            return error.to_string();
+        }
+        if let Err(error) = &self.exact {
+            return error.to_string();
+        }
+        format!("no symbolic size relation is registered for target field {field}")
     }
 }
 
 fn composed_path_size(graph: &ReductionGraph, path: &ReductionPath) -> ComposedPathSize {
+    let explicit_unavailable = path
+        .steps
+        .windows(2)
+        .last()
+        .and_then(|pair| {
+            graph.find_entry(
+                &pair[0].name,
+                &pair[0].variant,
+                &pair[1].name,
+                &pair[1].variant,
+            )
+        })
+        .and_then(|entry| entry.size_contract.ok())
+        .map(|contract| {
+            contract
+                .unavailable()
+                .iter()
+                .map(|unavailable| {
+                    (
+                        unavailable.field.to_string(),
+                        unavailable.reason.to_string(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     ComposedPathSize {
-        exact: graph
-            .compose_path_size_map(path)
-            .map_err(|error| error.to_string()),
-        bound: graph
-            .compose_path_size_bound(path)
-            .map_err(|error| error.to_string()),
+        exact: graph.compose_path_size_map(path),
+        bound: graph.compose_path_size_bound(path),
+        explicit_unavailable,
     }
 }
 
@@ -599,28 +645,24 @@ fn format_path_text(
                 }
             }
         }
-        if exact_fields.is_empty() && bound_fields.is_empty() {
-            if let Some(reason) = composed.unavailable_reason() {
-                if let Some(target) = reduction_path.target() {
-                    for field in graph.size_field_names(target) {
-                        text.push_str(&format!("    {field} unavailable: {reason}\n"));
-                    }
+        if let Some(target) = reduction_path.target() {
+            for field in graph.size_field_names(target) {
+                if let Some(expression) = exact_fields.get(field.as_str()) {
+                    let evaluated = exact_values
+                        .get(field.as_str())
+                        .map(|value| format!("  [value: {value}]"))
+                        .unwrap_or_default();
+                    text.push_str(&format!("    {field} = {expression}{evaluated}\n"));
+                } else if let Some(expression) = bound_fields.get(field.as_str()) {
+                    let evaluated = bound_values
+                        .get(field.as_str())
+                        .map(|value| format!("  [value <= {value}]"))
+                        .unwrap_or_default();
+                    text.push_str(&format!("    {field} <= {expression}{evaluated}\n"));
+                } else {
+                    let reason = composed.unavailable_reason(field.as_str());
+                    text.push_str(&format!("    {field} unavailable: {reason}\n"));
                 }
-            }
-        } else {
-            for (field, expression) in exact_fields {
-                let evaluated = exact_values
-                    .get(field)
-                    .map(|value| format!("  [value: {value}]"))
-                    .unwrap_or_default();
-                text.push_str(&format!("    {field} = {expression}{evaluated}\n"));
-            }
-            for (field, expression) in bound_fields {
-                let evaluated = bound_values
-                    .get(field)
-                    .map(|value| format!("  [value <= {value}]"))
-                    .unwrap_or_default();
-                text.push_str(&format!("    {field} <= {expression}{evaluated}\n"));
             }
         }
     }
@@ -702,25 +744,24 @@ pub(crate) fn format_path_json(
                 });
         }
     }
-    if strongest_fields.is_empty() {
-        if let Some(reason) = composed.unavailable_reason() {
-            if let Some(target) = reduction_path.target() {
-                for field in graph.size_field_names(target) {
-                    strongest_fields.insert(
-                        field.clone(),
-                        serde_json::json!({
-                            "field": field,
-                            "relation": "unavailable",
-                            "reason": reason,
-                        }),
-                    );
-                }
+    if let Some(target) = reduction_path.target() {
+        for field in graph.size_field_names(target) {
+            if !strongest_fields.contains_key(&field) {
+                let reason = composed.unavailable_reason(&field);
+                strongest_fields.insert(
+                    field.clone(),
+                    serde_json::json!({
+                        "field": field,
+                        "relation": "unavailable",
+                        "reason": reason,
+                    }),
+                );
             }
         }
     }
     let fields = strongest_fields.into_values().collect::<Vec<_>>();
-    let mut overall_size = serde_json::json!({"fields": fields});
-    let overall_object = overall_size.as_object_mut().unwrap();
+    let mut overall_object = serde_json::Map::new();
+    overall_object.insert("fields".to_string(), serde_json::json!(fields));
     if let Some(Err(error)) = exact_evaluation {
         overall_object.insert(
             "exact_evaluation_error".to_string(),
@@ -737,7 +778,7 @@ pub(crate) fn format_path_json(
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
-        "overall_size": overall_size,
+        "overall_size": overall_object,
     })
 }
 
@@ -844,27 +885,34 @@ fn path_symbolic(
 
     let returned = all_paths.len();
 
-    let paths_json: Vec<serde_json::Value> = all_paths
-        .iter()
-        .map(|path| format_path_json(graph, path, source_size))
-        .collect();
-
-    let json = serde_json::json!({
-        "paths": paths_json,
-        "truncated": truncated,
-        "returned": returned,
-        "max_paths": max_paths,
-    });
-
-    let text = render_paths_text(
-        graph,
-        &all_paths,
-        src_name,
-        dst_name,
-        truncated,
-        max_paths,
-        source_size,
-    );
+    let json_output = out.output.is_some() || out.json;
+    let json = if json_output {
+        let paths = all_paths
+            .iter()
+            .map(|path| format_path_json(graph, path, source_size))
+            .collect::<Vec<_>>();
+        serde_json::json!({
+            "paths": paths,
+            "truncated": truncated,
+            "returned": returned,
+            "max_paths": max_paths,
+        })
+    } else {
+        serde_json::Value::Null
+    };
+    let text = if json_output {
+        String::new()
+    } else {
+        render_paths_text(
+            graph,
+            &all_paths,
+            src_name,
+            dst_name,
+            truncated,
+            max_paths,
+            source_size,
+        )
+    };
     out.emit_with_default_name("", &text, &json)
 }
 

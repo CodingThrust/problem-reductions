@@ -1,5 +1,4 @@
 use crate::util;
-use anyhow::Context;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, NonTautology, Satisfiability};
 use problemreductions::models::graph::{
@@ -56,7 +55,7 @@ pub struct FindPathParams {
     #[schemars(
         description = "Optional source size fields used to evaluate each path without ranking"
     )]
-    pub sizes: Option<BTreeMap<String, String>>,
+    pub sizes: Option<BTreeMap<String, usize>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -240,27 +239,17 @@ impl McpServer {
         source: &str,
         target: &str,
         max_paths: usize,
-        sizes: Option<&BTreeMap<String, String>>,
+        sizes: Option<&BTreeMap<String, usize>>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
-        let source_size = sizes
-            .map(|sizes| {
-                sizes
-                    .iter()
-                    .map(|(field, value)| {
-                        Ok((
-                            field.clone(),
-                            value
-                                .parse::<usize>()
-                                .with_context(|| format!("invalid source size {field}={value}"))?,
-                        ))
-                    })
-                    .collect::<anyhow::Result<Vec<_>>>()
-                    .map(|components| ProblemSize { components })
-            })
-            .transpose()?;
+        let source_size = sizes.map(|sizes| ProblemSize {
+            components: sizes
+                .iter()
+                .map(|(field, value)| (field.clone(), *value))
+                .collect(),
+        });
 
         let mut all_paths = graph.find_paths_up_to(
             &src_ref.name,

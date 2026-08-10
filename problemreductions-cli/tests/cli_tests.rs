@@ -5320,6 +5320,40 @@ fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() 
 }
 
 #[test]
+fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
+    let output = pred()
+        .args([
+            "path",
+            "MaximumClique/SimpleGraph/i32",
+            "ILP/bool",
+            "--size",
+            "num_vertices=5",
+            "--max-paths",
+            "1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let fields = envelope["paths"][0]["overall_size"]["fields"]
+        .as_array()
+        .unwrap();
+    let relations = fields
+        .iter()
+        .map(|field| {
+            (
+                field["field"].as_str().unwrap(),
+                field["relation"].as_str().unwrap(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(relations["num_vars"], "exact");
+    assert_eq!(relations["num_constraints"], "unavailable");
+    assert_eq!(relations["coefficient_encoding_bits"], "unavailable");
+}
+
+#[test]
 fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
     // MaxCut -> SpinGlass is a genuine 1-step path with matching default variants
