@@ -51,6 +51,58 @@ jobs:
       - name: Run clippy
         run: cargo clippy --all-targets --features example-db -- -D warnings
 
+  # Build and exercise the HiGHS-backed CLI natively on Apple Silicon.
+  macos-arm64:
+    name: macOS ARM64 build & run
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify ARM64 host
+        run: "rustc -vV | grep 'host: aarch64-apple-darwin'"
+      - name: Build workspace
+        run: cargo build --workspace
+      - name: Run CLI and ILP smoke test
+        run: |
+          target/debug/pred list | head -5
+          target/debug/pred create MaximumIndependentSet --graph 0-1,1-2,2-3,3-4,4-0 -o mis.json
+          target/debug/pred solve mis.json --solver ilp | tee solve.out
+          grep -q '"kind": "ilp"' solve.out
+          grep -q '"evaluation": "Max(2)"' solve.out
+
+  # Build and exercise the HiGHS-backed CLI natively on 64-bit Windows.
+  windows-x86_64:
+    name: Windows x86_64 build & run
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify x86_64 host
+        shell: pwsh
+        run: |
+          $hostInfo = rustc -vV | Out-String
+          if ($hostInfo -notmatch 'host: x86_64-pc-windows-msvc') {
+            throw "Unexpected Rust host:`n$hostInfo"
+          }
+      - name: Build workspace
+        run: cargo build --workspace
+      - name: Run CLI and ILP smoke test
+        shell: pwsh
+        run: |
+          $pred = 'target/debug/pred.exe'
+          & $pred list | Select-Object -First 5
+          & $pred create MaximumIndependentSet --graph 0-1,1-2,2-3,3-4,4-0 -o mis.json
+          & $pred solve mis.json --solver ilp | Tee-Object -FilePath solve.out
+          $solveOutput = Get-Content solve.out -Raw
+          if ($solveOutput -notmatch '"kind": "ilp"') {
+            throw 'Expected the ILP solver to run'
+          }
+          if ($solveOutput -notmatch '"evaluation": "Max\(2\)"') {
+            throw 'Expected the maximum independent set value to be 2'
+          }
+
   # Cross-compile the full HiGHS-backed CLI to RISC-V Linux, then execute an
   # ILP solve under QEMU user-mode emulation (not just a link check).
   riscv:
