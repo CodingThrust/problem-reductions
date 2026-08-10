@@ -150,7 +150,7 @@ Multi-step paths are discovered automatically:
 {{#include generated/pred-path-factoring-spinglass.txt}}
 ```
 
-Enumerate symbolic paths or save the path set for later route selection:
+Inspect reduction paths or save the path set for later route selection:
 
 ```bash
 pred path MIS QUBO                           # paths (up to 20)
@@ -159,13 +159,12 @@ pred path MIS MaximumClique mis.json         # execute paths on a complete insta
 pred path MIS QUBO -o paths.json             # save the path set
 ```
 
-Without an instance file, path discovery is symbolic. For each field it displays
-the strongest available relation: an exact equality, otherwise a certified upper
-bound, otherwise an unavailable reason. With a problem JSON file, every returned
-path is executed on the complete source instance and the actual size of each
-constructed intermediate is reported. Discovery never ranks or Pareto-prunes
-routes. Output is capped by `--max-paths` (default: 20); extract one route from the
-path-set envelope before passing it to `pred reduce --via`.
+Without an instance file, each route explains how problem size changes. With a
+problem JSON file, every returned path is executed on the complete source instance
+and the actual size of each constructed intermediate is reported. Discovery never
+ranks or Pareto-prunes routes. Output is capped by `--max-paths` (default: 20);
+extract one route from the path-set envelope before passing it to
+`pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
 

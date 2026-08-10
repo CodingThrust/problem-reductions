@@ -195,7 +195,7 @@ pub fn get_prompt(
             Some(prompt_result(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
-                    "Enumerate symbolic reduction paths from \"{source}\" to \"{target}\".\n\n\
+                    "Find reduction paths from \"{source}\" to \"{target}\".\n\n\
                      Show each route and explain how the problem size changes at each step. \
                      Do not rank, prune, or recommend a route."
                 ),

@@ -72,10 +72,9 @@ for alias, name in rows:
     print(f'| \`{alias}\` | \`{name}\` |')
 " > "$OUT/pred-aliases.txt"
 
-# 13. Factoring example output (path discovery line + size contracts)
+# 13. Factoring example output
 FACTORING_OUTPUT=$(cargo run --example chained_reduction_factoring_to_spinglass 2>/dev/null)
 echo "$FACTORING_OUTPUT" | head -1 > "$OUT/factoring-path.txt"
 echo "$FACTORING_OUTPUT" | sed -n '2p' > "$OUT/factoring-result.txt"
-echo "$FACTORING_OUTPUT" | sed -n '3,$p' > "$OUT/factoring-size-contract.txt"
 
 echo "Done. Generated $(ls "$OUT" | wc -l | tr -d ' ') snippets in $OUT/"

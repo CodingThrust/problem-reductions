@@ -112,7 +112,7 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     /// Find reduction paths between two problems
     #[command(after_help = "\
 Examples:
-  pred path MIS QUBO                              # enumerate symbolic paths
+  pred path MIS QUBO                              # inspect reduction paths
   pred path MIS Clique mis.json                   # execute paths on an instance
   pred path MIS QUBO --max-paths 50              # increase the output cap
   pred path MIS QUBO -o paths.json               # save the path set

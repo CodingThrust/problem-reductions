@@ -138,7 +138,7 @@ fn test_list_rules() {
     assert!(stdout.contains("Registered reduction rules:"));
     assert!(stdout.contains("Source"));
     assert!(stdout.contains("Target"));
-    assert!(stdout.contains("Size contract"));
+    assert!(stdout.contains("Size change"));
     // Should contain a known reduction
     assert!(
         stdout.contains("MaximumIndependentSet"),

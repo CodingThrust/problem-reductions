@@ -121,8 +121,8 @@ Let's walk through each step.
 
 `ReductionGraph` holds every registered reduction. The example enumerates the
 witness-capable simple paths and explicitly selects the documented
-`Factoring -> CircuitSAT -> SpinGlass` route. Symbolic path discovery does not
-rank paths; each route carries its strongest available per-field size relation.
+`Factoring -> CircuitSAT -> SpinGlass` route. Path discovery does not rank or
+automatically select a route.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}
@@ -164,21 +164,6 @@ factors.
 
 ```text
 {{#include generated/factoring-result.txt}}
-```
-
-#### Step 5 — Inspect the size contract
-
-Each reduction edge classifies every target-size field as exact, bound-only,
-or unavailable with a reason. `compose_path_size_map` composes only exact
-fields into an end-to-end map; a missing exact contract remains a typed error
-and never falls back to a bound or asymptotic formula.
-
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:size_contract}}
-```
-
-```text
-{{#include generated/factoring-size-contract.txt}}
 ```
 
 ## Solvers

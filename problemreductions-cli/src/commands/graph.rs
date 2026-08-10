@@ -173,7 +173,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Source", Align::Left, 6),
         ("Target", Align::Left, 6),
-        ("Size contract", Align::Left, 8),
+        ("Size change", Align::Left, 8),
     ];
 
     let rows: Vec<Vec<String>> = rows_data

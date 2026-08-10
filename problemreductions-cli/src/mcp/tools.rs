@@ -49,7 +49,7 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Maximum symbolic paths to return (default: 20)")]
+    #[schemars(description = "Maximum paths to return (default: 20)")]
     pub max_paths: Option<usize>,
     #[schemars(
         description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."

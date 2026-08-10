@@ -54,50 +54,6 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     assert_eq!(p * q, 6, "Factors should multiply to 6");
     // ANCHOR_END: step4
 
-    // ANCHOR: size_contract
-    for (i, pair) in rpath.steps.windows(2).enumerate() {
-        println!("{} → {}:", rpath.steps[i], rpath.steps[i + 1]);
-        let entry = graph
-            .find_entry(
-                &pair[0].name,
-                &pair[0].variant,
-                &pair[1].name,
-                &pair[1].variant,
-            )
-            .ok_or_else(|| {
-                std::io::Error::other("registered path contains an unregistered edge")
-            })?;
-        match entry.size_contract {
-            Ok(contract) => {
-                if let Some(exact) = contract.exact() {
-                    for (field, expression) in exact.expressions() {
-                        println!("  exact {field} = {expression}");
-                    }
-                }
-                if let Some(bounds) = contract.bounds() {
-                    for (field, expression) in bounds.expressions() {
-                        println!("  bound {field} <= {expression}");
-                    }
-                }
-                for field in contract.unavailable() {
-                    println!("  {} unavailable: {}", field.field, field.reason);
-                }
-            }
-            Err(error) => println!("  invalid size contract: {error}"),
-        }
-    }
-
-    match graph.compose_path_size_map(rpath) {
-        Ok(Some(composed)) => {
-            println!("Composed exact map (source → target):");
-            for (field, expression) in composed.expressions() {
-                println!("  {field} = {expression}");
-            }
-        }
-        Ok(None) => println!("Composed exact map: no reduction step"),
-        Err(error) => println!("Composed exact map unavailable: {error}"),
-    }
-    // ANCHOR_END: size_contract
     // ANCHOR_END: example
     Ok(())
 }

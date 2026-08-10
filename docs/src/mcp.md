@@ -79,8 +79,8 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `sizes` (optional object) | Enumerate symbolic paths with the strongest available per-field size relation; optional sizes evaluate relations without ranking |
-| `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, and explicit size contracts) |
+| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `problem_json` (optional string) | Find reduction paths and explain how size changes. With a complete source instance, execute each returned path and report the actual constructed sizes. |
+| `export_graph` | *(none)* | Export the full reduction graph as JSON |
 
 ### Instance Tools
 
@@ -103,5 +103,5 @@ The server provides 7 task-oriented prompt templates:
 | `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
 | `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
 | `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Enumerate symbolic reduction paths between two problems |
+| `find_reduction` | `source` (required), `target` (required) | Find reduction paths between two problems and explain how size changes |
 | `overview` | *(none)* | Explore the full landscape of NP-hard problems |
