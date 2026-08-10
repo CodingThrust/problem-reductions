@@ -77,10 +77,10 @@ impl ReductionResult for ReductionERCToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_records * num_sectors + num_records^2 * num_sectors^2",
         num_constraints = "num_records + 3 * num_records^2 * num_sectors^2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
     type Result = ReductionERCToILP;

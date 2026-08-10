@@ -7,35 +7,27 @@
 // ANCHOR: imports
 use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
-use problemreductions::rules::{
-    PathOverheadCompositionError, ReductionGraph, ReductionMode, SearchMode,
-};
+use problemreductions::rules::{ReductionGraph, ReductionMode};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 // ANCHOR_END: imports
 
-pub fn run() -> std::result::Result<(), PathOverheadCompositionError> {
+pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR: example
     // ANCHOR: step1
     let graph = ReductionGraph::new(); // all registered reductions
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant()); // {} (no variant params)
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant()); // {graph: "SimpleGraph", weight: "f64"}
-    let front = graph
-        .asymptotic_front(
-            "Factoring",
-            &src_var,
-            "SpinGlass",
-            &dst_var,
-            ReductionMode::Witness,
-            SearchMode::Exact,
-        )
-        .value
-        .expect("all candidate paths should be analyzable");
-    let rpath = front
-        .front
+    let paths = graph.find_all_paths_mode(
+        "Factoring",
+        &src_var,
+        "SpinGlass",
+        &dst_var,
+        ReductionMode::Witness,
+    );
+    let rpath = paths
         .iter()
-        .find(|(path, _)| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
-        .map(|(path, _)| path)
+        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
         .expect("explicit Factoring -> CircuitSAT -> SpinGlass route");
     println!("  {}", rpath);
     // ANCHOR_END: step1
@@ -62,27 +54,10 @@ pub fn run() -> std::result::Result<(), PathOverheadCompositionError> {
     assert_eq!(p * q, 6, "Factors should multiply to 6");
     // ANCHOR_END: step4
 
-    // ANCHOR: overhead
-    // Print per-edge overhead polynomials
-    let edge_overheads = graph.path_overheads(rpath);
-    for (i, overhead) in edge_overheads.iter().enumerate() {
-        println!("{} → {}:", rpath.steps[i], rpath.steps[i + 1]);
-        for (field, poly) in &overhead.output_size {
-            println!("  {} = {}", field, poly);
-        }
-    }
-
-    // Compose overheads symbolically along the full path
-    let composed = graph.compose_path_overhead(rpath)?;
-    println!("Composed (source → target):");
-    for (field, poly) in &composed.output_size {
-        println!("  {} = {}", field, poly);
-    }
-    // ANCHOR_END: overhead
     // ANCHOR_END: example
     Ok(())
 }
 
-fn main() -> std::result::Result<(), PathOverheadCompositionError> {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     run()
 }

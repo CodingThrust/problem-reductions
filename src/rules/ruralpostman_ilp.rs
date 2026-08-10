@@ -40,10 +40,10 @@ impl ReductionResult for ReductionRPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
     type Result = ReductionRPToILP;

@@ -1,4 +1,5 @@
 use super::*;
+use crate::expr::Expr;
 use crate::models::algebraic::{ILP, QUBO};
 use crate::models::formula::{
     CircuitSAT, Maximum2Satisfiability, NAESatisfiability, Satisfiability,
@@ -8,7 +9,7 @@ use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
-use crate::rules::registry::ReductionEntry;
+use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -16,7 +17,50 @@ use crate::types::{One, ProblemSize, Sum};
 use petgraph::graph::DiGraph;
 use serde_json::json;
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+fn empty_size_contract() -> Result<ReductionSizeContract, SizeContractError> {
+    ReductionSizeContract::new("synthetic edge", ReductionSizeDeclarations::default())
+}
+
+fn symbolic_size_edge(
+    exact: &[(&'static str, &str)],
+    bounds: &[(&'static str, &str)],
+    turing: bool,
+) -> ReductionEdgeData {
+    ReductionEdgeData {
+        size_contract: ReductionSizeContract::new(
+            "synthetic edge",
+            ReductionSizeDeclarations {
+                exact: exact
+                    .iter()
+                    .map(|(field, expression)| (*field, Expr::try_parse(expression).unwrap()))
+                    .collect(),
+                bounds: bounds
+                    .iter()
+                    .map(|(field, expression)| (*field, Expr::try_parse(expression).unwrap()))
+                    .collect(),
+                unavailable: vec![],
+            },
+        ),
+        reduce_fn: Some(|_| panic!("size search must not execute reductions")),
+        reduce_aggregate_fn: None,
+        turing,
+    }
+}
+
+fn named_path(names: &[&str]) -> ReductionPath {
+    ReductionPath {
+        steps: names
+            .iter()
+            .map(|name| ReductionStep {
+                name: (*name).to_string(),
+                variant: BTreeMap::new(),
+            })
+            .collect(),
+    }
+}
 
 #[derive(Clone)]
 struct AggregateChainSource;
@@ -182,6 +226,45 @@ fn reduce_source_to_middle_witness(
     })
 }
 
+static SHARED_PREFIX_EXECUTIONS: AtomicUsize = AtomicUsize::new(0);
+
+fn reduce_counted_source_to_middle_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    SHARED_PREFIX_EXECUTIONS.fetch_add(1, Ordering::SeqCst);
+    reduce_source_to_middle_witness(any)
+}
+
+struct MiddleToTargetWitnessResult {
+    target: AggregateChainTarget,
+}
+
+impl ReductionResult for MiddleToTargetWitnessResult {
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
+    }
+}
+
+fn reduce_middle_to_target_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    any.downcast_ref::<AggregateChainMiddle>()
+        .expect("expected AggregateChainMiddle");
+    Box::new(MiddleToTargetWitnessResult {
+        target: AggregateChainTarget,
+    })
+}
+
 fn reduce_natural_variant_witness(
     any: &dyn Any,
 ) -> Box<dyn crate::rules::traits::DynReductionResult> {
@@ -235,6 +318,296 @@ fn build_two_node_graph(
 }
 
 #[test]
+fn measure_paths_executes_a_shared_prefix_once() {
+    SHARED_PREFIX_EXECUTIONS.store(0, Ordering::SeqCst);
+    let witness_edge = |reduce_fn| ReductionEdgeData {
+        size_contract: empty_size_contract(),
+        reduce_fn: Some(reduce_fn),
+        reduce_aggregate_fn: None,
+        turing: false,
+    };
+    let graph = ReductionGraph::from_test_edges(
+        &[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ],
+        &[
+            (
+                AggregateChainSource::NAME,
+                AggregateChainMiddle::NAME,
+                witness_edge(reduce_counted_source_to_middle_witness),
+            ),
+            (
+                AggregateChainMiddle::NAME,
+                AggregateChainTarget::NAME,
+                witness_edge(reduce_middle_to_target_witness),
+            ),
+        ],
+    );
+    let paths = vec![
+        named_path(&[AggregateChainSource::NAME, AggregateChainMiddle::NAME]),
+        named_path(&[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ]),
+    ];
+
+    let measured = graph
+        .measure_paths(&paths, &AggregateChainSource)
+        .expect("both paths are executable");
+
+    assert_eq!(measured.len(), 2);
+    assert_eq!(SHARED_PREFIX_EXECUTIONS.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn path_size_contract_errors_are_typed_and_isolated() {
+    let single = named_path(&["A"]);
+    let empty = ReductionPath { steps: vec![] };
+    let graph = ReductionGraph::from_test_edges(&["A", "B"], &[]);
+    assert!(graph.path_size_maps(&single).unwrap().is_empty());
+    assert!(graph.path_size_bounds(&single).unwrap().is_empty());
+    assert!(graph.compose_path_size_map(&single).unwrap().is_none());
+    assert!(graph.compose_path_size_bound(&single).unwrap().is_none());
+    assert!(matches!(
+        graph.compose_path_size_map(&empty),
+        Err(PathSizeMapError::EmptyPath)
+    ));
+    assert!(matches!(
+        graph.compose_path_size_bound(&empty),
+        Err(PathSizeBoundError::EmptyPath)
+    ));
+
+    let unknown = named_path(&["A", "Unknown"]);
+    assert!(matches!(
+        graph.path_size_maps(&unknown),
+        Err(PathSizeMapError::UnknownNode { .. })
+    ));
+    assert!(matches!(
+        graph.path_size_bounds(&unknown),
+        Err(PathSizeBoundError::UnknownNode { .. })
+    ));
+
+    let disconnected = named_path(&["A", "B"]);
+    assert!(matches!(
+        graph.path_size_maps(&disconnected),
+        Err(PathSizeMapError::MissingEdge { .. })
+    ));
+    assert!(matches!(
+        graph.path_size_bounds(&disconnected),
+        Err(PathSizeBoundError::MissingEdge { .. })
+    ));
+
+    let unavailable = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        ReductionEdgeData {
+            size_contract: empty_size_contract(),
+            reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
+            reduce_aggregate_fn: None,
+            turing: false,
+        },
+    );
+    assert!(matches!(
+        unavailable.path_size_maps(&disconnected),
+        Err(PathSizeMapError::Unavailable { .. })
+    ));
+    assert!(matches!(
+        unavailable.path_size_bounds(&disconnected),
+        Err(PathSizeBoundError::Unavailable { .. })
+    ));
+
+    let invalid_contract = Err(SizeContractError::EmptyUnavailableReason {
+        edge: "A -> B".into(),
+        field: "x".into(),
+    });
+    let invalid = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        ReductionEdgeData {
+            size_contract: invalid_contract,
+            reduce_fn: Some(|_| panic!("metadata inspection must not execute reductions")),
+            reduce_aggregate_fn: None,
+            turing: false,
+        },
+    );
+    assert!(matches!(
+        invalid.path_size_maps(&disconnected),
+        Err(PathSizeMapError::InvalidContract { .. })
+    ));
+    assert!(matches!(
+        invalid.path_size_bounds(&disconnected),
+        Err(PathSizeBoundError::InvalidContract { .. })
+    ));
+
+    let turing = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        symbolic_size_edge(&[("x", "n")], &[("x", "n")], true),
+    );
+    assert!(matches!(
+        turing.path_size_maps(&disconnected),
+        Err(PathSizeMapError::TuringEdge { .. })
+    ));
+    assert!(matches!(
+        turing.path_size_bounds(&disconnected),
+        Err(PathSizeBoundError::TuringEdge { .. })
+    ));
+}
+
+#[test]
+fn path_size_composition_and_evaluation_propagate_step_errors() {
+    let missing_input = build_two_node_graph(
+        "A",
+        BTreeMap::new(),
+        "B",
+        BTreeMap::new(),
+        symbolic_size_edge(&[("x", "n")], &[("x", "n")], false),
+    );
+    let direct = named_path(&["A", "B"]);
+    assert!(matches!(
+        missing_input.evaluate_path_size_map(&direct, &ProblemSize::default()),
+        Err(PathSizeMapError::Step { .. })
+    ));
+    assert!(matches!(
+        missing_input.evaluate_path_size_bound(&direct, &crate::size_bound::BoundVector::default()),
+        Err(PathSizeBoundError::Step { .. })
+    ));
+
+    let invalid_composition = ReductionGraph::from_test_edges(
+        &["A", "B", "C"],
+        &[
+            (
+                "A",
+                "B",
+                symbolic_size_edge(&[("x", "n")], &[("x", "n")], false),
+            ),
+            (
+                "B",
+                "C",
+                symbolic_size_edge(&[("z", "y")], &[("z", "y")], false),
+            ),
+        ],
+    );
+    let chained = named_path(&["A", "B", "C"]);
+    assert!(matches!(
+        invalid_composition.compose_path_size_map(&chained),
+        Err(PathSizeMapError::Step { .. })
+    ));
+    assert!(matches!(
+        invalid_composition.compose_path_size_bound(&chained),
+        Err(PathSizeBoundError::Step { .. })
+    ));
+
+    let valid = ReductionGraph::from_test_edges(
+        &["A", "B", "C"],
+        &[
+            (
+                "A",
+                "B",
+                symbolic_size_edge(&[("x", "n + 1")], &[("x", "n + 1")], false),
+            ),
+            (
+                "B",
+                "C",
+                symbolic_size_edge(&[("z", "2 * x")], &[("z", "2 * x")], false),
+            ),
+        ],
+    );
+    assert_eq!(
+        valid
+            .evaluate_path_size_map(&chained, &ProblemSize::new(vec![("n", 3)]))
+            .unwrap()
+            .get("z"),
+        Some(8)
+    );
+    assert_eq!(
+        valid
+            .evaluate_path_size_bound(&chained, &crate::size_bound::BoundVector::new([("n", 3u8)]),)
+            .unwrap()
+            .get("z"),
+        Some(&8u8.into())
+    );
+}
+
+#[test]
+fn symbolic_path_enumeration_retains_every_path_without_ranking() {
+    let graph = ReductionGraph::from_test_edges(
+        &["S", "A", "B", "C", "T"],
+        &[
+            (
+                "S",
+                "A",
+                symbolic_size_edge(&[("x", "2")], &[("x", "2")], false),
+            ),
+            (
+                "S",
+                "B",
+                symbolic_size_edge(&[("x", "1")], &[("x", "1")], false),
+            ),
+            (
+                "S",
+                "C",
+                symbolic_size_edge(&[("x", "3")], &[("x", "3")], false),
+            ),
+            (
+                "A",
+                "T",
+                symbolic_size_edge(&[("y", "x")], &[("y", "x")], false),
+            ),
+            (
+                "B",
+                "T",
+                symbolic_size_edge(&[("y", "x")], &[("y", "x")], false),
+            ),
+            (
+                "C",
+                "T",
+                symbolic_size_edge(&[("y", "x")], &[("y", "x")], false),
+            ),
+        ],
+    );
+    let variant = BTreeMap::new();
+    let paths = graph.find_all_paths_mode("S", &variant, "T", &variant, ReductionMode::Witness);
+    assert_eq!(paths.len(), 3);
+    let exact_values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            graph
+                .evaluate_path_size_map(path, &ProblemSize::default())
+                .unwrap()
+                .get("y")
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(exact_values, BTreeSet::from([1, 2, 3]));
+
+    let bound_values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            graph
+                .evaluate_path_size_bound(path, &crate::size_bound::BoundVector::default())
+                .unwrap()
+                .get("y")
+                .unwrap()
+                .clone()
+        })
+        .collect();
+    assert_eq!(
+        bound_values,
+        BTreeSet::from([1u8.into(), 2u8.into(), 3u8.into()])
+    );
+}
+
+#[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
@@ -280,7 +653,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         source_idx,
         middle_idx,
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
             turing: false,
@@ -290,7 +663,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         middle_idx,
         target_idx,
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_middle_to_target_aggregate),
             turing: false,
@@ -345,7 +718,7 @@ fn witness_path_search_rejects_aggregate_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
             turing: false,
@@ -382,7 +755,7 @@ fn aggregate_path_search_rejects_witness_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
             turing: false,
@@ -419,7 +792,7 @@ fn witness_executor_does_not_imply_aggregate_capability() {
         NaturalVariantProblem::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: Some(reduce_natural_variant_witness),
             reduce_aggregate_fn: None,
             turing: false,
@@ -455,7 +828,7 @@ fn reduce_aggregate_along_path_rejects_single_step_path() {
         AggregateChainMiddle::NAME,
         BTreeMap::new(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: None,
             reduce_aggregate_fn: Some(reduce_source_to_middle_aggregate),
             turing: false,
@@ -482,7 +855,7 @@ fn reduce_aggregate_returns_none_for_witness_only_edge() {
         AggregateChainMiddle::NAME,
         target_variant.clone(),
         ReductionEdgeData {
-            overhead: crate::rules::registry::ReductionOverhead::default(),
+            size_contract: empty_size_contract(),
             reduce_fn: Some(reduce_source_to_middle_witness),
             reduce_aggregate_fn: None,
             turing: false,
@@ -692,7 +1065,8 @@ fn test_to_json_string() {
     assert!(json_string.contains("\"edges\""));
     assert!(json_string.contains("MaximumIndependentSet"));
     assert!(json_string.contains("\"category\""));
-    assert!(json_string.contains("\"overhead\""));
+    assert!(json_string.contains("\"size_fields\""));
+    assert!(!json_string.contains("\"overhead\""));
 
     // The legacy "bidirectional" field must not be present
     assert!(
@@ -1360,15 +1734,17 @@ fn test_size_field_names_returns_own_fields() {
 }
 
 #[test]
-fn test_overhead_variables_are_consistent() {
-    // For each reduction, the input variables of the overhead should be
-    // a subset of the source problem's size fields (as derived from all
-    // reductions where it appears).
+fn size_contract_variables_are_registered_source_fields() {
     let graph = ReductionGraph::new();
 
     for entry in inventory::iter::<ReductionEntry> {
-        let overhead = entry.overhead();
-        let input_vars = overhead.input_variable_names();
+        let declarations = (entry.size_declarations_fn)();
+        let input_vars: std::collections::HashSet<_> = declarations
+            .exact
+            .iter()
+            .chain(&declarations.bounds)
+            .flat_map(|(_, expression)| expression.variables())
+            .collect();
         if input_vars.is_empty() {
             continue;
         }
@@ -1381,7 +1757,7 @@ fn test_overhead_variables_are_consistent() {
         for var in &input_vars {
             assert!(
                 source_fields.contains(*var),
-                "Reduction {} -> {}: overhead references variable '{}' \
+                "Reduction {} -> {}: size contract references variable '{}' \
                  which is not a known size field of {}. Known fields: {:?}",
                 entry.source_name,
                 entry.target_name,
@@ -1504,7 +1880,7 @@ fn test_compute_source_size_unknown_problem() {
 }
 
 #[test]
-fn test_evaluate_path_overhead() {
+fn test_evaluate_path_size_map() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
@@ -1517,56 +1893,10 @@ fn test_evaluate_path_overhead() {
         .expect("direct route");
 
     let final_size = graph
-        .evaluate_path_overhead(&path, &input_size)
-        .expect("should evaluate overhead");
+        .evaluate_path_size_map(&path, &input_size)
+        .expect("should evaluate exact size map");
 
     // MIS → MVC preserves num_vertices and num_edges
     assert_eq!(final_size.get("num_vertices"), Some(10));
     assert_eq!(final_size.get("num_edges"), Some(20));
-}
-
-#[test]
-fn test_evaluate_path_overhead_multistep() {
-    // MIS → SetPacking<One> → SetPacking<i32> → ILP<bool> (3 steps with size transformations)
-    let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, One>::variant());
-    let dst_variants = graph.variants_for("ILP");
-    let dst = dst_variants
-        .iter()
-        .find(|v| v.get("variable") == Some(&"bool".to_string()))
-        .expect("ILP<bool> variant should exist");
-    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
-
-    let path = graph
-        .find_all_paths_mode(
-            "MaximumIndependentSet",
-            &src,
-            "ILP",
-            dst,
-            ReductionMode::Witness,
-        )
-        .into_iter()
-        .find(|path| {
-            path.len() == 3
-                && path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "ILP"]
-        })
-        .expect("explicit set-packing route");
-
-    assert!(
-        path.len() >= 2,
-        "path should have at least 2 steps, got {}",
-        path.len()
-    );
-
-    let final_size = graph
-        .evaluate_path_overhead(&path, &input_size)
-        .expect("should evaluate overhead");
-
-    // MIS(V=10,E=20) → SetPacking(sets=V=10, universe=E=20) → ... → ILP(vars=10, constraints=20)
-    // The final ILP dimensions should reflect the composed overhead, not the input.
-    assert_eq!(final_size.get("num_vars"), Some(10));
-    assert_eq!(final_size.get("num_constraints"), Some(20));
-    // Original MIS fields should NOT appear in the final output
-    assert_eq!(final_size.get("num_vertices"), None);
-    assert_eq!(final_size.get("num_edges"), None);
 }

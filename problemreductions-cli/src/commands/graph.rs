@@ -1,15 +1,13 @@
-use crate::cli::SearchArgs;
+use crate::dispatch::{load_problem, read_input, ProblemJson};
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
-use crate::util::{add_search_metadata, append_search_warning};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{
-    ExcludedSymbolicPath, ReductionGraph, ReductionMode, ReductionPath, SymbolicParetoFront,
-    TraversalFlow,
-};
+use problemreductions::rules::{MeasuredPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
+use std::any::Any;
 use std::collections::BTreeMap;
+use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
@@ -153,7 +151,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     struct RuleRow {
         source: String,
         target: String,
-        overhead: String,
+        size_contract: String,
     }
 
     let mut rows_data: Vec<RuleRow> = Vec::new();
@@ -161,11 +159,11 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         for edge in graph.outgoing_reductions(name) {
             let source_slash = variant_to_full_slash(&edge.source_variant);
             let target_slash = variant_to_full_slash(&edge.target_variant);
-            let oh_parts = fmt_overhead_parts(&edge.overhead.output_size);
+            let size_parts = fmt_size_contract(&edge.size_contract);
             rows_data.push(RuleRow {
                 source: format!("{}{}", edge.source_name, source_slash),
                 target: format!("{}{}", edge.target_name, target_slash),
-                overhead: oh_parts.join(", "),
+                size_contract: size_parts.join(", "),
             });
         }
     }
@@ -175,12 +173,12 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Source", Align::Left, 6),
         ("Target", Align::Left, 6),
-        ("Overhead", Align::Left, 8),
+        ("Size change", Align::Left, 8),
     ];
 
     let rows: Vec<Vec<String>> = rows_data
         .iter()
-        .map(|r| vec![r.source.clone(), r.target.clone(), r.overhead.clone()])
+        .map(|r| vec![r.source.clone(), r.target.clone(), r.size_contract.clone()])
         .collect();
 
     let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
@@ -201,7 +199,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
             serde_json::json!({
                 "source": r.source,
                 "target": r.target,
-                "overhead": r.overhead,
+                "size_contract": r.size_contract,
             })
         }).collect::<Vec<_>>(),
     });
@@ -288,9 +286,9 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
-        let oh_parts = fmt_overhead_parts(&e.overhead.output_size);
-        if !oh_parts.is_empty() {
-            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        let size_parts = fmt_size_contract(&e.size_contract);
+        if !size_parts.is_empty() {
+            text.push_str(&format!("  ({})", size_parts.join(", ")));
         }
         text.push('\n');
     }
@@ -305,9 +303,9 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             fmt_node(&graph, e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
         ));
-        let oh_parts = fmt_overhead_parts(&e.overhead.output_size);
-        if !oh_parts.is_empty() {
-            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        let size_parts = fmt_size_contract(&e.size_contract);
+        if !size_parts.is_empty() {
+            text.push_str(&format!("  ({})", size_parts.join(", ")));
         }
         text.push('\n');
     }
@@ -316,7 +314,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         serde_json::json!({
             "source": {"name": e.source_name, "variant": e.source_variant},
             "target": {"name": e.target_name, "variant": e.target_variant},
-            "overhead": overhead_to_json(&e.overhead.output_size),
+            "size_contract": size_contract_to_json(&e.size_contract),
         })
     };
 
@@ -353,26 +351,113 @@ fn big_o_of(expr: &Expr) -> String {
     Growth::from_expr(expr).to_big_o()
 }
 
-/// Format overhead fields as `field = O(...)` strings.
-fn fmt_overhead_parts(output_size: &[(&'static str, Expr)]) -> Vec<String> {
-    output_size
-        .iter()
-        .map(|(field, poly)| format!("{field} = {}", big_o_of(poly)))
+enum StrongestContractRelation<'a> {
+    Exact(&'a Expr),
+    UpperBound(&'a Expr),
+    Unavailable(&'a str),
+}
+
+fn strongest_contract_fields(
+    contract: &problemreductions::rules::ReductionSizeContract,
+) -> BTreeMap<&str, StrongestContractRelation<'_>> {
+    let mut fields = BTreeMap::new();
+    if let Some(exact) = contract.exact() {
+        for (field, expression) in exact.expressions() {
+            fields.insert(field, StrongestContractRelation::Exact(expression));
+        }
+    }
+    if let Some(bounds) = contract.bounds() {
+        for (field, expression) in bounds.expressions() {
+            fields
+                .entry(field)
+                .or_insert(StrongestContractRelation::UpperBound(expression));
+        }
+    }
+    for unavailable in contract.unavailable() {
+        fields
+            .entry(unavailable.field)
+            .or_insert(StrongestContractRelation::Unavailable(unavailable.reason));
+    }
+    fields
+}
+
+fn fmt_size_contract(
+    contract: &Result<
+        problemreductions::rules::ReductionSizeContract,
+        problemreductions::rules::SizeContractError,
+    >,
+) -> Vec<String> {
+    let contract = match contract {
+        Ok(contract) => contract,
+        Err(error) => return vec![format!("invalid: {error}")],
+    };
+    strongest_contract_fields(contract)
+        .into_iter()
+        .map(|(field, relation)| match relation {
+            StrongestContractRelation::Exact(expression) => {
+                format!("{field} = {expression}")
+            }
+            StrongestContractRelation::UpperBound(expression) => {
+                format!("{field} <= {expression}")
+            }
+            StrongestContractRelation::Unavailable(reason) => {
+                format!("{field} unavailable: {reason}")
+            }
+        })
         .collect()
 }
 
-/// Convert overhead fields to JSON entries with Big O notation.
-fn overhead_to_json(output_size: &[(&'static str, Expr)]) -> Vec<serde_json::Value> {
-    output_size
-        .iter()
-        .map(|(field, poly)| {
-            serde_json::json!({
-                "field": field,
-                "formula": poly.to_string(),
-                "big_o": big_o_of(poly),
-            })
-        })
-        .collect()
+fn strongest_size_contract_to_json(
+    contract: &Result<
+        problemreductions::rules::ReductionSizeContract,
+        problemreductions::rules::SizeContractError,
+    >,
+) -> serde_json::Value {
+    match contract {
+        Ok(contract) => serde_json::Value::Array(
+            strongest_contract_fields(contract)
+                .into_iter()
+                .map(|(field, relation)| match relation {
+                    StrongestContractRelation::Exact(expression) => serde_json::json!({
+                        "field": field,
+                        "relation": "exact",
+                        "formula": expression.to_string(),
+                    }),
+                    StrongestContractRelation::UpperBound(expression) => serde_json::json!({
+                        "field": field,
+                        "relation": "upper_bound",
+                        "formula": expression.to_string(),
+                    }),
+                    StrongestContractRelation::Unavailable(reason) => serde_json::json!({
+                        "field": field,
+                        "relation": "unavailable",
+                        "reason": reason,
+                    }),
+                })
+                .collect(),
+        ),
+        Err(error) => serde_json::json!({"error": error.to_string()}),
+    }
+}
+
+pub(crate) fn size_contract_to_json(
+    contract: &Result<
+        problemreductions::rules::ReductionSizeContract,
+        problemreductions::rules::SizeContractError,
+    >,
+) -> serde_json::Value {
+    match contract {
+        Ok(contract) => serde_json::json!({
+            "exact": contract.exact().map(|map| map.expressions().map(|(field, expression)| {
+                serde_json::json!({"field": field, "formula": expression.to_string()})
+            }).collect::<Vec<_>>()).unwrap_or_default(),
+            "bounds": contract.bounds().map(|bounds| bounds.expressions().map(|(field, expression)| {
+                serde_json::json!({"field": field, "formula": expression.to_string(), "big_o": big_o_of(expression)})
+            }).collect::<Vec<_>>()).unwrap_or_default(),
+            "unavailable": contract.unavailable(),
+        }),
+        Err(error) => serde_json::json!({"error": error.to_string()}),
+    }
 }
 
 /// Convert a variant BTreeMap to slash notation showing ALL values.
@@ -411,6 +496,126 @@ fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, Stri
     crate::output::fmt_problem_name(&format!("{name}{slash}"))
 }
 
+struct ComposedPathSize {
+    exact: Result<
+        Option<problemreductions::size_map::SizeMap>,
+        problemreductions::rules::PathSizeMapError,
+    >,
+    bound: Result<
+        Option<problemreductions::size_bound::SizeBound>,
+        problemreductions::rules::PathSizeBoundError,
+    >,
+}
+
+enum PreparedSizeRelation {
+    Exact(String),
+    UpperBound(String),
+    Unavailable(String),
+}
+
+struct PreparedSizeField {
+    field: String,
+    relation: PreparedSizeRelation,
+}
+
+fn terminal_size_contract(
+    graph: &ReductionGraph,
+    path: &ReductionPath,
+) -> Option<problemreductions::rules::ReductionSizeContract> {
+    path.steps
+        .windows(2)
+        .last()
+        .and_then(|pair| {
+            graph.find_entry(
+                &pair[0].name,
+                &pair[0].variant,
+                &pair[1].name,
+                &pair[1].variant,
+            )
+        })
+        .and_then(|entry| entry.size_contract.ok())
+}
+
+fn composed_path_size(graph: &ReductionGraph, path: &ReductionPath) -> ComposedPathSize {
+    ComposedPathSize {
+        exact: graph.compose_path_size_map(path),
+        bound: graph.compose_path_size_bound(path),
+    }
+}
+
+fn prepare_overall_size_fields(
+    graph: &ReductionGraph,
+    path: &ReductionPath,
+) -> Vec<PreparedSizeField> {
+    let Some(target) = path.target() else {
+        return Vec::new();
+    };
+    let composed = composed_path_size(graph, path);
+    let terminal_contract = terminal_size_contract(graph, path);
+
+    graph
+        .size_field_names(target)
+        .into_iter()
+        .map(|field| {
+            let exact = composed
+                .exact
+                .as_ref()
+                .ok()
+                .and_then(|map| map.as_ref())
+                .and_then(|map| map.get(&field));
+            let bound = composed
+                .bound
+                .as_ref()
+                .ok()
+                .and_then(|map| map.as_ref())
+                .and_then(|map| map.get(&field));
+            let relation = if let Some(expression) = exact {
+                PreparedSizeRelation::Exact(expression.to_string())
+            } else if let Some(expression) = bound {
+                PreparedSizeRelation::UpperBound(expression.to_string())
+            } else if let Some(unavailable) = terminal_contract.as_ref().and_then(|contract| {
+                contract
+                    .unavailable()
+                    .iter()
+                    .find(|unavailable| unavailable.field == field)
+            }) {
+                PreparedSizeRelation::Unavailable(unavailable.reason.to_string())
+            } else if terminal_contract
+                .as_ref()
+                .and_then(|contract| contract.exact())
+                .is_some_and(|map| map.get(&field).is_some())
+            {
+                PreparedSizeRelation::Unavailable(match &composed.exact {
+                    Err(error) => error.to_string(),
+                    Ok(_) => format!(
+                        "no composed exact size relation is available for target field {field}"
+                    ),
+                })
+            } else if terminal_contract
+                .as_ref()
+                .and_then(|contract| contract.bounds())
+                .is_some_and(|map| map.get(&field).is_some())
+            {
+                PreparedSizeRelation::Unavailable(match &composed.bound {
+                    Err(error) => error.to_string(),
+                    Ok(_) => format!(
+                        "no composed certified size relation is available for target field {field}"
+                    ),
+                })
+            } else {
+                let reason = match &composed.exact {
+                    Err(error) => error.to_string(),
+                    Ok(_) => {
+                        format!("no symbolic size relation is registered for target field {field}")
+                    }
+                };
+                PreparedSizeRelation::Unavailable(reason)
+            };
+            PreparedSizeField { field, relation }
+        })
+        .collect()
+}
+
 fn format_path_text(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
@@ -430,7 +635,6 @@ fn format_path_text(
     };
     let mut text = format!("Path ({} steps): {}\n", reduction_path.len(), path_summary);
 
-    let overheads = graph.path_overheads(reduction_path);
     let steps = &reduction_path.steps;
     for i in 0..steps.len().saturating_sub(1) {
         let from = &steps[i];
@@ -442,23 +646,29 @@ fn format_path_text(
             crate::output::fmt_outgoing("→"),
             fmt_node(graph, &to.name, &to.variant),
         ));
-        let oh = &overheads[i];
-        for (field, poly) in &oh.output_size {
-            text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+        match graph.find_entry(&from.name, &from.variant, &to.name, &to.variant) {
+            Some(entry) => {
+                for part in fmt_size_contract(&entry.size_contract) {
+                    text.push_str(&format!("    {part}\n"));
+                }
+            }
+            None => text.push_str("    unregistered edge\n"),
         }
     }
 
-    // Show composed overall overhead for multi-step paths
     if reduction_path.len() > 1 {
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
-        match graph.compose_path_overhead(reduction_path) {
-            Ok(composed) => {
-                for (field, poly) in &composed.output_size {
-                    text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
+        for field in prepare_overall_size_fields(graph, reduction_path) {
+            match field.relation {
+                PreparedSizeRelation::Exact(expression) => {
+                    text.push_str(&format!("    {} = {expression}\n", field.field));
                 }
-            }
-            Err(error) => {
-                text.push_str(&format!("    unavailable: {error}\n"));
+                PreparedSizeRelation::UpperBound(expression) => {
+                    text.push_str(&format!("    {} <= {expression}\n", field.field));
+                }
+                PreparedSizeRelation::Unavailable(reason) => {
+                    text.push_str(&format!("    {} unavailable: {reason}\n", field.field));
+                }
             }
         }
     }
@@ -470,238 +680,63 @@ pub(crate) fn format_path_json(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> serde_json::Value {
-    let overheads = graph.path_overheads(reduction_path);
     let steps_json: Vec<serde_json::Value> = reduction_path
         .steps
         .windows(2)
-        .zip(overheads.iter())
         .enumerate()
-        .map(|(i, (pair, oh))| {
+        .map(|(i, pair)| {
+            let size_contract = graph
+                .find_entry(
+                    &pair[0].name,
+                    &pair[0].variant,
+                    &pair[1].name,
+                    &pair[1].variant,
+                )
+                .map(|entry| strongest_size_contract_to_json(&entry.size_contract))
+                .unwrap_or_else(|| serde_json::json!({"error": "unregistered edge"}));
             serde_json::json!({
                 "from": {"name": pair[0].name, "variant": pair[0].variant},
                 "to": {"name": pair[1].name, "variant": pair[1].variant},
                 "step": i + 1,
-                "overhead": overhead_to_json(&oh.output_size),
+                "size_contract": size_contract,
             })
         })
         .collect();
 
-    let (overall, overall_error) = match graph.compose_path_overhead(reduction_path) {
-        Ok(composed) => (
-            Some(overhead_to_json(&composed.output_size)),
-            None::<String>,
-        ),
-        Err(error) => (None, Some(error.to_string())),
-    };
-
+    let fields = prepare_overall_size_fields(graph, reduction_path)
+        .into_iter()
+        .map(|field| match field.relation {
+            PreparedSizeRelation::Exact(expression) => serde_json::json!({
+                "field": field.field,
+                "relation": "exact",
+                "formula": expression,
+            }),
+            PreparedSizeRelation::UpperBound(expression) => serde_json::json!({
+                "field": field.field,
+                "relation": "upper_bound",
+                "formula": expression,
+            }),
+            PreparedSizeRelation::Unavailable(reason) => serde_json::json!({
+                "field": field.field,
+                "relation": "unavailable",
+                "reason": reason,
+            }),
+        })
+        .collect::<Vec<_>>();
+    let mut overall_object = serde_json::Map::new();
+    overall_object.insert("fields".to_string(), serde_json::json!(fields));
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
-        "overall_overhead": overall,
-        "overall_overhead_error": overall_error,
+        "overall_size": overall_object,
     })
-}
-
-/// Node-arrow summary (`A → B → C`) for a reduction path, deduplicating consecutive
-/// same-name variant-cast steps.
-fn path_arrow_summary(graph: &ReductionGraph, reduction_path: &ReductionPath) -> String {
-    let mut parts = Vec::new();
-    let mut prev_name = "";
-    for step in &reduction_path.steps {
-        if step.name != prev_name {
-            parts.push(fmt_node(graph, &step.name, &step.variant));
-            prev_name = &step.name;
-        }
-    }
-    parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
-}
-
-/// Text rendering of the asymptotic Pareto front: each path's step chain annotated
-/// with a normalized `O(...)` per target size field (in the source's variables).
-fn format_front_text(
-    graph: &ReductionGraph,
-    src_name: &str,
-    dst_name: &str,
-    result: &SymbolicParetoFront,
-) -> String {
-    let front = &result.front;
-    let mut text = format!(
-        "Asymptotic Pareto front: {} path{} from {} to {}\n\
-         (each path shows its composed O(...) per {} size field)\n",
-        front.len(),
-        if front.len() == 1 { "" } else { "s" },
-        src_name,
-        dst_name,
-        dst_name,
-    );
-    for (idx, (reduction_path, label)) in front.iter().enumerate() {
-        text.push_str(&format!(
-            "\n--- {} ({} steps) ---\n{}\n",
-            crate::output::fmt_section(&format!("Path {}", idx + 1)),
-            reduction_path.len(),
-            path_arrow_summary(graph, reduction_path),
-        ));
-        for (field, growth) in label.fields() {
-            text.push_str(&format!("  {field} = {}\n", growth.to_big_o()));
-        }
-    }
-    text.push_str(&format!(
-        "\nAnalysis coverage: {} analyzable, {} excluded\n",
-        result.coverage.analyzed_paths, result.coverage.excluded_paths
-    ));
-    for excluded in &result.excluded {
-        text.push_str(&format!(
-            "  Excluded {}: {}\n",
-            path_arrow_summary(graph, &excluded.path),
-            excluded.failure,
-        ));
-    }
-    text
-}
-
-/// JSON rendering of the asymptotic Pareto front. Growth is emitted both as the
-/// structured `Growth` serialization and as a rendered `O(...)` string.
-///
-/// Every front element carries its complete executable route. The envelope itself
-/// deliberately has no selected route; callers must explicitly choose a front item.
-pub(crate) fn format_front_json(
-    graph: &ReductionGraph,
-    src_name: &str,
-    dst_name: &str,
-    result: &SymbolicParetoFront,
-) -> serde_json::Value {
-    let paths: Vec<serde_json::Value> = result
-        .front
-        .iter()
-        .map(|(reduction_path, label)| {
-            let big_o: BTreeMap<&str, String> = label
-                .fields()
-                .iter()
-                .map(|(field, growth)| (field.as_str(), growth.to_big_o()))
-                .collect();
-            let route = format_path_json(graph, reduction_path);
-            serde_json::json!({
-                "steps": route["steps"],
-                "path": route["path"],
-                "overall_overhead": route["overall_overhead"],
-                "overall_overhead_error": route["overall_overhead_error"],
-                "growth": label.fields(),
-                "big_o": big_o,
-            })
-        })
-        .collect();
-    let excluded: Vec<_> = result
-        .excluded
-        .iter()
-        .map(|excluded| format_excluded_json(graph, excluded))
-        .collect();
-    serde_json::json!({
-        "source": src_name,
-        "target": dst_name,
-        "mode": "asymptotic",
-        "front": paths,
-        "analysis_coverage": result.coverage,
-        "excluded_paths": excluded,
-    })
-}
-
-fn format_excluded_json(
-    graph: &ReductionGraph,
-    excluded: &ExcludedSymbolicPath,
-) -> serde_json::Value {
-    let route = format_path_json(graph, &excluded.path);
-    serde_json::json!({
-        "steps": route["steps"],
-        "path": route["path"],
-        "analysis_failure": excluded.failure,
-    })
-}
-
-/// Asymptotic Pareto-front mode of `pred path`: print the
-/// front of asymptotically optimal reduction paths, each annotated with its composed
-/// Big-O per target size field. See design doc M3/F3a.
-fn path_front(
-    graph: &ReductionGraph,
-    src_name: &str,
-    src_variant: &BTreeMap<String, String>,
-    dst_name: &str,
-    dst_variant: &BTreeMap<String, String>,
-    search: &SearchArgs,
-    out: &OutputConfig,
-) -> Result<()> {
-    let outcome = graph.asymptotic_front(
-        src_name,
-        src_variant,
-        dst_name,
-        dst_variant,
-        ReductionMode::Witness,
-        search.mode()?,
-    );
-
-    if !outcome.completeness.is_exact() && outcome.value.is_err() {
-        anyhow::bail!(
-            "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
-            outcome.completeness.reasons()
-        );
-    }
-
-    let result = match outcome.value {
-        Ok(result) => result,
-        Err(error) => {
-            let excluded = error
-                .excluded
-                .iter()
-                .map(|item| {
-                    format!(
-                        "{}: {}",
-                        path_arrow_summary(graph, &item.path),
-                        item.failure,
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            anyhow::bail!(
-                "NoAnalyzablePath: no analyzable path from {src_name} to {dst_name}\n{excluded}"
-            )
-        }
-    };
-    if result.front.is_empty() {
-        if !outcome.completeness.is_exact() {
-            anyhow::bail!(
-                "Bounded search was incomplete ({:?}); rerun with --search-mode exact or raise the limits",
-                outcome.completeness.reasons()
-            );
-        }
-        let variant_hint = variant_hint_for(graph, dst_name);
-        anyhow::bail!(
-            "No reduction path from {} to {}\n\
-             {variant_hint}\n\
-             Usage: pred path <SOURCE> <TARGET>\n\
-             Example: pred path MIS QUBO\n\n\
-             Run `pred show {}` and `pred show {}` to check available reductions.",
-            src_name,
-            dst_name,
-            src_name,
-            dst_name,
-        );
-    }
-
-    let mut text = format_front_text(graph, src_name, dst_name, &result);
-    append_search_warning(&mut text, &outcome.completeness);
-    let json = add_search_metadata(
-        format_front_json(graph, src_name, dst_name, &result),
-        &outcome.completeness,
-        &outcome.stats,
-    )?;
-    out.emit_with_default_name("", &text, &json)
 }
 
 pub fn path(
     source: &str,
     target: &str,
-    all: bool,
     max_paths: usize,
-    search: &SearchArgs,
+    instance: Option<&Path>,
     out: &OutputConfig,
 ) -> Result<()> {
     let src_spec = parse_problem_spec(source)?;
@@ -727,15 +762,38 @@ pub fn path(
     // Resolve source and target to exact variant nodes
     let src_ref = resolve_problem_ref(source, &graph)?;
     let dst_ref = resolve_problem_ref(target, &graph)?;
-    if all && search.has_nondefault_policy() {
-        anyhow::bail!(
-            "--search-mode and search limits apply to Pareto-front search, not --all; use --max-paths to bound all-path enumeration"
-        );
-    }
-    let _ = search.mode()?;
-
-    if all {
-        return path_all(
+    if let Some(instance) = instance {
+        let content = read_input(instance)?;
+        let problem_json: ProblemJson = serde_json::from_str(&content).map_err(|error| {
+            anyhow::anyhow!("Invalid problem JSON in {}: {error}", instance.display())
+        })?;
+        let loaded = load_problem(
+            &problem_json.problem_type,
+            &problem_json.variant,
+            problem_json.data,
+        )?;
+        if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
+            anyhow::bail!(
+                "Source argument resolves to {}{} but {} contains {}{}",
+                src_ref.name,
+                variant_to_full_slash(&src_ref.variant),
+                instance.display(),
+                loaded.problem_name(),
+                variant_to_full_slash(&loaded.variant_map()),
+            );
+        }
+        path_concrete(
+            &graph,
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            max_paths,
+            loaded.as_any(),
+            out,
+        )
+    } else {
+        path_symbolic(
             &graph,
             &src_ref.name,
             &src_ref.variant,
@@ -743,21 +801,11 @@ pub fn path(
             &dst_ref.variant,
             max_paths,
             out,
-        );
+        )
     }
-
-    path_front(
-        &graph,
-        &src_ref.name,
-        &src_ref.variant,
-        &dst_ref.name,
-        &dst_ref.variant,
-        search,
-        out,
-    )
 }
 
-fn path_all(
+fn path_symbolic(
     graph: &ReductionGraph,
     src_name: &str,
     src_variant: &BTreeMap<String, String>,
@@ -766,19 +814,22 @@ fn path_all(
     max_paths: usize,
     out: &OutputConfig,
 ) -> Result<()> {
-    // Fetch one extra to detect truncation. The library already returns paths in a
-    // deterministic length-first, then name+variant-signature order (see
-    // `find_paths_up_to_mode_bounded`), so no CLI-side sort is needed.
-    let mut all_paths =
-        graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
+    let batch = find_path_batch(
+        graph,
+        src_name,
+        src_variant,
+        dst_name,
+        dst_variant,
+        max_paths,
+    );
 
-    if all_paths.is_empty() {
+    if batch.paths.is_empty() && !batch.truncated {
         let variant_hint = variant_hint_for(graph, dst_name);
         anyhow::bail!(
             "No reduction path from {} to {}\n\
              {variant_hint}\n\
-             Usage: pred path <SOURCE> <TARGET> --all\n\
-             Example: pred path MIS QUBO --all\n\n\
+             Usage: pred path <SOURCE> <TARGET>\n\
+             Example: pred path MIS QUBO\n\n\
              Run `pred show {}` and `pred show {}` to check available reductions.",
             src_name,
             dst_name,
@@ -787,81 +838,101 @@ fn path_all(
         );
     }
 
-    let truncated = all_paths.len() > max_paths;
-    if truncated {
-        all_paths.truncate(max_paths);
-    }
-
-    let returned = all_paths.len();
-
-    let paths_json: Vec<serde_json::Value> = all_paths
-        .iter()
-        .map(|p| format_path_json(graph, p))
-        .collect();
-
-    let json = serde_json::json!({
-        "paths": paths_json,
-        "truncated": truncated,
-        "returned": returned,
-        "max_paths": max_paths,
-    });
-
-    if let Some(ref dir) = out.output {
-        // -o specifies the output folder; save each path as a separate JSON file
-        std::fs::create_dir_all(dir)
-            .with_context(|| format!("Failed to create directory {}", dir.display()))?;
-
-        for (idx, p) in all_paths.iter().enumerate() {
-            let path_json = format_path_json(graph, p);
-            let file = dir.join(format!("path_{}.json", idx + 1));
-            let content =
-                serde_json::to_string_pretty(&path_json).context("Failed to serialize JSON")?;
-            std::fs::write(&file, &content)
-                .with_context(|| format!("Failed to write {}", file.display()))?;
-        }
-
-        // Write manifest
-        let manifest = serde_json::json!({
-            "paths": returned,
-            "truncated": truncated,
-            "max_paths": max_paths,
-        });
-        let manifest_file = dir.join("manifest.json");
-        let manifest_content =
-            serde_json::to_string_pretty(&manifest).context("Failed to serialize manifest")?;
-        std::fs::write(&manifest_file, &manifest_content)
-            .with_context(|| format!("Failed to write {}", manifest_file.display()))?;
-
-        out.info(&format!(
-            "Wrote {} path files to {}{}",
-            returned,
-            dir.display(),
-            if truncated {
-                " (truncated; use --max-paths to increase)".to_string()
-            } else {
-                String::new()
-            }
-        ));
-    } else if out.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?
-        );
+    let json_output = out.output.is_some() || out.json;
+    let json = if json_output {
+        path_batch_json(graph, &batch, None)?
     } else {
-        // Build the (potentially expensive) text rendering only for text output;
-        // JSON and file modes above must never construct it.
-        let text =
-            render_all_paths_text(graph, &all_paths, src_name, dst_name, truncated, max_paths);
-        println!("{text}");
-    }
-
-    Ok(())
+        serde_json::Value::Null
+    };
+    let text = if json_output {
+        String::new()
+    } else {
+        render_paths_text(
+            graph,
+            &batch.paths,
+            src_name,
+            dst_name,
+            batch.truncated,
+            batch.max_paths,
+        )
+    };
+    out.emit_with_default_name("", &text, &json)
 }
 
-/// Render the `--all` text listing (header + per-path chains with normalized
-/// Big-O overheads). Extracted so it is built only for text output and can be
+pub(crate) struct PathBatch {
+    pub(crate) paths: Vec<ReductionPath>,
+    pub(crate) truncated: bool,
+    pub(crate) max_paths: usize,
+}
+
+pub(crate) fn find_path_batch(
+    graph: &ReductionGraph,
+    src_name: &str,
+    src_variant: &BTreeMap<String, String>,
+    dst_name: &str,
+    dst_variant: &BTreeMap<String, String>,
+    max_paths: usize,
+) -> PathBatch {
+    // Fetch one extra to detect truncation. The library already returns paths in a
+    // deterministic length-first, then name+variant-signature order (see
+    // `find_paths_up_to_mode_bounded`), so no frontend-side sort is needed.
+    let mut paths =
+        graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
+    let truncated = paths.len() > max_paths;
+    if truncated {
+        paths.truncate(max_paths);
+    }
+    PathBatch {
+        paths,
+        truncated,
+        max_paths,
+    }
+}
+
+pub(crate) fn path_batch_json(
+    graph: &ReductionGraph,
+    batch: &PathBatch,
+    measured: Option<&[MeasuredPath]>,
+) -> Result<serde_json::Value> {
+    let (analysis, paths) = match measured {
+        Some(measured) => {
+            if measured.len() != batch.paths.len() {
+                anyhow::bail!(
+                    "measured path count {} does not match enumerated path count {}",
+                    measured.len(),
+                    batch.paths.len()
+                );
+            }
+            (
+                "concrete",
+                measured
+                    .iter()
+                    .map(format_concrete_path_json)
+                    .collect::<Vec<_>>(),
+            )
+        }
+        None => (
+            "symbolic",
+            batch
+                .paths
+                .iter()
+                .map(|path| format_path_json(graph, path))
+                .collect::<Vec<_>>(),
+        ),
+    };
+    Ok(serde_json::json!({
+        "analysis": analysis,
+        "paths": paths,
+        "truncated": batch.truncated,
+        "returned": batch.paths.len(),
+        "max_paths": batch.max_paths,
+    }))
+}
+
+/// Render the symbolic path listing (header + per-path chains with normalized
+/// size contracts). Extracted so it is built only for text output and can be
 /// exercised in-process by regression tests without spawning the binary.
-fn render_all_paths_text(
+fn render_paths_text(
     graph: &ReductionGraph,
     paths: &[ReductionPath],
     src_name: &str,
@@ -885,6 +956,114 @@ fn render_all_paths_text(
         ));
     }
     text
+}
+
+fn measured_size_json(size: &problemreductions::ProblemSize) -> serde_json::Value {
+    serde_json::json!({
+        "fields": size.components.iter().map(|(field, value)| {
+            serde_json::json!({"field": field, "value": value})
+        }).collect::<Vec<_>>()
+    })
+}
+
+pub(crate) fn format_concrete_path_json(measured: &MeasuredPath) -> serde_json::Value {
+    let sizes = measured.measured_target_sizes();
+    let steps = measured
+        .path
+        .steps
+        .windows(2)
+        .zip(&sizes)
+        .enumerate()
+        .map(|(index, (pair, size))| {
+            serde_json::json!({
+                "from": {"name": pair[0].name, "variant": pair[0].variant},
+                "to": {"name": pair[1].name, "variant": pair[1].variant},
+                "step": index + 1,
+                "actual_target_size": measured_size_json(size),
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "steps": measured.path.len(),
+        "path": steps,
+        "actual_target_size": measured_size_json(sizes.last().expect("path has at least one edge")),
+    })
+}
+
+fn format_concrete_path_text(graph: &ReductionGraph, measured: &MeasuredPath) -> String {
+    let sizes = measured.measured_target_sizes();
+    let summary = measured
+        .path
+        .steps
+        .iter()
+        .map(|step| fmt_node(graph, &step.name, &step.variant))
+        .collect::<Vec<_>>()
+        .join(&format!(" {} ", crate::output::fmt_outgoing("→")));
+    let mut text = format!("Path ({} steps): {summary}\n", measured.path.len());
+    for (index, (pair, size)) in measured.path.steps.windows(2).zip(&sizes).enumerate() {
+        text.push_str(&format!(
+            "\n  {}: {} {} {}\n",
+            crate::output::fmt_section(&format!("Step {}", index + 1)),
+            fmt_node(graph, &pair[0].name, &pair[0].variant),
+            crate::output::fmt_outgoing("→"),
+            fmt_node(graph, &pair[1].name, &pair[1].variant),
+        ));
+        for (field, value) in &size.components {
+            text.push_str(&format!("    {field} = {value}\n"));
+        }
+    }
+    text
+}
+
+#[allow(clippy::too_many_arguments)]
+fn path_concrete(
+    graph: &ReductionGraph,
+    src_name: &str,
+    src_variant: &BTreeMap<String, String>,
+    dst_name: &str,
+    dst_variant: &BTreeMap<String, String>,
+    max_paths: usize,
+    source: &dyn Any,
+    out: &OutputConfig,
+) -> Result<()> {
+    let batch = find_path_batch(
+        graph,
+        src_name,
+        src_variant,
+        dst_name,
+        dst_variant,
+        max_paths,
+    );
+    if batch.paths.is_empty() && !batch.truncated {
+        anyhow::bail!("No reduction path from {src_name} to {dst_name}");
+    }
+    let measured = graph.measure_paths(&batch.paths, source)?;
+    let json_output = out.output.is_some() || out.json;
+    let json = if json_output {
+        path_batch_json(graph, &batch, Some(&measured))?
+    } else {
+        serde_json::Value::Null
+    };
+    let text = if json_output {
+        String::new()
+    } else {
+        let mut text = format!(
+            "Executed {} paths from {src_name} to {dst_name}:\n",
+            batch.paths.len()
+        );
+        for (index, path) in measured.iter().enumerate() {
+            text.push_str(&format!("\n--- Path {} ---\n", index + 1));
+            text.push_str(&format_concrete_path_text(graph, path));
+        }
+        if batch.truncated {
+            text.push_str(&format!(
+                "\n(showing {} of more paths; use --max-paths to increase)\n",
+                batch.max_paths
+            ));
+        }
+        text
+    };
+    out.emit_with_default_name("", &text, &json)
 }
 
 pub fn export(out: &OutputConfig) -> Result<()> {
@@ -1018,152 +1197,5 @@ mod tests {
         push_alias_part(&mut parts, "3sat");
 
         assert_eq!(parts, vec!["KSAT", "3SAT", "2SAT"]);
-    }
-}
-
-/// Regression tests for `pred path --all` overhead rendering.
-/// All tests run **in-process** against the CLI's own private rendering helpers —
-/// no `pred` binary is spawned.
-///
-/// Note on line lengths: composed overheads of long paths render to *genuine*
-/// multivariate polynomial normal forms (an antichain of pairwise-incomparable
-/// monomials). These are the correct, tight Big-O answers, not raw fallbacks — a
-/// degree-8 trivariate form like `O(a^8 + a^6 b^2 + … + c^8)` legitimately runs
-/// several hundred chars. Antichains are retained exactly; there is no hidden
-/// term cap or componentwise widening.
-#[cfg(test)]
-mod path_overhead_rendering_tests {
-    use super::big_o_of;
-    use problemreductions::big_o_normal_form;
-    use problemreductions::rules::{PathOverheadCompositionError, ReductionGraph, ReductionPath};
-
-    /// A deeply composed path as a node-name chain (KSat → QUBO through
-    /// QuadraticAssignment/ILP). Used to reconstruct the path from the live graph
-    /// by name so the tests track inventory changes rather than hard-coding the
-    /// composed expression.
-    const NAMED_EXPLODING_PATH: [&str; 8] = [
-        "KSatisfiability",
-        "Satisfiability",
-        "KSatisfiability",
-        "DecisionMinimumVertexCover",
-        "HamiltonianCircuit",
-        "QuadraticAssignment",
-        "ILP",
-        "QUBO",
-    ];
-
-    /// Reconstruct the deeply composed path deterministically. Uses the *complete*
-    /// [`ReductionGraph::find_all_paths`] enumeration (order-independent, unlike
-    /// `find_paths_up_to`'s `take(limit)`) and picks, among all paths whose
-    /// name-chain equals [`NAMED_EXPLODING_PATH`], the one with the
-    /// lexicographically smallest full (variant-annotated) rendering. This makes
-    /// the selection stable across build/inventory/link-order differences.
-    fn named_exploding_path(graph: &ReductionGraph) -> ReductionPath {
-        let src = crate::problem_name::resolve_problem_ref("KSat", graph).unwrap();
-        let dst = crate::problem_name::resolve_problem_ref("QUBO", graph).unwrap();
-        let all = graph.find_all_paths(&src.name, &src.variant, &dst.name, &dst.variant);
-        all.into_iter()
-            .filter(|p| p.type_names() == NAMED_EXPLODING_PATH)
-            .min_by_key(|p| p.to_string())
-            .expect("the KSat->QUBO deeply composed path must exist in the graph")
-    }
-
-    /// Reconstruct the deeply composed KSat→QUBO path *by name* from the live
-    /// graph and assert every composed size field yields a **genuine normal
-    /// form**.
-    #[test]
-    fn deep_path_overhead_normalizes() {
-        let graph = ReductionGraph::new();
-        let path = named_exploding_path(&graph);
-
-        let composed = graph.compose_path_overhead(&path).unwrap();
-        assert!(
-            !composed.output_size.is_empty(),
-            "composed overhead has no size fields"
-        );
-
-        let mut saw_real_reduction = false;
-        for (field, expr) in &composed.output_size {
-            // Genuine normal form: not the removed `Err(_) => O(<raw expr>)` path.
-            assert!(
-                big_o_normal_form(expr).is_ok(),
-                "field {field} did not normalize to a genuine Big-O form: {expr}"
-            );
-            let rendered = big_o_of(expr);
-            assert!(
-                !rendered.contains("O(?)"),
-                "field {field} rendered as unbounded O(?): expr = {expr}"
-            );
-            // The rendered normal form is never *longer* than the raw composed
-            // expression: proof that normalization (not passthrough) happened.
-            let raw_len = expr.to_string().len();
-            assert!(
-                rendered.len() <= raw_len + "O()".len(),
-                "field {field}: rendered {} chars exceeds raw {raw_len}; \
-                 looks like a raw-expression fallback",
-                rendered.len()
-            );
-            if raw_len + "O()".len() > rendered.len() {
-                saw_real_reduction = true;
-            }
-        }
-        // At least one field of this deep path must have been genuinely reduced by
-        // normalization: otherwise the raw composed expression was already
-        // trivial and this is not a useful regression path.
-        assert!(
-            saw_real_reduction,
-            "no field was reduced by normalization; not a useful regression path"
-        );
-    }
-
-    /// Whole-graph budget: rendering Big-O for **every** path of representative
-    /// hot pairs must finish within the CI budget and every result must either
-    /// normalize or expose a concrete analysis error. It walks the *complete*
-    /// path set (`find_all_paths`), so no enumeration cap can hide work.
-    #[test]
-    fn all_path_overhead_rendering_finishes() {
-        let graph = ReductionGraph::new();
-        let start = std::time::Instant::now();
-        for (src, dst) in [("KSat", "QUBO"), ("MIS", "QUBO")] {
-            let src_ref = crate::problem_name::resolve_problem_ref(src, &graph).unwrap();
-            let dst_ref = crate::problem_name::resolve_problem_ref(dst, &graph).unwrap();
-            let paths = graph.find_all_paths(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-            );
-            assert!(!paths.is_empty(), "expected paths for {src} -> {dst}");
-            for path in &paths {
-                // Per-step overheads plus the composed overall overhead.
-                let per_step = graph.path_overheads(path);
-                for oh in &per_step {
-                    for (field, expr) in &oh.output_size {
-                        big_o_normal_form(expr).unwrap_or_else(|error| {
-                            panic!("{src}->{dst} field {field} failed analysis: {error}")
-                        });
-                    }
-                }
-                match graph.compose_path_overhead(path) {
-                    Ok(overall) => {
-                        for (field, expr) in &overall.output_size {
-                            big_o_normal_form(expr).unwrap_or_else(|error| {
-                                panic!("{src}->{dst} field {field} failed analysis: {error}")
-                            });
-                        }
-                    }
-                    Err(PathOverheadCompositionError::Step { error, .. }) => assert!(
-                        !error.field_errors().is_empty(),
-                        "composition error must identify a failing output field"
-                    ),
-                    Err(error) => panic!("unexpected path composition error: {error}"),
-                }
-            }
-        }
-        let elapsed = start.elapsed();
-        assert!(
-            elapsed < std::time::Duration::from_secs(5),
-            "rendering budget exceeded: {elapsed:?}"
-        );
     }
 }

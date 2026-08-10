@@ -6,7 +6,7 @@ pred-sym (symbolic expression CLI)
 ## Use Case
 Three combined scenarios:
 1. **Complexity comparison** — Compare algorithm complexity expressions to determine asymptotic equivalence (e.g., O(n^2 + n) == O(n^2), O(n log n) != O(n^2)).
-2. **Reduction overhead audit** — Parse and simplify overhead expressions from reduction rules to verify they match expected growth (e.g., '3*num_vertices + num_edges^2').
+2. **Reduction size-contract audit** — Parse and simplify exact maps and certified bounds from reduction rules, and verify them against constructed examples.
 3. **Teaching complexity notation** — Use pred-sym as a learning/demonstration tool to explore how expressions simplify, evaluate at concrete sizes, and compare growth rates.
 
 ## Expected Outcome

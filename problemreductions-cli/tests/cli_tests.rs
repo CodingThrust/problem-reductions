@@ -6,7 +6,7 @@ fn pred() -> Command {
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--json"])
+        .args(["path", source, target, "--max-paths", "2000", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -15,7 +15,7 @@ fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::p
         String::from_utf8_lossy(&command.stderr)
     );
     let envelope: serde_json::Value = serde_json::from_slice(&command.stdout).unwrap();
-    let entry = envelope["front"]
+    let entry = envelope["paths"]
         .as_array()
         .unwrap()
         .iter()
@@ -29,7 +29,7 @@ fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::p
             );
             actual == names
         })
-        .expect("requested route must be present in the Pareto front");
+        .expect("requested route must be present in path enumeration");
     std::fs::write(output, serde_json::to_vec_pretty(entry).unwrap()).unwrap();
 }
 
@@ -59,7 +59,7 @@ fn reduce_named_to_file(
 
 fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--all", "--json"])
+        .args(["path", source, target, "--max-paths", "2000", "--json"])
         .output()
         .unwrap();
     assert!(command.status.success());
@@ -138,7 +138,7 @@ fn test_list_rules() {
     assert!(stdout.contains("Registered reduction rules:"));
     assert!(stdout.contains("Source"));
     assert!(stdout.contains("Target"));
-    assert!(stdout.contains("Overhead"));
+    assert!(stdout.contains("Size change"));
     // Should contain a known reduction
     assert!(
         stdout.contains("MaximumIndependentSet"),
@@ -157,7 +157,7 @@ fn test_list_rules_json() {
     assert!(!rules.is_empty());
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
-    assert!(rules[0]["overhead"].is_string());
+    assert!(rules[0]["size_contract"].is_string());
 }
 
 #[test]
@@ -276,163 +276,8 @@ fn test_solve_balanced_complete_bipartite_subgraph_default_solver_uses_ilp() {
 }
 
 #[test]
-fn test_path() {
-    // Bare `pred path` (no --cost / --size / --all) now prints the asymptotic Pareto
-    // front, each path annotated with O(...) per target size field.
+fn test_path_enumerates_without_mode_or_sizes() {
     let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Asymptotic Pareto front"), "got: {stdout}");
-    assert!(stdout.contains("Path"));
-    assert!(stdout.contains("step"));
-    assert!(
-        stdout.contains("O("),
-        "front should show Big-O per field, got: {stdout}"
-    );
-}
-
-/// `pred path KSatisfiability QUBO` (no `--size`) prints at least one path,
-/// annotated with a normalized `O(...)` per QUBO size field, and produces
-/// byte-identical output across consecutive runs.
-#[test]
-fn test_path_asymptotic_front_deterministic() {
-    let run = || {
-        let output = pred()
-            .args(["path", "KSatisfiability", "QUBO"])
-            .output()
-            .unwrap();
-        assert!(output.status.success());
-        String::from_utf8(output.stdout).unwrap()
-    };
-    let first = run();
-    let second = run();
-    assert_eq!(
-        first, second,
-        "asymptotic front output must be deterministic"
-    );
-
-    // At least one path, with a normalized Big-O for QUBO's `num_vars` size field.
-    assert!(first.contains("Asymptotic Pareto front"));
-    assert!(first.contains("--- Path 1"));
-    assert!(
-        first.contains("num_vars = O("),
-        "each path must annotate QUBO's num_vars with O(...), got: {first}"
-    );
-
-    // The JSON surface carries structured Growth serialization.
-    let json_out = pred()
-        .args([
-            "path",
-            "KSatisfiability",
-            "QUBO",
-            "--search-mode",
-            "exact",
-            "--json",
-        ])
-        .output()
-        .unwrap();
-    assert!(json_out.status.success());
-    let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(json_out.stdout).unwrap()).unwrap();
-    assert_eq!(json["mode"], "asymptotic");
-    assert_eq!(json["completeness"]["status"], "exact");
-    assert_eq!(json["limit_reasons"], serde_json::json!([]));
-    assert!(json["stats"]["expanded_states"].is_number());
-    let front = json["front"].as_array().expect("front array");
-    assert!(!front.is_empty(), "front must have ≥ 1 path");
-    assert!(
-        front[0]["growth"]["num_vars"]["Terms"].is_array(),
-        "growth must serialize as structured Terms, got: {}",
-        front[0]["growth"]
-    );
-    assert!(front[0]["big_o"]["num_vars"].is_string());
-}
-
-/// The asymptotic front reports one path per distinct growth vector, not per route.
-/// `MVC → ILP` has many reduction chains that compose to fewer Big-O profiles; the
-/// front must contain no duplicate growth vectors.
-#[test]
-fn test_path_front_dedups_by_growth_vector() {
-    let output = pred()
-        .args(["path", "MVC", "ILP", "--json"])
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    let json: serde_json::Value =
-        serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
-    let front = json["front"].as_array().expect("front array");
-
-    assert!(!front.is_empty());
-    // No two entries share a growth vector (the Big-O per size field).
-    let vectors: Vec<String> = front.iter().map(|p| p["big_o"].to_string()).collect();
-    let mut unique = vectors.clone();
-    unique.sort();
-    unique.dedup();
-    assert_eq!(
-        unique.len(),
-        vectors.len(),
-        "front must not contain two entries with identical growth vectors: {vectors:?}"
-    );
-}
-
-#[test]
-fn test_path_exact_rejects_approximate_limit_flags() {
-    let output = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "--search-mode",
-            "exact",
-            "--timeout",
-            "1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-        stderr.contains("Search limits are accepted only in approximate mode"),
-        "{stderr}"
-    );
-}
-
-#[test]
-fn test_path_empty_bounded_result_is_reported_as_incomplete() {
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "--max-hops", "0"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("Bounded search was incomplete"), "{stderr}");
-    assert!(!stderr.contains("No reduction path from"), "{stderr}");
-}
-
-#[test]
-fn test_path_save() {
-    let tmp = std::env::temp_dir().join("pred_test_path.json");
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "-o", tmp.to_str().unwrap()])
-        .output()
-        .unwrap();
-    assert!(output.status.success());
-    assert!(tmp.exists());
-    let content = std::fs::read_to_string(&tmp).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json.get("path").is_none());
-    assert!(json["front"]
-        .as_array()
-        .is_some_and(|front| !front.is_empty()));
-    std::fs::remove_file(&tmp).ok();
-}
-
-#[test]
-fn test_path_all() {
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "--all"])
-        .output()
-        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Found"));
@@ -440,22 +285,56 @@ fn test_path_all() {
 }
 
 #[test]
-fn test_path_all_rejects_pareto_search_policy() {
-    let output = pred()
-        .args(["path", "MIS", "QUBO", "--all", "--search-mode", "exact"])
-        .output()
+fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target() {
+    let instance = std::env::temp_dir().join("pred_path_concrete_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+    )
+    .unwrap();
+    let run = || {
+        let output = pred()
+            .args([
+                "path",
+                "MIS/SimpleGraph/i32",
+                "MaximumClique/SimpleGraph/i32",
+                instance.to_str().unwrap(),
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        String::from_utf8(output.stdout).unwrap()
+    };
+    let first = run();
+    let second = run();
+    std::fs::remove_file(instance).ok();
+    assert_eq!(first, second);
+    let json: serde_json::Value = serde_json::from_str(&first).unwrap();
+    let overall = json["paths"][0]["actual_target_size"]["fields"]
+        .as_array()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(stderr.contains("not --all"), "{stderr}");
+    let value = |field: &str| &overall.iter().find(|item| item["field"] == field).unwrap()["value"];
+    assert_eq!(value("num_vertices"), 5);
+    assert_eq!(value("num_edges"), 6);
+    assert_eq!(json["analysis"], "concrete");
 }
 
 #[test]
-fn test_path_all_save() {
-    let dir = std::env::temp_dir().join("pred_test_all_paths");
-    let _ = std::fs::remove_dir_all(&dir);
+fn test_path_save() {
+    let tmp = std::env::temp_dir().join("pred_test_path.json");
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--all", "-o", dir.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "MaximumClique/SimpleGraph/i32",
+            "-o",
+            tmp.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(
@@ -463,17 +342,45 @@ fn test_path_all_save() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(dir.is_dir());
-    let entries: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
-    assert!(entries.len() > 1, "expected multiple path files");
-
-    // Verify first file is valid JSON
-    let first = dir.join("path_1.json");
-    let content = std::fs::read_to_string(&first).unwrap();
+    assert!(tmp.exists());
+    let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["path"].is_array());
+    assert!(json.get("path").is_none());
+    assert!(json["paths"]
+        .as_array()
+        .is_some_and(|paths| !paths.is_empty()));
+    std::fs::remove_file(&tmp).ok();
+}
 
-    std::fs::remove_dir_all(&dir).ok();
+#[test]
+fn test_path_max_paths_caps_without_ranking() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--max-paths", "1", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["returned"], 1);
+    assert_eq!(json["truncated"], true);
+}
+
+#[test]
+fn test_path_set_save() {
+    let file = std::env::temp_dir().join("pred_test_paths.json");
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "-o", file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["paths"].is_array());
+
+    std::fs::remove_file(&file).ok();
 }
 
 #[test]
@@ -1395,7 +1302,7 @@ fn test_reduce_via_path() {
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Explicitly extract a named route from the Pareto front.
+    // 2. Explicitly extract a named route from the enumerated path set.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
     write_named_route(
         "MIS/SimpleGraph/i32",
@@ -1489,9 +1396,9 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
     std::fs::remove_file(route_file).ok();
 }
 
-/// A Pareto-front envelope is not itself an executable route.
+/// A path-set envelope is not itself an executable route.
 #[test]
-fn test_reduce_rejects_unselected_front() {
+fn test_reduce_rejects_unselected_path_set() {
     // 1. Create a small source problem (small so the target brute-force stays tiny).
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_bare_in.json");
     let create_out = pred()
@@ -1509,13 +1416,13 @@ fn test_reduce_rejects_unselected_front() {
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Save the complete front without choosing a route.
+    // 2. Save the path set without choosing a route.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_bare_path.json");
     let path_out = pred()
         .args([
             "path",
             "MaximumIndependentSet/SimpleGraph/i32",
-            "QUBO",
+            "MaximumClique/SimpleGraph/i32",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -1543,26 +1450,31 @@ fn test_reduce_rejects_unselected_front() {
     std::fs::remove_file(&path_file).ok();
 }
 
-/// Every Pareto item carries its route, while the envelope selects none.
+/// Every path-set item carries its route, while the envelope selects none.
 #[test]
-fn test_path_front_envelope_has_only_per_item_paths() {
+fn test_path_set_envelope_has_only_per_item_paths() {
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--json"])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "MaximumClique/SimpleGraph/i32",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
     let json: serde_json::Value =
         serde_json::from_str(&String::from_utf8(output.stdout).unwrap()).unwrap();
 
-    // Front envelope shape (asymptotic mode).
-    assert_eq!(json["mode"], "asymptotic");
-    assert!(json["front"].as_array().is_some_and(|f| !f.is_empty()));
+    assert!(json["paths"]
+        .as_array()
+        .is_some_and(|paths| !paths.is_empty()));
 
     assert!(json.get("path").is_none());
-    let path = json["front"][0]["path"]
+    let path = json["paths"][0]["path"]
         .as_array()
-        .expect("front item path");
-    assert!(!path.is_empty(), "front item path must have ≥ 1 step");
+        .expect("path-set item route");
+    assert!(!path.is_empty(), "path-set item must have ≥ 1 step");
     let first = &path[0];
     assert!(first["from"]["name"].is_string(), "step needs from.name");
     assert!(first["to"]["name"].is_string(), "step needs to.name");
@@ -5254,49 +5166,51 @@ fn test_path_rejects_removed_cost_selection() {
 }
 
 #[test]
-fn test_path_overall_overhead_text() {
-    let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--all"])
-        .output()
-        .unwrap();
+fn test_path_overall_exact_map_text() {
+    let output = pred().args(["path", "KSAT/K3", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         stdout.contains("Overall"),
-        "multi-step path should show Overall overhead"
+        "multi-step path should show Overall exact-map accounting"
     );
 }
 
 #[test]
-fn test_path_overall_overhead_json() {
+fn test_path_overall_exact_map_json() {
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "MaximumClique/SimpleGraph/i32",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     let json = &envelope["paths"][0];
     assert!(
-        json["overall_overhead"].is_array(),
-        "JSON should contain overall_overhead"
+        json["overall_size"]["fields"].is_array(),
+        "JSON should contain an overall exact size map"
     );
-    let items = json["overall_overhead"].as_array().unwrap();
-    assert!(!items.is_empty(), "overall_overhead should have entries");
+    let items = json["overall_size"]["fields"].as_array().unwrap();
+    assert!(!items.is_empty(), "overall exact map should have entries");
     assert!(items[0]["field"].is_string());
     assert!(items[0]["formula"].is_string());
 }
 
 #[test]
-fn test_path_overall_overhead_composition() {
-    // Verify that overall overhead is the symbolic composition of per-step overheads,
-    // not just the last step's overhead. For a multi-step path A→B→C, the overall
-    // should substitute B's output expressions into C's input expressions.
-    // 3SAT → SAT → MIS gives a 2-step path where:
-    //   Step 1 (3SAT→SAT): num_literals = num_literals (identity)
-    //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
-    //   Overall: num_vertices = num_literals, num_edges = num_literals^2
+fn test_path_overall_exact_map_composition() {
+    // The One → i32 cast and graph complement are both exact. Their composition
+    // must remain in source fields rather than consulting a bound or Growth.
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
+        .args([
+            "path",
+            "MIS/SimpleGraph/One",
+            "MaximumClique/SimpleGraph/i32",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5308,11 +5222,9 @@ fn test_path_overall_overhead_composition() {
         .find(|path| path["steps"].as_u64().is_some_and(|steps| steps >= 2))
         .expect("multi-step route");
 
-    // Must have at least 2 steps (K3→KN variant cast adds an extra step)
     assert!(json["steps"].as_u64().unwrap() >= 2);
 
-    // Collect overall overhead into a map
-    let overall: std::collections::HashMap<String, String> = json["overall_overhead"]
+    let overall: std::collections::HashMap<String, String> = json["overall_size"]["fields"]
         .as_array()
         .unwrap()
         .iter()
@@ -5324,8 +5236,6 @@ fn test_path_overall_overhead_composition() {
         })
         .collect();
 
-    // The composed overhead should reference source (3SAT) variables, not intermediate ones.
-    // num_vertices and num_edges should both be expressed in terms of num_literals.
     assert!(
         overall.contains_key("num_vertices"),
         "overall should have num_vertices"
@@ -5335,22 +5245,21 @@ fn test_path_overall_overhead_composition() {
         "overall should have num_edges"
     );
     assert!(
-        overall["num_vertices"].contains("num_literals"),
+        overall["num_vertices"] == "num_vertices",
         "num_vertices should be in terms of source vars, got: {}",
         overall["num_vertices"]
     );
     assert!(
-        overall["num_edges"].contains("num_literals"),
-        "num_edges should be in terms of source vars, got: {}",
+        overall["num_edges"].contains("num_vertices") && overall["num_edges"].contains("num_edges"),
+        "complement edges should be in terms of source vars, got: {}",
         overall["num_edges"]
     );
 }
 
 #[test]
-fn test_path_all_overall_overhead() {
-    // Every path in --all --json output should have overall_overhead
+fn test_path_set_has_explicit_strongest_size_information() {
     let output = pred()
-        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
+        .args(["path", "KSAT/K3", "MIS", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -5362,14 +5271,8 @@ fn test_path_all_overall_overhead() {
     assert!(!paths.is_empty());
     for (i, p) in paths.iter().enumerate() {
         assert!(
-            p["overall_overhead"].is_array(),
-            "path {} missing overall_overhead",
-            i + 1
-        );
-        let items = p["overall_overhead"].as_array().unwrap();
-        assert!(
-            !items.is_empty(),
-            "path {} has empty overall_overhead",
+            p["overall_size"]["fields"].is_array(),
+            "path {} has no explicit size result",
             i + 1
         );
     }
@@ -5377,6 +5280,102 @@ fn test_path_all_overall_overhead() {
     assert!(envelope["returned"].is_number());
     assert!(envelope["max_paths"].is_number());
     assert!(envelope["truncated"].is_boolean());
+    assert_eq!(envelope["analysis"], "symbolic");
+}
+
+#[test]
+fn test_path_overall_unavailable_is_reported_per_field_without_internal_modes() {
+    let output = pred()
+        .args(["path", "Factoring", "SpinGlass", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let overall = &envelope["paths"][0]["overall_size"];
+    let fields = overall["fields"].as_array().unwrap();
+    assert!(!fields.is_empty());
+    assert!(fields.iter().all(|field| {
+        field["relation"] == "unavailable"
+            && field["field"].is_string()
+            && field["reason"].is_string()
+    }));
+    assert!(overall.get("exact_composition_error").is_none());
+    assert!(overall.get("bound_composition_error").is_none());
+}
+
+#[test]
+fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
+    let output = pred()
+        .args([
+            "path",
+            "MaximumClique/SimpleGraph/i32",
+            "ILP/bool",
+            "--max-paths",
+            "1",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let fields = envelope["paths"][0]["overall_size"]["fields"]
+        .as_array()
+        .unwrap();
+    let relations = fields
+        .iter()
+        .map(|field| {
+            (
+                field["field"].as_str().unwrap(),
+                field["relation"].as_str().unwrap(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(relations["num_vars"], "exact");
+    assert_eq!(relations["num_constraints"], "unavailable");
+}
+
+#[test]
+fn test_path_overall_unavailable_reason_matches_each_target_field() {
+    let output = pred()
+        .args([
+            "path",
+            "Factoring",
+            "ILP/bool",
+            "--max-paths",
+            "7",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let path = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| {
+            path["path"].as_array().is_some_and(|steps| {
+                steps
+                    .iter()
+                    .any(|step| step["from"]["name"] == "Clustering")
+            })
+        })
+        .expect("Factoring -> ... -> Clustering -> ILP path");
+    let fields = path["overall_size"]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| (field["field"].as_str().unwrap(), field))
+        .collect::<std::collections::BTreeMap<_, _>>();
+
+    assert!(fields["num_constraints"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("constraint count depends"));
+    assert!(fields["num_vars"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("has no exact size map"));
 }
 
 #[test]
@@ -5384,7 +5383,7 @@ fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
     // MaxCut -> SpinGlass is a genuine 1-step path with matching default variants
     let output = pred()
-        .args(["path", "MaxCut", "SpinGlass", "--all"])
+        .args(["path", "MaxCut", "SpinGlass"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -8192,18 +8191,9 @@ fn test_show_ksat_works() {
 // ---- Capped multi-path ----
 
 #[test]
-fn test_path_all_max_paths_truncates() {
-    // With --max-paths 3, should limit to 3 paths and indicate truncation
+fn test_path_max_paths_truncates() {
     let output = pred()
-        .args([
-            "path",
-            "KSat",
-            "QUBO",
-            "--all",
-            "--max-paths",
-            "3",
-            "--json",
-        ])
+        .args(["path", "KSat", "QUBO", "--max-paths", "3", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -8229,19 +8219,11 @@ fn test_path_all_max_paths_truncates() {
     );
 }
 
-// Helper: run `pred path S T --all --max-paths N --json` and return the ordered
+// Helper: run `pred path S T --max-paths N --json` and return the ordered
 // list of per-path step counts.
-fn path_all_step_counts(max_paths: &str) -> Vec<u64> {
+fn path_step_counts(max_paths: &str) -> Vec<u64> {
     let output = pred()
-        .args([
-            "path",
-            "KSat",
-            "QUBO",
-            "--all",
-            "--max-paths",
-            max_paths,
-            "--json",
-        ])
+        .args(["path", "KSat", "QUBO", "--max-paths", max_paths, "--json"])
         .output()
         .unwrap();
     assert!(
@@ -8260,12 +8242,12 @@ fn path_all_step_counts(max_paths: &str) -> Vec<u64> {
 }
 
 #[test]
-fn test_path_all_truncates_after_sorting_not_before() {
-    // Regression: `--all` must enumerate length-first and truncate only after
+fn test_path_truncates_after_sorting_not_before() {
+    // Path enumeration must order length-first and truncate only after
     // ordering, so a small --max-paths returns the SHORTEST routes, not whichever
     // routes DFS discovered first. Compare a tightly-truncated run against a run
     // with a generous budget.
-    let full = path_all_step_counts("500");
+    let full = path_step_counts("500");
     assert!(full.len() > 3, "KSat->QUBO should have many routes");
 
     // Full list is sorted shortest-first.
@@ -8275,7 +8257,7 @@ fn test_path_all_truncates_after_sorting_not_before() {
     );
     let shortest = *full.first().unwrap();
 
-    let truncated = path_all_step_counts("3");
+    let truncated = path_step_counts("3");
     assert!(truncated.len() <= 3);
     // Truncated result is still sorted shortest-first...
     assert!(
@@ -8293,9 +8275,9 @@ fn test_path_all_truncates_after_sorting_not_before() {
 }
 
 #[test]
-fn test_path_all_max_paths_text_truncation_note() {
+fn test_path_max_paths_text_truncation_note() {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--all", "--max-paths", "2"])
+        .args(["path", "KSat", "QUBO", "--max-paths", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -8594,41 +8576,6 @@ fn test_show_json_has_default_field() {
         "bare MIS should be the default variant"
     );
     assert!(json["variant"].is_object(), "should have variant object");
-}
-
-// ---- path --all directory output includes manifest ----
-
-#[test]
-fn test_path_all_save_manifest() {
-    let dir = std::env::temp_dir().join("pred_test_all_paths_manifest");
-    let _ = std::fs::remove_dir_all(&dir);
-    let output = pred()
-        .args([
-            "path",
-            "MaxCut",
-            "QUBO",
-            "--all",
-            "-o",
-            dir.to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    assert!(dir.is_dir());
-
-    let manifest_file = dir.join("manifest.json");
-    assert!(manifest_file.exists(), "manifest.json should be created");
-    let manifest_content = std::fs::read_to_string(&manifest_file).unwrap();
-    let manifest: serde_json::Value = serde_json::from_str(&manifest_content).unwrap();
-    assert!(manifest["paths"].is_number());
-    assert!(manifest["max_paths"].is_number());
-    assert!(manifest["truncated"].is_boolean());
-
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

@@ -37,10 +37,10 @@ impl ReductionResult for ReductionNAESATToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vars",
         num_constraints = "2 * num_clauses",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for NAESatisfiability {
     type Result = ReductionNAESATToILP;

@@ -54,10 +54,10 @@ impl ReductionResult for ReductionMECFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "2 * num_edges",
         num_constraints = "2 * num_edges + num_vertices - 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
     type Result = ReductionMECFToILP;

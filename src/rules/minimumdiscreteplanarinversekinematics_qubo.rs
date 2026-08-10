@@ -68,7 +68,9 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_orientation_samples" })]
+#[reduction(exact = {
+    num_vars = "num_orientation_samples",
+})]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
     type Result = ReductionMinimumDiscretePlanarInverseKinematicsToQUBO;
 

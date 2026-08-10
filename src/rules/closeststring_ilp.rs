@@ -79,10 +79,10 @@ impl ReductionResult for ReductionClosestStringToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for ClosestString {
     type Result = ReductionClosestStringToILP;

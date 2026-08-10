@@ -112,7 +112,9 @@ fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
         .collect()
 }
 
-#[reduction(overhead = { num_vars = "num_encoding_bits" })]
+#[reduction(exact = {
+    num_vars = "num_encoding_bits",
+})]
 impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
     type Result = ReductionCVPToQUBO;
 

@@ -51,10 +51,10 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;

@@ -37,7 +37,7 @@ impl ReductionResult for ReductionVCToHS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         universe_size = "num_vertices",
         num_sets = "num_edges",
     }

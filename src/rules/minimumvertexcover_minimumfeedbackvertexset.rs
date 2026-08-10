@@ -37,7 +37,7 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_arcs = "2 * num_edges",
     }

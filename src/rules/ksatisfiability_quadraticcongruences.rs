@@ -514,11 +514,13 @@ fn exhaustive_alpha_solution(source: &KSatisfiability<K3>) -> Option<Vec<i8>> {
     None
 }
 
-#[reduction(overhead = {
-    bit_length_a = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_b = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_c = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-})]
+#[reduction(
+    unavailable = {
+        bit_length_a = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+        bit_length_b = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+        bit_length_c = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+    }
+)]
 impl ReduceTo<QuadraticCongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticCongruences;
 

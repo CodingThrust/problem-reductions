@@ -49,10 +49,10 @@ impl ReductionResult for ReductionMFVSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "2 * num_vertices",
         num_constraints = "num_arcs + 2 * num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumFeedbackVertexSet<i32> {
     type Result = ReductionMFVSToILP;

@@ -119,10 +119,10 @@ Let's walk through each step.
 
 #### Step 1 — Discover the reduction path
 
-`ReductionGraph` holds every registered reduction. `asymptotic_front` returns
-the non-dominated per-field growth vectors and reports paths whose growth could
-not be analyzed. The example consumes that front and explicitly selects the
-documented `Factoring -> CircuitSAT -> SpinGlass` route.
+`ReductionGraph` holds every registered reduction. The example enumerates the
+witness-capable simple paths and explicitly selects the documented
+`Factoring -> CircuitSAT -> SpinGlass` route. Path discovery does not rank or
+automatically select a route.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}
@@ -164,21 +164,6 @@ factors.
 
 ```text
 {{#include generated/factoring-result.txt}}
-```
-
-#### Step 5 — Inspect the overhead
-
-Each reduction edge carries a polynomial overhead mapping source problem
-sizes to target sizes. `path_overheads` returns the per-edge
-polynomials, and `compose_path_overhead` composes them symbolically into a
-single end-to-end formula.
-
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:overhead}}
-```
-
-```text
-{{#include generated/factoring-overhead.txt}}
 ```
 
 ## Solvers

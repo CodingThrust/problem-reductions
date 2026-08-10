@@ -52,10 +52,10 @@ impl ReductionResult for ReductionFASToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs + num_vertices",
         num_constraints = "num_arcs + num_arcs + num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumFeedbackArcSet<i32> {
     type Result = ReductionFASToILP;

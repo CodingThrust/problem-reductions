@@ -40,10 +40,10 @@ impl ReductionResult for ReductionBMFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;

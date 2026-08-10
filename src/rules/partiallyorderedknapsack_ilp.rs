@@ -32,10 +32,10 @@ impl ReductionResult for ReductionPOKToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_items",
         num_constraints = "num_precedences + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
     type Result = ReductionPOKToILP;

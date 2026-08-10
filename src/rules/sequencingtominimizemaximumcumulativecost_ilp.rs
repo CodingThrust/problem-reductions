@@ -45,9 +45,13 @@ impl ReductionResult for ReductionSTMMCCToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks + 1",
-    num_constraints = "2 * num_tasks + num_precedences + num_tasks + num_tasks * num_tasks",
+#[reduction(
+    exact = {
+        num_vars = "num_tasks * num_tasks + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
 })]
 impl ReduceTo<ILP<i32>> for SequencingToMinimizeMaximumCumulativeCost {
     type Result = ReductionSTMMCCToILP;

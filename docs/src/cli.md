@@ -80,7 +80,7 @@ pred solve lbdp.json --solver brute-force
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
 
-# Reduce along an explicitly chosen Pareto-front route and solve via brute-force
+# Reduce along an explicitly chosen route and solve via brute-force
 pred reduce problem.json --via route.json -o reduced.json
 pred solve reduced.json --solver brute-force
 
@@ -138,7 +138,7 @@ Explore which problems the given problem can reduce to, starting **from** it:
 
 ### `pred path` — Find reduction paths
 
-Find the symbolic Pareto front between two problems:
+Enumerate paths between two problems:
 
 ```text
 {{#include generated/pred-path-mis-qubo.txt}}
@@ -150,21 +150,21 @@ Multi-step paths are discovered automatically:
 {{#include generated/pred-path-factoring-spinglass.txt}}
 ```
 
-Show all paths or save for later use with `pred reduce --via`:
+Inspect reduction paths or save the path set for later route selection:
 
 ```bash
-pred path MIS QUBO --all                    # all paths (up to 20)
-pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO -o front.json            # save the Pareto front
-pred path MIS QUBO --all -o paths/          # save all paths to a folder
+pred path MIS QUBO                           # paths (up to 20)
+pred path MIS QUBO --max-paths 50            # increase the cap
+pred path MIS MaximumClique mis.json         # execute paths on a complete instance
+pred path MIS QUBO -o paths.json             # save the path set
 ```
 
-When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
-
-Every front item contains its complete route. The envelope does not select a
-winner; extract the route you want before passing it to `pred reduce --via`.
-Paths with unknown symbolic growth are excluded from the front and listed with
-their analysis-failure reason.
+Without an instance file, each route explains how problem size changes. With a
+problem JSON file, every returned path is executed on the complete source instance
+and the actual size of each constructed intermediate is reported. Discovery never
+ranks or Pareto-prunes routes. Output is capped by `--max-paths` (default: 20);
+extract one route from the path-set envelope before passing it to
+`pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
 
@@ -411,7 +411,7 @@ This is useful for scripting and piping:
 
 ```bash
 pred list --json | jq '.variants[].name'
-pred path MIS QUBO --json | jq '.front[] | {growth, path}'
+pred path MIS QUBO --json | jq '.paths[] | {overall_size, path}'
 ```
 
 ## Problem Name Aliases

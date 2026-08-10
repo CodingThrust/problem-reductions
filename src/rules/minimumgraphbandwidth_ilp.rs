@@ -50,10 +50,10 @@ impl ReductionResult for ReductionMGBToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices^2 + num_vertices + 1",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumGraphBandwidth<SimpleGraph> {
     type Result = ReductionMGBToILP;

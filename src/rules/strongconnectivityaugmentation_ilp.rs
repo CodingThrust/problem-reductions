@@ -34,10 +34,10 @@ impl ReductionResult for ReductionSCAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
     type Result = ReductionSCAToILP;

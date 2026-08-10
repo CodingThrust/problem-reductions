@@ -35,9 +35,12 @@ impl ReductionResult for ReductionBCBSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
-        num_constraints = "num_vertices * num_vertices",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for BalancedCompleteBipartiteSubgraph {

@@ -88,11 +88,12 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "2 * num_vars + 12 * num_clauses",
-    num_arcs = "15 * num_clauses",
-    num_registers = "num_vars + 9 * num_clauses",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "2 * num_vars + 12 * num_clauses",
+        num_arcs = "15 * num_clauses",
+        num_registers = "num_vars + 9 * num_clauses",
+    })]
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 

@@ -33,10 +33,10 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_items",
         num_constraints = "num_items + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for IntegerKnapsack {
     type Result = ReductionIntegerKnapsackToILP;

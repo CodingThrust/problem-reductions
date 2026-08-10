@@ -83,9 +83,12 @@ impl ReductionResult for ReductionRTSAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "universe_size * universe_size * universe_size + 2 * universe_size * universe_size + universe_size + num_subsets * (universe_size * universe_size + 2 * universe_size + 3)",
-        num_constraints = "universe_size * universe_size * universe_size + universe_size * universe_size + universe_size * universe_size + num_subsets * universe_size * universe_size",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {

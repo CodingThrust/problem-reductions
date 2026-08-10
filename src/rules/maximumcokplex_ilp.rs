@@ -75,10 +75,10 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i32, KN> {
     type Result = ReductionCoKPlexToILP<i32>;
@@ -95,10 +95,10 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i32, KN> {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
     type Result = ReductionCoKPlexToILP<One>;

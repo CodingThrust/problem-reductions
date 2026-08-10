@@ -63,10 +63,10 @@ impl ReductionResult for ReductionSMWCTToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;

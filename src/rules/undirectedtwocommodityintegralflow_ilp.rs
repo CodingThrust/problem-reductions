@@ -62,10 +62,10 @@ impl ReductionResult for ReductionU2CIFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "6 * num_edges",
         num_constraints = "7 * num_edges + 2 * num_nonterminal_vertices + 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
     type Result = ReductionU2CIFToILP;

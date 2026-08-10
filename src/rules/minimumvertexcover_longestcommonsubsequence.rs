@@ -41,7 +41,7 @@ impl ReductionResult for ReductionVCToLCS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         alphabet_size = "num_vertices",
         num_strings = "num_edges + 1",
         max_length = "num_vertices",

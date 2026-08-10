@@ -7,16 +7,13 @@
 //!
 //! This module implements:
 //! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
-//! - Exact and bounded-approximate symbolic and measured Pareto path search
+//! - Symbolic path composition and concrete measured path search
 //! - JSON export for documentation and visualization
 
-use crate::rules::pareto::{
-    AnalysisCoverage, AnalysisFailure, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge,
-    SizeBudget, UnknownSizeField,
-};
+use crate::rules::pareto::{MeasuredLabel, ReductionEdge, SizeBudget, UnknownSizeField};
 use crate::rules::registry::{
-    AggregateReduceFn, EdgeCapabilities, OverheadCompositionError, ReduceFn, ReductionEntry,
-    ReductionOverhead,
+    AggregateReduceFn, EdgeCapabilities, ReduceFn, ReductionEntry, ReductionSizeContract,
+    SizeContractError,
 };
 use crate::rules::search::SearchTracker;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
@@ -27,8 +24,7 @@ use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
-use std::cmp::Reverse;
-use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::rc::Rc;
 
 /// A source/target pair from the reduction graph, returned by
@@ -39,14 +35,14 @@ pub struct ReductionEdgeInfo {
     pub source_variant: BTreeMap<String, String>,
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
-    pub overhead: ReductionOverhead,
+    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
     pub capabilities: EdgeCapabilities,
 }
 
-/// Internal edge data combining overhead and executable reduce function.
+/// Internal edge data combining explicit size contracts and executable reduction functions.
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
-    pub overhead: ReductionOverhead,
+    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
     pub reduce_fn: Option<ReduceFn>,
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     pub turing: bool,
@@ -103,13 +99,13 @@ struct VariantRef {
     variant: BTreeMap<String, String>,
 }
 
-/// A single output field in the reduction overhead.
+/// One explicitly classified target size field in graph export.
 #[derive(Debug, Clone, Serialize)]
-pub(crate) struct OverheadFieldJson {
-    /// Output field name (e.g., "num_vars").
+pub(crate) struct SizeFieldJson {
     pub(crate) field: String,
-    /// Formula as a human-readable string (e.g., "num_vertices").
-    pub(crate) formula: String,
+    pub(crate) contract: &'static str,
+    pub(crate) formula: Option<String>,
+    pub(crate) reason: Option<String>,
 }
 
 /// An edge in the reduction graph JSON.
@@ -119,8 +115,9 @@ pub(crate) struct EdgeJson {
     pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub(crate) target: usize,
-    /// Reduction overhead: output size as expressions of input size.
-    pub(crate) overhead: Vec<OverheadFieldJson>,
+    /// Explicit exact, bound-only, or unavailable target-size fields.
+    pub(crate) size_fields: Vec<SizeFieldJson>,
+    pub(crate) size_contract_error: Option<String>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
     /// Whether the edge supports witness/config workflows.
@@ -138,18 +135,131 @@ pub struct ReductionPath {
     pub steps: Vec<ReductionStep>,
 }
 
-/// Why exact symbolic overhead composition could not be completed for a path.
+/// A selected concrete path batch could not be executed.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum MeasurePathsError {
+    #[error("concrete path {path_index} is empty")]
+    EmptyPath { path_index: usize },
+    #[error("concrete path {path_index} contains no reduction edge")]
+    NoEdges { path_index: usize },
+    #[error("concrete path {path_index} starts at a different source node")]
+    DifferentSource { path_index: usize },
+    #[error("concrete path {path_index} references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        path_index: usize,
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    MissingEdge {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    NotWitnessExecutable {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+}
+
+/// Why exact size-map composition could not be completed for a path.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-pub enum PathOverheadCompositionError {
+pub enum PathSizeMapError {
     #[error("cannot compose an empty reduction path")]
     EmptyPath,
-    #[error("cannot compose reduction step {step} ({source} -> {target}): {error}")]
+    #[error("reduction path references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error(
+        "reduction path contains no registered edge from {source_problem} to {target_problem}"
+    )]
+    MissingEdge {
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    TuringEdge {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid size contract: {error}")]
+    InvalidContract {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+        #[source]
+        error: Box<SizeContractError>,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has no exact size map")]
+    Unavailable {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error(
+        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
+    )]
     Step {
         step: usize,
-        source: String,
-        target: String,
+        source_problem: String,
+        target_problem: String,
         #[source]
-        error: OverheadCompositionError,
+        error: Box<crate::size_map::SizeMapError>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum PathSizeBoundError {
+    #[error("cannot compose an empty reduction path")]
+    EmptyPath,
+    #[error("reduction path references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error(
+        "reduction path contains no registered edge from {source_problem} to {target_problem}"
+    )]
+    MissingEdge {
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) is a multi-query reduction without a query-cost model")]
+    TuringEdge {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("reduction step {step} ({source_problem} -> {target_problem}) has an invalid size contract: {error}")]
+    InvalidContract {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+        #[source]
+        error: Box<SizeContractError>,
+    },
+    #[error(
+        "reduction step {step} ({source_problem} -> {target_problem}) has no certified size bound"
+    )]
+    Unavailable {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error(
+        "cannot compose reduction step {step} ({source_problem} -> {target_problem}): {error}"
+    )]
+    Step {
+        step: usize,
+        source_problem: String,
+        target_problem: String,
+        #[source]
+        error: Box<crate::size_bound::SizeBoundError>,
     },
 }
 
@@ -208,7 +318,7 @@ impl std::fmt::Display for ReductionPath {
 }
 
 /// A node in a variant-level reduction path.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize)]
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
@@ -316,63 +426,6 @@ pub struct ReductionGraph {
     default_variants: HashMap<String, BTreeMap<String, String>>,
 }
 
-struct ExactParetoDfs<'a, 'b, L> {
-    graph: &'a ReductionGraph,
-    dst: NodeIndex,
-    adjacency: &'a [Vec<(NodeIndex, EdgeIndex)>],
-    front: &'b mut Vec<(ReductionPath, L)>,
-    tracker: &'b mut SearchTracker,
-}
-
-impl<L: PathLabel> ExactParetoDfs<'_, '_, L> {
-    fn visit(
-        &mut self,
-        node: NodeIndex,
-        label: L,
-        path: &mut Vec<NodeIndex>,
-        visited: &mut [bool],
-    ) {
-        if node == self.dst {
-            self.tracker.record_completed(1);
-            let candidate = (self.graph.node_path_to_reduction_path(path), label);
-            self.graph
-                .insert_terminal_candidate(self.front, candidate, self.tracker);
-            return;
-        }
-
-        let edge_count = self.adjacency[node.index()].len();
-        if edge_count == 0 {
-            return;
-        }
-        self.tracker.record_expanded();
-
-        for edge_pos in 0..edge_count {
-            let (target, edge_idx) = self.adjacency[node.index()][edge_pos];
-            if visited[target.index()] {
-                continue;
-            }
-            let weight = &self.graph.graph[edge_idx];
-            let target_node = &self.graph.nodes[self.graph.graph[target]];
-            let edge = ReductionEdge {
-                overhead: &weight.overhead,
-                reduce_fn: weight.reduce_fn,
-                target_name: target_node.name,
-                target_variant: &target_node.variant,
-            };
-            let Some(next_label) = label.extend(&edge) else {
-                self.tracker.record_infeasible();
-                continue;
-            };
-            self.tracker.record_generated();
-            visited[target.index()] = true;
-            path.push(target);
-            self.visit(target, next_label, path, visited);
-            path.pop();
-            visited[target.index()] = false;
-        }
-    }
-}
-
 impl ReductionGraph {
     fn measured_path_from_label(
         path: ReductionPath,
@@ -459,13 +512,13 @@ impl ReductionGraph {
                 variant: target_variant,
             }];
 
-            let overhead = entry.overhead();
+            let size_contract = entry.size_contract();
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
                     dst_idx,
                     ReductionEdgeData {
-                        overhead,
+                        size_contract,
                         reduce_fn: entry.reduce_fn,
                         reduce_aggregate_fn: entry.reduce_aggregate_fn,
                         turing: entry.turing,
@@ -542,237 +595,17 @@ impl ReductionGraph {
         })
     }
 
-    /// Generic multi-label elementary-path search from `src` to `dst`.
-    ///
-    /// Intermediate pruning and coalescing are forbidden because arbitrary reduction
-    /// overheads are not guaranteed to be isotone and labels do not identify complete
-    /// constructed problems. Pareto dominance is applied only to completed destination
-    /// labels. Exact search has no configurable truncation; approximate limits are
-    /// explicit and reported.
-    ///
-    /// Returns the Pareto front at `dst`: `(path, label)` pairs, deterministically
-    /// ordered by (hops, stable path key).
-    pub(crate) fn pareto_search<L: PathLabel>(
+    fn insert_measured_terminal_candidate<'a>(
         &self,
-        src: NodeIndex,
-        dst: NodeIndex,
-        mode: ReductionMode,
-        initial: L,
-        tracker: &mut SearchTracker,
-    ) -> Vec<(ReductionPath, L)> {
-        if tracker.is_exact_mode() {
-            return self.pareto_search_exact(src, dst, mode, initial, tracker);
-        }
-
-        struct Entry<L> {
-            node: NodeIndex,
-            label: Option<L>,
-            pred: Option<usize>,
-            hops: usize,
-            visited: Vec<bool>,
-        }
-
-        let mut arena: Vec<Entry<L>> = Vec::new();
-        let mut bags: HashMap<NodeIndex, Vec<usize>> = HashMap::new();
-        let mut frontier: BinaryHeap<Reverse<(usize, usize)>> = BinaryHeap::new();
-        let mut adjacency: HashMap<NodeIndex, Vec<(NodeIndex, EdgeIndex)>> = HashMap::new();
-
-        tracker.record_generated();
-        if tracker.label_limit() == Some(0) {
-            tracker.reach(LimitReached::LabelsPerNodeLimit);
-            return Vec::new();
-        }
-
-        let mut initial_visited = vec![false; self.graph.node_count()];
-        initial_visited[src.index()] = true;
-        arena.push(Entry {
-            node: src,
-            label: Some(initial.clone()),
-            pred: None,
-            hops: 0,
-            visited: initial_visited,
-        });
-        bags.entry(src).or_default().push(0);
-        tracker.observe_bag(1);
-        frontier.push(Reverse((0, 0)));
-
-        let node_path = |arena: &Vec<Entry<L>>, idx: usize| -> Vec<NodeIndex> {
-            let mut nodes = Vec::new();
-            let mut cur = Some(idx);
-            while let Some(i) = cur {
-                nodes.push(arena[i].node);
-                cur = arena[i].pred;
-            }
-            nodes.reverse();
-            nodes
-        };
-        while let Some(Reverse((_hops, idx))) = frontier.pop() {
-            let node = arena[idx].node;
-            if arena[idx].label.is_none() {
-                continue;
-            }
-            if node == dst {
-                continue;
-            }
-
-            let edges = adjacency
-                .entry(node)
-                .or_insert_with(|| self.ordered_outgoing_edges(node, mode));
-            if edges.is_empty() {
-                continue;
-            }
-            if tracker.timed_out() || tracker.expansion_limited() {
-                break;
-            }
-            if tracker.hop_limited(arena[idx].hops) {
-                continue;
-            }
-            tracker.record_expanded();
-
-            let Some(cur_label) = arena[idx].label.clone() else {
-                continue;
-            };
-            let cur_visited = arena[idx].visited.clone();
-
-            let hops = arena[idx].hops;
-            for &(target, edge_idx) in edges.iter() {
-                if cur_visited[target.index()] {
-                    continue;
-                }
-                let weight = &self.graph[edge_idx];
-                let target_node = &self.nodes[self.graph[target]];
-                let redge = ReductionEdge {
-                    overhead: &weight.overhead,
-                    reduce_fn: weight.reduce_fn,
-                    target_name: target_node.name,
-                    target_variant: &target_node.variant,
-                };
-                let Some(new_label) = cur_label.extend(&redge) else {
-                    tracker.record_infeasible();
-                    continue;
-                };
-                tracker.record_generated();
-                let mut new_visited = cur_visited.clone();
-                new_visited[target.index()] = true;
-
-                let nidx = arena.len();
-                arena.push(Entry {
-                    node: target,
-                    label: Some(new_label),
-                    pred: Some(idx),
-                    hops: hops + 1,
-                    visited: new_visited,
-                });
-                bags.entry(target).or_default().push(nidx);
-                frontier.push(Reverse((hops + 1, nidx)));
-                tracker.observe_bag(bags[&target].len());
-
-                if let Some(limit) = tracker.label_limit() {
-                    if bags[&target].len() <= limit {
-                        continue;
-                    }
-                    tracker.reach(LimitReached::LabelsPerNodeLimit);
-                    let mut entries = bags[&target].clone();
-                    entries.sort_by(|&a, &b| {
-                        arena[a].hops.cmp(&arena[b].hops).then_with(|| {
-                            self.path_order_key(&node_path(&arena, a))
-                                .cmp(&self.path_order_key(&node_path(&arena, b)))
-                        })
-                    });
-                    for &j in &entries[limit..] {
-                        arena[j].label = None;
-                    }
-                    entries.truncate(limit);
-                    bags.insert(target, entries);
-                }
-            }
-        }
-
-        // Collect every retained destination label. Strict dominance is safe here because
-        // completed labels have no future extension whose non-monotonicity could reverse
-        // the order.
-        let mut completed: Vec<(ReductionPath, L)> = bags
-            .get(&dst)
-            .map(|b| b.as_slice())
-            .unwrap_or(&[])
-            .iter()
-            .map(|&idx| {
-                let node_path = node_path(&arena, idx);
-                (
-                    self.node_path_to_reduction_path(&node_path),
-                    // Live dst bag members are always `Some` (bag-member invariant).
-                    arena[idx]
-                        .label
-                        .clone()
-                        .expect("live dst bag member has a label"),
-                )
-            })
-            .collect();
-
-        completed.sort_by(Self::compare_front_entries);
-        tracker.record_completed(completed.len());
-
-        let mut front = Vec::new();
-        for candidate in completed {
-            self.insert_terminal_candidate(&mut front, candidate, tracker);
-        }
-        front.sort_by(Self::compare_front_entries);
-        front
-    }
-
-    /// Exact elementary-path traversal with working memory proportional to path depth.
-    ///
-    /// No intermediate state is compared with another. A single visited set and path are
-    /// mutated during deterministic DFS backtracking; only terminal Pareto labels remain
-    /// live after their branch returns.
-    fn pareto_search_exact<L: PathLabel>(
-        &self,
-        src: NodeIndex,
-        dst: NodeIndex,
-        mode: ReductionMode,
-        initial: L,
-        tracker: &mut SearchTracker,
-    ) -> Vec<(ReductionPath, L)> {
-        let mut adjacency = vec![Vec::new(); self.graph.node_count()];
-        for node in self.graph.node_indices() {
-            adjacency[node.index()] = self.ordered_outgoing_edges(node, mode);
-        }
-
-        tracker.record_generated();
-        tracker.observe_bag(1);
-        let mut path = vec![src];
-        let mut visited = vec![false; self.graph.node_count()];
-        visited[src.index()] = true;
-        let mut front = Vec::new();
-        ExactParetoDfs {
-            graph: self,
-            dst,
-            adjacency: &adjacency,
-            front: &mut front,
-            tracker,
-        }
-        .visit(src, initial, &mut path, &mut visited);
-        front.sort_by(Self::compare_front_entries);
-        front
-    }
-
-    fn compare_front_entries<L: PathLabel>(
-        a: &(ReductionPath, L),
-        b: &(ReductionPath, L),
-    ) -> std::cmp::Ordering {
-        compare_reduction_paths(&a.0, &b.0)
-    }
-
-    fn insert_terminal_candidate<L: PathLabel>(
-        &self,
-        front: &mut Vec<(ReductionPath, L)>,
-        candidate: (ReductionPath, L),
+        front: &mut Vec<(ReductionPath, MeasuredLabel<'a>)>,
+        candidate: (ReductionPath, MeasuredLabel<'a>),
         tracker: &mut SearchTracker,
     ) {
-        let precedes = |a: &(ReductionPath, L), b: &(ReductionPath, L)| {
+        let precedes = |a: &(ReductionPath, MeasuredLabel<'a>),
+                        b: &(ReductionPath, MeasuredLabel<'a>)| {
             a.1.final_dominates(&b.1)
                 && (!b.1.final_dominates(&a.1)
-                    || Self::compare_front_entries(a, b) != std::cmp::Ordering::Greater)
+                    || compare_reduction_paths(&a.0, &b.0) != std::cmp::Ordering::Greater)
         };
         if front.iter().any(|existing| precedes(existing, &candidate)) {
             tracker.record_dominated(1);
@@ -783,58 +616,6 @@ impl ReductionGraph {
         front.retain(|existing| !precedes(&candidate, existing));
         tracker.record_dominated(before - front.len());
         front.push(candidate);
-    }
-
-    /// Name-keyed entry to [`pareto_search`](Self::pareto_search): resolves the source
-    /// and target variant nodes, then runs the generic search. Returns an empty vector
-    /// if either endpoint is not registered. Test-only: drives the generic kernel with a
-    /// custom label on a hand-built graph.
-    #[cfg(test)]
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn pareto_search_by_name<L: PathLabel>(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        initial: L,
-        search_mode: SearchMode,
-    ) -> SearchOutcome<Vec<(ReductionPath, L)>> {
-        let mut tracker = SearchTracker::new(&search_mode);
-        let (Some(src), Some(dst)) = (
-            self.lookup_node(source, source_variant),
-            self.lookup_node(target, target_variant),
-        ) else {
-            return tracker.finish(vec![]);
-        };
-        let front = self.pareto_search(src, dst, mode, initial, &mut tracker);
-        tracker.finish(front)
-    }
-
-    /// Deterministic total-order key for a node-index path.
-    ///
-    /// Reproduces the `Name/val1/val2` slash signature the CLI historically used
-    /// as an ordering tiebreak, but computed purely from library node data so the
-    /// ordering lives in exactly one place. Within a fixed path length the length
-    /// contributes nothing, so sorting a same-length level by this key yields a
-    /// reproducible, build-independent order (BTreeMap variant iteration is
-    /// deterministic). Distinct simple paths produce distinct keys because each
-    /// node is a unique `(name, variant)` pair.
-    fn path_order_key(&self, node_path: &[NodeIndex]) -> String {
-        let mut key = String::new();
-        for (i, &idx) in node_path.iter().enumerate() {
-            if i > 0 {
-                key.push('>');
-            }
-            let node = &self.nodes[self.graph[idx]];
-            key.push_str(node.name);
-            for v in node.variant.values() {
-                key.push('/');
-                key.push_str(v);
-            }
-        }
-        key
     }
 
     /// Convert a node index path to a `ReductionPath`.
@@ -854,8 +635,7 @@ impl ReductionGraph {
 
     /// Enumerate witness-capable simple paths and retain the measured terminal Pareto front.
     ///
-    /// This is deliberately separate from [`pareto_search`](Self::pareto_search): no
-    /// dominance relation, hop cap, bag cap, or scalar branch-and-bound is valid for a
+    /// No intermediate dominance relation, hop cap, bag cap, or scalar branch-and-bound is valid for a
     /// structure-dependent concrete instance. Repeated nodes are excluded because this
     /// API searches graph paths (not unbounded walks); that is the sole structural
     /// termination condition.
@@ -907,9 +687,8 @@ impl ReductionGraph {
                 *retained -= 1;
             }
             if targets.contains(&node) {
-                tracker.record_completed(1);
                 let candidate = (self.node_path_to_reduction_path(&node_path), label);
-                self.insert_terminal_candidate(&mut front, candidate, tracker);
+                self.insert_measured_terminal_candidate(&mut front, candidate, tracker);
                 continue;
             }
 
@@ -935,7 +714,7 @@ impl ReductionGraph {
                 let weight = &self.graph[edge_idx];
                 let target_node = &self.nodes[self.graph[target]];
                 let edge = ReductionEdge {
-                    overhead: &weight.overhead,
+                    size_contract: &weight.size_contract,
                     reduce_fn: weight.reduce_fn,
                     target_name: target_node.name,
                     target_variant: &target_node.variant,
@@ -977,9 +756,8 @@ impl ReductionGraph {
         tracker: &mut SearchTracker,
     ) {
         if targets.contains(&node) {
-            tracker.record_completed(1);
             let candidate = (self.node_path_to_reduction_path(path), label);
-            self.insert_terminal_candidate(front, candidate, tracker);
+            self.insert_measured_terminal_candidate(front, candidate, tracker);
             return;
         }
         if adjacency[node.index()].is_empty() {
@@ -993,7 +771,7 @@ impl ReductionGraph {
             let weight = &self.graph[edge_idx];
             let target_node = &self.nodes[self.graph[target]];
             let edge = ReductionEdge {
-                overhead: &weight.overhead,
+                size_contract: &weight.size_contract,
                 reduce_fn: weight.reduce_fn,
                 target_name: target_node.name,
                 target_variant: &target_node.variant,
@@ -1133,42 +911,44 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        // Enumerate every simple path in a single DFS pass and keep only the `limit`
-        // that sort smallest under the deterministic total order: fewest nodes first
-        // (shortest routes), then by `path_order_key`. Taking `limit` in petgraph's raw
-        // DFS discovery order (the previous approach) could drop a short route
-        // discovered late while returning a long route discovered early. A single
-        // bounded max-heap keyed by `(node count, order key)` retains exactly those
-        // `limit` paths — push each candidate, and once over capacity pop the current
-        // largest — so ordering and the truncated subset are reproducible and
-        // build-independent with O(limit) memory, however many paths the graph holds.
-        // (`limit == 0` falls out naturally: every push is immediately popped.)
-        let max_intermediate =
-            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
-
-        let mut heap: BinaryHeap<(usize, String, Vec<NodeIndex>)> = BinaryHeap::new();
-        for p in all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
-            &self.graph,
-            src,
-            dst,
-            0,
-            Some(max_intermediate),
-        ) {
-            if !self.node_path_supports_mode(&p, mode) {
-                continue;
-            }
-            let key = self.path_order_key(&p);
-            heap.push((p.len(), key, p));
-            if heap.len() > limit {
-                heap.pop();
-            }
+        if limit == 0 {
+            return Vec::new();
         }
 
-        // `into_sorted_vec` yields ascending `(node count, order key)` order.
-        heap.into_sorted_vec()
-            .into_iter()
-            .map(|(_, _, p)| self.node_path_to_reduction_path(&p))
-            .collect()
+        // Enumerate simple paths breadth-first. Each level is already lexicographic
+        // because both the preceding level and every outgoing edge list are ordered
+        // by canonical node identity. Completed paths therefore arrive in the exact
+        // public order: fewest nodes first, then canonical node identity. Stop immediately
+        // after `limit` results instead of traversing every simple path.
+        let max_intermediate =
+            max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
+        let max_nodes = max_intermediate.saturating_add(2);
+        let mut frontier = vec![vec![src]];
+        let mut paths = Vec::with_capacity(limit);
+
+        while !frontier.is_empty() && frontier[0].len() < max_nodes {
+            let mut next_frontier = Vec::new();
+            for path in frontier {
+                let current = path[path.len() - 1];
+                for (next, _) in self.ordered_outgoing_edges(current, mode) {
+                    if path.contains(&next) {
+                        continue;
+                    }
+                    let mut extended = path.clone();
+                    extended.push(next);
+                    if next == dst {
+                        paths.push(self.node_path_to_reduction_path(&extended));
+                        if paths.len() == limit {
+                            return paths;
+                        }
+                    } else {
+                        next_frontier.push(extended);
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+        paths
     }
 
     /// Check if a direct reduction exists from S to T.
@@ -1261,73 +1041,193 @@ impl ReductionGraph {
         self.nodes.len()
     }
 
-    /// Get the per-edge overhead expressions along a reduction path.
-    ///
-    /// Returns one `ReductionOverhead` per edge (i.e., `path.steps.len() - 1` items).
-    ///
-    /// Panics if any step in the path does not correspond to an edge in the graph.
-    pub fn path_overheads(&self, path: &ReductionPath) -> Vec<ReductionOverhead> {
+    /// Return the exact map for every edge of a path.
+    pub fn path_size_maps(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<Vec<crate::size_map::SizeMap>, PathSizeMapError> {
         if path.steps.len() <= 1 {
-            return vec![];
+            return Ok(vec![]);
         }
 
         let node_indices: Vec<NodeIndex> = path
             .steps
             .iter()
             .map(|step| {
-                self.lookup_node(&step.name, &step.variant)
-                    .unwrap_or_else(|| panic!("Node not found: {} {:?}", step.name, step.variant))
+                self.lookup_node(&step.name, &step.variant).ok_or_else(|| {
+                    PathSizeMapError::UnknownNode {
+                        problem: step.name.clone(),
+                        variant: step.variant.clone(),
+                    }
+                })
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         node_indices
             .windows(2)
-            .map(|pair| {
-                let edge_idx = self.graph.find_edge(pair[0], pair[1]).unwrap_or_else(|| {
-                    let src = &self.nodes[self.graph[pair[0]]];
-                    let dst = &self.nodes[self.graph[pair[1]]];
-                    panic!(
-                        "No edge from {} {:?} to {} {:?}",
-                        src.name, src.variant, dst.name, dst.variant
-                    )
-                });
-                self.graph[edge_idx].overhead.clone()
+            .enumerate()
+            .map(|(index, pair)| {
+                let edge_idx = self.graph.find_edge(pair[0], pair[1]).ok_or_else(|| {
+                    PathSizeMapError::MissingEdge {
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    }
+                })?;
+                if self.graph[edge_idx].turing {
+                    return Err(PathSizeMapError::TuringEdge {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    });
+                }
+                let contract = self.graph[edge_idx]
+                    .size_contract
+                    .as_ref()
+                    .map_err(|error| PathSizeMapError::InvalidContract {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                        error: Box::new(error.clone()),
+                    })?;
+                contract
+                    .exact()
+                    .cloned()
+                    .ok_or_else(|| PathSizeMapError::Unavailable {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    })
             })
             .collect()
     }
 
-    /// Compose overheads along a path symbolically.
-    ///
-    /// Returns a single `ReductionOverhead` whose expressions map from the
-    /// source problem's size variables directly to the final target's size variables.
-    /// A one-node path has no reduction producing output fields, so its overhead is empty.
-    pub fn compose_path_overhead(
+    /// Compose exact size maps along a path. A one-node path has no producing map.
+    pub fn compose_path_size_map(
         &self,
         path: &ReductionPath,
-    ) -> Result<ReductionOverhead, PathOverheadCompositionError> {
+    ) -> Result<Option<crate::size_map::SizeMap>, PathSizeMapError> {
         if path.steps.is_empty() {
-            return Err(PathOverheadCompositionError::EmptyPath);
+            return Err(PathSizeMapError::EmptyPath);
         }
         if path.steps.len() == 1 {
-            return Ok(ReductionOverhead::default());
+            return Ok(None);
         }
 
-        let mut overheads = self.path_overheads(path).into_iter();
-        let mut composed = overheads
-            .next()
-            .expect("a multi-node path has at least one edge overhead");
-        for (offset, overhead) in overheads.enumerate() {
+        let mut maps = self.path_size_maps(path)?.into_iter();
+        let Some(mut composed) = maps.next() else {
+            return Ok(None);
+        };
+        for (offset, map) in maps.enumerate() {
             let edge_index = offset + 1;
-            composed = composed.compose(&overhead).map_err(|error| {
-                PathOverheadCompositionError::Step {
+            composed = composed
+                .compose(
+                    &map,
+                    format!(
+                        "{} -> {}",
+                        path.steps[0].name,
+                        path.steps[edge_index + 1].name
+                    ),
+                )
+                .map_err(|error| PathSizeMapError::Step {
                     step: edge_index + 1,
-                    source: path.steps[edge_index].name.clone(),
-                    target: path.steps[edge_index + 1].name.clone(),
-                    error,
-                }
-            })?;
+                    source_problem: path.steps[edge_index].name.clone(),
+                    target_problem: path.steps[edge_index + 1].name.clone(),
+                    error: Box::new(error),
+                })?;
         }
-        Ok(composed)
+        Ok(Some(composed))
+    }
+
+    pub fn path_size_bounds(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<Vec<crate::size_bound::SizeBound>, PathSizeBoundError> {
+        if path.steps.len() <= 1 {
+            return Ok(vec![]);
+        }
+        let node_indices: Vec<NodeIndex> = path
+            .steps
+            .iter()
+            .map(|step| {
+                self.lookup_node(&step.name, &step.variant).ok_or_else(|| {
+                    PathSizeBoundError::UnknownNode {
+                        problem: step.name.clone(),
+                        variant: step.variant.clone(),
+                    }
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        node_indices
+            .windows(2)
+            .enumerate()
+            .map(|(index, pair)| {
+                let edge_idx = self.graph.find_edge(pair[0], pair[1]).ok_or_else(|| {
+                    PathSizeBoundError::MissingEdge {
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    }
+                })?;
+                if self.graph[edge_idx].turing {
+                    return Err(PathSizeBoundError::TuringEdge {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    });
+                }
+                let contract = self.graph[edge_idx]
+                    .size_contract
+                    .as_ref()
+                    .map_err(|error| PathSizeBoundError::InvalidContract {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                        error: Box::new(error.clone()),
+                    })?;
+                contract
+                    .bounds()
+                    .cloned()
+                    .ok_or_else(|| PathSizeBoundError::Unavailable {
+                        step: index + 1,
+                        source_problem: path.steps[index].name.clone(),
+                        target_problem: path.steps[index + 1].name.clone(),
+                    })
+            })
+            .collect()
+    }
+
+    pub fn compose_path_size_bound(
+        &self,
+        path: &ReductionPath,
+    ) -> Result<Option<crate::size_bound::SizeBound>, PathSizeBoundError> {
+        if path.steps.is_empty() {
+            return Err(PathSizeBoundError::EmptyPath);
+        }
+        if path.steps.len() == 1 {
+            return Ok(None);
+        }
+        let mut bounds = self.path_size_bounds(path)?.into_iter();
+        let Some(mut composed) = bounds.next() else {
+            return Ok(None);
+        };
+        for (offset, bound) in bounds.enumerate() {
+            let edge_index = offset + 1;
+            composed = composed
+                .compose(
+                    &bound,
+                    format!(
+                        "{} -> {}",
+                        path.steps[0].name,
+                        path.steps[edge_index + 1].name
+                    ),
+                )
+                .map_err(|error| PathSizeBoundError::Step {
+                    step: edge_index + 1,
+                    source_problem: path.steps[edge_index].name.clone(),
+                    target_problem: path.steps[edge_index + 1].name.clone(),
+                    error: Box::new(error),
+                })?;
+        }
+        Ok(Some(composed))
     }
 
     /// Get all variant maps registered for a problem name.
@@ -1401,7 +1301,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    overhead: self.graph[e.id()].overhead.clone(),
+                    size_contract: self.graph[e.id()].size_contract.clone(),
                     capabilities: self.graph[e.id()].capabilities(),
                 }
             })
@@ -1433,7 +1333,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    overhead: self.graph[edge].overhead.clone(),
+                    size_contract: self.graph[edge].size_contract.clone(),
                     capabilities: self.graph[edge].capabilities(),
                 }
             })
@@ -1442,9 +1342,9 @@ impl ReductionGraph {
 
     /// Get the problem size field names for a problem type.
     ///
-    /// Derives size fields from the overhead expressions of reduction entries
+    /// Derives size fields from the explicit size contracts of reduction entries
     /// where this problem appears as source or target. When the problem is a
-    /// source, its size fields are the input variables referenced in the overhead
+    /// source, its size fields are the input variables referenced in exact and bound
     /// expressions. When it's a target, its size fields are the output field names.
     pub fn size_field_names(&self, name: &str) -> Vec<String> {
         let mut fields: std::collections::HashSet<String> =
@@ -1453,24 +1353,30 @@ impl ReductionGraph {
                 .map(str::to_string)
                 .collect();
         for entry in inventory::iter::<ReductionEntry> {
+            let declarations = (entry.size_declarations_fn)();
             if entry.source_name == name {
-                // Source's size fields are the input variables of the overhead.
                 fields.extend(
-                    entry
-                        .overhead()
-                        .input_variable_names()
-                        .into_iter()
+                    declarations
+                        .exact
+                        .iter()
+                        .chain(&declarations.bounds)
+                        .flat_map(|(_, expression)| expression.variables())
                         .map(str::to_string),
                 );
             }
             if entry.target_name == name {
-                // Target's size fields are the output field names.
-                let overhead = entry.overhead();
                 fields.extend(
-                    overhead
-                        .output_size
+                    declarations
+                        .exact
                         .iter()
+                        .chain(&declarations.bounds)
                         .map(|(field, _)| (*field).to_string()),
+                );
+                fields.extend(
+                    declarations
+                        .unavailable
+                        .iter()
+                        .map(|field| field.field.to_string()),
                 );
             }
         }
@@ -1487,22 +1393,30 @@ impl ReductionGraph {
             .map(str::to_string)
             .collect();
         for entry in inventory::iter::<ReductionEntry> {
+            let declarations = (entry.size_declarations_fn)();
             if self.name_to_nodes.contains_key(entry.source_name) {
                 known.extend(
-                    entry
-                        .overhead()
-                        .input_variable_names()
-                        .into_iter()
+                    declarations
+                        .exact
+                        .iter()
+                        .chain(&declarations.bounds)
+                        .flat_map(|(_, expression)| expression.variables())
                         .map(str::to_string),
                 );
             }
             if self.name_to_nodes.contains_key(entry.target_name) {
                 known.extend(
-                    entry
-                        .overhead()
-                        .output_size
+                    declarations
+                        .exact
                         .iter()
+                        .chain(&declarations.bounds)
                         .map(|(field, _)| (*field).to_string()),
+                );
+                known.extend(
+                    declarations
+                        .unavailable
+                        .iter()
+                        .map(|field| field.field.to_string()),
                 );
             }
         }
@@ -1512,25 +1426,43 @@ impl ReductionGraph {
         Ok(())
     }
 
-    /// Evaluate the cumulative output size along a reduction path.
-    ///
-    /// Walks the path from start to end, applying each edge's overhead
-    /// expressions to transform the problem size at each step.
-    /// Returns `None` if any edge in the path cannot be found.
-    pub fn evaluate_path_overhead(
+    /// Evaluate every exact size map along a reduction path.
+    pub fn evaluate_path_size_map(
         &self,
         path: &ReductionPath,
         input_size: &ProblemSize,
-    ) -> Option<ProblemSize> {
+    ) -> Result<ProblemSize, PathSizeMapError> {
         let mut current_size = input_size.clone();
-        for pair in path.steps.windows(2) {
-            let src = self.lookup_node(&pair[0].name, &pair[0].variant)?;
-            let dst = self.lookup_node(&pair[1].name, &pair[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
-            let edge = &self.graph[edge_idx];
-            current_size = edge.overhead.evaluate_output_size(&current_size);
+        for (index, map) in self.path_size_maps(path)?.iter().enumerate() {
+            current_size = map
+                .evaluate(&current_size)
+                .map_err(|error| PathSizeMapError::Step {
+                    step: index + 1,
+                    source_problem: path.steps[index].name.clone(),
+                    target_problem: path.steps[index + 1].name.clone(),
+                    error: Box::new(error),
+                })?;
         }
-        Some(current_size)
+        Ok(current_size)
+    }
+
+    pub fn evaluate_path_size_bound(
+        &self,
+        path: &ReductionPath,
+        input: &crate::size_bound::BoundVector,
+    ) -> Result<crate::size_bound::BoundVector, PathSizeBoundError> {
+        let mut current = input.clone();
+        for (index, bound) in self.path_size_bounds(path)?.iter().enumerate() {
+            current = bound
+                .evaluate(&current)
+                .map_err(|error| PathSizeBoundError::Step {
+                    step: index + 1,
+                    source_problem: path.steps[index].name.clone(),
+                    target_problem: path.steps[index + 1].name.clone(),
+                    error: Box::new(error),
+                })?;
+        }
+        Ok(current)
     }
 
     /// Compute the source problem's size from a type-erased instance.
@@ -1589,7 +1521,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
-                    overhead: self.graph[e.id()].overhead.clone(),
+                    size_contract: self.graph[e.id()].size_contract.clone(),
                     capabilities: self.graph[e.id()].capabilities(),
                 }
             })
@@ -1801,17 +1733,48 @@ impl ReductionGraph {
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
-            let overhead = &edge_ref.weight().overhead;
+            let contract = &edge_ref.weight().size_contract;
             let capabilities = edge_ref.weight().capabilities();
 
-            let overhead_fields = overhead
-                .output_size
-                .iter()
-                .map(|(field, poly)| OverheadFieldJson {
-                    field: field.to_string(),
-                    formula: poly.to_string(),
-                })
-                .collect();
+            let mut size_fields = Vec::new();
+            if let Ok(contract) = contract {
+                if let Some(exact) = contract.exact() {
+                    size_fields.extend(exact.expressions().map(|(field, expression)| {
+                        SizeFieldJson {
+                            field: field.to_string(),
+                            contract: "exact",
+                            formula: Some(expression.to_string()),
+                            reason: None,
+                        }
+                    }));
+                }
+                if let Some(bounds) = contract.bounds() {
+                    size_fields.extend(
+                        bounds
+                            .expressions()
+                            .filter(|(field, _)| {
+                                contract
+                                    .exact()
+                                    .is_none_or(|exact| exact.get(field).is_none())
+                            })
+                            .map(|(field, expression)| SizeFieldJson {
+                                field: field.to_string(),
+                                contract: "bound-only",
+                                formula: Some(expression.to_string()),
+                                reason: None,
+                            }),
+                    );
+                }
+                size_fields.extend(contract.unavailable().iter().map(|unavailable| {
+                    SizeFieldJson {
+                        field: unavailable.field.to_string(),
+                        contract: "unavailable",
+                        formula: None,
+                        reason: Some(unavailable.reason.to_string()),
+                    }
+                }));
+            }
+            let size_contract_error = contract.as_ref().err().map(ToString::to_string);
 
             // Find the doc_path from the matching ReductionEntry
             let src_name = self.nodes[src_node_id].name;
@@ -1824,7 +1787,8 @@ impl ReductionGraph {
             edges.push(EdgeJson {
                 source: old_to_new[&src_node_id],
                 target: old_to_new[&dst_node_id],
-                overhead: overhead_fields,
+                size_fields,
+                size_contract_error,
                 doc_path,
                 witness: capabilities.witness,
                 aggregate: capabilities.aggregate,
@@ -1943,7 +1907,7 @@ impl ReductionGraph {
                 return Some(MatchedEntry {
                     source_variant: entry_source,
                     target_variant: entry_target,
-                    overhead: entry.overhead(),
+                    size_contract: entry.size_contract(),
                 });
             }
         }
@@ -1958,8 +1922,8 @@ pub struct MatchedEntry {
     pub source_variant: BTreeMap<String, String>,
     /// The entry's target variant.
     pub target_variant: BTreeMap<String, String>,
-    /// The overhead of the reduction.
-    pub overhead: ReductionOverhead,
+    /// The reduction's explicit size contract.
+    pub size_contract: Result<ReductionSizeContract, SizeContractError>,
 }
 
 /// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
@@ -2141,36 +2105,6 @@ pub struct MeasuredPath {
     steps: Vec<Rc<dyn DynReductionResult>>,
 }
 
-/// A searched route excluded from symbolic optimization at the analysis boundary.
-#[derive(Debug)]
-pub struct ExcludedSymbolicPath {
-    pub path: ReductionPath,
-    pub failure: AnalysisFailure,
-}
-
-/// Symbolic Pareto result with analysis coverage reported separately from search completeness.
-#[derive(Debug)]
-pub struct SymbolicParetoFront {
-    pub front: Vec<(ReductionPath, GrowthLabel)>,
-    pub excluded: Vec<ExcludedSymbolicPath>,
-    pub coverage: AnalysisCoverage,
-}
-
-/// Every searched terminal route crossed the symbolic analysis-failure boundary.
-#[derive(Debug)]
-pub struct NoAnalyzablePath {
-    pub excluded: Vec<ExcludedSymbolicPath>,
-    pub coverage: AnalysisCoverage,
-}
-
-impl std::fmt::Display for NoAnalyzablePath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "no analyzable reduction path")
-    }
-}
-
-impl std::error::Error for NoAnalyzablePath {}
-
 fn compare_reduction_paths(a: &ReductionPath, b: &ReductionPath) -> std::cmp::Ordering {
     a.len().cmp(&b.len()).then_with(|| {
         a.steps
@@ -2193,6 +2127,21 @@ impl MeasuredPath {
             .target_problem_any()
     }
 
+    /// Measure every concrete intermediate target already constructed for this path.
+    pub fn measured_target_sizes(&self) -> Vec<ProblemSize> {
+        self.steps
+            .iter()
+            .zip(self.path.steps.iter().skip(1))
+            .map(|(result, target)| {
+                ReductionGraph::compute_source_size(
+                    &target.name,
+                    &target.variant,
+                    result.target_problem_any(),
+                )
+            })
+            .collect()
+    }
+
     /// Extract a solution from target space back to source space.
     pub fn extract_solution(
         &self,
@@ -2207,10 +2156,100 @@ impl MeasuredPath {
 }
 
 impl ReductionGraph {
+    /// Execute a selected batch of witness paths while sharing every common prefix.
+    pub fn measure_paths<'a>(
+        &self,
+        paths: &[ReductionPath],
+        source_instance: &'a dyn Any,
+    ) -> Result<Vec<MeasuredPath>, MeasurePathsError> {
+        let mut prefixes: HashMap<Vec<ReductionStep>, MeasuredLabel<'a>> = HashMap::new();
+        let mut measured = Vec::with_capacity(paths.len());
+        let mut batch_source: Option<&ReductionStep> = None;
+        for (path_index, path) in paths.iter().enumerate() {
+            let source = path
+                .steps
+                .first()
+                .ok_or(MeasurePathsError::EmptyPath { path_index })?;
+            if path.steps.len() < 2 {
+                return Err(MeasurePathsError::NoEdges { path_index });
+            }
+            if let Some(expected) = batch_source {
+                if source != expected {
+                    return Err(MeasurePathsError::DifferentSource { path_index });
+                }
+            } else {
+                batch_source = Some(source);
+            }
+            let source_prefix = vec![source.clone()];
+            let mut label = if let Some(label) = prefixes.get(&source_prefix) {
+                label.clone()
+            } else {
+                let source_size =
+                    Self::compute_source_size(&source.name, &source.variant, source_instance);
+                let label = MeasuredLabel::new(source_instance, source_size, SizeBudget::default());
+                prefixes.insert(source_prefix.clone(), label.clone());
+                label
+            };
+            let mut prefix = source_prefix;
+            for pair in path.steps.windows(2) {
+                prefix.push(pair[1].clone());
+                if let Some(cached) = prefixes.get(&prefix) {
+                    label = cached.clone();
+                    continue;
+                }
+                let source_node = self
+                    .lookup_node(&pair[0].name, &pair[0].variant)
+                    .ok_or_else(|| MeasurePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[0].name.clone(),
+                        variant: pair[0].variant.clone(),
+                    })?;
+                let target_node_index = self
+                    .lookup_node(&pair[1].name, &pair[1].variant)
+                    .ok_or_else(|| MeasurePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[1].name.clone(),
+                        variant: pair[1].variant.clone(),
+                    })?;
+                let edge_index = self
+                    .graph
+                    .find_edge(source_node, target_node_index)
+                    .ok_or_else(|| MeasurePathsError::MissingEdge {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    })?;
+                let edge_data = &self.graph[edge_index];
+                if edge_data.reduce_fn.is_none() {
+                    return Err(MeasurePathsError::NotWitnessExecutable {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    });
+                }
+                let target_node = &self.nodes[self.graph[target_node_index]];
+                label = label
+                    .extend(&ReductionEdge {
+                        size_contract: &edge_data.size_contract,
+                        reduce_fn: edge_data.reduce_fn,
+                        target_name: target_node.name,
+                        target_variant: &target_node.variant,
+                    })
+                    .expect("an unlimited budget permits every measured target");
+                prefixes.insert(prefix.clone(), label.clone());
+            }
+            measured.push(
+                Self::measured_path_from_label(path.clone(), label)
+                    .expect("a path with an executed edge has a measured chain"),
+            );
+        }
+        Ok(measured)
+    }
+
     /// Return the componentwise measured Pareto front for one exact target variant.
     ///
     /// This executes each reduction on `source_instance` and measures the real constructed
-    /// target size. Asymptotic overhead formulas are not concrete bounds and do not prune.
+    /// target size. Asymptotic growth formulas are not concrete bounds and do not prune.
     ///
     /// `budget` contains independent limits for registered `ProblemSize` fields.
     /// Exact search enumerates witness-capable simple paths without dominance pruning or
@@ -2254,101 +2293,6 @@ impl ReductionGraph {
             .filter_map(|(path, label)| Self::measured_path_from_label(path, label))
             .collect();
         Ok(tracker.finish(front))
-    }
-
-    /// Compute the **asymptotic Pareto front** of reduction paths from `source` to
-    /// `target` — the instance-free path search (design doc M3/F3a).
-    ///
-    /// Runs the generic [multi-label elementary-path search](Self::pareto_search) with the
-    /// [`GrowthLabel`] domain: no concrete instance is needed, and each returned path
-    /// carries its composed Big-O per target size field (in the source problem's size
-    /// variables), read off the returned label. Because asymptotic growth over several
-    /// size variables is a *partial* order, the answer is a front: possibly several
-    /// mutually incomparable optimal paths (one better in one size field, another in a
-    /// different one). Paths whose composed growth is [`Growth::Unknown`] cross the
-    /// analysis boundary: they are excluded from the front and returned with an explicit
-    /// failure reason. If every discovered path is excluded, the result is
-    /// [`NoAnalyzablePath`].
-    ///
-    /// The terminal front reports **one representative path per distinct growth vector**:
-    /// the asymptotic front is a Pareto set over *growth vectors*, not routes. Many
-    /// syntactically different reduction chains compose to the exact same Big-O per size
-    /// field (e.g. dozens of `MinimumVertexCover → … → ILP` routes all yield
-    /// `num_constraints = O(num_edges), num_vars = O(num_vertices)`); reporting each
-    /// route would drown the genuinely distinct trade-offs the user cares about.
-    /// So terminal equality filtering keeps one deterministic representative per group: fewest
-    /// hops, then lexicographic node-name path. Equality is purely by the growth vector,
-    /// so two paths that
-    /// reach *different* target variants (e.g. `ILP/bool` vs `ILP/i32`) with the same
-    /// composed Big-O collapse to a single representative — the endpoint variant is not
-    /// part of the asymptotic identity.
-    ///
-    /// The front is ordered deterministically by (hops, lexicographic node names), so
-    /// the output is byte-identical across runs and platforms. Returns an empty vector
-    /// if either endpoint is unregistered or no path exists. `Exact` covers every
-    /// elementary path under the symbolic growth domain; `Approximate` may return a
-    /// partial front and reports any reached limits. Symbolic exactness is not a
-    /// statement about concrete constructed target sizes.
-    pub fn asymptotic_front(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        search_mode: SearchMode,
-    ) -> SearchOutcome<Result<SymbolicParetoFront, NoAnalyzablePath>> {
-        let mut tracker = SearchTracker::new(&search_mode);
-        let (Some(src), Some(dst)) = (
-            self.lookup_node(source, source_variant),
-            self.lookup_node(target, target_variant),
-        ) else {
-            return tracker.finish(Ok(SymbolicParetoFront {
-                front: Vec::new(),
-                excluded: Vec::new(),
-                coverage: AnalysisCoverage {
-                    analyzed_paths: 0,
-                    excluded_paths: 0,
-                },
-            }));
-        };
-        let source_fields = self.size_field_names(source);
-        let initial = GrowthLabel::source(&source_fields);
-        let searched = self.pareto_search(src, dst, mode, initial, &mut tracker);
-        let mut front = Vec::new();
-        let mut excluded = Vec::new();
-        for (path, label) in searched {
-            if let Some(failure) = label.analysis_failure() {
-                excluded.push(ExcludedSymbolicPath { path, failure });
-            } else {
-                front.push((path, label));
-            }
-        }
-        // Order per the public contract: (hops, lexicographic node names).
-        front.sort_by(|a, b| {
-            a.0.len()
-                .cmp(&b.0.len())
-                .then_with(|| a.0.type_names().cmp(&b.0.type_names()))
-        });
-        excluded.sort_by(|a, b| {
-            a.path
-                .len()
-                .cmp(&b.path.len())
-                .then_with(|| a.path.type_names().cmp(&b.path.type_names()))
-        });
-        let coverage = AnalysisCoverage {
-            analyzed_paths: tracker.completed_states() - excluded.len(),
-            excluded_paths: excluded.len(),
-        };
-        if front.is_empty() && !excluded.is_empty() {
-            tracker.finish(Err(NoAnalyzablePath { excluded, coverage }))
-        } else {
-            tracker.finish(Ok(SymbolicParetoFront {
-                front,
-                excluded,
-                coverage,
-            }))
-        }
     }
 
     /// Return the componentwise measured Pareto front across all target variants.
@@ -2455,10 +2399,6 @@ impl ReductionGraph {
 #[cfg(test)]
 #[path = "../unit_tests/rules/graph.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../unit_tests/rules/pareto.rs"]
-mod pareto_tests;
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]

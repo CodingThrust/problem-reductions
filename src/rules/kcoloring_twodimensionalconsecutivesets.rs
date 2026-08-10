@@ -71,7 +71,7 @@ impl ReductionResult for ReductionKColoringToTDCS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         alphabet_size = "num_vertices + num_edges",
         num_subsets = "num_edges",
     }

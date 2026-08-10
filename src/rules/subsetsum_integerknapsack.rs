@@ -10,7 +10,8 @@
 use crate::expr::Expr;
 use crate::models::misc::SubsetSum;
 use crate::models::set::IntegerKnapsack;
-use crate::rules::{ReductionEntry, ReductionOverhead};
+use crate::rules::registry::ReductionSizeDeclarations;
+use crate::rules::ReductionEntry;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_bigint::BigUint;
@@ -40,31 +41,24 @@ fn subset_sum_source_size(any: &dyn Any) -> ProblemSize {
     ])
 }
 
-fn subset_sum_to_integer_knapsack_overhead(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<SubsetSum>()
-        .expect("SubsetSum -> IntegerKnapsack source type mismatch");
-    ProblemSize::new(vec![
-        ("num_items", source.num_elements()),
-        ("capacity", biguint_to_usize(source.target(), "target")),
-    ])
-}
-
 inventory::submit! {
     ReductionEntry {
         source_name: SubsetSum::NAME,
         target_name: IntegerKnapsack::NAME,
         source_variant_fn: <SubsetSum as Problem>::variant,
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_items", Expr::variable("num_elements")),
-            ("capacity", Expr::variable("target")),
-        ]),
+        size_declarations_fn: || ReductionSizeDeclarations {
+            exact: vec![
+                ("num_items", Expr::variable("num_elements")),
+                ("capacity", Expr::variable("target")),
+            ],
+            bounds: vec![],
+            unavailable: vec![],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
         turing: false,
-        overhead_eval_fn: subset_sum_to_integer_knapsack_overhead,
         source_size_fn: subset_sum_source_size,
     }
 }

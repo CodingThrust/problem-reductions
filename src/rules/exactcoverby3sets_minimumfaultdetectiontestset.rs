@@ -34,12 +34,13 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 1",
-    num_arcs = "3 * num_subsets + universe_size",
-    num_inputs = "num_subsets",
-    num_outputs = "1",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "num_subsets + universe_size + 1",
+        num_arcs = "3 * num_subsets + universe_size",
+        num_inputs = "num_subsets",
+        num_outputs = "1",
+    })]
 impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumFaultDetectionTestSet;
 

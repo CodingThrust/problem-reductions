@@ -33,10 +33,10 @@ impl ReductionResult for ReductionMxISToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_edges + num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
     type Result = ReductionMxISToILP;

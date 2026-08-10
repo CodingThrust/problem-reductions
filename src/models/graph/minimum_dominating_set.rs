@@ -280,7 +280,14 @@ inventory::submit! {
         target_name: "MinimumDominatingSet",
         source_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
         target_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
-        overhead_fn: || crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
+            exact: vec![
+                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
+                ("num_edges", crate::expr::Expr::variable("num_edges")),
+            ],
+            bounds: vec![],
+            unavailable: vec![],
+        },
         module_path: module_path!(),
         reduce_fn: Some(|any| {
             let source = any
@@ -303,15 +310,6 @@ inventory::submit! {
             )
         }),
         turing: false,
-        overhead_eval_fn: |any| {
-            let source = any
-                .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
-                .expect("DecisionMinimumDominatingSet overhead source type mismatch");
-            crate::types::ProblemSize::new(vec![
-                ("num_vertices", source.num_vertices()),
-                ("num_edges", source.num_edges()),
-            ])
-        },
         source_size_fn: |any| {
             let source = any
                 .downcast_ref::<Decision<MinimumDominatingSet<SimpleGraph, One>>>()
@@ -332,20 +330,18 @@ inventory::submit! {
         target_name: "DecisionMinimumDominatingSet",
         source_variant_fn: <MinimumDominatingSet<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::variant,
-        overhead_fn: || crate::rules::ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
+            exact: vec![
+                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
+                ("num_edges", crate::expr::Expr::variable("num_edges")),
+            ],
+            bounds: vec![],
+            unavailable: vec![],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
         turing: true,
-        overhead_eval_fn: |any| {
-            let source = any
-                .downcast_ref::<MinimumDominatingSet<SimpleGraph, One>>()
-                .expect("DecisionMinimumDominatingSet turing overhead source type mismatch");
-            crate::types::ProblemSize::new(vec![
-                ("num_vertices", source.num_vertices()),
-                ("num_edges", source.num_edges()),
-            ])
-        },
         source_size_fn: |any| {
             let source = any
                 .downcast_ref::<MinimumDominatingSet<SimpleGraph, One>>()

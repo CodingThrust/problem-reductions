@@ -116,10 +116,11 @@ impl ReductionResult for ReductionOSSToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
-    num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 1",
+        num_constraints = "num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines + 1 + 2 * num_jobs * (num_jobs - 1) / 2 * num_machines + num_jobs * num_machines * (num_machines - 1) / 2 + 2 * num_jobs * num_machines * (num_machines - 1) / 2 + num_jobs * num_machines",
+    },)]
 impl ReduceTo<ILP<i32>> for OpenShopScheduling {
     type Result = ReductionOSSToILP;
 

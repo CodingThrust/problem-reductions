@@ -52,9 +52,10 @@ fn build_distances(graph: &SimpleGraph) -> Vec<Vec<u64>> {
     distances
 }
 
-#[reduction(overhead = {
-    num_elements = "num_vertices",
-})]
+#[reduction(
+    exact = {
+        num_elements = "num_vertices",
+    })]
 impl ReduceTo<Clustering> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToClustering;
 

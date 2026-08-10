@@ -44,10 +44,10 @@ impl ReductionResult for ReductionSteinerTreeToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + 2 * num_edges * (num_terminals - 1)",
         num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i32> {
     type Result = ReductionSteinerTreeToILP;

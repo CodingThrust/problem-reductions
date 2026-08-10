@@ -103,7 +103,7 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

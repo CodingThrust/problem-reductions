@@ -40,7 +40,9 @@ impl ReductionResult for ReductionKnapsackToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_items + num_slack_bits" })]
+#[reduction(exact = {
+    num_vars = "num_items + num_slack_bits",
+})]
 impl ReduceTo<QUBO<f64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;
 

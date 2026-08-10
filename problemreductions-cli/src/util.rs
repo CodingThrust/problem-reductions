@@ -3,9 +3,6 @@
 use anyhow::{bail, Result};
 use num_bigint::BigUint;
 use problemreductions::prelude::*;
-use problemreductions::rules::{
-    ApproximationPolicy, SearchCompleteness, SearchLimits, SearchMode, SearchStats,
-};
 use problemreductions::topology::SimpleGraph;
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
@@ -239,70 +236,6 @@ pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Vec<usize> {
 // ---------------------------------------------------------------------------
 // Small shared helpers
 // ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy, Debug, Default)]
-pub struct SearchLimitOverrides {
-    pub max_hops: Option<usize>,
-    pub max_labels_per_node: Option<usize>,
-    pub max_expanded_states: Option<usize>,
-    pub timeout_seconds: Option<u64>,
-}
-
-pub fn build_search_mode(exact: bool, overrides: SearchLimitOverrides) -> Result<SearchMode> {
-    if exact {
-        if overrides.max_hops.is_some()
-            || overrides.max_labels_per_node.is_some()
-            || overrides.max_expanded_states.is_some()
-            || overrides.timeout_seconds.is_some()
-        {
-            bail!("Search limits are accepted only in approximate mode");
-        }
-        return Ok(SearchMode::Exact);
-    }
-
-    let mut limits = SearchLimits::interactive();
-    if let Some(max_hops) = overrides.max_hops {
-        limits.max_hops = Some(max_hops);
-    }
-    if let Some(max_labels) = overrides.max_labels_per_node {
-        limits.max_labels_per_node = Some(max_labels);
-    }
-    limits.max_expanded_states = overrides.max_expanded_states;
-    limits.timeout = overrides
-        .timeout_seconds
-        .map(std::time::Duration::from_secs);
-    Ok(SearchMode::Approximate(ApproximationPolicy::Bounded(
-        limits,
-    )))
-}
-
-pub fn add_search_metadata(
-    mut json: serde_json::Value,
-    completeness: &SearchCompleteness,
-    stats: &SearchStats,
-) -> Result<serde_json::Value> {
-    if let Some(object) = json.as_object_mut() {
-        object.insert(
-            "completeness".to_string(),
-            serde_json::to_value(completeness)?,
-        );
-        object.insert(
-            "limit_reasons".to_string(),
-            serde_json::to_value(completeness.reasons())?,
-        );
-        object.insert("stats".to_string(), serde_json::to_value(stats)?);
-    }
-    Ok(json)
-}
-
-pub fn append_search_warning(text: &mut String, completeness: &SearchCompleteness) {
-    if !completeness.is_exact() {
-        text.push_str(&format!(
-            "\nWarning: bounded search is incomplete ({:?}).\n",
-            completeness.reasons()
-        ));
-    }
-}
 
 pub fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
     Ok(serde_json::to_value(problem)?)

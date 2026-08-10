@@ -46,10 +46,10 @@ impl ReductionResult for ReductionLongestCircuitToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
         num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
     type Result = ReductionLongestCircuitToILP;

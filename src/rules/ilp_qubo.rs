@@ -40,7 +40,9 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars + num_constraints * num_vars" }
+    unavailable = {
+        num_vars = "the exact count depends on source incidence structure or construction branches not represented by registered source fields",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;

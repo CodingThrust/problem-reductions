@@ -47,10 +47,10 @@ impl ReductionResult for ReductionDSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
     type Result = ReductionDSToILP;

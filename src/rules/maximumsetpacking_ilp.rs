@@ -40,10 +40,10 @@ impl ReductionResult for ReductionSPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_sets",
         num_constraints = "universe_size",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
     type Result = ReductionSPToILP;

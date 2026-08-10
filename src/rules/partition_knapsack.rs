@@ -33,9 +33,9 @@ fn partition_size_to_i64(value: u64) -> i64 {
         .expect("Partition -> Knapsack requires all sizes and total_sum / 2 to fit in i64")
 }
 
-#[reduction(overhead = {
-    num_items = "num_elements",
-})]
+#[reduction(
+    exact = { num_items = "num_elements" },
+)]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;
 

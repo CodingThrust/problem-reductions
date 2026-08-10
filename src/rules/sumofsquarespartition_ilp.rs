@@ -72,10 +72,10 @@ impl ReductionResult for ReductionSSPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_elements * num_groups + num_elements^2 * num_groups",
         num_constraints = "num_elements + 3 * num_elements^2 * num_groups",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
     type Result = ReductionSSPToILP;

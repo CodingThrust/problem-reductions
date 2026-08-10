@@ -54,9 +54,10 @@ fn partition_size_to_i32(value: u64) -> i32 {
         .expect("Partition -> BinPacking requires all sizes and total_sum / 2 to fit in i32")
 }
 
-#[reduction(overhead = {
-    num_items = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_items = "num_elements",
+    })]
 impl ReduceTo<BinPacking<i32>> for Partition {
     type Result = ReductionPartitionToBinPacking;
 

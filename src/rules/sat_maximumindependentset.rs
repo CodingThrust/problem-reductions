@@ -116,8 +116,10 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_literals",
+    },
+    bound = {
         num_edges = "num_literals^2",
     }
 )]

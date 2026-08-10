@@ -31,10 +31,11 @@ impl ReductionResult for ReductionSATToNonTautology {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars",
-    num_disjuncts = "num_clauses",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_vars",
+        num_disjuncts = "num_clauses",
+    })]
 impl ReduceTo<NonTautology> for Satisfiability {
     type Result = ReductionSATToNonTautology;
 

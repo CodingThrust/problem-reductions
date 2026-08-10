@@ -38,10 +38,11 @@ impl ReductionResult for ReductionTDToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_craftsmen * num_tasks * num_periods",
-    num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_craftsmen * num_tasks * num_periods",
+        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
+    },)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 

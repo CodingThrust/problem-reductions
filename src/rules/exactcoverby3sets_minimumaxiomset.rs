@@ -44,11 +44,12 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
     }
 }
 
-#[reduction(overhead = {
-    num_sentences = "universe_size + num_subsets",
-    num_true_sentences = "universe_size + num_subsets",
-    num_implications = "4 * num_subsets",
-})]
+#[reduction(
+    exact = {
+        num_sentences = "universe_size + num_subsets",
+        num_true_sentences = "universe_size + num_subsets",
+        num_implications = "4 * num_subsets",
+    })]
 impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumAxiomSet;
 

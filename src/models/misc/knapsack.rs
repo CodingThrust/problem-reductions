@@ -3,7 +3,7 @@
 //! The 0-1 Knapsack problem asks for a subset of items that maximizes
 //! total value while respecting a weight capacity constraint.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -21,6 +21,13 @@ inventory::submit! {
             FieldInfo { name: "values", type_name: "Vec<i64>", description: "Nonnegative item values v_i" },
             FieldInfo { name: "capacity", type_name: "i64", description: "Nonnegative knapsack capacity C" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "Knapsack",
+        fields: &["num_items"],
     }
 }
 

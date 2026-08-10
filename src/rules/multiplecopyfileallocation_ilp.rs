@@ -66,10 +66,10 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices + num_vertices^2",
         num_constraints = "num_vertices^2 + num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
     type Result = ReductionMCFAToILP;

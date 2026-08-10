@@ -49,7 +49,7 @@ fn literal_vertex(literal: i32) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_arcs = "2 * num_vars + 6 * num_clauses",
     }

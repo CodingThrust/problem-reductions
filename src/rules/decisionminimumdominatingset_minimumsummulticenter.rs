@@ -34,7 +34,10 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
     }
 }
 
-#[reduction(overhead = { num_vertices = "num_vertices", num_edges = "num_edges" })]
+#[reduction(unavailable = {
+    num_vertices = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+    num_edges = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+})]
 impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i32>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {

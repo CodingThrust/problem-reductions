@@ -151,9 +151,11 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "2^num_vertices",
+    exact = {
         num_constraints = "num_vertices",
+    },
+    unavailable = {
+        num_vars = "the exact count is the number of feasible highly connected vertex subsets, a hard structural parameter absent from the source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {

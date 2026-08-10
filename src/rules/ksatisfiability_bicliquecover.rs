@@ -236,7 +236,7 @@ fn free_edge_budget(ell: usize, m: usize) -> usize {
     4 * ell + 2 * ceil_log2(m) + 6
 }
 
-// Overhead expressions are upper bounds in terms of source counts.
+// Size expressions are upper bounds in terms of source counts.
 // After normalization, `n ≤ 4·num_vars` (next power of two of `2·num_vars`)
 // and `m ≤ num_clauses + n ≤ num_clauses + 4·num_vars`. With
 // `ell = log2 n ≤ 2 + log2(num_vars)` we use the coarser bound
@@ -244,7 +244,7 @@ fn free_edge_budget(ell: usize, m: usize) -> usize {
 // giving the polynomial bounds below. Edges are bounded by
 // `partition_size^2` which is `O((num_vars + num_clauses)^2)`.
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "32 * num_vars + 24 * num_clauses + 100",
         num_edges = "(32 * num_vars + 24 * num_clauses + 100) * (32 * num_vars + 24 * num_clauses + 100)",
         rank = "10 * num_vars + 4 * num_clauses + 20",

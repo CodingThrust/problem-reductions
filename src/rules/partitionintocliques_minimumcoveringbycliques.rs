@@ -169,7 +169,7 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "2 * num_vertices + 4 * num_edges + 2",
         num_edges = "(num_vertices + 2 * num_edges)^2 + 2 * num_vertices + 10 * num_edges",
     }

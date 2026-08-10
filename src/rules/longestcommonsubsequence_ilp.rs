@@ -47,10 +47,10 @@ impl ReductionResult for ReductionLCSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "max_length * (alphabet_size + 1) + max_length * total_length",
         num_constraints = "max_length + num_transitions + max_length * num_strings + max_length * total_length + num_transitions * sum_triangular_lengths",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;

@@ -1,8 +1,11 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::size_bound::{BoundVector, SizeBound};
+use crate::size_map::SizeMap;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::One;
+use crate::types::{One, ProblemSize};
+use num_bigint::BigUint;
 
 #[test]
 fn test_maximumindependentset_to_maximumclique_closed_loop() {
@@ -22,6 +25,78 @@ fn test_maximumindependentset_to_maximumclique_closed_loop() {
         &source,
         &reduction,
         "MaximumIndependentSet->MaximumClique closed loop",
+    );
+}
+
+#[test]
+fn exact_size_map_matches_constructed_complement() {
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![1i32; 5],
+    );
+    let size_map = SizeMap::new(
+        "MaximumIndependentSet -> MaximumClique",
+        [
+            ("num_vertices", crate::expr::Expr::parse("num_vertices")),
+            (
+                "num_edges",
+                crate::expr::Expr::parse("num_vertices * (num_vertices - 1) / 2 - num_edges"),
+            ),
+        ],
+    )
+    .unwrap();
+
+    let predicted = size_map
+        .evaluate(&ProblemSize::new(vec![
+            ("num_vertices", source.num_vertices()),
+            ("num_edges", source.num_edges()),
+        ]))
+        .unwrap();
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+    let constructed = ProblemSize::new(vec![
+        ("num_vertices", reduction.target_problem().num_vertices()),
+        ("num_edges", reduction.target_problem().num_edges()),
+    ]);
+
+    assert_eq!(
+        predicted,
+        ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 6)])
+    );
+    assert_eq!(predicted, constructed);
+}
+
+#[test]
+fn certified_size_bound_contains_constructed_complement() {
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![1i32; 5],
+    );
+    let size_bound = SizeBound::new(
+        "MaximumIndependentSet -> MaximumClique",
+        [
+            ("num_vertices", crate::expr::Expr::parse("num_vertices")),
+            ("num_edges", crate::expr::Expr::parse("num_vertices ^ 2")),
+        ],
+    )
+    .unwrap();
+
+    let predicted = size_bound
+        .evaluate(&BoundVector::new([
+            ("num_vertices", source.num_vertices()),
+            ("num_edges", source.num_edges()),
+        ]))
+        .unwrap();
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+
+    assert_eq!(predicted.get("num_vertices"), Some(&BigUint::from(5u8)));
+    assert_eq!(predicted.get("num_edges"), Some(&BigUint::from(25u8)));
+    assert!(
+        BigUint::from(reduction.target_problem().num_vertices())
+            <= *predicted.get("num_vertices").unwrap()
+    );
+    assert!(
+        BigUint::from(reduction.target_problem().num_edges())
+            <= *predicted.get("num_edges").unwrap()
     );
 }
 

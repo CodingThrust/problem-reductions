@@ -36,9 +36,12 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices * num_vertices + num_arcs * num_vertices + num_arcs + 2 * num_vertices",
-        num_constraints = "num_vertices + num_vertices + num_arcs * num_vertices + num_arcs + 1 + 2 * num_vertices + 2 * num_vertices * num_vertices + num_arcs",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {

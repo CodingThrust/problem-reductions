@@ -34,7 +34,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesma
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2",
     }

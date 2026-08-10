@@ -33,10 +33,10 @@ impl ReductionResult for ReductionPCNFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_paths",
         num_constraints = "num_arcs + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;

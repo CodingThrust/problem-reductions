@@ -35,10 +35,10 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges",
         num_constraints = "2 * num_triangles",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;

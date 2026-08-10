@@ -38,9 +38,10 @@ impl ReductionResult for ReductionPartitionToCPI {
     }
 }
 
-#[reduction(overhead = {
-    num_coefficients = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_coefficients = "num_elements",
+    })]
 impl ReduceTo<CosineProductIntegration> for Partition {
     type Result = ReductionPartitionToCPI;
 

@@ -43,7 +43,7 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_elements = "normalized_universe_size + 1 + normalized_num_size3_subsets",
         num_triples = "normalized_num_size2_subsets + 2 * normalized_num_size3_subsets",
     }

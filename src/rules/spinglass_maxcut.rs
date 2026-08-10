@@ -47,7 +47,7 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_spins = "num_vertices",
         num_interactions = "num_edges",
     }
@@ -143,8 +143,8 @@ where
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_spins",
+    bound = {
+        num_vertices = "num_spins + 1",
         num_edges = "num_interactions + num_spins",
     }
 )]

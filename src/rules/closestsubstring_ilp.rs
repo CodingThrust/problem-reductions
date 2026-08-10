@@ -119,10 +119,10 @@ fn decode_one_hot(
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for ClosestSubstring {
     type Result = ReductionClosestSubstringToILP;

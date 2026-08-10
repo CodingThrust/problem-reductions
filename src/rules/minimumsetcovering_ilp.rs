@@ -44,10 +44,10 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_sets",
         num_constraints = "universe_size",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
     type Result = ReductionSCToILP;

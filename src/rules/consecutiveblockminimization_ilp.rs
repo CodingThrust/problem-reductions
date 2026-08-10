@@ -35,9 +35,12 @@ impl ReductionResult for ReductionCBMToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
-        num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {

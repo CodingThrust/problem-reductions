@@ -1,7 +1,7 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
 use problemreductions::models::algebraic::{ObjectiveSense, ILP};
 use problemreductions::registry::VariantEntry;
-use problemreductions::rules::registry::{ReductionEntry, ReductionOverhead};
+use problemreductions::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::solvers::{BruteForce, Solver};
 use problemreductions::traits::Problem;
@@ -167,7 +167,7 @@ problemreductions::inventory::submit! {
         target_name: AggregateValueTarget::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: AggregateValueTarget::variant,
-        overhead_fn: || ReductionOverhead::default(),
+        size_declarations_fn: ReductionSizeDeclarations::default,
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
@@ -181,7 +181,6 @@ problemreductions::inventory::submit! {
             ))
         }),
         turing: false,
-        overhead_eval_fn: |_| ProblemSize::new(vec![]),
         source_size_fn: |_| ProblemSize::new(vec![]),
     }
 }
@@ -192,7 +191,7 @@ problemreductions::inventory::submit! {
         target_name: ILP::<bool>::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: ILP::<bool>::variant,
-        overhead_fn: || ReductionOverhead::default(),
+        size_declarations_fn: ReductionSizeDeclarations::default,
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
@@ -204,7 +203,6 @@ problemreductions::inventory::submit! {
             })
         }),
         turing: false,
-        overhead_eval_fn: |_| ProblemSize::new(vec![]),
         source_size_fn: |_| ProblemSize::new(vec![]),
     }
 }

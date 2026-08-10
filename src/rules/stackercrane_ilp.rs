@@ -45,10 +45,10 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
         num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;

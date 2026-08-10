@@ -36,9 +36,12 @@ impl ReductionResult for ReductionCOSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_cols + num_cols * bound + 5 * num_rows * bound",
-        num_constraints = "1 + num_cols + bound + num_rows * bound + 2 * num_rows + num_rows + 3 * num_rows * bound + 4 * num_rows * bound",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {

@@ -75,10 +75,9 @@ fn run() -> anyhow::Result<()> {
         Commands::Path {
             source,
             target,
-            all,
             max_paths,
-            search,
-        } => commands::graph::path(&source, &target, all, max_paths, &search, &out),
+            instance,
+        } => commands::graph::path(&source, &target, max_paths, instance.as_deref(), &out),
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),

@@ -117,7 +117,6 @@ pub(crate) struct SearchTracker {
     limits: Option<SearchLimits>,
     reached: BTreeSet<LimitReached>,
     stats: SearchStats,
-    completed_states: usize,
     started: Instant,
 }
 
@@ -131,7 +130,6 @@ impl SearchTracker {
             limits,
             reached: BTreeSet::new(),
             stats: SearchStats::default(),
-            completed_states: 0,
             started: Instant::now(),
         }
     }
@@ -150,14 +148,6 @@ impl SearchTracker {
 
     pub(crate) fn record_dominated(&mut self, count: usize) {
         self.stats.dominated_states += count;
-    }
-
-    pub(crate) fn record_completed(&mut self, count: usize) {
-        self.completed_states += count;
-    }
-
-    pub(crate) fn completed_states(&self) -> usize {
-        self.completed_states
     }
 
     pub(crate) fn record_infeasible(&mut self) {

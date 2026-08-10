@@ -56,9 +56,10 @@ fn build_expression(sizes: &[u64]) -> IntExpr {
     expr
 }
 
-#[reduction(overhead = {
-    num_union_nodes = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_union_nodes = "num_elements",
+    })]
 impl ReduceTo<IntegerExpressionMembership> for SubsetSum {
     type Result = ReductionSubsetSumToIntegerExpressionMembership;
 

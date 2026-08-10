@@ -36,7 +36,9 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_sets" }
+    exact = {
+        num_vars = "num_sets",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;

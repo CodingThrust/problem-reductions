@@ -48,10 +48,10 @@ impl ReductionResult for ReductionBPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for BinPacking<i32> {
     type Result = ReductionBPToILP;

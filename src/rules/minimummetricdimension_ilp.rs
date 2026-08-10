@@ -49,10 +49,10 @@ impl ReductionResult for ReductionMDToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices * (num_vertices - 1) / 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
     type Result = ReductionMDToILP;

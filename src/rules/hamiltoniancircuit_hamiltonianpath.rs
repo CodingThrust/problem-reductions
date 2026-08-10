@@ -79,8 +79,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices + 3",
+    },
+    bound = {
         num_edges = "num_edges + num_vertices + 1",
     }
 )]

@@ -53,9 +53,9 @@ impl ReductionResult for ReductionPITToILP {
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices^2 * num_vertices",
+    unavailable = {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {

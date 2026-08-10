@@ -1,4 +1,3 @@
-use crate::util::{build_search_mode, SearchLimitOverrides};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -45,54 +44,6 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: Commands,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum SearchModeArg {
-    Exact,
-    Approximate,
-}
-
-/// Completeness and resource policy shared by path-discovery commands.
-#[derive(clap::Args, Clone, Debug)]
-pub struct SearchArgs {
-    /// Search completeness: exact elementary-path enumeration or bounded best-effort.
-    #[arg(long, value_enum, default_value_t = SearchModeArg::Approximate)]
-    pub search_mode: SearchModeArg,
-    /// Maximum reduction hops in approximate mode (default: 16).
-    #[arg(long)]
-    pub max_hops: Option<usize>,
-    /// Maximum live labels per node in approximate mode (default: 32).
-    #[arg(long)]
-    pub max_labels_per_node: Option<usize>,
-    /// Maximum expanded states in approximate mode.
-    #[arg(long)]
-    pub max_expanded_states: Option<usize>,
-    /// Wall-clock search timeout in seconds in approximate mode.
-    #[arg(long = "timeout")]
-    pub timeout: Option<u64>,
-}
-
-impl SearchArgs {
-    pub fn mode(&self) -> anyhow::Result<problemreductions::rules::SearchMode> {
-        build_search_mode(
-            self.search_mode == SearchModeArg::Exact,
-            SearchLimitOverrides {
-                max_hops: self.max_hops,
-                max_labels_per_node: self.max_labels_per_node,
-                max_expanded_states: self.max_expanded_states,
-                timeout_seconds: self.timeout,
-            },
-        )
-    }
-
-    pub fn has_nondefault_policy(&self) -> bool {
-        self.search_mode != SearchModeArg::Approximate
-            || self.max_hops.is_some()
-            || self.max_labels_per_node.is_some()
-            || self.max_expanded_states.is_some()
-            || self.timeout.is_some()
-    }
 }
 
 #[derive(Subcommand)]
@@ -161,10 +112,10 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     /// Find reduction paths between two problems
     #[command(after_help = "\
 Examples:
-  pred path MIS QUBO                              # asymptotic Pareto front (Big-O per size field)
-  pred path MIS QUBO --all                        # all paths
-  pred path MIS QUBO -o front.json                # save the Pareto front
-  pred path MIS QUBO --all -o paths/              # save all paths to a folder
+  pred path MIS QUBO                              # inspect reduction paths
+  pred path MIS Clique mis.json                   # execute paths on an instance
+  pred path MIS QUBO --max-paths 50              # increase the output cap
+  pred path MIS QUBO -o paths.json               # save the path set
 
 Use `pred list` to see available problems.")]
     Path {
@@ -174,14 +125,11 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Show all paths instead of the Pareto front
-        #[arg(long)]
-        all: bool,
-        /// Maximum paths to return in --all mode
+        /// Maximum paths to return
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
-        #[command(flatten)]
-        search: SearchArgs,
+        /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
+        instance: Option<std::path::PathBuf>,
     },
 
     /// Export the reduction graph to JSON
@@ -1310,13 +1258,13 @@ Examples:
   pred create MIS --graph 0-1,1-2 | pred reduce - --via path.json  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.
-The --via file must be one explicit entry selected by the caller from a Pareto front.
+The --via file must be one explicit entry selected by the caller from `pred path` output.
 Output is a reduction bundle with source, target, and path.
 Use `pred solve reduced.json` to solve and map the solution back.")]
 pub struct ReduceArgs {
     /// Problem JSON file (from `pred create`). Use - for stdin.
     pub input: PathBuf,
-    /// Explicit reduction route selected from a Pareto-front entry.
+    /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
 }

@@ -40,7 +40,7 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_sets = "num_vertices",
         universe_size = "num_edges",
     }

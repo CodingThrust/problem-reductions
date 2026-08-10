@@ -33,10 +33,10 @@ impl ReductionResult for ReductionIFWMToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs",
         num_constraints = "num_arcs + num_vertices - 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {
     type Result = ReductionIFWMToILP;

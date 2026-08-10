@@ -56,10 +56,10 @@ impl ReductionResult for ReductionMMCToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_terminals * num_vertices + num_edges",
         num_constraints = "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
     type Result = ReductionMMCToILP;

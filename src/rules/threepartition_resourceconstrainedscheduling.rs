@@ -48,9 +48,10 @@ impl ReductionResult for ReductionThreePartitionToRCS {
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_tasks = "num_elements",
+    })]
 impl ReduceTo<ResourceConstrainedScheduling> for ThreePartition {
     type Result = ReductionThreePartitionToRCS;
 

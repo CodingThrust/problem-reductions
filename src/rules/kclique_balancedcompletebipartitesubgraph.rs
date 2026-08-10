@@ -49,7 +49,7 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         left_size = "num_vertices + k * (k - 1) / 2",
         right_size = "num_edges + num_vertices - k",
         k = "num_vertices + k * (k - 1) / 2 - k",

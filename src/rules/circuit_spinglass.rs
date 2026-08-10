@@ -414,9 +414,9 @@ where
 }
 
 #[reduction(
-    overhead = {
-        num_spins = "num_assignments * num_variables",
-        num_interactions = "num_assignments * num_variables",
+    unavailable = {
+        num_spins = "the exact gadget size depends on Boolean expression node counts and operator kinds absent from the source size vector",
+        num_interactions = "the exact coupling count depends on Boolean expression node counts and operator kinds absent from the source size vector",
     }
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, i32>> for CircuitSAT {

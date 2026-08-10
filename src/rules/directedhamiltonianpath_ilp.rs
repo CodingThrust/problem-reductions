@@ -48,10 +48,10 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices^2",
         num_constraints = "3 * num_vertices + (num_vertices - 1) * (num_vertices^2 - num_arcs)",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;

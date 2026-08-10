@@ -35,10 +35,10 @@ impl ReductionResult for ReductionKnapsackToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_items",
         num_constraints = "1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;

@@ -41,10 +41,11 @@ impl ReductionResult for ReductionSTMTTWToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks + num_tasks",
-    num_constraints = "2 * num_tasks + num_tasks * num_tasks",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_tasks * num_tasks + num_tasks",
+        num_constraints = "2 * num_tasks + num_tasks * num_tasks",
+    },)]
 impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
     type Result = ReductionSTMTTWToILP;
 

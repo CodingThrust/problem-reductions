@@ -44,10 +44,10 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
         num_constraints = "1 + num_vertices * num_vertices * (num_vertices - 1) / 2 + 2 * num_edges * num_vertices * (num_vertices - 1) / 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
     type Result = ReductionOptimumCommunicationSpanningTreeToILP;

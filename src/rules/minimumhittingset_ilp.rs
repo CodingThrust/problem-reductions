@@ -32,10 +32,10 @@ impl ReductionResult for ReductionHSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "universe_size",
         num_constraints = "num_sets",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumHittingSet {
     type Result = ReductionHSToILP;

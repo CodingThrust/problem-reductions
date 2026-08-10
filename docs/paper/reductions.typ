@@ -8,7 +8,8 @@
   target: e.target,
   source-name: graph-data.nodes.at(e.source).name,
   target-name: graph-data.nodes.at(e.target).name,
-  overhead: e.overhead,
+  size-fields: e.size_fields,
+  size-contract-error: e.size_contract_error,
 ))
 
 #let _edges-by-source-name = {
@@ -552,10 +553,14 @@
   if parts.len() > 0 { [#base (#parts.join(", "))] } else { base }
 }
 
-// Format overhead fields as inline text
-#let format-overhead(overhead) = {
-  let parts = overhead.map(o => raw(o.field + " = " + o.formula))
-  [_Overhead:_ #parts.join(", ").]
+// Format explicitly classified size fields as inline text.
+#let format-size-contract(fields) = {
+  let parts = fields.map(o => {
+    if o.contract == "exact" { raw(o.field + " = " + o.formula) }
+    else if o.contract == "bound-only" { raw(o.field + " <= " + o.formula) }
+    else { raw(o.field + " unavailable: " + o.reason) }
+  })
+  [_Size contract:_ #parts.join(", ").]
 }
 
 // Unified function for reduction rules: theorem + proof + optional example
@@ -576,7 +581,7 @@
                  else { display-name.at(target) }
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
-  let overhead = if edge != none and edge.overhead.len() > 0 { edge.overhead } else { none }
+  let size-fields = if edge != none and edge.size-fields.len() > 0 { edge.size-fields } else { none }
   let thm-lbl = label("thm:" + source + "-to-" + target)
   covered-rules.update(old => old + ((source, target),))
 
@@ -584,7 +589,7 @@
     #v(1em)
     #theorem[
     *(*#context { if query(src-lbl).len() > 0 { link(src-lbl)[#src-disp] } else [#src-disp] }* #arrow *#context { if query(tgt-lbl).len() > 0 { link(tgt-lbl)[#tgt-disp] } else [#tgt-disp] }*)* #theorem-body
-    #if overhead != none { linebreak(); format-overhead(overhead) }
+    #if size-fields != none { linebreak(); format-size-contract(size-fields) }
   ] #thm-lbl]
 
   proof[#proof-body]
@@ -11426,10 +11431,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 = Reductions <sec:reductions>
 
-Each reduction is presented as a *Rule* (with linked problem names and overhead from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
+Each reduction is presented as a *Rule* (with linked problem names and explicit size contracts from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
 
 The command blocks assume `route.json` contains the explicitly chosen direct route for
-the displayed rule, extracted from the corresponding `pred path` Pareto-front item.
+the displayed rule, extracted from the corresponding `pred path` entry.
 
 
 #let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")
@@ -12110,7 +12115,7 @@ the displayed rule, extracted from the corresponding `pred path` Pareto-front it
       $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
       so that every bit vector represents an offset in ${0, dots, r_i}$. Then
       $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
-      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported overhead `num_vars = num_encoding_bits`.
+      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported size map `num_vars = num_encoding_bits`.
 
       Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
       $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
@@ -16757,10 +16762,10 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
 == Variant Cast Reductions
 
-Problems parameterized by graph type, weight type, or clause-width ($k$) admit identity reductions between specialised and general variants. Each cast preserves the problem structure exactly (same number of vertices/variables, same constraints), converting only the type parameter to a more general one. These are registered as self-edges in the reduction graph with identity overhead.
+Problems parameterized by graph type, weight type, or clause-width ($k$) admit identity reductions between specialised and general variants. Each cast preserves the problem structure exactly (same number of vertices/variables, same constraints), converting only the type parameter to a more general one. These are registered as self-edges in the reduction graph with exact identity size maps.
 
 #reduction-rule("MaximumIndependentSet", "MaximumIndependentSet")[
-  The graph hierarchy $"KingsSubgraph" subset "UnitDiskGraph" subset "SimpleGraph"$ and weight hierarchy $"One" subset ZZ subset RR$ induce identity-overhead casts between MIS variants. Graph casts discard geometric information (grid coordinates $arrow.r$ Euclidean coordinates $arrow.r$ adjacency list); weight casts embed unit weights into integers ($1 arrow.r 1_ZZ$) or integers into floats ($w arrow.r w_RR$). All edges and weights are preserved verbatim.
+  The graph hierarchy $"KingsSubgraph" subset "UnitDiskGraph" subset "SimpleGraph"$ and weight hierarchy $"One" subset ZZ subset RR$ induce exact identity size maps between MIS variants. Graph casts discard geometric information (grid coordinates $arrow.r$ Euclidean coordinates $arrow.r$ adjacency list); weight casts embed unit weights into integers ($1 arrow.r 1_ZZ$) or integers into floats ($w arrow.r w_RR$). All edges and weights are preserved verbatim.
 ][
   _Construction._ Given $"MIS"(G, bold(w))$ with graph type $G_"sub"$ and weight type $W_"sub"$, construct $"MIS"(G', bold(w)')$ where $G' = "cast"(G_"sub")$ lifts the graph to its parent type and $bold(w)' = "cast"(bold(w))$ lifts each weight. The `CastToParent` trait defines the concrete maps:
   - _KingsSubgraph $arrow.r$ UnitDiskGraph:_ integer grid positions $(i, j)$ map to float coordinates with radius $r = 1.5$.
@@ -16849,7 +16854,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 
 == Resource Estimation from Examples
 
-The following table shows concrete variable overhead for example instances, taken directly from the canonical fixture examples.
+The following table shows concrete target-variable counts for example instances, taken directly from the canonical fixture examples.
 
 #let example-files = (
   (source: "MaximumIndependentSet", target: "MinimumVertexCover"),
@@ -19727,7 +19732,7 @@ The following table shows concrete variable overhead for example instances, take
       "pred reduce pcsf.json --via route.json -o bundle.json",
       "pred solve bundle.json",
     )
-    The canonical PCSF source has $beta = #pcsf_st.source.instance.beta$, $omega = #pcsf_st.source.instance.omega$, and prizes $p = (#pcsf_st_prizes.at(0), #pcsf_st_prizes.at(1), #pcsf_st_prizes.at(2))$. The target SteinerTree has $|V_H| = n + k + 1 = #(pcsf_st_n + pcsf_st_k + 1)$ vertices, $|E_H| = m + n + 2 k = #(pcsf_st_m + pcsf_st_n + 2 * pcsf_st_k)$ edges, and $|T_H| = k + 1 = #(pcsf_st_k + 1)$ terminals, matching the registered overhead formulas.
+    The canonical PCSF source has $beta = #pcsf_st.source.instance.beta$, $omega = #pcsf_st.source.instance.omega$, and prizes $p = (#pcsf_st_prizes.at(0), #pcsf_st_prizes.at(1), #pcsf_st_prizes.at(2))$. The target SteinerTree has $|V_H| = n + k + 1 = #(pcsf_st_n + pcsf_st_k + 1)$ vertices, $|E_H| = m + n + 2 k = #(pcsf_st_m + pcsf_st_n + 2 * pcsf_st_k)$ edges, and $|T_H| = k + 1 = #(pcsf_st_k + 1)$ terminals, matching the registered exact size formulas.
   ],
 )[
   Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.

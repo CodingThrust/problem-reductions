@@ -32,10 +32,10 @@ impl ReductionResult for ReductionX3CToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_subsets",
         num_constraints = "universe_size + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToILP;

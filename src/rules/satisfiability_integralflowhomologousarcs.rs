@@ -117,10 +117,11 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
-    num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
+        num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
+    })]
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;
 

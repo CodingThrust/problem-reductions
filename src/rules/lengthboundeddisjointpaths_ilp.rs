@@ -75,9 +75,12 @@ impl ReductionResult for ReductionLBDPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "max_paths * 2 * num_edges + max_paths",
-        num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {

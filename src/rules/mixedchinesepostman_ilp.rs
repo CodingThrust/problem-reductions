@@ -40,9 +40,12 @@ impl ReductionResult for ReductionMCPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + 4 * (num_arcs + 2 * num_edges) + 3 * num_vertices + 1",
-        num_constraints = "num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * (num_arcs + 2 * num_edges) + num_vertices + 1 + num_vertices + 4 * num_vertices + 2 * (num_arcs + 2 * num_edges) + 2 * num_vertices",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {

@@ -7,7 +7,7 @@
 //! - `ILP<bool>`: binary variables (0 or 1)
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::Extremum;
 use serde::{Deserialize, Serialize};
@@ -27,6 +27,13 @@ inventory::submit! {
             FieldInfo { name: "objective", type_name: "Vec<(usize, f64)>", description: "Sparse objective coefficients" },
             FieldInfo { name: "sense", type_name: "ObjectiveSense", description: "Optimization direction" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "ILP",
+        fields: &["num_vars", "num_constraints"],
     }
 }
 

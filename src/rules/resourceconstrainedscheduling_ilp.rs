@@ -44,10 +44,11 @@ impl ReductionResult for ReductionRCSToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * deadline",
-    num_constraints = "num_tasks + deadline + num_resources * deadline",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_tasks * deadline",
+        num_constraints = "num_tasks + deadline + num_resources * deadline",
+    },)]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 

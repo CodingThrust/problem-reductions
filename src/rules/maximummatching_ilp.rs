@@ -46,10 +46,10 @@ impl ReductionResult for ReductionMatchingToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges",
         num_constraints = "num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
     type Result = ReductionMatchingToILP;

@@ -38,10 +38,10 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vars + num_clauses",
         num_constraints = "num_clauses",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToILP;

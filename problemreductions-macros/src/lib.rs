@@ -7,7 +7,7 @@
 
 mod expr_codegen;
 
-use expr_codegen::{eval_tokens, expr_tokens};
+use expr_codegen::{complexity_estimate_tokens, expr_tokens};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -25,14 +25,15 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
-/// - `overhead = { field = expression, ... }` — overhead specification; a bare
-///   identifier is an identity expression and a string literal is parsed as a formula
+/// - `exact = { field = expression, ... }` — exact target-size equalities
+/// - `bound = { field = expression, ... }` — certified monotone upper bounds
+/// - `unavailable = { field = "reason", ... }` — fields that cannot be propagated
 /// - `aggregate = identity` — explicitly register an aggregate executor; compilation
 ///   requires the reduction result to prove source/target value-type equality
 ///
 /// ## Syntax
 /// ```ignore
-/// #[reduction(overhead = {
+/// #[reduction(exact = {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = num_edges,
 /// })]
@@ -49,21 +50,26 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-struct ParsedOverheadField {
+#[derive(Clone)]
+struct ParsedExpressionField {
     name: String,
     expression: problemreductions_expr::Expr,
 }
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    overhead: Option<Vec<(String, String)>>,
+    exact: Option<Vec<(String, String)>>,
+    bound: Option<Vec<(String, String)>>,
+    unavailable: Option<Vec<(String, String)>>,
     identity_aggregate: bool,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = ReductionAttrs {
-            overhead: None,
+            exact: None,
+            bound: None,
+            unavailable: None,
             identity_aggregate: false,
         };
 
@@ -72,10 +78,20 @@ impl syn::parse::Parse for ReductionAttrs {
             input.parse::<syn::Token![=]>()?;
 
             match ident.to_string().as_str() {
-                "overhead" => {
+                "exact" => {
                     let content;
                     syn::braced!(content in input);
-                    attrs.overhead = Some(parse_overhead_content(&content)?);
+                    attrs.exact = Some(parse_expression_fields(&content)?);
+                }
+                "bound" => {
+                    let content;
+                    syn::braced!(content in input);
+                    attrs.bound = Some(parse_expression_fields(&content)?);
+                }
+                "unavailable" => {
+                    let content;
+                    syn::braced!(content in input);
+                    attrs.unavailable = Some(parse_unavailable_fields(&content)?);
                 }
                 "aggregate" => {
                     let value: syn::Ident = input.parse()?;
@@ -101,7 +117,7 @@ impl syn::parse::Parse for ReductionAttrs {
     }
 }
 
-fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<Vec<(String, String)>> {
+fn parse_expression_fields(content: syn::parse::ParseStream) -> syn::Result<Vec<(String, String)>> {
     let mut fields = Vec::new();
     while !content.is_empty() {
         let field_name: syn::Ident = content.parse()?;
@@ -113,6 +129,28 @@ fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<Vec<(
         };
         fields.push((field_name.to_string(), expression));
 
+        if content.peek(syn::Token![,]) {
+            content.parse::<syn::Token![,]>()?;
+        }
+    }
+    Ok(fields)
+}
+
+fn parse_unavailable_fields(
+    content: syn::parse::ParseStream,
+) -> syn::Result<Vec<(String, String)>> {
+    let mut fields = Vec::new();
+    while !content.is_empty() {
+        let field_name: syn::Ident = content.parse()?;
+        content.parse::<syn::Token![=]>()?;
+        let reason = content.parse::<syn::LitStr>()?.value();
+        if reason.trim().is_empty() {
+            return Err(syn::Error::new(
+                field_name.span(),
+                "unavailable size field requires a non-empty reason",
+            ));
+        }
+        fields.push((field_name.to_string(), reason));
         if content.peek(syn::Token![,]) {
             content.parse::<syn::Token![,]>()?;
         }
@@ -203,20 +241,20 @@ fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Resu
     Ok(quote! { <#ty as crate::traits::Problem>::variant() })
 }
 
-/// Generate overhead code from the new parsed syntax.
-///
-/// Produces a `ReductionOverhead` constructor that uses `Expr` AST values.
-fn parse_overhead_fields(fields: &[(String, String)]) -> syn::Result<Vec<ParsedOverheadField>> {
+/// Parse one explicit exact or bound field declaration into the canonical expression DAG.
+fn parse_expression_fields_to_expr(
+    fields: &[(String, String)],
+) -> syn::Result<Vec<ParsedExpressionField>> {
     fields
         .iter()
         .map(|(name, source)| {
             let expression = problemreductions_expr::Expr::try_parse(source).map_err(|error| {
                 syn::Error::new(
                     proc_macro2::Span::call_site(),
-                    format!("error parsing overhead expression \"{source}\": {error}"),
+                    format!("error parsing size expression \"{source}\": {error}"),
                 )
             })?;
-            Ok(ParsedOverheadField {
+            Ok(ParsedExpressionField {
                 name: name.clone(),
                 expression,
             })
@@ -224,49 +262,21 @@ fn parse_overhead_fields(fields: &[(String, String)]) -> syn::Result<Vec<ParsedO
         .collect()
 }
 
-fn generate_parsed_overhead(fields: &[ParsedOverheadField]) -> TokenStream2 {
+fn generate_expression_fields(fields: &[ParsedExpressionField]) -> TokenStream2 {
     let field_tokens = fields.iter().map(|field| {
         let expression = expr_tokens(&field.expression);
         let name = field.name.as_str();
         quote! { (#name, #expression) }
     });
 
-    quote! {
-        crate::rules::registry::ReductionOverhead::new(vec![#(#field_tokens),*])
-    }
-}
-
-/// Generate a compiled overhead evaluation function from parsed overhead fields.
-///
-/// Produces a closure that downcasts `&dyn Any` to `&SourceType`, calls getter methods
-/// for each variable in the expressions, and returns a `ProblemSize`.
-fn generate_overhead_eval_fn(
-    fields: &[ParsedOverheadField],
-    source_type: &Type,
-) -> syn::Result<TokenStream2> {
-    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-    let field_eval_tokens = fields
-        .iter()
-        .map(|field| {
-            let expression = eval_tokens(&field.expression, &src_ident)?;
-            let name = field.name.as_str();
-            Ok(quote! { (#name, (#expression).round() as usize) })
-        })
-        .collect::<syn::Result<Vec<_>>>()?;
-
-    Ok(quote! {
-        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
-            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
-            crate::types::ProblemSize::new(vec![#(#field_eval_tokens),*])
-        }
-    })
+    quote! { vec![#(#field_tokens),*] }
 }
 
 /// Generate a function that extracts the source problem's size fields from `&dyn Any`.
 ///
-/// Collects all variable names referenced in the overhead expressions, generates
+/// Collects all variable names referenced in the size expressions, generates
 /// getter calls for each, and returns a `ProblemSize`.
-fn generate_source_size_fn(fields: &[ParsedOverheadField], source_type: &Type) -> TokenStream2 {
+fn generate_source_size_fn(fields: &[ParsedExpressionField], source_type: &Type) -> TokenStream2 {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
     let var_names: std::collections::BTreeSet<_> = fields
         .iter()
@@ -335,22 +345,24 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    // Generate overhead, eval fn, and source size fn
-    let (overhead, overhead_eval_fn, source_size_fn) = match &attrs.overhead {
-        Some(fields) => {
-            let fields = parse_overhead_fields(fields)?;
-            let overhead_tokens = generate_parsed_overhead(&fields);
-            let eval_fn = generate_overhead_eval_fn(&fields, source_type)?;
-            let size_fn = generate_source_size_fn(&fields, source_type);
-            (overhead_tokens, eval_fn, size_fn)
-        }
-        None => {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "Missing overhead specification. Use #[reduction(overhead = { ... })] and specify overhead expressions for all target problem size fields.",
-            ));
-        }
-    };
+    if attrs.exact.is_none() && attrs.bound.is_none() && attrs.unavailable.is_none() {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            "Missing size contract. Classify every target field with `exact`, `bound`, or `unavailable`.",
+        ));
+    }
+    let exact = parse_expression_fields_to_expr(attrs.exact.as_deref().unwrap_or_default())?;
+    let bounds = parse_expression_fields_to_expr(attrs.bound.as_deref().unwrap_or_default())?;
+    let exact_tokens = generate_expression_fields(&exact);
+    let bound_tokens = generate_expression_fields(&bounds);
+    let unavailable_tokens = attrs
+        .unavailable
+        .as_deref()
+        .unwrap_or_default()
+        .iter()
+        .map(|(field, reason)| quote! { crate::rules::registry::UnavailableSizeField { field: #field, reason: #reason } });
+    let source_fields = exact.iter().chain(&bounds).cloned().collect::<Vec<_>>();
+    let source_size_fn = generate_source_size_fn(&source_fields, source_type);
 
     // Generate the combined output
     let output = quote! {
@@ -362,7 +374,11 @@ fn generate_reduction_entry(
                 target_name: #target_name,
                 source_variant_fn: || { #source_variant_body },
                 target_variant_fn: || { #target_variant_body },
-                overhead_fn: || { #overhead },
+                size_declarations_fn: || crate::rules::registry::ReductionSizeDeclarations {
+                    exact: #exact_tokens,
+                    bounds: #bound_tokens,
+                    unavailable: vec![#(#unavailable_tokens),*],
+                },
                 module_path: module_path!(),
                 reduce_fn: Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
                     let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
@@ -376,7 +392,6 @@ fn generate_reduction_entry(
                 }),
                 reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
-                overhead_eval_fn: #overhead_eval_fn,
                 source_size_fn: #source_size_fn,
             }
         }
@@ -672,7 +687,7 @@ fn generate_complexity_eval_fn(
     ty: &Type,
 ) -> syn::Result<TokenStream2> {
     let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
-    let eval_tokens = eval_tokens(parsed, &src_ident)?;
+    let eval_tokens = complexity_estimate_tokens(parsed, &src_ident)?;
 
     Ok(quote! {
         |__any_src: &dyn std::any::Any| -> f64 {
@@ -688,10 +703,10 @@ mod tests {
     use syn::{parse_str, Type};
 
     #[test]
-    fn overhead_fields_report_expression_domain_errors() {
+    fn size_fields_report_expression_domain_errors() {
         let fields = vec![("num_vertices".to_string(), "0 / 0".to_string())];
-        let Err(error) = parse_overhead_fields(&fields) else {
-            panic!("invalid overhead expression was accepted");
+        let Err(error) = parse_expression_fields_to_expr(&fields) else {
+            panic!("invalid size expression was accepted");
         };
         assert!(error.to_string().contains("division by zero"));
     }
@@ -890,7 +905,7 @@ mod tests {
     fn reduction_rejects_unexpected_attribute() {
         let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
-            #extra_attr = "unexpected", overhead = { num_vertices = "num_vertices" }
+            #extra_attr = "unexpected", exact = { num_vertices = "num_vertices" }
         });
         let err = match parse_result {
             Ok(_) => panic!("unexpected reduction attribute should be rejected"),
@@ -900,21 +915,31 @@ mod tests {
     }
 
     #[test]
-    fn reduction_accepts_overhead_attribute() {
+    fn reduction_accepts_explicit_size_attributes() {
         let attrs: ReductionAttrs = syn::parse_quote! {
-            overhead = { n = n, squared = "n^2" }
+            exact = { n = n, squared = "n^2" },
+            bound = { squared = "n^2" },
+            unavailable = { encoding_bits = "coefficient magnitudes are not tracked" }
         };
         assert_eq!(
-            attrs.overhead,
+            attrs.exact,
             Some(vec![
                 ("n".to_string(), "n".to_string()),
                 ("squared".to_string(), "n^2".to_string()),
             ])
         );
+        assert_eq!(attrs.bound, Some(vec![("squared".into(), "n^2".into())]));
+        assert_eq!(
+            attrs.unavailable,
+            Some(vec![(
+                "encoding_bits".into(),
+                "coefficient magnitudes are not tracked".into()
+            )])
+        );
     }
 
     #[test]
-    fn reduction_rejects_unparsed_overhead_tokens() {
+    fn reduction_rejects_legacy_overhead_attribute() {
         let result = syn::parse2::<ReductionAttrs>(quote! {
             overhead = { ReductionOverhead::default() }
         });

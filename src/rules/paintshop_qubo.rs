@@ -38,7 +38,9 @@ impl ReductionResult for ReductionPaintShopToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_cars" })]
+#[reduction(exact = {
+    num_vars = "num_cars",
+})]
 impl ReduceTo<QUBO<f64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;
 

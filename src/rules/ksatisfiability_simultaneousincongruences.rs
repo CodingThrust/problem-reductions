@@ -154,9 +154,10 @@ fn ensure_prime_product_within_lcm_cap(variable_primes: &[u64]) {
     }
 }
 
-#[reduction(overhead = {
-    num_pairs = "simultaneous_incongruences_num_incongruences",
-})]
+#[reduction(
+    exact = {
+        num_pairs = "simultaneous_incongruences_num_incongruences",
+    })]
 impl ReduceTo<SimultaneousIncongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToSimultaneousIncongruences;
 

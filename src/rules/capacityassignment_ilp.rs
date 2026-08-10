@@ -50,10 +50,10 @@ impl ReductionResult for ReductionCAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;

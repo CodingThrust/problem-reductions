@@ -1,33 +1,88 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
-use crate::expr::evaluate_approximate;
 use crate::models::algebraic::ILP;
 use crate::models::decision::Decision;
 use crate::models::formula::KSatisfiability;
 use crate::models::misc::Clustering;
 use crate::prelude::*;
 use crate::rules::{ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow};
-use crate::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
+use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
 use crate::types::ProblemSize;
 use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
-// ---- Discovery and registration ----
-
 #[test]
-fn compose_path_overhead_rejects_an_empty_path() {
+fn exact_and_certified_bound_views_compose_without_ranking() {
     let graph = ReductionGraph::new();
-    let error = graph
-        .compose_path_overhead(&ReductionPath { steps: Vec::new() })
-        .unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::PathOverheadCompositionError::EmptyPath
-    ));
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target = ReductionGraph::variant_to_map(&MaximumClique::<SimpleGraph, i32>::variant());
+    let paths = graph.find_all_paths_mode(
+        "MaximumIndependentSet",
+        &source,
+        "MaximumClique",
+        &target,
+        ReductionMode::Witness,
+    );
+    let path = paths.iter().find(|path| path.len() == 1).unwrap();
+    assert_eq!(
+        graph
+            .evaluate_path_size_map(
+                path,
+                &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
+            )
+            .unwrap()
+            .get("num_edges"),
+        Some(6)
+    );
+    assert_eq!(
+        graph
+            .evaluate_path_size_bound(
+                path,
+                &crate::size_bound::BoundVector::new(
+                    [("num_vertices", 5u32), ("num_edges", 4u32),]
+                ),
+            )
+            .unwrap()
+            .get("num_edges"),
+        Some(&25u32.into())
+    );
 }
 
 #[test]
-fn compose_path_overhead_is_empty_for_one_node() {
+fn bound_composition_does_not_consult_an_exact_only_edge() {
+    let graph = ReductionGraph::new();
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let path = graph
+        .find_all_paths_mode(
+            "MaximumIndependentSet",
+            &source,
+            "MinimumVertexCover",
+            &target,
+            ReductionMode::Witness,
+        )
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .unwrap();
+    assert!(graph.compose_path_size_map(&path).is_ok());
+    assert!(graph.compose_path_size_bound(&path).is_err());
+}
+
+// ---- Discovery and registration ----
+
+#[test]
+fn compose_path_size_map_rejects_an_empty_path() {
+    let graph = ReductionGraph::new();
+    let error = graph
+        .compose_path_size_map(&ReductionPath { steps: Vec::new() })
+        .unwrap_err();
+    assert!(matches!(error, crate::rules::PathSizeMapError::EmptyPath));
+}
+
+#[test]
+fn compose_path_size_map_is_absent_for_one_node() {
     let graph = ReductionGraph::new();
     let variant = graph
         .default_variant_for(KSatisfiability::<K3>::NAME)
@@ -39,11 +94,7 @@ fn compose_path_overhead_is_empty_for_one_node() {
         }],
     };
 
-    assert!(graph
-        .compose_path_overhead(&path)
-        .unwrap()
-        .output_size
-        .is_empty());
+    assert!(graph.compose_path_size_map(&path).unwrap().is_none());
 }
 
 #[test]
@@ -345,97 +396,6 @@ fn test_reduction_path_display() {
     let last_s = format!("{last}");
     assert!(last_s.contains("SpinGlass"));
     assert!(last_s.contains("{"));
-}
-
-// ---- Overhead evaluation along a path ----
-
-#[test]
-fn test_3sat_to_mis_triangular_overhead() {
-    use crate::models::formula::CNFClause;
-
-    let graph = ReductionGraph::new();
-
-    let src_var = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
-    let dst_var = ReductionGraph::variant_to_map(
-        &MaximumIndependentSet::<TriangularSubgraph, i32>::variant(),
-    );
-
-    // 3-SAT instance: 3 variables, 2 clauses, 6 literals
-    let _source = KSatisfiability::<K3>::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),
-            CNFClause::new(vec![-1, -2, -3]),
-        ],
-    );
-    let path = graph
-        .find_all_paths(
-            "KSatisfiability",
-            &src_var,
-            "MaximumIndependentSet",
-            &dst_var,
-        )
-        .into_iter()
-        .find(|path| {
-            path.len() == 4
-                && path.type_names()
-                    == ["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
-        })
-        .expect("expected explicit 3-SAT to triangular MIS route");
-
-    // Path: K3SAT → KN_SAT (cast) → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
-    assert_eq!(
-        path.type_names(),
-        vec!["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
-    );
-    assert_eq!(path.len(), 4);
-
-    // Per-edge symbolic overheads
-    let edges = graph.path_overheads(&path);
-    assert_eq!(edges.len(), 4);
-
-    // Evaluate overheads at a test point to verify correctness
-    let test_size = ProblemSize::new(vec![
-        ("num_vars", 3),
-        ("num_clauses", 2),
-        ("num_literals", 6),
-        ("num_vertices", 10),
-        ("num_edges", 15),
-    ]);
-    let approximate = |expression| evaluate_approximate(expression, &test_size).unwrap();
-
-    // Edge 0: K3SAT → KN_SAT (variant cast, identity for num_vars + num_clauses)
-    assert_eq!(approximate(edges[0].get("num_vars").unwrap()), 3.0);
-    assert_eq!(approximate(edges[0].get("num_clauses").unwrap()), 2.0);
-
-    // Edge 1: KN_SAT → SAT (identity)
-    assert_eq!(approximate(edges[1].get("num_vars").unwrap()), 3.0);
-    assert_eq!(approximate(edges[1].get("num_clauses").unwrap()), 2.0);
-    assert_eq!(approximate(edges[1].get("num_literals").unwrap()), 6.0);
-
-    // Edge 2: SAT → MIS{SimpleGraph,One}
-    // num_vertices = num_literals, num_edges = num_literals^2
-    assert_eq!(approximate(edges[2].get("num_vertices").unwrap()), 6.0);
-    assert_eq!(approximate(edges[2].get("num_edges").unwrap()), 36.0);
-
-    // Edge 3: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
-    // num_vertices = num_vertices², num_edges = num_vertices²
-    assert_eq!(approximate(edges[3].get("num_vertices").unwrap()), 100.0);
-    assert_eq!(approximate(edges[3].get("num_edges").unwrap()), 100.0);
-
-    // Compose overheads symbolically along the path.
-    // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
-    //
-    // K3SAT → KN_SAT:      {num_clauses: C, num_vars: V, num_literals: L}  (identity cast)
-    // KN_SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
-    // SAT → MIS{SG,One}:    {num_vertices: L, num_edges: L²}
-    // MIS{SG,One→Tri}:      {num_vertices: V², num_edges: V²}
-    //
-    // Composed: num_vertices = L², num_edges = L²
-    let composed = graph.compose_path_overhead(&path).unwrap();
-    // Evaluate composed at input: L=6, so L²=36
-    assert_eq!(approximate(composed.get("num_vertices").unwrap()), 36.0);
-    assert_eq!(approximate(composed.get("num_edges").unwrap()), 36.0);
 }
 
 // ---- k-neighbor BFS ----
@@ -983,7 +943,7 @@ fn test_find_paths_bounded_limits_depth() {
 #[test]
 fn test_find_paths_bounded_returns_shortest_when_truncated() {
     use crate::expr::Expr;
-    use crate::rules::registry::ReductionOverhead;
+    use crate::rules::registry::{ReductionSizeContract, ReductionSizeDeclarations};
     use crate::rules::ReductionEdgeData;
 
     fn edge() -> ReductionEdgeData {
@@ -997,7 +957,14 @@ fn test_find_paths_bounded_returns_shortest_when_truncated() {
         }
 
         ReductionEdgeData {
-            overhead: ReductionOverhead::new(vec![("n", Expr::variable("n"))]),
+            size_contract: ReductionSizeContract::new(
+                "synthetic edge",
+                ReductionSizeDeclarations {
+                    exact: vec![("n", Expr::variable("n"))],
+                    bounds: vec![],
+                    unavailable: vec![],
+                },
+            ),
             reduce_fn: Some(reduce),
             reduce_aggregate_fn: None,
             turing: false,

@@ -65,10 +65,11 @@ impl ReductionResult for ReductionSTMWCTToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
-    num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
+        num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
+    },)]
 impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 

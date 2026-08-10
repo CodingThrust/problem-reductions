@@ -4,7 +4,10 @@ pub mod analysis;
 pub mod pareto;
 pub mod registry;
 pub mod search;
-pub use registry::{EdgeCapabilities, OverheadCompositionError, ReductionEntry, ReductionOverhead};
+pub use registry::{
+    EdgeCapabilities, ReductionEntry, ReductionSizeContract, ReductionSizeDeclarations,
+    SizeContractError, UnavailableSizeField,
+};
 
 pub(crate) mod bicliquecover_bmf;
 pub(crate) mod bmf_bicliquecover;
@@ -280,15 +283,11 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 #[cfg(test)]
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
-    AggregateReductionChain, ExcludedSymbolicPath, MeasuredPath, NeighborInfo, NeighborTree,
-    NoAnalyzablePath, PathOverheadCompositionError, ReductionChain, ReductionEdgeInfo,
-    ReductionGraph, ReductionMode, ReductionPath, ReductionStep, SymbolicParetoFront,
-    TraversalFlow,
+    AggregateReductionChain, MeasurePathsError, MeasuredPath, NeighborInfo, NeighborTree,
+    PathSizeBoundError, PathSizeMapError, ReductionChain, ReductionEdgeInfo, ReductionGraph,
+    ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
 };
-pub use pareto::{
-    AnalysisCoverage, AnalysisFailure, GrowthLabel, MeasuredLabel, PathLabel, ReductionEdge,
-    SizeBudget, UnknownSizeField,
-};
+pub use pareto::{MeasuredLabel, ReductionEdge, SizeBudget, UnknownSizeField};
 pub use search::{
     ApproximationPolicy, LimitReached, SearchCompleteness, SearchLimits, SearchMode, SearchOutcome,
     SearchStats,
@@ -613,7 +612,7 @@ macro_rules! impl_variant_reduction {
      $(aggregate: $aggregate:ident,)?
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
-            overhead = {
+            exact = {
                 $($field = $field),+
             }
             $(, aggregate = $aggregate)?

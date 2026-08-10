@@ -34,10 +34,10 @@ impl ReductionResult for ReductionIFBToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs",
         num_constraints = "num_bundles + num_vertices - 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for IntegralFlowBundles {
     type Result = ReductionIFBToILP;

@@ -119,10 +119,10 @@ fn weighted_distances_mmc(
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices + num_vertices^2 + 1",
         num_constraints = "2 * num_vertices^2 + 3 * num_vertices + 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinMaxMulticenter<SimpleGraph, i32> {
     type Result = ReductionMMCToILP;

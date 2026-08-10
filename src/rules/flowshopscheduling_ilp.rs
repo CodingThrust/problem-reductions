@@ -78,9 +78,13 @@ impl ReductionResult for ReductionFSSToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
-    num_constraints = "num_jobs * (num_jobs - 1) / 2 + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
+#[reduction(
+    exact = {
+        num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
 })]
 impl ReduceTo<ILP<i32>> for FlowShopScheduling {
     type Result = ReductionFSSToILP;

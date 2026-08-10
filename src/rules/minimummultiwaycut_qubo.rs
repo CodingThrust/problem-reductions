@@ -65,7 +65,9 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_terminals * num_vertices" })]
+#[reduction(exact = {
+    num_vars = "num_terminals * num_vertices",
+})]
 impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
     type Result = ReductionMinimumMultiwayCutToQUBO;
 

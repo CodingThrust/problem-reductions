@@ -38,7 +38,7 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }
@@ -84,7 +84,7 @@ where
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

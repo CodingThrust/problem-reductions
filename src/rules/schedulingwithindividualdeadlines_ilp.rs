@@ -50,10 +50,10 @@ impl ReductionResult for ReductionSWIDToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_tasks * max_deadline",
         num_constraints = "num_tasks + max_deadline + num_precedences",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
     type Result = ReductionSWIDToILP;

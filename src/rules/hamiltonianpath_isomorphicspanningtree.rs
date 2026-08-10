@@ -39,7 +39,7 @@ impl ReductionResult for ReductionHPToIST {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_graph_edges = "num_edges",
         num_tree_edges = "num_vertices - 1",

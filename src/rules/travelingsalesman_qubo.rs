@@ -66,7 +66,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices^2",
     }
 )]

@@ -99,7 +99,7 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }

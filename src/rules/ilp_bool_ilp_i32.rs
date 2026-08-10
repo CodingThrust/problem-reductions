@@ -34,10 +34,11 @@ impl ReductionResult for ReductionBinaryILPToIntILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars",
-    num_constraints = "num_constraints + num_vars",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_vars",
+        num_constraints = "num_constraints + num_vars",
+    },)]
 impl ReduceTo<ILP<i32>> for ILP<bool> {
     type Result = ReductionBinaryILPToIntILP;
 

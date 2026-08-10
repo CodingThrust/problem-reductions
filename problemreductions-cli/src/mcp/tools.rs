@@ -7,7 +7,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{ReductionGraph, ReductionMode, SearchMode, TraversalFlow};
+use problemreductions::rules::{ReductionGraph, TraversalFlow};
 use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
@@ -49,52 +49,12 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Return all paths instead of the symbolic Pareto front")]
-    pub all: Option<bool>,
-    #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
+    #[schemars(description = "Maximum paths to return (default: 20)")]
     pub max_paths: Option<usize>,
-    #[serde(flatten)]
-    pub search: SearchParams,
-}
-
-#[derive(Clone, Copy, Debug, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SearchModeParam {
-    Exact,
-    Approximate,
-}
-
-#[derive(Debug, Default, serde::Deserialize, schemars::JsonSchema)]
-pub struct SearchParams {
-    #[schemars(description = "Search completeness: exact or approximate (default)")]
-    pub search_mode: Option<SearchModeParam>,
-    pub max_hops: Option<usize>,
-    pub max_labels_per_node: Option<usize>,
-    pub max_expanded_states: Option<usize>,
-    #[schemars(description = "Wall-clock search timeout in seconds")]
-    pub timeout: Option<u64>,
-}
-
-impl SearchParams {
-    fn mode(&self) -> anyhow::Result<SearchMode> {
-        util::build_search_mode(
-            matches!(self.search_mode, Some(SearchModeParam::Exact)),
-            util::SearchLimitOverrides {
-                max_hops: self.max_hops,
-                max_labels_per_node: self.max_labels_per_node,
-                max_expanded_states: self.max_expanded_states,
-                timeout_seconds: self.timeout,
-            },
-        )
-    }
-
-    fn has_nondefault_policy(&self) -> bool {
-        !matches!(self.search_mode, None | Some(SearchModeParam::Approximate))
-            || self.max_hops.is_some()
-            || self.max_labels_per_node.is_some()
-            || self.max_expanded_states.is_some()
-            || self.timeout.is_some()
-    }
+    #[schemars(
+        description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."
+    )]
+    pub problem_json: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +93,7 @@ pub struct EvaluateParams {
 pub struct ReduceParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(description = "One explicit path entry selected from find_path's Pareto front")]
+    #[schemars(description = "One explicit path entry selected from find_path output")]
     pub path_json: String,
 }
 
@@ -220,18 +180,10 @@ impl McpServer {
         let complexity = graph.variant_complexity(name, variant).unwrap_or("");
 
         let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
-            let overhead: Vec<serde_json::Value> = e
-                .overhead
-                .output_size
-                .iter()
-                .map(|(field, poly)| {
-                    serde_json::json!({"field": field, "formula": poly.to_string()})
-                })
-                .collect();
             serde_json::json!({
                 "source": {"name": e.source_name, "variant": e.source_variant},
                 "target": {"name": e.target_name, "variant": e.target_variant},
-                "overhead": overhead,
+                "size_contract": crate::commands::graph::size_contract_to_json(&e.size_contract),
             })
         };
 
@@ -285,89 +237,39 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        all: bool,
         max_paths: usize,
-        search: &SearchParams,
+        problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
-        if all && search.has_nondefault_policy() {
-            anyhow::bail!(
-                "search_mode and search limits apply to Pareto-front search, not all-path enumeration; use max_paths instead"
-            );
-        }
-        let _ = search.mode()?;
-
-        if !all {
-            let outcome = graph.asymptotic_front(
-                &src_ref.name,
-                &src_ref.variant,
-                &dst_ref.name,
-                &dst_ref.variant,
-                ReductionMode::Witness,
-                search.mode()?,
-            );
-            if !outcome.completeness.is_exact() && outcome.value.is_err() {
+        let loaded = problem_json
+            .map(|content| {
+                let problem: ProblemJson = serde_json::from_str(content)?;
+                load_problem(&problem.problem_type, &problem.variant, problem.data)
+            })
+            .transpose()?;
+        if let Some(loaded) = &loaded {
+            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
                 anyhow::bail!(
-                    "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
-                    outcome.completeness.reasons()
-                );
-            }
-            let result = match outcome.value {
-                Ok(result) => result,
-                Err(error) => {
-                    let details = error
-                        .excluded
-                        .iter()
-                        .map(|item| format!("{}: {}", item.path, item.failure,))
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    anyhow::bail!(
-                        "NoAnalyzablePath: no analyzable path from {} to {}\n{}",
-                        src_ref.name,
-                        dst_ref.name,
-                        details
-                    )
-                }
-            };
-            if result.front.is_empty() {
-                if !outcome.completeness.is_exact() {
-                    anyhow::bail!(
-                        "Bounded search was incomplete ({:?}); use exact mode or raise the limits",
-                        outcome.completeness.reasons()
-                    );
-                }
-                anyhow::bail!(
-                    "No reduction path from {} to {}",
+                    "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
                     src_ref.name,
-                    dst_ref.name
+                    src_ref.variant,
+                    loaded.problem_name(),
+                    loaded.variant_map(),
                 );
             }
-            let json = util::add_search_metadata(
-                crate::commands::graph::format_front_json(
-                    &graph,
-                    &src_ref.name,
-                    &dst_ref.name,
-                    &result,
-                ),
-                &outcome.completeness,
-                &outcome.stats,
-            )?;
-            return Ok(serde_json::to_string_pretty(&json)?);
         }
 
-        // Fetch one extra to detect truncation. The library returns paths in a
-        // deterministic length-first, then name+variant-signature order, so the MCP
-        // and CLI `--all` outputs are the identical ordered route list; no local sort.
-        let mut all_paths = graph.find_paths_up_to(
+        let batch = crate::commands::graph::find_path_batch(
+            &graph,
             &src_ref.name,
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
-            max_paths + 1,
+            max_paths,
         );
-        if all_paths.is_empty() {
+        if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
                 "No reduction path from {} to {}",
                 src_ref.name,
@@ -375,23 +277,11 @@ impl McpServer {
             );
         }
 
-        let truncated = all_paths.len() > max_paths;
-        if truncated {
-            all_paths.truncate(max_paths);
-        }
-        let returned = all_paths.len();
-
-        let paths_json: Vec<serde_json::Value> = all_paths
-            .iter()
-            .map(|p| crate::commands::graph::format_path_json(&graph, p))
-            .collect();
-
-        let json = serde_json::json!({
-            "paths": paths_json,
-            "truncated": truncated,
-            "returned": returned,
-            "max_paths": max_paths,
-        });
+        let measured = loaded
+            .as_ref()
+            .map(|source| graph.measure_paths(&batch.paths, source.as_any()))
+            .transpose()?;
+        let json = crate::commands::graph::path_batch_json(&graph, &batch, measured.as_deref())?;
         Ok(serde_json::to_string_pretty(&json)?)
     }
 
@@ -932,14 +822,12 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
-        let all = params.all.unwrap_or(false);
         let max_paths = params.max_paths.unwrap_or(20);
         self.find_path_inner(
             &params.source,
             &params.target,
-            all,
             max_paths,
-            &params.search,
+            params.problem_json.as_deref(),
         )
         .map_err(|e| e.to_string())
     }
@@ -989,7 +877,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Reduce a problem instance along an explicit Pareto-front route
+    /// Reduce a problem instance along an explicit enumerated route
     #[tool(
         name = "reduce",
         annotations(read_only_hint = true, open_world_hint = false)

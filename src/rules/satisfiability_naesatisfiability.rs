@@ -44,11 +44,12 @@ impl ReductionResult for ReductionSATToNAESAT {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars + 1",
-    num_clauses = "num_clauses",
-    num_literals = "num_literals + num_clauses",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_vars + 1",
+        num_clauses = "num_clauses",
+        num_literals = "num_literals + num_clauses",
+    })]
 impl ReduceTo<NAESatisfiability> for Satisfiability {
     type Result = ReductionSATToNAESAT;
 

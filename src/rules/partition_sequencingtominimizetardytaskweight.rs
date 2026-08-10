@@ -55,9 +55,10 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_tasks = "num_elements",
+    })]
 impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
     type Result = ReductionPartitionToSequencingToMinimizeTardyTaskWeight;
 

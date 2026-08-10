@@ -56,9 +56,12 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "3 * num_edges",
-        num_constraints = "5 * num_edges + num_vertices + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {

@@ -29,10 +29,10 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_triples",
         num_constraints = "3 * universe_size",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToILP;

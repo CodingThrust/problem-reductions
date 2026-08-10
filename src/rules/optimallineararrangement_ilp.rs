@@ -50,10 +50,10 @@ impl ReductionResult for ReductionOLAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices^2 + num_vertices + num_edges",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
     type Result = ReductionOLAToILP;

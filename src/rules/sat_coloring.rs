@@ -299,9 +299,9 @@ impl ReductionSATToColoring {
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_vars + num_literals",
-        num_edges = "num_vars + num_literals",
+    unavailable = {
+        num_vertices = "the exact graph size depends on clause-length-specific coloring gadgets absent from the source size vector",
+        num_edges = "the exact graph size depends on clause-length-specific coloring gadgets absent from the source size vector",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {

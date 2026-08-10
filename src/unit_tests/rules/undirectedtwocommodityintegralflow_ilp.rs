@@ -65,9 +65,19 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
         })
         .expect("U2CIF -> ILP<i32> reduction should be registered");
 
-    let overhead = (entry.overhead_eval_fn)(&problem as &dyn std::any::Any);
-    assert_eq!(overhead.get("num_vars"), Some(ilp.num_vars));
-    assert_eq!(overhead.get("num_constraints"), Some(ilp.constraints.len()));
+    let source_size = (entry.source_size_fn)(&problem as &dyn std::any::Any);
+    let predicted = entry
+        .size_contract()
+        .unwrap()
+        .exact()
+        .unwrap()
+        .evaluate(&source_size)
+        .unwrap();
+    assert_eq!(predicted.get("num_vars"), Some(ilp.num_vars));
+    assert_eq!(
+        predicted.get("num_constraints"),
+        Some(ilp.constraints.len())
+    );
 }
 
 #[test]

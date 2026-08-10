@@ -75,7 +75,7 @@ impl ReductionResult for ReductionFVSToCodeGen {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices + num_arcs",
     }
 )]

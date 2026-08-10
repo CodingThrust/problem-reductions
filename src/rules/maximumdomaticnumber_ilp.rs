@@ -59,10 +59,10 @@ impl ReductionResult for ReductionDomaticNumberToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices * num_vertices + num_vertices",
         num_constraints = "num_vertices + num_vertices * num_vertices + num_vertices * num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
     type Result = ReductionDomaticNumberToILP;

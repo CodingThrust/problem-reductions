@@ -53,10 +53,10 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;

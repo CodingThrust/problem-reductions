@@ -39,10 +39,10 @@ impl ReductionResult for ReductionSetSplittingToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "universe_size",
         num_constraints = "2 * num_subsets",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;

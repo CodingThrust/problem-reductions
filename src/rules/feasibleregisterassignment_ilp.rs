@@ -39,10 +39,11 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
-    num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-})]
+#[reduction(
+    exact = {
+        num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
+        num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
+    },)]
 impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 
