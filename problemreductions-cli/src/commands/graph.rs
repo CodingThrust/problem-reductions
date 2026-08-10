@@ -1,10 +1,13 @@
+use crate::dispatch::{load_problem, read_input, ProblemJson};
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{ReductionGraph, ReductionPath, TraversalFlow};
+use problemreductions::rules::{MeasuredPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
+use std::any::Any;
 use std::collections::BTreeMap;
+use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
@@ -554,21 +557,9 @@ fn composed_path_size(graph: &ReductionGraph, path: &ReductionPath) -> ComposedP
     }
 }
 
-fn source_bound(
-    source_size: &problemreductions::ProblemSize,
-) -> problemreductions::size_bound::BoundVector {
-    problemreductions::size_bound::BoundVector::new(
-        source_size
-            .components
-            .iter()
-            .map(|(field, value)| (field.clone(), num_bigint::BigUint::from(*value))),
-    )
-}
-
 fn format_path_text(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
-    source_size: Option<&problemreductions::ProblemSize>,
 ) -> String {
     // Build formatted path header: Name {v} → Name {v} → ...
     let path_summary = {
@@ -606,24 +597,14 @@ fn format_path_text(
         }
     }
 
-    if reduction_path.len() > 1 || source_size.is_some() {
+    if reduction_path.len() > 1 {
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
         let composed = composed_path_size(graph, reduction_path);
         let mut exact_fields = BTreeMap::new();
-        let mut exact_values = BTreeMap::new();
         let mut bound_fields = BTreeMap::new();
-        let mut bound_values = BTreeMap::new();
         if let Ok(Some(exact)) = &composed.exact {
             for (field, expression) in exact.expressions() {
                 exact_fields.insert(field, expression);
-            }
-            if let Some(source_size) = source_size {
-                match exact.evaluate(source_size) {
-                    Ok(target_size) => exact_values.extend(target_size.components),
-                    Err(error) => {
-                        text.push_str(&format!("    exact evaluation unavailable: {error}\n"));
-                    }
-                }
             }
         }
         if let Ok(Some(bound)) = &composed.bound {
@@ -632,33 +613,13 @@ fn format_path_text(
                     bound_fields.insert(field, expression);
                 }
             }
-            if let Some(source_size) = source_size {
-                match bound.evaluate(&source_bound(source_size)) {
-                    Ok(target_bound) => bound_values.extend(
-                        target_bound
-                            .components()
-                            .map(|(field, value)| (field.to_string(), value.to_string())),
-                    ),
-                    Err(error) => {
-                        text.push_str(&format!("    bound evaluation unavailable: {error}\n"));
-                    }
-                }
-            }
         }
         if let Some(target) = reduction_path.target() {
             for field in graph.size_field_names(target) {
                 if let Some(expression) = exact_fields.get(field.as_str()) {
-                    let evaluated = exact_values
-                        .get(field.as_str())
-                        .map(|value| format!("  [value: {value}]"))
-                        .unwrap_or_default();
-                    text.push_str(&format!("    {field} = {expression}{evaluated}\n"));
+                    text.push_str(&format!("    {field} = {expression}\n"));
                 } else if let Some(expression) = bound_fields.get(field.as_str()) {
-                    let evaluated = bound_values
-                        .get(field.as_str())
-                        .map(|value| format!("  [value <= {value}]"))
-                        .unwrap_or_default();
-                    text.push_str(&format!("    {field} <= {expression}{evaluated}\n"));
+                    text.push_str(&format!("    {field} <= {expression}\n"));
                 } else {
                     let reason = composed.unavailable_reason(field.as_str());
                     text.push_str(&format!("    {field} unavailable: {reason}\n"));
@@ -673,7 +634,6 @@ fn format_path_text(
 pub(crate) fn format_path_json(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
-    source_size: Option<&problemreductions::ProblemSize>,
 ) -> serde_json::Value {
     let steps_json: Vec<serde_json::Value> = reduction_path
         .steps
@@ -699,39 +659,21 @@ pub(crate) fn format_path_json(
         .collect();
 
     let composed = composed_path_size(graph, reduction_path);
-    let exact_evaluation = match (&composed.exact, source_size) {
-        (Ok(Some(exact)), Some(source_size)) => Some(exact.evaluate(source_size)),
-        _ => None,
-    };
-    let bound_evaluation = match (&composed.bound, source_size) {
-        (Ok(Some(bound)), Some(source_size)) => Some(bound.evaluate(&source_bound(source_size))),
-        _ => None,
-    };
     let mut strongest_fields = BTreeMap::new();
     if let Ok(Some(exact)) = &composed.exact {
         for (field, expression) in exact.expressions() {
-            let value = exact_evaluation
-                .as_ref()
-                .and_then(|evaluation| evaluation.as_ref().ok())
-                .and_then(|values| values.get(field));
             strongest_fields.insert(
                 field.to_string(),
                 serde_json::json!({
                     "field": field,
                     "relation": "exact",
                     "formula": expression.to_string(),
-                    "value": value,
                 }),
             );
         }
     }
     if let Ok(Some(bound)) = &composed.bound {
         for (field, expression) in bound.expressions() {
-            let value = bound_evaluation
-                .as_ref()
-                .and_then(|evaluation| evaluation.as_ref().ok())
-                .and_then(|values| values.get(field))
-                .map(ToString::to_string);
             strongest_fields
                 .entry(field.to_string())
                 .or_insert_with(|| {
@@ -739,7 +681,6 @@ pub(crate) fn format_path_json(
                         "field": field,
                         "relation": "upper_bound",
                         "formula": expression.to_string(),
-                        "value": value,
                     })
                 });
         }
@@ -762,19 +703,6 @@ pub(crate) fn format_path_json(
     let fields = strongest_fields.into_values().collect::<Vec<_>>();
     let mut overall_object = serde_json::Map::new();
     overall_object.insert("fields".to_string(), serde_json::json!(fields));
-    if let Some(Err(error)) = exact_evaluation {
-        overall_object.insert(
-            "exact_evaluation_error".to_string(),
-            serde_json::json!(error.to_string()),
-        );
-    }
-    if let Some(Err(error)) = bound_evaluation {
-        overall_object.insert(
-            "bound_evaluation_error".to_string(),
-            serde_json::json!(error.to_string()),
-        );
-    }
-
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
@@ -786,7 +714,7 @@ pub fn path(
     source: &str,
     target: &str,
     max_paths: usize,
-    sizes: &[String],
+    instance: Option<&Path>,
     out: &OutputConfig,
 ) -> Result<()> {
     let src_spec = parse_problem_spec(source)?;
@@ -812,39 +740,47 @@ pub fn path(
     // Resolve source and target to exact variant nodes
     let src_ref = resolve_problem_ref(source, &graph)?;
     let dst_ref = resolve_problem_ref(target, &graph)?;
-    let source_size = (!sizes.is_empty())
-        .then(|| parse_source_size(sizes))
-        .transpose()?;
-    path_symbolic(
-        &graph,
-        &src_ref.name,
-        &src_ref.variant,
-        &dst_ref.name,
-        &dst_ref.variant,
-        max_paths,
-        source_size.as_ref(),
-        out,
-    )
-}
-
-fn parse_source_size(values: &[String]) -> Result<problemreductions::ProblemSize> {
-    let mut seen = std::collections::HashSet::new();
-    let mut components = Vec::new();
-    for value in values {
-        let (field, number) = value
-            .split_once('=')
-            .ok_or_else(|| anyhow::anyhow!("invalid --size {value:?}; expected FIELD=VALUE"))?;
-        if !seen.insert(field) {
-            anyhow::bail!("duplicate --size field {field:?}");
+    if let Some(instance) = instance {
+        let content = read_input(instance)?;
+        let problem_json: ProblemJson = serde_json::from_str(&content).map_err(|error| {
+            anyhow::anyhow!("Invalid problem JSON in {}: {error}", instance.display())
+        })?;
+        let loaded = load_problem(
+            &problem_json.problem_type,
+            &problem_json.variant,
+            problem_json.data,
+        )?;
+        if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
+            anyhow::bail!(
+                "Source argument resolves to {}{} but {} contains {}{}",
+                src_ref.name,
+                variant_to_full_slash(&src_ref.variant),
+                instance.display(),
+                loaded.problem_name(),
+                variant_to_full_slash(&loaded.variant_map()),
+            );
         }
-        components.push((
-            field.to_string(),
-            number
-                .parse::<usize>()
-                .with_context(|| format!("invalid size value in {value:?}"))?,
-        ));
+        path_concrete(
+            &graph,
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            max_paths,
+            loaded.as_any(),
+            out,
+        )
+    } else {
+        path_symbolic(
+            &graph,
+            &src_ref.name,
+            &src_ref.variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            max_paths,
+            out,
+        )
     }
-    Ok(problemreductions::ProblemSize { components })
 }
 
 fn path_symbolic(
@@ -854,7 +790,6 @@ fn path_symbolic(
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
     max_paths: usize,
-    source_size: Option<&problemreductions::ProblemSize>,
     out: &OutputConfig,
 ) -> Result<()> {
     // Fetch one extra to detect truncation. The library already returns paths in a
@@ -889,7 +824,7 @@ fn path_symbolic(
     let json = if json_output {
         let paths = all_paths
             .iter()
-            .map(|path| format_path_json(graph, path, source_size))
+            .map(|path| format_path_json(graph, path))
             .collect::<Vec<_>>();
         serde_json::json!({
             "paths": paths,
@@ -903,15 +838,7 @@ fn path_symbolic(
     let text = if json_output {
         String::new()
     } else {
-        render_paths_text(
-            graph,
-            &all_paths,
-            src_name,
-            dst_name,
-            truncated,
-            max_paths,
-            source_size,
-        )
+        render_paths_text(graph, &all_paths, src_name, dst_name, truncated, max_paths)
     };
     out.emit_with_default_name("", &text, &json)
 }
@@ -926,7 +853,6 @@ fn render_paths_text(
     dst_name: &str,
     truncated: bool,
     max_paths: usize,
-    source_size: Option<&problemreductions::ProblemSize>,
 ) -> String {
     let mut text = format!(
         "Found {} paths from {} to {}:\n",
@@ -936,7 +862,7 @@ fn render_paths_text(
     );
     for (idx, p) in paths.iter().enumerate() {
         text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
-        text.push_str(&format_path_text(graph, p, source_size));
+        text.push_str(&format_path_text(graph, p));
     }
     if truncated {
         text.push_str(&format!(
@@ -944,6 +870,121 @@ fn render_paths_text(
         ));
     }
     text
+}
+
+fn measured_size_json(size: &problemreductions::ProblemSize) -> serde_json::Value {
+    serde_json::json!({
+        "fields": size.components.iter().map(|(field, value)| {
+            serde_json::json!({"field": field, "value": value})
+        }).collect::<Vec<_>>()
+    })
+}
+
+pub(crate) fn format_concrete_path_json(measured: &MeasuredPath) -> serde_json::Value {
+    let sizes = measured.measured_target_sizes();
+    let steps = measured
+        .path
+        .steps
+        .windows(2)
+        .zip(&sizes)
+        .enumerate()
+        .map(|(index, (pair, size))| {
+            serde_json::json!({
+                "from": {"name": pair[0].name, "variant": pair[0].variant},
+                "to": {"name": pair[1].name, "variant": pair[1].variant},
+                "step": index + 1,
+                "actual_target_size": measured_size_json(size),
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({
+        "steps": measured.path.len(),
+        "path": steps,
+        "actual_target_size": measured_size_json(sizes.last().expect("path has at least one edge")),
+    })
+}
+
+fn format_concrete_path_text(graph: &ReductionGraph, measured: &MeasuredPath) -> String {
+    let sizes = measured.measured_target_sizes();
+    let summary = measured
+        .path
+        .steps
+        .iter()
+        .map(|step| fmt_node(graph, &step.name, &step.variant))
+        .collect::<Vec<_>>()
+        .join(&format!(" {} ", crate::output::fmt_outgoing("→")));
+    let mut text = format!("Path ({} steps): {summary}\n", measured.path.len());
+    for (index, (pair, size)) in measured.path.steps.windows(2).zip(&sizes).enumerate() {
+        text.push_str(&format!(
+            "\n  {}: {} {} {}\n",
+            crate::output::fmt_section(&format!("Step {}", index + 1)),
+            fmt_node(graph, &pair[0].name, &pair[0].variant),
+            crate::output::fmt_outgoing("→"),
+            fmt_node(graph, &pair[1].name, &pair[1].variant),
+        ));
+        for (field, value) in &size.components {
+            text.push_str(&format!("    {field} = {value}\n"));
+        }
+    }
+    text
+}
+
+#[allow(clippy::too_many_arguments)]
+fn path_concrete(
+    graph: &ReductionGraph,
+    src_name: &str,
+    src_variant: &BTreeMap<String, String>,
+    dst_name: &str,
+    dst_variant: &BTreeMap<String, String>,
+    max_paths: usize,
+    source: &dyn Any,
+    out: &OutputConfig,
+) -> Result<()> {
+    let mut paths =
+        graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
+    if paths.is_empty() {
+        anyhow::bail!("No reduction path from {src_name} to {dst_name}");
+    }
+    let truncated = paths.len() > max_paths;
+    if truncated {
+        paths.truncate(max_paths);
+    }
+    let measured = graph.measure_paths(&paths, source)?;
+    let json_output = out.output.is_some() || out.json;
+    let json = if json_output {
+        let items = measured
+            .iter()
+            .map(format_concrete_path_json)
+            .collect::<Vec<_>>();
+        serde_json::json!({
+            "analysis": "concrete",
+            "paths": items,
+            "truncated": truncated,
+            "returned": paths.len(),
+            "max_paths": max_paths,
+        })
+    } else {
+        serde_json::Value::Null
+    };
+    let text = if json_output {
+        String::new()
+    } else {
+        let mut text = format!(
+            "Executed {} paths from {src_name} to {dst_name}:\n",
+            paths.len()
+        );
+        for (index, path) in measured.iter().enumerate() {
+            text.push_str(&format!("\n--- Path {} ---\n", index + 1));
+            text.push_str(&format_concrete_path_text(graph, path));
+        }
+        if truncated {
+            text.push_str(&format!(
+                "\n(showing {max_paths} of more paths; use --max-paths to increase)\n"
+            ));
+        }
+        text
+    };
+    out.emit_with_default_name("", &text, &json)
 }
 
 pub fn export(out: &OutputConfig) -> Result<()> {

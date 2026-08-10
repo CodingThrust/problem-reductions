@@ -12,7 +12,6 @@ use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
-use problemreductions::ProblemSize;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
 use serde::Serialize;
@@ -53,9 +52,9 @@ pub struct FindPathParams {
     #[schemars(description = "Maximum symbolic paths to return (default: 20)")]
     pub max_paths: Option<usize>,
     #[schemars(
-        description = "Optional source size fields used to evaluate each path without ranking"
+        description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."
     )]
-    pub sizes: Option<BTreeMap<String, usize>>,
+    pub problem_json: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -239,17 +238,28 @@ impl McpServer {
         source: &str,
         target: &str,
         max_paths: usize,
-        sizes: Option<&BTreeMap<String, usize>>,
+        problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
-        let source_size = sizes.map(|sizes| ProblemSize {
-            components: sizes
-                .iter()
-                .map(|(field, value)| (field.clone(), *value))
-                .collect(),
-        });
+        let loaded = problem_json
+            .map(|content| {
+                let problem: ProblemJson = serde_json::from_str(content)?;
+                load_problem(&problem.problem_type, &problem.variant, problem.data)
+            })
+            .transpose()?;
+        if let Some(loaded) = &loaded {
+            if loaded.problem_name() != src_ref.name || loaded.variant_map() != src_ref.variant {
+                anyhow::bail!(
+                    "Source argument resolves to {} with variant {:?} but problem_json contains {} with variant {:?}",
+                    src_ref.name,
+                    src_ref.variant,
+                    loaded.problem_name(),
+                    loaded.variant_map(),
+                );
+            }
+        }
 
         let mut all_paths = graph.find_paths_up_to(
             &src_ref.name,
@@ -271,19 +281,28 @@ impl McpServer {
             all_paths.truncate(max_paths);
         }
         let returned = all_paths.len();
+        let measured = loaded
+            .as_ref()
+            .map(|source| graph.measure_paths(&all_paths, source.as_any()))
+            .transpose()?;
 
         let paths_json: Vec<serde_json::Value> = all_paths
             .iter()
-            .map(|path| {
-                crate::commands::graph::format_path_json(&graph, path, source_size.as_ref())
+            .enumerate()
+            .map(|(index, path)| match &measured {
+                Some(measured) => Ok(crate::commands::graph::format_concrete_path_json(
+                    &measured[index],
+                )),
+                None => Ok(crate::commands::graph::format_path_json(&graph, path)),
             })
-            .collect();
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         let json = serde_json::json!({
             "paths": paths_json,
             "truncated": truncated,
             "returned": returned,
             "max_paths": max_paths,
+            "analysis": if loaded.is_some() { "concrete" } else { "symbolic" },
         });
         Ok(serde_json::to_string_pretty(&json)?)
     }
@@ -830,7 +849,7 @@ impl McpServer {
             &params.source,
             &params.target,
             max_paths,
-            params.sizes.as_ref(),
+            params.problem_json.as_deref(),
         )
         .map_err(|e| e.to_string())
     }

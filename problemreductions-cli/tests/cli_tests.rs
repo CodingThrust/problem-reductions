@@ -285,17 +285,20 @@ fn test_path_enumerates_without_mode_or_sizes() {
 }
 
 #[test]
-fn test_path_symbolic_evaluation_is_deterministic_and_uses_strongest_fields() {
+fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target() {
+    let instance = std::env::temp_dir().join("pred_path_concrete_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+    )
+    .unwrap();
     let run = || {
         let output = pred()
             .args([
                 "path",
                 "MIS/SimpleGraph/i32",
                 "MaximumClique/SimpleGraph/i32",
-                "--size",
-                "num_vertices=5",
-                "--size",
-                "num_edges=4",
+                instance.to_str().unwrap(),
                 "--json",
             ])
             .output()
@@ -309,24 +312,16 @@ fn test_path_symbolic_evaluation_is_deterministic_and_uses_strongest_fields() {
     };
     let first = run();
     let second = run();
+    std::fs::remove_file(instance).ok();
     assert_eq!(first, second);
     let json: serde_json::Value = serde_json::from_str(&first).unwrap();
-    let overall = json["paths"][0]["overall_size"]["fields"]
+    let overall = json["paths"][0]["actual_target_size"]["fields"]
         .as_array()
         .unwrap();
     let value = |field: &str| &overall.iter().find(|item| item["field"] == field).unwrap()["value"];
-    assert!(overall.iter().all(|field| field["relation"] == "exact"));
     assert_eq!(value("num_vertices"), 5);
     assert_eq!(value("num_edges"), 6);
-    let fields = json["paths"][0]["path"][0]["size_contract"]
-        .as_array()
-        .unwrap();
-    assert_eq!(
-        fields.len(),
-        2,
-        "exact fields must suppress duplicate bounds"
-    );
-    assert!(fields.iter().all(|field| field["relation"] == "exact"));
+    assert_eq!(json["analysis"], "concrete");
 }
 
 #[test]
@@ -337,10 +332,6 @@ fn test_path_save() {
             "path",
             "MIS/SimpleGraph/i32",
             "MaximumClique/SimpleGraph/i32",
-            "--size",
-            "num_vertices=5",
-            "--size",
-            "num_edges=4",
             "-o",
             tmp.to_str().unwrap(),
         ])
@@ -1432,10 +1423,6 @@ fn test_reduce_rejects_unselected_path_set() {
             "path",
             "MaximumIndependentSet/SimpleGraph/i32",
             "MaximumClique/SimpleGraph/i32",
-            "--size",
-            "num_vertices=4",
-            "--size",
-            "num_edges=3",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -1471,10 +1458,6 @@ fn test_path_set_envelope_has_only_per_item_paths() {
             "path",
             "MIS/SimpleGraph/i32",
             "MaximumClique/SimpleGraph/i32",
-            "--size",
-            "num_vertices=5",
-            "--size",
-            "num_edges=4",
             "--json",
         ])
         .output()
@@ -5326,8 +5309,6 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             "path",
             "MaximumClique/SimpleGraph/i32",
             "ILP/bool",
-            "--size",
-            "num_vertices=5",
             "--max-paths",
             "1",
             "--json",

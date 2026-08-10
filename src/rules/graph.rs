@@ -135,6 +135,35 @@ pub struct ReductionPath {
     pub steps: Vec<ReductionStep>,
 }
 
+/// A selected concrete path batch could not be executed.
+#[derive(Clone, Debug, Eq, PartialEq, thiserror::Error)]
+pub enum MeasurePathsError {
+    #[error("concrete path {path_index} is empty")]
+    EmptyPath { path_index: usize },
+    #[error("concrete path {path_index} contains no reduction edge")]
+    NoEdges { path_index: usize },
+    #[error("concrete path {path_index} starts at a different source node")]
+    DifferentSource { path_index: usize },
+    #[error("concrete path {path_index} references unknown node {problem} {variant:?}")]
+    UnknownNode {
+        path_index: usize,
+        problem: String,
+        variant: BTreeMap<String, String>,
+    },
+    #[error("concrete path {path_index} has no registered edge from {source_problem} to {target_problem}")]
+    MissingEdge {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+    #[error("concrete path {path_index} edge {source_problem} -> {target_problem} is not witness-executable")]
+    NotWitnessExecutable {
+        path_index: usize,
+        source_problem: String,
+        target_problem: String,
+    },
+}
+
 /// Why exact size-map composition could not be completed for a path.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum PathSizeMapError {
@@ -289,7 +318,7 @@ impl std::fmt::Display for ReductionPath {
 }
 
 /// A node in a variant-level reduction path.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Eq, Hash, PartialEq, Serialize)]
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
@@ -2098,6 +2127,21 @@ impl MeasuredPath {
             .target_problem_any()
     }
 
+    /// Measure every concrete intermediate target already constructed for this path.
+    pub fn measured_target_sizes(&self) -> Vec<ProblemSize> {
+        self.steps
+            .iter()
+            .zip(self.path.steps.iter().skip(1))
+            .map(|(result, target)| {
+                ReductionGraph::compute_source_size(
+                    &target.name,
+                    &target.variant,
+                    result.target_problem_any(),
+                )
+            })
+            .collect()
+    }
+
     /// Extract a solution from target space back to source space.
     pub fn extract_solution(
         &self,
@@ -2112,6 +2156,96 @@ impl MeasuredPath {
 }
 
 impl ReductionGraph {
+    /// Execute a selected batch of witness paths while sharing every common prefix.
+    pub fn measure_paths<'a>(
+        &self,
+        paths: &[ReductionPath],
+        source_instance: &'a dyn Any,
+    ) -> Result<Vec<MeasuredPath>, MeasurePathsError> {
+        let mut prefixes: HashMap<Vec<ReductionStep>, MeasuredLabel<'a>> = HashMap::new();
+        let mut measured = Vec::with_capacity(paths.len());
+        let mut batch_source: Option<&ReductionStep> = None;
+        for (path_index, path) in paths.iter().enumerate() {
+            let source = path
+                .steps
+                .first()
+                .ok_or(MeasurePathsError::EmptyPath { path_index })?;
+            if path.steps.len() < 2 {
+                return Err(MeasurePathsError::NoEdges { path_index });
+            }
+            if let Some(expected) = batch_source {
+                if source != expected {
+                    return Err(MeasurePathsError::DifferentSource { path_index });
+                }
+            } else {
+                batch_source = Some(source);
+            }
+            let source_prefix = vec![source.clone()];
+            let mut label = if let Some(label) = prefixes.get(&source_prefix) {
+                label.clone()
+            } else {
+                let source_size =
+                    Self::compute_source_size(&source.name, &source.variant, source_instance);
+                let label = MeasuredLabel::new(source_instance, source_size, SizeBudget::default());
+                prefixes.insert(source_prefix.clone(), label.clone());
+                label
+            };
+            let mut prefix = source_prefix;
+            for pair in path.steps.windows(2) {
+                prefix.push(pair[1].clone());
+                if let Some(cached) = prefixes.get(&prefix) {
+                    label = cached.clone();
+                    continue;
+                }
+                let source_node = self
+                    .lookup_node(&pair[0].name, &pair[0].variant)
+                    .ok_or_else(|| MeasurePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[0].name.clone(),
+                        variant: pair[0].variant.clone(),
+                    })?;
+                let target_node_index = self
+                    .lookup_node(&pair[1].name, &pair[1].variant)
+                    .ok_or_else(|| MeasurePathsError::UnknownNode {
+                        path_index,
+                        problem: pair[1].name.clone(),
+                        variant: pair[1].variant.clone(),
+                    })?;
+                let edge_index = self
+                    .graph
+                    .find_edge(source_node, target_node_index)
+                    .ok_or_else(|| MeasurePathsError::MissingEdge {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    })?;
+                let edge_data = &self.graph[edge_index];
+                if edge_data.reduce_fn.is_none() {
+                    return Err(MeasurePathsError::NotWitnessExecutable {
+                        path_index,
+                        source_problem: pair[0].name.clone(),
+                        target_problem: pair[1].name.clone(),
+                    });
+                }
+                let target_node = &self.nodes[self.graph[target_node_index]];
+                label = label
+                    .extend(&ReductionEdge {
+                        size_contract: &edge_data.size_contract,
+                        reduce_fn: edge_data.reduce_fn,
+                        target_name: target_node.name,
+                        target_variant: &target_node.variant,
+                    })
+                    .expect("an unlimited budget permits every measured target");
+                prefixes.insert(prefix.clone(), label.clone());
+            }
+            measured.push(
+                Self::measured_path_from_label(path.clone(), label)
+                    .expect("a path with an executed edge has a measured chain"),
+            );
+        }
+        Ok(measured)
+    }
+
     /// Return the componentwise measured Pareto front for one exact target variant.
     ///
     /// This executes each reduction on `source_instance` and measures the real constructed

@@ -18,6 +18,7 @@ use petgraph::graph::DiGraph;
 use serde_json::json;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn empty_size_contract() -> Result<ReductionSizeContract, SizeContractError> {
     ReductionSizeContract::new("synthetic edge", ReductionSizeDeclarations::default())
@@ -225,6 +226,45 @@ fn reduce_source_to_middle_witness(
     })
 }
 
+static SHARED_PREFIX_EXECUTIONS: AtomicUsize = AtomicUsize::new(0);
+
+fn reduce_counted_source_to_middle_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    SHARED_PREFIX_EXECUTIONS.fetch_add(1, Ordering::SeqCst);
+    reduce_source_to_middle_witness(any)
+}
+
+struct MiddleToTargetWitnessResult {
+    target: AggregateChainTarget,
+}
+
+impl ReductionResult for MiddleToTargetWitnessResult {
+    type Source = AggregateChainMiddle;
+    type Target = AggregateChainTarget;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok(target_solution.to_vec())
+    }
+}
+
+fn reduce_middle_to_target_witness(
+    any: &dyn Any,
+) -> Box<dyn crate::rules::traits::DynReductionResult> {
+    any.downcast_ref::<AggregateChainMiddle>()
+        .expect("expected AggregateChainMiddle");
+    Box::new(MiddleToTargetWitnessResult {
+        target: AggregateChainTarget,
+    })
+}
+
 fn reduce_natural_variant_witness(
     any: &dyn Any,
 ) -> Box<dyn crate::rules::traits::DynReductionResult> {
@@ -275,6 +315,51 @@ fn build_two_node_graph(
         name_to_nodes,
         default_variants: HashMap::new(),
     }
+}
+
+#[test]
+fn measure_paths_executes_a_shared_prefix_once() {
+    SHARED_PREFIX_EXECUTIONS.store(0, Ordering::SeqCst);
+    let witness_edge = |reduce_fn| ReductionEdgeData {
+        size_contract: empty_size_contract(),
+        reduce_fn: Some(reduce_fn),
+        reduce_aggregate_fn: None,
+        turing: false,
+    };
+    let graph = ReductionGraph::from_test_edges(
+        &[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ],
+        &[
+            (
+                AggregateChainSource::NAME,
+                AggregateChainMiddle::NAME,
+                witness_edge(reduce_counted_source_to_middle_witness),
+            ),
+            (
+                AggregateChainMiddle::NAME,
+                AggregateChainTarget::NAME,
+                witness_edge(reduce_middle_to_target_witness),
+            ),
+        ],
+    );
+    let paths = vec![
+        named_path(&[AggregateChainSource::NAME, AggregateChainMiddle::NAME]),
+        named_path(&[
+            AggregateChainSource::NAME,
+            AggregateChainMiddle::NAME,
+            AggregateChainTarget::NAME,
+        ]),
+    ];
+
+    let measured = graph
+        .measure_paths(&paths, &AggregateChainSource)
+        .expect("both paths are executable");
+
+    assert_eq!(measured.len(), 2);
+    assert_eq!(SHARED_PREFIX_EXECUTIONS.load(Ordering::SeqCst), 1);
 }
 
 #[test]

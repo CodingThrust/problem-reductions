@@ -113,7 +113,7 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     #[command(after_help = "\
 Examples:
   pred path MIS QUBO                              # enumerate symbolic paths
-  pred path MIS Clique --size num_vertices=5 --size num_edges=4
+  pred path MIS Clique mis.json                   # execute paths on an instance
   pred path MIS QUBO --max-paths 50              # increase the output cap
   pred path MIS QUBO -o paths.json               # save the path set
 
@@ -128,9 +128,8 @@ Use `pred list` to see available problems.")]
         /// Maximum paths to return
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
-        /// Source size component as FIELD=NON_NEGATIVE_INTEGER; evaluates symbolic path information without ranking.
-        #[arg(long = "size")]
-        sizes: Vec<String>,
+        /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
+        instance: Option<std::path::PathBuf>,
     },
 
     /// Export the reduction graph to JSON

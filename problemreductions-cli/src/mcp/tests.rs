@@ -2,7 +2,6 @@
 mod tests {
     use crate::mcp::tools::{FindPathParams, McpServer};
     use crate::test_support::{aggregate_bundle, aggregate_problem_json};
-    use std::collections::BTreeMap;
 
     fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
         let response = server
@@ -60,49 +59,47 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_sizes_evaluate_the_strongest_symbolic_contract() {
+    fn test_find_path_executes_complete_instance_and_reports_actual_size() {
         let server = McpServer::new();
-        let sizes = BTreeMap::from([
-            ("num_vertices".to_string(), 5),
-            ("num_edges".to_string(), 4),
-        ]);
+        let problem_json = r#"{
+            "type":"MaximumIndependentSet",
+            "variant":{"graph":"SimpleGraph","weight":"i32"},
+            "data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}
+        }"#;
         let result: serde_json::Value = serde_json::from_str(
             &server
                 .find_path_inner(
                     "MIS/SimpleGraph/i32",
                     "MaximumClique/SimpleGraph/i32",
                     20,
-                    Some(&sizes),
+                    Some(problem_json),
                 )
                 .unwrap(),
         )
         .unwrap();
-        let fields = result["paths"][0]["overall_size"]["fields"]
+        let fields = result["paths"][0]["actual_target_size"]["fields"]
             .as_array()
             .unwrap();
         let edges = fields
             .iter()
             .find(|field| field["field"] == "num_edges")
             .unwrap();
-        assert_eq!(edges["relation"], "exact");
         assert_eq!(edges["value"], 6);
+        assert_eq!(result["analysis"], "concrete");
     }
 
     #[test]
-    fn test_find_path_size_schema_uses_json_numbers() {
+    fn test_find_path_schema_accepts_complete_problem_json() {
         let params: FindPathParams = serde_json::from_value(serde_json::json!({
             "source": "MIS",
             "target": "MaximumClique",
-            "sizes": {"num_vertices": 5, "num_edges": 4}
+            "problem_json": "{\"type\":\"MaximumIndependentSet\",\"variant\":{},\"data\":{}}"
         }))
         .unwrap();
-        assert_eq!(params.sizes.unwrap()["num_vertices"], 5);
-        assert!(serde_json::from_value::<FindPathParams>(serde_json::json!({
-            "source": "MIS",
-            "target": "MaximumClique",
-            "sizes": {"num_vertices": "5"}
-        }))
-        .is_err());
+        assert!(params
+            .problem_json
+            .unwrap()
+            .contains("MaximumIndependentSet"));
     }
 
     #[test]
