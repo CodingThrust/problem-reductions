@@ -69,7 +69,7 @@ pub fn list_prompts() -> Vec<Prompt> {
         ),
         Prompt::new(
             "find_reduction",
-            Some("Find the Pareto front of reduction paths between two problems"),
+            Some("Enumerate symbolic reduction paths between two problems"),
             Some(vec![
                 PromptArgument::new("source")
                     .with_description("Source problem name or alias")
@@ -195,10 +195,10 @@ pub fn get_prompt(
             Some(prompt_result(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
-                    "Find the symbolic Pareto front for reducing \"{source}\" to \"{target}\".\n\n\
-                     Show every non-dominated analyzable path, its per-field growth, and any \
-                     excluded paths with their analysis-failure reasons. Do not recommend a \
-                     single route; explain the trade-offs so I can choose explicitly."
+                    "Enumerate symbolic reduction paths from \"{source}\" to \"{target}\".\n\n\
+                     Show each route and the strongest available size relation for every field: \
+                     exact first, otherwise a certified upper bound, otherwise the unavailable \
+                     reason. Do not rank, prune, or recommend a route."
                 ),
             ))
         }

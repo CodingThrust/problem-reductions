@@ -407,11 +407,9 @@ pub(crate) mod undirectedtwocommodityintegralflow_ilp;
 #[cfg(test)]
 pub(crate) use graph::ReductionEdgeData;
 pub use graph::{
-    AggregateReductionChain, CertifiedBoundPath, CertifiedBoundSearchResult,
-    CertifiedBoundUnavailablePath, ExactSizePath, ExactSizeSearchResult, ExactSizeUnavailablePath,
-    MeasuredPath, NeighborInfo, NeighborTree, PathSizeBoundError, PathSizeMapError, ReductionChain,
-    ReductionEdgeInfo, ReductionGraph, ReductionMode, ReductionPath, ReductionStep, TraversalFlow,
-    TuringSizeRankingUnavailable,
+    AggregateReductionChain, MeasuredPath, NeighborInfo, NeighborTree, PathSizeBoundError,
+    PathSizeMapError, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionMode,
+    ReductionPath, ReductionStep, TraversalFlow,
 };
 pub use pareto::{MeasuredLabel, ReductionEdge, SizeBudget, UnknownSizeField};
 pub use search::{

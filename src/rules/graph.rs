@@ -7,7 +7,7 @@
 //!
 //! This module implements:
 //! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
-//! - Exact and bounded-approximate symbolic and measured Pareto path search
+//! - Symbolic path composition and concrete measured path search
 //! - JSON export for documentation and visualization
 
 use crate::rules::pareto::{MeasuredLabel, ReductionEdge, SizeBudget, UnknownSizeField};
@@ -2099,46 +2099,6 @@ pub struct MeasuredPath {
     steps: Vec<Rc<dyn DynReductionResult>>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ExactSizePath {
-    pub path: ReductionPath,
-    pub terminal_size: ProblemSize,
-}
-
-#[derive(Clone, Debug)]
-pub struct ExactSizeUnavailablePath {
-    pub path: ReductionPath,
-    pub error: PathSizeMapError,
-}
-
-#[derive(Clone, Debug)]
-pub struct ExactSizeSearchResult {
-    pub front: Vec<ExactSizePath>,
-    pub unavailable: Vec<ExactSizeUnavailablePath>,
-}
-
-#[derive(Clone, Debug)]
-pub struct CertifiedBoundPath {
-    pub path: ReductionPath,
-    pub terminal_bound: crate::size_bound::BoundVector,
-}
-
-#[derive(Clone, Debug)]
-pub struct CertifiedBoundUnavailablePath {
-    pub path: ReductionPath,
-    pub error: PathSizeBoundError,
-}
-
-#[derive(Clone, Debug)]
-pub struct CertifiedBoundSearchResult {
-    pub front: Vec<CertifiedBoundPath>,
-    pub unavailable: Vec<CertifiedBoundUnavailablePath>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("single-target size ranking excludes Turing reductions until a query-cost model exists")]
-pub struct TuringSizeRankingUnavailable;
-
 fn compare_reduction_paths(a: &ReductionPath, b: &ReductionPath) -> std::cmp::Ordering {
     a.len().cmp(&b.len()).then_with(|| {
         a.steps
@@ -2150,24 +2110,6 @@ fn compare_reduction_paths(a: &ReductionPath, b: &ReductionPath) -> std::cmp::Or
                     .map(|step| (step.name.as_str(), &step.variant)),
             )
     })
-}
-
-fn problem_size_dominates(left: &ProblemSize, right: &ProblemSize) -> bool {
-    left.components.len() == right.components.len()
-        && left
-            .components
-            .iter()
-            .all(|(field, value)| right.get(field).is_some_and(|other| *value <= other))
-}
-
-fn bound_vector_dominates(
-    left: &crate::size_bound::BoundVector,
-    right: &crate::size_bound::BoundVector,
-) -> bool {
-    left.components().count() == right.components().count()
-        && left
-            .components()
-            .all(|(field, value)| right.get(field).is_some_and(|other| value <= other))
 }
 
 impl MeasuredPath {
@@ -2193,84 +2135,6 @@ impl MeasuredPath {
 }
 
 impl ReductionGraph {
-    pub fn exact_size_front(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        source_size: &ProblemSize,
-    ) -> Result<ExactSizeSearchResult, TuringSizeRankingUnavailable> {
-        if mode == ReductionMode::Turing {
-            return Err(TuringSizeRankingUnavailable);
-        }
-        let mut front: Vec<ExactSizePath> = Vec::new();
-        let mut unavailable = Vec::new();
-        for path in self.find_all_paths_mode(source, source_variant, target, target_variant, mode) {
-            match self.evaluate_path_size_map(&path, source_size) {
-                Ok(terminal_size) => {
-                    let candidate = ExactSizePath {
-                        path,
-                        terminal_size,
-                    };
-                    if front.iter().any(|existing| {
-                        problem_size_dominates(&existing.terminal_size, &candidate.terminal_size)
-                    }) {
-                        continue;
-                    }
-                    front.retain(|existing| {
-                        !problem_size_dominates(&candidate.terminal_size, &existing.terminal_size)
-                    });
-                    front.push(candidate);
-                }
-                Err(error) => unavailable.push(ExactSizeUnavailablePath { path, error }),
-            }
-        }
-        front.sort_by(|left, right| compare_reduction_paths(&left.path, &right.path));
-        unavailable.sort_by(|left, right| compare_reduction_paths(&left.path, &right.path));
-        Ok(ExactSizeSearchResult { front, unavailable })
-    }
-
-    pub fn certified_bound_front(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-        mode: ReductionMode,
-        source_bound: &crate::size_bound::BoundVector,
-    ) -> Result<CertifiedBoundSearchResult, TuringSizeRankingUnavailable> {
-        if mode == ReductionMode::Turing {
-            return Err(TuringSizeRankingUnavailable);
-        }
-        let mut front: Vec<CertifiedBoundPath> = Vec::new();
-        let mut unavailable = Vec::new();
-        for path in self.find_all_paths_mode(source, source_variant, target, target_variant, mode) {
-            match self.evaluate_path_size_bound(&path, source_bound) {
-                Ok(terminal_bound) => {
-                    let candidate = CertifiedBoundPath {
-                        path,
-                        terminal_bound,
-                    };
-                    if front.iter().any(|existing| {
-                        bound_vector_dominates(&existing.terminal_bound, &candidate.terminal_bound)
-                    }) {
-                        continue;
-                    }
-                    front.retain(|existing| {
-                        !bound_vector_dominates(&candidate.terminal_bound, &existing.terminal_bound)
-                    });
-                    front.push(candidate);
-                }
-                Err(error) => unavailable.push(CertifiedBoundUnavailablePath { path, error }),
-            }
-        }
-        front.sort_by(|left, right| compare_reduction_paths(&left.path, &right.path));
-        unavailable.sort_by(|left, right| compare_reduction_paths(&left.path, &right.path));
-        Ok(CertifiedBoundSearchResult { front, unavailable })
-    }
-
     /// Return the componentwise measured Pareto front for one exact target variant.
     ///
     /// This executes each reduction on `source_instance` and measures the real constructed
@@ -2424,10 +2288,6 @@ impl ReductionGraph {
 #[cfg(test)]
 #[path = "../unit_tests/rules/graph.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "../unit_tests/rules/pareto.rs"]
-mod pareto_tests;
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]

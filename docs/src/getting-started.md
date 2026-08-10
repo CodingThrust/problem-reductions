@@ -121,9 +121,8 @@ Let's walk through each step.
 
 `ReductionGraph` holds every registered reduction. The example enumerates the
 witness-capable simple paths and explicitly selects the documented
-`Factoring -> CircuitSAT -> SpinGlass` route. Size-ranked searches require an
-explicit choice between `exact_size_front` and `certified_bound_front` plus the
-corresponding source-size vector.
+`Factoring -> CircuitSAT -> SpinGlass` route. Symbolic path discovery does not
+rank paths; each route carries its strongest available per-field size relation.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}

@@ -17,7 +17,7 @@ use crate::types::{One, ProblemSize, Sum};
 use petgraph::graph::DiGraph;
 use serde_json::json;
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 fn empty_size_contract() -> Result<ReductionSizeContract, SizeContractError> {
     ReductionSizeContract::new("synthetic edge", ReductionSizeDeclarations::default())
@@ -454,7 +454,7 @@ fn path_size_composition_and_evaluation_propagate_step_errors() {
 }
 
 #[test]
-fn exact_and_bound_fronts_apply_terminal_dominance_without_fallback() {
+fn symbolic_path_enumeration_retains_every_path_without_ranking() {
     let graph = ReductionGraph::from_test_edges(
         &["S", "A", "B", "C", "T"],
         &[
@@ -491,86 +491,34 @@ fn exact_and_bound_fronts_apply_terminal_dominance_without_fallback() {
         ],
     );
     let variant = BTreeMap::new();
-    let exact = graph
-        .exact_size_front(
-            "S",
-            &variant,
-            "T",
-            &variant,
-            ReductionMode::Witness,
-            &ProblemSize::default(),
-        )
-        .unwrap();
-    assert_eq!(exact.front.len(), 1);
-    assert_eq!(exact.front[0].terminal_size.get("y"), Some(1));
+    let paths = graph.find_all_paths_mode("S", &variant, "T", &variant, ReductionMode::Witness);
+    assert_eq!(paths.len(), 3);
+    let exact_values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            graph
+                .evaluate_path_size_map(path, &ProblemSize::default())
+                .unwrap()
+                .get("y")
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(exact_values, BTreeSet::from([1, 2, 3]));
 
-    let bounded = graph
-        .certified_bound_front(
-            "S",
-            &variant,
-            "T",
-            &variant,
-            ReductionMode::Witness,
-            &crate::size_bound::BoundVector::default(),
-        )
-        .unwrap();
-    assert_eq!(bounded.front.len(), 1);
-    assert_eq!(bounded.front[0].terminal_bound.get("y"), Some(&1u8.into()));
-
-    assert!(graph
-        .exact_size_front(
-            "S",
-            &variant,
-            "T",
-            &variant,
-            ReductionMode::Turing,
-            &ProblemSize::default(),
-        )
-        .is_err());
-    assert!(graph
-        .certified_bound_front(
-            "S",
-            &variant,
-            "T",
-            &variant,
-            ReductionMode::Turing,
-            &crate::size_bound::BoundVector::default(),
-        )
-        .is_err());
-}
-
-#[test]
-fn measured_front_remains_an_explicit_separate_search_mode() {
-    let variant = BTreeMap::new();
-    let graph = build_two_node_graph(
-        AggregateChainSource::NAME,
-        variant.clone(),
-        AggregateChainMiddle::NAME,
-        variant.clone(),
-        ReductionEdgeData {
-            size_contract: empty_size_contract(),
-            reduce_fn: Some(reduce_source_to_middle_witness),
-            reduce_aggregate_fn: None,
-            turing: false,
-        },
-    );
-
-    let result = graph
-        .measured_front(
-            AggregateChainSource::NAME,
-            &variant,
-            AggregateChainMiddle::NAME,
-            &variant,
-            ReductionMode::Witness,
-            &AggregateChainSource,
-            SizeBudget::default(),
-            SearchMode::Exact,
-        )
-        .unwrap();
-    assert_eq!(result.value.len(), 1);
+    let bound_values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            graph
+                .evaluate_path_size_bound(path, &crate::size_bound::BoundVector::default())
+                .unwrap()
+                .get("y")
+                .unwrap()
+                .clone()
+        })
+        .collect();
     assert_eq!(
-        result.value[0].path.type_names(),
-        [AggregateChainSource::NAME, AggregateChainMiddle::NAME,]
+        bound_values,
+        BTreeSet::from([1u8.into(), 2u8.into(), 3u8.into()])
     );
 }
 

@@ -289,17 +289,12 @@ cli-demo: cli
 	$$PRED from QUBO --hops 1; \
 	\
 	echo ""; \
-	echo "--- 5. path: asymptotic Pareto front ---"; \
+	echo "--- 5. path: symbolic path enumeration ---"; \
 	$$PRED path MIS QUBO; \
 	$$PRED path Factoring SpinGlass; \
-	echo "--- 5b. explicitly choose one semantic route from the Pareto front ---"; \
-	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/front_mis_qubo.json; \
-	jq -e 'first(.front[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MaximumSetPacking", "MaximumSetPacking", "QUBO"]))' $(CLI_DEMO_DIR)/front_mis_qubo.json > $(CLI_DEMO_DIR)/path_mis_qubo.json; \
-	\
-	echo ""; \
-	echo "--- 6. path --all: enumerate all paths ---"; \
-	$$PRED path MIS QUBO --all; \
-	$$PRED path MIS QUBO --all -o $(CLI_DEMO_DIR)/all_paths/; \
+	echo "--- 5b. explicitly choose one route from the path set ---"; \
+	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/paths_mis_qubo.json; \
+	jq -e 'first(.paths[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MaximumSetPacking", "MaximumSetPacking", "QUBO"]))' $(CLI_DEMO_DIR)/paths_mis_qubo.json > $(CLI_DEMO_DIR)/path_mis_qubo.json; \
 	\
 	echo ""; \
 	echo "--- 7. export-graph: full reduction graph ---"; \
@@ -308,7 +303,7 @@ cli-demo: cli
 	echo ""; \
 	echo "--- 8. create: build problem instances ---"; \
 	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
-	$$PRED create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create MaximumIndependentSet/SimpleGraph/i32 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
 	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
 	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
 	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \
@@ -341,7 +336,7 @@ cli-demo: cli
 	$$PRED solve $(CLI_DEMO_DIR)/mis_weighted.json; \
 	\
 	echo ""; \
-	echo "--- 13. reduce: MIS → QUBO along the chosen Pareto route ---"; \
+	echo "--- 13. reduce: MIS → QUBO along the explicitly chosen route ---"; \
 	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
 	\
 	echo ""; \
@@ -354,8 +349,8 @@ cli-demo: cli
 	\
 	echo ""; \
 	echo "--- 16. solve bundle with ILP: MIS → MVC → ILP ---"; \
-	$$PRED path MIS MVC -o $(CLI_DEMO_DIR)/front_mis_mvc.json; \
-	jq -e 'first(.front[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MinimumVertexCover"]))' $(CLI_DEMO_DIR)/front_mis_mvc.json > $(CLI_DEMO_DIR)/path_mis_mvc.json; \
+	$$PRED path MIS MVC -o $(CLI_DEMO_DIR)/paths_mis_mvc.json; \
+	jq -e 'first(.paths[] | select(([.path[0].from.name] + [.path[].to.name]) == ["MaximumIndependentSet", "MaximumIndependentSet", "MinimumVertexCover"]))' $(CLI_DEMO_DIR)/paths_mis_mvc.json > $(CLI_DEMO_DIR)/path_mis_mvc.json; \
 	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_mvc.json -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
 	$$PRED solve $(CLI_DEMO_DIR)/bundle_mvc.json --solver ilp; \
 	\

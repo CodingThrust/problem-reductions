@@ -88,7 +88,7 @@ pred solve lbdp.json --solver brute-force
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
 
-# Reduce along an explicitly chosen Pareto-front route and solve via brute-force
+# Reduce along an explicitly chosen route and solve via brute-force
 pred reduce problem.json --via route.json -o reduced.json
 pred solve reduced.json --solver brute-force
 
@@ -158,27 +158,22 @@ Multi-step paths are discovered automatically:
 {{#include generated/pred-path-factoring-spinglass.txt}}
 ```
 
-Show all paths or save for later use with `pred reduce --via`:
+Enumerate symbolic paths or save the path set for later route selection:
 
 ```bash
-pred path MIS QUBO --all                    # all paths (up to 20)
-pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO --size-mode exact \
-  --size num_vertices=5 --size num_edges=4  # exact terminal-size front
-pred path MIS QUBO --size-mode bound \
-  --size num_vertices=5 --size num_edges=4  # certified-bound front
-pred path MIS QUBO --all -o paths/          # save all paths to a folder
+pred path MIS QUBO                           # paths (up to 20)
+pred path MIS QUBO --max-paths 50            # increase the cap
+pred path MIS MaximumClique \
+  --size num_vertices=5 --size num_edges=4   # evaluate symbolic relations
+pred path MIS QUBO -o paths.json             # save the path set
 ```
 
-Ranked search requires `--size-mode exact` or `--size-mode bound` and at least
-one explicit source-size component. The two result types are separate and do
-not fall back to one another. When using `--all`, the output is capped at
-`--max-paths` (default: 20). If more paths exist, the output indicates truncation.
-
-Every front item contains its complete route. The envelope does not select a
-winner; extract the route you want before passing it to `pred reduce --via`.
-Paths with unknown symbolic growth are excluded from the front and listed with
-their analysis-failure reason.
+Path discovery never ranks or Pareto-prunes routes. For each field it displays
+the strongest available symbolic relation: an exact equality, otherwise a
+certified upper bound, otherwise an unavailable reason. `--size` substitutes
+source values into those relations without changing the search or selecting a
+winner. Output is capped by `--max-paths` (default: 20); extract one route from
+the path-set envelope before passing it to `pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
 
@@ -425,7 +420,7 @@ This is useful for scripting and piping:
 
 ```bash
 pred list --json | jq '.variants[].name'
-pred path MIS QUBO --json | jq '.front[] | {growth, path}'
+pred path MIS QUBO --json | jq '.paths[] | {overall_size, path}'
 ```
 
 ## Problem Name Aliases

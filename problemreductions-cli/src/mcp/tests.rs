@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod tests {
-    use crate::mcp::tools::{McpServer, SizeModeParam};
+    use crate::mcp::tools::McpServer;
     use crate::test_support::{aggregate_bundle, aggregate_problem_json};
     use std::collections::BTreeMap;
 
     fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
         let response = server
-            .find_path_inner(source, target, true, 2000, None, None)
-            .expect("all-path search");
+            .find_path_inner(source, target, 2000, None)
+            .expect("path enumeration");
         let json: serde_json::Value = serde_json::from_str(&response).unwrap();
         let entry = json["paths"]
             .as_array()
@@ -43,62 +43,57 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_requires_an_explicit_size_contract() {
+    fn test_find_path_enumerates_without_a_mode_or_sizes() {
         let server = McpServer::new();
-        let error = server
-            .find_path_inner("MIS", "Clique", false, 20, None, None)
-            .unwrap_err();
-        assert!(error.to_string().contains("requires size_mode"));
+        let result: serde_json::Value = serde_json::from_str(
+            &server
+                .find_path_inner(
+                    "MIS/SimpleGraph/i32",
+                    "MaximumClique/SimpleGraph/i32",
+                    20,
+                    None,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(!result["paths"].as_array().unwrap().is_empty());
     }
 
     #[test]
-    fn test_find_path_exact_and_bound_are_distinct() {
+    fn test_find_path_sizes_evaluate_the_strongest_symbolic_contract() {
         let server = McpServer::new();
         let sizes = BTreeMap::from([
             ("num_vertices".to_string(), "5".to_string()),
             ("num_edges".to_string(), "4".to_string()),
         ]);
-        let exact: serde_json::Value = serde_json::from_str(
+        let result: serde_json::Value = serde_json::from_str(
             &server
                 .find_path_inner(
-                    "MIS",
-                    "Clique",
-                    false,
+                    "MIS/SimpleGraph/i32",
+                    "MaximumClique/SimpleGraph/i32",
                     20,
-                    Some(SizeModeParam::Exact),
                     Some(&sizes),
                 )
                 .unwrap(),
         )
         .unwrap();
-        let bound: serde_json::Value = serde_json::from_str(
-            &server
-                .find_path_inner(
-                    "MIS",
-                    "Clique",
-                    false,
-                    20,
-                    Some(SizeModeParam::Bound),
-                    Some(&sizes),
-                )
-                .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(exact["mode"], "exact");
-        assert_eq!(bound["mode"], "bound");
-        assert_eq!(exact["front"][0]["terminal_size"][1][1], 6);
-        assert_eq!(bound["front"][0]["terminal_bound"][1]["value"], "25");
+        let fields = result["paths"][0]["overall_size"]["fields"]
+            .as_array()
+            .unwrap();
+        let edges = fields
+            .iter()
+            .find(|field| field["field"] == "num_edges")
+            .unwrap();
+        assert_eq!(edges["relation"], "exact");
+        assert_eq!(edges["value"], 6);
     }
 
     #[test]
-    fn test_find_path_all() {
+    fn test_find_path_is_capped_explicitly() {
         let server = McpServer::new();
-        let json: serde_json::Value = serde_json::from_str(
-            &server
-                .find_path_inner("MIS", "QUBO", true, 20, None, None)
-                .unwrap(),
-        )
-        .unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 20, None).unwrap())
+                .unwrap();
         assert!(!json["paths"].as_array().unwrap().is_empty());
         assert!(json["truncated"].is_boolean());
     }

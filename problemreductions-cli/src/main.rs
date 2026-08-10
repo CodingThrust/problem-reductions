@@ -62,11 +62,9 @@ fn main() -> anyhow::Result<()> {
         Commands::Path {
             source,
             target,
-            all,
             max_paths,
-            size_mode,
             sizes,
-        } => commands::graph::path(&source, &target, all, max_paths, size_mode, &sizes, &out),
+        } => commands::graph::path(&source, &target, max_paths, &sizes, &out),
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),

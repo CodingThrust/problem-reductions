@@ -13,60 +13,62 @@ use crate::variant::{K3, KN};
 use std::collections::BTreeMap;
 
 #[test]
-fn exact_and_certified_bound_fronts_are_isolated() {
+fn exact_and_certified_bound_views_compose_without_ranking() {
     let graph = ReductionGraph::new();
     let source =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let target = ReductionGraph::variant_to_map(&MaximumClique::<SimpleGraph, i32>::variant());
-    let exact = graph
-        .exact_size_front(
-            "MaximumIndependentSet",
-            &source,
-            "MaximumClique",
-            &target,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
-        )
-        .unwrap();
-    assert!(exact
-        .front
-        .iter()
-        .any(|path| path.terminal_size.get("num_edges") == Some(6)));
-
-    let bounded = graph
-        .certified_bound_front(
-            "MaximumIndependentSet",
-            &source,
-            "MaximumClique",
-            &target,
-            ReductionMode::Witness,
-            &crate::size_bound::BoundVector::new([("num_vertices", 5u32), ("num_edges", 4u32)]),
-        )
-        .unwrap();
-    assert!(bounded
-        .front
-        .iter()
-        .any(|path| path.terminal_bound.get("num_edges") == Some(&25u32.into())));
+    let paths = graph.find_all_paths_mode(
+        "MaximumIndependentSet",
+        &source,
+        "MaximumClique",
+        &target,
+        ReductionMode::Witness,
+    );
+    let path = paths.iter().find(|path| path.len() == 1).unwrap();
+    assert_eq!(
+        graph
+            .evaluate_path_size_map(
+                path,
+                &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
+            )
+            .unwrap()
+            .get("num_edges"),
+        Some(6)
+    );
+    assert_eq!(
+        graph
+            .evaluate_path_size_bound(
+                path,
+                &crate::size_bound::BoundVector::new(
+                    [("num_vertices", 5u32), ("num_edges", 4u32),]
+                ),
+            )
+            .unwrap()
+            .get("num_edges"),
+        Some(&25u32.into())
+    );
 }
 
 #[test]
-fn certified_bound_search_does_not_consult_an_exact_only_edge() {
+fn bound_composition_does_not_consult_an_exact_only_edge() {
     let graph = ReductionGraph::new();
     let source =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let target = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
-    let result = graph
-        .certified_bound_front(
+    let path = graph
+        .find_all_paths_mode(
             "MaximumIndependentSet",
             &source,
             "MinimumVertexCover",
             &target,
             ReductionMode::Witness,
-            &crate::size_bound::BoundVector::new([("num_vertices", 5u32), ("num_edges", 4u32)]),
         )
+        .into_iter()
+        .find(|path| path.len() == 1)
         .unwrap();
-    assert!(result.front.is_empty());
-    assert!(!result.unavailable.is_empty());
+    assert!(graph.compose_path_size_map(&path).is_ok());
+    assert!(graph.compose_path_size_bound(&path).is_err());
 }
 
 // ---- Discovery and registration ----

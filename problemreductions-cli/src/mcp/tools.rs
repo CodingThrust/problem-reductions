@@ -8,7 +8,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{ReductionGraph, ReductionMode, TraversalFlow};
+use problemreductions::rules::{ReductionGraph, TraversalFlow};
 use problemreductions::solvers::SolverRequest;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
@@ -51,21 +51,12 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Return all paths instead of ranking by a size contract")]
-    pub all: Option<bool>,
-    #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
+    #[schemars(description = "Maximum symbolic paths to return (default: 20)")]
     pub max_paths: Option<usize>,
-    #[schemars(description = "Required ranking contract when all is false: exact or bound")]
-    pub size_mode: Option<SizeModeParam>,
-    #[schemars(description = "Required source size fields for ranked search")]
+    #[schemars(
+        description = "Optional source size fields used to evaluate each path without ranking"
+    )]
     pub sizes: Option<BTreeMap<String, String>>,
-}
-
-#[derive(Clone, Copy, Debug, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum SizeModeParam {
-    Exact,
-    Bound,
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +95,7 @@ pub struct EvaluateParams {
 pub struct ReduceParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(description = "One explicit path entry selected from find_path's Pareto front")]
+    #[schemars(description = "One explicit path entry selected from find_path output")]
     pub path_json: String,
 }
 
@@ -248,101 +239,29 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        all: bool,
         max_paths: usize,
-        size_mode: Option<SizeModeParam>,
         sizes: Option<&BTreeMap<String, String>>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
         let src_ref = resolve_problem_ref(source, &graph)?;
         let dst_ref = resolve_problem_ref(target, &graph)?;
-        if !all {
-            let size_mode = size_mode.ok_or_else(|| {
-                anyhow::anyhow!("ranked path search requires size_mode exact or bound")
-            })?;
-            let sizes =
-                sizes.ok_or_else(|| anyhow::anyhow!("ranked path search requires source sizes"))?;
-            let json = match size_mode {
-                SizeModeParam::Exact => {
-                    let components = sizes
-                        .iter()
-                        .map(|(field, value)| {
-                            Ok((
-                                field.clone(),
-                                value.parse::<usize>().with_context(|| {
-                                    format!("invalid exact size {field}={value}")
-                                })?,
-                            ))
-                        })
-                        .collect::<anyhow::Result<Vec<_>>>()?;
-                    let result = graph
-                        .exact_size_front(
-                            &src_ref.name,
-                            &src_ref.variant,
-                            &dst_ref.name,
-                            &dst_ref.variant,
-                            ReductionMode::Witness,
-                            &ProblemSize { components },
-                        )
-                        .map_err(anyhow::Error::new)?;
-                    serde_json::json!({
-                        "mode": "exact",
-                        "front": result.front.iter().map(|path| serde_json::json!({
-                            "route": crate::commands::graph::format_path_json(&graph, &path.path),
-                            "terminal_size": path.terminal_size.components,
-                        })).collect::<Vec<_>>(),
-                        "unavailable": result.unavailable.iter().map(|path| serde_json::json!({
-                            "route": crate::commands::graph::format_path_json(&graph, &path.path),
-                            "error": path.error.to_string(),
-                        })).collect::<Vec<_>>(),
+        let source_size = sizes
+            .map(|sizes| {
+                sizes
+                    .iter()
+                    .map(|(field, value)| {
+                        Ok((
+                            field.clone(),
+                            value
+                                .parse::<usize>()
+                                .with_context(|| format!("invalid source size {field}={value}"))?,
+                        ))
                     })
-                }
-                SizeModeParam::Bound => {
-                    let components = sizes
-                        .iter()
-                        .map(|(field, value)| {
-                            Ok((
-                                field.clone(),
-                                value
-                                    .parse::<num_bigint::BigUint>()
-                                    .with_context(|| format!("invalid bound {field}={value}"))?,
-                            ))
-                        })
-                        .collect::<anyhow::Result<Vec<_>>>()?;
-                    let source_bound = problemreductions::size_bound::BoundVector::new(components);
-                    let result = graph
-                        .certified_bound_front(
-                            &src_ref.name,
-                            &src_ref.variant,
-                            &dst_ref.name,
-                            &dst_ref.variant,
-                            ReductionMode::Witness,
-                            &source_bound,
-                        )
-                        .map_err(anyhow::Error::new)?;
-                    serde_json::json!({
-                        "mode": "bound",
-                        "front": result.front.iter().map(|path| serde_json::json!({
-                            "route": crate::commands::graph::format_path_json(&graph, &path.path),
-                            "terminal_bound": path.terminal_bound.components().map(|(field, value)| serde_json::json!({"field": field, "value": value.to_string()})).collect::<Vec<_>>(),
-                        })).collect::<Vec<_>>(),
-                        "unavailable": result.unavailable.iter().map(|path| serde_json::json!({
-                            "route": crate::commands::graph::format_path_json(&graph, &path.path),
-                            "error": path.error.to_string(),
-                        })).collect::<Vec<_>>(),
-                    })
-                }
-            };
-            return Ok(serde_json::to_string_pretty(&json)?);
-        }
+                    .collect::<anyhow::Result<Vec<_>>>()
+                    .map(|components| ProblemSize { components })
+            })
+            .transpose()?;
 
-        if size_mode.is_some() || sizes.is_some() {
-            anyhow::bail!("size_mode and sizes cannot be combined with all-path enumeration");
-        }
-
-        // Fetch one extra to detect truncation. The library returns paths in a
-        // deterministic length-first, then name+variant-signature order, so the MCP
-        // and CLI `--all` outputs are the identical ordered route list; no local sort.
         let mut all_paths = graph.find_paths_up_to(
             &src_ref.name,
             &src_ref.variant,
@@ -366,7 +285,9 @@ impl McpServer {
 
         let paths_json: Vec<serde_json::Value> = all_paths
             .iter()
-            .map(|p| crate::commands::graph::format_path_json(&graph, p))
+            .map(|path| {
+                crate::commands::graph::format_path_json(&graph, path, source_size.as_ref())
+            })
             .collect();
 
         let json = serde_json::json!({
@@ -915,14 +836,11 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
-        let all = params.all.unwrap_or(false);
         let max_paths = params.max_paths.unwrap_or(20);
         self.find_path_inner(
             &params.source,
             &params.target,
-            all,
             max_paths,
-            params.size_mode,
             params.sizes.as_ref(),
         )
         .map_err(|e| e.to_string())
@@ -973,7 +891,7 @@ impl McpServer {
             .map_err(|e| e.to_string())
     }
 
-    /// Reduce a problem instance along an explicit Pareto-front route
+    /// Reduce a problem instance along an explicit enumerated route
     #[tool(
         name = "reduce",
         annotations(read_only_hint = true, open_world_hint = false)

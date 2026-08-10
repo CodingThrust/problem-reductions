@@ -79,7 +79,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `all` (bool, default: false) | Return the symbolic Pareto front, including full routes and excluded analysis failures, or enumerate all paths |
+| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `sizes` (optional object) | Enumerate symbolic paths with the strongest available per-field size relation; optional sizes evaluate relations without ranking |
 | `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, and explicit size contracts) |
 
 ### Instance Tools
@@ -103,5 +103,5 @@ The server provides 7 task-oriented prompt templates:
 | `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
 | `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
 | `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
-| `find_reduction` | `source` (required), `target` (required) | Compare the symbolic Pareto front between two problems |
+| `find_reduction` | `source` (required), `target` (required) | Enumerate symbolic reduction paths between two problems |
 | `overview` | *(none)* | Explore the full landscape of NP-hard problems |

@@ -46,12 +46,6 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SizeModeArg {
-    Exact,
-    Bound,
-}
-
 #[derive(Subcommand)]
 pub enum Commands {
     /// List all registered problem types (or reduction rules with --rules)
@@ -118,11 +112,10 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     /// Find reduction paths between two problems
     #[command(after_help = "\
 Examples:
-  pred path MIS Clique --size-mode exact --size num_vertices=5 --size num_edges=4
-  pred path MIS Clique --size-mode bound --size num_vertices=5 --size num_edges=4
-  pred path MIS QUBO --all                        # all paths
-  pred path MIS QUBO -o front.json                # save the Pareto front
-  pred path MIS QUBO --all -o paths/              # save all paths to a folder
+  pred path MIS QUBO                              # enumerate symbolic paths
+  pred path MIS Clique --size num_vertices=5 --size num_edges=4
+  pred path MIS QUBO --max-paths 50              # increase the output cap
+  pred path MIS QUBO -o paths.json               # save the path set
 
 Use `pred list` to see available problems.")]
     Path {
@@ -132,16 +125,10 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Show all paths instead of the Pareto front
-        #[arg(long)]
-        all: bool,
-        /// Maximum paths to return in --all mode
+        /// Maximum paths to return
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
-        /// Rank paths by exact propagated sizes or certified upper bounds.
-        #[arg(long, value_enum)]
-        size_mode: Option<SizeModeArg>,
-        /// Source size component as FIELD=NON_NEGATIVE_INTEGER; repeat for each field.
+        /// Source size component as FIELD=NON_NEGATIVE_INTEGER; evaluates symbolic path information without ranking.
         #[arg(long = "size")]
         sizes: Vec<String>,
     },
@@ -1275,13 +1262,13 @@ Examples:
   pred create MIS --graph 0-1,1-2 | pred reduce - --via path.json  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.
-The --via file must be one explicit entry selected by the caller from a Pareto front.
+The --via file must be one explicit entry selected by the caller from `pred path` output.
 Output is a reduction bundle with source, target, and path.
 Use `pred solve reduced.json` to solve and map the solution back.")]
 pub struct ReduceArgs {
     /// Problem JSON file (from `pred create`). Use - for stdin.
     pub input: PathBuf,
-    /// Explicit reduction route selected from a Pareto-front entry.
+    /// Explicit reduction route selected from a path-set entry.
     #[arg(long, required = true)]
     pub via: PathBuf,
 }

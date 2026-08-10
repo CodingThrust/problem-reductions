@@ -363,16 +363,16 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 
 | Method | Algorithm | Use case |
 |--------|-----------|----------|
-| `exact_size_front(...)` | Exact componentwise Pareto search | Evaluate composed `SizeMap`s at an explicit source-size vector |
-| `certified_bound_front(...)` | Certified-bound componentwise Pareto search | Evaluate composed `SizeBound`s at an explicit source-bound vector |
 | `measured_front(...)` | Measured componentwise Pareto search | Compare constructed terminal size vectors under optional per-field budgets |
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
+| `compose_path_size_map(path)` | Exact symbolic composition | Derive exact target-field expressions when every required equality is available |
+| `compose_path_size_bound(path)` | Certified symbolic composition | Derive target-field upper bounds when every required bound is available |
 
-The exact and certified-bound APIs are deliberately separate: callers must choose a
-mode and provide its source vector. Neither falls back to the other or to asymptotic
-growth. Both retain every prefix and apply componentwise dominance only to complete
-paths at the requested terminal problem. Paths lacking a required contract are returned
-with typed errors, and multi-query reductions are excluded until a query-cost model exists.
+Symbolic path discovery does not rank or prune routes. Exact equalities, certified bounds,
+and Growth projections are properties of size metadata rather than path-search modes.
+Callers enumerate paths first, then inspect or evaluate the strongest available relation
+for each field: exact equality, otherwise certified upper bound, otherwise an explicit
+unavailable reason. Concrete-instance measurement remains a separate execution API.
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 

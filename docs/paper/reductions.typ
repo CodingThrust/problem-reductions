@@ -11434,7 +11434,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 Each reduction is presented as a *Rule* (with linked problem names and explicit size contracts from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
 
 The command blocks assume `route.json` contains the explicitly chosen direct route for
-the displayed rule, extracted from the corresponding `pred path` Pareto-front item.
+the displayed rule, extracted from the corresponding `pred path` entry.
 
 
 #let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")

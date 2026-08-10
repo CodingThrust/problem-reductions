@@ -84,34 +84,33 @@ fn symbolic_size_contracts() {
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let target_variant =
         ReductionGraph::variant_to_map(&MaximumClique::<SimpleGraph, i32>::variant());
-    let exact = graph
-        .exact_size_front(
+    let path = graph
+        .find_all_paths_mode(
             MaximumIndependentSet::<SimpleGraph, i32>::NAME,
             &source_variant,
             MaximumClique::<SimpleGraph, i32>::NAME,
             &target_variant,
             ReductionMode::Witness,
+        )
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .unwrap();
+    let exact = graph
+        .evaluate_path_size_map(
+            &path,
             &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
         )
         .unwrap();
-    assert!(exact.front.iter().any(|result| {
-        result.terminal_size.get("num_vertices") == Some(5)
-            && result.terminal_size.get("num_edges") == Some(6)
-    }));
+    assert_eq!(exact.get("num_vertices"), Some(5));
+    assert_eq!(exact.get("num_edges"), Some(6));
     let bounded = graph
-        .certified_bound_front(
-            MaximumIndependentSet::<SimpleGraph, i32>::NAME,
-            &source_variant,
-            MaximumClique::<SimpleGraph, i32>::NAME,
-            &target_variant,
-            ReductionMode::Witness,
+        .evaluate_path_size_bound(
+            &path,
             &BoundVector::new([("num_vertices", 5u32), ("num_edges", 4u32)]),
         )
         .unwrap();
-    assert!(bounded.front.iter().any(|result| {
-        result.terminal_bound.get("num_vertices") == Some(&5u32.into())
-            && result.terminal_bound.get("num_edges") == Some(&25u32.into())
-    }));
+    assert_eq!(bounded.get("num_vertices"), Some(&5u32.into()));
+    assert_eq!(bounded.get("num_edges"), Some(&25u32.into()));
 
     let mut exact_fields = 0usize;
     let mut bound_only_fields = 0usize;
@@ -338,29 +337,18 @@ fn symbolic_size_contracts() {
     let isolated =
         ReductionGraph::from_test_edges(&["S", "T"], &[("S", "T", contract(&[], &[("x", "x")]))]);
     let empty = BTreeMap::new();
-    let exact = isolated
-        .exact_size_front(
-            "S",
-            &empty,
-            "T",
-            &empty,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![("x", 3)]),
-        )
+    let isolated_path = isolated
+        .find_all_paths_mode("S", &empty, "T", &empty, ReductionMode::Witness)
+        .pop()
         .unwrap();
-    assert!(exact.front.is_empty());
-    assert_eq!(exact.unavailable.len(), 1);
-    let bounded = isolated
-        .certified_bound_front(
-            "S",
-            &empty,
-            "T",
-            &empty,
-            ReductionMode::Witness,
-            &BoundVector::new([("x", 3u32)]),
-        )
-        .unwrap();
-    assert_eq!(bounded.front.len(), 1);
+    assert!(isolated.compose_path_size_map(&isolated_path).is_err());
+    assert_eq!(
+        isolated
+            .evaluate_path_size_bound(&isolated_path, &BoundVector::new([("x", 3u32)]))
+            .unwrap()
+            .get("x"),
+        Some(&3u32.into())
+    );
 
     let exponential = Expr::try_parse("exp(n)").unwrap();
     assert!(matches!(
@@ -381,17 +369,23 @@ fn symbolic_size_contracts() {
             ("B", "T", contract(&[("x", "x")], &[])),
         ],
     );
-    let result = terminal_only
-        .exact_size_front(
-            "S",
-            &empty,
-            "T",
-            &empty,
-            ReductionMode::Witness,
-            &ProblemSize::new(vec![("x", 0)]),
-        )
-        .unwrap();
-    assert_eq!(result.front[0].path.type_names(), ["S", "B", "T"]);
+    let paths = terminal_only.find_all_paths_mode("S", &empty, "T", &empty, ReductionMode::Witness);
+    assert_eq!(
+        paths.len(),
+        2,
+        "symbolic path enumeration must not rank or prune"
+    );
+    let values: BTreeSet<_> = paths
+        .iter()
+        .map(|path| {
+            terminal_only
+                .evaluate_path_size_map(path, &ProblemSize::new(vec![("x", 0)]))
+                .unwrap()
+                .get("x")
+                .unwrap()
+        })
+        .collect();
+    assert_eq!(values, BTreeSet::from([2, 11]));
 
     let registry_source = include_str!("../rules/registry.rs");
     let graph_source = include_str!("../rules/graph.rs");
