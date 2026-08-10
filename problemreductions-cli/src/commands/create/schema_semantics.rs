@@ -27,20 +27,20 @@ pub(super) fn validate_schema_driven_semantics(
         "BoundedComponentSpanningForest" => {
             let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --max-weight 6";
             let (_, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            args.weights.as_deref().ok_or_else(|| {
+            args.raw("weights").ok_or_else(|| {
                 anyhow::anyhow!("BoundedComponentSpanningForest requires --weights\n\n{usage}")
             })?;
             let weights = parse_vertex_weights(args, n)?;
             if weights.iter().any(|&weight| weight < 0) {
                 bail!("BoundedComponentSpanningForest requires nonnegative --weights\n\n{usage}");
             }
-            let max_components = args.k.ok_or_else(|| {
+            let max_components = args.value::<usize>("k").ok_or_else(|| {
                 anyhow::anyhow!("BoundedComponentSpanningForest requires --k\n\n{usage}")
             })?;
             if max_components == 0 {
                 bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
             }
-            let bound_raw = args.bound.ok_or_else(|| {
+            let bound_raw = args.value::<i64>("max-weight").ok_or_else(|| {
                 anyhow::anyhow!("BoundedComponentSpanningForest requires --max-weight\n\n{usage}")
             })?;
             if bound_raw <= 0 {
@@ -53,19 +53,19 @@ pub(super) fn validate_schema_driven_semantics(
             })?;
         }
         "CapacityAssignment" => {
-            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
-            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+            let usage = "Usage: pred create CapacityAssignment --capacities 1,2,3 --cost \"1,3,6;2,4,7;1,2,5\" --delay \"8,4,1;7,3,1;6,3,1\" --delay-budget 12";
+            let capacities_str = args.raw("capacities").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "CapacityAssignment requires --capacities, --cost-matrix, --delay-matrix, and --delay-budget\n\n{usage}"
+                    "CapacityAssignment requires --capacities, --cost, --delay, and --delay-budget\n\n{usage}"
                 )
             })?;
-            let cost_matrix_str = args.cost_matrix.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("CapacityAssignment requires --cost-matrix\n\n{usage}")
-            })?;
-            let delay_matrix_str = args.delay_matrix.as_deref().ok_or_else(|| {
-                anyhow::anyhow!("CapacityAssignment requires --delay-matrix\n\n{usage}")
-            })?;
-            let _ = args.delay_budget.ok_or_else(|| {
+            let cost_matrix_str = args
+                .raw("cost")
+                .ok_or_else(|| anyhow::anyhow!("CapacityAssignment requires --cost\n\n{usage}"))?;
+            let delay_matrix_str = args
+                .raw("delay")
+                .ok_or_else(|| anyhow::anyhow!("CapacityAssignment requires --delay\n\n{usage}"))?;
+            let _ = args.value::<u64>("delay-budget").ok_or_else(|| {
                 anyhow::anyhow!("CapacityAssignment requires --delay-budget\n\n{usage}")
             })?;
 
@@ -122,22 +122,22 @@ pub(super) fn validate_schema_driven_semantics(
             }
         }
         "BoyceCoddNormalFormViolation" => {
-            let n = args.n.ok_or_else(|| {
+            let n = args.value::<usize>("n").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "BoyceCoddNormalFormViolation requires --n, --sets, and --target\n\n\
-                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                    "BoyceCoddNormalFormViolation requires --n, --subsets, and --target\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --subsets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
                 )
             })?;
-            let sets_str = args.sets.as_deref().ok_or_else(|| {
+            let sets_str = args.raw("subsets").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "BoyceCoddNormalFormViolation requires --sets (functional deps as lhs:rhs;...)\n\n\
-                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                    "BoyceCoddNormalFormViolation requires --subsets (functional deps as lhs:rhs;...)\n\n\
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --subsets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
                 )
             })?;
-            let target_str = args.target.as_deref().ok_or_else(|| {
+            let target_str = args.raw("target").ok_or_else(|| {
                 anyhow::anyhow!(
                     "BoyceCoddNormalFormViolation requires --target (comma-separated attribute indices)\n\n\
-                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --sets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
+                     Usage: pred create BoyceCoddNormalFormViolation --n 6 --subsets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
                 )
             })?;
             let _ = parse_bcnf_functional_deps(sets_str, n)?;
@@ -145,15 +145,14 @@ pub(super) fn validate_schema_driven_semantics(
             ensure_attribute_indices_in_range(&target, n, "Target subset")?;
         }
         "ClosestVectorProblem" => {
-            let basis_str = args.basis.as_deref().ok_or_else(|| {
+            let basis_str = args.raw("basis").ok_or_else(|| {
                 anyhow::anyhow!(
                     "CVP requires --basis, --target-vec\n\n\
                      Usage: pred create CVP --basis \"1,0;0,1\" --target-vec \"0.5,0.5\""
                 )
             })?;
             let target_str = args
-                .target_vec
-                .as_deref()
+                .raw("target-vec")
                 .ok_or_else(|| anyhow::anyhow!("CVP requires --target-vec (e.g., \"0.5,0.5\")"))?;
             let basis: Vec<Vec<f64>> = basis_str
                 .split(';')
@@ -162,7 +161,7 @@ pub(super) fn validate_schema_driven_semantics(
             let target: Vec<f64> = util::parse_comma_list(target_str)?;
             let n = basis.len();
             let bounds = serde_json::from_value(parse_cvp_bounds_value(
-                args.bounds.as_deref(),
+                args.raw("bounds"),
                 &CreateContext::default()
                     .with_field("basis", serde_json::json!(vec![serde_json::json!([0]); n])),
             )?)?;
@@ -170,7 +169,7 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "ConsecutiveOnesMatrixAugmentation" => {
             let matrix = parse_bool_matrix(args)?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("bound").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ConsecutiveOnesMatrixAugmentation requires --matrix and --bound\n\n\
                      Usage: pred create ConsecutiveOnesMatrixAugmentation --matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
@@ -181,12 +180,12 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "ConsecutiveBlockMinimization" => {
             let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2";
-            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+            let matrix_str = args.raw("matrix").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound-k\n\n{usage}"
                 )
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("bound-k").ok_or_else(|| {
                 anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound-k\n\n{usage}")
             })?;
             let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
@@ -198,25 +197,25 @@ pub(super) fn validate_schema_driven_semantics(
                 .map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))?;
         }
         "ComparativeContainment" => {
-            let universe = args.universe.ok_or_else(|| {
+            let universe = args.value::<usize>("universe-size").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ComparativeContainment requires --universe, --r-sets, and --s-sets\n\n\
-                     Usage: pred create ComparativeContainment --universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" [--r-weights 2,5] [--s-weights 3,6]"
+                    "ComparativeContainment requires --universe-size, --r-sets, and --s-sets\n\n\
+                     Usage: pred create ComparativeContainment --universe-size 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" [--r-weights 2,5] [--s-weights 3,6]"
                 )
             })?;
-            let r_sets = parse_named_sets(args.r_sets.as_deref(), "--r-sets")?;
-            let s_sets = parse_named_sets(args.s_sets.as_deref(), "--s-sets")?;
+            let r_sets = parse_named_sets(args.raw("r-sets"), "--r-sets")?;
+            let s_sets = parse_named_sets(args.raw("s-sets"), "--s-sets")?;
             validate_comparative_containment_sets("R", "--r-sets", universe, &r_sets)?;
             validate_comparative_containment_sets("S", "--s-sets", universe, &s_sets)?;
             match resolved_variant.get("weight").map(|value| value.as_str()) {
                 Some("One") => {
                     let r_weights = parse_named_set_weights(
-                        args.r_weights.as_deref(),
+                        args.raw("r-weights"),
                         r_sets.len(),
                         "--r-weights",
                     )?;
                     let s_weights = parse_named_set_weights(
-                        args.s_weights.as_deref(),
+                        args.raw("s-weights"),
                         s_sets.len(),
                         "--s-weights",
                     )?;
@@ -228,13 +227,13 @@ pub(super) fn validate_schema_driven_semantics(
                 }
                 Some("f64") => {
                     let r_weights = parse_named_set_weights_f64(
-                        args.r_weights.as_deref(),
+                        args.raw("r-weights"),
                         r_sets.len(),
                         "--r-weights",
                     )?;
                     validate_comparative_containment_f64_weights("R", "--r-weights", &r_weights)?;
                     let s_weights = parse_named_set_weights_f64(
-                        args.s_weights.as_deref(),
+                        args.raw("s-weights"),
                         s_sets.len(),
                         "--s-weights",
                     )?;
@@ -242,13 +241,13 @@ pub(super) fn validate_schema_driven_semantics(
                 }
                 Some("i32") | None => {
                     let r_weights = parse_named_set_weights(
-                        args.r_weights.as_deref(),
+                        args.raw("r-weights"),
                         r_sets.len(),
                         "--r-weights",
                     )?;
                     validate_comparative_containment_i32_weights("R", "--r-weights", &r_weights)?;
                     let s_weights = parse_named_set_weights(
-                        args.s_weights.as_deref(),
+                        args.raw("s-weights"),
                         s_sets.len(),
                         "--s-weights",
                     )?;
@@ -268,10 +267,10 @@ pub(super) fn validate_schema_driven_semantics(
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
         }
         "ExactCoverBy3Sets" => {
-            let universe = args.universe.ok_or_else(|| {
+            let universe = args.value::<usize>("universe-size").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ExactCoverBy3Sets requires --universe and --sets\n\n\
-                     Usage: pred create X3C --universe 6 --sets \"0,1,2;3,4,5\""
+                    "ExactCoverBy3Sets requires --universe-size and --subsets\n\n\
+                     Usage: pred create X3C --universe-size 6 --subsets \"0,1,2;3,4,5\""
                 )
             })?;
             if universe % 3 != 0 {
@@ -307,10 +306,10 @@ pub(super) fn validate_schema_driven_semantics(
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let num_vertices = graph.num_vertices();
             let source = args
-                .source
+                .value::<usize>("source")
                 .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --source\n\n{usage}"))?;
             let sink = args
-                .sink
+                .value::<usize>("sink")
                 .ok_or_else(|| anyhow::anyhow!("GeneralizedHex requires --sink\n\n{usage}"))?;
             validate_vertex_index("source", source, num_vertices, usage)?;
             validate_vertex_index("sink", sink, num_vertices, usage)?;
@@ -322,11 +321,11 @@ pub(super) fn validate_schema_driven_semantics(
         "GroupingBySwapping" => {
             let usage =
                 "Usage: pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 [--alphabet-size 3]";
-            let string_str = args.string.as_deref().ok_or_else(|| {
+            let string_str = args.raw("string").ok_or_else(|| {
                 anyhow::anyhow!("GroupingBySwapping requires --string\n\n{usage}")
             })?;
             let bound = parse_nonnegative_usize_bound(
-                args.bound.ok_or_else(|| {
+                args.value::<i64>("bound").ok_or_else(|| {
                     anyhow::anyhow!("GroupingBySwapping requires --bound\n\n{usage}")
                 })?,
                 "GroupingBySwapping",
@@ -334,7 +333,7 @@ pub(super) fn validate_schema_driven_semantics(
             )?;
             let string = parse_symbol_list_allow_empty(string_str)?;
             let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
-            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            let alphabet_size = args.value::<usize>("alphabet-size").unwrap_or(inferred);
             anyhow::ensure!(
                 alphabet_size >= inferred,
                 "--alphabet-size {} is smaller than max symbol + 1 ({}) in the input string",
@@ -353,20 +352,20 @@ pub(super) fn validate_schema_driven_semantics(
         "IntegralFlowBundles" => {
             let usage = "Usage: pred create IntegralFlowBundles --arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4";
             let arcs_str = args
-                .arcs
-                .as_deref()
+                .raw("arcs")
                 .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}"))?;
-            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let (graph, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let bundles = parse_bundles(args, num_arcs, usage)?;
             let _ = parse_bundle_capacities(args, bundles.len(), usage)?;
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowBundles requires --source\n\n{usage}")
             })?;
             let sink = args
-                .sink
+                .value::<usize>("sink")
                 .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --sink\n\n{usage}"))?;
-            let _ = args.requirement.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowBundles requires --requirement\n\n{usage}")
             })?;
             validate_vertex_index("source", source, graph.num_vertices(), usage)?;
@@ -378,12 +377,13 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "IntegralFlowHomologousArcs" => {
             let usage = "Usage: pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+            let arcs_str = args.raw("arcs").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowHomologousArcs requires --arcs\n\n{usage}")
             })?;
-            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+            let (graph, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(s) = args.raw("capacities") {
                 s.split(',')
                     .map(|token| {
                         let trimmed = token.trim();
@@ -416,13 +416,13 @@ pub(super) fn validate_schema_driven_semantics(
                 );
             }
             let num_vertices = graph.num_vertices();
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowHomologousArcs requires --source\n\n{usage}")
             })?;
-            let sink = args.sink.ok_or_else(|| {
+            let sink = args.value::<usize>("sink").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowHomologousArcs requires --sink\n\n{usage}")
             })?;
-            let _ = args.requirement.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowHomologousArcs requires --requirement\n\n{usage}")
             })?;
             validate_vertex_index("source", source, num_vertices, usage)?;
@@ -442,12 +442,13 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "IntegralFlowWithMultipliers" => {
             let usage = "Usage: pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+            let arcs_str = args.raw("arcs").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --arcs\n\n{usage}")
             })?;
-            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let capacities_str = args.capacities.as_deref().ok_or_else(|| {
+            let (graph, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities_str = args.raw("capacities").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --capacities\n\n{usage}")
             })?;
             let capacities: Vec<u64> = util::parse_comma_list(capacities_str)
@@ -475,10 +476,10 @@ pub(super) fn validate_schema_driven_semantics(
                 }
             }
             let num_vertices = graph.num_vertices();
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --source\n\n{usage}")
             })?;
-            let sink = args.sink.ok_or_else(|| {
+            let sink = args.value::<usize>("sink").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --sink\n\n{usage}")
             })?;
             validate_vertex_index("source", source, num_vertices, usage)?;
@@ -489,7 +490,7 @@ pub(super) fn validate_schema_driven_semantics(
                     usage
                 );
             }
-            let multipliers_str = args.multipliers.as_deref().ok_or_else(|| {
+            let multipliers_str = args.raw("multipliers").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --multipliers\n\n{usage}")
             })?;
             let multipliers: Vec<u64> = util::parse_comma_list(multipliers_str)
@@ -509,15 +510,14 @@ pub(super) fn validate_schema_driven_semantics(
             {
                 bail!("non-terminal multipliers must be positive\n\n{usage}");
             }
-            let _ = args.requirement.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement").ok_or_else(|| {
                 anyhow::anyhow!("IntegralFlowWithMultipliers requires --requirement\n\n{usage}")
             })?;
         }
         "JobShopScheduling" => {
             let usage = "Usage: pred create JobShopScheduling --jobs \"0:3,1:4;1:2,0:3,1:2;0:4,1:3\" --num-processors 2";
             let job_tasks = args
-                .job_tasks
-                .as_deref()
+                .raw("jobs")
                 .ok_or_else(|| anyhow::anyhow!("JobShopScheduling requires --jobs\n\n{usage}"))?;
             let jobs = parse_job_shop_jobs(job_tasks)?;
             let inferred_processors = jobs
@@ -525,18 +525,14 @@ pub(super) fn validate_schema_driven_semantics(
                 .flat_map(|job| job.iter().map(|(processor, _)| *processor))
                 .max()
                 .map(|processor| processor + 1);
-            let num_processors = resolve_processor_count_flags(
-                "JobShopScheduling",
-                usage,
-                args.num_processors,
-                args.m,
-            )?
-            .or(inferred_processors)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Cannot infer num_processors from empty job list; use --num-processors"
-                )
-            })?;
+            let num_processors = args
+                .value::<usize>("num-processors")
+                .or(inferred_processors)
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Cannot infer num_processors from empty job list; use --num-processors"
+                    )
+                })?;
             anyhow::ensure!(
                 num_processors > 0,
                 "JobShopScheduling requires --num-processors > 0\n\n{usage}"
@@ -560,13 +556,18 @@ pub(super) fn validate_schema_driven_semantics(
         "KClique" => {
             let usage = "Usage: pred create KClique --graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let _ = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            let _ = parse_kclique_threshold(args.value::<usize>("k"), graph.num_vertices(), usage)?;
         }
         "KColoring" => {
             let usage = "Usage: pred create KColoring --graph 0-1,1-2,2-0 --k 3";
             let _ = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let _ = util::validate_k_param(resolved_variant, args.k, None, "KColoring")
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let _ = util::validate_k_param(
+                resolved_variant,
+                args.value::<usize>("k"),
+                None,
+                "KColoring",
+            )
+            .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
         }
         "KthBestSpanningTree" => {
             reject_vertex_weights_for_edge_weight_problem(args, canonical, None)?;
@@ -574,23 +575,28 @@ pub(super) fn validate_schema_driven_semantics(
                 "Usage: pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let _ = parse_edge_weights(args, graph.num_edges())?;
-            let _ = util::validate_k_param(resolved_variant, args.k, None, "KthBestSpanningTree")
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let _ = util::validate_k_param(
+                resolved_variant,
+                args.value::<usize>("k"),
+                None,
+                "KthBestSpanningTree",
+            )
+            .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let _ = args
-                .bound
+                .value::<i64>("bound")
                 .ok_or_else(|| anyhow::anyhow!("KthBestSpanningTree requires --bound\n\n{usage}"))?
                 as i32;
         }
         "LengthBoundedDisjointPaths" => {
             let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --max-length 3";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --source\n\n{usage}")
             })?;
-            let sink = args.sink.ok_or_else(|| {
+            let sink = args.value::<usize>("sink").ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --sink\n\n{usage}")
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("max-length").ok_or_else(|| {
                 anyhow::anyhow!("LengthBoundedDisjointPaths requires --max-length\n\n{usage}")
             })?;
             let _ = validate_length_bounded_disjoint_paths_args(
@@ -604,11 +610,13 @@ pub(super) fn validate_schema_driven_semantics(
         "LongestCommonSubsequence" => {
             let usage =
                 "Usage: pred create LCS --strings \"010110;100101;001011\" [--alphabet-size 2]";
-            let strings_str = args.strings.as_deref().ok_or_else(|| {
+            let strings_str = args.raw("strings").ok_or_else(|| {
                 anyhow::anyhow!("LongestCommonSubsequence requires --strings\n\n{usage}")
             })?;
             let (strings, inferred_alphabet_size) = parse_lcs_strings(strings_str)?;
-            let alphabet_size = args.alphabet_size.unwrap_or(inferred_alphabet_size);
+            let alphabet_size = args
+                .value::<usize>("alphabet-size")
+                .unwrap_or(inferred_alphabet_size);
             anyhow::ensure!(
                 alphabet_size >= inferred_alphabet_size,
                 "--alphabet-size {} is smaller than the inferred alphabet size ({})",
@@ -628,19 +636,19 @@ pub(super) fn validate_schema_driven_semantics(
             let usage = "pred create LongestPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6";
             let (graph, _) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\nUsage: {usage}"))?;
-            if args.weights.is_some() {
+            if args.raw("weights").is_some() {
                 bail!("LongestPath uses --edge-lengths, not --weights\n\nUsage: {usage}");
             }
-            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
+            let edge_lengths_raw = args.raw("edge-lengths").ok_or_else(|| {
                 anyhow::anyhow!("LongestPath requires --edge-lengths\n\nUsage: {usage}")
             })?;
             let edge_lengths =
                 parse_i32_edge_values(Some(edge_lengths_raw), graph.num_edges(), "edge length")?;
             ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
-            let source_vertex = args.source_vertex.ok_or_else(|| {
+            let source_vertex = args.value::<usize>("source-vertex").ok_or_else(|| {
                 anyhow::anyhow!("LongestPath requires --source-vertex\n\nUsage: {usage}")
             })?;
-            let target_vertex = args.target_vertex.ok_or_else(|| {
+            let target_vertex = args.value::<usize>("target-vertex").ok_or_else(|| {
                 anyhow::anyhow!("LongestPath requires --target-vertex\n\nUsage: {usage}")
             })?;
             ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
@@ -672,7 +680,7 @@ pub(super) fn validate_schema_driven_semantics(
             let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let vertex_weights = parse_vertex_weights(args, n)?;
             let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
-            let _ = args.k.ok_or_else(|| {
+            let _ = args.value::<usize>("k").ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinMaxMulticenter requires --k (number of centers)\n\n\
                      Usage: pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --k 2"
@@ -726,17 +734,17 @@ pub(super) fn validate_schema_driven_semantics(
                 &weights,
             )?;
             let k = args
-                .k
+                .value::<usize>("k")
                 .ok_or_else(|| anyhow::anyhow!("MaximumCoKPlex requires --k\n\n{usage}"))?;
             if k == 0 {
                 bail!("MaximumCoKPlex: --k must be at least 1\n\n{usage}");
             }
         }
         "MinimumHittingSet" => {
-            let universe = args.universe.ok_or_else(|| {
+            let universe = args.value::<usize>("universe-size").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumHittingSet requires --universe and --sets\n\n\
-                     Usage: pred create MinimumHittingSet --universe 6 --sets \"0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4\""
+                    "MinimumHittingSet requires --universe-size and --subsets\n\n\
+                     Usage: pred create MinimumHittingSet --universe-size 6 --subsets \"0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4\""
                 )
             })?;
             let sets = parse_sets(args)?;
@@ -755,10 +763,10 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "MinimumDummyActivitiesPert" => {
             let usage = "Usage: pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" [--num-vertices N]";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+            let arcs_str = args.raw("arcs").ok_or_else(|| {
                 anyhow::anyhow!("MinimumDummyActivitiesPert requires --arcs\n\n{usage}")
             })?;
-            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))?;
             let _ = MinimumDummyActivitiesPert::try_new(graph).map_err(anyhow::Error::msg)?;
         }
         "MinimumMultiwayCut" => {
@@ -770,10 +778,11 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "MultipleChoiceBranching" => {
             let usage = "Usage: pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --threshold 10";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+            let arcs_str = args.raw("arcs").ok_or_else(|| {
                 anyhow::anyhow!("MultipleChoiceBranching requires --arcs\n\n{usage}")
             })?;
-            let (_, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let (_, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))?;
             let _ = parse_arc_weights(args, num_arcs)?;
             let _ = parse_partition_groups(args, num_arcs)?;
             let _ = parse_multiple_choice_branching_threshold(args, usage)?;
@@ -782,14 +791,14 @@ pub(super) fn validate_schema_driven_semantics(
             let (_, num_vertices) = parse_graph(args)
                 .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
             let _ = parse_vertex_i64_values(
-                args.usage.as_deref(),
+                args.raw("usage"),
                 "usage",
                 num_vertices,
                 "MultipleCopyFileAllocation",
                 MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
             )?;
             let _ = parse_vertex_i64_values(
-                args.storage.as_deref(),
+                args.raw("storage"),
                 "storage",
                 num_vertices,
                 "MultipleCopyFileAllocation",
@@ -798,19 +807,19 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "MultiprocessorScheduling" => {
             let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
-            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+            let lengths_str = args.raw("lengths").ok_or_else(|| {
                 anyhow::anyhow!(
                     "MultiprocessorScheduling requires --lengths, --num-processors, and --deadline\n\n{usage}"
                 )
             })?;
-            let num_processors = args.num_processors.ok_or_else(|| {
+            let num_processors = args.value::<usize>("num-processors").ok_or_else(|| {
                 anyhow::anyhow!("MultiprocessorScheduling requires --num-processors\n\n{usage}")
             })?;
             anyhow::ensure!(
                 num_processors > 0,
                 "MultiprocessorScheduling requires --num-processors > 0\n\n{usage}"
             );
-            let _ = args.deadline.ok_or_else(|| {
+            let _ = args.value::<u64>("deadline").ok_or_else(|| {
                 anyhow::anyhow!("MultiprocessorScheduling requires --deadline\n\n{usage}")
             })?;
             let _: Vec<u64> = util::parse_comma_list(lengths_str)?;
@@ -819,8 +828,7 @@ pub(super) fn validate_schema_driven_semantics(
             let usage = "Usage: pred create PartialFeedbackEdgeSet --graph 0-1,1-2,2-0,2-3,3-4,4-2,3-5,5-4,0-3 --budget 3 --max-cycle-length 4";
             let _ = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             let _ = args
-                .budget
-                .as_deref()
+                .raw("budget")
                 .ok_or_else(|| {
                     anyhow::anyhow!("PartialFeedbackEdgeSet requires --budget\n\n{usage}")
                 })?
@@ -830,18 +838,19 @@ pub(super) fn validate_schema_driven_semantics(
                         "Invalid --budget value for PartialFeedbackEdgeSet: {e}\n\n{usage}"
                     )
                 })?;
-            let _ = args.max_cycle_length.ok_or_else(|| {
+            let _ = args.value::<usize>("max-cycle-length").ok_or_else(|| {
                 anyhow::anyhow!("PartialFeedbackEdgeSet requires --max-cycle-length\n\n{usage}")
             })?;
         }
         "PathConstrainedNetworkFlow" => {
             let usage = "Usage: pred create PathConstrainedNetworkFlow --arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3";
-            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+            let arcs_str = args.raw("arcs").ok_or_else(|| {
                 anyhow::anyhow!("PathConstrainedNetworkFlow requires --arcs\n\n{usage}")
             })?;
-            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+            let (graph, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))
+                    .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let capacities: Vec<u64> = if let Some(s) = args.raw("capacities") {
                 util::parse_comma_list(s)?
             } else {
                 vec![1; num_arcs]
@@ -851,13 +860,13 @@ pub(super) fn validate_schema_driven_semantics(
                 "capacities length ({}) must match number of arcs ({num_arcs})",
                 capacities.len()
             );
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("PathConstrainedNetworkFlow requires --source\n\n{usage}")
             })?;
-            let sink = args.sink.ok_or_else(|| {
+            let sink = args.value::<usize>("sink").ok_or_else(|| {
                 anyhow::anyhow!("PathConstrainedNetworkFlow requires --sink\n\n{usage}")
             })?;
-            let _ = args.requirement.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement").ok_or_else(|| {
                 anyhow::anyhow!("PathConstrainedNetworkFlow requires --requirement\n\n{usage}")
             })?;
             let paths = parse_prescribed_paths(args, num_arcs, usage)?;
@@ -865,40 +874,40 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "ProductionPlanning" => {
             let usage = "Usage: pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80";
-            let num_periods = args.num_periods.ok_or_else(|| {
+            let num_periods = args.value::<usize>("num-periods").ok_or_else(|| {
                 anyhow::anyhow!("ProductionPlanning requires --num-periods\n\n{usage}")
             })?;
             let demands = parse_named_u64_list(
-                args.demands.as_deref(),
+                args.raw("demands"),
                 "ProductionPlanning",
                 "--demands",
                 usage,
             )?;
             let capacities = parse_named_u64_list(
-                args.capacities.as_deref(),
+                args.raw("capacities"),
                 "ProductionPlanning",
                 "--capacities",
                 usage,
             )?;
             let setup_costs = parse_named_u64_list(
-                args.setup_costs.as_deref(),
+                args.raw("setup-costs"),
                 "ProductionPlanning",
                 "--setup-costs",
                 usage,
             )?;
             let production_costs = parse_named_u64_list(
-                args.production_costs.as_deref(),
+                args.raw("production-costs"),
                 "ProductionPlanning",
                 "--production-costs",
                 usage,
             )?;
             let inventory_costs = parse_named_u64_list(
-                args.inventory_costs.as_deref(),
+                args.raw("inventory-costs"),
                 "ProductionPlanning",
                 "--inventory-costs",
                 usage,
             )?;
-            let _ = args.cost_bound.ok_or_else(|| {
+            let _ = args.value::<i32>("cost-bound").ok_or_else(|| {
                 anyhow::anyhow!("ProductionPlanning requires --cost-bound\n\n{usage}")
             })?;
 
@@ -913,34 +922,24 @@ pub(super) fn validate_schema_driven_semantics(
             }
         }
         "SchedulingWithIndividualDeadlines" => {
-            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --num-tasks 7 --deadlines 2,1,2,2,3,3,2 [--num-processors 3 | --m 3] [--precedences \"0>3,1>3,1>4,2>4,2>5\"]";
-            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+            let usage = "Usage: pred create SchedulingWithIndividualDeadlines --num-tasks 7 --deadlines 2,1,2,2,3,3,2 --num-processors 3 [--precedences \"0>3,1>3,1>4,2>4,2>5\"]";
+            let deadlines_str = args.raw("deadlines").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --deadlines, --num-tasks, and a processor count (--num-processors or --m)\n\n{usage}"
+                    "SchedulingWithIndividualDeadlines requires --deadlines, --num-tasks, and --num-processors\n\n{usage}"
                 )
             })?;
-            let num_tasks = args.num_tasks.or(args.n).ok_or_else(|| {
+            let num_tasks = args.value::<usize>("num-tasks").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SchedulingWithIndividualDeadlines requires --num-tasks (number of tasks)\n\n{usage}"
                 )
             })?;
-            let num_processors = resolve_processor_count_flags(
-                "SchedulingWithIndividualDeadlines",
-                usage,
-                args.num_processors,
-                args.m,
-            )?
-            .ok_or_else(|| {
+            let num_processors = args.value::<usize>("num-processors").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SchedulingWithIndividualDeadlines requires --num-processors or --m\n\n{usage}"
+                    "SchedulingWithIndividualDeadlines requires --num-processors\n\n{usage}"
                 )
             })?;
             let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
-            let precedences = parse_precedence_pairs(
-                args.precedences
-                    .as_deref()
-                    .or(args.precedence_pairs.as_deref()),
-            )?;
+            let precedences = parse_precedence_pairs(args.raw("precedences"))?;
             anyhow::ensure!(
                 deadlines.len() == num_tasks,
                 "deadlines length ({}) must equal num_tasks ({})",
@@ -965,14 +964,14 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "StringToStringCorrection" => {
             let usage = "Usage: pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2";
-            let source_str = args.source_string.as_deref().ok_or_else(|| {
+            let source_str = args.raw("source-string").ok_or_else(|| {
                 anyhow::anyhow!("StringToStringCorrection requires --source-string\n\n{usage}")
             })?;
-            let target_str = args.target_string.as_deref().ok_or_else(|| {
+            let target_str = args.raw("target-string").ok_or_else(|| {
                 anyhow::anyhow!("StringToStringCorrection requires --target-string\n\n{usage}")
             })?;
             let _ = parse_nonnegative_usize_bound(
-                args.bound.ok_or_else(|| {
+                args.value::<i64>("bound").ok_or_else(|| {
                     anyhow::anyhow!("StringToStringCorrection requires --bound\n\n{usage}")
                 })?,
                 "StringToStringCorrection",
@@ -986,7 +985,7 @@ pub(super) fn validate_schema_driven_semantics(
                 .copied()
                 .max()
                 .map_or(0, |m| m + 1);
-            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            let alphabet_size = args.value::<usize>("alphabet-size").unwrap_or(inferred);
             anyhow::ensure!(
                 alphabet_size >= inferred,
                 "--alphabet-size {} is smaller than max symbol + 1 ({}) in the strings",
@@ -997,7 +996,7 @@ pub(super) fn validate_schema_driven_semantics(
         "SparseMatrixCompression" => {
             let matrix = parse_bool_matrix(args)?;
             let usage = "Usage: pred create SparseMatrixCompression --matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound-k 2";
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("bound-k").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SparseMatrixCompression requires --matrix and --bound-k\n\n{usage}"
                 )
@@ -1011,10 +1010,10 @@ pub(super) fn validate_schema_driven_semantics(
         "StackerCrane" => {
             let usage = "Usage: pred create StackerCrane --arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-lengths 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6";
             let arcs_str = args
-                .arcs
-                .as_deref()
+                .raw("arcs")
                 .ok_or_else(|| anyhow::anyhow!("StackerCrane requires --arcs\n\n{usage}"))?;
-            let (arcs_graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let (arcs_graph, num_arcs) =
+                parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))?;
             let (edges_graph, num_vertices) =
                 parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
             anyhow::ensure!(
@@ -1027,7 +1026,7 @@ pub(super) fn validate_schema_driven_semantics(
             );
             let arc_lengths = parse_arc_costs(args, num_arcs)?;
             let edge_lengths = parse_i32_edge_values(
-                args.edge_lengths.as_ref(),
+                args.raw("edge-lengths"),
                 edges_graph.num_edges(),
                 "edge length",
             )?;
@@ -1041,13 +1040,13 @@ pub(super) fn validate_schema_driven_semantics(
             .map_err(|e| anyhow::anyhow!(e))?;
         }
         "ThreePartition" => {
-            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+            let sizes_str = args.raw("sizes").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ThreePartition requires --sizes and --bound\n\n\
                      Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
                 )
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("bound").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ThreePartition requires --bound\n\n\
                      Usage: pred create ThreePartition --sizes 4,5,6,4,6,5 --bound 15"
@@ -1068,13 +1067,13 @@ pub(super) fn validate_schema_driven_semantics(
             let capacities = parse_capacities(args, graph.num_edges(), usage)?;
             let lower_bounds = parse_lower_bounds(args, graph.num_edges(), usage)?;
             let num_vertices = graph.num_vertices();
-            let source = args.source.ok_or_else(|| {
+            let source = args.value::<usize>("source").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedFlowLowerBounds requires --source\n\n{usage}")
             })?;
-            let sink = args.sink.ok_or_else(|| {
+            let sink = args.value::<usize>("sink").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedFlowLowerBounds requires --sink\n\n{usage}")
             })?;
-            let requirement = args.requirement.ok_or_else(|| {
+            let requirement = args.value::<u64>("requirement").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedFlowLowerBounds requires --requirement\n\n{usage}")
             })?;
             validate_vertex_index("source", source, num_vertices, usage)?;
@@ -1089,40 +1088,36 @@ pub(super) fn validate_schema_driven_semantics(
             );
         }
         "SequencingToMinimizeMaximumCumulativeCost" => {
-            let costs_str = args.costs.as_deref().ok_or_else(|| {
+            let costs_str = args.raw("costs").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeMaximumCumulativeCost requires --costs\n\n\
                      Usage: pred create SequencingToMinimizeMaximumCumulativeCost --costs 2,-1,3,-2,1,-3 --precedences \"0>2,1>2,1>3,2>4,3>5,4>5\""
                 )
             })?;
             let costs: Vec<i64> = util::parse_comma_list(costs_str)?;
-            let precedences = parse_precedence_pairs(
-                args.precedences
-                    .as_deref()
-                    .or(args.precedence_pairs.as_deref()),
-            )?;
+            let precedences = parse_precedence_pairs(args.raw("precedences"))?;
             validate_precedence_pairs(&precedences, costs.len())?;
         }
         "SequencingToMinimizeWeightedTardiness" => {
-            let lengths_str = args.lengths.as_deref().or(args.sizes.as_deref()).ok_or_else(|| {
+            let lengths_str = args.raw("lengths").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --lengths, --weights, --deadlines, and --bound\n\n\
                      Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
-            let weights_str = args.weights.as_deref().ok_or_else(|| {
+            let weights_str = args.raw("weights").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --weights (comma-separated tardiness weights)\n\n\
                      Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
-            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+            let deadlines_str = args.raw("deadlines").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --deadlines (comma-separated job deadlines)\n\n\
                      Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
                 )
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound = args.value::<i64>("bound").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SequencingToMinimizeWeightedTardiness requires --bound\n\n\
                      Usage: pred create SequencingToMinimizeWeightedTardiness --lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
@@ -1148,13 +1143,13 @@ pub(super) fn validate_schema_driven_semantics(
         "SequencingWithinIntervals" => {
             let usage =
                 "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
-            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+            let rt_str = args.raw("release-times").ok_or_else(|| {
                 anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
             })?;
-            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
+            let dl_str = args.raw("deadlines").ok_or_else(|| {
                 anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
             })?;
-            let len_str = args.lengths.as_deref().ok_or_else(|| {
+            let len_str = args.raw("lengths").ok_or_else(|| {
                 anyhow::anyhow!("SequencingWithinIntervals requires --lengths\n\n{usage}")
             })?;
             let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
@@ -1168,16 +1163,16 @@ pub(super) fn validate_schema_driven_semantics(
             )?;
         }
         "SetBasis" => {
-            let universe = args.universe.ok_or_else(|| {
+            let universe = args.value::<usize>("universe-size").ok_or_else(|| {
                 anyhow::anyhow!(
-                    "SetBasis requires --universe, --sets, and --k\n\n\
-                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                    "SetBasis requires --universe-size, --subsets, and --k\n\n\
+                     Usage: pred create SetBasis --universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3"
                 )
             })?;
-            let _ = args.k.ok_or_else(|| {
+            let _ = args.value::<usize>("k").ok_or_else(|| {
                 anyhow::anyhow!(
                     "SetBasis requires --k\n\n\
-                     Usage: pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3"
+                     Usage: pred create SetBasis --universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3"
                 )
             })?;
             let sets = parse_sets(args)?;
@@ -1197,17 +1192,17 @@ pub(super) fn validate_schema_driven_semantics(
         "ShortestWeightConstrainedPath" => {
             let usage = "Usage: pred create ShortestWeightConstrainedPath --graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8";
             let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            if args.weights.is_some() {
+            if args.raw("weights").is_some() {
                 bail!(
                     "ShortestWeightConstrainedPath uses --edge-weights, not --weights\n\nUsage: {usage}"
                 );
             }
-            let edge_lengths_raw = args.edge_lengths.as_ref().ok_or_else(|| {
+            let edge_lengths_raw = args.raw("edge-lengths").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --edge-lengths\n\nUsage: {usage}"
                 )
             })?;
-            let edge_weights_raw = args.edge_weights.as_ref().ok_or_else(|| {
+            let edge_weights_raw = args.raw("edge-weights").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --edge-weights\n\nUsage: {usage}"
                 )
@@ -1218,17 +1213,17 @@ pub(super) fn validate_schema_driven_semantics(
                 parse_i32_edge_values(Some(edge_weights_raw), graph.num_edges(), "edge weight")?;
             ensure_positive_i32_values(&edge_lengths, "edge lengths")?;
             ensure_positive_i32_values(&edge_weights, "edge weights")?;
-            let source_vertex = args.source_vertex.ok_or_else(|| {
+            let source_vertex = args.value::<usize>("source-vertex").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --source-vertex\n\nUsage: {usage}"
                 )
             })?;
-            let target_vertex = args.target_vertex.ok_or_else(|| {
+            let target_vertex = args.value::<usize>("target-vertex").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --target-vertex\n\nUsage: {usage}"
                 )
             })?;
-            let weight_bound = args.weight_bound.ok_or_else(|| {
+            let weight_bound = args.value::<i32>("weight-bound").ok_or_else(|| {
                 anyhow::anyhow!(
                     "ShortestWeightConstrainedPath requires --weight-bound\n\nUsage: {usage}"
                 )
@@ -1246,20 +1241,19 @@ pub(super) fn validate_schema_driven_semantics(
         }
         "TimetableDesign" => {
             let usage = "Usage: pred create TimetableDesign --num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\"";
-            let num_periods = args.num_periods.ok_or_else(|| {
+            let num_periods = args.value::<usize>("num-periods").ok_or_else(|| {
                 anyhow::anyhow!("TimetableDesign requires --num-periods\n\n{usage}")
             })?;
-            let num_craftsmen = args.num_craftsmen.ok_or_else(|| {
+            let num_craftsmen = args.value::<usize>("num-craftsmen").ok_or_else(|| {
                 anyhow::anyhow!("TimetableDesign requires --num-craftsmen\n\n{usage}")
             })?;
-            let num_tasks = args.num_tasks.ok_or_else(|| {
+            let num_tasks = args.value::<usize>("num-tasks").ok_or_else(|| {
                 anyhow::anyhow!("TimetableDesign requires --num-tasks\n\n{usage}")
             })?;
             let craftsman_avail =
-                parse_named_bool_rows(args.craftsman_avail.as_deref(), "--craftsman-avail", usage)?;
-            let task_avail =
-                parse_named_bool_rows(args.task_avail.as_deref(), "--task-avail", usage)?;
-            let requirements = parse_timetable_requirements(args.requirements.as_deref(), usage)?;
+                parse_named_bool_rows(args.raw("craftsman-avail"), "--craftsman-avail", usage)?;
+            let task_avail = parse_named_bool_rows(args.raw("task-avail"), "--task-avail", usage)?;
+            let requirements = parse_timetable_requirements(args.raw("requirements"), usage)?;
             validate_timetable_design_args(
                 num_periods,
                 num_craftsmen,
@@ -1289,24 +1283,24 @@ pub(super) fn validate_schema_driven_semantics(
                 }
             }
             let num_vertices = graph.num_vertices();
-            let source_1 = args.source_1.ok_or_else(|| {
+            let source_1 = args.value::<usize>("source-1").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-1\n\n{usage}")
             })?;
-            let sink_1 = args.sink_1.ok_or_else(|| {
+            let sink_1 = args.value::<usize>("sink-1").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-1\n\n{usage}")
             })?;
-            let source_2 = args.source_2.ok_or_else(|| {
+            let source_2 = args.value::<usize>("source-2").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --source-2\n\n{usage}")
             })?;
-            let sink_2 = args.sink_2.ok_or_else(|| {
+            let sink_2 = args.value::<usize>("sink-2").ok_or_else(|| {
                 anyhow::anyhow!("UndirectedTwoCommodityIntegralFlow requires --sink-2\n\n{usage}")
             })?;
-            let _ = args.requirement_1.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement-1").ok_or_else(|| {
                 anyhow::anyhow!(
                     "UndirectedTwoCommodityIntegralFlow requires --requirement-1\n\n{usage}"
                 )
             })?;
-            let _ = args.requirement_2.ok_or_else(|| {
+            let _ = args.value::<u64>("requirement-2").ok_or_else(|| {
                 anyhow::anyhow!(
                     "UndirectedTwoCommodityIntegralFlow requires --requirement-2\n\n{usage}"
                 )

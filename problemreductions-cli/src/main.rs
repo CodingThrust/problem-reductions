@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod create_args;
 mod dispatch;
 #[cfg(feature = "mcp")]
 mod mcp;
@@ -13,20 +14,7 @@ use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};
 use output::OutputConfig;
 
-const CLI_STACK_SIZE: usize = 8 * 1024 * 1024;
-
 fn main() -> anyhow::Result<()> {
-    match std::thread::Builder::new()
-        .stack_size(CLI_STACK_SIZE)
-        .spawn(run)?
-        .join()
-    {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-    }
-}
-
-fn run() -> anyhow::Result<()> {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
@@ -93,8 +81,10 @@ fn run() -> anyhow::Result<()> {
             let shell = shell
                 .or_else(clap_complete::Shell::from_env)
                 .unwrap_or(clap_complete::Shell::Bash);
-            let mut cmd = Cli::command();
-            clap_complete::generate(shell, &mut cmd, "pred", &mut std::io::stdout());
+            create_args::with_static_completion_schema(|| {
+                let mut cmd = Cli::command();
+                clap_complete::generate(shell, &mut cmd, "pred", &mut std::io::stdout());
+            });
             Ok(())
         }
     }

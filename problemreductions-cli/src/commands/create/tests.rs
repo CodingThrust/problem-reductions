@@ -36,14 +36,14 @@ fn test_problem_help_preserves_generic_field_kebab_case() {
 }
 
 #[test]
-fn test_help_flag_name_mentions_m_alias_for_scheduling_processors() {
+fn test_help_flag_name_uses_num_processors_for_scheduling() {
     assert_eq!(
         help_flag_name("SchedulingWithIndividualDeadlines", "num_processors"),
-        "num-processors/--m"
+        "num-processors"
     );
     assert_eq!(
         help_flag_name("FlowShopScheduling", "num_processors"),
-        "num-processors/--m"
+        "num-processors"
     );
 }
 
@@ -100,16 +100,6 @@ fn test_parse_field_value_parses_quantifiers_using_context_num_vars() {
 }
 
 #[test]
-fn test_schema_driven_supported_problem_includes_cli_creatable_problem() {
-    assert!(
-            schema_driven_supported_problem("ConjunctiveBooleanQuery"),
-            "all CLI-creatable problems should opt into schema-driven create unless explicitly excluded"
-        );
-    assert!(!schema_driven_supported_problem("ILP"));
-    assert!(!schema_driven_supported_problem("CircuitSAT"));
-}
-
-#[test]
 fn test_create_schema_driven_builds_job_shop_scheduling() {
     let cli = Cli::parse_from([
         "pred",
@@ -126,8 +116,7 @@ fn test_create_schema_driven_builds_job_shop_scheduling() {
     };
 
     let (data, variant) = create_schema_driven(&args, "JobShopScheduling", &BTreeMap::new())
-        .expect("schema-driven create should parse")
-        .expect("schema-driven path should support JobShopScheduling");
+        .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry("JobShopScheduling", &variant)
         .expect("variant entry");
@@ -156,8 +145,7 @@ fn test_create_schema_driven_builds_quantified_boolean_formulas() {
 
     let (data, variant) =
         create_schema_driven(&args, "QuantifiedBooleanFormulas", &BTreeMap::new())
-            .expect("schema-driven create should parse")
-            .expect("schema-driven path should support QBF");
+            .expect("schema-driven create should parse");
 
     let entry =
         problemreductions::registry::find_variant_entry("QuantifiedBooleanFormulas", &variant)
@@ -195,8 +183,7 @@ fn test_create_schema_driven_builds_undirected_flow_lower_bounds() {
 
     let (data, variant) =
         create_schema_driven(&args, "UndirectedFlowLowerBounds", &BTreeMap::new())
-            .expect("schema-driven create should parse")
-            .expect("schema-driven path should support UndirectedFlowLowerBounds");
+            .expect("schema-driven create should parse");
 
     let entry =
         problemreductions::registry::find_variant_entry("UndirectedFlowLowerBounds", &variant)
@@ -217,7 +204,7 @@ fn test_create_schema_driven_builds_conjunctive_boolean_query() {
         "6",
         "--relations",
         "2:0,3|1,3;3:0,1,5|1,2,5",
-        "--conjuncts-spec",
+        "--conjuncts",
         "0:v0,c3;0:v1,c3;1:v0,v1,c5",
     ]);
 
@@ -226,8 +213,7 @@ fn test_create_schema_driven_builds_conjunctive_boolean_query() {
     };
 
     let (data, variant) = create_schema_driven(&args, "ConjunctiveBooleanQuery", &BTreeMap::new())
-        .expect("schema-driven create should parse")
-        .expect("schema-driven path should support CBQ");
+        .expect("schema-driven create should parse");
 
     let entry =
         problemreductions::registry::find_variant_entry("ConjunctiveBooleanQuery", &variant)
@@ -259,8 +245,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
 
     let resolved_variant = variant_map(&[("weight", "i32")]);
     let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
-        .expect("schema-driven create should parse")
-        .expect("schema-driven path should support CVP");
+        .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry("ClosestVectorProblem", &variant)
         .expect("variant entry");
@@ -300,8 +285,7 @@ fn test_create_schema_driven_builds_cdft() {
         "ConsistencyOfDatabaseFrequencyTables",
         &BTreeMap::new(),
     )
-    .expect("schema-driven create should parse")
-    .expect("schema-driven path should support CDFT");
+    .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry(
         "ConsistencyOfDatabaseFrequencyTables",
@@ -336,8 +320,7 @@ fn test_create_schema_driven_builds_balanced_complete_bipartite_subgraph() {
 
     let (data, variant) =
         create_schema_driven(&args, "BalancedCompleteBipartiteSubgraph", &BTreeMap::new())
-            .expect("schema-driven create should parse")
-            .expect("schema-driven path should support balanced biclique");
+            .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry(
         "BalancedCompleteBipartiteSubgraph",
@@ -372,8 +355,7 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
 
     let resolved_variant = variant_map(&[("weight", "i32")]);
     let (data, variant) = create_schema_driven(&args, "MixedChinesePostman", &resolved_variant)
-        .expect("schema-driven create should parse")
-        .expect("schema-driven path should support mixed chinese postman");
+        .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry("MixedChinesePostman", &variant)
         .expect("variant entry");
@@ -399,8 +381,7 @@ fn test_create_schema_driven_builds_unit_disk_graph_problem_with_default_radius(
 
     let resolved_variant = variant_map(&[("graph", "UnitDiskGraph"), ("weight", "One")]);
     let (data, variant) = create_schema_driven(&args, "MaximumIndependentSet", &resolved_variant)
-        .expect("schema-driven create should parse")
-        .expect("schema-driven path should support UnitDiskGraph variants");
+        .expect("schema-driven create should parse");
 
     let entry = problemreductions::registry::find_variant_entry("MaximumIndependentSet", &variant)
         .expect("variant entry");
@@ -410,23 +391,6 @@ fn test_create_schema_driven_builds_unit_disk_graph_problem_with_default_radius(
         data["graph"]["edges"],
         serde_json::json!([[0, 1], [0, 2], [1, 2]])
     );
-}
-
-#[test]
-fn test_schema_help_example_for_qbf_uses_example_db() {
-    let example = schema_help_example_for("QuantifiedBooleanFormulas", &BTreeMap::new()).unwrap();
-    assert_eq!(
-        example,
-        "--num-vars 2 --quantifiers E,A --clauses \"1,2;1,-2\""
-    );
-}
-
-#[test]
-fn test_schema_help_example_for_cbm_uses_json_matrix_syntax() {
-    let example =
-        schema_help_example_for("ConsecutiveBlockMinimization", &BTreeMap::new()).unwrap();
-    assert!(example.contains("--matrix \"[[false,true,false,false,false,false],[true,false,true,false,false,false],[false,true,false,true,false,false],[false,false,true,false,true,false],[false,false,false,true,false,true],[false,false,false,false,true,false]]\""));
-    assert!(example.contains("--bound-k 6"));
 }
 
 #[test]
@@ -469,7 +433,7 @@ fn test_ensure_attribute_indices_in_range_rejects_out_of_range_index() {
 }
 
 #[test]
-fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
+fn test_create_scheduling_with_individual_deadlines_accepts_num_processors() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
@@ -478,7 +442,7 @@ fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
         "3",
         "--deadlines",
         "1,1,2",
-        "--m",
+        "--num-processors",
         "2",
     ])
     .expect("parse create command");
@@ -489,14 +453,13 @@ fn test_create_scheduling_with_individual_deadlines_accepts_m_alias() {
 
     let out = OutputConfig {
         output: Some(
-            std::env::temp_dir()
-                .join("pred_test_create_scheduling_with_individual_deadlines_m_alias.json"),
+            std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json"),
         ),
         quiet: true,
         json: false,
         auto_json: false,
     };
-    create(&args, &out).expect("`--m` should satisfy --num-processors alias");
+    create(&args, &out).expect("--num-processors should create the instance");
 
     let created: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(out.output.as_ref().unwrap()).unwrap())
@@ -513,7 +476,7 @@ fn test_create_prime_attribute_name_accepts_canonical_flags() {
         "pred",
         "create",
         "PrimeAttributeName",
-        "--universe",
+        "--universe-size",
         "6",
         "--dependencies",
         "0,1>2,3,4,5;2,3>0,1,4,5",
@@ -552,7 +515,7 @@ fn test_create_prime_attribute_name_accepts_canonical_flags() {
 fn test_problem_help_uses_prime_attribute_name_cli_overrides() {
     assert_eq!(
         problem_help_flag_name("PrimeAttributeName", "num_attributes", "usize", false),
-        "universe"
+        "universe-size"
     );
     assert_eq!(
         problem_help_flag_name(
@@ -570,19 +533,6 @@ fn test_problem_help_uses_prime_attribute_name_cli_overrides() {
 }
 
 #[test]
-fn test_problem_help_uses_problem_specific_lcs_strings_hint() {
-    assert_eq!(
-        help_flag_hint(
-            "LongestCommonSubsequence",
-            "strings",
-            "Vec<Vec<usize>>",
-            None,
-        ),
-        "raw strings: \"ABAC;BACA\" or symbol lists: \"0,1,0;1,0,1\""
-    );
-}
-
-#[test]
 fn test_problem_help_uses_string_to_string_correction_cli_flags() {
     assert_eq!(
         problem_help_flag_name("StringToStringCorrection", "source", "Vec<usize>", false),
@@ -595,14 +545,6 @@ fn test_problem_help_uses_string_to_string_correction_cli_flags() {
     assert_eq!(
         problem_help_flag_name("StringToStringCorrection", "bound", "usize", false),
         "bound"
-    );
-}
-
-#[test]
-fn test_problem_help_keeps_generic_vec_vec_usize_hint_for_other_models() {
-    assert_eq!(
-        help_flag_hint("SetBasis", "sets", "Vec<Vec<usize>>", None),
-        "semicolon-separated sets: \"0,1;1,2;0,2\""
     );
 }
 
@@ -802,10 +744,6 @@ fn test_problem_help_uses_num_tasks_for_timetable_design() {
     assert_eq!(
         problem_help_flag_name("TimetableDesign", "num_tasks", "usize", false),
         "num-tasks"
-    );
-    assert_eq!(
-        help_flag_hint("TimetableDesign", "craftsman_avail", "Vec<Vec<bool>>", None),
-        "semicolon-separated 0/1 rows: \"1,1,0;0,1,1\""
     );
 }
 
@@ -1112,9 +1050,9 @@ fn test_create_capacity_assignment_serializes_problem_json() {
         "CapacityAssignment",
         "--capacities",
         "1,2,3",
-        "--cost-matrix",
+        "--cost",
         "1,3,6;2,4,7;1,2,5",
-        "--delay-matrix",
+        "--delay",
         "8,4,1;7,3,1;6,3,1",
         "--delay-budget",
         "12",
@@ -1420,9 +1358,9 @@ fn test_create_capacity_assignment_rejects_non_monotone_cost_row() {
         "CapacityAssignment",
         "--capacities",
         "1,2,3",
-        "--cost-matrix",
+        "--cost",
         "1,3,2;2,4,7;1,2,5",
-        "--delay-matrix",
+        "--delay",
         "8,4,1;7,3,1;6,3,1",
         "--delay-budget",
         "12",
@@ -1452,9 +1390,9 @@ fn test_create_capacity_assignment_rejects_matrix_width_mismatch() {
         "CapacityAssignment",
         "--capacities",
         "1,2,3",
-        "--cost-matrix",
+        "--cost",
         "1,3;2,4,7;1,2,5",
-        "--delay-matrix",
+        "--delay",
         "8,4,1;7,3,1;6,3,1",
         "--delay-budget",
         "12",
@@ -1508,8 +1446,8 @@ fn test_create_longest_path_requires_edge_lengths() {
 }
 
 #[test]
-fn test_create_longest_path_rejects_weights_flag() {
-    let cli = Cli::try_parse_from([
+fn test_create_longest_path_rejects_unrelated_weights_flag() {
+    let error = Cli::try_parse_from([
         "pred",
         "create",
         "LongestPath",
@@ -1524,22 +1462,9 @@ fn test_create_longest_path_rejects_weights_flag() {
         "--edge-lengths",
         "5,7",
     ])
-    .unwrap();
-    let out = OutputConfig {
-        output: None,
-        quiet: true,
-        json: false,
-        auto_json: false,
-    };
-    let args = match cli.command {
-        Commands::Create(args) => args,
-        _ => unreachable!(),
-    };
-
-    let err = create(&args, &out).unwrap_err();
-    assert!(err
-        .to_string()
-        .contains("LongestPath uses --edge-lengths, not --weights"));
+    .err()
+    .expect("unrelated flag is rejected by Clap");
+    assert_eq!(error.kind(), clap::error::ErrorKind::UnknownArgument);
 }
 
 #[test]
@@ -1578,232 +1503,47 @@ fn test_create_undirected_flow_lower_bounds_requires_lower_bounds() {
 }
 
 fn empty_args() -> CreateArgs {
-    CreateArgs {
-        problem: Some("BiconnectivityAugmentation".to_string()),
-        example: None,
-        example_target: None,
-        example_side: crate::cli::ExampleSide::Source,
-        graph: None,
-        weights: None,
-        edge_weights: None,
-        edge_lengths: None,
-        capacities: None,
-        demands: None,
-        setup_costs: None,
-        production_costs: None,
-        inventory_costs: None,
-        bundle_capacities: None,
-        cost_matrix: None,
-        delay_matrix: None,
-        lower_bounds: None,
-        multipliers: None,
-        source: None,
-        sink: None,
-        requirement: None,
-        num_paths_required: None,
-        paths: None,
-        couplings: None,
-        fields: None,
-        clauses: None,
-        disjuncts: None,
-        num_vars: None,
-        matrix: None,
-        k: None,
-        num_partitions: None,
-        random: false,
-        source_vertex: None,
-        target_vertex: None,
-        num_vertices: None,
-        edge_prob: None,
-        seed: None,
-        target: None,
-        m: None,
-        n: None,
-        positions: None,
-        radius: None,
-        source_1: None,
-        sink_1: None,
-        source_2: None,
-        sink_2: None,
-        requirement_1: None,
-        requirement_2: None,
-        sizes: None,
-        probabilities: None,
-        link_lengths: None,
-        target_point: None,
-        orientation_samples: None,
-        allowed_pairs: None,
-        graph_1: None,
-        graph_2: None,
-        num_vertices_1: None,
-        num_vertices_2: None,
-        contacts_1: None,
-        contacts_2: None,
-        capacity: None,
-        sequence: None,
-        sets: None,
-        r_sets: None,
-        s_sets: None,
-        r_weights: None,
-        s_weights: None,
-        partition: None,
-        partitions: None,
-        bundles: None,
-        universe: None,
-        biedges: None,
-        left: None,
-        right: None,
-        rank: None,
-        basis: None,
-        target_vec: None,
-        bounds: None,
-        release_times: None,
-        lengths: None,
-        terminals: None,
-        terminal_pairs: None,
-        tree: None,
-        required_edges: None,
-        bound: None,
-        latency_bound: None,
-        length_bound: None,
-        weight_bound: None,
-        diameter_bound: None,
-        cost_bound: None,
-        delay_budget: None,
-        pattern: None,
-        strings: None,
-        string: None,
-        arc_costs: None,
-        arcs: None,
-        left_arcs: None,
-        right_arcs: None,
-        values: None,
-        precedences: None,
-        distance_matrix: None,
-        potential_edges: None,
-        budget: None,
-        max_cycle_length: None,
-        candidate_arcs: None,
-        deadlines: None,
-        precedence_pairs: None,
-        task_lengths: None,
-        job_tasks: None,
-        resource_bounds: None,
-        resource_requirements: None,
-        deadline: None,
-        num_processors: None,
-        alphabet_size: None,
-        substring_length: None,
-        deps: None,
-        query: None,
-        dependencies: None,
-        num_attributes: None,
-        source_string: None,
-        target_string: None,
-        schedules: None,
-        requirements: None,
-        num_workers: None,
-        num_periods: None,
-        num_craftsmen: None,
-        num_tasks: None,
-        craftsman_avail: None,
-        task_avail: None,
-        num_groups: None,
-        num_sectors: None,
-        domain_size: None,
-        relations: None,
-        conjuncts_spec: None,
-        relation_attrs: None,
-        known_keys: None,
-        num_objects: None,
-        attribute_domains: None,
-        frequency_tables: None,
-        known_values: None,
-        costs: None,
-        cut_bound: None,
-        size_bound: None,
-        usage: None,
-        storage: None,
-        quantifiers: None,
-        homologous_pairs: None,
-        pointer_cost: None,
-        expression: None,
-        coeff_a: None,
-        coeff_b: None,
-        rhs: None,
-        coeff_c: None,
-        pairs: None,
-        required_columns: None,
-        compilers: None,
-        setup_times: None,
-        w_sizes: None,
-        x_sizes: None,
-        y_sizes: None,
-        equations: None,
-        assignment: None,
-        initial_marking: None,
-        output_arcs: None,
-        gate_types: None,
-        true_sentences: None,
-        implications: None,
-        loop_length: None,
-        loop_variables: None,
-        inputs: None,
-        outputs: None,
-        assignments: None,
-        num_variables: None,
-        truth_table: None,
-        test_matrix: None,
-        num_tests: None,
-        tiles: None,
-        grid_size: None,
-        num_colors: None,
-        vertex_prizes: None,
-        edge_costs: None,
-        beta: None,
-        omega: None,
-    }
+    CreateArgs::for_test("BiconnectivityAugmentation")
 }
-
 #[test]
 fn test_all_data_flags_empty_treats_potential_edges_as_input() {
     let mut args = empty_args();
-    args.potential_edges = Some("0-2:3,1-3:5".to_string());
+    args.insert("potential-weights", "0-2:3,1-3:5".to_string());
     assert!(!all_data_flags_empty(&args));
 }
 
 #[test]
 fn test_all_data_flags_empty_treats_budget_as_input() {
     let mut args = empty_args();
-    args.budget = Some("7".to_string());
+    args.insert("budget", "7".to_string());
     assert!(!all_data_flags_empty(&args));
 }
 
 #[test]
 fn test_all_data_flags_empty_treats_max_cycle_length_as_input() {
     let mut args = empty_args();
-    args.max_cycle_length = Some(4);
+    args.insert("max-cycle-length", 4);
     assert!(!all_data_flags_empty(&args));
 }
 
 #[test]
 fn test_all_data_flags_empty_treats_homologous_pairs_as_input() {
     let mut args = empty_args();
-    args.homologous_pairs = Some("2=5;4=3".to_string());
+    args.insert("homologous-pairs", "2=5;4=3".to_string());
     assert!(!all_data_flags_empty(&args));
 }
 
 #[test]
 fn test_all_data_flags_empty_treats_job_tasks_as_input() {
     let mut args = empty_args();
-    args.job_tasks = Some("0:1,1:1;1:1,0:1".to_string());
+    args.insert("jobs", "0:1,1:1;1:1,0:1".to_string());
     assert!(!all_data_flags_empty(&args));
 }
 
 #[test]
 fn test_parse_potential_edges() {
     let mut args = empty_args();
-    args.potential_edges = Some("0-2:3,1-3:5".to_string());
+    args.insert("potential-weights", "0-2:3,1-3:5".to_string());
 
     let potential_edges = parse_potential_edges(&args).unwrap();
 
@@ -1813,7 +1553,7 @@ fn test_parse_potential_edges() {
 #[test]
 fn test_parse_potential_edges_rejects_missing_weight() {
     let mut args = empty_args();
-    args.potential_edges = Some("0-2,1-3:5".to_string());
+    args.insert("potential-weights", "0-2,1-3:5".to_string());
 
     let err = parse_potential_edges(&args).unwrap_err().to_string();
 
@@ -1823,7 +1563,7 @@ fn test_parse_potential_edges_rejects_missing_weight() {
 #[test]
 fn test_parse_budget() {
     let mut args = empty_args();
-    args.budget = Some("7".to_string());
+    args.insert("budget", "7".to_string());
 
     assert_eq!(parse_budget(&args).unwrap(), 7);
 }
@@ -1835,8 +1575,8 @@ fn test_create_disjoint_connecting_paths_json() {
 
     let mut args = empty_args();
     args.problem = Some("DisjointConnectingPaths".to_string());
-    args.graph = Some("0-1,1-3,0-2,1-4,2-4,3-5,4-5".to_string());
-    args.terminal_pairs = Some("0-3,2-5".to_string());
+    args.insert("graph", "0-1,1-3,0-2,1-4,2-4,3-5,4-5".to_string());
+    args.insert("terminal-pairs", "0-3,2-5".to_string());
 
     let output_path = std::env::temp_dir().join(format!("dcp-create-{}.json", std::process::id()));
     let out = OutputConfig {
@@ -1869,8 +1609,8 @@ fn test_create_disjoint_connecting_paths_json() {
 fn test_create_disjoint_connecting_paths_rejects_overlapping_terminal_pairs() {
     let mut args = empty_args();
     args.problem = Some("DisjointConnectingPaths".to_string());
-    args.graph = Some("0-1,1-2,2-3,3-4".to_string());
-    args.terminal_pairs = Some("0-2,2-4".to_string());
+    args.insert("graph", "0-1,1-2,2-3,3-4".to_string());
+    args.insert("terminal-pairs", "0-2,2-4".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -1886,7 +1626,7 @@ fn test_create_disjoint_connecting_paths_rejects_overlapping_terminal_pairs() {
 #[test]
 fn test_parse_homologous_pairs() {
     let mut args = empty_args();
-    args.homologous_pairs = Some("2=5;4=3".to_string());
+    args.insert("homologous-pairs", "2=5;4=3".to_string());
 
     assert_eq!(parse_homologous_pairs(&args).unwrap(), vec![(2, 5), (4, 3)]);
 }
@@ -1894,7 +1634,7 @@ fn test_parse_homologous_pairs() {
 #[test]
 fn test_parse_homologous_pairs_rejects_invalid_token() {
     let mut args = empty_args();
-    args.homologous_pairs = Some("2-5".to_string());
+    args.insert("homologous-pairs", "2-5".to_string());
 
     let err = parse_homologous_pairs(&args).unwrap_err().to_string();
 
@@ -1904,8 +1644,8 @@ fn test_parse_homologous_pairs_rejects_invalid_token() {
 #[test]
 fn test_parse_graph_respects_explicit_num_vertices() {
     let mut args = empty_args();
-    args.graph = Some("0-1".to_string());
-    args.num_vertices = Some(3);
+    args.insert("graph", "0-1".to_string());
+    args.insert("num-vertices", 3);
 
     let (graph, num_vertices) = parse_graph(&args).unwrap();
 
@@ -1935,9 +1675,9 @@ fn test_validate_potential_edges_rejects_duplicate_edges() {
 #[test]
 fn test_create_biconnectivity_augmentation_json() {
     let mut args = empty_args();
-    args.graph = Some("0-1,1-2,2-3".to_string());
-    args.potential_edges = Some("0-2:3,0-3:4,1-3:2".to_string());
-    args.budget = Some("5".to_string());
+    args.insert("graph", "0-1,1-2,2-3".to_string());
+    args.insert("potential-weights", "0-2:3,0-3:4,1-3:2".to_string());
+    args.insert("budget", "5".to_string());
 
     let output_path = std::env::temp_dir().join("pred_test_create_biconnectivity.json");
     let out = OutputConfig {
@@ -1964,10 +1704,10 @@ fn test_create_biconnectivity_augmentation_json() {
 #[test]
 fn test_create_biconnectivity_augmentation_json_with_isolated_vertices() {
     let mut args = empty_args();
-    args.graph = Some("0-1".to_string());
-    args.num_vertices = Some(3);
-    args.potential_edges = Some("1-2:1".to_string());
-    args.budget = Some("1".to_string());
+    args.insert("graph", "0-1".to_string());
+    args.insert("num-vertices", 3);
+    args.insert("potential-weights", "1-2:1".to_string());
+    args.insert("budget", "1".to_string());
 
     let output_path = std::env::temp_dir().join("pred_test_create_biconnectivity_isolated.json");
     let out = OutputConfig {
@@ -1997,9 +1737,9 @@ fn test_create_partial_feedback_edge_set_json() {
 
     let mut args = empty_args();
     args.problem = Some("PartialFeedbackEdgeSet".to_string());
-    args.graph = Some("0-1,1-2,2-0".to_string());
-    args.budget = Some("1".to_string());
-    args.max_cycle_length = Some(3);
+    args.insert("graph", "0-1,1-2,2-0".to_string());
+    args.insert("budget", "1".to_string());
+    args.insert("max-cycle-length", 3);
 
     let output_path = std::env::temp_dir().join("pred_test_create_partial_feedback_edge_set.json");
     let out = OutputConfig {
@@ -2031,8 +1771,8 @@ fn test_create_partial_feedback_edge_set_json() {
 fn test_create_partial_feedback_edge_set_requires_max_cycle_length() {
     let mut args = empty_args();
     args.problem = Some("PartialFeedbackEdgeSet".to_string());
-    args.graph = Some("0-1,1-2,2-0".to_string());
-    args.budget = Some("1".to_string());
+    args.insert("graph", "0-1,1-2,2-0".to_string());
+    args.insert("budget", "1".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2049,9 +1789,9 @@ fn test_create_partial_feedback_edge_set_requires_max_cycle_length() {
 fn test_create_ensemble_computation_json() {
     let mut args = empty_args();
     args.problem = Some("EnsembleComputation".to_string());
-    args.universe = Some(4);
-    args.sets = Some("0,1,2;0,1,3".to_string());
-    args.budget = Some("4".to_string());
+    args.insert("universe-size", 4);
+    args.insert("subsets", "0,1,2;0,1,3".to_string());
+    args.insert("budget", "4".to_string());
 
     let output_path = std::env::temp_dir().join("pred_test_create_ensemble_computation.json");
     let out = OutputConfig {
@@ -2083,8 +1823,8 @@ fn test_create_expected_retrieval_cost_json() {
 
     let mut args = empty_args();
     args.problem = Some("ExpectedRetrievalCost".to_string());
-    args.probabilities = Some("0.2,0.15,0.15,0.2,0.1,0.2".to_string());
-    args.num_sectors = Some(3);
+    args.insert("probabilities", "0.2,0.15,0.15,0.2,0.1,0.2".to_string());
+    args.insert("num-sectors", 3);
 
     let output_path = std::env::temp_dir().join(format!(
         "expected-retrieval-cost-{}.json",
@@ -2124,7 +1864,10 @@ fn test_create_job_shop_scheduling_json() {
 
     let mut args = empty_args();
     args.problem = Some("JobShopScheduling".to_string());
-    args.job_tasks = Some("0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1".to_string());
+    args.insert(
+        "jobs",
+        "0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1".to_string(),
+    );
 
     let output_path =
         std::env::temp_dir().join(format!("job-shop-scheduling-{}.json", std::process::id()));
@@ -2157,7 +1900,7 @@ fn test_create_job_shop_scheduling_json() {
 fn test_create_job_shop_scheduling_requires_job_tasks() {
     let mut args = empty_args();
     args.problem = Some("JobShopScheduling".to_string());
-    args.num_processors = Some(2);
+    args.insert("num-processors", 2);
 
     let out = OutputConfig {
         output: None,
@@ -2174,7 +1917,7 @@ fn test_create_job_shop_scheduling_requires_job_tasks() {
 fn test_create_job_shop_scheduling_rejects_malformed_operation() {
     let mut args = empty_args();
     args.problem = Some("JobShopScheduling".to_string());
-    args.job_tasks = Some("0-3,1:4".to_string());
+    args.insert("jobs", "0-3,1:4".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2191,7 +1934,7 @@ fn test_create_job_shop_scheduling_rejects_malformed_operation() {
 fn test_create_job_shop_scheduling_rejects_consecutive_same_processor() {
     let mut args = empty_args();
     args.problem = Some("JobShopScheduling".to_string());
-    args.job_tasks = Some("0:1,0:1".to_string());
+    args.insert("jobs", "0:1,0:1".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2208,9 +1951,9 @@ fn test_create_job_shop_scheduling_rejects_consecutive_same_processor() {
 fn test_create_rooted_tree_storage_assignment_json() {
     let mut args = empty_args();
     args.problem = Some("RootedTreeStorageAssignment".to_string());
-    args.universe = Some(5);
-    args.sets = Some("0,2;1,3;0,4;2,4".to_string());
-    args.bound = Some(1);
+    args.insert("universe-size", 5);
+    args.insert("subsets", "0,2;1,3;0,4;2,4".to_string());
+    args.insert("bound", 1);
 
     let output_path =
         std::env::temp_dir().join("pred_test_create_rooted_tree_storage_assignment.json");
@@ -2240,11 +1983,11 @@ fn test_create_rooted_tree_storage_assignment_json() {
 fn test_create_stacker_crane_json() {
     let mut args = empty_args();
     args.problem = Some("StackerCrane".to_string());
-    args.num_vertices = Some(6);
-    args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
-    args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
-    args.arc_costs = Some("3,4,2,5,3".to_string());
-    args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
+    args.insert("num-vertices", 6);
+    args.insert("arcs", "0>4,2>5,5>1,3>0,4>3".to_string());
+    args.insert("graph", "0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+    args.insert("arc-lengths", "3,4,2,5,3".to_string());
+    args.insert("edge-lengths", "2,1,3,2,1,4,3".to_string());
 
     let output_path = std::env::temp_dir().join("pred_test_create_stacker_crane.json");
     let out = OutputConfig {
@@ -2270,12 +2013,12 @@ fn test_create_stacker_crane_json() {
 fn test_create_stacker_crane_rejects_mismatched_arc_lengths() {
     let mut args = empty_args();
     args.problem = Some("StackerCrane".to_string());
-    args.num_vertices = Some(6);
-    args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
-    args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
-    args.arc_costs = Some("3,4,2,5".to_string());
-    args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
-    args.bound = Some(20);
+    args.insert("num-vertices", 6);
+    args.insert("arcs", "0>4,2>5,5>1,3>0,4>3".to_string());
+    args.insert("graph", "0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+    args.insert("arc-lengths", "3,4,2,5".to_string());
+    args.insert("edge-lengths", "2,1,3,2,1,4,3".to_string());
+    args.insert("bound", 20);
 
     let out = OutputConfig {
         output: None,
@@ -2292,12 +2035,11 @@ fn test_create_stacker_crane_rejects_mismatched_arc_lengths() {
 fn test_create_stacker_crane_rejects_out_of_range_vertices() {
     let mut args = empty_args();
     args.problem = Some("StackerCrane".to_string());
-    args.num_vertices = Some(5);
-    args.arcs = Some("0>4,2>5,5>1,3>0,4>3".to_string());
-    args.graph = Some("0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
-    args.arc_costs = Some("3,4,2,5,3".to_string());
-    args.edge_lengths = Some("2,1,3,2,1,4,3".to_string());
-    args.bound = Some(20);
+    args.insert("num-vertices", 5);
+    args.insert("arcs", "0>4,2>5,5>1,3>0,4>3".to_string());
+    args.insert("graph", "0-1,1-2,2-3,3-5,4-5,0-3,1-5".to_string());
+    args.insert("arc-lengths", "3,4,2,5,3".to_string());
+    args.insert("edge-lengths", "2,1,3,2,1,4,3".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2317,8 +2059,8 @@ fn test_create_minimum_dummy_activities_pert_json() {
 
     let mut args = empty_args();
     args.problem = Some("MinimumDummyActivitiesPert".to_string());
-    args.num_vertices = Some(6);
-    args.arcs = Some("0>2,0>3,1>3,1>4,2>5".to_string());
+    args.insert("num-vertices", 6);
+    args.insert("arcs", "0>2,0>3,1>3,1>4,2>5".to_string());
 
     let output_path = temp_output_path("minimum_dummy_activities_pert");
     let out = OutputConfig {
@@ -2346,8 +2088,8 @@ fn test_create_minimum_dummy_activities_pert_json() {
 fn test_create_minimum_dummy_activities_pert_rejects_cycles() {
     let mut args = empty_args();
     args.problem = Some("MinimumDummyActivitiesPert".to_string());
-    args.num_vertices = Some(3);
-    args.arcs = Some("0>1,1>2,2>0".to_string());
+    args.insert("num-vertices", 3);
+    args.insert("arcs", "0>1,1>2,2>0".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2367,11 +2109,13 @@ fn test_create_balanced_complete_bipartite_subgraph() {
 
     let mut args = empty_args();
     args.problem = Some("BalancedCompleteBipartiteSubgraph".to_string());
-    args.biedges = Some("0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3".to_string());
-    args.left = Some(4);
-    args.right = Some(4);
-    args.k = Some(3);
-    args.graph = None;
+    args.insert(
+        "biedges",
+        "0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3".to_string(),
+    );
+    args.insert("left", 4);
+    args.insert("right", 4);
+    args.insert("k", 3);
 
     let output_path = std::env::temp_dir().join(format!("bcbs-create-{}.json", std::process::id()));
     let out = OutputConfig {
@@ -2401,11 +2145,10 @@ fn test_create_balanced_complete_bipartite_subgraph() {
 fn test_create_balanced_complete_bipartite_subgraph_rejects_out_of_range_biedges() {
     let mut args = empty_args();
     args.problem = Some("BalancedCompleteBipartiteSubgraph".to_string());
-    args.biedges = Some("4-0".to_string());
-    args.left = Some(4);
-    args.right = Some(4);
-    args.k = Some(3);
-    args.graph = None;
+    args.insert("biedges", "4-0".to_string());
+    args.insert("left", 4);
+    args.insert("right", 4);
+    args.insert("k", 3);
 
     let out = OutputConfig {
         output: None,
@@ -2425,8 +2168,8 @@ fn test_create_kclique() {
 
     let mut args = empty_args();
     args.problem = Some("KClique".to_string());
-    args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
-    args.k = Some(3);
+    args.insert("graph", "0-1,0-2,1-3,2-3,2-4,3-4".to_string());
+    args.insert("k", 3);
 
     let output_path =
         std::env::temp_dir().join(format!("kclique-create-{}.json", std::process::id()));
@@ -2459,8 +2202,7 @@ fn test_create_kclique() {
 fn test_create_kclique_requires_valid_k() {
     let mut args = empty_args();
     args.problem = Some("KClique".to_string());
-    args.graph = Some("0-1,0-2,1-3,2-3,2-4,3-4".to_string());
-    args.k = None;
+    args.insert("graph", "0-1,0-2,1-3,2-3,2-4,3-4".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2475,7 +2217,7 @@ fn test_create_kclique_requires_valid_k() {
         "unexpected error: {err}"
     );
 
-    args.k = Some(6);
+    args.insert("k", 6);
     let err = create(&args, &out).unwrap_err();
     assert!(
         err.to_string().contains("k must be <= graph num_vertices"),
@@ -2489,8 +2231,8 @@ fn test_create_sparse_matrix_compression_json() {
 
     let mut args = empty_args();
     args.problem = Some("SparseMatrixCompression".to_string());
-    args.matrix = Some("1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
-    args.bound = Some(2);
+    args.insert("matrix", "1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
+    args.insert("bound-k", 2);
 
     let output_path = std::env::temp_dir().join(format!("smc-create-{}.json", std::process::id()));
     let out = OutputConfig {
@@ -2526,7 +2268,7 @@ fn test_create_sparse_matrix_compression_json() {
 fn test_create_sparse_matrix_compression_requires_bound() {
     let mut args = empty_args();
     args.problem = Some("SparseMatrixCompression".to_string());
-    args.matrix = Some("1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
+    args.insert("matrix", "1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2544,8 +2286,8 @@ fn test_create_sparse_matrix_compression_requires_bound() {
 fn test_create_sparse_matrix_compression_rejects_zero_bound() {
     let mut args = empty_args();
     args.problem = Some("SparseMatrixCompression".to_string());
-    args.matrix = Some("1,0;0,1".to_string());
-    args.bound = Some(0);
+    args.insert("matrix", "1,0;0,1".to_string());
+    args.insert("bound-k", 0);
 
     let out = OutputConfig {
         output: None,
@@ -2643,8 +2385,11 @@ fn test_create_consecutive_ones_matrix_augmentation_json() {
 
     let mut args = empty_args();
     args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
-    args.matrix = Some("1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0".to_string());
-    args.bound = Some(2);
+    args.insert(
+        "matrix",
+        "1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0".to_string(),
+    );
+    args.insert("bound", 2);
 
     let output_path = std::env::temp_dir().join(format!("coma-create-{}.json", std::process::id()));
     let out = OutputConfig {
@@ -2680,7 +2425,7 @@ fn test_create_consecutive_ones_matrix_augmentation_json() {
 fn test_create_consecutive_ones_matrix_augmentation_requires_bound() {
     let mut args = empty_args();
     args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
-    args.matrix = Some("1,0;0,1".to_string());
+    args.insert("matrix", "1,0;0,1".to_string());
 
     let out = OutputConfig {
         output: None,
@@ -2698,8 +2443,8 @@ fn test_create_consecutive_ones_matrix_augmentation_requires_bound() {
 fn test_create_consecutive_ones_matrix_augmentation_negative_bound() {
     let mut args = empty_args();
     args.problem = Some("ConsecutiveOnesMatrixAugmentation".to_string());
-    args.matrix = Some("1,0;0,1".to_string());
-    args.bound = Some(-1);
+    args.insert("matrix", "1,0;0,1".to_string());
+    args.insert("bound", -1);
 
     let out = OutputConfig {
         output: None,

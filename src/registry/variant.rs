@@ -53,6 +53,11 @@ impl VariantEntry {
     }
 }
 
+/// Return every registered concrete problem variant.
+pub fn variant_entries() -> Vec<&'static VariantEntry> {
+    inventory::iter::<VariantEntry>().collect()
+}
+
 /// Find a variant entry by exact problem name and exact variant map.
 ///
 /// No alias resolution or default fallback. Both `name` and `variant` must match exactly.

@@ -60,7 +60,8 @@ pub use schema::{
     ProblemSizeFieldEntry, VariantDimension,
 };
 pub use variant::{
-    find_variant_by_alias, find_variant_entry, validate_variant_aliases, VariantEntry,
+    find_variant_by_alias, find_variant_entry, validate_variant_aliases, variant_entries,
+    VariantEntry,
 };
 
 use std::any::Any;

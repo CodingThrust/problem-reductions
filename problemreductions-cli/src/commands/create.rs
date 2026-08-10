@@ -2,7 +2,7 @@ use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
 use crate::problem_name::{
-    parse_problem_spec, resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
+    resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
 };
 use crate::util;
 use anyhow::{bail, Context, Result};
@@ -25,7 +25,6 @@ use problemreductions::models::misc::{
 };
 use problemreductions::models::Decision;
 use problemreductions::prelude::*;
-use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
     BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, MixedGraph, SimpleGraph,
     TriangularSubgraph, UnitDiskGraph,
@@ -37,6 +36,7 @@ mod schema_semantics;
 use self::schema_semantics::validate_schema_driven_semantics;
 mod schema_support;
 use self::schema_support::*;
+pub(crate) use self::schema_support::{create_inputs_for, InputValueKind};
 
 const MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS: &str =
     "--graph 0-1,1-2,2-3 --usage 5,4,3,2 --storage 1,1,1,1";
@@ -45,185 +45,8 @@ const MULTIPLE_COPY_FILE_ALLOCATION_USAGE: &str =
 const EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS: &str =
     "--probabilities 0.2,0.15,0.15,0.2,0.1,0.2 --num-sectors 3";
 
-/// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
-    args.graph.is_none()
-        && args.weights.is_none()
-        && args.edge_weights.is_none()
-        && args.edge_lengths.is_none()
-        && args.capacities.is_none()
-        && args.demands.is_none()
-        && args.setup_costs.is_none()
-        && args.production_costs.is_none()
-        && args.inventory_costs.is_none()
-        && args.bundle_capacities.is_none()
-        && args.cost_matrix.is_none()
-        && args.delay_matrix.is_none()
-        && args.lower_bounds.is_none()
-        && args.multipliers.is_none()
-        && args.source.is_none()
-        && args.sink.is_none()
-        && args.requirement.is_none()
-        && args.num_paths_required.is_none()
-        && args.paths.is_none()
-        && args.couplings.is_none()
-        && args.fields.is_none()
-        && args.clauses.is_none()
-        && args.disjuncts.is_none()
-        && args.num_vars.is_none()
-        && args.matrix.is_none()
-        && args.k.is_none()
-        && args.num_partitions.is_none()
-        && args.target.is_none()
-        && args.m.is_none()
-        && args.n.is_none()
-        && args.num_vertices.is_none()
-        && args.source_vertex.is_none()
-        && args.target_vertex.is_none()
-        && args.edge_prob.is_none()
-        && args.seed.is_none()
-        && args.positions.is_none()
-        && args.radius.is_none()
-        && args.source_1.is_none()
-        && args.sink_1.is_none()
-        && args.source_2.is_none()
-        && args.sink_2.is_none()
-        && args.requirement_1.is_none()
-        && args.requirement_2.is_none()
-        && args.sizes.is_none()
-        && args.probabilities.is_none()
-        && args.capacity.is_none()
-        && args.sequence.is_none()
-        && args.sets.is_none()
-        && args.r_sets.is_none()
-        && args.s_sets.is_none()
-        && args.r_weights.is_none()
-        && args.s_weights.is_none()
-        && args.partition.is_none()
-        && args.partitions.is_none()
-        && args.bundles.is_none()
-        && args.universe.is_none()
-        && args.biedges.is_none()
-        && args.left.is_none()
-        && args.right.is_none()
-        && args.rank.is_none()
-        && args.basis.is_none()
-        && args.target_vec.is_none()
-        && args.bounds.is_none()
-        && args.release_times.is_none()
-        && args.deadlines.is_none()
-        && args.lengths.is_none()
-        && args.terminals.is_none()
-        && args.terminal_pairs.is_none()
-        && args.tree.is_none()
-        && args.required_edges.is_none()
-        && args.bound.is_none()
-        && args.latency_bound.is_none()
-        && args.length_bound.is_none()
-        && args.weight_bound.is_none()
-        && args.diameter_bound.is_none()
-        && args.cost_bound.is_none()
-        && args.delay_budget.is_none()
-        && args.pattern.is_none()
-        && args.strings.is_none()
-        && args.string.is_none()
-        && args.costs.is_none()
-        && args.arc_costs.is_none()
-        && args.arcs.is_none()
-        && args.left_arcs.is_none()
-        && args.right_arcs.is_none()
-        && args.homologous_pairs.is_none()
-        && args.quantifiers.is_none()
-        && args.usage.is_none()
-        && args.storage.is_none()
-        && args.size_bound.is_none()
-        && args.cut_bound.is_none()
-        && args.values.is_none()
-        && args.precedences.is_none()
-        && args.distance_matrix.is_none()
-        && args.candidate_arcs.is_none()
-        && args.potential_edges.is_none()
-        && args.budget.is_none()
-        && args.max_cycle_length.is_none()
-        && args.precedence_pairs.is_none()
-        && args.resource_bounds.is_none()
-        && args.resource_requirements.is_none()
-        && args.task_lengths.is_none()
-        && args.job_tasks.is_none()
-        && args.deadline.is_none()
-        && args.num_processors.is_none()
-        && args.schedules.is_none()
-        && args.requirements.is_none()
-        && args.num_workers.is_none()
-        && args.num_periods.is_none()
-        && args.num_craftsmen.is_none()
-        && args.num_tasks.is_none()
-        && args.craftsman_avail.is_none()
-        && args.task_avail.is_none()
-        && args.alphabet_size.is_none()
-        && args.num_groups.is_none()
-        && args.num_sectors.is_none()
-        && args.link_lengths.is_none()
-        && args.target_point.is_none()
-        && args.orientation_samples.is_none()
-        && args.allowed_pairs.is_none()
-        && args.graph_1.is_none()
-        && args.graph_2.is_none()
-        && args.num_vertices_1.is_none()
-        && args.num_vertices_2.is_none()
-        && args.contacts_1.is_none()
-        && args.contacts_2.is_none()
-        && args.dependencies.is_none()
-        && args.num_attributes.is_none()
-        && args.source_string.is_none()
-        && args.target_string.is_none()
-        && args.pointer_cost.is_none()
-        && args.relation_attrs.is_none()
-        && args.known_keys.is_none()
-        && args.num_objects.is_none()
-        && args.attribute_domains.is_none()
-        && args.frequency_tables.is_none()
-        && args.known_values.is_none()
-        && args.domain_size.is_none()
-        && args.relations.is_none()
-        && args.conjuncts_spec.is_none()
-        && args.expression.is_none()
-        && args.deps.is_none()
-        && args.query.is_none()
-        && args.equations.is_none()
-        && args.coeff_a.is_none()
-        && args.coeff_b.is_none()
-        && args.rhs.is_none()
-        && args.coeff_c.is_none()
-        && args.pairs.is_none()
-        && args.required_columns.is_none()
-        && args.compilers.is_none()
-        && args.setup_times.is_none()
-        && args.w_sizes.is_none()
-        && args.x_sizes.is_none()
-        && args.y_sizes.is_none()
-        && args.assignment.is_none()
-        && args.initial_marking.is_none()
-        && args.output_arcs.is_none()
-        && args.gate_types.is_none()
-        && args.inputs.is_none()
-        && args.outputs.is_none()
-        && args.true_sentences.is_none()
-        && args.implications.is_none()
-        && args.loop_length.is_none()
-        && args.loop_variables.is_none()
-        && args.assignments.is_none()
-        && args.num_variables.is_none()
-        && args.truth_table.is_none()
-        && args.test_matrix.is_none()
-        && args.num_tests.is_none()
-        && args.tiles.is_none()
-        && args.grid_size.is_none()
-        && args.num_colors.is_none()
-        && args.vertex_prizes.is_none()
-        && args.edge_costs.is_none()
-        && args.beta.is_none()
-        && args.omega.is_none()
+    args.is_empty()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -553,7 +376,7 @@ fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             "Use either `pred create <PROBLEM>` or `pred create --example <PROBLEM_SPEC>`, not both"
         );
     }
-    if args.random || !all_data_flags_empty(args) {
+    if args.has("random") || !all_data_flags_empty(args) {
         bail!("`pred create --example` does not accept problem-construction flags");
     }
     let rgraph = problemreductions::rules::ReductionGraph::new();
@@ -590,33 +413,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let problem = args.problem.as_ref().ok_or_else(|| {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
-    let rgraph = problemreductions::rules::ReductionGraph::new();
-    let resolved = match resolve_problem_ref(problem, &rgraph) {
-        Ok(resolved) => resolved,
-        Err(graph_err) => match resolve_catalog_problem_ref(problem) {
-            Ok(catalog_resolved) => {
-                if rgraph.variants_for(catalog_resolved.name()).is_empty() {
-                    ProblemRef {
-                        name: catalog_resolved.name().to_string(),
-                        variant: catalog_resolved.variant().clone(),
-                    }
-                } else {
-                    return Err(graph_err);
-                }
-            }
-            Err(catalog_err) => {
-                let spec = parse_problem_spec(problem)?;
-                if rgraph.variants_for(&spec.name).is_empty() {
-                    return Err(catalog_err);
-                }
-                return Err(graph_err);
-            }
-        },
-    };
-    let canonical = resolved.name.as_str();
-    let resolved_variant = resolved.variant.clone();
+    let resolved = resolve_catalog_problem_ref(problem)?;
+    let canonical = resolved.name();
+    let resolved_variant = resolved.variant().clone();
 
-    if args.random {
+    if args.has("random") {
         return create_random(args, canonical, &resolved_variant, out);
     }
 
@@ -634,16 +435,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
     // Show schema-driven help when no data flags are provided
     if all_data_flags_empty(args) {
-        print_problem_help(canonical, &resolved_variant)?;
-        std::process::exit(2);
+        bail!("No construction arguments were provided for {canonical}");
     }
 
-    let (data, variant) = create_schema_driven(args, canonical, &resolved_variant)?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Schema-driven creation unexpectedly returned no instance for {canonical}. This indicates a missing parser, flag mapping, derived field, or schema/factory mismatch in create.rs."
-            )
-        })?;
+    let (data, variant) = create_schema_driven(args, canonical, &resolved_variant)?;
 
     let output = ProblemJsonOutput {
         problem_type: canonical.to_string(),
@@ -730,18 +525,18 @@ fn parse_bipartite_problem_input(
     k_description: &str,
     usage: &str,
 ) -> Result<(BipartiteGraph, usize)> {
-    let left = args.left.ok_or_else(|| {
+    let left = args.value::<usize>("left").ok_or_else(|| {
         anyhow::anyhow!(
             "{canonical} requires --left, --right, --biedges, and --k\n\nUsage: {usage}"
         )
     })?;
-    let right = args.right.ok_or_else(|| {
+    let right = args.value::<usize>("right").ok_or_else(|| {
         anyhow::anyhow!("{canonical} requires --right (right partition size)\n\nUsage: {usage}")
     })?;
-    let k = args.k.ok_or_else(|| {
+    let k = args.value::<usize>("k").ok_or_else(|| {
         anyhow::anyhow!("{canonical} requires --k ({k_description})\n\nUsage: {usage}")
     })?;
-    let edges_str = args.biedges.as_deref().ok_or_else(|| {
+    let edges_str = args.raw("biedges").ok_or_else(|| {
         anyhow::anyhow!("{canonical} requires --biedges (e.g., 0-0,0-1,1-1)\n\nUsage: {usage}")
     })?;
     let edges = util::parse_edge_pairs(edges_str)?;
@@ -770,12 +565,11 @@ fn validate_bipartite_edges(
 /// via `--num-vertices`.
 fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     let edges_str = args
-        .graph
-        .as_deref()
+        .raw("graph")
         .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
     if edges_str.trim().is_empty() {
-        let num_vertices = args.num_vertices.ok_or_else(|| {
+        let num_vertices = args.value::<usize>("num-vertices").ok_or_else(|| {
             anyhow::anyhow!(
                 "Empty graph string. To create a graph with isolated vertices, pass --num-vertices N as well."
             )
@@ -809,7 +603,7 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .max()
         .map(|m| m + 1)
         .unwrap_or(0);
-    let num_vertices = match args.num_vertices {
+    let num_vertices = match args.value::<usize>("num-vertices") {
         Some(explicit) if explicit < inferred_num_vertices => {
             bail!(
                 "--num-vertices {} is too small for the provided graph; need at least {}",
@@ -826,7 +620,7 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
 
 /// Parse `--positions` as integer grid positions.
 fn parse_int_positions(args: &CreateArgs) -> Result<Vec<(i32, i32)>> {
-    let pos_str = args.positions.as_deref().ok_or_else(|| {
+    let pos_str = args.raw("positions").ok_or_else(|| {
         anyhow::anyhow!("This variant requires --positions (e.g., \"0,0;1,0;1,1\")")
     })?;
     util::parse_positions(pos_str, "0,0")
@@ -834,7 +628,7 @@ fn parse_int_positions(args: &CreateArgs) -> Result<Vec<(i32, i32)>> {
 
 /// Parse `--positions` as float positions.
 fn parse_float_positions(args: &CreateArgs) -> Result<Vec<(f64, f64)>> {
-    let pos_str = args.positions.as_deref().ok_or_else(|| {
+    let pos_str = args.raw("positions").ok_or_else(|| {
         anyhow::anyhow!("This variant requires --positions (e.g., \"0.0,0.0;1.0,0.0;0.5,0.87\")")
     })?;
     util::parse_positions(pos_str, "0.0,0.0")
@@ -842,7 +636,7 @@ fn parse_float_positions(args: &CreateArgs) -> Result<Vec<(f64, f64)>> {
 
 /// Parse `--weights` as vertex weights (i32), defaulting to all 1s.
 fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i32>> {
-    match &args.weights {
+    match &args.raw("weights") {
         Some(w) => {
             let weights: Vec<i32> = w
                 .split(',')
@@ -862,7 +656,7 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
 }
 
 fn parse_i32_edge_values(
-    values: Option<&String>,
+    values: Option<&str>,
     num_edges: usize,
     value_label: &str,
 ) -> Result<Vec<i32>> {
@@ -912,8 +706,7 @@ fn parse_vertex_i64_values(
 /// Parse `--terminals` as comma-separated vertex indices.
 fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>> {
     let s = args
-        .terminals
-        .as_deref()
+        .raw("terminals")
         .ok_or_else(|| anyhow::anyhow!("--terminals required (e.g., \"0,2,4\")"))?;
     let terminals: Vec<usize> = s
         .split(',')
@@ -938,8 +731,7 @@ fn parse_terminals(args: &CreateArgs, num_vertices: usize) -> Result<Vec<usize>>
 /// Parse `--terminal-pairs` as comma-separated `u-v` vertex pairs.
 fn parse_terminal_pairs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(usize, usize)>> {
     let raw = args
-        .terminal_pairs
-        .as_deref()
+        .raw("terminal-pairs")
         .ok_or_else(|| anyhow::anyhow!("--terminal-pairs required (e.g., \"0-3,2-5\")"))?;
     let terminal_pairs = util::parse_edge_pairs(raw)?;
     anyhow::ensure!(
@@ -990,7 +782,7 @@ fn ensure_vertex_in_bounds(vertex: usize, num_vertices: usize, label: &str) -> R
 
 /// Parse `--edge-weights` as per-edge numeric values (i32), defaulting to all 1s.
 fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    parse_i32_edge_values(args.edge_weights.as_ref(), num_edges, "edge weight")
+    parse_i32_edge_values(args.raw("edge-weights"), num_edges, "edge weight")
 }
 
 fn validate_vertex_index(
@@ -1009,8 +801,7 @@ fn validate_vertex_index(
 /// Parse `--capacities` as edge capacities (u64).
 fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
     let capacities = args
-        .capacities
-        .as_deref()
+        .raw("capacities")
         .ok_or_else(|| anyhow::anyhow!("This problem requires --capacities\n\n{usage}"))?;
     let capacities: Vec<u64> = capacities
         .split(',')
@@ -1034,7 +825,7 @@ fn parse_capacities(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<
 
 /// Parse `--lower-bounds` as edge lower bounds (u64).
 fn parse_lower_bounds(args: &CreateArgs, num_edges: usize, usage: &str) -> Result<Vec<u64>> {
-    let lower_bounds = args.lower_bounds.as_deref().ok_or_else(|| {
+    let lower_bounds = args.raw("lower-bounds").ok_or_else(|| {
         anyhow::anyhow!("UndirectedFlowLowerBounds requires --lower-bounds\n\n{usage}")
     })?;
     let lower_bounds: Vec<u64> = lower_bounds
@@ -1058,7 +849,7 @@ fn parse_lower_bounds(args: &CreateArgs, num_edges: usize, usage: &str) -> Resul
 }
 
 fn parse_bundle_capacities(args: &CreateArgs, num_bundles: usize, usage: &str) -> Result<Vec<u64>> {
-    let capacities = args.bundle_capacities.as_deref().ok_or_else(|| {
+    let capacities = args.raw("bundle-capacities").ok_or_else(|| {
         anyhow::anyhow!("IntegralFlowBundles requires --bundle-capacities\n\n{usage}")
     })?;
     let capacities: Vec<u64> = capacities
@@ -1109,7 +900,7 @@ fn parse_bundle_capacities(args: &CreateArgs, num_bundles: usize, usage: &str) -
 /// Parse `--subsets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
-    parse_named_sets(args.sets.as_deref(), "--subsets")
+    parse_named_sets(args.raw("subsets"), "--subsets")
 }
 
 fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>>> {
@@ -1131,7 +922,7 @@ fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>
 }
 
 fn parse_homologous_pairs(args: &CreateArgs) -> Result<Vec<(usize, usize)>> {
-    let pairs = args.homologous_pairs.as_deref().ok_or_else(|| {
+    let pairs = args.raw("homologous-pairs").ok_or_else(|| {
         anyhow::anyhow!(
             "IntegralFlowHomologousArcs requires --homologous-pairs (e.g., \"2=5;4=3\")"
         )
@@ -1215,7 +1006,7 @@ fn validate_comparative_containment_sets(
 /// Parse `--partition` as semicolon-separated groups of comma-separated arc indices.
 /// E.g., "0,1;2,3;4,7;5,6"
 fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<usize>>> {
-    let partition_str = args.partition.as_deref().ok_or_else(|| {
+    let partition_str = args.raw("partition").ok_or_else(|| {
         anyhow::anyhow!("MultipleChoiceBranching requires --partition (e.g., \"0,1;2,3;4,7;5,6\")")
     })?;
 
@@ -1261,8 +1052,7 @@ fn parse_partition_groups(args: &CreateArgs, num_arcs: usize) -> Result<Vec<Vec<
 
 fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<Vec<usize>>> {
     let bundles_str = args
-        .bundles
-        .as_deref()
+        .raw("bundles")
         .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --bundles\n\n{usage}"))?;
 
     let bundles: Vec<Vec<usize>> = bundles_str
@@ -1308,7 +1098,7 @@ fn parse_bundles(args: &CreateArgs, num_arcs: usize, usage: &str) -> Result<Vec<
 }
 
 fn parse_multiple_choice_branching_threshold(args: &CreateArgs, usage: &str) -> Result<i32> {
-    let raw_bound = args.bound.ok_or_else(|| {
+    let raw_bound = args.value::<i64>("threshold").ok_or_else(|| {
         anyhow::anyhow!("MultipleChoiceBranching requires --threshold\n\n{usage}")
     })?;
     anyhow::ensure!(
@@ -1399,8 +1189,7 @@ fn validate_comparative_containment_f64_weights(
 /// E.g., "1,0;0,1;1,1"
 fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
     let matrix_str = args
-        .matrix
-        .as_deref()
+        .raw("matrix")
         .ok_or_else(|| anyhow::anyhow!("This problem requires --matrix (e.g., \"1,0;0,1;1,1\")"))?;
     parse_bool_rows(matrix_str)
 }
@@ -1545,8 +1334,7 @@ fn validate_timetable_design_args(
 /// E.g., "1,0.5;0.5,2"
 fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
     let matrix_str = args
-        .matrix
-        .as_deref()
+        .raw("matrix")
         .ok_or_else(|| anyhow::anyhow!("QUBO requires --matrix (e.g., \"1,0.5;0.5,2\")"))?;
 
     matrix_str
@@ -1594,7 +1382,7 @@ fn parse_u64_matrix_rows(matrix_str: &str, matrix_name: &str) -> Result<Vec<Vec<
 /// Parse a semicolon-separated matrix of i64 values.
 /// E.g., "0,5;5,0"
 fn parse_potential_edges(args: &CreateArgs) -> Result<Vec<(usize, usize, i32)>> {
-    let edges_str = args.potential_edges.as_deref().ok_or_else(|| {
+    let edges_str = args.raw("potential-weights").ok_or_else(|| {
         anyhow::anyhow!(
             "BiconnectivityAugmentation requires --potential-weights (e.g., 0-2:3,1-3:5)"
         )
@@ -1654,8 +1442,7 @@ fn validate_potential_edges(
 
 fn parse_budget(args: &CreateArgs) -> Result<i32> {
     let budget = args
-        .budget
-        .as_deref()
+        .raw("budget")
         .ok_or_else(|| anyhow::anyhow!("BiconnectivityAugmentation requires --budget (e.g., 5)"))?;
     budget
         .parse::<i32>()
@@ -1715,8 +1502,7 @@ fn parse_prescribed_paths(
     usage: &str,
 ) -> Result<Vec<Vec<usize>>> {
     let paths_str = args
-        .paths
-        .as_deref()
+        .raw("paths")
         .ok_or_else(|| anyhow::anyhow!("PathConstrainedNetworkFlow requires --paths\n\n{usage}"))?;
 
     paths_str
@@ -1747,8 +1533,7 @@ fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
     let (undirected_graph, num_vertices) =
         parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
     let arcs_str = args
-        .arcs
-        .as_deref()
+        .raw("arcs")
         .ok_or_else(|| anyhow::anyhow!("MixedChinesePostman requires --arcs\n\n{usage}"))?;
     let (directed_graph, _) = parse_directed_graph(arcs_str, Some(num_vertices))
         .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
@@ -1761,7 +1546,7 @@ fn parse_mixed_graph(args: &CreateArgs, usage: &str) -> Result<MixedGraph> {
 
 /// Parse `--weights` as arc weights (i32), defaulting to all 1s.
 fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
-    match &args.weights {
+    match &args.raw("weights") {
         Some(w) => {
             let weights: Vec<i32> = w
                 .split(',')
@@ -1780,9 +1565,9 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
     }
 }
 
-/// Parse `--arc-weights` / `--arc-lengths` as per-arc costs (i32), defaulting to all 1s.
+/// Parse StackerCrane `--arc-lengths` as per-arc costs, defaulting to all 1s.
 fn parse_arc_costs(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
-    match &args.arc_costs {
+    match &args.raw("arc-lengths") {
         Some(costs) => {
             let parsed: Vec<i32> = costs
                 .split(',')
@@ -1798,6 +1583,42 @@ fn parse_arc_costs(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
 }
 
 /// Parse `--candidate-arcs` as `u>v:w` entries for StrongConnectivityAugmentation.
+pub(super) fn supports_random(name: &str) -> bool {
+    matches!(
+        name,
+        "DecisionMinimumVertexCover"
+            | "MaximumIndependentSet"
+            | "MinimumVertexCover"
+            | "MaximumClique"
+            | "MinimumDominatingSet"
+            | "MaximalIS"
+            | "KClique"
+            | "MinimumCutIntoBoundedSets"
+            | "HamiltonianCircuit"
+            | "HamiltonianPath"
+            | "HamiltonianPathBetweenTwoVertices"
+            | "LongestCircuit"
+            | "MinimumMaximalMatching"
+            | "RootedTreeArrangement"
+            | "SteinerTree"
+            | "SteinerTreeInGraphs"
+            | "LengthBoundedDisjointPaths"
+            | "MaximumAchromaticNumber"
+            | "MaximumDomaticNumber"
+            | "MinimumCoveringByCliques"
+            | "MinimumIntersectionGraphBasis"
+            | "MaximumLeafSpanningTree"
+            | "GeneralizedHex"
+            | "BottleneckTravelingSalesman"
+            | "MaxCut"
+            | "MaximumMatching"
+            | "TravelingSalesman"
+            | "SpinGlass"
+            | "KColoring"
+            | "OptimalLinearArrangement"
+    )
+}
+
 /// Handle `pred create <PROBLEM> --random ...`
 fn create_random(
     args: &CreateArgs,
@@ -1805,7 +1626,7 @@ fn create_random(
     resolved_variant: &BTreeMap<String, String>,
     out: &OutputConfig,
 ) -> Result<()> {
-    let num_vertices = args.num_vertices.ok_or_else(|| {
+    let num_vertices = args.value::<usize>("num-vertices").ok_or_else(|| {
         anyhow::anyhow!(
             "--random requires --num-vertices\n\n\
              Usage: pred create {} --random --num-vertices 10 [--edge-prob 0.3] [--seed 42]",
@@ -1817,7 +1638,7 @@ fn create_random(
 
     let (data, variant) = match canonical {
         "DecisionMinimumVertexCover" => {
-            let raw_bound = args.bound.ok_or_else(|| {
+            let raw_bound = args.value::<i64>("bound").ok_or_else(|| {
                 anyhow::anyhow!(
                     "DecisionMinimumVertexCover requires --bound\n\n\
                      Usage: pred create DecisionMinimumVertexCover --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --bound 3"
@@ -1831,7 +1652,7 @@ fn create_random(
             let weights = vec![1i32; num_vertices];
             match graph_type {
                 "KingsSubgraph" => {
-                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.value::<u64>("seed"));
                     let graph = KingsSubgraph::new(positions);
                     (
                         ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
@@ -1839,7 +1660,7 @@ fn create_random(
                     )
                 }
                 "TriangularSubgraph" => {
-                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.value::<u64>("seed"));
                     let graph = TriangularSubgraph::new(positions);
                     (
                         ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
@@ -1847,8 +1668,8 @@ fn create_random(
                     )
                 }
                 "UnitDiskGraph" => {
-                    let positions = util::create_random_float_positions(num_vertices, args.seed);
-                    let radius = args.radius.unwrap_or(1.5);
+                    let positions = util::create_random_float_positions(num_vertices, args.value::<u64>("seed"));
+                    let radius = args.value::<f64>("radius").unwrap_or(1.5);
                     let graph = UnitDiskGraph::new(positions, radius);
                     (
                         ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
@@ -1856,11 +1677,11 @@ fn create_random(
                     )
                 }
                 _ => {
-                    let edge_prob = args.edge_prob.unwrap_or(0.5);
+                    let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
                     if !(0.0..=1.0).contains(&edge_prob) {
                         bail!("--edge-prob must be between 0.0 and 1.0");
                     }
-                    let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+                    let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
                     (
                         ser_decision_minimum_vertex_cover_with(graph, weights, bound)?,
                         resolved_variant.clone(),
@@ -1878,7 +1699,7 @@ fn create_random(
             let weights = vec![1i32; num_vertices];
             match graph_type {
                 "KingsSubgraph" => {
-                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.value::<u64>("seed"));
                     let graph = KingsSubgraph::new(positions);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1886,7 +1707,7 @@ fn create_random(
                     )
                 }
                 "TriangularSubgraph" => {
-                    let positions = util::create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.value::<u64>("seed"));
                     let graph = TriangularSubgraph::new(positions);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1894,8 +1715,8 @@ fn create_random(
                     )
                 }
                 "UnitDiskGraph" => {
-                    let radius = args.radius.unwrap_or(1.0);
-                    let positions = util::create_random_float_positions(num_vertices, args.seed);
+                    let radius = args.value::<f64>("radius").unwrap_or(1.0);
+                    let positions = util::create_random_float_positions(num_vertices, args.value::<u64>("seed"));
                     let graph = UnitDiskGraph::new(positions, radius);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1903,11 +1724,11 @@ fn create_random(
                     )
                 }
                 _ => {
-                    let edge_prob = args.edge_prob.unwrap_or(0.5);
+                    let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
                     if !(0.0..=1.0).contains(&edge_prob) {
                         bail!("--edge-prob must be between 0.0 and 1.0");
                     }
-                    let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+                    let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
                     let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                     let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
                     (data, variant)
@@ -1916,14 +1737,14 @@ fn create_random(
         }
 
         "KClique" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let usage =
                 "Usage: pred create KClique --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] --k 3";
-            let k = parse_kclique_threshold(args.k, graph.num_vertices(), usage)?;
+            let k = parse_kclique_threshold(args.value::<usize>("k"), graph.num_vertices(), usage)?;
             (
                 ser(KClique::new(graph, k))?,
                 variant_map(&[("graph", "SimpleGraph")]),
@@ -1932,11 +1753,11 @@ fn create_random(
 
         // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
         "MinimumCutIntoBoundedSets" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let source = 0;
@@ -1957,11 +1778,11 @@ fn create_random(
 
         // MaximumAchromaticNumber (graph only, no weights)
         "MaximumAchromaticNumber" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MaximumAchromaticNumber::new(graph))?,
@@ -1971,11 +1792,11 @@ fn create_random(
 
         // MaximumDomaticNumber (graph only, no weights)
         "MaximumDomaticNumber" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MaximumDomaticNumber::new(graph))?,
@@ -1985,11 +1806,11 @@ fn create_random(
 
         // MinimumCoveringByCliques (graph only, no weights)
         "MinimumCoveringByCliques" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MinimumCoveringByCliques::new(graph))?,
@@ -1999,11 +1820,11 @@ fn create_random(
 
         // MinimumIntersectionGraphBasis (graph only, no weights)
         "MinimumIntersectionGraphBasis" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MinimumIntersectionGraphBasis::new(graph))?,
@@ -2013,22 +1834,22 @@ fn create_random(
 
         // MinimumMaximalMatching (graph only, no weights)
         "MinimumMaximalMatching" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(MinimumMaximalMatching::new(graph))?, variant)
         }
 
         // Hamiltonian Circuit (graph only, no weights)
         "HamiltonianCircuit" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(HamiltonianCircuit::new(graph))?, variant)
         }
@@ -2036,11 +1857,11 @@ fn create_random(
         // Maximum Leaf Spanning Tree (graph only, no weights)
         "MaximumLeafSpanningTree" => {
             let num_vertices = num_vertices.max(2);
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (
                 ser(problemreductions::models::graph::MaximumLeafSpanningTree::new(graph))?,
@@ -2050,11 +1871,11 @@ fn create_random(
 
         // HamiltonianPath (graph only, no weights)
         "HamiltonianPath" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(HamiltonianPath::new(graph))?, variant)
         }
@@ -2062,14 +1883,13 @@ fn create_random(
         // HamiltonianPathBetweenTwoVertices (graph + source/target)
         "HamiltonianPathBetweenTwoVertices" => {
             let num_vertices = num_vertices.max(2);
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let source_vertex = args.source_vertex.unwrap_or(0);
-            let target_vertex = args
-                .target_vertex
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
+            let source_vertex = args.value::<usize>("source-vertex").unwrap_or(0);
+            let target_vertex = args.value::<usize>("target-vertex")
                 .unwrap_or_else(|| num_vertices.saturating_sub(1));
             ensure_vertex_in_bounds(source_vertex, graph.num_vertices(), "source_vertex")?;
             ensure_vertex_in_bounds(target_vertex, graph.num_vertices(), "target_vertex")?;
@@ -2090,11 +1910,11 @@ fn create_random(
 
         // LongestCircuit (graph + unit edge lengths)
         "LongestCircuit" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let edge_lengths = vec![1i32; graph.num_edges()];
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
@@ -2103,13 +1923,13 @@ fn create_random(
         // GeneralizedHex (graph only, with source/sink defaults)
         "GeneralizedHex" => {
             let num_vertices = num_vertices.max(2);
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let source = args.source.unwrap_or(0);
-            let sink = args.sink.unwrap_or(num_vertices - 1);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
+            let source = args.value::<usize>("source").unwrap_or(0);
+            let sink = args.value::<usize>("sink").unwrap_or(num_vertices - 1);
             let usage = "Usage: pred create GeneralizedHex --random --num-vertices 6 [--edge-prob 0.5] [--seed 42] [--source 0] [--sink 5]";
             validate_vertex_index("source", source, num_vertices, usage)?;
             validate_vertex_index("sink", sink, num_vertices, usage)?;
@@ -2131,14 +1951,16 @@ fn create_random(
             } else {
                 num_vertices
             };
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let source = args.source.unwrap_or(0);
-            let sink = args.sink.unwrap_or(num_vertices - 1);
-            let bound = args.bound.unwrap_or((num_vertices - 1) as i64);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
+            let source = args.value::<usize>("source").unwrap_or(0);
+            let sink = args.value::<usize>("sink").unwrap_or(num_vertices - 1);
+            let bound = args
+                .value::<i64>("max-length")
+                .unwrap_or((num_vertices - 1) as i64);
             let max_length = validate_length_bounded_disjoint_paths_args(
                 num_vertices,
                 source,
@@ -2160,11 +1982,11 @@ fn create_random(
 
         // Graph problems with edge weights
         "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let variant = match canonical {
@@ -2185,11 +2007,11 @@ fn create_random(
 
         // SteinerTreeInGraphs
         "SteinerTreeInGraphs" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             // Use first half of vertices as terminals (at least 2)
@@ -2208,11 +2030,11 @@ fn create_random(
                 num_vertices >= 2,
                 "SteinerTree random generation requires --num-vertices >= 2"
             );
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let mut state = util::lcg_init(args.seed);
+            let mut state = util::lcg_init(args.value::<u64>("seed"));
             let graph = util::create_random_graph(num_vertices, edge_prob, Some(state));
             // Advance state past the graph generation
             for _ in 0..num_vertices * num_vertices {
@@ -2232,11 +2054,11 @@ fn create_random(
 
         // SpinGlass
         "SpinGlass" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let num_edges = graph.num_edges();
             let couplings = vec![1i32; num_edges];
             let fields = vec![0i32; num_vertices];
@@ -2249,38 +2071,37 @@ fn create_random(
 
         // KColoring
         "KColoring" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let (k, _variant) =
-                util::validate_k_param(resolved_variant, args.k, Some(3), "KColoring")?;
+                util::validate_k_param(resolved_variant, args.value::<usize>("k"), Some(3), "KColoring")?;
             util::ser_kcoloring(graph, k)?
         }
 
         // OptimalLinearArrangement — graph only (optimization)
         "OptimalLinearArrangement" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(OptimalLinearArrangement::new(graph))?, variant)
         }
 
         // RootedTreeArrangement — graph + bound
         "RootedTreeArrangement" => {
-            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            let edge_prob = args.value::<f64>("edge-prob").unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.value::<u64>("seed"));
             let n = graph.num_vertices();
             let usage = "Usage: pred create RootedTreeArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
-            let bound = args
-                .bound
+            let bound = args.value::<i64>("bound")
                 .map(|b| parse_nonnegative_usize_bound(b, "RootedTreeArrangement", usage))
                 .transpose()?
                 .unwrap_or((n.saturating_sub(1)) * graph.num_edges());

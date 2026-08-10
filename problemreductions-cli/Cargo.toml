@@ -20,7 +20,7 @@ mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subs
 
 [dependencies]
 problemreductions = { version = "0.6.0", path = "..", features = ["example-db"] }
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "string"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
