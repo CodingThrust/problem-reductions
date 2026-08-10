@@ -90,7 +90,7 @@ fn write_json<T: Serialize>(data: &T, path: &Path) {
     println!("  Wrote: {}", path.display());
 }
 
-fn main() {
+pub fn run(output_dir: &Path) {
     println!("\n=== Independent Set to Grid Graph IS (Unit Disk Mapping) ===\n");
 
     // Petersen graph: n=10, MIS=4
@@ -133,7 +133,7 @@ fn main() {
         edges: petersen_edges.clone(),
         mis: petersen_mis,
     };
-    write_json(&source, Path::new("docs/paper/static/petersen_source.json"));
+    write_json(&source, &output_dir.join("petersen_source.json"));
 
     println!("\n=== Mapping to Grid Graphs ===\n");
 
@@ -155,7 +155,7 @@ fn main() {
     );
     write_json(
         &square_weighted_viz,
-        Path::new("docs/paper/static/petersen_square_weighted.json"),
+        &output_dir.join("petersen_square_weighted.json"),
     );
 
     // Map to unweighted King's subgraph (square lattice)
@@ -179,7 +179,7 @@ fn main() {
     );
     write_json(
         &square_unweighted_viz,
-        Path::new("docs/paper/static/petersen_square_unweighted.json"),
+        &output_dir.join("petersen_square_unweighted.json"),
     );
 
     // Map to weighted triangular lattice
@@ -200,7 +200,7 @@ fn main() {
     );
     write_json(
         &triangular_viz,
-        Path::new("docs/paper/static/petersen_triangular.json"),
+        &output_dir.join("petersen_triangular.json"),
     );
 
     println!("\n=== Summary ===\n");
@@ -227,4 +227,8 @@ fn main() {
 
     println!("\n✓ Unit disk mapping demonstrated successfully");
     println!("  JSON files exported for paper visualization");
+}
+
+fn main() {
+    run(Path::new("docs/paper/static"));
 }

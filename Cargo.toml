@@ -19,6 +19,7 @@ categories = ["algorithms", "science"]
 [features]
 default = ["ilp-highs"]
 example-db = []
+benchmarks = ["dep:criterion"]
 ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
@@ -38,21 +39,29 @@ good_lp = { version = "=1.14.2", default-features = false, optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.10"
+criterion = { version = "0.8", optional = true }
 problemreductions-macros = { version = "0.6.0", path = "problemreductions-macros" }
 problemreductions-expr = { version = "0.6.0", path = "problemreductions-expr" }
 
 [dev-dependencies]
 proptest = "1.0"
-criterion = "0.8"
 
 [[bench]]
 name = "solver_benchmarks"
 harness = false
+required-features = ["benchmarks"]
 
 [[example]]
 name = "export_examples"
 path = "examples/export_examples.rs"
 required-features = ["example-db"]
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.debug-dev]
+inherits = "dev"
+debug = "full"
 
 [profile.release]
 lto = true

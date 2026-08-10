@@ -49,16 +49,15 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
-        run: cargo clippy --all-targets --features ilp-highs -- -D warnings
+        run: cargo clippy --all-targets --features "ilp-highs example-db" -- -D warnings
 
-  # Cross-compile the portable Rust surface to RISC-V Linux, then execute the
-  # CLI under QEMU user-mode emulation to verify runtime behavior (not just
-  # that the binary links).
+  # Cross-compile the full HiGHS-backed CLI to RISC-V Linux, then execute an
+  # ILP solve under QEMU user-mode emulation (not just a link check).
   riscv:
     name: RISC-V build & run
     runs-on: ubuntu-latest
     env:
-      FEATURES: "ilp-lp-solvers"
+      FEATURES: "ilp-highs"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -68,10 +67,12 @@ jobs:
       - name: Install RISC-V cross tools and QEMU
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu qemu-user
+          sudo apt-get install -y gcc-riscv64-linux-gnu g++-riscv64-linux-gnu binutils-riscv64-linux-gnu qemu-user
       - name: Build workspace for RISC-V
         env:
           CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
+          CC_riscv64gc_unknown_linux_gnu: riscv64-linux-gnu-gcc
+          CXX_riscv64gc_unknown_linux_gnu: riscv64-linux-gnu-g++
         run: cargo build --workspace --no-default-features --features "$FEATURES" --target riscv64gc-unknown-linux-gnu
       - name: Verify RISC-V executable
         run: |
@@ -83,9 +84,10 @@ jobs:
         run: |
           # Registry loads and the catalog renders on RISC-V.
           $PRED list | head -5
-          # End-to-end create + brute-force solve: MIS of a 5-cycle is 2.
+          # End-to-end reduction and HiGHS solve: MIS of a 5-cycle is 2.
           $PRED create MaximumIndependentSet --graph 0-1,1-2,2-3,3-4,4-0 -o mis.json
-          $PRED solve mis.json --solver brute-force | tee solve.out
+          $PRED solve mis.json --solver ilp | tee solve.out
+          grep -q '"kind": "ilp"' solve.out
           grep -q '"evaluation": "Max(2)"' solve.out
 
   # Build, test (nextest), doc tests, and paper.
@@ -108,14 +110,6 @@ jobs:
 
       - name: Compile tests
         run: cargo nextest run --no-run --workspace --features "$FEATURES"
-
-      # The subprocess example tests (tests/suites/examples.rs) shell out to
-      # `cargo run --example … --features ilp-highs`. Pre-build those example
-      # binaries with that exact feature set so the subprocess reuses artifacts
-      # instead of recompiling the whole crate mid-test (which otherwise adds
-      # 60s+ to a single test's wall-clock and would trip the nextest timeout).
-      - name: Build examples (for subprocess tests)
-        run: cargo build --examples --features ilp-highs
 
       - name: Run tests
         run: cargo nextest run --workspace --features "$FEATURES"
