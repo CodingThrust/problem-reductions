@@ -177,15 +177,13 @@ mod tests {
         let server = McpServer::new();
         let params = serde_json::json!({
             "edges": "0-1,1-2,2-0",
-            "edge_lengths": "2,3,4",
-            "bound": 3
+            "edge_lengths": "2,3,4"
         });
         let result = server.create_problem_inner("LongestCircuit", &params);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["type"], "LongestCircuit");
         assert_eq!(json["data"]["edge_lengths"], serde_json::json!([2, 3, 4]));
-        assert_eq!(json["data"]["bound"], 3);
     }
 
     #[test]
@@ -194,14 +192,18 @@ mod tests {
         let params = serde_json::json!({
             "random": true,
             "num_vertices": 5,
-            "seed": 7,
-            "bound": 4
+            "seed": 7
         });
         let result = server.create_problem_inner("LongestCircuit", &params);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert_eq!(json["type"], "LongestCircuit");
-        assert_eq!(json["data"]["bound"], 4);
+        assert_eq!(json["data"]["graph"]["num_vertices"], 5);
+        assert!(json["data"]["edge_lengths"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|length| length == 1));
     }
 
     #[test]
