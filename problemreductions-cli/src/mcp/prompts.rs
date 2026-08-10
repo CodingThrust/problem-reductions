@@ -149,8 +149,8 @@ pub fn get_prompt(
                     "Compare \"{a}\" and \"{b}\".\n\n\
                      How are they related? Is there a direct reduction between them, or do \
                      they connect through intermediate problems? What are the key differences \
-                     in what they model? If one can be reduced to the other, what is the \
-                     exact or certified size contract?"
+                     in what they model? If one can be reduced to the other, how does the \
+                     problem size change?"
                 ),
             ))
         }
@@ -163,7 +163,7 @@ pub fn get_prompt(
                 &format!(
                     "Walk me through reducing a \"{source}\" instance to \"{target}\", step \
                      by step.\n\n\
-                     1. Find the reduction path and explain which target-size fields are exact, certified bounds, or unavailable.\n\
+                     1. Find the reduction path and explain how the problem size changes at each step.\n\
                      2. Create a small, concrete example instance of \"{source}\".\n\
                      3. Reduce it to \"{target}\" and show what the transformed instance \
                         looks like.\n\
@@ -196,9 +196,8 @@ pub fn get_prompt(
                 &format!("Find reduction path from {source} to {target}"),
                 &format!(
                     "Enumerate symbolic reduction paths from \"{source}\" to \"{target}\".\n\n\
-                     Show each route and the strongest available size relation for every field: \
-                     exact first, otherwise a certified upper bound, otherwise the unavailable \
-                     reason. Do not rank, prune, or recommend a route."
+                     Show each route and explain how the problem size changes at each step. \
+                     Do not rank, prune, or recommend a route."
                 ),
             ))
         }
