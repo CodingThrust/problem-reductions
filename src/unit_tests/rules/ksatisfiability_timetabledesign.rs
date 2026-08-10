@@ -1,7 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::misc::TimetableDesign;
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -71,7 +70,6 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let source = satisfiable_instance();
@@ -87,7 +85,6 @@ fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let source = unsatisfiable_instance();

@@ -3,12 +3,10 @@
 mod brute_force;
 pub mod decision_search;
 mod native;
-#[cfg(feature = "ilp-solver")]
 mod pipelines;
 mod registry;
 mod resolver;
 
-#[cfg(feature = "ilp-solver")]
 pub mod ilp;
 
 pub use brute_force::BruteForce;
@@ -21,7 +19,6 @@ pub use resolver::{
     SolverRequest,
 };
 
-#[cfg(feature = "ilp-solver")]
 pub use ilp::{ILPSolveError, ILPSolver};
 
 use crate::traits::Problem;

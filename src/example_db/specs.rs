@@ -68,7 +68,6 @@ where
 /// This is the standard pattern for canonical ILP rule examples: reduce once,
 /// solve the ILP, extract the source config, and build the example — avoiding
 /// the double `reduce_to()` that would occur with `rule_example_with_witness`.
-#[cfg(feature = "ilp-solver")]
 pub fn rule_example_via_ilp<S, V>(source: S) -> RuleExample
 where
     S: Problem + Serialize + ReduceTo<crate::models::algebraic::ILP<V>>,

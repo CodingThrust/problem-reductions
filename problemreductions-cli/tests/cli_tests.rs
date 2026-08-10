@@ -9358,10 +9358,8 @@ fn test_extract_roundtrip_mis_to_qubo() {
         String::from_utf8_lossy(&reduce_out.stderr)
     );
 
-    // Derive a valid target config from `pred solve`, so this test works
-    // regardless of which reduction path is chosen (path length varies with
-    // feature flags — e.g. mcp build picks MIS -> ... -> ILP -> QUBO instead
-    // of the shorter MaxSetPacking -> QUBO path).
+    // Derive a valid target config from `pred solve`, so this test remains
+    // independent of the reduction path selected by the graph search.
     let (target_cfg, expected_source_eval) = extract_test_solve_bundle(&bundle_file);
 
     let extract_out = pred()

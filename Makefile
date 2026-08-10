@@ -1,10 +1,11 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
+.PHONY: help build test bench mcp-test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review papers papers-lookup papers-download papers-scihub papers-status papers-push papers-pull papers-index
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
+TEST_FEATURES := example-db
 
 # Cross-platform sed in-place: macOS needs -i '', Linux needs -i
 SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
@@ -14,6 +15,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build        - Build the project"
 	@echo "  test         - Run all tests"
+	@echo "  bench        - Run solver benchmarks"
 	@echo "  mcp-test     - Run MCP server tests"
 	@echo "  fmt          - Format code with rustfmt"
 	@echo "  fmt-check    - Check code formatting"
@@ -62,11 +64,15 @@ help:
 
 # Build the project
 build:
-	cargo build --features ilp-highs
+	cargo build
 
 # Run all workspace tests (including ignored tests)
 test:
-	cargo test --features "ilp-highs example-db" --workspace -- --include-ignored
+	cargo test --features "$(TEST_FEATURES)" --workspace -- --include-ignored
+
+# Compile Criterion only when benchmarks are requested
+bench:
+	cargo bench --features benchmarks
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests
@@ -82,7 +88,7 @@ fmt-check:
 
 # Run clippy
 clippy:
-	cargo clippy --all-targets --features ilp-highs -- -D warnings
+	cargo clippy --all-targets --features "$(TEST_FEATURES)" -- -D warnings
 
 node_modules/elkjs/package.json: package.json package-lock.json
 	npm ci
@@ -95,7 +101,7 @@ doc: node_modules/elkjs/package.json
 	cargo run --example export_module_graph
 	bash scripts/generate_doc_snippets.sh target/release/pred
 	mdbook build docs
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
@@ -123,7 +129,7 @@ mdbook: node_modules/elkjs/package.json
 	@echo "Generating CLI doc snippets..."
 	@bash scripts/generate_doc_snippets.sh target/release/pred 2>&1 | tail -1
 	@echo "Building API docs..."
-	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
+	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps 2>&1 | tail -1
 	@echo "Building mdBook..."
 	@mdbook build
 	rm -rf book/api
@@ -140,16 +146,16 @@ export-schemas:
 
 # Build Typst paper (generates example data on demand)
 paper:
-	cargo run --features "example-db" --example export_examples
-	cargo run --example export_petersen_mapping
-	cargo run --example export_graph
-	cargo run --example export_schemas
+	cargo run --features "$(TEST_FEATURES)" --example export_examples
+	cargo run --features "$(TEST_FEATURES)" --example export_petersen_mapping
+	cargo run --features "$(TEST_FEATURES)" --example export_graph
+	cargo run --features "$(TEST_FEATURES)" --example export_schemas
 	typst compile --root . docs/paper/reductions.typ docs/paper/reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	cargo llvm-cov --features ilp-highs --workspace --html --open
+	cargo llvm-cov --workspace --html --open
 
 # Clean build artifacts
 clean:

@@ -463,7 +463,7 @@ pub trait Solver {
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates all configurations. `solve()` works for any aggregate problem; `find_witness()`, `find_all_witnesses()`, and `solve_with_witnesses()` are available when `P::Value` supports witnesses. Used for testing and verification. |
-| **ILPSolver** | Enabled by default. Solves `ILP<bool>` and `ILP<i32>` instances directly with HiGHS via `good_lp`. Also provides `solve_reduced::<V, _>()` for witness-capable problems that implement `ReduceTo<ILP<V>>`. |
+| **ILPSolver** | Solves `ILP<bool>` and `ILP<i32>` instances directly with HiGHS via `good_lp`. Also provides `solve_reduced::<V, _>()` for witness-capable problems that implement `ReduceTo<ILP<V>>`. |
 
 ## JSON Serialization
 

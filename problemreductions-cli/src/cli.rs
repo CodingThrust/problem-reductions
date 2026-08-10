@@ -1239,10 +1239,7 @@ When given a bundle, the target is solved and the solution is mapped back to the
 By default, solve deterministically selects the exact variant's registered native
 backend, then its fixed ILP pipeline, and otherwise brute force. `--solver ilp`
 requires a registered ILP pipeline; it never searches the reduction graph.
-
-ILP backend (default: HiGHS). To use CPLEX instead:
-  cargo install problemreductions-cli --features cplex
-(Requires CPLEX to be installed on your system.)")]
+ILP problems are solved with HiGHS.")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,

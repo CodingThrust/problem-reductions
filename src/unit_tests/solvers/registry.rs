@@ -178,12 +178,10 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
 fn solver_capability_registry_production_registry_has_expected_exact_capability_counts() {
     let registry = solver_capability_registry().unwrap();
     assert_eq!(registry.native_entries().count(), 7);
-    #[cfg(feature = "ilp-solver")]
     assert_eq!(registry.ilp_entries().count(), 151);
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn solver_capability_registry_exposes_representative_capability_classes() {
     let key = |name: &str, variant: &[(&str, &str)]| {
         ExactProblemKey::new(
@@ -250,7 +248,6 @@ fn solver_capability_registry_does_not_leak_across_exact_variants() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn solver_capability_registry_ignores_unrelated_reduction_edges() {
     let source = ExactProblemKey::new(
         "MaximumIndependentSet",
@@ -325,7 +322,6 @@ fn solver_capability_registry_ignores_unrelated_reduction_edges() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
     let registration = inventory::iter::<IlpPipelineRegistration>
         .into_iter()

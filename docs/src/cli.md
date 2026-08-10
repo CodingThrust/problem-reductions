@@ -33,15 +33,7 @@ cargo run -p problemreductions-cli --bin pred -- --version
 
 ### ILP Backend
 
-The default ILP backend is HiGHS. To use a different backend:
-
-```bash
-cargo install problemreductions-cli --features coin-cbc
-cargo install problemreductions-cli --features scip
-cargo install problemreductions-cli --no-default-features --features clarabel
-```
-
-Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`, `microlp`.
+ILP problems are solved with the bundled HiGHS backend.
 
 ## Quick Start
 

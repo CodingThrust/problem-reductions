@@ -2404,11 +2404,11 @@ mod tests;
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]
 mod reduction_path_parity_tests;
 
-#[cfg(all(test, feature = "ilp-solver"))]
+#[cfg(test)]
 #[path = "../unit_tests/rules/maximumindependentset_ilp.rs"]
 mod maximumindependentset_ilp_path_tests;
 
-#[cfg(all(test, feature = "ilp-solver"))]
+#[cfg(test)]
 #[path = "../unit_tests/rules/minimumvertexcover_ilp.rs"]
 mod minimumvertexcover_ilp_path_tests;
 

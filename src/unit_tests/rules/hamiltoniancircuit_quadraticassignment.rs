@@ -111,7 +111,6 @@ fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
     );
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     use crate::models::algebraic::ILP;

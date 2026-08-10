@@ -193,7 +193,6 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     );
 }
 
-#[cfg(feature = "ilp-solver")]
 pub(crate) fn assert_bf_vs_ilp<R>(source: &R::Source, reduction: &R)
 where
     R: ReductionResult,

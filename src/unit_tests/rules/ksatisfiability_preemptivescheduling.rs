@@ -2,7 +2,6 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::{PrecedenceConstrainedScheduling, PreemptiveScheduling};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -22,7 +21,6 @@ fn no_single_variable_instance() -> KSatisfiability<K3> {
     )
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_threshold_schedule_via_ilp(
     target: &PreemptiveScheduling,
     deadline: usize,
@@ -92,7 +90,6 @@ fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
     let source = yes_single_variable_instance();
@@ -112,7 +109,6 @@ fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_unsatisfiable_threshold_gap() {
     let source = no_single_variable_instance();
