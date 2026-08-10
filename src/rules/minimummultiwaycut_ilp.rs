@@ -60,9 +60,6 @@ impl ReductionResult for ReductionMMCToILP {
         num_vars = "num_terminals * num_vertices + num_edges",
         num_constraints = "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
     type Result = ReductionMMCToILP;

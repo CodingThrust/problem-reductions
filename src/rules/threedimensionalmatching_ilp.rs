@@ -33,9 +33,6 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToILP {
         num_vars = "num_triples",
         num_constraints = "3 * universe_size",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToILP;

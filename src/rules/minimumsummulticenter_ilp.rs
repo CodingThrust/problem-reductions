@@ -121,7 +121,6 @@ fn weighted_distances_msmc(
     },
     unavailable = {
         num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {

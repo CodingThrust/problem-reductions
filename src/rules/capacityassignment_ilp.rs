@@ -54,9 +54,6 @@ impl ReductionResult for ReductionCAToILP {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;

@@ -38,10 +38,7 @@ impl ReductionResult for ReductionBinaryILPToIntILP {
     exact = {
         num_vars = "num_vars",
         num_constraints = "num_constraints + num_vars",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<i32>> for ILP<bool> {
     type Result = ReductionBinaryILPToIntILP;
 

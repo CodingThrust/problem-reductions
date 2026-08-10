@@ -39,9 +39,6 @@ impl ReductionResult for ReductionKnapsackToILP {
         num_vars = "num_items",
         num_constraints = "1",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;

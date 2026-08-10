@@ -131,9 +131,6 @@ impl ReductionResult for ReductionCDFTToILP {
         num_vars = "num_assignment_indicators + num_auxiliary_frequency_indicators",
         num_constraints = "num_assignment_variables + num_known_values + num_frequency_cells + 3 * num_auxiliary_frequency_indicators",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
     type Result = ReductionCDFTToILP;

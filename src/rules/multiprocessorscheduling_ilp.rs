@@ -53,9 +53,6 @@ impl ReductionResult for ReductionMSToILP {
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;

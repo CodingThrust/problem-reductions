@@ -39,9 +39,6 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
         num_vars = "num_edges",
         num_constraints = "2 * num_triangles",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;

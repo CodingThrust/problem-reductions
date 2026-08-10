@@ -112,9 +112,7 @@ fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
         .collect()
 }
 
-#[reduction(unavailable = {
-    coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-}, exact = {
+#[reduction(exact = {
     num_vars = "num_encoding_bits",
 })]
 impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {

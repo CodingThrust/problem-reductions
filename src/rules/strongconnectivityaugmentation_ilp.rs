@@ -38,9 +38,6 @@ impl ReductionResult for ReductionSCAToILP {
         num_vars = "num_potential_arcs + 2 * num_vertices * (num_arcs + num_potential_arcs)",
         num_constraints = "1 + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
     type Result = ReductionSCAToILP;

@@ -51,9 +51,6 @@ impl ReductionResult for ReductionLCSToILP {
         num_vars = "max_length * (alphabet_size + 1) + max_length * total_length",
         num_constraints = "max_length + num_transitions + max_length * num_strings + max_length * total_length + num_transitions * sum_triangular_lengths",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;

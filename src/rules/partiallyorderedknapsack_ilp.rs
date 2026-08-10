@@ -36,9 +36,6 @@ impl ReductionResult for ReductionPOKToILP {
         num_vars = "num_items",
         num_constraints = "num_precedences + 1",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
     type Result = ReductionPOKToILP;

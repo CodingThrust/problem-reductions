@@ -68,9 +68,7 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
     }
 }
 
-#[reduction(unavailable = {
-    coefficient_encoding_bits = "the source size vector omits link lengths, angles, and target-coordinate magnitudes needed to bound the encoded coefficients",
-}, exact = {
+#[reduction(exact = {
     num_vars = "num_orientation_samples",
 })]
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {

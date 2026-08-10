@@ -43,10 +43,7 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
     exact = {
         num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
         num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 

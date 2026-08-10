@@ -39,10 +39,7 @@ impl ReductionResult for ReductionMFDTSToILP {
     exact = {
         num_vars = "num_inputs * num_outputs",
         num_constraints = "num_vertices - num_inputs - num_outputs",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
     type Result = ReductionMFDTSToILP;
 

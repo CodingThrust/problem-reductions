@@ -70,9 +70,6 @@ impl ReductionResult for ReductionTSPToILP {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
         num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
     type Result = ReductionTSPToILP;

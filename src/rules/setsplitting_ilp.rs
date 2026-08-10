@@ -43,9 +43,6 @@ impl ReductionResult for ReductionSetSplittingToILP {
         num_vars = "universe_size",
         num_constraints = "2 * num_subsets",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;

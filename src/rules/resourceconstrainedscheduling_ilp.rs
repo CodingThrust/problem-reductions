@@ -48,10 +48,7 @@ impl ReductionResult for ReductionRCSToILP {
     exact = {
         num_vars = "num_tasks * deadline",
         num_constraints = "num_tasks + deadline + num_resources * deadline",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 

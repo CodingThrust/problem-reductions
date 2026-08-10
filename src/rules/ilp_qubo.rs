@@ -41,7 +41,6 @@ impl ReductionResult for ReductionILPToQUBO {
 
 #[reduction(
     unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
         num_vars = "the exact count depends on source incidence structure or construction branches not represented by registered source fields",
     }
 )]

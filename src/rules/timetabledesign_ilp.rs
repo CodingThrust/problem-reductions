@@ -42,10 +42,7 @@ impl ReductionResult for ReductionTDToILP {
     exact = {
         num_vars = "num_craftsmen * num_tasks * num_periods",
         num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 

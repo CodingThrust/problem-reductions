@@ -48,9 +48,6 @@ impl ReductionResult for ReductionSCToILP {
         num_vars = "num_sets",
         num_constraints = "universe_size",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
     type Result = ReductionSCToILP;

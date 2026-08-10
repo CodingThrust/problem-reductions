@@ -41,9 +41,6 @@ impl ReductionResult for ReductionQUBOToSG {
         num_spins = "num_vars",
         num_interactions = "num_vars^2",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
     type Result = ReductionQUBOToSG;
@@ -121,9 +118,6 @@ impl ReductionResult for ReductionSGToQUBO {
 }
 
 #[reduction(
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    },
     exact = {
         num_vars = "num_spins",
     }

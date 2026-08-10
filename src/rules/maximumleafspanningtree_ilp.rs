@@ -57,9 +57,6 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;

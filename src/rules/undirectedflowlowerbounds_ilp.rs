@@ -75,9 +75,6 @@ impl ReductionResult for ReductionUFLBToILP {
         num_vars = "3 * num_edges",
         num_constraints = "4 * num_edges + num_vertices + 1",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;

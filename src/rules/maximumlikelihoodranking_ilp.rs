@@ -77,9 +77,6 @@ impl ReductionResult for ReductionMaximumLikelihoodRankingToILP {
         num_vars = "num_items * (num_items - 1) / 2",
         num_constraints = "num_items * (num_items - 1) * (num_items - 2) / 3",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumLikelihoodRanking {
     type Result = ReductionMaximumLikelihoodRankingToILP;

@@ -44,9 +44,6 @@ impl ReductionResult for ReductionBMFToILP {
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;

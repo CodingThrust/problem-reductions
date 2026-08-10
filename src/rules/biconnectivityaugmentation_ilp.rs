@@ -41,7 +41,6 @@ impl ReductionResult for ReductionBiconnAugToILP {
     },
     unavailable = {
         num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {

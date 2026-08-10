@@ -40,9 +40,7 @@ impl ReductionResult for ReductionKnapsackToQUBO {
     }
 }
 
-#[reduction(unavailable = {
-    coefficient_encoding_bits = "the source size vector omits weight, value, and capacity magnitudes needed to bound the encoded coefficients",
-}, exact = {
+#[reduction(exact = {
     num_vars = "num_items + num_slack_bits",
 })]
 impl ReduceTo<QUBO<f64>> for Knapsack {

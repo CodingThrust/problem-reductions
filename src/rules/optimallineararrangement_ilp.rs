@@ -54,9 +54,6 @@ impl ReductionResult for ReductionOLAToILP {
         num_vars = "num_vertices^2 + num_vertices + num_edges",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
     type Result = ReductionOLAToILP;

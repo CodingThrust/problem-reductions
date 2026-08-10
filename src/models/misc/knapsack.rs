@@ -27,7 +27,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "Knapsack",
-        fields: &["num_items", "coefficient_encoding_bits"],
+        fields: &["num_items"],
     }
 }
 

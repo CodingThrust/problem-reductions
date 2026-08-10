@@ -33,7 +33,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "ILP",
-        fields: &["num_vars", "num_constraints", "coefficient_encoding_bits"],
+        fields: &["num_vars", "num_constraints"],
     }
 }
 

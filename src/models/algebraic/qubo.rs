@@ -25,7 +25,7 @@ inventory::submit! {
 inventory::submit! {
     ProblemSizeFieldEntry {
         name: "QUBO",
-        fields: &["num_vars", "coefficient_encoding_bits"],
+        fields: &["num_vars"],
     }
 }
 

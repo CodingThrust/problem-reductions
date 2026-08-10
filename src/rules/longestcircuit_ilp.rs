@@ -50,9 +50,6 @@ impl ReductionResult for ReductionLongestCircuitToILP {
         num_vars = "num_edges + num_vertices + 2 * num_edges * (num_vertices - 1)",
         num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
     type Result = ReductionLongestCircuitToILP;

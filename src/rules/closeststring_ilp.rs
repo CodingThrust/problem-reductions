@@ -83,9 +83,6 @@ impl ReductionResult for ReductionClosestStringToILP {
         num_vars = "alphabet_size * string_length + 1",
         num_constraints = "string_length + num_strings",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for ClosestString {
     type Result = ReductionClosestStringToILP;

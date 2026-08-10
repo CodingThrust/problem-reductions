@@ -55,9 +55,6 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
         num_vars = "num_cols + num_rows",
         num_constraints = "num_rows + num_cols",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;

@@ -34,9 +34,7 @@ impl ReductionResult for ReductionGraphPartitioningToQUBO {
     }
 }
 
-#[reduction(unavailable = {
-    coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-}, exact = {
+#[reduction(exact = {
     num_vars = "num_vertices",
 })]
 impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {

@@ -421,8 +421,6 @@ exact = {
 bound = {
     num_clauses = "3 * num_edges",
 },
-unavailable = {
-    coefficient_encoding_bits = "source size omits coefficient magnitudes",
 })]
 impl ReduceTo<Target> for Source { ... }
 ```

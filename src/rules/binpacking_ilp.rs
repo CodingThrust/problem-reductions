@@ -52,9 +52,6 @@ impl ReductionResult for ReductionBPToILP {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for BinPacking<i32> {
     type Result = ReductionBPToILP;

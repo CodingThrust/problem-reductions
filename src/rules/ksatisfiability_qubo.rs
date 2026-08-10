@@ -301,9 +301,6 @@ fn build_qubo_matrix(
 }
 
 #[reduction(
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    },
     exact = {
         num_vars = "num_vars",
     }
@@ -323,9 +320,6 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 }
 
 #[reduction(
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    },
     exact = {
         num_vars = "num_vars + num_clauses",
     }

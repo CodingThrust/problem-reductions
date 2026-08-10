@@ -5331,7 +5331,6 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(relations["num_vars"], "exact");
     assert_eq!(relations["num_constraints"], "unavailable");
-    assert_eq!(relations["coefficient_encoding_bits"], "unavailable");
 }
 
 #[test]

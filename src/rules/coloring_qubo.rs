@@ -104,9 +104,6 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    },
     exact = {
         num_vars = "num_vertices * num_colors",
     }

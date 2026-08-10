@@ -53,9 +53,6 @@ impl ReductionResult for ReductionMMMToILP {
         num_vars = "num_edges",
         num_constraints = "num_vertices + num_edges",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
     type Result = ReductionMMMToILP;

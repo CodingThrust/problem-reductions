@@ -128,9 +128,6 @@ where
         num_vars = "num_vertices + num_edges",
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i32> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i32>;
@@ -146,9 +143,6 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i32> {
         num_vars = "num_vertices + num_edges",
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<f64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<f64>;

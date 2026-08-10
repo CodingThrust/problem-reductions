@@ -155,7 +155,6 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
         num_constraints = "num_vertices",
     },
     unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
         num_vars = "the exact count is the number of feasible highly connected vertex subsets, a hard structural parameter absent from the source size vector",
     }
 )]

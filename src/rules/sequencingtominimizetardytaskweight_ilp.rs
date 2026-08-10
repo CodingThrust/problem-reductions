@@ -45,10 +45,7 @@ impl ReductionResult for ReductionSTMTTWToILP {
     exact = {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_tasks * num_tasks",
-    },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
-})]
+    },)]
 impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
     type Result = ReductionSTMTTWToILP;
 

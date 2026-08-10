@@ -35,9 +35,6 @@ fn partition_size_to_i64(value: u64) -> i64 {
 
 #[reduction(
     exact = { num_items = "num_elements" },
-    unavailable = {
-        coefficient_encoding_bits = "the source size vector omits item magnitudes needed to bound the encoded coefficients",
-    }
 )]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;
