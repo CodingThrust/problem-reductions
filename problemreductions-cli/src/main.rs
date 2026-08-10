@@ -13,7 +13,20 @@ use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};
 use output::OutputConfig;
 
+const CLI_STACK_SIZE: usize = 8 * 1024 * 1024;
+
 fn main() -> anyhow::Result<()> {
+    match std::thread::Builder::new()
+        .stack_size(CLI_STACK_SIZE)
+        .spawn(run)?
+        .join()
+    {
+        Ok(result) => result,
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
