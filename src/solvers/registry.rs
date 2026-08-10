@@ -2,7 +2,6 @@
 
 use crate::registry::VariantEntry;
 use crate::rules::registry::{reduction_entries, ReduceFn, ReductionEntry};
-#[cfg(feature = "ilp-solver")]
 use crate::rules::DynReductionResult;
 use serde::Serialize;
 use std::any::Any;
@@ -115,7 +114,6 @@ impl CompiledIlpPipeline {
         self.path.iter().map(ExactProblemKey::label).collect()
     }
 
-    #[cfg(feature = "ilp-solver")]
     pub(crate) fn solve(
         &self,
         source: &dyn Any,

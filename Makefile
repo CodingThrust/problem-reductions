@@ -5,7 +5,7 @@
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
 CODEX_MODEL ?= gpt-5.4
-TEST_FEATURES := ilp-highs example-db
+TEST_FEATURES := example-db
 
 # Cross-platform sed in-place: macOS needs -i '', Linux needs -i
 SED_I := sed -i$(shell if [ "$$(uname)" = "Darwin" ]; then echo " ''"; fi)
@@ -64,7 +64,7 @@ help:
 
 # Build the project
 build:
-	cargo build --features ilp-highs
+	cargo build
 
 # Run all workspace tests (including ignored tests)
 test:
@@ -101,7 +101,7 @@ doc: node_modules/elkjs/package.json
 	cargo run --example export_module_graph
 	bash scripts/generate_doc_snippets.sh target/release/pred
 	mdbook build docs
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
@@ -129,7 +129,7 @@ mdbook: node_modules/elkjs/package.json
 	@echo "Generating CLI doc snippets..."
 	@bash scripts/generate_doc_snippets.sh target/release/pred 2>&1 | tail -1
 	@echo "Building API docs..."
-	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
+	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --no-deps 2>&1 | tail -1
 	@echo "Building mdBook..."
 	@mdbook build
 	rm -rf book/api
@@ -155,7 +155,7 @@ paper:
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	cargo llvm-cov --features ilp-highs --workspace --html --open
+	cargo llvm-cov --workspace --html --open
 
 # Clean build artifacts
 clean:

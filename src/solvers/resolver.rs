@@ -1,6 +1,5 @@
 //! Shared deterministic solver dispatch.
 
-#[cfg(feature = "ilp-solver")]
 use super::registry::CompiledIlpPipeline;
 use super::registry::{
     solver_capability_registry, ExactProblemKey, NativeSolverRegistration, RegistryBuildError,
@@ -42,7 +41,6 @@ pub enum DeterministicSolveError {
     MissingIlpCapability(String),
     #[error("native solver found no solution for {problem}")]
     NativeNoSolution { problem: String },
-    #[cfg(feature = "ilp-solver")]
     #[error("ILP solver failed for {problem}: {source}")]
     IlpSolve {
         problem: String,
@@ -74,7 +72,6 @@ fn solve_native(
     })
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
@@ -133,27 +130,14 @@ pub fn solve_deterministically(
             let pipeline = capabilities
                 .ilp
                 .ok_or_else(|| DeterministicSolveError::MissingIlpCapability(key.label()))?;
-            #[cfg(feature = "ilp-solver")]
-            {
-                solve_ilp(problem, pipeline)
-            }
-            #[cfg(not(feature = "ilp-solver"))]
-            {
-                let _ = pipeline;
-                Err(DeterministicSolveError::MissingIlpCapability(key.label()))
-            }
+            solve_ilp(problem, pipeline)
         }
         SolverRequest::Default => {
             if let Some(native) = capabilities.native {
                 return solve_native(problem, native);
             }
             if let Some(pipeline) = capabilities.ilp {
-                #[cfg(feature = "ilp-solver")]
-                {
-                    return solve_ilp(problem, pipeline);
-                }
-                #[cfg(not(feature = "ilp-solver"))]
-                let _ = pipeline;
+                return solve_ilp(problem, pipeline);
             }
             Ok(solve_brute_force(problem))
         }

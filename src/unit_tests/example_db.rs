@@ -265,7 +265,6 @@ fn test_find_rule_example_sat_to_kcoloring_contains_full_instances() {
     );
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -285,7 +284,6 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert!(!example.solutions[0].target_config.is_empty());
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -499,7 +497,6 @@ fn model_specs_are_self_consistent() {
     }
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn model_specs_are_optimal() {
     use crate::registry::{find_variant_entry, load_dyn};

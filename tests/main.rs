@@ -12,7 +12,6 @@ mod ksatisfiability_simultaneous_incongruences;
 mod numeric_boundaries;
 #[path = "suites/reductions.rs"]
 mod reductions;
-#[cfg(feature = "ilp-solver")]
 #[path = "suites/register_assignment_reductions.rs"]
 mod register_assignment_reductions;
 #[path = "suites/simultaneous_incongruences.rs"]

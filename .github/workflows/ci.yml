@@ -49,15 +49,13 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Run clippy
-        run: cargo clippy --all-targets --features "ilp-highs example-db" -- -D warnings
+        run: cargo clippy --all-targets --features example-db -- -D warnings
 
   # Cross-compile the full HiGHS-backed CLI to RISC-V Linux, then execute an
   # ILP solve under QEMU user-mode emulation (not just a link check).
   riscv:
     name: RISC-V build & run
     runs-on: ubuntu-latest
-    env:
-      FEATURES: "ilp-highs"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -73,7 +71,7 @@ jobs:
           CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
           CC_riscv64gc_unknown_linux_gnu: riscv64-linux-gnu-gcc
           CXX_riscv64gc_unknown_linux_gnu: riscv64-linux-gnu-g++
-        run: cargo build --workspace --no-default-features --features "$FEATURES" --target riscv64gc-unknown-linux-gnu
+        run: cargo build --workspace --target riscv64gc-unknown-linux-gnu
       - name: Verify RISC-V executable
         run: |
           riscv64-linux-gnu-readelf -h target/riscv64gc-unknown-linux-gnu/debug/pred \
@@ -97,7 +95,7 @@ jobs:
     # Single feature set across compile + test + doctest so artifacts are reused
     # (no redundant full recompile between steps).
     env:
-      FEATURES: "ilp-highs example-db"
+      FEATURES: "example-db"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -121,8 +119,8 @@ jobs:
       - name: Build paper
         run: make paper
 
-  # Coverage. Feature set intentionally matches the historical coverage gate
-  # (ilp-highs only) to keep the codecov baseline stable.
+  # Coverage intentionally excludes the optional example database to keep the
+  # historical codecov baseline stable.
   coverage:
     name: Code Coverage
     runs-on: ubuntu-latest
@@ -136,7 +134,7 @@ jobs:
           tool: cargo-llvm-cov,nextest
       - uses: Swatinem/rust-cache@v2
       - name: Generate coverage
-        run: cargo llvm-cov nextest --features ilp-highs --workspace --lcov --output-path lcov.info
+        run: cargo llvm-cov nextest --workspace --lcov --output-path lcov.info
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v5
         with:

@@ -17,14 +17,8 @@ keywords = ["np-hard", "optimization", "reduction", "sat", "graph"]
 categories = ["algorithms", "science"]
 
 [features]
-default = ["ilp-highs"]
 example-db = []
 benchmarks = ["dep:criterion"]
-ilp = ["ilp-highs"]  # backward compat shorthand
-ilp-solver = []      # marker: enables ILP solver code
-ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
-ilp-cplex = ["ilp-solver", "dep:good_lp", "good_lp/cplex-rs"]
-ilp-lp-solvers = ["ilp-solver", "dep:good_lp", "good_lp/lp-solvers"]
 
 [dependencies]
 petgraph = { version = "0.8", features = ["serde-1"] }
@@ -35,7 +29,7 @@ thiserror = "2.0"
 num-bigint = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
-good_lp = { version = "=1.14.2", default-features = false, optional = true }
+good_lp = { version = "=1.14.2", default-features = false, features = ["highs"] }
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.10"

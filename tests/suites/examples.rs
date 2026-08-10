@@ -4,13 +4,11 @@ use std::path::PathBuf;
 
 // --- Chained reduction demo (has pub fn run()) ---
 
-#[cfg(feature = "ilp-solver")]
 #[allow(unused)]
 mod chained_reduction_factoring_to_spinglass {
     include!("../../examples/chained_reduction_factoring_to_spinglass.rs");
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_chained_reduction_factoring_to_spinglass() {
     chained_reduction_factoring_to_spinglass::run().unwrap();

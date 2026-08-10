@@ -2,11 +2,7 @@
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
-#[cfg(not(feature = "ilp-highs"))]
-use good_lp::default_solver;
-#[cfg(feature = "ilp-highs")]
 use good_lp::highs;
-#[cfg(feature = "ilp-highs")]
 use good_lp::solvers::highs::HighsParallelType;
 use good_lp::{
     variable, ProblemVariables, ResolutionError, Solution, SolutionStatus, SolverModel, Variable,
@@ -146,7 +142,6 @@ impl ILPSolver {
         };
 
         // Create the solver model
-        #[cfg(feature = "ilp-highs")]
         let mut model = {
             let mut model = unsolved
                 .using(highs)
@@ -159,9 +154,6 @@ impl ILPSolver {
             }
             model
         };
-
-        #[cfg(not(feature = "ilp-highs"))]
-        let mut model = unsolved.using(default_solver);
 
         // Add constraints
         for constraint in &problem.constraints {
@@ -183,10 +175,7 @@ impl ILPSolver {
         }
 
         // Solve
-        #[cfg(feature = "ilp-highs")]
         let effective_time_limit = self.time_limit;
-        #[cfg(not(feature = "ilp-highs"))]
-        let effective_time_limit = None;
         let solution = model
             .solve()
             .map_err(|error| classify_backend_error(error, effective_time_limit))?;

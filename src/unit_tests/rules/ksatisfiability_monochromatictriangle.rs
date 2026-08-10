@@ -6,9 +6,7 @@ use crate::traits::Problem;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 
 #[test]
@@ -63,7 +61,6 @@ fn test_ksatisfiability_to_monochromatic_triangle_complement_extraction() {
     assert!(source.evaluate(&extracted));
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
     let source = KSatisfiability::<K3>::new(

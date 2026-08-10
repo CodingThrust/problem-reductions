@@ -188,14 +188,10 @@ Three solvers are available:
 | Solver | Use Case | Notes |
 |--------|----------|-------|
 | [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
-| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Enabled by default (`ilp` feature) |
+| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Uses the bundled HiGHS backend |
 | [`CustomizedSolver`](api/problemreductions/solvers/customized/struct.CustomizedSolver.html) | Structure-exploiting | Uses problem-specific exact algorithms |
 
-ILP support is enabled by default. To disable it:
-
-```bash
-cargo add problemreductions --no-default-features
-```
+ILP support through HiGHS is part of the library and is always available.
 
 ## JSON Resources
 

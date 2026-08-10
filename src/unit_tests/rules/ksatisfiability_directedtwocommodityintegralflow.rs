@@ -1,13 +1,11 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use super::*;
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 #[cfg(feature = "example-db")]
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -42,7 +40,6 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
         .collect()
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
@@ -98,7 +95,6 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
     assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     let source = issue_example();
@@ -114,7 +110,6 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
     let source = unsatisfiable_instance();

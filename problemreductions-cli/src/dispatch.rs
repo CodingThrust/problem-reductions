@@ -543,7 +543,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "highs", feature = "cplex", feature = "lp-solvers"))]
     fn solver_capabilities_view_centralizes_default_and_available_order() {
         use problemreductions::models::graph::RootedTreeArrangement;
         use problemreductions::Problem;

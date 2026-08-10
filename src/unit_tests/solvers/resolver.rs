@@ -1,4 +1,3 @@
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::registry::load_dyn;
 use crate::solvers::{solve_deterministically, SolverExecution, SolverRequest};
@@ -81,7 +80,6 @@ fn deterministic_solver_dispatch_native_failure_does_not_fall_back() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() {
     let problem = ILP::<bool>::new(0, vec![], vec![], ObjectiveSense::Minimize);
     let loaded = load_dyn(
@@ -102,7 +100,6 @@ fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() 
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn deterministic_solver_dispatch_ilp_failure_does_not_fall_back() {
     let problem = ILP::<bool>::new(
         0,
@@ -156,7 +153,6 @@ fn deterministic_solver_execution_has_stable_tagged_json_contract() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
     use crate::models::graph::MaximumIndependentSet;
     use crate::topology::SimpleGraph;
@@ -194,7 +190,6 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn deterministic_solver_dispatch_native_default_allows_explicit_ilp_override() {
     use crate::models::graph::RootedTreeArrangement;
     use crate::topology::SimpleGraph;
@@ -216,7 +211,6 @@ fn deterministic_solver_dispatch_native_default_allows_explicit_ilp_override() {
 }
 
 #[test]
-#[cfg(feature = "ilp-solver")]
 fn deterministic_solver_dispatch_repeats_each_available_solver_class() {
     use crate::models::graph::RootedTreeArrangement;
     use crate::topology::SimpleGraph;
