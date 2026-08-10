@@ -37,7 +37,7 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 6 * num_clauses",
         k = "num_vars + 2 * num_clauses",

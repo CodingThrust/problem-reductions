@@ -36,9 +36,12 @@ impl ReductionResult for ReductionCOMAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_cols * num_cols + 5 * num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + 2 * num_rows + num_rows + 3 * num_rows * num_cols + 4 * num_rows * num_cols + 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {

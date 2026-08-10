@@ -55,7 +55,7 @@ inventory::collect!(ProblemSchemaEntry);
 /// Optional static size-field metadata for problem types.
 ///
 /// This is used when a problem has meaningful size fields even before it
-/// participates in any reduction overhead expressions.
+/// participates in any reduction size expressions.
 pub struct ProblemSizeFieldEntry {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,

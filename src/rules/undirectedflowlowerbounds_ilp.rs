@@ -21,7 +21,7 @@
 //! Flow conservation at non-terminal vertices.
 //! Net flow into sink ≥ requirement.
 //!
-//! Overhead: 3*|E| variables, 4*|E| + |V| + 1 constraints (conservative for non-terminals).
+//! Certified size bound: 3*|E| variables, 4*|E| + |V| + 1 constraints (conservative for non-terminals).
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
@@ -71,9 +71,12 @@ impl ReductionResult for ReductionUFLBToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "3 * num_edges",
         num_constraints = "4 * num_edges + num_vertices + 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {

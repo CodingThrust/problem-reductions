@@ -50,9 +50,13 @@ impl ReductionResult for ReductionLongestPathToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "2 * num_edges + num_vertices",
-    num_constraints = "5 * num_edges + 4 * num_vertices + 1",
+#[reduction(
+    exact = {
+        num_vars = "2 * num_edges + num_vertices",
+        num_constraints = "5 * num_edges + 4 * num_vertices + 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
 })]
 impl ReduceTo<ILP<i32>> for LongestPath<SimpleGraph, i32> {
     type Result = ReductionLongestPathToILP;

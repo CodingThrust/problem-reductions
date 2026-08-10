@@ -40,9 +40,12 @@ impl ReductionResult for ReductionSPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_sets",
         num_constraints = "universe_size",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {

@@ -150,7 +150,7 @@ pub fn get_prompt(
                      How are they related? Is there a direct reduction between them, or do \
                      they connect through intermediate problems? What are the key differences \
                      in what they model? If one can be reduced to the other, what is the \
-                     overhead?"
+                     exact or certified size contract?"
                 ),
             ))
         }
@@ -163,7 +163,7 @@ pub fn get_prompt(
                 &format!(
                     "Walk me through reducing a \"{source}\" instance to \"{target}\", step \
                      by step.\n\n\
-                     1. Find the reduction path and explain the overhead.\n\
+                     1. Find the reduction path and explain which target-size fields are exact, certified bounds, or unavailable.\n\
                      2. Create a small, concrete example instance of \"{source}\".\n\
                      3. Reduce it to \"{target}\" and show what the transformed instance \
                         looks like.\n\

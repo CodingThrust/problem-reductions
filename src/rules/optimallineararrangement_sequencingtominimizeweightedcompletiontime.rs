@@ -61,9 +61,10 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_vertices + num_edges",
-})]
+#[reduction(
+    exact = {
+        num_tasks = "num_vertices + num_edges",
+    })]
 impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
     for OptimalLinearArrangement<SimpleGraph>
 {

@@ -146,7 +146,7 @@ Explore which problems the given problem can reduce to, starting **from** it:
 
 ### `pred path` — Find reduction paths
 
-Find the symbolic Pareto front between two problems:
+Enumerate paths between two problems:
 
 ```text
 {{#include generated/pred-path-mis-qubo.txt}}
@@ -163,11 +163,17 @@ Show all paths or save for later use with `pred reduce --via`:
 ```bash
 pred path MIS QUBO --all                    # all paths (up to 20)
 pred path MIS QUBO --all --max-paths 50     # increase limit
-pred path MIS QUBO -o front.json            # save the Pareto front
+pred path MIS QUBO --size-mode exact \
+  --size num_vertices=5 --size num_edges=4  # exact terminal-size front
+pred path MIS QUBO --size-mode bound \
+  --size num_vertices=5 --size num_edges=4  # certified-bound front
 pred path MIS QUBO --all -o paths/          # save all paths to a folder
 ```
 
-When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
+Ranked search requires `--size-mode exact` or `--size-mode bound` and at least
+one explicit source-size component. The two result types are separate and do
+not fall back to one another. When using `--all`, the output is capped at
+`--max-paths` (default: 20). If more paths exist, the output indicates truncation.
 
 Every front item contains its complete route. The envelope does not select a
 winner; extract the route you want before passing it to `pred reduce --via`.

@@ -98,7 +98,7 @@ fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_rows = "num_edges",
         num_cols = "num_vertices",
         bound = "k - num_edges",

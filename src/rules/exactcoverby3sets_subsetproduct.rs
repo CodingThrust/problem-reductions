@@ -58,9 +58,10 @@ fn assigned_primes(universe_size: usize) -> Vec<u64> {
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_sets",
-})]
+#[reduction(
+    exact = {
+        num_elements = "num_sets",
+    })]
 impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
     type Result = ReductionX3CToSubsetProduct;
 

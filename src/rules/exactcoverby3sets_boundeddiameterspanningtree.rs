@@ -74,12 +74,13 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 3",
-    num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
-    weight_bound = "4 * universe_size / 3 + num_subsets + 2",
-    diameter_bound = "4",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "num_subsets + universe_size + 3",
+        num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
+        weight_bound = "4 * universe_size / 3 + num_subsets + 2",
+        diameter_bound = "4",
+    })]
 impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToBoundedDiameterSpanningTree;
 

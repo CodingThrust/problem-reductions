@@ -30,10 +30,11 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars + 2 + 6 * num_clauses",
-    num_clauses = "1 + 5 * num_clauses",
-})]
+#[reduction(
+    exact = {
+        num_vars = "num_vars + 2 + 6 * num_clauses",
+        num_clauses = "1 + 5 * num_clauses",
+    })]
 impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
     type Result = Reduction3SATToOneInThreeSAT;
 

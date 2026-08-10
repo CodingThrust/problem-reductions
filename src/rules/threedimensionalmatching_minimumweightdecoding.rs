@@ -57,10 +57,11 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
     }
 }
 
-#[reduction(overhead = {
-    num_rows = "3 * universe_size",
-    num_cols = "num_triples",
-})]
+#[reduction(
+    exact = {
+        num_rows = "3 * universe_size",
+        num_cols = "num_triples",
+    })]
 impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToMinimumWeightDecoding;
 

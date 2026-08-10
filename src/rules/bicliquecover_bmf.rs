@@ -47,7 +47,7 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         rows = "left_size",
         cols = "right_size",
         rank = "rank",

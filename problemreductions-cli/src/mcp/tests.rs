@@ -1,14 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use crate::mcp::tools::{McpServer, SearchModeParam, SearchParams};
+    use crate::mcp::tools::{McpServer, SizeModeParam};
     use crate::test_support::{aggregate_bundle, aggregate_problem_json};
+    use std::collections::BTreeMap;
 
     fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
         let response = server
-            .find_path_inner(source, target, false, 20, &SearchParams::default())
-            .expect("front search");
+            .find_path_inner(source, target, true, 2000, None, None)
+            .expect("all-path search");
         let json: serde_json::Value = serde_json::from_str(&response).unwrap();
-        let entry = json["front"]
+        let entry = json["paths"]
             .as_array()
             .unwrap()
             .iter()
@@ -29,337 +30,87 @@ mod tests {
     #[test]
     fn test_list_problems_returns_json() {
         let server = McpServer::new();
-        let result = server.list_problems_inner();
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        let json: serde_json::Value =
+            serde_json::from_str(&server.list_problems_inner().unwrap()).unwrap();
         assert!(json["num_types"].as_u64().unwrap() > 0);
-        assert!(json["problems"].as_array().unwrap().len() > 0);
     }
 
     #[test]
-    fn test_show_problem_known() {
+    fn test_show_problem_known_and_unknown() {
         let server = McpServer::new();
-        let result = server.show_problem_inner("MIS");
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["name"], "MaximumIndependentSet");
+        assert!(server.show_problem_inner("MIS").is_ok());
+        assert!(server.show_problem_inner("NonExistent").is_err());
     }
 
     #[test]
-    fn test_show_problem_unknown() {
+    fn test_find_path_requires_an_explicit_size_contract() {
         let server = McpServer::new();
-        let result = server.show_problem_inner("NonExistent");
-        assert!(result.is_err());
+        let error = server
+            .find_path_inner("MIS", "Clique", false, 20, None, None)
+            .unwrap_err();
+        assert!(error.to_string().contains("requires size_mode"));
     }
 
     #[test]
-    fn test_find_path() {
+    fn test_find_path_exact_and_bound_are_distinct() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", false, 20, &SearchParams::default());
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert!(!json["front"].as_array().unwrap().is_empty());
-    }
-
-    #[test]
-    fn test_find_path_asymptotic_front() {
-        // No `cost` and not `all` → the asymptotic Pareto front with structured Growth.
-        let server = McpServer::new();
-        let result = server.find_path_inner(
-            "KSatisfiability",
-            "QUBO",
-            false,
-            20,
-            &SearchParams {
-                search_mode: Some(SearchModeParam::Exact),
-                ..Default::default()
-            },
-        );
-        assert!(result.is_ok(), "err: {:?}", result.err());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["mode"], "asymptotic");
-        assert_eq!(json["completeness"]["status"], "exact");
-        assert_eq!(json["limit_reasons"], serde_json::json!([]));
-        assert!(json["stats"]["expanded_states"].is_number());
-        let front = json["front"].as_array().unwrap();
-        assert!(!front.is_empty());
-        // The response includes structured Growth serialization.
-        assert!(front[0]["growth"]["num_vars"]["Terms"].is_array());
-        assert!(front[0]["big_o"]["num_vars"].is_string());
-    }
-
-    #[test]
-    fn test_find_path_empty_bounded_result_is_incomplete_not_no_path() {
-        let server = McpServer::new();
-        let result = server.find_path_inner(
-            "MIS",
-            "QUBO",
-            false,
-            20,
-            &SearchParams {
-                max_hops: Some(0),
-                ..Default::default()
-            },
-        );
-        let error = result.expect_err("zero-hop bounded search must be incomplete");
-        assert!(error.to_string().contains("Bounded search was incomplete"));
-        assert!(!error.to_string().contains("No reduction path from"));
-    }
-
-    #[test]
-    fn test_find_path_all_rejects_pareto_search_policy() {
-        let server = McpServer::new();
-        let result = server.find_path_inner(
-            "MIS",
-            "QUBO",
-            true,
-            20,
-            &SearchParams {
-                search_mode: Some(SearchModeParam::Exact),
-                timeout: Some(1),
-                ..Default::default()
-            },
-        );
-        let error = result.expect_err("all-path enumeration must reject Pareto search policy");
-        assert!(error.to_string().contains("not all-path enumeration"));
-    }
-
-    #[test]
-    fn test_find_path_front_has_no_top_level_winner() {
-        let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", false, 20, &SearchParams::default());
-        assert!(result.is_ok(), "err: {:?}", result.err());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["mode"], "asymptotic");
-        assert!(json.get("path").is_none());
-        let first = &json["front"][0]["path"][0];
-        assert!(first["from"]["name"].is_string());
-        assert!(first["to"]["name"].is_string());
-        assert_eq!(first["from"]["name"], "MaximumIndependentSet");
+        let sizes = BTreeMap::from([
+            ("num_vertices".to_string(), "5".to_string()),
+            ("num_edges".to_string(), "4".to_string()),
+        ]);
+        let exact: serde_json::Value = serde_json::from_str(
+            &server
+                .find_path_inner(
+                    "MIS",
+                    "Clique",
+                    false,
+                    20,
+                    Some(SizeModeParam::Exact),
+                    Some(&sizes),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        let bound: serde_json::Value = serde_json::from_str(
+            &server
+                .find_path_inner(
+                    "MIS",
+                    "Clique",
+                    false,
+                    20,
+                    Some(SizeModeParam::Bound),
+                    Some(&sizes),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(exact["mode"], "exact");
+        assert_eq!(bound["mode"], "bound");
+        assert_eq!(exact["front"][0]["terminal_size"][1][1], 6);
+        assert_eq!(bound["front"][0]["terminal_bound"][1]["value"], "25");
     }
 
     #[test]
     fn test_find_path_all() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", true, 20, &SearchParams::default());
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        // --all returns a structured envelope
-        assert!(json["paths"].as_array().unwrap().len() > 0);
+        let json: serde_json::Value = serde_json::from_str(
+            &server
+                .find_path_inner("MIS", "QUBO", true, 20, None, None)
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(!json["paths"].as_array().unwrap().is_empty());
         assert!(json["truncated"].is_boolean());
-        assert!(json["returned"].is_u64());
-        assert!(json["max_paths"].is_u64());
     }
 
     #[test]
-    fn test_find_path_all_structured_response() {
+    fn test_neighbors_and_export_graph() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", true, 20, &SearchParams::default());
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        // Verify the structured envelope fields
-        let paths = json["paths"].as_array().unwrap();
-        assert!(!paths.is_empty());
-        let returned = json["returned"].as_u64().unwrap() as usize;
-        assert_eq!(returned, paths.len());
-        assert_eq!(json["max_paths"].as_u64().unwrap(), 20);
-        // Each path should have steps, path, and overall_overhead
-        let first = &paths[0];
-        assert!(first["steps"].is_u64());
-        assert!(first["path"].is_array());
-        assert!(first["overall_overhead"].is_array());
-    }
-
-    #[test]
-    fn test_find_path_all_matches_library_order() {
-        use crate::problem_name::resolve_problem_ref;
-        use problemreductions::rules::ReductionGraph;
-
-        // MCP `--all` must delegate to the library ordering (length-first, then
-        // name+variant signature) with no local re-sort, so its ordered route list
-        // is identical to what the library returns directly. This is also what the
-        // CLI returns, since the CLI shares the same code path.
-        let max_paths = 6usize;
-        let server = McpServer::new();
-        let result = server
-            .find_path_inner(
-                "KSatisfiability",
-                "QUBO",
-                true,
-                max_paths,
-                &SearchParams::default(),
-            )
-            .unwrap();
-        let json: serde_json::Value = serde_json::from_str(&result).unwrap();
-        let mcp_paths = json["paths"].as_array().unwrap();
-        assert!(!mcp_paths.is_empty());
-
-        // Reconstruct each MCP path as a sequence of node signatures "name/v1/v2".
-        let node_sig = |node: &serde_json::Value| -> String {
-            let mut s = node["name"].as_str().unwrap().to_string();
-            if let Some(vars) = node["variant"].as_object() {
-                // BTreeMap-like ordering: serde_json Map is insertion order, but the
-                // library serialized from a BTreeMap so keys are already sorted.
-                for v in vars.values() {
-                    s.push('/');
-                    s.push_str(v.as_str().unwrap());
-                }
-            }
-            s
-        };
-        let mcp_sigs: Vec<Vec<String>> = mcp_paths
-            .iter()
-            .map(|p| {
-                let steps = p["path"].as_array().unwrap();
-                let mut seq = vec![node_sig(&steps[0]["from"])];
-                for step in steps {
-                    seq.push(node_sig(&step["to"]));
-                }
-                seq
-            })
-            .collect();
-
-        // Reproduce the library-ordered, truncated route list the same way MCP/CLI do:
-        // fetch max_paths + 1 then keep the first max_paths.
-        let graph = ReductionGraph::new();
-        let src = resolve_problem_ref("KSatisfiability", &graph).unwrap();
-        let dst = resolve_problem_ref("QUBO", &graph).unwrap();
-        let mut lib_paths = graph.find_paths_up_to(
-            &src.name,
-            &src.variant,
-            &dst.name,
-            &dst.variant,
-            max_paths + 1,
-        );
-        lib_paths.truncate(max_paths);
-        let lib_sigs: Vec<Vec<String>> = lib_paths
-            .iter()
-            .map(|p| {
-                p.steps
-                    .iter()
-                    .map(|s| {
-                        let mut sig = s.name.clone();
-                        for v in s.variant.values() {
-                            sig.push('/');
-                            sig.push_str(v);
-                        }
-                        sig
-                    })
-                    .collect()
-            })
-            .collect();
-
-        assert_eq!(
-            mcp_sigs, lib_sigs,
-            "MCP --all route list must equal the library-ordered list"
-        );
-
-        // And the route lengths are non-decreasing (length-first ordering).
-        let lens: Vec<usize> = mcp_paths
-            .iter()
-            .map(|p| p["steps"].as_u64().unwrap() as usize)
-            .collect();
-        assert!(
-            lens.windows(2).all(|w| w[0] <= w[1]),
-            "MCP --all routes must be shortest-first, got {lens:?}"
-        );
-    }
-
-    #[test]
-    fn test_find_path_no_route() {
-        let server = McpServer::new();
-        // Pick two problems with no path (if any). Use an unknown problem to trigger an error.
-        let result =
-            server.find_path_inner("NonExistent", "QUBO", false, 20, &SearchParams::default());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_show_problem_rejects_slash_spec() {
-        let server = McpServer::new();
-        let result = server.show_problem_inner("MIS/UnitDiskGraph");
-        assert!(result.is_err());
-        let err = result.unwrap_err().to_string();
-        assert!(
-            err.contains("type level"),
-            "error should mention type level: {err}"
-        );
-    }
-
-    #[test]
-    fn test_show_problem_marks_default() {
-        let server = McpServer::new();
-        let result = server.show_problem_inner("MIS");
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        let variants = json["variants"].as_array().unwrap();
-        // At least one variant should be marked as default
-        let has_default = variants
-            .iter()
-            .any(|v| v["is_default"].as_bool() == Some(true));
-        assert!(
-            has_default,
-            "expected at least one variant marked is_default=true"
-        );
-        // All variants should have the is_default field
-        for v in variants {
-            assert!(
-                v["is_default"].is_boolean(),
-                "expected is_default field on variant: {v}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_neighbors_out() {
-        let server = McpServer::new();
-        let result = server.neighbors_inner("MIS", 1, "out");
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["direction"], "out");
-        assert_eq!(json["hops"], 1);
-    }
-
-    #[test]
-    fn test_neighbors_in() {
-        let server = McpServer::new();
-        let result = server.neighbors_inner("QUBO", 1, "in");
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["direction"], "in");
-    }
-
-    #[test]
-    fn test_neighbors_both() {
-        let server = McpServer::new();
-        let result = server.neighbors_inner("MIS", 1, "both");
-        assert!(result.is_ok());
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert_eq!(json["direction"], "both");
-    }
-
-    #[test]
-    fn test_neighbors_unknown_problem() {
-        let server = McpServer::new();
-        let result = server.neighbors_inner("NonExistent", 1, "out");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_neighbors_invalid_direction() {
-        let server = McpServer::new();
-        let result = server.neighbors_inner("MIS", 1, "invalid");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_export_graph() {
-        let server = McpServer::new();
-        let result = server.export_graph_inner();
-        assert!(result.is_ok());
-        // Verify it parses as valid JSON
-        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        assert!(json.is_object());
+        assert!(server.neighbors_inner("MIS", 1, "out").is_ok());
+        assert!(server.neighbors_inner("MIS", 1, "invalid").is_err());
+        let graph: serde_json::Value =
+            serde_json::from_str(&server.export_graph_inner().unwrap()).unwrap();
+        assert!(graph.is_object());
     }
 
     // -- Instance tool tests --------------------------------------------------

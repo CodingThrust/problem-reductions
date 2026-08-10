@@ -72,7 +72,9 @@ fn digits_to_integer(digits: &[u8]) -> BigUint {
 }
 
 #[reduction(
-    overhead = { num_elements = "2 * num_vars + 2 * num_clauses" }
+    unavailable = {
+        num_elements = "the exact set statistic depends on membership or intersection incidence not represented by registered source fields",
+    }
 )]
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;

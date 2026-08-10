@@ -38,7 +38,7 @@ impl ReductionResult for ReductionVCToAndOrGraph {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "1 + num_edges + 2 * num_vertices",
         num_arcs = "3 * num_edges + num_vertices",
     }

@@ -47,7 +47,7 @@ impl ReductionResult for ReductionKCliqueToSubIso {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_host_vertices = "num_vertices",
         num_host_edges = "num_edges",
         num_pattern_vertices = "k",

@@ -62,9 +62,11 @@ fn literal_polarity(lit: i32) -> i32 {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vars + 1",
-        num_edges = "num_vars + num_clauses",
+    },
+    bound = {
+        num_edges = "(num_vars + 1)^2",
     }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i32>> for Maximum2Satisfiability {

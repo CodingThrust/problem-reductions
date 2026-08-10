@@ -33,9 +33,12 @@ impl ReductionResult for ReductionIFWMToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs",
         num_constraints = "num_arcs + num_vertices - 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {

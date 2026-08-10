@@ -77,9 +77,12 @@ impl ReductionResult for ReductionERCToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_records * num_sectors + num_records^2 * num_sectors^2",
         num_constraints = "num_records + 3 * num_records^2 * num_sectors^2",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {

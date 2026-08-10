@@ -70,9 +70,12 @@ impl ReductionResult for ReductionCMOToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices_1 * num_vertices_2 + num_contacts_1 * num_contacts_2",
         num_constraints = "num_vertices_1 + num_vertices_2 + num_vertices_1 * (num_vertices_1 - 1) / 2 * num_vertices_2 * (num_vertices_2 + 1) / 2 + 2 * num_contacts_1 * num_contacts_2",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {

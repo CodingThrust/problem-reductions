@@ -74,10 +74,12 @@ fn literals_contradict(lit1: i32, lit2: i32) -> bool {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "3 * num_clauses",
-        num_edges = "9 * num_clauses * (num_clauses - 1) / 2",
         k = "num_clauses",
+    },
+    bound = {
+        num_edges = "9 * num_clauses^2",
     }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {

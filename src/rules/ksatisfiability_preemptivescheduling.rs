@@ -352,10 +352,10 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
 }
 
 #[reduction(
-    overhead = {
-        num_tasks = "(((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2) * (num_vars + 3)",
-        num_processors = "((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2",
-        d_max = "(((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2) * (num_vars + 3)",
+    unavailable = {
+        num_tasks = "the exact count uses the maximum of literal and clause gadget counts, an operator outside the exact SizeMap fragment",
+        num_processors = "the exact count uses the maximum of literal and clause gadget counts, an operator outside the exact SizeMap fragment",
+        d_max = "the exact deadline uses the maximum of literal and clause gadget counts, an operator outside the exact SizeMap fragment",
     }
 )]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {

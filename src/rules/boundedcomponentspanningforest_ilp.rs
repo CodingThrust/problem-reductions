@@ -38,9 +38,13 @@ impl ReductionResult for ReductionBCSFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
-        num_constraints = "num_vertices + max_components + max_components + 2 * max_components + num_vertices * max_components + 4 * num_vertices * max_components + 4 * num_edges * max_components + num_vertices * max_components",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {

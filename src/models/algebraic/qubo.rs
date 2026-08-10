@@ -2,7 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,13 @@ inventory::submit! {
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
             FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Upper-triangular Q matrix" },
         ],
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "QUBO",
+        fields: &["num_vars", "coefficient_encoding_bits"],
     }
 }
 

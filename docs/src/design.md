@@ -42,7 +42,7 @@ trait Problem: Clone {
 }
 ```
 
-- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Max(Some(2))` if vertices 0 and 2 form an independent set, or `Max(None)` if they share an edge. Each problem also provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) used by reduction overhead expressions.
+- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Max(Some(2))` if vertices 0 and 2 form an independent set, or `Max(None)` if they share an edge. Each problem also provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) used by reduction size expressions.
 - **Witness-capable objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
 - **Witness-capable feasibility problems** — typically use `Or`.
 - **Aggregate-only problems** — use fold values such as `Sum<W>` or `And`; these solve to a value but do not admit representative witness configurations.
@@ -297,7 +297,7 @@ does not accumulate compatibility or fallback branches.
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
 ```rust,ignore
-#[reduction(overhead = {
+#[reduction(exact = {
     num_vertices = "num_vertices",
     num_edges = "num_edges",
 })]
@@ -321,11 +321,13 @@ inventory::submit! {
         target_name: "MinimumVertexCover",
         source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i32> as Problem>::variant(),
         target_variant_fn: || <MinimumVertexCover<SimpleGraph, i32> as Problem>::variant(),
-        overhead_fn: || ReductionOverhead {
-            output_size: vec![
+        size_declarations_fn: || ReductionSizeDeclarations {
+            exact: vec![
                 ("num_vertices", Expr::Var("num_vertices")),
                 ("num_edges", Expr::Var("num_edges")),
             ],
+            bounds: vec![],
+            unavailable: vec![],
         },
         module_path: module_path!(),
         reduce_fn: |src: &dyn Any| -> Box<dyn DynReductionResult> {
@@ -361,16 +363,16 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 
 | Method | Algorithm | Use case |
 |--------|-----------|----------|
-| `asymptotic_front(...)` | Symbolic componentwise Pareto search | Compare per-field growth; report unanalyzable paths separately |
+| `exact_size_front(...)` | Exact componentwise Pareto search | Evaluate composed `SizeMap`s at an explicit source-size vector |
+| `certified_bound_front(...)` | Certified-bound componentwise Pareto search | Evaluate composed `SizeBound`s at an explicit source-bound vector |
 | `measured_front(...)` | Measured componentwise Pareto search | Compare constructed terminal size vectors under optional per-field budgets |
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
 
-Neither Pareto API selects a winner. Distinct, mutually non-dominating vectors are all
-returned. Equal terminal vectors keep one deterministic representative, using fewer hops
-and then stable path order only to deduplicate equivalent results. Symbolic `Unknown`
-growth is an analysis failure: those routes are excluded from the symbolic front and
-returned with an explicit reason. If every discovered route is unknown, the call returns
-`NoAnalyzablePath`.
+The exact and certified-bound APIs are deliberately separate: callers must choose a
+mode and provide its source vector. Neither falls back to the other or to asymptotic
+growth. Both retain every prefix and apply componentwise dominance only to complete
+paths at the requested terminal problem. Paths lacking a required contract are returned
+with typed errors, and multi-query reductions are excluded until a query-cost model exists.
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 
@@ -384,12 +386,12 @@ MIS{KingsSubgraph,i32} -> MIS{UnitDiskGraph,i32} -> MIS{SimpleGraph,i32} -> VC{S
 Convert a `ReductionPath` into a typed `ExecutablePath<S, T>` via `make_executable()`, then call `reduce()`:
 
 ```rust,ignore
-let result = graph.asymptotic_front("Factoring", &src_var,
-    "SpinGlass", &dst_var, ReductionMode::Witness, SearchMode::Exact);
-let front = result.value.expect("at least one analyzable route");
-let rpath = &front.front.iter()
-    .find(|(path, _)| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
-    .expect("required route").0;
+let paths = graph.find_all_paths_mode(
+    "Factoring", &src_var, "SpinGlass", &dst_var, ReductionMode::Witness,
+);
+let rpath = paths.iter()
+    .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+    .expect("required route");
 
 // make_executable converts it into a typed, callable chain
 let path = graph.make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath).unwrap();
@@ -405,28 +407,43 @@ let solution: Vec<usize> = reduction.extract_solution(&target_solution);
 For full type control, you can also chain `ReduceTo::reduce_to()` calls manually at each step.
 
 <details>
-<summary>Overhead evaluation</summary>
+<summary>Size contracts</summary>
 
-Each reduction declares how the output problem size relates to the input, expressed as symbolic `Expr` expressions. The `#[reduction]` macro parses overhead strings at compile time:
+Each reduction explicitly classifies every registered target-size field as exact,
+bound-only, or unavailable with a reason. The `#[reduction]` macro parses exact and
+bound expressions into the canonical `Expr` DAG at compile time:
 
 ```rust,ignore
-#[reduction(overhead = {
+#[reduction(
+exact = {
     num_vars = "num_vertices + num_edges",
+},
+bound = {
     num_clauses = "3 * num_edges",
+},
+unavailable = {
+    coefficient_encoding_bits = "source size omits coefficient magnitudes",
 })]
 impl ReduceTo<Target> for Source { ... }
 ```
 
-Expressions support: constants, variables, `+`, `*`, `^`, `exp()`, `log()`, `sqrt()`. Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference.
+`SizeMap` uses exact rational arithmetic internally and produces non-negative integral
+`ProblemSize` values. Missing fields, negative or non-integral results, division by zero,
+and concrete range overflow are errors. `SizeBound` uses arbitrary-precision non-negative
+bounds and accepts only structurally monotone expressions after canonicalization.
 
-`evaluate_output_size(input)` substitutes input values:
+Exact maps can be evaluated with an explicit source size:
 
 ```
 Input:  ProblemSize { num_vertices: 10, num_edges: 15 }
-Output: ProblemSize { num_vars: 25, num_clauses: 45 }
+Output: ProblemSize { num_vars: 25 }
 ```
 
-For multi-step paths, overhead composes: the output of step N becomes the input of step N+1. Variant cast edges use `ReductionOverhead::identity()`, passing through all fields unchanged.
+For multi-step paths, `compose_path_size_map` and `compose_path_size_bound` substitute
+each step into the next without expanding the shared expression DAG. A field cannot be
+borrowed from another contract: an unavailable exact field remains unavailable even if a
+bound exists. Projection to `Growth` is an explicit terminal operation, never an exact or
+certified evaluation path.
 
 </details>
 

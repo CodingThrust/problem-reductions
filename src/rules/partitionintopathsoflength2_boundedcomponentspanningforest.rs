@@ -44,7 +44,7 @@ impl ReductionResult for ReductionPPL2ToBCSF {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
         max_components = "num_vertices / 3",

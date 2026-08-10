@@ -41,9 +41,12 @@ impl ReductionResult for ReductionGraphPartitioningToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices + num_edges",
         num_constraints = "2 * num_edges + 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {

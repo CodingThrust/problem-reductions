@@ -44,9 +44,12 @@ impl ReductionResult for ReductionSTIGToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_edges + 2 * num_edges * (num_terminals - 1)",
         num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i32> {

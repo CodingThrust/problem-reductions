@@ -426,10 +426,11 @@ fn enumerate_pair_keys(num_regulars: usize) -> Vec<(usize, usize)> {
     pairs
 }
 
-#[reduction(overhead = {
-    num_elements = "24 * num_triples * num_triples - 3 * num_triples",
-    num_groups = "8 * num_triples * num_triples - num_triples",
-})]
+#[reduction(
+    exact = {
+        num_elements = "24 * num_triples * num_triples - 3 * num_triples",
+        num_groups = "8 * num_triples * num_triples - num_triples",
+    })]
 impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreePartition;
 

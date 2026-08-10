@@ -48,9 +48,12 @@ impl ReductionResult for ReductionBPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for BinPacking<i32> {

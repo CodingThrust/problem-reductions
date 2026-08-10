@@ -118,7 +118,7 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "4 * num_vertices",
         num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
         rank = "num_vertices + num_colors",

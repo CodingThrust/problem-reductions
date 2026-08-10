@@ -1,7 +1,7 @@
 //! Symbolic growth domain: a dedicated asymptotic normal form for reduction
-//! overhead expressions.
+//! size expressions.
 //!
-//! Where [`crate::canonical`] answers Big-O questions by fully expanding an
+//! Where full monomial canonicalization answers Big-O questions by expanding an
 //! [`Expr`] to monomial normal form, with exponential cost in nesting depth, the
 //! growth domain computes an asymptotic upper bound bottom-up without rewriting
 //! the source AST into a fully distributed polynomial. Work is output-sensitive:

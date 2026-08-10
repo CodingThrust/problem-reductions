@@ -74,7 +74,7 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 9 * num_clauses",
     }

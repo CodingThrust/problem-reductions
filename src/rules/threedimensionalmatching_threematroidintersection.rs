@@ -30,11 +30,12 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreeMatroidIntersec
     }
 }
 
-#[reduction(overhead = {
-    ground_set_size = "num_triples",
-    num_groups = "3 * universe_size",
-    bound = "universe_size",
-})]
+#[reduction(
+    exact = {
+        ground_set_size = "num_triples",
+        num_groups = "3 * universe_size",
+        bound = "universe_size",
+    })]
 impl ReduceTo<ThreeMatroidIntersection> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreeMatroidIntersection;
 

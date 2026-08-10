@@ -292,10 +292,14 @@ def rule_completeness(
             if test_file.exists()
             else check_entry(status="fail", detail="missing rule unit tests")
         ),
-        "overhead_form": (
+        "size_contract_form": (
             check_entry(status="pass", path=str(rule_file.relative_to(repo_root)))
-            if rule_file.exists() and "#[reduction(overhead = {" in rule_text
-            else check_entry(status="fail", detail="missing #[reduction(overhead = {...})] form")
+            if rule_file.exists()
+            and any(key in rule_text for key in ("exact = {", "bound = {", "unavailable = {"))
+            else check_entry(
+                status="fail",
+                detail="missing explicit exact, bound, or unavailable size declaration",
+            )
         ),
         "canonical_example": (
             check_entry(status="pass", path=str(rule_file.relative_to(repo_root)))

@@ -33,9 +33,13 @@ impl ReductionResult for ReductionIFHAToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_arcs",
-        num_constraints = "num_arcs + num_vertices - 2 + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for IntegralFlowHomologousArcs {

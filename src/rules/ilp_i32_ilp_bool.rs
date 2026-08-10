@@ -270,9 +270,13 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "31 * num_vars",
-    num_constraints = "num_constraints",
+#[reduction(
+    exact = {
+        num_vars = "31 * num_vars",
+        num_constraints = "num_constraints",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
 })]
 impl ReduceTo<ILP<bool>> for ILP<i32> {
     type Result = ReductionIntILPToBinaryILP;

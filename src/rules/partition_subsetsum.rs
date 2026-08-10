@@ -43,9 +43,10 @@ impl ReductionResult for ReductionPartitionToSubsetSum {
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_elements = "num_elements",
+    })]
 impl ReduceTo<SubsetSum> for Partition {
     type Result = ReductionPartitionToSubsetSum;
 

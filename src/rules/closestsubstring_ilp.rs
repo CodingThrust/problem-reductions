@@ -119,9 +119,12 @@ fn decode_one_hot(
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "alphabet_size * substring_length + total_num_windows + 1",
         num_constraints = "substring_length + num_strings + total_num_windows + 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for ClosestSubstring {

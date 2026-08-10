@@ -156,7 +156,7 @@ fn u64_to_i32(value: u64, context: &str) -> i32 {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "2 * num_vars + 2 * num_clauses + 3",
         num_arcs = "4 * num_vars + 4 * num_clauses + 2",
     }

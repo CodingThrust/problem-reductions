@@ -49,7 +49,7 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_periods = "universe_size",
         num_schedules = "num_subsets",
         num_workers = "universe_size / 3",

@@ -85,9 +85,10 @@ fn checked_target_sum_to_i64(bound: u64, w_size: u64) -> i64 {
     )
 }
 
-#[reduction(overhead = {
-    num_pairs = "num_groups",
-})]
+#[reduction(
+    exact = {
+        num_pairs = "num_groups",
+    })]
 impl ReduceTo<NumericalMatchingWithTargetSums> for Numerical3DimensionalMatching {
     type Result = ReductionN3DMToNMTS;
 

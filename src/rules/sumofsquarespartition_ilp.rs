@@ -72,9 +72,12 @@ impl ReductionResult for ReductionSSPToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_elements * num_groups + num_elements^2 * num_groups",
         num_constraints = "num_elements + 3 * num_elements^2 * num_groups",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {

@@ -1,27 +1,14 @@
-//! Multi-label elementary-path search over the reduction graph.
+//! Concrete-instance state used by measured simple-path search.
 //!
-//! The search keeps multiple path states per node and filters the Pareto front only at
-//! the destination. Intermediate strict dominance is deliberately forbidden: arbitrary
-//! reduction overheads may shrink, subtract, or otherwise reverse an apparent order.
-//! The current labels do not carry complete constructed instances, so even equal labels
-//! are retained as distinct intermediate states. See [`ReductionGraph::pareto_search`].
-//!
-//! Two search domains are provided:
-//! - [`GrowthLabel`]: symbolic componentwise growth for the asymptotic front.
-//! - [`MeasuredLabel`]: concrete-instance state used by a separate simple-path search. It
-//!   *actually executes* each reduction and measures the real constructed target size.
-//!   Asymptotic overhead formulas are not used as concrete budget bounds.
+//! Exact-size and certified-bound ranking have separate APIs and result types in
+//! [`ReductionGraph`](crate::rules::ReductionGraph).
 
-use crate::expr::Expr;
-use crate::growth::{Growth, GrowthFailure};
-use crate::rules::registry::{ReduceFn, ReductionOverhead};
+use crate::rules::registry::{ReduceFn, ReductionSizeContract, SizeContractError};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
-use serde::Serialize;
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
-use std::sync::OnceLock;
 
 /// Per-field post-construction limits for measured search.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -58,74 +45,16 @@ impl std::fmt::Display for UnknownSizeField {
 
 impl std::error::Error for UnknownSizeField {}
 
-/// Coverage of symbolic analysis, independent of graph-search completeness.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct AnalysisCoverage {
-    pub analyzed_paths: usize,
-    pub excluded_paths: usize,
-}
-
-/// Why a searched path could not participate in the symbolic front.
-#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
-pub struct AnalysisFailure {
-    pub fields: Vec<String>,
-    pub reasons: BTreeMap<String, Vec<GrowthFailure>>,
-}
-
-impl std::fmt::Display for AnalysisFailure {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut first_field = true;
-        for (field, reasons) in &self.reasons {
-            if !first_field {
-                formatter.write_str("; ")?;
-            }
-            first_field = false;
-            write!(formatter, "{field}: ")?;
-            for (index, reason) in reasons.iter().enumerate() {
-                if index > 0 {
-                    formatter.write_str(", ")?;
-                }
-                write!(formatter, "{reason}")?;
-            }
-        }
-        Ok(())
-    }
-}
-
-/// A borrowed view of one reduction edge, handed to [`PathLabel::extend`].
-///
-/// It exposes exactly what a label needs to advance: the overhead formula (for symbolic
-/// and formula-based labels), the executable reduction function (for measured execution),
-/// and the target node's identity (for measuring the constructed target's size by name).
+/// A borrowed view of one reduction edge used by measured execution.
 pub struct ReductionEdge<'g> {
-    /// Overhead expressions mapping source size fields to target size fields.
-    pub overhead: &'g ReductionOverhead,
+    /// Validated exact/bound/unavailable size metadata for this edge.
+    pub size_contract: &'g Result<ReductionSizeContract, SizeContractError>,
     /// Type-erased witness reduction executor, if this edge supports witness/config mode.
     pub reduce_fn: Option<ReduceFn>,
     /// Target problem name (e.g. "ILP").
     pub target_name: &'static str,
     /// Target problem variant.
     pub target_variant: &'g BTreeMap<String, String>,
-}
-
-/// Abstract state carried along a reduction path.
-///
-/// The kernel never prunes or coalesces an intermediate state: the built-in labels do
-/// not contain enough information to prove that two constructed problems are identical.
-/// Terminal dominance is applied only after a path reaches the destination, where no
-/// future extension can reverse the order. Agenda and result ordering use only hops and
-/// the stable path key; they do not select an objective winner.
-pub trait PathLabel: Clone {
-    /// Advance this label across `edge`. Returns `None` when a label-domain guard rejects
-    /// the edge.
-    fn extend(&self, edge: &ReductionEdge) -> Option<Self>;
-
-    /// Weak Pareto order used only to filter completed labels at the destination.
-    ///
-    /// Implementations must provide a reflexive and transitive relation. Mutual
-    /// dominance denotes the same terminal objective vector; the kernel then retains one
-    /// deterministic representative.
-    fn final_dominates(&self, other: &Self) -> bool;
 }
 
 /// The current constructed position of a [`MeasuredLabel`].
@@ -148,7 +77,7 @@ struct MeasuredStep {
 /// The concrete-instance measured label (design doc M3/F3b).
 ///
 /// For a concrete source instance, the **measured** target size is authoritative.
-/// Asymptotic overhead formulas are deliberately not consulted: evaluating a Big-O
+/// Asymptotic growth formulas are deliberately not consulted: evaluating a Big-O
 /// expression at one input does not produce a certified concrete upper bound.
 /// `extend` runs this stack, in order:
 ///
@@ -239,14 +168,8 @@ impl<'a> MeasuredLabel<'a> {
             budget: Rc::clone(&self.budget),
         })
     }
-}
 
-impl PathLabel for MeasuredLabel<'_> {
-    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        MeasuredLabel::extend(self, edge)
-    }
-
-    fn final_dominates(&self, other: &Self) -> bool {
+    pub(crate) fn final_dominates(&self, other: &Self) -> bool {
         self.size.components.len() == other.size.components.len()
             && self.size.components.iter().all(|(field, value)| {
                 other
@@ -254,185 +177,5 @@ impl PathLabel for MeasuredLabel<'_> {
                     .get(field)
                     .is_some_and(|other_value| *value <= other_value)
             })
-    }
-}
-
-/// Asymptotic, **instance-free** label domain (design doc M3/F3a).
-///
-/// Each entry maps one size field of the **current** node to its exact symbolic
-/// expression in the **source problem's** size variables. Edge extension performs
-/// exact substitution and preserves information, such as constant coefficients,
-/// that may become asymptotically significant in a later operation. Growth analysis
-/// is computed lazily only when a completed path is compared or reported.
-///
-/// [`final_dominates`](PathLabel::final_dominates) is componentwise in the **search**
-/// sense (smaller growth = better): `self` terminally dominates `other` iff for every field
-/// `self` grows no faster than `other`. It is used only at the destination. A label
-/// containing `Unknown` is outside this dominance relation. Such a path is
-/// reported as an analysis failure and excluded from the symbolic Pareto front.
-///
-#[derive(Clone, Debug)]
-pub struct GrowthLabel {
-    expressions: BTreeMap<String, SymbolicField>,
-    analyzed: OnceLock<BTreeMap<String, Growth>>,
-}
-
-#[derive(Clone, Debug)]
-enum SymbolicField {
-    Exact(Expr),
-    Failed(Vec<GrowthFailure>),
-}
-
-impl GrowthLabel {
-    /// The initial label at a source node: each size field grows like itself.
-    ///
-    /// `source_fields` is the source problem's list of size-field names (e.g. from
-    /// [`ReductionGraph::size_field_names`](crate::rules::ReductionGraph::size_field_names)).
-    pub fn source(source_fields: &[String]) -> Self {
-        let expressions = source_fields
-            .iter()
-            .map(|field| {
-                (
-                    field.clone(),
-                    SymbolicField::Exact(Expr::variable(field.as_str())),
-                )
-            })
-            .collect();
-        GrowthLabel {
-            expressions,
-            analyzed: OnceLock::new(),
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn from_expressions(fields: BTreeMap<String, Expr>) -> Self {
-        GrowthLabel {
-            expressions: fields
-                .into_iter()
-                .map(|(field, expression)| (field, SymbolicField::Exact(expression)))
-                .collect(),
-            analyzed: OnceLock::new(),
-        }
-    }
-
-    /// The current node's size fields mapped to their growth in source variables.
-    pub fn fields(&self) -> &BTreeMap<String, Growth> {
-        self.analyzed.get_or_init(|| {
-            let exact_expressions: Vec<_> = self
-                .expressions
-                .values()
-                .filter_map(|expression| match expression {
-                    SymbolicField::Exact(expression) => Some(expression),
-                    SymbolicField::Failed(_) => None,
-                })
-                .collect();
-            let mut exact_growths = Growth::from_expr_batch(&exact_expressions).into_iter();
-            self.expressions
-                .iter()
-                .map(|(field, expression)| {
-                    let growth = match expression {
-                        SymbolicField::Exact(_) => exact_growths
-                            .next()
-                            .expect("every exact expression was analyzed"),
-                        SymbolicField::Failed(failures) => Growth::Unknown(failures.clone()),
-                    };
-                    (field.clone(), growth)
-                })
-                .collect()
-        })
-    }
-
-    #[cfg(test)]
-    pub(crate) fn expression_node_count(&self, field: &str) -> Option<usize> {
-        match self.expressions.get(field)? {
-            SymbolicField::Exact(expression) => Some(expression.unique_node_count()),
-            SymbolicField::Failed(_) => None,
-        }
-    }
-
-    /// Return the explicit failure boundary when any field is unanalyzable.
-    pub fn analysis_failure(&self) -> Option<AnalysisFailure> {
-        let reasons: BTreeMap<_, _> = self
-            .fields()
-            .iter()
-            .filter_map(|(field, growth)| match growth {
-                Growth::Terms(_) => None,
-                Growth::Unknown(reasons) => Some((field.clone(), reasons.clone())),
-            })
-            .collect();
-        (!reasons.is_empty()).then(|| AnalysisFailure {
-            fields: reasons.keys().cloned().collect(),
-            reasons,
-        })
-    }
-}
-
-impl PathLabel for GrowthLabel {
-    fn extend(&self, edge: &ReductionEdge) -> Option<Self> {
-        let mapping: HashMap<&str, &Expr> = self
-            .expressions
-            .iter()
-            .filter_map(|(field, value)| match value {
-                SymbolicField::Exact(expression) => Some((field.as_str(), expression)),
-                SymbolicField::Failed(_) => None,
-            })
-            .collect();
-
-        let mut expressions = BTreeMap::new();
-        for (target_field, expr) in &edge.overhead.output_size {
-            let value = match expr.substitute_complete(&mapping) {
-                Ok(expression) => SymbolicField::Exact(expression),
-                Err(error) => {
-                    let mut failures: Vec<_> = error
-                        .missing_variables()
-                        .flat_map(|variable| match self.expressions.get(variable) {
-                            Some(SymbolicField::Failed(failures)) => failures.clone(),
-                            _ => vec![GrowthFailure::MissingSubstitution(variable.to_string())],
-                        })
-                        .collect();
-                    failures.sort();
-                    failures.dedup();
-                    SymbolicField::Failed(failures)
-                }
-            };
-            expressions.insert((*target_field).to_string(), value);
-        }
-        Some(GrowthLabel {
-            expressions,
-            analyzed: OnceLock::new(),
-        })
-    }
-
-    fn final_dominates(&self, other: &Self) -> bool {
-        let self_fields = self.fields();
-        let other_fields = other.fields();
-        if self_fields
-            .values()
-            .chain(other_fields.values())
-            .any(|growth| matches!(growth, Growth::Unknown(_)))
-        {
-            return false;
-        }
-        // Labels compared at the same terminal node have the same field set. Equality
-        // counts so the terminal front has one
-        // deterministic representative per growth vector.
-        //
-        // `Growth::dominates(a, b)` means "a grows ≥ b", with `Unknown` as top. So:
-        //   self ≤ other on field f  ⟺  other_f.dominates(self_f)
-        assert_eq!(
-            self_fields.len(),
-            other_fields.len(),
-            "terminal growth fields differ"
-        );
-        for ((self_field, self_growth), (other_field, other_growth)) in
-            self_fields.iter().zip(other_fields)
-        {
-            assert_eq!(self_field, other_field, "terminal growth fields differ");
-            if !other_growth.dominates(self_growth) {
-                // self grows strictly faster than other here → self does not dominate.
-                return false;
-            }
-        }
-        true
     }
 }

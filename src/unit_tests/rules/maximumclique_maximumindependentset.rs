@@ -108,7 +108,7 @@ fn test_maximumclique_to_maximumindependentset_one_weights_closed_loop() {
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_overhead() {
-    // Verify overhead formula: complement edges = n*(n-1)/2 - m
+    // Verify exact size formula: complement edges = n*(n-1)/2 - m
     let source = MaximumClique::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1i32; 5],

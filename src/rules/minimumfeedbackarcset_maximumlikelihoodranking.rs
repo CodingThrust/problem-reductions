@@ -64,7 +64,7 @@ impl ReductionResult for ReductionFASToMLR {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_items = "num_vertices",
     }
 )]

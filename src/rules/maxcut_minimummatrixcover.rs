@@ -59,7 +59,7 @@ impl ReductionResult for ReductionMaxCutToMMC {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_rows = "num_vertices",
     }
 )]

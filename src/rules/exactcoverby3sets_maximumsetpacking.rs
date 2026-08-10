@@ -39,9 +39,10 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
     }
 }
 
-#[reduction(overhead = {
-    num_sets = "num_subsets",
-})]
+#[reduction(
+    exact = {
+        num_sets = "num_subsets",
+    })]
 impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMaximumSetPacking;
 

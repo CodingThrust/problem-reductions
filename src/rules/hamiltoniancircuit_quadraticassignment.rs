@@ -41,7 +41,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_facilities = "num_vertices",
         num_locations = "num_vertices",
     }

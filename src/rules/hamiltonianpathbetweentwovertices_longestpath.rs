@@ -78,10 +78,11 @@ impl ReductionResult for ReductionHPBTVToLP {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_vertices",
-    num_edges = "num_edges",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "num_vertices",
+        num_edges = "num_edges",
+    })]
 impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertices<SimpleGraph> {
     type Result = ReductionHPBTVToLP;
 

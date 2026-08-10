@@ -308,7 +308,7 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "12 * num_edges + k",
         num_edges = "16 * num_edges - num_vertices + 2 * k * num_vertices",
     }

@@ -119,10 +119,11 @@ Let's walk through each step.
 
 #### Step 1 — Discover the reduction path
 
-`ReductionGraph` holds every registered reduction. `asymptotic_front` returns
-the non-dominated per-field growth vectors and reports paths whose growth could
-not be analyzed. The example consumes that front and explicitly selects the
-documented `Factoring -> CircuitSAT -> SpinGlass` route.
+`ReductionGraph` holds every registered reduction. The example enumerates the
+witness-capable simple paths and explicitly selects the documented
+`Factoring -> CircuitSAT -> SpinGlass` route. Size-ranked searches require an
+explicit choice between `exact_size_front` and `certified_bound_front` plus the
+corresponding source-size vector.
 
 ```rust,ignore
 {{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:step1}}
@@ -166,19 +167,19 @@ factors.
 {{#include generated/factoring-result.txt}}
 ```
 
-#### Step 5 — Inspect the overhead
+#### Step 5 — Inspect the size contract
 
-Each reduction edge carries a polynomial overhead mapping source problem
-sizes to target sizes. `path_overheads` returns the per-edge
-polynomials, and `compose_path_overhead` composes them symbolically into a
-single end-to-end formula.
+Each reduction edge classifies every target-size field as exact, bound-only,
+or unavailable with a reason. `compose_path_size_map` composes only exact
+fields into an end-to-end map; a missing exact contract remains a typed error
+and never falls back to a bound or asymptotic formula.
 
 ```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:overhead}}
+{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:size_contract}}
 ```
 
 ```text
-{{#include generated/factoring-overhead.txt}}
+{{#include generated/factoring-size-contract.txt}}
 ```
 
 ## Solvers

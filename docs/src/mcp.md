@@ -80,7 +80,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
 | `find_path` | `source` (string), `target` (string), `all` (bool, default: false) | Return the symbolic Pareto front, including full routes and excluded analysis failures, or enumerate all paths |
-| `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, overheads) |
+| `export_graph` | *(none)* | Export the full reduction graph as JSON (nodes, edges, and explicit size contracts) |
 
 ### Instance Tools
 

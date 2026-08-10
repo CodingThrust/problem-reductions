@@ -48,9 +48,12 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices^2",
         num_constraints = "3 * num_vertices + (num_vertices - 1) * (num_vertices^2 - num_arcs)",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {

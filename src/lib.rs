@@ -26,9 +26,8 @@ pub mod error;
 pub mod example_db;
 pub mod export;
 pub mod expr;
-// The growth domain backs `big_o_normal_form` (M2) and the asymptotic Pareto path
-// search (`GrowthLabel`, M3/F3a). `Growth` is re-exported for CLI/MCP consumers that
-// render or serialize the asymptotic front.
+// Growth is an explicit terminal projection for complexity display. Exact and certified
+// size propagation never re-enters this domain.
 pub mod growth;
 pub mod io;
 pub mod models;
@@ -134,6 +133,9 @@ pub use problemreductions_macros::{declare_variants, reduction};
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;
 
+#[cfg(all(test, feature = "example-db"))]
+#[path = "unit_tests/symbolic_size_contracts.rs"]
+mod symbolic_size_contracts;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;

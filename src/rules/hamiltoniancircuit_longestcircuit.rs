@@ -34,7 +34,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToLongestCircuit {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

@@ -22,24 +22,24 @@ fn test_variant_to_map_multiple() {
 }
 
 #[test]
-fn test_lookup_overhead_known_reduction() {
+fn test_lookup_size_contract_known_reduction() {
     // IS -> VC is a known registered reduction
     let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
     let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    let result = lookup_overhead(
+    let result = lookup_size_contract(
         "MaximumIndependentSet",
         &source_variant,
         "MinimumVertexCover",
         &target_variant,
     );
-    assert!(result.is_some());
+    assert!(result.unwrap().is_some());
 }
 
 #[test]
-fn test_lookup_overhead_unknown_reduction() {
+fn test_lookup_size_contract_unknown_reduction() {
     let empty = variant_to_map(vec![]);
-    let result = lookup_overhead("NonExistent", &empty, "AlsoNonExistent", &empty);
-    assert!(result.is_none());
+    let result = lookup_size_contract("NonExistent", &empty, "AlsoNonExistent", &empty);
+    assert!(result.unwrap().is_none());
 }
 
 fn sample_example_db() -> ExampleDb {
@@ -151,7 +151,7 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
 }
 
 #[test]
-fn rule_example_serialization_omits_overhead() {
+fn rule_example_serialization_omits_reduction_metadata() {
     let example = RuleExample {
         source: ProblemSide {
             problem: "A".to_string(),
@@ -298,10 +298,13 @@ fn write_model_example_to_creates_json_file() {
 }
 
 #[test]
-fn lookup_overhead_rejects_target_variant_mismatch() {
+fn lookup_size_contract_rejects_target_variant_mismatch() {
     let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
     // MIS<SG,i32> -> QUBO<f64> exists, but not MIS<SG,i32> -> QUBO<i32>
     let wrong_target = variant_to_map(vec![("weight", "i32")]);
-    let result = lookup_overhead("MaximumIndependentSet", &source, "QUBO", &wrong_target);
-    assert!(result.is_none(), "Should reject wrong target variant");
+    let result = lookup_size_contract("MaximumIndependentSet", &source, "QUBO", &wrong_target);
+    assert!(
+        result.unwrap().is_none(),
+        "Should reject wrong target variant"
+    );
 }

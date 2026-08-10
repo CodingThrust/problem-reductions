@@ -42,9 +42,13 @@ impl ReductionResult for ReductionClusteringToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_elements * num_clusters",
-        num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for Clustering {

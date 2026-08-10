@@ -43,12 +43,13 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_elements + 3",
-    num_arcs = "2 * num_elements + 1",
-    max_capacity = "total_sum",
-    requirement = "total_sum",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "num_elements + 3",
+        num_arcs = "2 * num_elements + 1",
+        max_capacity = "total_sum",
+        requirement = "total_sum",
+    })]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
     type Result = ReductionPartitionToIntegralFlowWithMultipliers;
 

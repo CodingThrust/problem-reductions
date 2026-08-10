@@ -42,9 +42,10 @@ impl ReductionResult for ReductionPartitionToMPS {
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    exact = {
+        num_tasks = "num_elements",
+    })]
 impl ReduceTo<MultiprocessorScheduling> for Partition {
     type Result = ReductionPartitionToMPS;
 

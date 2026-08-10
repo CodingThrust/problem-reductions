@@ -32,9 +32,12 @@ impl ReductionResult for ReductionHSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "universe_size",
         num_constraints = "num_sets",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumHittingSet {

@@ -202,7 +202,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_overhead_num_rows_equals_num_vertices() {
-    // Spot-check the size overhead: target.num_rows == source.num_vertices.
+    // Spot-check the exact size map: target.num_rows == source.num_vertices.
     for n in [1usize, 2, 5, 8] {
         let edges: Vec<(usize, usize)> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
         let weights: Vec<i32> = vec![1; edges.len()];

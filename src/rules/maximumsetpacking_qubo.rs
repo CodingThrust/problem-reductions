@@ -36,7 +36,12 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_sets" }
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
+    },
+    exact = {
+        num_vars = "num_sets",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;

@@ -228,11 +228,12 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "3 * num_vars^2 + 9 * num_vars + 4 * num_clauses + register_sufficiency_padding + 4",
-    num_arcs = "6 * num_vars^2 + 19 * num_vars + 16 * num_clauses + 2 * register_sufficiency_padding + 1",
-    bound = "3 * num_clauses + 4 * num_vars + 1 + register_sufficiency_padding",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "3 * num_vars^2 + 9 * num_vars + 4 * num_clauses + register_sufficiency_padding + 4",
+        num_arcs = "6 * num_vars^2 + 19 * num_vars + 16 * num_clauses + 2 * register_sufficiency_padding + 1",
+        bound = "3 * num_clauses + 4 * num_vars + 1 + register_sufficiency_padding",
+    })]
 impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;
 

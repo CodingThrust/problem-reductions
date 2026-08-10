@@ -66,9 +66,10 @@ fn biguint_to_u64(value: &BigUint) -> u64 {
         .expect("SubsetSum -> Partition requires all sizes and padding to fit in u64")
 }
 
-#[reduction(overhead = {
-    num_elements = "num_elements + 1",
-})]
+#[reduction(
+    exact = {
+        num_elements = "num_elements + 1",
+    })]
 impl ReduceTo<Partition> for SubsetSum {
     type Result = ReductionSubsetSumToPartition;
 

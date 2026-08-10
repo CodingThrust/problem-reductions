@@ -1,4 +1,3 @@
-use crate::util::{build_search_mode, SearchLimitOverrides};
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -47,52 +46,10 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
-pub enum SearchModeArg {
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SizeModeArg {
     Exact,
-    Approximate,
-}
-
-/// Completeness and resource policy shared by path-discovery commands.
-#[derive(clap::Args, Clone, Debug)]
-pub struct SearchArgs {
-    /// Search completeness: exact elementary-path enumeration or bounded best-effort.
-    #[arg(long, value_enum, default_value_t = SearchModeArg::Approximate)]
-    pub search_mode: SearchModeArg,
-    /// Maximum reduction hops in approximate mode (default: 16).
-    #[arg(long)]
-    pub max_hops: Option<usize>,
-    /// Maximum live labels per node in approximate mode (default: 32).
-    #[arg(long)]
-    pub max_labels_per_node: Option<usize>,
-    /// Maximum expanded states in approximate mode.
-    #[arg(long)]
-    pub max_expanded_states: Option<usize>,
-    /// Wall-clock search timeout in seconds in approximate mode.
-    #[arg(long = "timeout")]
-    pub timeout: Option<u64>,
-}
-
-impl SearchArgs {
-    pub fn mode(&self) -> anyhow::Result<problemreductions::rules::SearchMode> {
-        build_search_mode(
-            self.search_mode == SearchModeArg::Exact,
-            SearchLimitOverrides {
-                max_hops: self.max_hops,
-                max_labels_per_node: self.max_labels_per_node,
-                max_expanded_states: self.max_expanded_states,
-                timeout_seconds: self.timeout,
-            },
-        )
-    }
-
-    pub fn has_nondefault_policy(&self) -> bool {
-        self.search_mode != SearchModeArg::Approximate
-            || self.max_hops.is_some()
-            || self.max_labels_per_node.is_some()
-            || self.max_expanded_states.is_some()
-            || self.timeout.is_some()
-    }
+    Bound,
 }
 
 #[derive(Subcommand)]
@@ -161,7 +118,8 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     /// Find reduction paths between two problems
     #[command(after_help = "\
 Examples:
-  pred path MIS QUBO                              # asymptotic Pareto front (Big-O per size field)
+  pred path MIS Clique --size-mode exact --size num_vertices=5 --size num_edges=4
+  pred path MIS Clique --size-mode bound --size num_vertices=5 --size num_edges=4
   pred path MIS QUBO --all                        # all paths
   pred path MIS QUBO -o front.json                # save the Pareto front
   pred path MIS QUBO --all -o paths/              # save all paths to a folder
@@ -180,8 +138,12 @@ Use `pred list` to see available problems.")]
         /// Maximum paths to return in --all mode
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
-        #[command(flatten)]
-        search: SearchArgs,
+        /// Rank paths by exact propagated sizes or certified upper bounds.
+        #[arg(long, value_enum)]
+        size_mode: Option<SizeModeArg>,
+        /// Source size component as FIELD=NON_NEGATIVE_INTEGER; repeat for each field.
+        #[arg(long = "size")]
+        sizes: Vec<String>,
     },
 
     /// Export the reduction graph to JSON

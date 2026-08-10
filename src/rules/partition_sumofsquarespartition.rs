@@ -55,10 +55,11 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_elements",
-    num_groups = "2",
-})]
+#[reduction(
+    exact = {
+        num_elements = "num_elements",
+        num_groups = "2",
+    })]
 impl ReduceTo<SumOfSquaresPartition> for Partition {
     type Result = ReductionPartitionToSumOfSquaresPartition;
 

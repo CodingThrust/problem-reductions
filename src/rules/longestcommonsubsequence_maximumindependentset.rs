@@ -80,8 +80,10 @@ impl ReductionResult for ReductionLCSToIS {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "cross_frequency_product",
+    },
+    bound = {
         num_edges = "cross_frequency_product^2",
     }
 )]

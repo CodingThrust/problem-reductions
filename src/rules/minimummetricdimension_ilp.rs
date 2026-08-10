@@ -49,9 +49,12 @@ impl ReductionResult for ReductionMDToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices * (num_vertices - 1) / 2",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {

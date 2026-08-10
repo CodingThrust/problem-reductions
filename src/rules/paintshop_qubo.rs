@@ -38,7 +38,11 @@ impl ReductionResult for ReductionPaintShopToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_cars" })]
+#[reduction(unavailable = {
+    coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
+}, exact = {
+    num_vars = "num_cars",
+})]
 impl ReduceTo<QUBO<f64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;
 

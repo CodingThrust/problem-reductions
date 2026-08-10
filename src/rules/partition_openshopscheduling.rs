@@ -106,10 +106,11 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
     }
 }
 
-#[reduction(overhead = {
-    num_jobs = "num_elements + 1",
-    num_machines = "3",
-})]
+#[reduction(
+    exact = {
+        num_jobs = "num_elements + 1",
+        num_machines = "3",
+    })]
 impl ReduceTo<OpenShopScheduling> for Partition {
     type Result = ReductionPartitionToOpenShopScheduling;
 

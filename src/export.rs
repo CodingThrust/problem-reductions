@@ -1,6 +1,6 @@
 //! JSON export schema for example payloads.
 
-use crate::rules::registry::ReductionOverhead;
+use crate::rules::registry::{ReductionSizeContract, SizeContractError};
 use crate::rules::ReductionGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -117,16 +117,19 @@ pub struct ExampleDb {
     pub rules: Vec<RuleExample>,
 }
 
-/// Look up `ReductionOverhead` for an exact direct reduction entry.
-pub fn lookup_overhead(
+/// Look up the explicit size contract for an exact direct reduction entry.
+pub fn lookup_size_contract(
     source_name: &str,
     source_variant: &BTreeMap<String, String>,
     target_name: &str,
     target_variant: &BTreeMap<String, String>,
-) -> Option<ReductionOverhead> {
+) -> Result<Option<ReductionSizeContract>, SizeContractError> {
     let graph = ReductionGraph::new();
-    let matched = graph.find_entry(source_name, source_variant, target_name, target_variant)?;
-    Some(matched.overhead)
+    let Some(matched) = graph.find_entry(source_name, source_variant, target_name, target_variant)
+    else {
+        return Ok(None);
+    };
+    matched.size_contract.map(Some)
 }
 
 /// Convert `Problem::variant()` output to a stable `BTreeMap`.

@@ -38,7 +38,7 @@ fn biguint_to_i32(value: &BigUint) -> i32 {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         ambient_dimension = "num_elements + 1",
         num_basis_vectors = "num_elements",
     }

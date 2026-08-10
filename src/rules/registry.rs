@@ -1,127 +1,137 @@
 //! Automatic reduction registration via inventory.
 
-use crate::expr::{evaluate_approximate, Expr, SubstitutionError};
+use crate::expr::Expr;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
+use crate::size_bound::{SizeBound, SizeBoundError};
+use crate::size_map::{SizeMap, SizeMapError};
 use crate::types::ProblemSize;
 use std::any::Any;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 
-/// Overhead specification for a reduction.
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct ReductionOverhead {
-    /// Output size as expressions of input size variables.
-    /// Each entry is (output_field_name, expression).
-    pub output_size: Vec<(&'static str, Expr)>,
+/// One target field whose size cannot be propagated through a reduction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct UnavailableSizeField {
+    pub field: &'static str,
+    pub reason: &'static str,
 }
 
-/// Output fields whose formulas cannot be expressed through the preceding overhead.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct OverheadCompositionError {
-    field_errors: BTreeMap<&'static str, SubstitutionError>,
+/// Raw symbolic declarations emitted by the reduction proc macro.
+///
+/// Validation remains in `SizeMap` and `SizeBound`; this representation only
+/// crosses the static inventory boundary.
+#[derive(Clone, Debug, Default)]
+pub struct ReductionSizeDeclarations {
+    pub exact: Vec<(&'static str, Expr)>,
+    pub bounds: Vec<(&'static str, Expr)>,
+    pub unavailable: Vec<UnavailableSizeField>,
 }
 
-impl OverheadCompositionError {
-    pub fn field_errors(&self) -> &BTreeMap<&'static str, SubstitutionError> {
-        &self.field_errors
-    }
+/// Validated size metadata for one reduction edge.
+#[derive(Clone, Debug)]
+pub struct ReductionSizeContract {
+    exact: Option<SizeMap>,
+    bounds: Option<SizeBound>,
+    unavailable: Vec<UnavailableSizeField>,
 }
 
-impl std::fmt::Display for OverheadCompositionError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (index, (field, error)) in self.field_errors.iter().enumerate() {
-            if index > 0 {
-                formatter.write_str("; ")?;
+impl ReductionSizeContract {
+    pub fn new(
+        edge: impl Into<Box<str>>,
+        declarations: ReductionSizeDeclarations,
+    ) -> Result<Self, SizeContractError> {
+        let edge = edge.into();
+        let exact_names: HashSet<_> = declarations.exact.iter().map(|(field, _)| *field).collect();
+        let bound_names: HashSet<_> = declarations
+            .bounds
+            .iter()
+            .map(|(field, _)| *field)
+            .collect();
+        let mut unavailable_names = HashSet::new();
+        for unavailable in &declarations.unavailable {
+            if unavailable.reason.trim().is_empty() {
+                return Err(SizeContractError::EmptyUnavailableReason {
+                    edge,
+                    field: unavailable.field.into(),
+                });
             }
-            write!(formatter, "{field}: {error}")?;
-        }
-        Ok(())
-    }
-}
-
-impl std::error::Error for OverheadCompositionError {}
-
-impl ReductionOverhead {
-    pub fn new(output_size: Vec<(&'static str, Expr)>) -> Self {
-        Self { output_size }
-    }
-
-    /// Identity overhead: each output field equals the same-named input field.
-    /// Used by variant cast reductions where problem size doesn't change.
-    pub fn identity(fields: &[&'static str]) -> Self {
-        Self {
-            output_size: fields
-                .iter()
-                .map(|&field| (field, Expr::variable(field)))
-                .collect(),
-        }
-    }
-
-    /// Evaluate output size given input size.
-    ///
-    /// Uses `round()` for the f64 to usize conversion because expression values
-    /// are typically integers and any fractional results come from floating-point
-    /// arithmetic imprecision, not intentional fractions.
-    pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
-        let fields: Vec<_> = self
-            .output_size
-            .iter()
-            .map(|(name, expr)| {
-                let value = evaluate_approximate(expr, input)
-                    .expect("overhead approximation requires every expression variable");
-                (*name, value.round() as usize)
-            })
-            .collect();
-        ProblemSize::new(fields)
-    }
-
-    /// Collect all input variable names referenced by the overhead expressions.
-    pub fn input_variable_names(&self) -> HashSet<&str> {
-        self.output_size
-            .iter()
-            .flat_map(|(_, expr)| expr.variables())
-            .collect()
-    }
-
-    /// Compose two overheads: substitute self's output into `next`'s input.
-    ///
-    /// Returns a new overhead whose expressions map from self's input variables
-    /// directly to `next`'s output variables.
-    pub fn compose(
-        &self,
-        next: &ReductionOverhead,
-    ) -> Result<ReductionOverhead, OverheadCompositionError> {
-        use std::collections::HashMap;
-
-        // Build substitution map: output field name → output expression
-        let mapping: HashMap<&str, &Expr> = self
-            .output_size
-            .iter()
-            .map(|(name, expr)| (*name, expr))
-            .collect();
-
-        let mut composed = Vec::with_capacity(next.output_size.len());
-        let mut field_errors = BTreeMap::new();
-        for (name, expression) in &next.output_size {
-            match expression.substitute_complete(&mapping) {
-                Ok(expression) => composed.push((*name, expression)),
-                Err(error) => {
-                    field_errors.insert(*name, error);
-                }
+            if !unavailable_names.insert(unavailable.field)
+                || exact_names.contains(unavailable.field)
+                || bound_names.contains(unavailable.field)
+            {
+                return Err(SizeContractError::DuplicateClassification {
+                    edge,
+                    field: unavailable.field.into(),
+                });
             }
         }
-        if field_errors.is_empty() {
-            Ok(Self::new(composed))
+        let exact = if declarations.exact.is_empty() {
+            None
         } else {
-            Err(OverheadCompositionError { field_errors })
-        }
+            Some(SizeMap::new(edge.clone(), declarations.exact)?)
+        };
+        let bounds = if declarations.bounds.is_empty() {
+            None
+        } else {
+            Some(SizeBound::new(edge, declarations.bounds)?)
+        };
+        Ok(Self {
+            exact,
+            bounds,
+            unavailable: declarations.unavailable,
+        })
     }
 
-    /// Get the expression for a named output field.
-    pub fn get(&self, name: &str) -> Option<&Expr> {
-        self.output_size
-            .iter()
-            .find(|(n, _)| *n == name)
-            .map(|(_, e)| e)
+    pub fn exact(&self) -> Option<&SizeMap> {
+        self.exact.as_ref()
+    }
+
+    pub fn bounds(&self) -> Option<&SizeBound> {
+        self.bounds.as_ref()
+    }
+
+    pub fn unavailable(&self) -> &[UnavailableSizeField] {
+        &self.unavailable
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SizeContractError {
+    Exact(SizeMapError),
+    Bound(SizeBoundError),
+    DuplicateClassification { edge: Box<str>, field: Box<str> },
+    EmptyUnavailableReason { edge: Box<str>, field: Box<str> },
+}
+
+impl std::fmt::Display for SizeContractError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exact(error) => write!(formatter, "invalid exact size map: {error}"),
+            Self::Bound(error) => write!(formatter, "invalid certified size bound: {error}"),
+            Self::DuplicateClassification { edge, field } => {
+                write!(
+                    formatter,
+                    "reduction `{edge}` classifies target field `{field}` more than once"
+                )
+            }
+            Self::EmptyUnavailableReason { edge, field } => write!(
+                formatter,
+                "reduction `{edge}` marks target field `{field}` unavailable without a reason"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for SizeContractError {}
+
+impl From<SizeMapError> for SizeContractError {
+    fn from(error: SizeMapError) -> Self {
+        Self::Exact(error)
+    }
+}
+
+impl From<SizeBoundError> for SizeContractError {
+    fn from(error: SizeBoundError) -> Self {
+        Self::Bound(error)
     }
 }
 
@@ -167,8 +177,8 @@ pub struct ReductionEntry {
     pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to derive target variant attributes from `Problem::variant()`.
     pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-    /// Function to create overhead information (lazy evaluation for static context).
-    pub overhead_fn: fn() -> ReductionOverhead,
+    /// Explicit exact, certified-bound, and unavailable target-field declarations.
+    pub size_declarations_fn: fn() -> ReductionSizeDeclarations,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
     /// Type-erased reduction executor.
@@ -182,10 +192,6 @@ pub struct ReductionEntry {
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,
-    /// Compiled overhead evaluation function.
-    /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
-    /// and returns the computed target problem size.
-    pub overhead_eval_fn: fn(&dyn Any) -> ProblemSize,
     /// Extract source problem size from a type-erased instance.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods,
     /// and returns the source problem's size fields as a `ProblemSize`.
@@ -193,9 +199,9 @@ pub struct ReductionEntry {
 }
 
 impl ReductionEntry {
-    /// Get the overhead by calling the function.
-    pub fn overhead(&self) -> ReductionOverhead {
-        (self.overhead_fn)()
+    pub fn size_contract(&self) -> Result<ReductionSizeContract, SizeContractError> {
+        let edge: Box<str> = format!("{} -> {}", self.source_name, self.target_name).into();
+        ReductionSizeContract::new(edge, (self.size_declarations_fn)())
     }
 
     /// Get the source variant by calling the function.
@@ -238,7 +244,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_name", &self.target_name)
             .field("source_variant", &self.source_variant())
             .field("target_variant", &self.target_variant())
-            .field("overhead", &self.overhead())
+            .field("size_contract", &self.size_contract())
             .field("module_path", &self.module_path)
             .field("capabilities", &self.capabilities())
             .finish()

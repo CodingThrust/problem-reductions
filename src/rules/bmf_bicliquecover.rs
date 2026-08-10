@@ -86,7 +86,7 @@ impl ReductionResult for ReductionBMFToBicliqueCover {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vertices = "rows + cols",
         num_edges = "rows * cols",
         rank = "rank",

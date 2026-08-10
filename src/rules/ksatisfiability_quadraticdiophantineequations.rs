@@ -78,11 +78,15 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
     QuadraticDiophantineEquations::new(BigUint::one(), source.b().clone(), c)
 }
 
-#[reduction(overhead = {
-    bit_length_a = "1",
-    bit_length_b = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_c = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-})]
+#[reduction(
+    exact = {
+        bit_length_a = "1",
+    },
+    unavailable = {
+        bit_length_b = "the exact coefficient bit length depends on constructed prime products and is not determined by clause and variable counts",
+        bit_length_c = "the exact coefficient bit length depends on constructed prime products and padding and is not determined by clause and variable counts",
+    }
+)]
 impl ReduceTo<QuadraticDiophantineEquations> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticDiophantineEquations;
 

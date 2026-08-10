@@ -186,10 +186,11 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
-    num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
-})]
+#[reduction(
+    exact = {
+        num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
+        num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
+    })]
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 

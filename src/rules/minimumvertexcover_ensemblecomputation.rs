@@ -83,7 +83,7 @@ impl ReductionResult for ReductionVCToEC {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         universe_size = "num_vertices + 1",
         num_subsets = "num_edges",
     }

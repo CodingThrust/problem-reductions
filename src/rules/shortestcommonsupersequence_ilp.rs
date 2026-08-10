@@ -43,9 +43,13 @@ impl ReductionResult for ReductionSCSToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
-        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {

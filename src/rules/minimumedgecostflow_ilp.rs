@@ -54,9 +54,12 @@ impl ReductionResult for ReductionMECFToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "2 * num_edges",
         num_constraints = "2 * num_edges + num_vertices - 1",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {

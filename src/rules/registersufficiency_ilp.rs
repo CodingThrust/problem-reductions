@@ -36,9 +36,13 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
-    num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
+#[reduction(
+    exact = {
+        num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
+        num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
+    },
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
 })]
 impl ReduceTo<ILP<i32>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;

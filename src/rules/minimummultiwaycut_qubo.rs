@@ -65,7 +65,11 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     }
 }
 
-#[reduction(overhead = { num_vars = "num_terminals * num_vertices" })]
+#[reduction(unavailable = {
+    coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
+}, exact = {
+    num_vars = "num_terminals * num_vertices",
+})]
 impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
     type Result = ReductionMinimumMultiwayCutToQUBO;
 

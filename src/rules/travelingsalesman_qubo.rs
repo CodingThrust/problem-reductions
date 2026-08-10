@@ -66,7 +66,10 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 }
 
 #[reduction(
-    overhead = {
+    unavailable = {
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
+    },
+    exact = {
         num_vars = "num_vertices^2",
     }
 )]

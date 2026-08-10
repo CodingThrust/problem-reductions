@@ -310,7 +310,7 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "tseitin_num_vars",
         num_clauses = "tseitin_num_clauses",
     }

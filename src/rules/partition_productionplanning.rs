@@ -30,9 +30,10 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
     }
 }
 
-#[reduction(overhead = {
-    num_periods = "num_elements + 1",
-})]
+#[reduction(
+    exact = {
+        num_periods = "num_elements + 1",
+    })]
 impl ReduceTo<ProductionPlanning> for Partition {
     type Result = ReductionPartitionToProductionPlanning;
 

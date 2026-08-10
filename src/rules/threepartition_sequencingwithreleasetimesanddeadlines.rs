@@ -86,9 +86,10 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements + num_groups - 1",
-})]
+#[reduction(
+    exact = {
+        num_tasks = "num_elements + num_groups - 1",
+    })]
 impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
     type Result = ReductionThreePartitionToSRTD;
 

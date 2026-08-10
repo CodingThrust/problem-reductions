@@ -35,9 +35,13 @@ impl ReductionResult for ReductionPaintShopToILP {
 }
 
 #[reduction(
-    overhead = {
+    exact = {
         num_vars = "num_cars + 2 * num_sequence",
-        num_constraints = "num_sequence + 2 * num_sequence",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        coefficient_encoding_bits = "the source size vector omits coefficient magnitudes and sparsity needed to bound the encoded coefficients",
     }
 )]
 impl ReduceTo<ILP<bool>> for PaintShop {
