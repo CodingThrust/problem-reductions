@@ -261,14 +261,15 @@ impl McpServer {
             }
         }
 
-        let mut all_paths = graph.find_paths_up_to(
+        let batch = crate::commands::graph::find_path_batch(
+            &graph,
             &src_ref.name,
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
-            max_paths + 1,
+            max_paths,
         );
-        if all_paths.is_empty() {
+        if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
                 "No reduction path from {} to {}",
                 src_ref.name,
@@ -276,34 +277,11 @@ impl McpServer {
             );
         }
 
-        let truncated = all_paths.len() > max_paths;
-        if truncated {
-            all_paths.truncate(max_paths);
-        }
-        let returned = all_paths.len();
         let measured = loaded
             .as_ref()
-            .map(|source| graph.measure_paths(&all_paths, source.as_any()))
+            .map(|source| graph.measure_paths(&batch.paths, source.as_any()))
             .transpose()?;
-
-        let paths_json: Vec<serde_json::Value> = all_paths
-            .iter()
-            .enumerate()
-            .map(|(index, path)| match &measured {
-                Some(measured) => Ok(crate::commands::graph::format_concrete_path_json(
-                    &measured[index],
-                )),
-                None => Ok(crate::commands::graph::format_path_json(&graph, path)),
-            })
-            .collect::<anyhow::Result<Vec<_>>>()?;
-
-        let json = serde_json::json!({
-            "paths": paths_json,
-            "truncated": truncated,
-            "returned": returned,
-            "max_paths": max_paths,
-            "analysis": if loaded.is_some() { "concrete" } else { "symbolic" },
-        });
+        let json = crate::commands::graph::path_batch_json(&graph, &batch, measured.as_deref())?;
         Ok(serde_json::to_string_pretty(&json)?)
     }
 

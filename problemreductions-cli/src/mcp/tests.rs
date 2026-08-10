@@ -56,6 +56,7 @@ mod tests {
         )
         .unwrap();
         assert!(!result["paths"].as_array().unwrap().is_empty());
+        assert_eq!(result["analysis"], "symbolic");
     }
 
     #[test]
@@ -106,10 +107,12 @@ mod tests {
     fn test_find_path_is_capped_explicitly() {
         let server = McpServer::new();
         let json: serde_json::Value =
-            serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 20, None).unwrap())
-                .unwrap();
-        assert!(!json["paths"].as_array().unwrap().is_empty());
-        assert!(json["truncated"].is_boolean());
+            serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 1, None).unwrap()).unwrap();
+        assert_eq!(json["paths"].as_array().unwrap().len(), 1);
+        assert_eq!(json["returned"], 1);
+        assert_eq!(json["max_paths"], 1);
+        assert_eq!(json["truncated"], true);
+        assert_eq!(json["analysis"], "symbolic");
     }
 
     #[test]

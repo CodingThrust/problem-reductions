@@ -5280,6 +5280,7 @@ fn test_path_set_has_explicit_strongest_size_information() {
     assert!(envelope["returned"].is_number());
     assert!(envelope["max_paths"].is_number());
     assert!(envelope["truncated"].is_boolean());
+    assert_eq!(envelope["analysis"], "symbolic");
 }
 
 #[test]
@@ -5331,6 +5332,50 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
         .collect::<std::collections::BTreeMap<_, _>>();
     assert_eq!(relations["num_vars"], "exact");
     assert_eq!(relations["num_constraints"], "unavailable");
+}
+
+#[test]
+fn test_path_overall_unavailable_reason_matches_each_target_field() {
+    let output = pred()
+        .args([
+            "path",
+            "Factoring",
+            "ILP/bool",
+            "--max-paths",
+            "7",
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let path = envelope["paths"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|path| {
+            path["path"].as_array().is_some_and(|steps| {
+                steps
+                    .iter()
+                    .any(|step| step["from"]["name"] == "Clustering")
+            })
+        })
+        .expect("Factoring -> ... -> Clustering -> ILP path");
+    let fields = path["overall_size"]["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|field| (field["field"].as_str().unwrap(), field))
+        .collect::<std::collections::BTreeMap<_, _>>();
+
+    assert!(fields["num_constraints"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("constraint count depends"));
+    assert!(fields["num_vars"]["reason"]
+        .as_str()
+        .unwrap()
+        .contains("has no exact size map"));
 }
 
 #[test]
