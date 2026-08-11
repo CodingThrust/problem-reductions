@@ -267,7 +267,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 
 ## CLI Impact
 
-Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
+Adding a witness-preserving reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`ProblemSchemaEntry` and `declare_variants!`), including any aliases and `pred create` construction contract (see `add-model` skill).
 
 `ExtractionError` already propagates through `pred extract` and bundle `pred solve`; add a rule-specific CLI test only when the CLI surface changes.
 
@@ -296,6 +296,6 @@ Aggregate-only reductions currently have a narrower CLI surface:
 | Not adding a canonical example | Add the rule-local spec and include it from `src/rules/mod.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Skipping Step 6 (paper documentation) | **Every rule MUST have a `reduction-rule` entry in the paper. This is mandatory, not optional. PRs without documentation will be rejected.** |
-| Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |
+| Source/target model not fully registered | Both problems must already have `ProblemSchemaEntry`, `declare_variants!`, registry aliases as needed, and a construction contract -- use `add-model` skill first |
 | Treating a direct-to-ILP rule as a toy stub | Direct ILP reductions need exact overhead metadata and strong semantic regression tests, just like other production ILP rules |
 | Skipping verification for complex reductions | Verification is default for a reason — `--no-verify` is for trivial identity/complement reductions only |

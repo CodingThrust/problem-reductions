@@ -77,6 +77,18 @@ struct MinimumSumMulticenterCreateSpec {
     k: usize,
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumSumMulticenterRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<u64>,
+    /// Number of centers (default: max(1, num_vertices / 3)).
+    k: Option<usize>,
+}
+
 impl TryFrom<MinimumSumMulticenterCreateSpec> for MinimumSumMulticenter<SimpleGraph, i32> {
     type Error = String;
 
@@ -312,8 +324,22 @@ where
     }
 }
 
+crate::impl_random_generate!(MinimumSumMulticenter<SimpleGraph, i32>, MinimumSumMulticenterRandomSpec, |spec| {
+    let graph = crate::random::SimpleGraphRandomSpec {
+        num_vertices: spec.num_vertices,
+        edge_prob: spec.edge_prob,
+        seed: spec.seed,
+    }.graph()?;
+    let k = spec.k.unwrap_or(std::cmp::max(1, spec.num_vertices / 3));
+    if k == 0 || k > spec.num_vertices {
+        return Err(format!("k must be between 1 and {}", spec.num_vertices));
+    }
+    let lengths = vec![1; graph.num_edges()];
+    Ok(MinimumSumMulticenter::new(graph, vec![1; spec.num_vertices], lengths, k))
+});
+
 crate::declare_variants! {
-    default MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices" create MinimumSumMulticenterCreateSpec,
+    default MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices" create MinimumSumMulticenterCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]

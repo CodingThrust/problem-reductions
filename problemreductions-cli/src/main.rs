@@ -50,11 +50,17 @@ fn main() -> anyhow::Result<()> {
     };
 
     match cli.command {
-        Commands::List { rules } => {
+        Commands::List {
+            query,
+            rules,
+            category,
+            all,
+            verbose,
+        } => {
             if rules {
-                commands::graph::list_rules(&out)
+                commands::graph::list_rules(query.as_deref(), all, verbose, &out)
             } else {
-                commands::graph::list(&out)
+                commands::graph::list(query.as_deref(), category.as_deref(), all, verbose, &out)
             }
         }
         Commands::Show { problem } => commands::graph::show(&problem, &out),

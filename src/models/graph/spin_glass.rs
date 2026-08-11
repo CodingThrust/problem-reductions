@@ -298,8 +298,14 @@ where
     }
 }
 
+crate::impl_random_generate!(SpinGlass<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let num_edges = graph.num_edges();
+    Ok(SpinGlass::from_graph(graph, vec![1; num_edges], vec![0; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default SpinGlass<SimpleGraph, i32> => "2^num_spins" create SpinGlassI32CreateSpec,
+    default SpinGlass<SimpleGraph, i32> => "2^num_spins" create SpinGlassI32CreateSpec random,
     SpinGlass<SimpleGraph, f64> => "2^num_spins" create SpinGlassF64CreateSpec,
 }
 

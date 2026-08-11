@@ -183,9 +183,16 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     true
 }
 
+crate::impl_random_generate!(MaximumClique<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumClique::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumClique::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i32>,
-    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One>,
+    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i32> random,
+    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One> random,
 }
 
 #[cfg(feature = "example-db")]

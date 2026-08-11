@@ -282,14 +282,36 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     true
 }
 
+crate::impl_random_generate!(MaximumIndependentSet<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<KingsSubgraph, i32>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(KingsSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<KingsSubgraph, One>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(KingsSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![One; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<TriangularSubgraph, i32>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(TriangularSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<UnitDiskGraph, i32>, crate::random::UnitDiskRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(UnitDiskGraph::new(crate::random::create_random_float_positions(spec.num_vertices, spec.seed), spec.radius.unwrap_or(1.0)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<UnitDiskGraph, One>, crate::random::UnitDiskRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(UnitDiskGraph::new(crate::random::create_random_float_positions(spec.num_vertices, spec.seed), spec.radius.unwrap_or(1.0)), vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    MaximumIndependentSet<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumIndependentSetSimpleI32CreateSpec,
-    default MaximumIndependentSet<SimpleGraph, One> => "1.1996^num_vertices" create MaximumIndependentSetSimpleOneCreateSpec,
-    MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsI32CreateSpec,
-    MaximumIndependentSet<KingsSubgraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsOneCreateSpec,
-    MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetTriangularI32CreateSpec,
-    MaximumIndependentSet<UnitDiskGraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskI32CreateSpec,
-    MaximumIndependentSet<UnitDiskGraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskOneCreateSpec,
+    MaximumIndependentSet<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumIndependentSetSimpleI32CreateSpec random,
+    default MaximumIndependentSet<SimpleGraph, One> => "1.1996^num_vertices" create MaximumIndependentSetSimpleOneCreateSpec random,
+    MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsI32CreateSpec random,
+    MaximumIndependentSet<KingsSubgraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsOneCreateSpec random,
+    MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetTriangularI32CreateSpec random,
+    MaximumIndependentSet<UnitDiskGraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskI32CreateSpec random,
+    MaximumIndependentSet<UnitDiskGraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskOneCreateSpec random,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MaximumIndependentSet<G, W>

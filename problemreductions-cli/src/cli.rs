@@ -49,16 +49,34 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// List all registered problem types (or reduction rules with --rules)
+    /// Browse registered problem types (or reduction rules with --rules)
     #[command(after_help = "\
 Examples:
-  pred list                   # list problem types
-  pred list --rules           # list all reduction rules
+  pred list                   # show catalog summary and categories
+  pred list matching          # search names and aliases
+  pred list --category graph  # list graph problems
+  pred list --all             # list every problem compactly
+  pred list --rules --all     # list every reduction rule
   pred list -o problems.json  # save as JSON")]
     List {
+        /// Case-insensitive substring to search in names and aliases
+        query: Option<String>,
+
         /// List reduction rules instead of problem types
         #[arg(long)]
         rules: bool,
+
+        /// Restrict problems to a model category such as graph, set, or scheduling
+        #[arg(long, conflicts_with = "rules")]
+        category: Option<String>,
+
+        /// List the complete catalog instead of the summary
+        #[arg(long)]
+        all: bool,
+
+        /// Include per-variant complexity, rule counts, or rule size contracts
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// Show details for a problem type or variant (fields, reductions, complexity)

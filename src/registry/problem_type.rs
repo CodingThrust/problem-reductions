@@ -19,6 +19,8 @@ pub struct ProblemType {
     pub description: &'static str,
     /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
+    /// Top-level model category derived from the declaring module path.
+    pub category: Option<&'static str>,
 }
 
 impl ProblemType {
@@ -31,6 +33,11 @@ impl ProblemType {
             dimensions: entry.dimensions,
             description: entry.description,
             fields: entry.fields,
+            category: entry
+                .module_path
+                .split("::models::")
+                .nth(1)
+                .and_then(|path| path.split("::").next()),
         }
     }
 

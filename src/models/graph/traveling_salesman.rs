@@ -312,8 +312,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(TravelingSalesman<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let weights = vec![1; graph.num_edges()];
+    Ok(TravelingSalesman::new(graph, weights))
+});
+
 crate::declare_variants! {
-    default TravelingSalesman<SimpleGraph, i32> => "2^num_vertices" create TravelingSalesmanCreateSpec,
+    default TravelingSalesman<SimpleGraph, i32> => "2^num_vertices" create TravelingSalesmanCreateSpec random,
 }
 
 #[cfg(test)]

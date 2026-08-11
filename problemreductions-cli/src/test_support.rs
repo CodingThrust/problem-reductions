@@ -160,6 +160,8 @@ problemreductions::inventory::submit! {
                 .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
             Ok(Box::new(problem))
         },
+        random_inputs: None,
+        random_fn: None,
         factory: |data| {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
@@ -187,6 +189,8 @@ problemreductions::inventory::submit! {
                 .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
             Ok(Box::new(problem))
         },
+        random_inputs: None,
+        random_fn: None,
         factory: |data| {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))

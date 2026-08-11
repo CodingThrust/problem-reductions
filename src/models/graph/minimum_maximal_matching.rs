@@ -145,8 +145,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MinimumMaximalMatching<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MinimumMaximalMatching::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MinimumMaximalMatching<SimpleGraph> => "1.3160^num_vertices",
+    default MinimumMaximalMatching<SimpleGraph> => "1.3160^num_vertices" random,
     MinimumMaximalMatching<BipartiteGraph> => "1.3160^num_vertices",
 }
 

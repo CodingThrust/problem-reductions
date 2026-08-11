@@ -1,5 +1,6 @@
 use crate::registry::variant::{
-    validate_create_inputs, validate_direct_create_inputs, validate_variant_aliases, variant_label,
+    validate_create_inputs, validate_direct_create_inputs, validate_variant_aliases,
+    variant_entries, variant_label,
 };
 use crate::registry::{ConstructionError, CreateInputCodec, CreateInputInfo, FieldInfo};
 use std::collections::{BTreeMap, BTreeSet};
@@ -311,4 +312,59 @@ fn variant_label_with_variant_dimensions() {
         label.contains("k=K3"),
         "expected label to include k=K3, got: {label}"
     );
+}
+
+#[test]
+fn random_contract_metadata_and_generator_are_registered_together() {
+    let entries = variant_entries();
+    assert!(entries.iter().any(|entry| entry.random_fn.is_some()));
+
+    for entry in entries {
+        assert_eq!(
+            entry.random_inputs.is_some(),
+            entry.random_fn.is_some(),
+            "{} has a partial random-generation registration",
+            variant_label(entry)
+        );
+        let Some(inputs) = entry.random_inputs else {
+            continue;
+        };
+        let mut names = BTreeSet::new();
+        for input in inputs {
+            assert!(
+                !input.name.is_empty(),
+                "{} has an empty random input",
+                variant_label(entry)
+            );
+            assert!(
+                names.insert(input.name),
+                "{} declares random input `{}` more than once",
+                variant_label(entry),
+                input.name
+            );
+        }
+    }
+}
+
+#[test]
+fn established_random_generation_models_remain_registered() {
+    let expected = "
+        DecisionMinimumVertexCover MaximumIndependentSet MinimumVertexCover MaximumClique
+        MinimumDominatingSet MaximalIS KClique MinimumCutIntoBoundedSets HamiltonianCircuit
+        HamiltonianPath HamiltonianPathBetweenTwoVertices LongestCircuit MinimumMaximalMatching
+        RootedTreeArrangement SteinerTree SteinerTreeInGraphs LengthBoundedDisjointPaths
+        MaximumAchromaticNumber MaximumDomaticNumber MinimumCoveringByCliques
+        MinimumIntersectionGraphBasis MaximumLeafSpanningTree GeneralizedHex
+        BottleneckTravelingSalesman MaxCut MaximumMatching TravelingSalesman SpinGlass KColoring
+        OptimalLinearArrangement MinimumSumMulticenter
+    ";
+    let registered = variant_entries()
+        .into_iter()
+        .filter(|entry| entry.random_fn.is_some())
+        .map(|entry| entry.name)
+        .collect::<BTreeSet<_>>();
+
+    for name in expected.split_whitespace() {
+        assert!(registered.contains(name), "{name} lost random generation");
+    }
 }

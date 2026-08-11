@@ -286,8 +286,24 @@ where
     }
 }
 
+crate::impl_random_generate!(SteinerTree<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    if spec.num_vertices < 2 {
+        return Err("num_vertices must be at least 2".to_string());
+    }
+    let mut state = crate::random::lcg_init(spec.seed);
+    let graph = spec.graph()?;
+    for _ in 0..spec.num_vertices * spec.num_vertices {
+        crate::random::lcg_step(&mut state);
+    }
+    let weights = (0..graph.num_edges()).map(|_| (crate::random::lcg_step(&mut state) * 9.0) as i32 + 1).collect();
+    let count = std::cmp::max(2, spec.num_vertices * 2 / 5);
+    let terminals = crate::random::lcg_choose(&mut state, spec.num_vertices, count)
+        .map_err(|error| error.to_string())?;
+    Ok(SteinerTree::new(graph, weights, terminals))
+});
+
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i32>,
+    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i32> random,
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
 }
 

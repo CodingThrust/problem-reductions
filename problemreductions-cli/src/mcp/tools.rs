@@ -1,17 +1,8 @@
-use crate::util;
-use problemreductions::models::graph::{
-    KClique, LongestCircuit, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
-};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{ReductionGraph, TraversalFlow};
 use problemreductions::solvers::SolverRequest;
-use problemreductions::topology::{
-    Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
-};
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
-use serde::Serialize;
 use std::collections::BTreeMap;
 
 use crate::dispatch::{
@@ -308,7 +299,7 @@ impl McpServer {
             .unwrap_or(false);
 
         if is_random {
-            return self.create_random_inner(&canonical, &resolved_variant, params);
+            return self.generate_registered_random_inner(&canonical, &resolved_variant, params);
         }
 
         let normalized = normalize_mcp_create_inputs(params)?;
@@ -323,185 +314,26 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&output)?)
     }
 
-    fn create_random_inner(
+    fn generate_registered_random_inner(
         &self,
         canonical: &str,
         resolved_variant: &BTreeMap<String, String>,
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
-        let num_vertices = params
-            .get("num_vertices")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as usize)
-            .ok_or_else(|| {
-                anyhow::anyhow!("Random generation requires 'num_vertices' parameter")
-            })?;
-        let seed = params.get("seed").and_then(|v| v.as_u64());
-        let graph_type = resolved_variant
-            .get("graph")
-            .map(|s| s.as_str())
-            .unwrap_or("SimpleGraph");
-
-        let (data, variant) = match canonical {
-            "MaximumIndependentSet"
-            | "MinimumVertexCover"
-            | "MaximumClique"
-            | "MinimumDominatingSet" => {
-                let weights = vec![1i32; num_vertices];
-                match graph_type {
-                    "KingsSubgraph" => {
-                        let positions = util::create_random_int_positions(num_vertices, seed);
-                        let graph = KingsSubgraph::new(positions);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    "TriangularSubgraph" => {
-                        let positions = util::create_random_int_positions(num_vertices, seed);
-                        let graph = TriangularSubgraph::new(positions);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    "UnitDiskGraph" => {
-                        let radius = params.get("radius").and_then(|v| v.as_f64()).unwrap_or(1.0);
-                        let positions = util::create_random_float_positions(num_vertices, seed);
-                        let graph = UnitDiskGraph::new(positions, radius);
-                        (
-                            ser_vertex_weight_problem_generic(canonical, graph, weights)?,
-                            resolved_variant.clone(),
-                        )
-                    }
-                    _ => {
-                        let edge_prob = params
-                            .get("edge_prob")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.5);
-                        if !(0.0..=1.0).contains(&edge_prob) {
-                            anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                        }
-                        let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                        ser_vertex_weight_problem(canonical, graph, weights)?
-                    }
-                }
-            }
-            "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let edge_weights = vec![1i32; num_edges];
-                ser_edge_weight_problem(canonical, graph, edge_weights)?
-            }
-            "LongestCircuit" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let edge_lengths = vec![1i32; graph.num_edges()];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (ser(LongestCircuit::new(graph, edge_lengths))?, variant)
-            }
-            "SpinGlass" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let couplings = vec![1i32; num_edges];
-                let fields = vec![0i32; num_vertices];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(SpinGlass::from_graph(graph, couplings, fields))?,
-                    variant,
-                )
-            }
-            "KColoring" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let (k, _variant) =
-                    util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
-                util::ser_kcoloring(graph, k)?
-            }
-            "KClique" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let k = parse_kclique_threshold(k_flag, graph.num_vertices())?;
-                (
-                    ser(KClique::new(graph, k))?,
-                    variant_map(&[("graph", "SimpleGraph")]),
-                )
-            }
-            "MinimumSumMulticenter" => {
-                let edge_prob = params
-                    .get("edge_prob")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.5);
-                if !(0.0..=1.0).contains(&edge_prob) {
-                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
-                }
-                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
-                let num_edges = graph.num_edges();
-                let vertex_weights = vec![1i32; num_vertices];
-                let edge_lengths = vec![1i32; num_edges];
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .unwrap_or(1.max(num_vertices / 3));
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                (
-                    ser(MinimumSumMulticenter::new(
-                        graph,
-                        vertex_weights,
-                        edge_lengths,
-                        k,
-                    ))?,
-                    variant,
-                )
-            }
-            _ => anyhow::bail!(
-                "Random generation is not supported for {}. \
-                 Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, KClique, \
-                 TravelingSalesman, LongestCircuit, MinimumSumMulticenter)",
-                canonical
-            ),
-        };
-
+        let mut inputs = params
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("random inputs must be a JSON object"))?
+            .clone();
+        inputs.remove("random");
+        let problem = problemreductions::registry::generate_random_dyn(
+            canonical,
+            resolved_variant,
+            serde_json::Value::Object(inputs),
+        )?;
         let output = ProblemJsonOutput {
-            problem_type: canonical.to_string(),
-            variant,
-            data,
+            problem_type: problem.problem_name().to_string(),
+            variant: problem.variant_map(),
+            data: problem.serialize_json(),
         };
         Ok(serde_json::to_string_pretty(&output)?)
     }
@@ -826,73 +658,6 @@ fn normalize_mcp_create_inputs(params: &serde_json::Value) -> anyhow::Result<ser
     Ok(serde_json::Value::Object(inputs.clone()))
 }
 
-fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
-    util::ser(problem)
-}
-
-fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-    util::variant_map(pairs)
-}
-
-/// Serialize a vertex-weight graph problem (MIS, MVC, MaxClique, MinDomSet).
-fn ser_vertex_weight_problem(
-    canonical: &str,
-    graph: SimpleGraph,
-    weights: Vec<i32>,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-    let data = match canonical {
-        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-        "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-        _ => unreachable!(),
-    };
-    Ok((data, variant))
-}
-
-/// Serialize an edge-weight graph problem (MaxCut, MaximumMatching, TravelingSalesman).
-fn ser_edge_weight_problem(
-    canonical: &str,
-    graph: SimpleGraph,
-    edge_weights: Vec<i32>,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-    let data = match canonical {
-        "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
-        "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
-        "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
-        _ => unreachable!(),
-    };
-    Ok((data, variant))
-}
-
-/// Serialize a vertex-weight problem with a generic graph type.
-fn ser_vertex_weight_problem_generic<G: Graph + Serialize>(
-    canonical: &str,
-    graph: G,
-    weights: Vec<i32>,
-) -> anyhow::Result<serde_json::Value> {
-    match canonical {
-        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights)),
-        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights)),
-        "MaximumClique" => ser(MaximumClique::new(graph, weights)),
-        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights)),
-        _ => unreachable!(),
-    }
-}
-
-fn parse_kclique_threshold(k_flag: Option<usize>, num_vertices: usize) -> anyhow::Result<usize> {
-    let k = k_flag.ok_or_else(|| anyhow::anyhow!("KClique requires 'k'"))?;
-    if k == 0 {
-        anyhow::bail!("KClique: 'k' must be positive");
-    }
-    if k > num_vertices {
-        anyhow::bail!("KClique: k must be <= graph num_vertices");
-    }
-    Ok(k)
-}
-
 /// Solve a plain problem and return JSON string.
 fn solve_problem_inner(
     problem_type: &str,
@@ -1034,6 +799,41 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "construction inputs must be a JSON object"
+        );
+    }
+
+    #[test]
+    fn random_contract_mcp_uses_the_selected_variant_generator() {
+        let output = McpServer::new()
+            .create_problem_inner(
+                "MaximumIndependentSet",
+                &serde_json::json!({"random": true, "num_vertices": 4, "seed": 7}),
+            )
+            .unwrap();
+
+        let created: ProblemJsonOutput = serde_json::from_str(&output).unwrap();
+        assert_eq!(created.variant["graph"], "SimpleGraph");
+        assert_eq!(created.variant["weight"], "One");
+        assert_eq!(created.data["graph"]["num_vertices"], 4);
+    }
+
+    #[test]
+    fn random_contract_mcp_rejects_inputs_outside_model_contract() {
+        let error = McpServer::new()
+            .create_problem_inner(
+                "MaximumIndependentSet",
+                &serde_json::json!({
+                    "random": true,
+                    "num_vertices": 4,
+                    "bound": 2,
+                }),
+            )
+            .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("unknown construction input(s): bound"),
+            "unexpected error: {error}"
         );
     }
 }

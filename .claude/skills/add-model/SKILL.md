@@ -168,10 +168,7 @@ The CLI now loads, serializes, and brute-force solves problems through the core 
 1. **Registry-backed dispatch comes from `declare_variants!`:**
    - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
    - Mark the intended default variant with `default` when applicable
-
-2. **`problemreductions-cli/src/problem_name.rs`:**
-   - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
-   - Only add short aliases to the `ALIASES` array if the abbreviation is **well-established in the literature** (e.g., MIS, MVC, SAT, TSP, CVP are standard; "KS" for Knapsack or "BP" for BinPacking are NOT — do not invent new abbreviations)
+   - Declare well-established problem aliases in `ProblemSchemaEntry.aliases` and variant-specific aliases in `declare_variants!`; CLI and MCP discover both from the registry
 
 ## Step 4.5: Add construction support
 
@@ -186,6 +183,17 @@ CLI and MCP construction are registry-driven. Do not edit either frontend to rec
 4. Register the spec on each applicable variant: `default Model => "..." create LocalCreateSpec`. Both frontends then discover the inputs automatically and serialize the constructed typed model back to canonical persisted JSON.
 
 5. A new reusable external syntax may add one transport codec. It must dispatch by codec/type, never by canonical model name. Unknown or missing inputs are rejected by the core construction contract.
+
+### Optional random generation
+
+Random generation is an optional model capability, not a model-completeness requirement. Many models do not have a natural or useful probability distribution over instances; leave random generation unregistered for those models. Do not invent arbitrary size limits, value ranges, or distributions merely to make `--random` available.
+
+When the model does have a well-defined generator with a concrete testing or example use, random generation is registry-driven and belongs beside the model. Do not edit CLI or MCP dispatch code.
+
+1. Define a typed random input DTO with `#[derive(Deserialize, CreateSpec)]`, or reuse a matching shared spec from `crate::random`.
+2. Implement `RandomGenerate` with `crate::impl_random_generate!(ConcreteModel, RandomSpec, |spec| { ... })`. Validate values and return `Result`; do not round, clamp, or silently replace invalid inputs.
+3. Add `random` only to the exact `declare_variants!` entries that implement the trait: `default Model => "..." create LocalCreateSpec random`.
+4. The generated problem must have the same canonical name and variant as the selected registry entry. Use the concrete variant's actual graph and numeric types instead of attaching requested metadata to a different concrete instance.
 
 ## Step 4.6: Add canonical model example to example_db
 
@@ -312,7 +320,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
 | Wrong aggregate wrapper | Use `Max` / `Min` / `Extremum` for objective problems, `Or` for existential witness problems, and `Sum` / `And` (or a custom aggregate) for value-only folds |
 | Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
-| Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
+| Adding aliases in CLI code | Declare problem aliases in `ProblemSchemaEntry.aliases` and variant aliases in `declare_variants!` |
 | Adding a hand-written decision model | Use `Decision<P>` wrapper instead — see `decision_problem_meta!` + `register_decision_variant!` in `src/models/graph/minimum_vertex_cover.rs` for the pattern |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Adding frontend model-name branches | Construction is model-owned. Use a local `CreateSpec` and register it with `declare_variants!`; CLI and MCP must discover it. |

@@ -241,8 +241,12 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
     true
 }
 
+crate::impl_random_generate!(MaximalIS<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximalIS::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)" create MaximalISCreateSpec,
+    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)" create MaximalISCreateSpec random,
 }
 
 #[cfg(test)]

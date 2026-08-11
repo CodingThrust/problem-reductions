@@ -153,8 +153,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    OptimalLinearArrangement<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(OptimalLinearArrangement::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices" random,
 }
 
 impl<G> crate::models::decision::DecisionProblemMeta for OptimalLinearArrangement<G>

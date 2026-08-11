@@ -175,7 +175,7 @@ Invoke `/review-quality` (file: `.claude/skills/review-quality/SKILL.md`) with t
 2. **Invoke `/agentic-tests:test-feature`** (file: `~/.claude/commands/agentic-tests:test-feature.md`) with the identified feature. This simulates a downstream user exercising the feature from docs and examples.
 
    **Minimum test checklist** for the agentic tester:
-   - `pred list` — verify the new model/rule appears in the catalog
+   - For models, `pred list <Name>`; for rules, `pred list --rules <Source>` — verify the new catalog entry appears
    - `pred show <Name>` — verify details display correctly
    - `pred create --example <Name>` — verify example instance creation works
    - `pred solve <instance>` — verify solving works on the example

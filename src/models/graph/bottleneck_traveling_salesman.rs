@@ -209,8 +209,18 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(
+    BottleneckTravelingSalesman,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| {
+        let graph = spec.graph()?;
+        let weights = vec![1; graph.num_edges()];
+        Ok(BottleneckTravelingSalesman::new(graph, weights))
+    }
+);
+
 crate::declare_variants! {
-    default BottleneckTravelingSalesman => "num_vertices^2 * 2^num_vertices" create BottleneckTravelingSalesmanCreateSpec,
+    default BottleneckTravelingSalesman => "num_vertices^2 * 2^num_vertices" create BottleneckTravelingSalesmanCreateSpec random,
 }
 
 #[cfg(test)]

@@ -164,8 +164,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(
+    HamiltonianCircuit<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(HamiltonianCircuit::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default HamiltonianCircuit<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianCircuit<SimpleGraph> => "1.657^num_vertices" random,
 }
 
 #[cfg(test)]

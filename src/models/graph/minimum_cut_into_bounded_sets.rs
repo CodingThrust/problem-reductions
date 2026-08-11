@@ -259,8 +259,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i32>, crate::random::EndpointRandomSpec, |spec| {
+    let (source, sink) = spec.endpoints()?;
+    let graph = spec.graph()?;
+    let edge_weights = vec![1; graph.num_edges()];
+    Ok(MinimumCutIntoBoundedSets::new(graph, edge_weights, source, sink, spec.num_vertices))
+});
+
 crate::declare_variants! {
-    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec,
+    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec random,
 }
 
 #[cfg(test)]

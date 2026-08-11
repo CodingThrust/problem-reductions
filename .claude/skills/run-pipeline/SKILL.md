@@ -1,6 +1,6 @@
 ---
 name: run-pipeline
-description: Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool
+description: Pick a Ready issue from the GitHub Project board, move it from In Progress through issue-to-pr into Review pool
 ---
 
 # Run Pipeline
@@ -79,7 +79,7 @@ Score only **eligible** issues on three criteria. For `[Model]` issues, extract 
 | Criterion | Weight | How to Assess |
 |-----------|--------|---------------|
 | **C1: Industrial/Theoretical Importance** | 3 | Read the report's issue summary for each eligible issue. Score 0-2: **2** = widely used in industry or foundational in complexity theory (e.g., ILP, SAT, MaxFlow, TSP, GraphColoring); **1** = moderately important or well-studied (e.g., SubsetSum, SetCover, Knapsack); **0** = niche or primarily academic |
-| **C2: Related to Existing Problems** | 2 | Use the report's Ready/In-progress context plus `pred list` if needed. Score 0-2: **2** = directly related (shares input structure or has known reductions to/from ≥2 existing problems, but is NOT a trivial variant of an existing one); **1** = loosely related (same domain, connects to 1 existing problem); **0** = isolated or is essentially a variant/renaming of an existing problem |
+| **C2: Related to Existing Problems** | 2 | Use the report's Ready/In-progress context plus `pred list <candidate>` or `pred list --json` if needed. Score 0-2: **2** = directly related (shares input structure or has known reductions to/from ≥2 existing problems, but is NOT a trivial variant of an existing one); **1** = loosely related (same domain, connects to 1 existing problem); **0** = isolated or is essentially a variant/renaming of an existing problem |
 | **C3: Unblocks Pending Rules** | 2 | Read the `Pending rules unblocked` count already printed in the report for each eligible issue. Score 0-2: **2** = unblocks ≥2 pending rules; **1** = unblocks 1 pending rule; **0** = does not unblock any pending rule |
 
 **Final score** = C1 × 3 + C2 × 2 + C3 × 2 (max = 12)

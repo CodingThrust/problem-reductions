@@ -185,9 +185,16 @@ where
     }
 }
 
+crate::impl_random_generate!(MinimumDominatingSet<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MinimumDominatingSet::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MinimumDominatingSet<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MinimumDominatingSet::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<i32>,
-    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<One>,
+    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<i32> random,
+    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<One> random,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumDominatingSet<G, W>
@@ -274,6 +281,8 @@ inventory::submit! {
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)
                 .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))
         },
+        random_inputs: None,
+        random_fn: None,
         factory: |data| {
             serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)

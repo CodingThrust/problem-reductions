@@ -62,7 +62,7 @@ pub use schema::{
 pub use variant::{
     find_variant_by_alias, find_variant_entry, validate_create_inputs,
     validate_direct_create_inputs, validate_variant_aliases, variant_entries, ConstructProblemFn,
-    ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec, VariantEntry,
+    ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec, RandomGenerate, VariantEntry,
 };
 
 /// Construct a problem from normalized construction inputs using the exact
@@ -79,6 +79,27 @@ pub fn construct_dyn(
         }
     })?;
     (entry.construct_fn)(data)
+}
+
+/// Generate a problem using the exact variant's model-owned random generator.
+pub fn generate_random_dyn(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    data: serde_json::Value,
+) -> Result<Box<dyn DynProblem>, ConstructionError> {
+    let entry = find_variant_entry(name, variant).ok_or_else(|| {
+        ConstructionError::UnregisteredVariant {
+            name: name.to_string(),
+            variant: variant.clone(),
+        }
+    })?;
+    let generate = entry.random_fn.ok_or_else(|| {
+        ConstructionError::Conversion(format!(
+            "random generation is not registered for `{}`",
+            crate::registry::variant::variant_label(entry)
+        ))
+    })?;
+    generate(data)
 }
 
 use std::any::Any;

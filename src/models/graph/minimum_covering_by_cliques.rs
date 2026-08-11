@@ -153,8 +153,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MinimumCoveringByCliques<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MinimumCoveringByCliques::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MinimumCoveringByCliques<SimpleGraph> => "2^num_edges",
+    default MinimumCoveringByCliques<SimpleGraph> => "2^num_edges" random,
 }
 
 #[cfg(feature = "example-db")]

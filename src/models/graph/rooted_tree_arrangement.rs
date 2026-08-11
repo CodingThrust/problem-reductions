@@ -34,6 +34,18 @@ pub struct RootedTreeArrangement<G> {
     bound: usize,
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct RootedTreeArrangementRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<u64>,
+    /// Maximum total edge stretch (defaults to a graph-size upper bound).
+    bound: Option<usize>,
+}
+
 #[derive(Debug, Clone)]
 struct TreeInfo {
     depth: Vec<usize>,
@@ -204,8 +216,25 @@ fn are_ancestor_comparable(parent: &[usize], u: usize, v: usize) -> bool {
     is_ancestor(parent, u, v) || is_ancestor(parent, v, u)
 }
 
+crate::impl_random_generate!(
+    RootedTreeArrangement<SimpleGraph>,
+    RootedTreeArrangementRandomSpec,
+    |spec| {
+        let graph = crate::random::SimpleGraphRandomSpec {
+            num_vertices: spec.num_vertices,
+            edge_prob: spec.edge_prob,
+            seed: spec.seed,
+        }
+        .graph()?;
+        let bound = spec
+            .bound
+            .unwrap_or_else(|| spec.num_vertices.saturating_sub(1) * graph.num_edges());
+        Ok(RootedTreeArrangement::new(graph, bound))
+    }
+);
+
 crate::declare_variants! {
-    default RootedTreeArrangement<SimpleGraph> => "2^num_vertices",
+    default RootedTreeArrangement<SimpleGraph> => "2^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

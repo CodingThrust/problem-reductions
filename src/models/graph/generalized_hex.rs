@@ -293,8 +293,17 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    GeneralizedHex<SimpleGraph>,
+    crate::random::EndpointRandomSpec,
+    |spec| {
+        let (source, sink) = spec.endpoints()?;
+        Ok(GeneralizedHex::new(spec.graph()?, source, sink))
+    }
+);
+
 crate::declare_variants! {
-    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices" create GeneralizedHexCreateSpec,
+    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices" create GeneralizedHexCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]

@@ -161,7 +161,7 @@ fn construct_canonical(
     Ok((problem.serialize_json(), constructed_variant))
 }
 
-fn normalize_registered_create_inputs(
+pub(super) fn normalize_registered_create_inputs(
     args: &CreateArgs,
     inputs: &[problemreductions::registry::CreateInputInfo],
     resolved_variant: &BTreeMap<String, String>,
@@ -356,16 +356,21 @@ pub(crate) fn create_inputs_for(
             );
         }
     }
-    if super::supports_random(canonical) {
-        for (name, kind) in [
-            ("random", InputValueKind::Bool),
-            ("num-vertices", InputValueKind::Usize),
-            ("edge-prob", InputValueKind::F64),
-            ("seed", InputValueKind::U64),
-        ] {
-            if !inputs.contains_key(name) {
-                insert_create_input(&mut inputs, name, kind, "random generation");
-            }
+    if let Some(random_inputs) = variant_entry.random_inputs {
+        insert_create_input(
+            &mut inputs,
+            "random",
+            InputValueKind::Bool,
+            "random generation",
+        );
+        for input in random_inputs {
+            let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
+            insert_create_input(
+                &mut inputs,
+                &input.name.replace('_', "-"),
+                input_value_kind(&concrete_type),
+                input.name,
+            );
         }
     }
 
@@ -383,9 +388,8 @@ fn insert_create_input(
 ) {
     if let Some((existing_kind, existing_source)) = inputs.get(name) {
         assert_eq!(
-            (*existing_kind, existing_source.as_str()),
-            (kind, source),
-            "create input --{name} is produced by both `{existing_source}` and `{source}`"
+            *existing_kind, kind,
+            "create input --{name} has conflicting types from `{existing_source}` and `{source}`"
         );
         return;
     }
@@ -475,7 +479,7 @@ pub(super) fn with_schema_usage(
     anyhow::anyhow!("{message}\n\nUsage: pred create {canonical} {flags}",)
 }
 
-fn with_registered_usage(
+pub(super) fn with_registered_usage(
     error: anyhow::Error,
     canonical: &str,
     inputs: &[problemreductions::registry::CreateInputInfo],
@@ -1216,15 +1220,6 @@ pub(super) fn help_flag_name(field_name: &str) -> String {
     field_name.replace("_", "-")
 }
 
-pub(super) fn parse_nonnegative_usize_bound(
-    bound: i64,
-    problem_name: &str,
-    usage: &str,
-) -> Result<usize> {
-    usize::try_from(bound)
-        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
-}
-
 pub(super) fn problem_help_flag_name(
     field_name: &str,
     field_type: &str,
@@ -1237,45 +1232,4 @@ pub(super) fn problem_help_flag_name(
     } else {
         help_flag_name(field_name)
     }
-}
-
-pub(super) fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {
-    match usage {
-        Some(usage) => anyhow::anyhow!("{message}\n\n{usage}"),
-        None => anyhow::anyhow!("{message}"),
-    }
-}
-
-pub(super) fn validate_length_bounded_disjoint_paths_args(
-    num_vertices: usize,
-    source: usize,
-    sink: usize,
-    bound: i64,
-    usage: Option<&str>,
-) -> Result<usize> {
-    let max_length = usize::try_from(bound).map_err(|_| {
-        lbdp_validation_error(
-            "--max-length must be a nonnegative integer for LengthBoundedDisjointPaths",
-            usage,
-        )
-    })?;
-    if source >= num_vertices || sink >= num_vertices {
-        return Err(lbdp_validation_error(
-            "--source and --sink must be valid graph vertices",
-            usage,
-        ));
-    }
-    if source == sink {
-        return Err(lbdp_validation_error(
-            "--source and --sink must be distinct",
-            usage,
-        ));
-    }
-    if max_length == 0 {
-        return Err(lbdp_validation_error(
-            "--max-length must be positive",
-            usage,
-        ));
-    }
-    Ok(max_length)
 }

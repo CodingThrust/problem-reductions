@@ -176,8 +176,22 @@ fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
     true
 }
 
+crate::impl_random_generate!(
+    KClique<SimpleGraph>,
+    crate::random::CliqueRandomSpec,
+    |spec| {
+        if spec.k == 0 || spec.k > spec.num_vertices {
+            return Err(format!(
+                "k must be between 1 and num_vertices ({})",
+                spec.num_vertices
+            ));
+        }
+        Ok(KClique::new(spec.graph()?, spec.k))
+    }
+);
+
 crate::declare_variants! {
-    default KClique<SimpleGraph> => "1.1996^num_vertices" create KCliqueCreateSpec,
+    default KClique<SimpleGraph> => "1.1996^num_vertices" create KCliqueCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]

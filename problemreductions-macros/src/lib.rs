@@ -621,6 +621,7 @@ struct DeclareVariantEntry {
     complexity: syn::LitStr,
     aliases: Vec<syn::LitStr>,
     create_spec: Option<Type>,
+    random: bool,
 }
 
 impl syn::parse::Parse for DeclareVariantsInput {
@@ -639,6 +640,7 @@ impl syn::parse::Parse for DeclareVariantsInput {
 
             let mut aliases = Vec::new();
             let mut create_spec = None;
+            let mut random = false;
             while input.peek(syn::Ident) {
                 let ident: syn::Ident = input.parse()?;
                 if ident == "aliases" {
@@ -662,10 +664,15 @@ impl syn::parse::Parse for DeclareVariantsInput {
                         return Err(syn::Error::new(ident.span(), "duplicate `create` clause"));
                     }
                     create_spec = Some(input.parse()?);
+                } else if ident == "random" {
+                    if random {
+                        return Err(syn::Error::new(ident.span(), "duplicate `random` clause"));
+                    }
+                    random = true;
                 } else {
                     return Err(syn::Error::new(
                         ident.span(),
-                        format!("expected `aliases` or `create`, found `{ident}`"),
+                        format!("expected `aliases`, `create`, or `random`, found `{ident}`"),
                     ));
                 }
             }
@@ -676,6 +683,7 @@ impl syn::parse::Parse for DeclareVariantsInput {
                 complexity,
                 aliases,
                 create_spec,
+                random,
             });
 
             if input.peek(syn::Token![,]) {
@@ -759,6 +767,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
     for entry in &input.entries {
         let ty = &entry.ty;
         let create_spec = &entry.create_spec;
+        let random = entry.random;
         let complexity_str = entry.complexity.value();
         let is_default = entry.is_default;
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
@@ -836,8 +845,23 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             }
         };
 
+        let (random_inputs, random_fn) = if random {
+            (
+                quote! { Some(<#ty as crate::registry::RandomGenerate>::INPUTS) },
+                quote! {
+                    Some(|data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                        Ok(Box::new(<#ty as crate::registry::RandomGenerate>::generate(data)?))
+                    })
+                },
+            )
+        } else {
+            (quote! { None }, quote! { None })
+        };
+
         let dispatch_fields = quote! {
             #construction_fields
+            random_inputs: #random_inputs,
+            random_fn: #random_fn,
             factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
                 let p: #ty = serde_json::from_value(data)?;
                 Ok(Box::new(p))
@@ -1053,7 +1077,7 @@ mod tests {
         };
         assert_eq!(
             err.to_string(),
-            "expected `aliases` or `create`, found `nicknames`"
+            "expected `aliases`, `create`, or `random`, found `nicknames`"
         );
     }
 

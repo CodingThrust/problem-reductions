@@ -31,6 +31,7 @@ pub mod expr;
 pub mod growth;
 pub mod io;
 pub mod models;
+pub mod random;
 pub mod registry;
 pub mod rules;
 pub mod size_bound;

@@ -155,8 +155,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MaximumAchromaticNumber<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MaximumAchromaticNumber::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MaximumAchromaticNumber<SimpleGraph> => "num_vertices^num_vertices",
+    default MaximumAchromaticNumber<SimpleGraph> => "num_vertices^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

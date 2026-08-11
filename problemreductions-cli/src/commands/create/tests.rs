@@ -340,7 +340,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         panic!("expected create command");
     };
 
-    let resolved_variant = variant_map(&[("weight", "i32")]);
+    let resolved_variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
     let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -450,7 +450,7 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
         panic!("expected create command");
     };
 
-    let resolved_variant = variant_map(&[("weight", "i32")]);
+    let resolved_variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
     let (data, variant) = create_schema_driven(&args, "MixedChinesePostman", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -476,7 +476,10 @@ fn test_create_schema_driven_builds_unit_disk_graph_problem_with_default_radius(
         panic!("expected create command");
     };
 
-    let resolved_variant = variant_map(&[("graph", "UnitDiskGraph"), ("weight", "One")]);
+    let resolved_variant = BTreeMap::from([
+        ("graph".to_string(), "UnitDiskGraph".to_string()),
+        ("weight".to_string(), "One".to_string()),
+    ]);
     let (data, variant) = create_schema_driven(&args, "MaximumIndependentSet", &resolved_variant)
         .expect("schema-driven create should parse");
 

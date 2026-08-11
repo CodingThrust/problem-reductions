@@ -154,8 +154,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MaximumDomaticNumber<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MaximumDomaticNumber::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices",
+    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

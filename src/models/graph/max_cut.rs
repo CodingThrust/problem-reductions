@@ -266,8 +266,14 @@ where
     total
 }
 
+crate::impl_random_generate!(MaxCut<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let weights = vec![1; graph.num_edges()];
+    Ok(MaxCut::new(graph, weights))
+});
+
 crate::declare_variants! {
-    default MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)" create MaxCutI32CreateSpec,
+    default MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)" create MaxCutI32CreateSpec random,
     MaxCut<SimpleGraph, One> => "2^(0.7907 * num_vertices)" create MaxCutOneCreateSpec,
 }
 

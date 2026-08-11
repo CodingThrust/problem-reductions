@@ -45,6 +45,7 @@ macro_rules! register_decision_variant {
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
         size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
+        $(, random: $random:ty)?
     ) => {
         impl $crate::registry::CreateSpec
             for $crate::models::decision::DecisionCreateSpec<$inner>
@@ -55,9 +56,7 @@ macro_rules! register_decision_variant {
             ];
         }
 
-        $crate::declare_variants! {
-            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
-        }
+        $crate::register_decision_variant!(@declare $inner, $complexity $(, $random)?);
 
         $crate::inventory::submit! {
             $crate::registry::ProblemSchemaEntry {
@@ -138,6 +137,17 @@ macro_rules! register_decision_variant {
                     ])
                 },
             }
+        }
+    };
+
+    (@declare $inner:ty, $complexity:literal, $random:ty) => {
+        $crate::declare_variants! {
+            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner> random,
+        }
+    };
+    (@declare $inner:ty, $complexity:literal) => {
+        $crate::declare_variants! {
+            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
         }
     };
     (@display_name "DecisionMinimumVertexCover") => {

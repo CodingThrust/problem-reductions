@@ -311,8 +311,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(LongestCircuit<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let lengths = vec![1; graph.num_edges()];
+    Ok(LongestCircuit::new(graph, lengths))
+});
+
 crate::declare_variants! {
-    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2" create LongestCircuitCreateSpec,
+    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2" create LongestCircuitCreateSpec random,
 }
 
 #[cfg(test)]

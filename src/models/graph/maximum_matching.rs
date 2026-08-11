@@ -266,8 +266,14 @@ where
     }
 }
 
+crate::impl_random_generate!(MaximumMatching<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let weights = vec![1; graph.num_edges()];
+    Ok(MaximumMatching::new(graph, weights))
+});
+
 crate::declare_variants! {
-    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3" create MaximumMatchingCreateSpec,
+    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3" create MaximumMatchingCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]

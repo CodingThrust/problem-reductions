@@ -86,13 +86,39 @@ fn test_list() {
     let output = pred().args(["list"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MaximumIndependentSet"));
-    assert!(stdout.contains("QUBO"));
+    assert!(stdout.contains("Registered catalog"));
+    assert!(stdout.contains("graph"));
+    assert!(!stdout.contains("MaximumIndependentSet"));
+    assert!(stdout.lines().count() < 30, "default list is too verbose");
+}
+
+#[test]
+fn test_list_filters_by_category() {
+    let output = pred()
+        .args(["list", "--category", "formula"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(!stdout.contains("MaximumIndependentSet"));
+}
+
+#[test]
+fn test_list_searches_variant_aliases() {
+    let output = pred().args(["list", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(stdout.contains("3SAT"));
 }
 
 #[test]
 fn test_list_includes_undirected_two_commodity_integral_flow() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "UndirectedTwoCommodity"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -104,7 +130,10 @@ fn test_list_includes_undirected_two_commodity_integral_flow() {
 
 #[test]
 fn test_list_includes_integral_flow_homologous_arcs() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "IntegralFlowHomologousArcs"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -128,7 +157,10 @@ fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
 
 #[test]
 fn test_list_rules() {
-    let output = pred().args(["list", "--rules"]).output().unwrap();
+    let output = pred()
+        .args(["list", "--rules", "--all", "--verbose"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -158,6 +190,14 @@ fn test_list_rules_json() {
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
     assert!(rules[0]["size_contract"].is_string());
+}
+
+#[test]
+fn test_list_rules_searches_problem_aliases() {
+    let output = pred().args(["list", "--rules", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
 }
 
 #[test]
@@ -6811,7 +6851,7 @@ fn test_create_random_steiner_tree_requires_two_vertices() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("SteinerTree random generation requires --num-vertices >= 2"),
+        stderr.contains("num_vertices must be at least 2"),
         "{stderr}"
     );
 }
@@ -6833,7 +6873,7 @@ fn test_create_random_invalid_edge_prob() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--edge-prob must be between"),
+        stderr.contains("edge_prob must be between"),
         "expected edge-prob validation error, got: {stderr}"
     );
 }

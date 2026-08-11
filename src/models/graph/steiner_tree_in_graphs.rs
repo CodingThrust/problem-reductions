@@ -305,8 +305,18 @@ pub(crate) fn is_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], selected
     terminals.iter().all(|&t| visited[t])
 }
 
+crate::impl_random_generate!(SteinerTreeInGraphs<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    if spec.num_vertices < 2 {
+        return Err("num_vertices must be at least 2".to_string());
+    }
+    let graph = spec.graph()?;
+    let terminals = (0..std::cmp::max(2, spec.num_vertices / 2)).collect();
+    let weights = vec![1; graph.num_edges()];
+    Ok(SteinerTreeInGraphs::new(graph, terminals, weights))
+});
+
 crate::declare_variants! {
-    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<i32>,
+    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<i32> random,
     SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<One>,
 }
 
