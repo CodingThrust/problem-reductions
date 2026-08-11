@@ -7,7 +7,7 @@
 //! resulting event network is acyclic and preserves exactly the same
 //! task-to-task reachability relation as the original DAG.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -22,13 +22,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find a PERT event network for a precedence DAG minimizing dummy activities",
-        fields: &[
-            FieldInfo {
-                name: "graph",
-                type_name: "DirectedGraph",
-                description: "The precedence DAG G=(V,A) whose vertices are tasks and arcs encode direct precedence constraints",
-            },
-        ],
+        fields: MinimumDummyActivitiesPertCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +38,33 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize)]
 pub struct MinimumDummyActivitiesPert {
     graph: DirectedGraph,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumDummyActivitiesPertCreateSpec {
+    /// Directed precedence arcs.
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated tasks.
+    num_vertices: Option<usize>,
+}
+impl TryFrom<MinimumDummyActivitiesPertCreateSpec> for MinimumDummyActivitiesPert {
+    type Error = String;
+    fn try_from(spec: MinimumDummyActivitiesPertCreateSpec) -> Result<Self, Self::Error> {
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err("num_vertices is too small for the provided arcs".into());
+        }
+        Self::try_new(DirectedGraph::new(num_vertices, spec.arcs))
+    }
 }
 
 impl MinimumDummyActivitiesPert {
@@ -201,7 +222,7 @@ impl Problem for MinimumDummyActivitiesPert {
 }
 
 crate::declare_variants! {
-    default MinimumDummyActivitiesPert => "2^num_arcs",
+    default MinimumDummyActivitiesPert => "2^num_arcs" create MinimumDummyActivitiesPertCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -1,4 +1,13 @@
 use super::*;
+#[test]
+fn create_spec_rejects_k_above_vertex_count() {
+    assert!(KClique::try_from(KCliqueCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        k: 3
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

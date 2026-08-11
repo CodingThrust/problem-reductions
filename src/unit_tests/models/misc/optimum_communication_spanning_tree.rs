@@ -1,4 +1,16 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_edge_weights() {
+    let p =
+        OptimumCommunicationSpanningTree::try_from(OptimumCommunicationSpanningTreeCreateSpec {
+            num_vertices: 2,
+            edge_weights: None,
+            requirements: vec![vec![0, 1], vec![1, 0]],
+        })
+        .unwrap();
+    assert_eq!(p.edge_weights(), &[vec![0, 1], vec![1, 0]]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

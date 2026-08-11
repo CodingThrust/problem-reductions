@@ -4,7 +4,7 @@
 //! walk that traverses every required arc in some order and minimizes the
 //! total route length.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -19,13 +19,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find a closed walk that traverses each required directed arc and minimizes total length",
-        fields: &[
-            FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices in the mixed graph" },
-            FieldInfo { name: "arcs", type_name: "Vec<(usize, usize)>", description: "Required directed arcs that must be traversed" },
-            FieldInfo { name: "edges", type_name: "Vec<(usize, usize)>", description: "Undirected edges available for connector paths" },
-            FieldInfo { name: "arc_lengths", type_name: "Vec<i32>", description: "Nonnegative lengths of the required directed arcs" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<i32>", description: "Nonnegative lengths of the undirected connector edges" },
-        ],
+        fields: StackerCraneCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +38,83 @@ pub struct StackerCrane {
     edges: Vec<(usize, usize)>,
     arc_lengths: Vec<i32>,
     edge_lengths: Vec<i32>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct StackerCraneCreateSpec {
+    /// Required directed arcs.
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    /// Undirected connector edges.
+    #[create(name = "graph", codec = "edge-list")]
+    edges: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+    /// Required-arc lengths; defaults to one per arc.
+    #[create(codec = "comma-separated")]
+    arc_lengths: Option<Vec<i32>>,
+    /// Connector-edge lengths; defaults to one per edge.
+    #[create(codec = "comma-separated")]
+    edge_lengths: Option<Vec<i32>>,
+}
+
+impl TryFrom<StackerCraneCreateSpec> for StackerCrane {
+    type Error = String;
+
+    fn try_from(spec: StackerCraneCreateSpec) -> Result<Self, Self::Error> {
+        if spec.arcs.is_empty() {
+            return Err("arcs must be non-empty".to_string());
+        }
+        if spec.edges.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".to_string());
+        }
+        for (index, &(u, v)) in spec.edges.iter().enumerate() {
+            if u == v {
+                return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            }
+        }
+        let inferred_arcs = inferred_vertex_count(&spec.arcs)?;
+        let inferred_edges = inferred_vertex_count(&spec.edges)?;
+        let num_vertices = match spec.num_vertices {
+            Some(count) => count,
+            None if inferred_arcs == inferred_edges => inferred_arcs,
+            None => {
+                return Err(format!(
+                    "directed and undirected inputs infer different vertex counts ({inferred_arcs} and {inferred_edges}); provide num_vertices"
+                ))
+            }
+        };
+        if num_vertices < inferred_arcs || num_vertices < inferred_edges {
+            return Err(format!(
+                "num_vertices {num_vertices} is too small for the provided endpoints"
+            ));
+        }
+        let arc_lengths = spec.arc_lengths.unwrap_or_else(|| vec![1; spec.arcs.len()]);
+        let edge_lengths = spec
+            .edge_lengths
+            .unwrap_or_else(|| vec![1; spec.edges.len()]);
+        Self::try_new(
+            num_vertices,
+            spec.arcs,
+            spec.edges,
+            arc_lengths,
+            edge_lengths,
+        )
+    }
+}
+
+fn inferred_vertex_count(pairs: &[(usize, usize)]) -> Result<usize, String> {
+    pairs
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| {
+            vertex
+                .checked_add(1)
+                .ok_or("vertex count overflows usize".to_string())
+        })
+        .transpose()
+        .map(|count| count.unwrap_or(0))
 }
 
 impl StackerCrane {
@@ -267,7 +338,7 @@ impl Problem for StackerCrane {
 }
 
 crate::declare_variants! {
-    default StackerCrane => "num_vertices^2 * 2^num_arcs",
+    default StackerCrane => "num_vertices^2 * 2^num_arcs" create StackerCraneCreateSpec,
 }
 
 #[derive(Debug, Clone, Deserialize)]

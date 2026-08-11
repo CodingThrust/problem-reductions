@@ -14,7 +14,7 @@
 //!
 //! This problem is NP-complete (Wagner, 1975).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -26,12 +26,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Derive target string from source using at most K deletions and adjacent swaps",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the finite alphabet" },
-            FieldInfo { name: "source", type_name: "Vec<usize>", description: "Source string (symbol indices)" },
-            FieldInfo { name: "target", type_name: "Vec<usize>", description: "Target string (symbol indices)" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Maximum number of operations allowed" },
-        ],
+        fields: StringToStringCorrectionCreateSpec::FIELDS,
     }
 }
 
@@ -75,6 +70,59 @@ pub struct StringToStringCorrection {
     source: Vec<usize>,
     target: Vec<usize>,
     bound: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct StringToStringCorrectionCreateSpec {
+    /// Optional alphabet size; omitted values are inferred from both strings.
+    alphabet_size: Option<usize>,
+    /// Source string.
+    #[create(codec = "comma-separated")]
+    source_string: Vec<usize>,
+    /// Target string.
+    #[create(codec = "comma-separated")]
+    target_string: Vec<usize>,
+    /// Maximum number of correction operations.
+    bound: usize,
+}
+
+impl TryFrom<StringToStringCorrectionCreateSpec> for StringToStringCorrection {
+    type Error = String;
+
+    fn try_from(spec: StringToStringCorrectionCreateSpec) -> Result<Self, Self::Error> {
+        let inferred_alphabet_size = spec
+            .source_string
+            .iter()
+            .chain(&spec.target_string)
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
+        if alphabet_size < inferred_alphabet_size {
+            return Err(format!(
+                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
+            ));
+        }
+        if alphabet_size == 0 && (!spec.source_string.is_empty() || !spec.target_string.is_empty())
+        {
+            return Err(
+                "alphabet size must be positive when either string is non-empty".to_string(),
+            );
+        }
+
+        Ok(Self {
+            alphabet_size,
+            source: spec.source_string,
+            target: spec.target_string,
+            bound: spec.bound,
+        })
+    }
 }
 
 impl StringToStringCorrection {
@@ -191,7 +239,7 @@ impl Problem for StringToStringCorrection {
 }
 
 crate::declare_variants! {
-    default StringToStringCorrection => "(2 * source_length + 1) ^ bound",
+    default StringToStringCorrection => "(2 * source_length + 1) ^ bound" create StringToStringCorrectionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

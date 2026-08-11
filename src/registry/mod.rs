@@ -60,9 +60,26 @@ pub use schema::{
     ProblemSizeFieldEntry, VariantDimension,
 };
 pub use variant::{
-    find_variant_by_alias, find_variant_entry, validate_variant_aliases, variant_entries,
-    VariantEntry,
+    find_variant_by_alias, find_variant_entry, validate_create_inputs,
+    validate_direct_create_inputs, validate_variant_aliases, variant_entries, ConstructProblemFn,
+    ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec, VariantEntry,
 };
+
+/// Construct a problem from normalized construction inputs using the exact
+/// registered problem name and variant.
+pub fn construct_dyn(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    data: serde_json::Value,
+) -> Result<Box<dyn DynProblem>, ConstructionError> {
+    let entry = find_variant_entry(name, variant).ok_or_else(|| {
+        ConstructionError::UnregisteredVariant {
+            name: name.to_string(),
+            variant: variant.clone(),
+        }
+    })?;
+    (entry.construct_fn)(data)
+}
 
 use std::any::Any;
 use std::collections::BTreeMap;

@@ -1,4 +1,27 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_weights_and_validates_sets() {
+    let problem = ComparativeContainment::<i32>::try_from(ComparativeContainmentI32CreateSpec {
+        universe_size: 2,
+        r_sets: vec![vec![0]],
+        s_sets: vec![vec![1]],
+        r_weights: None,
+        s_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.r_weights(), &[1]);
+    assert!(
+        ComparativeContainment::<i32>::try_from(ComparativeContainmentI32CreateSpec {
+            universe_size: 1,
+            r_sets: vec![vec![1]],
+            s_sets: vec![],
+            r_weights: None,
+            s_weights: None
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::One;

@@ -166,7 +166,6 @@ fn add_problem_subcommands(mut command: Command) -> Command {
             let mut subcommand = Command::new(name.clone())
                 .about(problem.description)
                 .aliases(aliases.iter().cloned())
-                .arg_required_else_help(true)
                 .disable_help_subcommand(true);
             if include_problem_flags {
                 subcommand = subcommand.defer(add_selected_problem_args);
@@ -292,10 +291,8 @@ fn join_spec(prefix: &str, values: &[&str]) -> String {
 
 fn add_selected_problem_args(mut command: Command) -> Command {
     let selected = command.get_name().to_string();
-    let problem_ref = problemreductions::registry::parse_catalog_problem_ref(&selected)
-        .unwrap_or_else(|error| panic!("invalid registered create command `{selected}`: {error}"));
-    let inputs =
-        crate::commands::create::create_inputs_for(problem_ref.name(), problem_ref.variant());
+    let (canonical, variant) = resolve_registered_create_variant(&selected);
+    let inputs = crate::commands::create::create_inputs_for(canonical, &variant);
 
     for input in inputs {
         let mut arg = Arg::new(input.name.clone()).long(input.name.clone());
@@ -311,6 +308,28 @@ fn add_selected_problem_args(mut command: Command) -> Command {
         command = command.arg(arg);
     }
     command
+}
+
+pub(crate) fn resolve_registered_create_variant(
+    selected: &str,
+) -> (&'static str, BTreeMap<String, String>) {
+    let mut parts = selected.split('/');
+    let canonical = parts.next().expect("registered command has a name");
+    let problem = problemreductions::registry::find_problem_type(canonical)
+        .unwrap_or_else(|| panic!("missing schema for registered create command `{selected}`"));
+    let values = parts.collect::<Vec<_>>();
+
+    if values.is_empty() {
+        return variant_entries()
+            .into_iter()
+            .find(|entry| entry.name == canonical && entry.is_default)
+            .map(|entry| (problem.canonical_name, entry.variant_map()))
+            .unwrap_or_else(|| panic!("missing default variant for `{canonical}`"));
+    }
+
+    let problem_ref = problemreductions::registry::ProblemRef::from_values(&problem, values)
+        .unwrap_or_else(|error| panic!("invalid registered create command `{selected}`: {error}"));
+    (problem.canonical_name, problem_ref.variant().clone())
 }
 
 fn add_value_parser(arg: Arg, kind: crate::commands::create::InputValueKind) -> Arg {

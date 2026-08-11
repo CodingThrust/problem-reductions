@@ -1,4 +1,15 @@
 use super::*;
+#[test]
+fn create_spec_rejects_reused_terminal() {
+    assert!(
+        DisjointConnectingPaths::try_from(DisjointConnectingPathsCreateSpec {
+            graph: vec![(0, 1), (1, 2)],
+            num_vertices: None,
+            terminal_pairs: vec![(0, 1), (1, 2)]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

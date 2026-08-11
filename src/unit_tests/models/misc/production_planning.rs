@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_period_vector_mismatch() {
+    assert_eq!(ProductionPlanningCreateSpec::FIELDS[0].name, "num_periods");
+    assert!(ProductionPlanning::try_from(ProductionPlanningCreateSpec {
+        num_periods: 1,
+        demands: vec![],
+        capacities: vec![1],
+        setup_costs: vec![1],
+        production_costs: vec![1],
+        inventory_costs: vec![1],
+        cost_bound: 1
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Or;

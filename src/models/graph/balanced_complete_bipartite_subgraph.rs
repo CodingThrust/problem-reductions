@@ -1,4 +1,4 @@
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -12,10 +12,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Decide whether a bipartite graph contains a K_{k,k} subgraph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "BipartiteGraph", description: "The bipartite graph G = (A, B, E)" },
-            FieldInfo { name: "k", type_name: "usize", description: "Balanced biclique size" },
-        ],
+        fields: BalancedCompleteBipartiteSubgraphCreateSpec::FIELDS,
     }
 }
 
@@ -26,6 +23,44 @@ pub struct BalancedCompleteBipartiteSubgraph {
     k: usize,
     #[serde(skip)]
     edge_lookup: HashSet<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct BalancedCompleteBipartiteSubgraphCreateSpec {
+    /// Number of vertices in the left partition.
+    left: usize,
+    /// Number of vertices in the right partition.
+    right: usize,
+    /// Bipartite edges in left-local, right-local coordinates.
+    #[create(codec = "bipartite-edge-list")]
+    biedges: Vec<(usize, usize)>,
+    /// Balanced biclique size.
+    k: usize,
+}
+
+impl TryFrom<BalancedCompleteBipartiteSubgraphCreateSpec> for BalancedCompleteBipartiteSubgraph {
+    type Error = String;
+
+    fn try_from(spec: BalancedCompleteBipartiteSubgraphCreateSpec) -> Result<Self, Self::Error> {
+        for (index, &(left, right)) in spec.biedges.iter().enumerate() {
+            if left >= spec.left {
+                return Err(format!(
+                    "biedges[{index}] left vertex {left} is out of bounds for left partition size {}",
+                    spec.left
+                ));
+            }
+            if right >= spec.right {
+                return Err(format!(
+                    "biedges[{index}] right vertex {right} is out of bounds for right partition size {}",
+                    spec.right
+                ));
+            }
+        }
+        Ok(Self::new(
+            BipartiteGraph::new(spec.left, spec.right, spec.biedges),
+            spec.k,
+        ))
+    }
 }
 
 impl BalancedCompleteBipartiteSubgraph {
@@ -144,7 +179,7 @@ impl From<BalancedCompleteBipartiteSubgraphRepr> for BalancedCompleteBipartiteSu
 }
 
 crate::declare_variants! {
-    default BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices",
+    default BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices" create BalancedCompleteBipartiteSubgraphCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

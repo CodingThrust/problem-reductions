@@ -215,3 +215,31 @@ fn test_acyclic_partition_declares_problem_size_fields() {
         .collect();
     assert_eq!(fields, HashSet::from(["num_vertices", "num_arcs"]));
 }
+#[test]
+fn create_spec_maps_weight_inputs_to_canonical_fields() {
+    let problem = AcyclicPartition::try_from(AcyclicPartitionCreateSpec {
+        arcs: vec![(0, 1)],
+        num_vertices: Some(3),
+        weights: None,
+        arc_weights: Some(vec![2]),
+        weight_bound: 3,
+        cost_bound: 2,
+    })
+    .unwrap();
+    assert_eq!(problem.vertex_weights(), &[1, 1, 1]);
+    assert_eq!(problem.arc_costs(), &[2]);
+    assert_eq!(
+        AcyclicPartitionCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        [
+            "arcs",
+            "num_vertices",
+            "weights",
+            "arc_costs",
+            "weight_bound",
+            "cost_bound"
+        ]
+    );
+}

@@ -3,7 +3,7 @@
 //! The MaximumClique problem asks for a maximum weight subset of vertices
 //! such that all vertices in the subset are pairwise adjacent.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -21,10 +21,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find maximum weight clique in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MaximumCliqueCreateSpec::<One>::FIELDS,
     }
 }
 
@@ -64,6 +61,28 @@ pub struct MaximumClique<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCliqueCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<W>,
+}
+
+impl<W: Clone + Default> TryFrom<MaximumCliqueCreateSpec<W>> for MaximumClique<SimpleGraph, W> {
+    type Error = String;
+    fn try_from(spec: MaximumCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, spec.weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
@@ -165,8 +184,8 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
-    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices",
+    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i32>,
+    default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One>,
 }
 
 #[cfg(feature = "example-db")]

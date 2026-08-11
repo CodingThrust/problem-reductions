@@ -1,4 +1,15 @@
 use super::*;
+#[test]
+fn create_spec_rejects_nonpositive_lengths() {
+    assert!(LongestPath::try_from(LongestPathI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_lengths: vec![0],
+        source_vertex: 0,
+        target_vertex: 1
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

@@ -5,6 +5,7 @@ edition = "2021"
 description = "CLI tool for exploring NP-hard problem reductions"
 license = "MIT"
 repository = "https://github.com/CodingThrust/problem-reductions"
+default-run = "pred"
 
 [[bin]]
 name = "pred"

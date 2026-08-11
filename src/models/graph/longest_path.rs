@@ -3,7 +3,7 @@
 //! The Longest Path problem asks for a simple path between two distinguished
 //! vertices that maximizes the total edge length.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -22,12 +22,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find a simple s-t path of maximum total edge length",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Positive edge lengths l: E -> ZZ_(> 0)" },
-            FieldInfo { name: "source_vertex", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "target_vertex", type_name: "usize", description: "Target vertex t" },
-        ],
+        fields: LongestPathI32CreateSpec::FIELDS,
     }
 }
 
@@ -52,6 +47,63 @@ pub struct LongestPath<G, W: WeightElement> {
     source_vertex: usize,
     target_vertex: usize,
 }
+
+macro_rules! longest_path_create_spec {
+    ($name:ident,$weight:ty) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            num_vertices: Option<usize>,
+            #[create(codec = "comma-separated")]
+            edge_lengths: Vec<$weight>,
+            source_vertex: usize,
+            target_vertex: usize,
+        }
+        impl TryFrom<$name> for LongestPath<SimpleGraph, $weight> {
+            type Error = String;
+            fn try_from(spec: $name) -> Result<Self, String> {
+                if spec.graph.is_empty() && spec.num_vertices.is_none() {
+                    return Err("num_vertices is required for an empty graph".into());
+                }
+                for &(u, v) in &spec.graph {
+                    if u == v {
+                        return Err("self-loops are not allowed".into());
+                    }
+                }
+                let inferred = spec
+                    .graph
+                    .iter()
+                    .flat_map(|&(u, v)| [u, v])
+                    .max()
+                    .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+                    .transpose()?
+                    .unwrap_or(0);
+                let count = spec.num_vertices.unwrap_or(inferred);
+                if count < inferred {
+                    return Err("num_vertices is too small".into());
+                }
+                if spec.edge_lengths.len() != spec.graph.len() {
+                    return Err("edge_lengths length must match graph edge count".into());
+                }
+                if spec.edge_lengths.iter().any(|v| v.to_sum() <= 0) {
+                    return Err("edge lengths must be positive".into());
+                }
+                if spec.source_vertex >= count || spec.target_vertex >= count {
+                    return Err("source_vertex and target_vertex must be valid vertices".into());
+                }
+                Ok(Self {
+                    graph: SimpleGraph::new(count, spec.graph),
+                    edge_lengths: spec.edge_lengths,
+                    source_vertex: spec.source_vertex,
+                    target_vertex: spec.target_vertex,
+                })
+            }
+        }
+    };
+}
+longest_path_create_spec!(LongestPathI32CreateSpec, i32);
+longest_path_create_spec!(LongestPathOneCreateSpec, One);
 
 impl<G: Graph, W: WeightElement> LongestPath<G, W> {
     fn assert_positive_edge_lengths(edge_lengths: &[W]) {
@@ -253,8 +305,8 @@ fn is_simple_st_path<G: Graph>(
 }
 
 crate::declare_variants! {
-    default LongestPath<SimpleGraph, i32> => "num_vertices * 2^num_vertices",
-    LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices",
+    default LongestPath<SimpleGraph, i32> => "num_vertices * 2^num_vertices" create LongestPathI32CreateSpec,
+    LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices" create LongestPathOneCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

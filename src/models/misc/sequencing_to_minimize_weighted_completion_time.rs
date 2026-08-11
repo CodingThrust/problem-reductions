@@ -10,7 +10,7 @@
 //! Optimal Linear Arrangement, which uses zero-length edge jobs instead
 //! of padding them to unit length.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -23,11 +23,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Schedule tasks with lengths, weights, and precedence constraints to minimize total weighted completion time",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "weights", type_name: "Vec<u64>", description: "Weight w(t) for each task" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-        ],
+        fields: SequencingToMinimizeWeightedCompletionTimeCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +40,27 @@ pub struct SequencingToMinimizeWeightedCompletionTime {
     lengths: Vec<u64>,
     weights: Vec<u64>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SequencingToMinimizeWeightedCompletionTimeCreateSpec {
+    lengths: Vec<u64>,
+    weights: Vec<u64>,
+    precedences: Option<Vec<(usize, usize)>>,
+}
+
+impl TryFrom<SequencingToMinimizeWeightedCompletionTimeCreateSpec>
+    for SequencingToMinimizeWeightedCompletionTime
+{
+    type Error = String;
+
+    fn try_from(
+        spec: SequencingToMinimizeWeightedCompletionTimeCreateSpec,
+    ) -> Result<Self, Self::Error> {
+        let precedences = spec.precedences.unwrap_or_default();
+        Self::validate(&spec.lengths, &spec.weights, &precedences)?;
+        Ok(Self::new(spec.lengths, spec.weights, precedences))
+    }
 }
 
 #[derive(Deserialize)]
@@ -215,7 +232,7 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
 }
 
 crate::declare_variants! {
-    default SequencingToMinimizeWeightedCompletionTime => "factorial(num_tasks)",
+    default SequencingToMinimizeWeightedCompletionTime => "factorial(num_tasks)" create SequencingToMinimizeWeightedCompletionTimeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

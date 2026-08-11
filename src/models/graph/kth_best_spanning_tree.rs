@@ -3,7 +3,7 @@
 //! Given a weighted graph, determine whether it contains `k` distinct spanning
 //! trees whose total weights are all at most a prescribed bound.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -19,12 +19,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
         module_path: module_path!(),
         description: "Do there exist k distinct spanning trees with total weight at most B?",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Edge weights w(e) for each edge in E" },
-            FieldInfo { name: "k", type_name: "usize", description: "Number of distinct spanning trees required" },
-            FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on each spanning tree weight" },
-        ],
+        fields: KthBestSpanningTreeCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +39,65 @@ pub struct KthBestSpanningTree<W: WeightElement> {
     weights: Vec<W>,
     k: usize,
     bound: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KthBestSpanningTreeCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i32>>,
+    k: usize,
+    bound: i64,
+}
+
+impl TryFrom<KthBestSpanningTreeCreateSpec> for KthBestSpanningTree<i32> {
+    type Error = String;
+
+    fn try_from(spec: KthBestSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let weights = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if weights.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                weights.len(),
+                graph.num_edges()
+            ));
+        }
+        if spec.k == 0 {
+            return Err("k must be positive".to_string());
+        }
+        Ok(Self::new(graph, weights, spec.k, spec.bound))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<W: WeightElement> KthBestSpanningTree<W> {
@@ -240,7 +294,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default KthBestSpanningTree<i32> => "2^(num_edges * k)",
+    default KthBestSpanningTree<i32> => "2^(num_edges * k)" create KthBestSpanningTreeCreateSpec,
 }
 
 #[cfg(test)]

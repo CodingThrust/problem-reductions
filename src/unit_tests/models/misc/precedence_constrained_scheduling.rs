@@ -133,3 +133,16 @@ fn test_precedence_constrained_scheduling_no_precedences() {
         .expect("should find a solution");
     assert!(problem.evaluate(&solution));
 }
+#[test]
+fn create_spec_defaults_precedences_to_empty() {
+    let problem =
+        PrecedenceConstrainedScheduling::try_from(PrecedenceConstrainedSchedulingCreateSpec {
+            num_tasks: 2,
+            num_processors: 1,
+            deadline: 2,
+            precedences: None,
+        })
+        .unwrap();
+    assert!(problem.precedences().is_empty());
+    assert!(!PrecedenceConstrainedSchedulingCreateSpec::INPUTS[3].required);
+}

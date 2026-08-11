@@ -4,7 +4,7 @@
 //! can be assigned to identical processors such that no processor's
 //! total load exceeds a given deadline.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -16,11 +16,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Assign tasks to processors so that no processor's load exceeds a deadline",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "deadline", type_name: "u64", description: "Global deadline D" },
-        ],
+        fields: MultiprocessorSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -61,6 +57,25 @@ pub struct MultiprocessorScheduling {
     num_processors: usize,
     /// Global deadline.
     deadline: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MultiprocessorSchedulingCreateSpec {
+    /// Processing time for each task.
+    lengths: Vec<u64>,
+    /// Number of identical processors.
+    num_processors: usize,
+    /// Global deadline.
+    deadline: u64,
+}
+impl TryFrom<MultiprocessorSchedulingCreateSpec> for MultiprocessorScheduling {
+    type Error = String;
+    fn try_from(spec: MultiprocessorSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_processors == 0 {
+            return Err("num_processors must be positive".to_string());
+        }
+        Ok(Self::new(spec.lengths, spec.num_processors, spec.deadline))
+    }
 }
 
 impl MultiprocessorScheduling {
@@ -134,7 +149,7 @@ impl Problem for MultiprocessorScheduling {
 }
 
 crate::declare_variants! {
-    default MultiprocessorScheduling => "2^num_tasks",
+    default MultiprocessorScheduling => "2^num_tasks" create MultiprocessorSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

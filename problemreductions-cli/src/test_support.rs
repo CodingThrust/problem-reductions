@@ -1,6 +1,8 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
 use problemreductions::models::algebraic::{ObjectiveSense, ILP};
-use problemreductions::registry::VariantEntry;
+use problemreductions::registry::{
+    CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
+};
 use problemreductions::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::solvers::{BruteForce, Solver};
@@ -12,6 +14,14 @@ use std::collections::BTreeMap;
 
 pub(crate) const AGGREGATE_SOURCE_NAME: &str = "CliTestAggregateValueSource";
 pub(crate) const AGGREGATE_TARGET_NAME: &str = "CliTestAggregateValueTarget";
+
+const AGGREGATE_SOURCE_INPUTS: &[CreateInputInfo] = &[CreateInputInfo {
+    name: "values",
+    type_name: "Vec<u64>",
+    description: "Values included by selected configuration bits",
+    required: true,
+    codec: CreateInputCodec::CommaSeparated,
+}];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AggregateValueSource {
@@ -120,6 +130,22 @@ where
 }
 
 problemreductions::inventory::submit! {
+    ProblemSchemaEntry {
+        name: AggregateValueSource::NAME,
+        display_name: "CLI test aggregate value source",
+        aliases: &[],
+        dimensions: &[],
+        module_path: module_path!(),
+        description: "Test-only dynamically discovered construction model",
+        fields: &[FieldInfo {
+            name: "values",
+            type_name: "Vec<u64>",
+            description: "Values included by selected configuration bits",
+        }],
+    }
+}
+
+problemreductions::inventory::submit! {
     VariantEntry {
         name: AggregateValueSource::NAME,
         variant_fn: AggregateValueSource::variant,
@@ -127,6 +153,13 @@ problemreductions::inventory::submit! {
         complexity_eval_fn: |_| 1.0,
         is_default: true,
         aliases: &[],
+        create_inputs: Some(AGGREGATE_SOURCE_INPUTS),
+        construct_fn: |data| {
+            problemreductions::registry::validate_create_inputs(AGGREGATE_SOURCE_INPUTS, &data)?;
+            let problem: AggregateValueSource = serde_json::from_value(data)
+                .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
+            Ok(Box::new(problem))
+        },
         factory: |data| {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
@@ -148,6 +181,12 @@ problemreductions::inventory::submit! {
         complexity_eval_fn: |_| 1.0,
         is_default: true,
         aliases: &[],
+        create_inputs: None,
+        construct_fn: |data| {
+            let problem: AggregateValueTarget = serde_json::from_value(data)
+                .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
+            Ok(Box::new(problem))
+        },
         factory: |data| {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))

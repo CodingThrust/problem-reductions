@@ -1,4 +1,18 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_known_values() {
+    let problem = ConsistencyOfDatabaseFrequencyTables::try_from(
+        ConsistencyOfDatabaseFrequencyTablesCreateSpec {
+            num_objects: 2,
+            attribute_domains: vec![2, 2],
+            frequency_tables: vec![FrequencyTable::new(0, 1, vec![vec![1, 0], vec![0, 1]])],
+            known_values: None,
+        },
+    )
+    .unwrap();
+    assert!(problem.known_values().is_empty());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

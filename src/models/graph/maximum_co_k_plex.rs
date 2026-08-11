@@ -8,7 +8,7 @@
 //! For k = 1 the problem degenerates to [`MaximumIndependentSet`]; for larger
 //! k it is the maximum (k-1)-dependent set / co-k-plex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -28,11 +28,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find maximum-weight vertex subset whose induced subgraph has maximum degree at most k-1",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Co-k-plex parameter k >= 1; selected-vertex induced degree must be at most k-1" },
-        ],
+        fields: MaximumCoKPlexCreateSpec::<One>::FIELDS,
     }
 }
 
@@ -89,6 +85,36 @@ pub struct MaximumCoKPlex<G, W, K: KValue> {
     bound_k: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumCoKPlexCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<W>,
+    /// Co-k-plex parameter k >= 1.
+    k: usize,
+}
+
+impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
+    for MaximumCoKPlex<SimpleGraph, W, KN>
+{
+    type Error = String;
+
+    fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        if spec.k == 0 {
+            return Err("k must be at least 1".to_string());
+        }
+        Ok(Self::with_k(spec.graph, spec.weights, spec.k))
+    }
 }
 
 impl<G: Graph, W: Clone + Default, K: KValue> MaximumCoKPlex<G, W, K> {
@@ -224,8 +250,8 @@ fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[usize], bound_k: usize) ->
 }
 
 crate::declare_variants! {
-    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices",
-    MaximumCoKPlex<SimpleGraph, i32, KN>          => "2^num_vertices",
+    default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices" create MaximumCoKPlexCreateSpec<One>,
+    MaximumCoKPlex<SimpleGraph, i32, KN>          => "2^num_vertices" create MaximumCoKPlexCreateSpec<i32>,
 }
 
 #[cfg(feature = "example-db")]

@@ -6,6 +6,25 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+#[test]
+fn create_spec_uses_k_and_max_weight_inputs() {
+    let names: Vec<_> = BoundedComponentSpanningForestCreateSpec::FIELDS
+        .iter()
+        .map(|field| field.name)
+        .collect();
+    assert_eq!(names, ["graph", "weights", "k", "max_weight"]);
+    let problem =
+        BoundedComponentSpanningForest::try_from(BoundedComponentSpanningForestCreateSpec {
+            graph: SimpleGraph::new(2, vec![(0, 1)]),
+            weights: vec![1, 2],
+            k: 1,
+            max_weight: 3,
+        })
+        .unwrap();
+    assert_eq!(problem.max_components(), 1);
+    assert_eq!(problem.max_weight(), &3);
+}
+
 struct CountingAllocator;
 
 static ALLOCATION_COUNT: AtomicUsize = AtomicUsize::new(0);

@@ -5,6 +5,77 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn test_biclique_cover_create_spec_constructs_graph() {
+    let problem = BicliqueCover::try_from(BicliqueCoverCreateSpec {
+        left: 2,
+        right: 3,
+        biedges: vec![(0, 0), (0, 2), (1, 1)],
+        k: 2,
+    })
+    .unwrap();
+
+    assert_eq!(problem.left_size(), 2);
+    assert_eq!(problem.right_size(), 3);
+    assert_eq!(problem.graph().left_edges(), &[(0, 0), (0, 2), (1, 1)]);
+    assert_eq!(problem.k(), 2);
+
+    let entry = inventory::iter::<crate::registry::VariantEntry>()
+        .find(|entry| entry.name == "BicliqueCover")
+        .unwrap();
+    let inputs = entry.create_inputs.unwrap();
+    assert_eq!(
+        inputs.iter().map(|input| input.name).collect::<Vec<_>>(),
+        vec!["left", "right", "biedges", "k"]
+    );
+    assert_eq!(
+        inputs[2].codec,
+        crate::registry::CreateInputCodec::BipartiteEdgeList
+    );
+
+    let constructed = (entry.construct_fn)(serde_json::json!({
+        "left": 2,
+        "right": 3,
+        "biedges": [[0, 0], [0, 2], [1, 1]],
+        "k": 2
+    }))
+    .unwrap();
+    let constructed = constructed
+        .as_any()
+        .downcast_ref::<BicliqueCover>()
+        .unwrap();
+    assert_eq!(
+        constructed.graph().left_edges(),
+        problem.graph().left_edges()
+    );
+    assert_eq!(constructed.k(), problem.k());
+}
+
+#[test]
+fn test_biclique_cover_create_spec_rejects_out_of_bounds_edges() {
+    let invalid_left = BicliqueCover::try_from(BicliqueCoverCreateSpec {
+        left: 1,
+        right: 2,
+        biedges: vec![(1, 0)],
+        k: 1,
+    });
+    assert_eq!(
+        invalid_left.unwrap_err(),
+        "biedges[0] left vertex 1 is out of bounds for left partition size 1"
+    );
+
+    let invalid_right = BicliqueCover::try_from(BicliqueCoverCreateSpec {
+        left: 2,
+        right: 1,
+        biedges: vec![(0, 1)],
+        k: 1,
+    });
+    assert_eq!(
+        invalid_right.unwrap_err(),
+        "biedges[0] right vertex 1 is out of bounds for right partition size 1"
+    );
+}
+
+#[test]
 fn test_biclique_cover_creation() {
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
     let problem = BicliqueCover::new(graph, 2);

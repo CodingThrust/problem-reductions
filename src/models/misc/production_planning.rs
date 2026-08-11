@@ -5,7 +5,7 @@
 //! exists a feasible production plan that satisfies all demand without
 //! backlogging and stays within budget.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::{Deserialize, Serialize};
@@ -18,15 +18,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Determine whether a multi-period production plan can satisfy all demand within a cost bound",
-        fields: &[
-            FieldInfo { name: "num_periods", type_name: "usize", description: "Number of planning periods n" },
-            FieldInfo { name: "demands", type_name: "Vec<u64>", description: "Demand r_i for each period" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Production capacity c_i for each period" },
-            FieldInfo { name: "setup_costs", type_name: "Vec<u64>", description: "Setup cost b_i incurred when x_i > 0" },
-            FieldInfo { name: "production_costs", type_name: "Vec<u64>", description: "Per-unit production cost coefficient p_i" },
-            FieldInfo { name: "inventory_costs", type_name: "Vec<u64>", description: "Per-unit inventory cost coefficient h_i" },
-            FieldInfo { name: "cost_bound", type_name: "u64", description: "Total cost bound B" },
-        ],
+        fields: ProductionPlanningCreateSpec::FIELDS,
     }
 }
 
@@ -40,6 +32,63 @@ pub struct ProductionPlanning {
     production_costs: Vec<u64>,
     inventory_costs: Vec<u64>,
     cost_bound: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ProductionPlanningCreateSpec {
+    /// Number of planning periods.
+    num_periods: usize,
+    /// Demand per period.
+    demands: Vec<u64>,
+    /// Production capacity per period.
+    capacities: Vec<u64>,
+    /// Setup cost per period.
+    setup_costs: Vec<u64>,
+    /// Per-unit production cost per period.
+    production_costs: Vec<u64>,
+    /// Per-unit inventory cost per period.
+    inventory_costs: Vec<u64>,
+    /// Total cost bound.
+    cost_bound: u64,
+}
+impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
+    type Error = String;
+    fn try_from(spec: ProductionPlanningCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_periods == 0 {
+            return Err("num_periods must be positive".to_string());
+        }
+        for (name, len) in [
+            ("demands", spec.demands.len()),
+            ("capacities", spec.capacities.len()),
+            ("setup_costs", spec.setup_costs.len()),
+            ("production_costs", spec.production_costs.len()),
+            ("inventory_costs", spec.inventory_costs.len()),
+        ] {
+            if len != spec.num_periods {
+                return Err(format!(
+                    "{name} has {len} entries, expected {}",
+                    spec.num_periods
+                ));
+            }
+        }
+        if spec.capacities.iter().any(|&capacity| {
+            usize::try_from(capacity)
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+        }) {
+            return Err("capacities must fit in usize for dims()".to_string());
+        }
+        Ok(Self::new(
+            spec.num_periods,
+            spec.demands,
+            spec.capacities,
+            spec.setup_costs,
+            spec.production_costs,
+            spec.inventory_costs,
+            spec.cost_bound,
+        ))
+    }
 }
 
 impl ProductionPlanning {
@@ -185,7 +234,7 @@ impl Problem for ProductionPlanning {
 }
 
 crate::declare_variants! {
-    default ProductionPlanning => "(max_capacity + 1)^num_periods",
+    default ProductionPlanning => "(max_capacity + 1)^num_periods" create ProductionPlanningCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

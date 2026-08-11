@@ -1,4 +1,14 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_weight_count_mismatch() {
+    assert_eq!(MaximalISCreateSpec::FIELDS[1].name, "weights");
+    let result = MaximalIS::try_from(MaximalISCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        weights: vec![1],
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");

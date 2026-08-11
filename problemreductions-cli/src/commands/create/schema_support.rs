@@ -25,20 +25,7 @@ pub(crate) struct CreateInput {
     pub kind: InputValueKind,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FieldConstructionMode {
-    External,
-    Derived,
-    MixedGraph,
-    BipartiteGraph,
-}
-
 impl CreateContext {
-    pub(super) fn with_field(mut self, name: &str, value: serde_json::Value) -> Self {
-        self.parsed_fields.insert(name.to_string(), value);
-        self
-    }
-
     fn seed_field<T: Serialize>(&mut self, name: &str, value: T) -> Result<()> {
         let value = serde_json::to_value(value)?;
         if name == "num_vertices" {
@@ -122,6 +109,13 @@ pub(super) fn create_schema_driven(
             },
         )?;
 
+    if let Some(inputs) = variant_entry.create_inputs {
+        let data = normalize_registered_create_inputs(args, inputs, resolved_variant)
+            .map_err(|error| with_registered_usage(error, canonical, inputs))?;
+        return construct_canonical(canonical, resolved_variant, data)
+            .map_err(|error| with_registered_usage(error, canonical, inputs));
+    }
+
     let graph_type = resolved_graph_type(resolved_variant);
     let is_geometry = matches!(
         graph_type,
@@ -129,109 +123,151 @@ pub(super) fn create_schema_driven(
     );
     let mut context = CreateContext::default();
     seed_schema_context_from_cli(args, graph_type, &mut context)?;
-    validate_schema_driven_semantics(args, canonical, resolved_variant, &serde_json::Value::Null)
-        .map_err(|error| with_schema_usage(error, canonical, resolved_variant))?;
     let mut json_map = serde_json::Map::new();
 
     for field in schema.fields {
         let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
-        let flag_name = problem_help_flag_name(canonical, field.name, field.type_name, is_geometry);
-        let raw_value = args.raw(&flag_name);
-        let construction_mode = field_construction_mode(canonical, field.name, &concrete_type);
-        let value = if construction_mode == FieldConstructionMode::Derived {
-            derive_schema_field_value(args, canonical, field.name, &concrete_type, &context)?
-                .ok_or_else(|| {
-                    anyhow::anyhow!("No construction rule derives {canonical}.{}", field.name)
-                })?
-        } else if construction_mode == FieldConstructionMode::External {
-            if let Some(raw_value) = raw_value {
-                match parse_schema_field_value(
-                    args,
-                    canonical,
-                    &concrete_type,
-                    field.name,
-                    raw_value,
-                    &context,
-                ) {
-                    Ok(value) => value,
-                    Err(error) => {
-                        return Err(with_schema_usage(error, canonical, resolved_variant))
-                    }
-                }
-            } else if let Some(derived) =
-                derive_schema_field_value(args, canonical, field.name, &concrete_type, &context)?
-            {
-                derived
-            } else {
-                return Err(with_schema_usage(
-                    missing_schema_field_error(canonical, field.name, field.type_name, is_geometry),
-                    canonical,
-                    resolved_variant,
-                ));
-            }
-        } else if let Some(derived) =
-            derive_schema_field_value(args, canonical, field.name, &concrete_type, &context)?
-        {
-            derived
-        } else if let Some(raw_value) = raw_value {
-            match parse_schema_field_value(
-                args,
-                canonical,
-                &concrete_type,
-                field.name,
-                raw_value,
-                &context,
-            ) {
-                Ok(value) => value,
-                Err(error) => return Err(with_schema_usage(error, canonical, resolved_variant)),
-            }
-        } else {
-            return Err(with_schema_usage(
+        let flag_name = problem_help_flag_name(field.name, field.type_name, is_geometry);
+        let raw_value = args.raw(&flag_name).ok_or_else(|| {
+            with_schema_usage(
                 missing_schema_field_error(canonical, field.name, field.type_name, is_geometry),
                 canonical,
                 resolved_variant,
-            ));
-        };
+            )
+        })?;
+        let value = parse_schema_field_value(&concrete_type, field.name, raw_value, &context)
+            .map_err(|error| with_schema_usage(error, canonical, resolved_variant))?;
 
         context.remember(field.name, &concrete_type, &value);
         json_map.insert(field.name.to_string(), value);
     }
 
-    // KColoring/KN stores the number of colors at runtime in `num_colors`.
-    // The schema only declares `graph`, so inject `num_colors` from --k for KN.
-    if canonical == "KColoring" && resolved_variant.get("k").map(|s| s.as_str()) == Some("KN") {
-        if let Some(k) = args.value::<usize>("k") {
-            json_map.insert("num_colors".to_string(), serde_json::json!(k));
+    let data = serde_json::Value::Object(json_map);
+    construct_canonical(canonical, resolved_variant, data)
+}
+
+fn construct_canonical(
+    canonical: &str,
+    resolved_variant: &BTreeMap<String, String>,
+    data: serde_json::Value,
+) -> Result<(serde_json::Value, BTreeMap<String, String>)> {
+    let problem = problemreductions::registry::construct_dyn(canonical, resolved_variant, data)?;
+    let constructed_variant = problem.variant_map();
+    anyhow::ensure!(
+        problem.problem_name() == canonical && constructed_variant == *resolved_variant,
+        "registered constructor for {canonical} {resolved_variant:?} returned {} {constructed_variant:?}",
+        problem.problem_name(),
+    );
+    Ok((problem.serialize_json(), constructed_variant))
+}
+
+fn normalize_registered_create_inputs(
+    args: &CreateArgs,
+    inputs: &[problemreductions::registry::CreateInputInfo],
+    resolved_variant: &BTreeMap<String, String>,
+) -> Result<serde_json::Value> {
+    let mut values = serde_json::Map::new();
+    for input in inputs {
+        let flag_name = input.name.replace('_', "-");
+        if let Some(raw) = args.raw(&flag_name) {
+            let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
+            values.insert(
+                input.name.to_string(),
+                normalize_registered_input(input, &concrete_type, raw)?,
+            );
         }
     }
+    Ok(serde_json::Value::Object(values))
+}
 
-    // Decision<P> types serialize as {inner: {graph, weights, ...}, bound} but schema
-    // fields are flat (graph, weights, bound).  Restructure when the canonical name
-    // indicates a Decision wrapper.
-    let data = if canonical.starts_with("Decision") {
-        let bound = json_map
-            .remove("bound")
-            .expect("Decision types require a bound field");
-        let mut outer = serde_json::Map::new();
-        outer.insert("inner".to_string(), serde_json::Value::Object(json_map));
-        outer.insert("bound".to_string(), bound);
-        serde_json::Value::Object(outer)
-    } else {
-        serde_json::Value::Object(json_map)
-    };
-    validate_schema_driven_semantics(args, canonical, resolved_variant, &data)
-        .map_err(|error| with_schema_usage(error, canonical, resolved_variant))?;
-    (variant_entry.factory)(data.clone()).map_err(|error| {
-        with_schema_usage(
+fn normalize_registered_input(
+    input: &problemreductions::registry::CreateInputInfo,
+    concrete_type: &str,
+    raw: &str,
+) -> Result<serde_json::Value> {
+    use problemreductions::registry::CreateInputCodec;
+
+    let value = match input.codec {
+        CreateInputCodec::Json => serde_json::from_str(raw).map_err(|error| {
             anyhow::anyhow!(
-                "Schema-driven factory rejected generated data for {canonical}: {error}"
-            ),
-            canonical,
-            resolved_variant,
-        )
-    })?;
+                "Invalid JSON for --{}: {error}",
+                input.name.replace('_', "-")
+            )
+        })?,
+        CreateInputCodec::EdgeList | CreateInputCodec::BipartiteEdgeList => {
+            serde_json::to_value(util::parse_edge_pairs(raw)?)?
+        }
+        CreateInputCodec::ArcList => serde_json::to_value(parse_registered_arcs(raw)?)?,
+        CreateInputCodec::EqualityPairList => {
+            serde_json::to_value(parse_registered_equality_pairs(raw)?)?
+        }
+        CreateInputCodec::FunctionalDependencyList => {
+            serde_json::to_value(parse_registered_functional_dependencies(raw)?)?
+        }
+        CreateInputCodec::CharacterRows => {
+            serde_json::to_value(parse_registered_character_rows(raw))?
+        }
+        CreateInputCodec::Auto
+        | CreateInputCodec::Scalar
+        | CreateInputCodec::CommaSeparated
+        | CreateInputCodec::SemicolonSeparated => {
+            parse_field_value(concrete_type, input.name, raw, &CreateContext::default())?
+        }
+    };
+    Ok(value)
+}
 
-    Ok((data, resolved_variant.clone()))
+fn parse_registered_character_rows(raw: &str) -> Vec<Vec<usize>> {
+    let mut alphabet = BTreeMap::new();
+    raw.split(';')
+        .map(|row| {
+            row.chars()
+                .map(|symbol| {
+                    let next = alphabet.len();
+                    *alphabet.entry(symbol).or_insert(next)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn parse_registered_arcs(raw: &str) -> Result<Vec<(usize, usize)>> {
+    raw.split(',')
+        .map(|arc| {
+            let (source, target) = arc.trim().split_once('>').ok_or_else(|| {
+                anyhow::anyhow!("Invalid arc '{}': expected format u>v", arc.trim())
+            })?;
+            Ok((source.trim().parse()?, target.trim().parse()?))
+        })
+        .collect()
+}
+
+fn parse_registered_equality_pairs(raw: &str) -> Result<Vec<(usize, usize)>> {
+    raw.split(';')
+        .map(|pair| {
+            let (left, right) = pair.trim().split_once('=').ok_or_else(|| {
+                anyhow::anyhow!("Invalid pair '{}': expected format left=right", pair.trim())
+            })?;
+            Ok((left.trim().parse()?, right.trim().parse()?))
+        })
+        .collect()
+}
+
+fn parse_registered_functional_dependencies(raw: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    raw.split(';')
+        .map(|dependency| {
+            let (left, right) = dependency.trim().split_once(':').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid functional dependency '{}': expected format lhs:rhs",
+                    dependency.trim()
+                )
+            })?;
+            Ok((
+                util::parse_comma_list(left)?,
+                util::parse_comma_list(right)?,
+            ))
+        })
+        .collect()
 }
 
 pub(super) fn missing_schema_field_error(
@@ -240,201 +276,57 @@ pub(super) fn missing_schema_field_error(
     field_type: &str,
     is_geometry: bool,
 ) -> anyhow::Error {
-    let flag = problem_help_flag_name(canonical, field_name, field_type, is_geometry);
+    let flag = problem_help_flag_name(field_name, field_type, is_geometry);
     let requirement = format!("--{flag}");
     anyhow::anyhow!("{canonical} requires {requirement}")
 }
 
 pub(super) fn parse_schema_field_value(
-    args: &CreateArgs,
-    canonical: &str,
     concrete_type: &str,
     field_name: &str,
     raw: &str,
     context: &CreateContext,
 ) -> Result<serde_json::Value> {
-    match (canonical, field_name) {
-        ("BoyceCoddNormalFormViolation", "functional_deps") => {
-            let num_attributes = args.value::<usize>("n").ok_or_else(|| {
-                anyhow::anyhow!(
-                    "BoyceCoddNormalFormViolation requires --n, --subsets, and --target"
-                )
-            })?;
-            Ok(serde_json::to_value(parse_bcnf_functional_deps(
-                raw,
-                num_attributes,
-            )?)?)
-        }
-        ("BoundedComponentSpanningForest", "max_weight") => {
-            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --max-weight 6";
-            let bound_raw = args.value::<i64>("max-weight").ok_or_else(|| {
-                anyhow::anyhow!("BoundedComponentSpanningForest requires --max-weight\n\n{usage}")
-            })?;
-            let max_weight = i32::try_from(bound_raw).map_err(|_| {
-                anyhow::anyhow!(
-                    "BoundedComponentSpanningForest requires --max-weight within i32 range\n\n{usage}"
-                )
-            })?;
-            Ok(serde_json::json!(max_weight))
-        }
-        ("ConsecutiveBlockMinimization", "matrix") => {
-            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2";
-            let matrix: Vec<Vec<bool>> = serde_json::from_str(raw).map_err(|err| {
-                anyhow::anyhow!(
-                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array (e.g., '[[true,false,true],[false,true,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
-                )
-            })?;
-            Ok(serde_json::to_value(matrix)?)
-        }
-        ("FeasibleBasisExtension", "matrix") => {
-            let usage = "Usage: pred create FeasibleBasisExtension --matrix '[[1,0,1],[0,1,0]]' --rhs '7,5' --required-columns '0'";
-            let matrix: Vec<Vec<i64>> = serde_json::from_str(raw).map_err(|err| {
-                anyhow::anyhow!(
-                    "FeasibleBasisExtension requires --matrix as a JSON 2D integer array (e.g., '[[1,0,1],[0,1,0]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
-                )
-            })?;
-            Ok(serde_json::to_value(matrix)?)
-        }
-        ("IntegralFlowBundles", "bundle_capacities") => {
-            let usage = "Usage: pred create IntegralFlowBundles --arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4";
-            let arcs_str = args
-                .raw("arcs")
-                .ok_or_else(|| anyhow::anyhow!("IntegralFlowBundles requires --arcs\n\n{usage}"))?;
-            let (_, num_arcs) = parse_directed_graph(arcs_str, args.value::<usize>("num-vertices"))
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            let bundles = parse_bundles(args, num_arcs, usage)?;
-            Ok(serde_json::to_value(parse_bundle_capacities(
-                args,
-                bundles.len(),
-                usage,
-            )?)?)
-        }
-        ("IntegralFlowHomologousArcs", "homologous_pairs") => {
-            Ok(serde_json::to_value(parse_homologous_pairs(args)?)?)
-        }
-        ("LengthBoundedDisjointPaths", "max_length") => {
-            let usage = "Usage: pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --max-length 3";
-            let bound = args.value::<i64>("max-length").ok_or_else(|| {
-                anyhow::anyhow!("LengthBoundedDisjointPaths requires --max-length\n\n{usage}")
-            })?;
-            let max_length = usize::try_from(bound).map_err(|_| {
-                anyhow::anyhow!(
-                    "--max-length must be a nonnegative integer for LengthBoundedDisjointPaths\n\n{usage}"
-                )
-            })?;
-            Ok(serde_json::json!(max_length))
-        }
-        ("LongestCommonSubsequence", "strings") => {
-            let (strings, _) = parse_lcs_strings(raw)?;
-            Ok(serde_json::to_value(strings)?)
-        }
-        ("MinimumDecisionTree", "test_matrix") => {
-            let usage = "Usage: pred create MinimumDecisionTree --test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3";
-            let matrix: Vec<Vec<bool>> = serde_json::from_str(raw).map_err(|err| {
-                anyhow::anyhow!(
-                    "MinimumDecisionTree requires --test-matrix as a JSON 2D bool array\n\n{usage}\n\nFailed to parse --test-matrix: {err}"
-                )
-            })?;
-            Ok(serde_json::to_value(matrix)?)
-        }
-        ("MinimumWeightDecoding", "matrix") => {
-            let usage = "Usage: pred create MinimumWeightDecoding --matrix '[[true,false,true],[false,true,true]]' --rhs 'true,true'";
-            let matrix: Vec<Vec<bool>> = serde_json::from_str(raw).map_err(|err| {
-                anyhow::anyhow!(
-                    "MinimumWeightDecoding requires --matrix as a JSON 2D bool array (e.g., '[[true,false],[false,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
-                )
-            })?;
-            Ok(serde_json::to_value(matrix)?)
-        }
-        ("MinimumWeightSolutionToLinearEquations", "matrix") => {
-            let usage = "Usage: pred create MinimumWeightSolutionToLinearEquations --matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'";
-            let matrix: Vec<Vec<i64>> = serde_json::from_str(raw).map_err(|err| {
-                anyhow::anyhow!(
-                    "MinimumWeightSolutionToLinearEquations requires --matrix as a JSON 2D integer array (e.g., '[[1,2,3],[4,5,6]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
-                )
-            })?;
-            Ok(serde_json::to_value(matrix)?)
-        }
-        ("GroupingBySwapping", "string")
-        | ("StringToStringCorrection", "source")
-        | ("StringToStringCorrection", "target") => {
-            Ok(serde_json::to_value(parse_symbol_list_allow_empty(raw)?)?)
-        }
-        ("MultipleCopyFileAllocation", "usage") => {
-            let (_, num_vertices) = parse_graph(args)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
-            Ok(serde_json::to_value(parse_vertex_i64_values(
-                args.raw("usage"),
-                "usage",
-                num_vertices,
-                "MultipleCopyFileAllocation",
-                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
-            )?)?)
-        }
-        ("MultipleCopyFileAllocation", "storage") => {
-            let (_, num_vertices) = parse_graph(args)
-                .map_err(|e| anyhow::anyhow!("{e}\n\n{MULTIPLE_COPY_FILE_ALLOCATION_USAGE}"))?;
-            Ok(serde_json::to_value(parse_vertex_i64_values(
-                args.raw("storage"),
-                "storage",
-                num_vertices,
-                "MultipleCopyFileAllocation",
-                MULTIPLE_COPY_FILE_ALLOCATION_USAGE,
-            )?)?)
-        }
-        ("SequencingToMinimizeMaximumCumulativeCost", "precedences") => Ok(serde_json::to_value(
-            parse_precedence_pairs(args.raw("precedences"))?,
-        )?),
-        ("UndirectedTwoCommodityIntegralFlow", "capacities") => {
-            let usage = "Usage: pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1";
-            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
-            Ok(serde_json::to_value(parse_capacities(
-                args,
-                graph.num_edges(),
-                usage,
-            )?)?)
-        }
-        _ => parse_field_value(concrete_type, field_name, raw, context),
-    }
+    parse_field_value(concrete_type, field_name, raw, context)
 }
 
 pub(crate) fn create_inputs_for(
     canonical: &str,
     resolved_variant: &BTreeMap<String, String>,
 ) -> Vec<CreateInput> {
-    let schema = problemreductions::registry::find_problem_type(canonical)
-        .unwrap_or_else(|| panic!("missing schema for `{canonical}`"));
-    let graph_type = resolved_graph_type(resolved_variant);
-    let is_geometry = matches!(
-        graph_type,
-        "KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph"
-    );
+    let variant_entry =
+        problemreductions::registry::find_variant_entry(canonical, resolved_variant)
+            .unwrap_or_else(|| {
+                panic!("missing registered variant for `{canonical}` with {resolved_variant:?}")
+            });
     let mut inputs = BTreeMap::<String, (InputValueKind, String)>::new();
 
-    for field in schema.fields {
-        let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
-        match field_construction_mode(canonical, field.name, &concrete_type) {
-            FieldConstructionMode::Derived => continue,
-            FieldConstructionMode::MixedGraph => {
-                insert_create_input(&mut inputs, "graph", InputValueKind::Text, field.name);
-                insert_create_input(&mut inputs, "arcs", InputValueKind::Text, field.name);
-            }
-            FieldConstructionMode::BipartiteGraph => {
-                for (name, kind) in [
-                    ("left", InputValueKind::Usize),
-                    ("right", InputValueKind::Usize),
-                    ("biedges", InputValueKind::Text),
-                ] {
-                    insert_create_input(&mut inputs, name, kind, field.name);
-                }
-            }
-            FieldConstructionMode::External => match concrete_type.as_str() {
+    if let Some(custom_inputs) = variant_entry.create_inputs {
+        for input in custom_inputs {
+            let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
+            insert_create_input(
+                &mut inputs,
+                &input.name.replace('_', "-"),
+                input_value_kind(&concrete_type),
+                input.name,
+            );
+        }
+    } else {
+        let schema = problemreductions::registry::find_problem_type(canonical)
+            .unwrap_or_else(|| panic!("missing schema for `{canonical}`"));
+        let graph_type = resolved_graph_type(resolved_variant);
+        let is_geometry = matches!(
+            graph_type,
+            "KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph"
+        );
+        for field in schema.fields {
+            let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
+            match concrete_type.as_str() {
                 "DirectedGraph" => {
                     insert_create_input(&mut inputs, "arcs", InputValueKind::Text, field.name);
                 }
                 _ => {
-                    let name =
-                        problem_help_flag_name(canonical, field.name, field.type_name, is_geometry);
+                    let name = problem_help_flag_name(field.name, field.type_name, is_geometry);
                     insert_create_input(
                         &mut inputs,
                         &name,
@@ -442,47 +334,27 @@ pub(crate) fn create_inputs_for(
                         field.name,
                     );
                 }
-            },
+            }
         }
-    }
-
-    if schema.fields.iter().any(|field| {
-        let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
-        matches!(
-            concrete_type.as_str(),
-            "SimpleGraph" | "DirectedGraph" | "MixedGraph"
-        )
-    }) {
-        insert_create_input(
-            &mut inputs,
-            "num-vertices",
-            InputValueKind::Usize,
-            "graph vertex count",
-        );
-    }
-    if graph_type == "UnitDiskGraph" {
-        insert_create_input(
-            &mut inputs,
-            "radius",
-            InputValueKind::F64,
-            "unit-disk graph radius",
-        );
-    }
-    if canonical == "GraphPartitioning" {
-        insert_create_input(
-            &mut inputs,
-            "num-partitions",
-            InputValueKind::Usize,
-            "partition count",
-        );
-    }
-    if canonical == "KColoring" && resolved_variant.get("k").map(String::as_str) == Some("KN") {
-        insert_create_input(
-            &mut inputs,
-            "k",
-            InputValueKind::Usize,
-            "runtime color count",
-        );
+        if schema.fields.iter().any(|field| {
+            let concrete_type = resolve_schema_field_type(field.type_name, resolved_variant);
+            matches!(concrete_type.as_str(), "SimpleGraph" | "DirectedGraph")
+        }) {
+            insert_create_input(
+                &mut inputs,
+                "num-vertices",
+                InputValueKind::Usize,
+                "graph vertex count",
+            );
+        }
+        if graph_type == "UnitDiskGraph" {
+            insert_create_input(
+                &mut inputs,
+                "radius",
+                InputValueKind::F64,
+                "unit-disk graph radius",
+            );
+        }
     }
     if super::supports_random(canonical) {
         for (name, kind) in [
@@ -529,31 +401,6 @@ fn input_value_kind(concrete_type: &str) -> InputValueKind {
         "f64" => InputValueKind::F64,
         "bool" => InputValueKind::Bool,
         _ => InputValueKind::Text,
-    }
-}
-
-fn field_construction_mode(
-    canonical: &str,
-    field_name: &str,
-    concrete_type: &str,
-) -> FieldConstructionMode {
-    match normalize_type_name(concrete_type).as_str() {
-        "MixedGraph" => return FieldConstructionMode::MixedGraph,
-        "BipartiteGraph" => return FieldConstructionMode::BipartiteGraph,
-        "One" => return FieldConstructionMode::Derived,
-        _ => {}
-    }
-    if matches!(
-        (canonical, field_name),
-        ("ConjunctiveBooleanQuery", "num_variables")
-            | ("LongestCommonSubsequence", "max_length")
-            | ("ShortestCommonSupersequence", "max_length")
-            | ("QUBO", "num_vars")
-            | ("LengthBoundedDisjointPaths", "max_paths")
-    ) {
-        FieldConstructionMode::Derived
-    } else {
-        FieldConstructionMode::External
     }
 }
 
@@ -605,272 +452,6 @@ pub(super) fn seed_schema_context_from_cli(
     Ok(())
 }
 
-pub(super) fn derive_schema_field_value(
-    args: &CreateArgs,
-    canonical: &str,
-    field_name: &str,
-    concrete_type: &str,
-    context: &CreateContext,
-) -> Result<Option<serde_json::Value>> {
-    if let Some(defaulted) =
-        derive_schema_default_value(canonical, field_name, concrete_type, context)?
-    {
-        return Ok(Some(defaulted));
-    }
-
-    if field_name == "graph" && concrete_type == "MixedGraph" {
-        let usage = format!(
-            "Usage: pred create {canonical} {}",
-            example_for(canonical, None)
-        );
-        return Ok(Some(serde_json::to_value(parse_mixed_graph(
-            args, &usage,
-        )?)?));
-    }
-
-    if field_name == "graph" && concrete_type == "BipartiteGraph" {
-        let left = args
-            .value::<usize>("left")
-            .ok_or_else(|| anyhow::anyhow!("{canonical} requires --left"))?;
-        let right = args
-            .value::<usize>("right")
-            .ok_or_else(|| anyhow::anyhow!("{canonical} requires --right"))?;
-        let edges_raw = args
-            .raw("biedges")
-            .ok_or_else(|| anyhow::anyhow!("{canonical} requires --biedges"))?;
-        let edges = util::parse_edge_pairs(edges_raw)?;
-        validate_bipartite_edges(canonical, left, right, &edges)?;
-        return Ok(Some(serde_json::to_value(BipartiteGraph::new(
-            left, right, edges,
-        ))?));
-    }
-
-    if canonical == "ClosestVectorProblem"
-        && field_name == "bounds"
-        && normalize_type_name(concrete_type) == "Vec<VarBounds>"
-    {
-        return Ok(Some(parse_cvp_bounds_value(args.raw("bounds"), context)?));
-    }
-
-    if canonical == "ConjunctiveBooleanQuery"
-        && field_name == "num_variables"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let raw = args
-            .raw("conjuncts")
-            .ok_or_else(|| anyhow::anyhow!("ConjunctiveBooleanQuery requires --conjuncts"))?;
-        return Ok(Some(serde_json::json!(infer_cbq_num_variables(raw)?)));
-    }
-
-    if canonical == "GroupingBySwapping"
-        && field_name == "alphabet_size"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let raw = args
-            .raw("string")
-            .ok_or_else(|| anyhow::anyhow!("GroupingBySwapping requires --string"))?;
-        let string = parse_symbol_list_allow_empty(raw)?;
-        let inferred = string.iter().copied().max().map_or(0, |value| value + 1);
-        return Ok(Some(serde_json::json!(args
-            .value::<usize>("alphabet-size")
-            .unwrap_or(inferred))));
-    }
-
-    if canonical == "JobShopScheduling"
-        && field_name == "num_processors"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let inferred_processors = match args.raw("jobs") {
-            Some(job_tasks) => {
-                let jobs = parse_job_shop_jobs(job_tasks)?;
-                jobs.iter()
-                    .flat_map(|job| job.iter().map(|(processor, _)| *processor))
-                    .max()
-                    .map(|processor| processor + 1)
-            }
-            None => None,
-        };
-        let num_processors = args
-            .value::<usize>("num-processors")
-            .or(inferred_processors)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Cannot infer num_processors from empty job list; use --num-processors"
-                )
-            })?;
-        return Ok(Some(serde_json::json!(num_processors)));
-    }
-
-    if matches!(
-        canonical,
-        "LongestCommonSubsequence" | "ShortestCommonSupersequence"
-    ) && field_name == "alphabet_size"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let raw = args
-            .raw("strings")
-            .ok_or_else(|| anyhow::anyhow!("LongestCommonSubsequence requires --strings"))?;
-        let (_, inferred_alphabet_size) = parse_lcs_strings(raw)?;
-        return Ok(Some(serde_json::json!(args
-            .value::<usize>("alphabet-size")
-            .unwrap_or(inferred_alphabet_size))));
-    }
-
-    if canonical == "LongestCommonSubsequence"
-        && field_name == "max_length"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let strings: Vec<Vec<usize>> =
-            serde_json::from_value(context.parsed_fields.get("strings").cloned().ok_or_else(
-                || anyhow::anyhow!("LCS max_length derivation requires parsed strings"),
-            )?)?;
-        let max_length = strings.iter().map(Vec::len).min().unwrap_or(0);
-        return Ok(Some(serde_json::json!(max_length)));
-    }
-
-    if canonical == "ShortestCommonSupersequence"
-        && field_name == "max_length"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let strings: Vec<Vec<usize>> =
-            serde_json::from_value(context.parsed_fields.get("strings").cloned().ok_or_else(
-                || anyhow::anyhow!("SCS max_length derivation requires parsed strings"),
-            )?)?;
-        let max_length = strings.iter().map(Vec::len).sum::<usize>();
-        return Ok(Some(serde_json::json!(max_length)));
-    }
-
-    if canonical == "QUBO"
-        && field_name == "num_vars"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let matrix = parse_matrix(args)?;
-        return Ok(Some(serde_json::json!(matrix.len())));
-    }
-
-    if canonical == "StringToStringCorrection"
-        && field_name == "alphabet_size"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let source = parse_symbol_list_allow_empty(args.raw("source-string").unwrap_or(""))?;
-        let target = parse_symbol_list_allow_empty(args.raw("target-string").unwrap_or(""))?;
-        let inferred = source
-            .iter()
-            .chain(target.iter())
-            .copied()
-            .max()
-            .map_or(0, |value| value + 1);
-        return Ok(Some(serde_json::json!(args
-            .value::<usize>("alphabet-size")
-            .unwrap_or(inferred))));
-    }
-
-    if field_name == "precedences"
-        && normalize_type_name(concrete_type) == "Vec<(usize,usize)>"
-        && args.raw("precedences").is_none()
-    {
-        return Ok(Some(serde_json::json!([])));
-    }
-
-    if canonical == "ComparativeContainment"
-        && matches!(field_name, "r_weights" | "s_weights")
-        && matches!(
-            normalize_type_name(concrete_type).as_str(),
-            "Vec<One>" | "Vec<i32>" | "Vec<f64>"
-        )
-    {
-        let sets_len = context
-            .parsed_fields
-            .get(match field_name {
-                "r_weights" => "r_sets",
-                _ => "s_sets",
-            })
-            .and_then(serde_json::Value::as_array)
-            .map(Vec::len);
-        if let Some(len) = sets_len {
-            let value = match normalize_type_name(concrete_type).as_str() {
-                "Vec<One>" | "Vec<i32>" => serde_json::json!(vec![1_i32; len]),
-                "Vec<f64>" => serde_json::json!(vec![1.0_f64; len]),
-                _ => unreachable!(),
-            };
-            return Ok(Some(value));
-        }
-    }
-
-    if canonical == "ConsistencyOfDatabaseFrequencyTables"
-        && field_name == "known_values"
-        && normalize_type_name(concrete_type) == "Vec<KnownValue>"
-        && args.raw("known-values").is_none()
-    {
-        return Ok(Some(serde_json::json!([])));
-    }
-
-    if canonical == "LengthBoundedDisjointPaths"
-        && field_name == "max_paths"
-        && normalize_type_name(concrete_type) == "usize"
-    {
-        let graph_value = context.parsed_fields.get("graph").cloned();
-        let source = context.usize_field("source");
-        let sink = context.usize_field("sink");
-        if let (Some(graph_value), Some(source), Some(sink)) = (graph_value, source, sink) {
-            let graph: SimpleGraph =
-                serde_json::from_value(graph_value).context("Failed to deserialize graph")?;
-            let max_paths = graph
-                .neighbors(source)
-                .len()
-                .min(graph.neighbors(sink).len());
-            return Ok(Some(serde_json::json!(max_paths)));
-        }
-    }
-
-    Ok(None)
-}
-
-pub(super) fn derive_schema_default_value(
-    canonical: &str,
-    field_name: &str,
-    concrete_type: &str,
-    context: &CreateContext,
-) -> Result<Option<serde_json::Value>> {
-    let normalized = normalize_type_name(concrete_type);
-    if normalized == "One" {
-        return Ok(Some(serde_json::json!(1)));
-    }
-
-    let one_list = |len: usize| match normalized.as_str() {
-        "Vec<One>" | "Vec<i32>" => Some(serde_json::json!(vec![1_i32; len])),
-        "Vec<u64>" => Some(serde_json::json!(vec![1_u64; len])),
-        "Vec<i64>" => Some(serde_json::json!(vec![1_i64; len])),
-        "Vec<usize>" => Some(serde_json::json!(vec![1_usize; len])),
-        "Vec<f64>" => Some(serde_json::json!(vec![1.0_f64; len])),
-        _ => None,
-    };
-
-    let derived = match field_name {
-        "weights" | "vertex_weights" => context.num_vertices.and_then(one_list),
-        "edge_weights" | "edge_lengths" => context.num_edges.and_then(one_list),
-        "arc_weights" | "arc_lengths" if context.num_arcs.is_some() => {
-            context.num_arcs.and_then(one_list)
-        }
-        "capacities" if canonical == "PathConstrainedNetworkFlow" => {
-            context.num_arcs.and_then(one_list)
-        }
-        "couplings" if canonical == "SpinGlass" => context.num_edges.and_then(one_list),
-        "fields" if canonical == "SpinGlass" => match normalized.as_str() {
-            "Vec<i32>" => context
-                .num_vertices
-                .map(|len| serde_json::json!(vec![0_i32; len])),
-            "Vec<f64>" => context
-                .num_vertices
-                .map(|len| serde_json::json!(vec![0.0_f64; len])),
-            _ => None,
-        },
-        _ => None,
-    };
-
-    Ok(derived)
-}
-
 pub(super) fn with_schema_usage(
     error: anyhow::Error,
     canonical: &str,
@@ -880,11 +461,38 @@ pub(super) fn with_schema_usage(
     if message.contains("Usage: pred create") {
         return error;
     }
-    let graph_type = resolved_variant.get("graph").map(String::as_str);
-    anyhow::anyhow!(
-        "{message}\n\nUsage: pred create {canonical} {}",
-        example_for(canonical, graph_type)
-    )
+    let flags = create_inputs_for(canonical, resolved_variant)
+        .into_iter()
+        .map(|input| {
+            if input.kind == InputValueKind::Bool {
+                format!("[--{}]", input.name)
+            } else {
+                format!("--{} <VALUE>", input.name)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    anyhow::anyhow!("{message}\n\nUsage: pred create {canonical} {flags}",)
+}
+
+fn with_registered_usage(
+    error: anyhow::Error,
+    canonical: &str,
+    inputs: &[problemreductions::registry::CreateInputInfo],
+) -> anyhow::Error {
+    let flags = inputs
+        .iter()
+        .map(|input| {
+            let flag = format!("--{} <VALUE>", input.name.replace('_', "-"));
+            if input.required {
+                flag
+            } else {
+                format!("[{flag}]")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    anyhow::anyhow!("{error}\n\nUsage: pred create {canonical} {flags}")
 }
 
 pub(super) fn parse_field_value(
@@ -935,6 +543,7 @@ pub(super) fn parse_field_value(
         "Vec<(usize,Vec<usize>)>" => parse_indexed_usize_lists_value(raw)?,
         "Vec<Vec<(usize,u64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
         "Vec<(f64,f64)>" => serde_json::to_value(util::parse_positions::<f64>(raw, "0.0,0.0")?)?,
+        "Vec<(i32,i32)>" => serde_json::to_value(util::parse_positions::<i32>(raw, "0,0")?)?,
         "(f64,f64)" => parse_f64_pair_value(raw)?,
         "Vec<Vec<(usize,usize)>>" => parse_nested_pair_list_value(raw)?,
         "Vec<FrequencyTable>" => {
@@ -1124,31 +733,6 @@ pub(super) fn parse_nested_pair_list_value(raw: &str) -> Result<serde_json::Valu
         })
         .collect::<Result<_>>()?;
     Ok(serde_json::to_value(groups)?)
-}
-
-pub(super) fn infer_cbq_num_variables(raw: &str) -> Result<usize> {
-    let mut num_vars = 0usize;
-    for conjunct in raw.split(';').filter(|entry| !entry.trim().is_empty()) {
-        let (_, args_str) = conjunct.trim().split_once(':').ok_or_else(|| {
-            anyhow::anyhow!(
-                "Invalid conjunct format: expected 'rel_idx:args', got '{}'",
-                conjunct.trim()
-            )
-        })?;
-        for arg in args_str
-            .split(',')
-            .map(str::trim)
-            .filter(|arg| !arg.is_empty())
-        {
-            if let Some(rest) = arg.strip_prefix('v') {
-                let index: usize = rest
-                    .parse()
-                    .map_err(|err| anyhow::anyhow!("Invalid variable index '{rest}': {err}"))?;
-                num_vars = num_vars.max(index + 1);
-            }
-        }
-    }
-    Ok(num_vars)
 }
 
 pub(super) fn parse_cbq_relations(raw: &str, context: &CreateContext) -> Result<Vec<CbqRelation>> {
@@ -1376,91 +960,6 @@ pub(super) fn parse_string_list_value(raw: &str) -> Result<serde_json::Value> {
         .map(|entry| entry.trim().to_string())
         .collect();
     Ok(serde_json::to_value(values)?)
-}
-
-pub(super) fn parse_symbol_list_allow_empty(raw: &str) -> Result<Vec<usize>> {
-    let raw = raw.trim();
-    if raw.is_empty() {
-        return Ok(Vec::new());
-    }
-    raw.split(',')
-        .map(|value| {
-            value
-                .trim()
-                .parse::<usize>()
-                .context("invalid symbol index")
-        })
-        .collect()
-}
-
-pub(super) fn parse_lcs_strings(raw: &str) -> Result<(Vec<Vec<usize>>, usize)> {
-    let segments: Vec<&str> = raw.split(';').map(str::trim).collect();
-    let comma_mode = segments.iter().any(|segment| segment.contains(','));
-
-    if comma_mode {
-        let strings = segments
-            .iter()
-            .map(|segment| parse_symbol_list_allow_empty(segment))
-            .collect::<Result<Vec<_>>>()?;
-        let inferred_alphabet_size = strings
-            .iter()
-            .flat_map(|string| string.iter())
-            .copied()
-            .max()
-            .map(|value| value + 1)
-            .unwrap_or(0);
-        return Ok((strings, inferred_alphabet_size));
-    }
-
-    let mut encoding = BTreeMap::new();
-    let mut next_symbol = 0usize;
-    let strings = segments
-        .iter()
-        .map(|segment| {
-            segment
-                .as_bytes()
-                .iter()
-                .map(|byte| {
-                    let entry = encoding.entry(*byte).or_insert_with(|| {
-                        let current = next_symbol;
-                        next_symbol += 1;
-                        current
-                    });
-                    *entry
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    Ok((strings, next_symbol))
-}
-
-pub(super) fn parse_bcnf_functional_deps(
-    raw: &str,
-    num_attributes: usize,
-) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
-    raw.split(';')
-        .map(|fd_str| {
-            let parts: Vec<&str> = fd_str.split(':').collect();
-            anyhow::ensure!(
-                parts.len() == 2,
-                "Each FD must be lhs:rhs, got '{}'",
-                fd_str
-            );
-            let lhs: Vec<usize> = util::parse_comma_list(parts[0])?;
-            let rhs: Vec<usize> = util::parse_comma_list(parts[1])?;
-            ensure_attribute_indices_in_range(
-                &lhs,
-                num_attributes,
-                &format!("Functional dependency '{fd_str}' lhs"),
-            )?;
-            ensure_attribute_indices_in_range(
-                &rhs,
-                num_attributes,
-                &format!("Functional dependency '{fd_str}' rhs"),
-            )?;
-            Ok((lhs, rhs))
-        })
-        .collect()
 }
 
 pub(super) fn parse_cdft_frequency_tables_value(
@@ -1713,442 +1212,8 @@ pub(super) fn parse_unit_disk_graph_value(
     Ok(serde_json::to_value(UnitDiskGraph::new(positions, radius))?)
 }
 
-pub(super) fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
-    match canonical {
-        "MaximumIndependentSet"
-        | "MinimumVertexCover"
-        | "MaximumClique"
-        | "MinimumDominatingSet" => match graph_type {
-            Some("KingsSubgraph") => "--positions \"0,0;1,0;1,1;0,1\"",
-            Some("TriangularSubgraph") => "--positions \"0,0;0,1;1,0;1,1\"",
-            Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
-            _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
-        },
-        "DecisionMinimumVertexCover" => match graph_type {
-            Some("KingsSubgraph") => {
-                "--positions \"0,0;1,0;1,1;0,1\" --weights 1,1,1,1 --bound 2"
-            }
-            Some("TriangularSubgraph") => {
-                "--positions \"0,0;0,1;1,0;1,1\" --weights 1,1,1,1 --bound 2"
-            }
-            Some("UnitDiskGraph") => {
-                "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5 --weights 1,1,1 --bound 2"
-            }
-            _ => "--graph 0-1,1-2,0-2,2-3 --weights 1,1,1,1 --bound 2",
-        },
-        "KClique" => "--graph 0-1,0-2,1-3,2-3,2-4,3-4 --k 3",
-        "GeneralizedHex" => "--graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5",
-        "IntegralFlowBundles" => {
-            "--arcs \"0>1,0>2,1>3,2>3,1>2,2>1\" --bundles \"0,1;2,5;3,4\" --bundle-capacities 1,1,1 --source 0 --sink 3 --requirement 1 --num-vertices 4"
-        }
-        "IntegralFlowWithMultipliers" => {
-            "--arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2"
-        }
-        "MinimumCutIntoBoundedSets" => {
-            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3"
-        }
-        "BoundedComponentSpanningForest" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --max-weight 6"
-        }
-        "HamiltonianPath" => "--graph 0-1,1-2,2-3",
-        "HamiltonianPathBetweenTwoVertices" => {
-            "--graph 0-1,0-3,1-2,1-4,2-5,3-4,4-5,2-3 --source-vertex 0 --target-vertex 5"
-        }
-        "GraphPartitioning" => "--graph 0-1,1-2,2-3,3-0 --num-partitions 2",
-        "LongestPath" => {
-            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,4-6,5-6,1-6 --edge-lengths 3,2,4,1,5,2,3,2,4,1 --source-vertex 0 --target-vertex 6"
-        }
-        "UndirectedFlowLowerBounds" => {
-            "--graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3"
-        }
-        "UndirectedTwoCommodityIntegralFlow" => {
-            "--graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1"
-        },
-        "DisjointConnectingPaths" => {
-            "--graph 0-1,1-3,0-2,1-4,2-4,3-5,4-5 --terminal-pairs 0-3,2-5"
-        }
-        "IntegralFlowHomologousArcs" => {
-            "--arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\""
-        }
-        "LengthBoundedDisjointPaths" => {
-            "--graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --max-length 4"
-        }
-        "PathConstrainedNetworkFlow" => {
-            "--arcs \"0>1,0>2,1>3,1>4,2>4,3>5,4>5,4>6,5>7,6>7\" --capacities 2,1,1,1,1,1,1,1,2,1 --source 0 --sink 7 --paths \"0,2,5,8;0,3,6,8;0,3,7,9;1,4,6,8;1,4,7,9\" --requirement 3"
-        }
-        "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
-        "BoundedDiameterSpanningTree" => {
-            "--graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --edge-weights 1,2,1,1,2,1,1 --weight-bound 5 --diameter-bound 3"
-        }
-        "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
-        "LongestCircuit" => {
-            "--graph 0-1,1-2,2-3,3-4,4-5,5-0,0-3,1-4,2-5,3-5 --edge-weights 3,2,4,1,5,2,3,2,1,2"
-        }
-        "BottleneckTravelingSalesman" | "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
-            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
-        }
-        "ShortestWeightConstrainedPath" => {
-            "--graph 0-1,0-2,1-3,2-3,2-4,3-5,4-5,1-4 --edge-lengths 2,4,3,1,5,4,2,6 --edge-weights 5,1,2,3,2,3,1,1 --source-vertex 0 --target-vertex 5 --weight-bound 8"
-        }
-        "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
-        "BiconnectivityAugmentation" => {
-            "--graph 0-1,1-2,2-3 --potential-weights 0-2:3,0-3:4,1-3:2 --budget 5"
-        }
-        "PartialFeedbackEdgeSet" => {
-            "--graph 0-1,1-2,2-0,2-3,3-4,4-2,3-5,5-4,0-3 --budget 3 --max-cycle-length 4"
-        }
-        "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
-        "NAESatisfiability" => "--num-vars 3 --clauses \"1,2,-3;-1,2,3\"",
-        "QuantifiedBooleanFormulas" => {
-            "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
-        }
-        "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
-        "Maximum2Satisfiability" => "--num-vars 4 --clauses \"1,2;1,-2;-1,3;-1,-3;2,4;-3,-4;3,4\"",
-        "NonTautology" => {
-            "--num-vars 3 --disjuncts \"1,2,3;-1,-2,-3\""
-        }
-        "OneInThreeSatisfiability" => {
-            "--num-vars 4 --clauses \"1,2,3;-1,3,4;2,-3,-4\""
-        }
-        "Planar3Satisfiability" => {
-            "--num-vars 4 --clauses \"1,2,3;-1,2,4;1,-3,4;-2,3,-4\""
-        }
-        "QUBO" => "--matrix \"1,0.5;0.5,2\"",
-        "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
-        "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
-        "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
-        "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
-        "MaximumLeafSpanningTree" => "--graph 0-1,0-2,0-3,1-4,2-4,2-5,3-5,4-5,1-3",
-        "EnsembleComputation" => "--universe-size 4 --subsets \"0,1,2;0,1,3\"",
-        "RootedTreeStorageAssignment" => {
-            "--universe-size 5 --subsets \"0,2;1,3;0,4;2,4\" --bound 1"
-        }
-        "MinMaxMulticenter" => {
-            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
-        }
-        "MinimumSumMulticenter" => {
-            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
-        }
-        "BalancedCompleteBipartiteSubgraph" => {
-            "--left 4 --right 4 --biedges 0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3 --k 3"
-        }
-        "MaximumAchromaticNumber" => "--graph 0-1,1-2,2-3,3-4,4-5,5-0",
-        "MaximumDomaticNumber" => "--graph 0-1,1-2,0-2",
-        "MinimumCoveringByCliques" => "--graph 0-1,1-2,0-2,2-3",
-        "MinimumIntersectionGraphBasis" => "--graph 0-1,1-2",
-        "MinimumMaximalMatching" => "--graph 0-1,1-2,2-3,3-4,4-5",
-        "DegreeConstrainedSpanningTree" => "--graph 0-1,0-2,0-3,1-2,1-4,2-3,3-4 --k 2",
-        "MonochromaticTriangle" => "--graph 0-1,0-2,0-3,1-2,1-3,2-3",
-        "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
-        "PartitionIntoCliques" => "--graph 0-1,0-2,1-2,3-4,3-5,4-5 --k 3",
-        "PartitionIntoForests" => "--graph 0-1,1-2,2-0,3-4,4-5,5-3 --k 2",
-        "PartitionIntoPerfectMatchings" => "--graph 0-1,2-3,0-2,1-3 --k 2",
-        "Factoring" => "--target 15 --m 4 --n 4",
-        "CapacityAssignment" => {
-            "--capacities 1,2,3 --cost \"1,3,6;2,4,7;1,2,5\" --delay \"8,4,1;7,3,1;6,3,1\" --delay-budget 12"
-        }
-        "ProductionPlanning" => {
-            "--num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80"
-        }
-        "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
-        "PreemptiveScheduling" => {
-            "--lengths 2,1,3,2,1 --num-processors 2 --precedences \"0>2,1>3\""
-        }
-        "SchedulingToMinimizeWeightedCompletionTime" => {
-            "--lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2"
-        }
-        "JobShopScheduling" => {
-            "--jobs \"0:3,1:4;1:2,0:3,1:2;0:4,1:3;1:5,0:2;0:2,1:3,0:1\" --num-processors 2"
-        }
-        "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
-        "ExpectedRetrievalCost" => EXPECTED_RETRIEVAL_COST_EXAMPLE_ARGS,
-        "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
-        "StaffScheduling" => {
-            "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
-        }
-        "TimetableDesign" => {
-            "--num-periods 3 --num-craftsmen 5 --num-tasks 5 --craftsman-avail \"1,1,1;1,1,0;0,1,1;1,0,1;1,1,1\" --task-avail \"1,1,0;0,1,1;1,0,1;1,1,1;1,1,1\" --requirements \"1,0,1,0,0;0,1,0,0,1;0,0,0,1,0;0,0,0,0,1;0,1,0,0,0\""
-        }
-        "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
-        "MultipleCopyFileAllocation" => {
-            MULTIPLE_COPY_FILE_ALLOCATION_EXAMPLE_ARGS
-        }
-        "AcyclicPartition" => {
-            "--arcs \"0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5\" --weights 2,3,2,1,3,1 --arc-weights 1,1,1,1,1,1,1,1 --weight-bound 5 --cost-bound 5"
-        }
-        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
-        "RootedTreeArrangement" => "--graph 0-1,0-2,1-2,2-3,3-4 --bound 7",
-        "DirectedTwoCommodityIntegralFlow" => {
-            "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
-        }
-        "MinimumEdgeCostFlow" => {
-            "--arcs \"0>1,0>2,0>3,1>4,2>4,3>4\" --edge-weights 3,1,2,0,0,0 --capacities 2,2,2,2,2,2 --source 0 --sink 4 --requirement 3"
-        }
-        "MinimumCostMaximumFlow" => {
-            "--arcs \"0>1,0>2,1>2,1>3,2>3\" --capacities 2,1,1,1,2 --costs 1,0,0,1,2 --source 0 --sink 3"
-        }
-        "MinimumCostCirculation" => {
-            "--arcs \"0>1,1>0,0>2,2>0\" --capacities 2,2,1,1 --costs 2,-3,1,-4"
-        }
-        "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
-        "DirectedHamiltonianPath" => {
-            "--arcs \"0>1,0>3,1>3,1>4,2>0,2>4,3>2,3>5,4>5,5>1\" --num-vertices 6"
-        }
-        "EulerianPath" => "--arcs \"0>1,0>1,1>2,2>0\" --num-vertices 3",
-        "Kernel" => "--arcs \"0>1,0>2,1>3,2>3,3>4,4>0,4>1\"",
-        "MinimumGeometricConnectedDominatingSet" => {
-            "--positions \"0,0;3,0;6,0;9,0;0,3;3,3;6,3;9,3\" --radius 3.5"
-        }
-        "MinimumDummyActivitiesPert" => "--arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6",
-        "FeasibleRegisterAssignment" => {
-            "--arcs \"0>1,0>2,1>3\" --assignment 0,1,0,0 --k 2 --num-vertices 4"
-        }
-        "MinimumFaultDetectionTestSet" => {
-            "--arcs \"0>2,0>3,1>3,1>4,2>5,3>5,3>6,4>6\" --inputs 0,1 --outputs 5,6 --num-vertices 7"
-        }
-        "MinimumWeightAndOrGraph" => {
-            "--arcs \"0>1,0>2,1>3,1>4,2>5,2>6\" --source 0 --gate-types \"AND,OR,OR,L,L,L,L\" --weights 1,2,3,1,4,2 --num-vertices 7"
-        }
-        "MinimumRegisterSufficiencyForLoops" => {
-            "--loop-length 6 --loop-variables \"0,3;2,3;4,3\""
-        }
-        "RegisterSufficiency" => {
-            "--arcs \"2>0,2>1,3>1,4>2,4>3,5>0,6>4,6>5\" --bound 3 --num-vertices 7"
-        }
-        "StrongConnectivityAugmentation" => {
-            "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
-        }
-        "MixedChinesePostman" => {
-            "--graph 0-2,1-3,0-4,4-2 --arcs \"0>1,1>2,2>3,3>0\" --edge-weights 2,3,1,2 --arc-weights 2,3,1,4"
-        }
-        "RuralPostman" => {
-            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2"
-        }
-        "StackerCrane" => {
-            "--arcs \"0>4,2>5,5>1,3>0,4>3\" --graph \"0-1,1-2,2-3,3-5,4-5,0-3,1-5\" --arc-lengths 3,4,2,5,3 --edge-lengths 2,1,3,2,1,4,3 --num-vertices 6"
-        }
-        "MultipleChoiceBranching" => {
-            "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --threshold 10"
-        }
-        "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
-        "ConsistencyOfDatabaseFrequencyTables" => {
-            "--num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\""
-        }
-        "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
-        "RectilinearPictureCompression" => {
-            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --bound 2"
-        }
-        "SequencingToMinimizeWeightedTardiness" => {
-            "--lengths 3,4,2,5,3 --weights 2,3,1,4,2 --deadlines 5,8,4,15,10 --bound 13"
-        }
-        "IntegerKnapsack" => "--sizes 3,4,5,2,7 --values 4,5,7,3,9 --capacity 15",
-        "SubsetProduct" => "--sizes 2,3,5,7,6,10 --target 210",
-        "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
-        "MinimumAxiomSet" => {
-            "--n 8 --true-sentences 0,1,2,3,4,5,6,7 --implications \"0>2;0>3;1>4;1>5;2,4>6;3,5>7;6,7>0;6,7>1\""
-        }
-        "IntegerExpressionMembership" => {
-            "--expression '{\"Sum\":[{\"Sum\":[{\"Union\":[{\"Atom\":1},{\"Atom\":4}]},{\"Union\":[{\"Atom\":3},{\"Atom\":6}]}]},{\"Union\":[{\"Atom\":2},{\"Atom\":5}]}]}' --target 12"
-        }
-        "NonLivenessFreePetriNet" => {
-            "--n 4 --m 3 --arcs \"0>0,1>1,2>2\" --output-arcs \"0>1,1>2,2>3\" --initial-marking 1,0,0,0"
-        }
-        "Betweenness" => "--n 5 --subsets \"0,1,2;2,3,4;0,2,4;1,3,4\"",
-        "CyclicOrdering" => "--n 5 --subsets \"0,1,2;2,3,0;1,3,4\"",
-        "Numerical3DimensionalMatching" => "--w-sizes 4,5 --x-sizes 4,5 --y-sizes 5,7 --bound 15",
-        "ThreePartition" => "--sizes 4,5,6,4,6,5 --bound 15",
-        "DynamicStorageAllocation" => "--release-times 0,0,1,2,3 --deadlines 3,2,4,5,5 --sizes 2,3,1,3,2 --capacity 6",
-        "KthLargestMTuple" => "--subsets \"2,5,8;3,6;1,4,7\" --k 14 --bound 12",
-        "AlgebraicEquationsOverGF2" => "--num-vars 3 --equations \"0,1:2;1,2:0:;0:1:2:\"",
-        "QuadraticCongruences" => "--coeff-a 4 --coeff-b 15 --coeff-c 10",
-        "QuadraticDiophantineEquations" => "--coeff-a 3 --coeff-b 5 --coeff-c 53",
-        "SimultaneousIncongruences" => "--pairs \"2,2;1,3;2,5;3,7\"",
-        "BoyceCoddNormalFormViolation" => {
-            "--n 6 --subsets \"0,1:2;2:3;3,4:5\" --target 0,1,2,3,4,5"
-        }
-        "Clustering" => {
-            "--distance-matrix \"0,1,1,3;1,0,1,3;1,1,0,3;3,3,3,0\" --k 2 --diameter-bound 1"
-        }
-        "SumOfSquaresPartition" => "--sizes 5,3,8,2,7,1 --num-groups 3",
-        "ComparativeContainment" => {
-            "--universe-size 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
-        }
-        "SetBasis" => "--universe-size 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3",
-        "SetSplitting" => "--universe-size 6 --subsets \"0,1,2;2,3,4;0,4,5;1,3,5\"",
-        "LongestCommonSubsequence" => {
-            "--strings \"010110;100101;001011\" --alphabet-size 2"
-        }
-        "ClosestString" => {
-            "--alphabet-size 2 --strings \"0,0,0;0,1,1;1,0,1;1,1,0\""
-        }
-        "ClosestSubstring" => {
-            "--alphabet-size 2 --strings \"0,0,0,1,1;1,0,1,0,0;1,1,0,0,1\" --substring-length 3"
-        }
-        "GroupingBySwapping" => "--string \"0,1,2,0,1,2\" --bound 5",
-        "MinimumExternalMacroDataCompression" | "MinimumInternalMacroDataCompression" => {
-            "--string \"0,1,0,1\" --pointer-cost 2 --alphabet-size 2"
-        }
-        "MinimumCardinalityKey" => {
-            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\""
-        }
-        "PrimeAttributeName" => {
-            "--universe-size 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3"
-        }
-        "TwoDimensionalConsecutiveSets" => {
-            "--alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\""
-        }
-        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\"",
-        "ConsecutiveBlockMinimization" => "--matrix '[[true,false,true],[false,true,true]]' --bound-k 2",
-        "ConsecutiveOnesMatrixAugmentation" => {
-            "--matrix \"1,0,0,1,1;1,1,0,0,0;0,1,1,0,1;0,0,1,1,0\" --bound 2"
-        }
-        "SparseMatrixCompression" => "--matrix \"1,0,0,1;0,1,0,0;0,0,1,0;1,0,0,0\" --bound-k 2",
-        "MaximumLikelihoodRanking" => "--matrix \"0,4,3,5;1,0,4,3;2,1,0,4;0,2,1,0\"",
-        "MinimumMatrixCover" => "--matrix \"0,3,1,0;3,0,0,2;1,0,0,4;0,2,4,0\"",
-        "MinimumMatrixDomination" => "--matrix \"0,1,0;1,0,1;0,1,0\"",
-        "MinimumWeightDecoding" => {
-            "--matrix '[[true,false,true,true],[false,true,true,false],[true,true,false,true]]' --rhs 'true,true,false'"
-        }
-        "MinimumWeightSolutionToLinearEquations" => {
-            "--matrix '[[1,2,3,1],[2,1,1,3]]' --rhs '5,4'"
-        }
-        "ConjunctiveBooleanQuery" => {
-            "--domain-size 6 --relations \"2:0,3|1,3|2,4;3:0,1,5|1,2,5\" --conjuncts \"0:v0,c3;0:v1,c3;1:v0,v1,c5\""
-        }
-        "ConjunctiveQueryFoldability" => "(use --example ConjunctiveQueryFoldability)",
-        "EquilibriumPoint" => "(use --example EquilibriumPoint)",
-        "SequencingToMinimizeMaximumCumulativeCost" => {
-            "--costs 2,-1,3,-2,1,-3 --precedences \"0>2,1>2,1>3,2>4,3>5,4>5\""
-        }
-        "StringToStringCorrection" => {
-            "--source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2"
-        }
-        "FeasibleBasisExtension" => {
-            "--matrix '[[1,0,1,2,-1,0],[0,1,0,1,1,2],[0,0,1,1,0,1]]' --rhs '7,5,3' --required-columns '0,1'"
-        }
-        "MinimumCodeGenerationParallelAssignments" => {
-            "--num-variables 4 --assignments \"0:1,2;1:0;2:3;3:1,2\""
-        }
-        "MinimumDecisionTree" => {
-            "--test-matrix '[[true,true,false,false],[true,false,false,false],[false,true,false,true]]' --num-objects 4 --num-tests 3"
-        }
-        "MinimumDisjunctiveNormalForm" => {
-            "--num-vars 3 --truth-table 0,1,1,1,1,1,1,0"
-        }
-        "SquareTiling" => {
-            "--num-colors 3 --tiles \"0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1\" --grid-size 2"
-        }
-        _ => "",
-    }
-}
-
-pub(super) fn uses_edge_weights_flag(canonical: &str) -> bool {
-    matches!(
-        canonical,
-        "BottleneckTravelingSalesman"
-            | "BoundedDiameterSpanningTree"
-            | "KthBestSpanningTree"
-            | "LongestCircuit"
-            | "MaxCut"
-            | "MaximumMatching"
-            | "MixedChinesePostman"
-            | "RuralPostman"
-            | "TravelingSalesman"
-    )
-}
-
-pub(super) fn uses_edge_weights_flag_for_edge_lengths(canonical: &str) -> bool {
-    matches!(
-        canonical,
-        "LongestCircuit" | "MinMaxMulticenter" | "MinimumSumMulticenter"
-    )
-}
-
-pub(super) fn help_flag_name(canonical: &str, field_name: &str) -> String {
-    // Problem-specific overrides first
-    match (canonical, field_name) {
-        ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
-        ("BoundedComponentSpanningForest", "max_weight") => return "max-weight".to_string(),
-        ("BoyceCoddNormalFormViolation", "num_attributes") => return "n".to_string(),
-        ("BoyceCoddNormalFormViolation", "functional_deps") => return "subsets".to_string(),
-        ("BoyceCoddNormalFormViolation", "target_subset") => return "target".to_string(),
-        ("CapacityAssignment", "cost") => return "cost".to_string(),
-        ("CapacityAssignment", "delay") => return "delay".to_string(),
-        ("FlowShopScheduling", "num_processors")
-        | ("JobShopScheduling", "num_processors")
-        | ("OpenShopScheduling", "num_machines")
-        | ("SchedulingWithIndividualDeadlines", "num_processors") => {
-            return "num-processors".to_string();
-        }
-        ("JobShopScheduling", "jobs") => return "jobs".to_string(),
-        ("LengthBoundedDisjointPaths", "max_length") => return "max-length".to_string(),
-        ("ConsecutiveBlockMinimization", "bound") => return "bound-k".to_string(),
-        ("GroupingBySwapping", "budget") => return "bound".to_string(),
-        ("RectilinearPictureCompression", "bound") => return "bound".to_string(),
-        ("PrimeAttributeName", "num_attributes") => return "universe-size".to_string(),
-        ("PrimeAttributeName", "dependencies") => return "dependencies".to_string(),
-        ("PrimeAttributeName", "query_attribute") => return "query-attribute".to_string(),
-        ("ClosestVectorProblem", "target") => return "target-vec".to_string(),
-        ("ConjunctiveBooleanQuery", "conjuncts") => return "conjuncts".to_string(),
-        ("MixedChinesePostman", "arc_weights") => return "arc-weights".to_string(),
-        ("ConsecutiveOnesMatrixAugmentation", "bound") => return "bound".to_string(),
-        ("ConsecutiveOnesSubmatrix", "bound") => return "bound".to_string(),
-        ("SparseMatrixCompression", "bound_k") => return "bound-k".to_string(),
-        ("MinimumCodeGenerationParallelAssignments", "num_variables") => {
-            return "num-variables".to_string();
-        }
-        ("MinimumCodeGenerationParallelAssignments", "assignments") => {
-            return "assignments".to_string();
-        }
-        ("StackerCrane", "edges") => return "graph".to_string(),
-        ("StackerCrane", "arc_lengths") => return "arc-lengths".to_string(),
-        ("StackerCrane", "edge_lengths") => return "edge-lengths".to_string(),
-        ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
-        ("MaximumCoKPlex", "bound_k") => return "k".to_string(),
-        ("TimetableDesign", "num_tasks") => return "num-tasks".to_string(),
-        ("BicliqueCover", "left_size") => return "left".to_string(),
-        ("BicliqueCover", "right_size") => return "right".to_string(),
-        ("BicliqueCover", "edges") => return "biedges".to_string(),
-        _ => {}
-    }
-    // Edge-weight problems use --edge-weights instead of --weights
-    if field_name == "weights" && uses_edge_weights_flag(canonical) {
-        return "edge-weights".to_string();
-    }
-    if field_name == "edge_lengths" && uses_edge_weights_flag_for_edge_lengths(canonical) {
-        return "edge-weights".to_string();
-    }
-    // General field-name overrides (previously in cli_flag_name)
-    match field_name {
-        "universe_size" => "universe-size".to_string(),
-        "collection" | "sets" | "subsets" => "subsets".to_string(),
-        "vertex_weights" => "weights".to_string(),
-        "potential_weights" => "potential-weights".to_string(),
-        "num_tasks" => "num-tasks".to_string(),
-        "precedences" => "precedences".to_string(),
-        "threshold" => "threshold".to_string(),
-        "lengths" => "lengths".to_string(),
-        _ => field_name.replace('_', "-"),
-    }
-}
-
-pub(super) fn reject_vertex_weights_for_edge_weight_problem(
-    args: &CreateArgs,
-    canonical: &str,
-    graph_type: Option<&str>,
-) -> Result<()> {
-    if args.raw("weights").is_some() && uses_edge_weights_flag(canonical) {
-        bail!(
-            "{canonical} uses --edge-weights, not --weights.\n\n\
-             Usage: pred create {} {}",
-            match graph_type {
-                Some(g) => format!("{canonical}/{g}"),
-                None => canonical.to_string(),
-            },
-            example_for(canonical, graph_type)
-        );
-    }
-    Ok(())
+pub(super) fn help_flag_name(field_name: &str) -> String {
+    field_name.replace("_", "-")
 }
 
 pub(super) fn parse_nonnegative_usize_bound(
@@ -2160,111 +1225,18 @@ pub(super) fn parse_nonnegative_usize_bound(
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
 }
 
-pub(super) fn validate_prescribed_paths_against_graph(
-    graph: &DirectedGraph,
-    paths: &[Vec<usize>],
-    source: usize,
-    sink: usize,
-    usage: &str,
-) -> Result<()> {
-    let arcs = graph.arcs();
-    for path in paths {
-        anyhow::ensure!(
-            !path.is_empty(),
-            "PathConstrainedNetworkFlow paths must be non-empty\n\n{usage}"
-        );
-        let mut visited_vertices = BTreeSet::from([source]);
-        let mut current = source;
-        for &arc_index in path {
-            let &(tail, head) = arcs.get(arc_index).ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Path arc index {arc_index} out of bounds for {} arcs\n\n{usage}",
-                    arcs.len()
-                )
-            })?;
-            anyhow::ensure!(
-                tail == current,
-                "prescribed path is not contiguous: expected arc leaving vertex {current}, got {tail}->{head}\n\n{usage}"
-            );
-            anyhow::ensure!(
-                visited_vertices.insert(head),
-                "prescribed path repeats vertex {head}, so it is not a simple path\n\n{usage}"
-            );
-            current = head;
-        }
-        anyhow::ensure!(
-            current == sink,
-            "prescribed path must end at sink {sink}, ended at {current}\n\n{usage}"
-        );
-    }
-    Ok(())
-}
-
-pub(super) fn validate_sequencing_within_intervals_inputs(
-    release_times: &[u64],
-    deadlines: &[u64],
-    lengths: &[u64],
-    usage: &str,
-) -> Result<()> {
-    if release_times.len() != deadlines.len() {
-        bail!("release_times and deadlines must have the same length\n\n{usage}");
-    }
-    if release_times.len() != lengths.len() {
-        bail!("release_times and lengths must have the same length\n\n{usage}");
-    }
-
-    for (i, ((&release_time, &deadline), &length)) in release_times
-        .iter()
-        .zip(deadlines.iter())
-        .zip(lengths.iter())
-        .enumerate()
-    {
-        let end = release_time.checked_add(length).ok_or_else(|| {
-            anyhow::anyhow!("Task {i}: overflow computing r(i) + l(i)\n\n{usage}")
-        })?;
-        if end > deadline {
-            bail!(
-                "Task {i}: r({}) + l({}) > d({}), time window is empty\n\n{usage}",
-                release_time,
-                length,
-                deadline
-            );
-        }
-    }
-
-    Ok(())
-}
-
 pub(super) fn problem_help_flag_name(
-    canonical: &str,
     field_name: &str,
     field_type: &str,
     is_geometry: bool,
 ) -> String {
     if field_type == "G" && is_geometry {
-        return "positions".to_string();
+        "positions".to_string()
+    } else if field_type == "DirectedGraph" {
+        "arcs".to_string()
+    } else {
+        help_flag_name(field_name)
     }
-    if field_type == "DirectedGraph" {
-        return "arcs".to_string();
-    }
-    if field_type == "MixedGraph" {
-        return "graph".to_string();
-    }
-    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
-        return "max-length".to_string();
-    }
-    if canonical == "GeneralizedHex" && field_name == "target" {
-        return "sink".to_string();
-    }
-    if canonical == "StringToStringCorrection" {
-        return match field_name {
-            "source" => "source-string".to_string(),
-            "target" => "target-string".to_string(),
-            "bound" => "bound".to_string(),
-            _ => help_flag_name(canonical, field_name),
-        };
-    }
-    help_flag_name(canonical, field_name)
 }
 
 pub(super) fn lbdp_validation_error(message: &str, usage: Option<&str>) -> anyhow::Error {

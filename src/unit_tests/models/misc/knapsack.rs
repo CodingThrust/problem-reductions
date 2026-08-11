@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_item_weights() {
+    let p = Knapsack::try_from(KnapsackCreateSpec {
+        weights: None,
+        values: vec![2, 3],
+        capacity: 1,
+    })
+    .unwrap();
+    assert_eq!(p.weights(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_negative_bound() {
+    assert_eq!(
+        ConsecutiveOnesMatrixAugmentationCreateSpec::FIELDS[1].name,
+        "bound"
+    );
+    assert!(ConsecutiveOnesMatrixAugmentation::try_from(
+        ConsecutiveOnesMatrixAugmentationCreateSpec {
+            matrix: vec![vec![true]],
+            bound: -1
+        }
+    )
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

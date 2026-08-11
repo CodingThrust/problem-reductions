@@ -128,7 +128,7 @@ pub use types::{
 };
 
 // Re-export proc macros for reduction registration and variant declaration
-pub use problemreductions_macros::{declare_variants, reduction};
+pub use problemreductions_macros::{declare_variants, reduction, CreateSpec};
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;

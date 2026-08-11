@@ -1,4 +1,4 @@
-use crate::models::misc::KthLargestMTuple;
+use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -6,6 +6,18 @@ use crate::types::Or;
 fn example_problem(k: u64) -> KthLargestMTuple {
     // m=3, X_1={2,5,8}, X_2={3,6}, X_3={1,4,7}, B=12
     KthLargestMTuple::new(vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]], k, 12)
+}
+
+#[test]
+fn test_kth_largest_m_tuple_create_spec_uses_subsets_input() {
+    assert_eq!(KthLargestMTupleCreateSpec::FIELDS[0].name, "subsets");
+    let problem = KthLargestMTuple::try_from(KthLargestMTupleCreateSpec {
+        subsets: vec![vec![1], vec![2]],
+        k: 1,
+        bound: 3,
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![1], vec![2]]);
 }
 
 #[test]

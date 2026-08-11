@@ -3,7 +3,7 @@
 //! The Set Covering problem asks for a minimum weight collection of sets
 //! that covers all elements in the universe.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use num_traits::Zero;
@@ -18,11 +18,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
         module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },
-            FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of subsets of U" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Weight for each set" },
-        ],
+        fields: MinimumSetCoveringCreateSpec::FIELDS,
     }
 }
 
@@ -66,6 +62,43 @@ pub struct MinimumSetCovering<W = i32> {
     sets: Vec<Vec<usize>>,
     /// Weights for each set.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumSetCoveringCreateSpec {
+    /// Size of the universe U.
+    universe_size: usize,
+    /// Collection of subsets of U.
+    subsets: Vec<Vec<usize>>,
+    /// Weight for each subset.
+    weights: Vec<i32>,
+}
+
+impl TryFrom<MinimumSetCoveringCreateSpec> for MinimumSetCovering<i32> {
+    type Error = String;
+
+    fn try_from(spec: MinimumSetCoveringCreateSpec) -> Result<Self, Self::Error> {
+        if spec.subsets.len() != spec.weights.len() {
+            return Err(format!(
+                "weights has {} entries, expected one for each of {} subsets",
+                spec.weights.len(),
+                spec.subsets.len()
+            ));
+        }
+        for (set_index, set) in spec.subsets.iter().enumerate() {
+            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
+                return Err(format!(
+                    "subsets[{set_index}] contains element {element} outside universe of size {}",
+                    spec.universe_size
+                ));
+            }
+        }
+        Ok(Self::with_weights(
+            spec.universe_size,
+            spec.subsets,
+            spec.weights,
+        ))
+    }
 }
 
 impl<W: Clone + Default> MinimumSetCovering<W> {
@@ -171,7 +204,7 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumSetCovering<i32> => "2^num_sets",
+    default MinimumSetCovering<i32> => "2^num_sets" create MinimumSetCoveringCreateSpec,
 }
 
 /// Check if a selection of sets forms a valid set cover.

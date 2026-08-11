@@ -11,6 +11,18 @@ fn issue_example_problem(k: usize) -> SetBasis {
     )
 }
 
+#[test]
+fn test_set_basis_create_spec_uses_subsets_input() {
+    assert_eq!(SetBasisCreateSpec::FIELDS[1].name, "subsets");
+    let problem = SetBasis::try_from(SetBasisCreateSpec {
+        universe_size: 3,
+        subsets: vec![vec![0, 2]],
+        k: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.collection(), &[vec![0, 2]]);
+}
+
 fn canonical_solution() -> Vec<usize> {
     vec![1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
 }

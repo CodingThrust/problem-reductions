@@ -201,3 +201,15 @@ fn test_rural_postman_solver_aggregate() {
     let value = solver.solve(&problem);
     assert_eq!(value, Min(Some(4)));
 }
+#[test]
+fn create_spec_maps_edge_weights_to_edge_lengths() {
+    let problem = RuralPostman::try_from(RuralPostmanCreateSpec {
+        graph: vec![(0, 1), (1, 2)],
+        num_vertices: None,
+        edge_weights: Some(vec![2, 3]),
+        required_edges: vec![1],
+    })
+    .unwrap();
+    assert_eq!(problem.edge_lengths(), &[2, 3]);
+    assert_eq!(RuralPostmanCreateSpec::FIELDS[2].name, "edge_weights");
+}

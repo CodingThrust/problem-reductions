@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_invalid_terminals() {
+    assert_eq!(MinimumMultiwayCutCreateSpec::FIELDS[1].name, "terminals");
+    let result = MinimumMultiwayCut::try_from(MinimumMultiwayCutCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        terminals: vec![0, 0],
+        edge_weights: vec![1],
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

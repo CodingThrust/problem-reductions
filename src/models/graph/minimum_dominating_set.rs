@@ -4,7 +4,7 @@
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
 use crate::models::decision::Decision;
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
@@ -23,10 +23,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find minimum weight dominating set in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MinimumDominatingSetCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -60,6 +57,30 @@ pub struct MinimumDominatingSet<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumDominatingSetCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<W>,
+}
+
+impl<W: Clone + Default> TryFrom<MinimumDominatingSetCreateSpec<W>>
+    for MinimumDominatingSet<SimpleGraph, W>
+{
+    type Error = String;
+    fn try_from(spec: MinimumDominatingSetCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, spec.weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
@@ -165,8 +186,8 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
-    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices",
+    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<i32>,
+    MinimumDominatingSet<SimpleGraph, One> => "1.4969^num_vertices" create MinimumDominatingSetCreateSpec<One>,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumDominatingSet<G, W>
@@ -245,6 +266,14 @@ inventory::submit! {
         },
         is_default: false,
         aliases: &[],
+        create_inputs: None,
+        construct_fn: |data| {
+            let problem_type = <Decision<MinimumDominatingSet<SimpleGraph, One>> as Problem>::problem_type();
+            crate::registry::validate_direct_create_inputs(problem_type.fields, &data)?;
+            serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
+                .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)
+                .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))
+        },
         factory: |data| {
             serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)

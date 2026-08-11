@@ -17,7 +17,7 @@ pub struct ProblemType {
     pub dimensions: &'static [VariantDimension],
     /// Human-readable description.
     pub description: &'static str,
-    /// Struct fields.
+    /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
 }
 

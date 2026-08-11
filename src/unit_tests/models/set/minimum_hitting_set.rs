@@ -20,6 +20,17 @@ fn issue_example_problem() -> MinimumHittingSet {
     )
 }
 
+#[test]
+fn test_minimum_hitting_set_create_spec_uses_subsets_input() {
+    assert_eq!(MinimumHittingSetCreateSpec::FIELDS[1].name, "subsets");
+    let problem = MinimumHittingSet::try_from(MinimumHittingSetCreateSpec {
+        universe_size: 3,
+        subsets: vec![vec![0, 2]],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0, 2]]);
+}
+
 fn issue_example_config() -> Vec<usize> {
     vec![0, 1, 0, 1, 1, 0]
 }

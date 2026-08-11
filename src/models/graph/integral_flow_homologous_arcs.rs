@@ -4,7 +4,7 @@
 //! that must carry equal flow, determine whether an integral flow meeting the
 //! required sink inflow exists.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -17,14 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Integral flow feasibility with arc-pair equality constraints",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "Directed graph G = (V, A)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Capacity c(a) for each arc" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
-            FieldInfo { name: "requirement", type_name: "u64", description: "Required net inflow R at the sink" },
-            FieldInfo { name: "homologous_pairs", type_name: "Vec<(usize, usize)>", description: "Arc-index pairs (a, a') with f(a) = f(a')" },
-        ],
+        fields: IntegralFlowHomologousArcsCreateSpec::FIELDS,
     }
 }
 
@@ -49,6 +42,70 @@ pub struct IntegralFlowHomologousArcs {
     sink: usize,
     requirement: u64,
     homologous_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct IntegralFlowHomologousArcsCreateSpec {
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    capacities: Option<Vec<u64>>,
+    source: usize,
+    sink: usize,
+    requirement: u64,
+    #[create(codec = "equality-pair-list")]
+    homologous_pairs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArcs {
+    type Error = String;
+    fn try_from(spec: IntegralFlowHomologousArcsCreateSpec) -> Result<Self, String> {
+        if spec.arcs.is_empty() {
+            return Err("arcs must be non-empty".into());
+        }
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small".into());
+        }
+        let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
+        if capacities.len() != spec.arcs.len() {
+            return Err("capacities length must match arcs length".into());
+        }
+        if spec.source >= count || spec.sink >= count {
+            return Err("source and sink must be valid vertices".into());
+        }
+        for &(a, b) in &spec.homologous_pairs {
+            if a >= spec.arcs.len() || b >= spec.arcs.len() {
+                return Err("homologous pair arc index is out of range".into());
+            }
+        }
+        for &c in &capacities {
+            if usize::try_from(c)
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+            {
+                return Err("capacity is too large".into());
+            }
+        }
+        Ok(Self {
+            graph: DirectedGraph::new(count, spec.arcs),
+            capacities,
+            source: spec.source,
+            sink: spec.sink,
+            requirement: spec.requirement,
+            homologous_pairs: spec.homologous_pairs,
+        })
+    }
 }
 
 impl IntegralFlowHomologousArcs {
@@ -208,7 +265,7 @@ impl Problem for IntegralFlowHomologousArcs {
 }
 
 crate::declare_variants! {
-    default IntegralFlowHomologousArcs => "(max_capacity + 1)^num_arcs",
+    default IntegralFlowHomologousArcs => "(max_capacity + 1)^num_arcs" create IntegralFlowHomologousArcsCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

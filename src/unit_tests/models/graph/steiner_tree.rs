@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_duplicate_terminals() {
+    assert_eq!(SteinerTreeCreateSpec::<i32>::FIELDS[2].name, "terminals");
+    let result = SteinerTree::try_from(SteinerTreeCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        edge_weights: vec![1],
+        terminals: vec![0, 0],
+    });
+    assert!(result.is_err());
+}
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// Issue #122 example: 5 vertices, 7 edges, terminals {0, 2, 4}.

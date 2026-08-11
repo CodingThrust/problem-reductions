@@ -1,3 +1,4 @@
+use num_traits::ToPrimitive;
 use problemreductions_expr::{Expr, ExprNode};
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -150,4 +151,3 @@ mod tests {
         assert!(constructed.contains("Expr :: pow"));
     }
 }
-use num_traits::ToPrimitive;

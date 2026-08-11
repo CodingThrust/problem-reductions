@@ -5,7 +5,7 @@
 //! `X ⊆ A'` such that the closure of `X` under the functional dependencies contains
 //! some but not all attributes of `A' \ X` — i.e., a witness to a BCNF violation.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -18,11 +18,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Test whether a subset of attributes violates Boyce-Codd normal form",
-        fields: &[
-            FieldInfo { name: "num_attributes", type_name: "usize", description: "Total number of attributes in A" },
-            FieldInfo { name: "functional_deps", type_name: "Vec<(Vec<usize>, Vec<usize>)>", description: "Functional dependencies (lhs_attributes, rhs_attributes)" },
-            FieldInfo { name: "target_subset", type_name: "Vec<usize>", description: "Subset A' of attributes to test for BCNF violation" },
-        ],
+        fields: BoyceCoddNormalFormViolationCreateSpec::FIELDS,
     }
 }
 
@@ -66,6 +62,51 @@ pub struct BoyceCoddNormalFormViolation {
     functional_deps: Vec<(Vec<usize>, Vec<usize>)>,
     /// Target subset `A'` of attributes to test for BCNF violation.
     target_subset: Vec<usize>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct BoyceCoddNormalFormViolationCreateSpec {
+    /// Total number of attributes in A.
+    n: usize,
+    /// Functional dependencies (lhs attributes, rhs attributes).
+    #[create(codec = "functional-dependency-list")]
+    subsets: Vec<(Vec<usize>, Vec<usize>)>,
+    /// Subset A' of attributes to test for BCNF violation.
+    target: Vec<usize>,
+}
+
+impl TryFrom<BoyceCoddNormalFormViolationCreateSpec> for BoyceCoddNormalFormViolation {
+    type Error = String;
+
+    fn try_from(spec: BoyceCoddNormalFormViolationCreateSpec) -> Result<Self, Self::Error> {
+        if spec.target.is_empty() {
+            return Err("target must be non-empty".to_string());
+        }
+        for (dependency_index, (lhs, rhs)) in spec.subsets.iter().enumerate() {
+            if lhs.is_empty() {
+                return Err(format!(
+                    "subsets[{dependency_index}] has an empty left side"
+                ));
+            }
+            if let Some(&attribute) = lhs
+                .iter()
+                .chain(rhs)
+                .find(|&&attribute| attribute >= spec.n)
+            {
+                return Err(format!(
+                    "subsets[{dependency_index}] contains attribute {attribute} outside universe of size {}",
+                    spec.n
+                ));
+            }
+        }
+        if let Some(&attribute) = spec.target.iter().find(|&&attribute| attribute >= spec.n) {
+            return Err(format!(
+                "target contains attribute {attribute} outside universe of size {}",
+                spec.n
+            ));
+        }
+        Ok(Self::new(spec.n, spec.subsets, spec.target))
+    }
 }
 
 impl BoyceCoddNormalFormViolation {
@@ -216,7 +257,7 @@ impl Problem for BoyceCoddNormalFormViolation {
 }
 
 crate::declare_variants! {
-    default BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps",
+    default BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps" create BoyceCoddNormalFormViolationCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

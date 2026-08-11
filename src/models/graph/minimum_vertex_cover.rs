@@ -4,7 +4,7 @@
 //! such that every edge has at least one endpoint in the subset.
 
 use crate::models::decision::Decision;
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
@@ -22,10 +22,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MinimumVertexCoverCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -60,6 +57,33 @@ pub struct MinimumVertexCover<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumVertexCoverCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Option<Vec<W>>,
+}
+
+impl<W: Clone + Default> TryFrom<MinimumVertexCoverCreateSpec<W>>
+    for MinimumVertexCover<SimpleGraph, W>
+{
+    type Error = String;
+    fn try_from(spec: MinimumVertexCoverCreateSpec<W>) -> Result<Self, Self::Error> {
+        let weights = spec
+            .weights
+            .unwrap_or_else(|| vec![W::default(); spec.graph.num_vertices()]);
+        if weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
@@ -152,8 +176,8 @@ pub(crate) fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> b
 }
 
 crate::declare_variants! {
-    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
-    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices",
+    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<i32>,
+    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<One>,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumVertexCover<G, W>

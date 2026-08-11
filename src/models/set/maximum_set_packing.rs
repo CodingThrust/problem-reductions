@@ -3,7 +3,7 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
@@ -18,10 +18,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("weight", "One", &["One", "i32", "f64"])],
         module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
-        fields: &[
-            FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of sets over a universe" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Weight for each set" },
-        ],
+        fields: MaximumSetPackingCreateSpec::<One>::FIELDS,
     }
 }
 
@@ -59,6 +56,29 @@ pub struct MaximumSetPacking<W = i32> {
     sets: Vec<Vec<usize>>,
     /// Weights for each set.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumSetPackingCreateSpec<W> {
+    /// Collection of sets over a universe.
+    subsets: Vec<Vec<usize>>,
+    /// Weight for each set.
+    weights: Vec<W>,
+}
+
+impl<W: Clone + Default> TryFrom<MaximumSetPackingCreateSpec<W>> for MaximumSetPacking<W> {
+    type Error = String;
+
+    fn try_from(spec: MaximumSetPackingCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.subsets.len() != spec.weights.len() {
+            return Err(format!(
+                "weights has {} entries, expected one for each of {} subsets",
+                spec.weights.len(),
+                spec.subsets.len()
+            ));
+        }
+        Ok(Self::with_weights(spec.subsets, spec.weights))
+    }
 }
 
 impl<W: Clone + Default> MaximumSetPacking<W> {
@@ -166,9 +186,9 @@ where
 }
 
 crate::declare_variants! {
-    default MaximumSetPacking<One> => "2^num_sets",
-    MaximumSetPacking<i32> => "2^num_sets",
-    MaximumSetPacking<f64> => "2^num_sets",
+    default MaximumSetPacking<One> => "2^num_sets" create MaximumSetPackingCreateSpec<One>,
+    MaximumSetPacking<i32> => "2^num_sets" create MaximumSetPackingCreateSpec<i32>,
+    MaximumSetPacking<f64> => "2^num_sets" create MaximumSetPackingCreateSpec<f64>,
 }
 
 /// Check if a selection forms a valid set packing (pairwise disjoint).

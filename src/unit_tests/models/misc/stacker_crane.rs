@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_lengths_and_checks_inferred_vertex_counts() {
+    let problem = StackerCrane::try_from(StackerCraneCreateSpec {
+        arcs: vec![(0, 1)],
+        edges: vec![(1, 0)],
+        num_vertices: None,
+        arc_lengths: None,
+        edge_lengths: None,
+    })
+    .unwrap();
+    assert_eq!(problem.num_vertices(), 2);
+    assert_eq!(problem.arc_lengths(), &[1]);
+    assert_eq!(problem.edge_lengths(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

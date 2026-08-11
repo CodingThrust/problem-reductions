@@ -1,4 +1,16 @@
+use super::CapacityAssignmentCreateSpec;
 use crate::models::misc::CapacityAssignment;
+
+#[test]
+fn create_spec_validates_monotonicity() {
+    assert!(CapacityAssignment::try_from(CapacityAssignmentCreateSpec {
+        capacities: vec![1, 2],
+        cost: vec![vec![2, 1]],
+        delay: vec![vec![2, 1]],
+        delay_budget: 3
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

@@ -3,7 +3,7 @@
 //! Given 3m positive integers that each lie strictly between B/4 and B/2,
 //! determine whether they can be partitioned into m triples that all sum to B.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -17,10 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Partition 3m bounded positive integers into m triples whose sums all equal B",
-        fields: &[
-            FieldInfo { name: "sizes", type_name: "Vec<u64>", description: "Positive integer sizes s(a) for each element a in A" },
-            FieldInfo { name: "bound", type_name: "u64", description: "Target sum B for each triple" },
-        ],
+        fields: ThreePartitionCreateSpec::FIELDS,
     }
 }
 
@@ -135,10 +132,21 @@ impl ThreePartition {
     }
 }
 
-#[derive(Deserialize)]
-struct ThreePartitionData {
+#[derive(Deserialize, crate::CreateSpec)]
+struct ThreePartitionCreateSpec {
+    /// Positive integer sizes for the elements to partition.
+    #[create(codec = "comma-separated")]
     sizes: Vec<u64>,
+    /// Target sum for each triple.
     bound: u64,
+}
+
+impl TryFrom<ThreePartitionCreateSpec> for ThreePartition {
+    type Error = String;
+
+    fn try_from(spec: ThreePartitionCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.sizes, spec.bound)
+    }
 }
 
 impl<'de> Deserialize<'de> for ThreePartition {
@@ -146,8 +154,8 @@ impl<'de> Deserialize<'de> for ThreePartition {
     where
         D: Deserializer<'de>,
     {
-        let data = ThreePartitionData::deserialize(deserializer)?;
-        Self::try_new(data.sizes, data.bound).map_err(D::Error::custom)
+        let spec = ThreePartitionCreateSpec::deserialize(deserializer)?;
+        Self::try_from(spec).map_err(D::Error::custom)
     }
 }
 
@@ -176,7 +184,7 @@ impl Problem for ThreePartition {
 }
 
 crate::declare_variants! {
-    default ThreePartition => "3^num_elements",
+    default ThreePartition => "3^num_elements" create ThreePartitionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -255,3 +255,14 @@ fn test_tsp_paper_example() {
     let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best), Min(Some(6)));
 }
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = TravelingSalesman::try_from(TravelingSalesmanCreateSpec {
+        graph: vec![(0, 1), (1, 2), (2, 0)],
+        num_vertices: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), vec![1, 1, 1]);
+    assert_eq!(TravelingSalesmanCreateSpec::FIELDS[2].name, "edge_weights");
+}

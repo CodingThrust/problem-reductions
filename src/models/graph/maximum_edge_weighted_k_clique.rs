@@ -11,7 +11,7 @@
 //! are allowed when `k` takes those values, with objective value 0 because no
 //! pair of selected vertices is induced.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -26,11 +26,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
         module_path: module_path!(),
         description: "Select exactly k pairwise-adjacent vertices maximizing the total weight of induced clique edges",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights in graph edge order" },
-            FieldInfo { name: "k", type_name: "usize", description: "Required clique size" },
-        ],
+        fields: MaximumEdgeWeightedKCliqueCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -75,6 +71,38 @@ pub struct MaximumEdgeWeightedKClique<W: WeightElement> {
     edge_weights: Vec<W>,
     /// Required clique size.
     k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximumEdgeWeightedKCliqueCreateSpec<W> {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    /// Edge weights; defaults to one per edge.
+    edge_weights: Option<Vec<W>>,
+    /// Required clique size.
+    k: usize,
+}
+impl<W> TryFrom<MaximumEdgeWeightedKCliqueCreateSpec<W>> for MaximumEdgeWeightedKClique<W>
+where
+    W: WeightElement + From<i32>,
+{
+    type Error = String;
+    fn try_from(spec: MaximumEdgeWeightedKCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_edges();
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| (0..count).map(|_| W::from(1)).collect());
+        if edge_weights.len() != count {
+            return Err(format!(
+                "edge_weights has {} entries, expected {count}",
+                edge_weights.len()
+            ));
+        }
+        if spec.k > spec.graph.num_vertices() {
+            return Err("k must not exceed the number of vertices".to_string());
+        }
+        Ok(Self::new(spec.graph, edge_weights, spec.k))
+    }
 }
 
 impl<W: WeightElement> MaximumEdgeWeightedKClique<W> {
@@ -191,8 +219,8 @@ fn is_k_clique_config(graph: &SimpleGraph, config: &[usize], k: usize) -> bool {
 }
 
 crate::declare_variants! {
-    default MaximumEdgeWeightedKClique<i32> => "2^num_vertices",
-    MaximumEdgeWeightedKClique<f64>         => "2^num_vertices",
+    default MaximumEdgeWeightedKClique<i32> => "2^num_vertices" create MaximumEdgeWeightedKCliqueCreateSpec<i32>,
+    MaximumEdgeWeightedKClique<f64>         => "2^num_vertices" create MaximumEdgeWeightedKCliqueCreateSpec<f64>,
 }
 
 #[cfg(feature = "example-db")]

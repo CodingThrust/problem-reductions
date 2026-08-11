@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_task_weights() {
+    let p = SequencingToMinimizeTardyTaskWeight::try_from(
+        SequencingToMinimizeTardyTaskWeightCreateSpec {
+            lengths: vec![1, 2],
+            weights: None,
+            deadlines: vec![1, 3],
+        },
+    )
+    .unwrap();
+    assert_eq!(p.weights(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

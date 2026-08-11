@@ -3,7 +3,7 @@
 //! The Rural Postman problem asks for a minimum-cost circuit in a graph
 //! that includes each edge in a required subset E'.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -22,11 +22,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find a minimum-cost circuit covering all required edges (Rural Postman Problem)",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge lengths l(e) for each e in E" },
-            FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "Edge indices of the required subset E' ⊆ E" },
-        ],
+        fields: RuralPostmanCreateSpec::FIELDS,
     }
 }
 
@@ -63,6 +59,71 @@ pub struct RuralPostman<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Indices of required edges (subset E' ⊆ E).
     required_edges: Vec<usize>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct RuralPostmanCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i32>>,
+    #[create(codec = "comma-separated")]
+    required_edges: Vec<usize>,
+}
+
+impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i32> {
+    type Error = String;
+
+    fn try_from(spec: RuralPostmanCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_lengths = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_lengths.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_lengths.len(),
+                graph.num_edges()
+            ));
+        }
+        if let Some(&edge) = spec
+            .required_edges
+            .iter()
+            .find(|&&edge| edge >= graph.num_edges())
+        {
+            return Err(format!("required edge index {edge} is out of bounds"));
+        }
+        Ok(Self::new(graph, edge_lengths, spec.required_edges))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        ));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
@@ -266,7 +327,7 @@ where
 }
 
 crate::declare_variants! {
-    default RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
+    default RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2" create RuralPostmanCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -5,7 +5,7 @@
 //! `m` identical processors, subject to precedence constraints.
 //! The goal is to minimize the makespan (latest completion time).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -18,11 +18,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Minimize makespan for preemptive parallel-processor scheduling with precedence constraints",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<usize>", description: "Processing length l(t) for each task" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (pred, succ) — pred must finish before succ starts" },
-        ],
+        fields: PreemptiveSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -66,6 +62,23 @@ pub struct PreemptiveScheduling {
     num_processors: usize,
     /// Precedence constraints: (pred, succ) means pred must finish before succ starts.
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PreemptiveSchedulingCreateSpec {
+    lengths: Vec<usize>,
+    num_processors: usize,
+    precedences: Option<Vec<(usize, usize)>>,
+}
+
+impl TryFrom<PreemptiveSchedulingCreateSpec> for PreemptiveScheduling {
+    type Error = String;
+
+    fn try_from(spec: PreemptiveSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        let precedences = spec.precedences.unwrap_or_default();
+        Self::validate(&spec.lengths, spec.num_processors, &precedences)?;
+        Ok(Self::new(spec.lengths, spec.num_processors, precedences))
+    }
 }
 
 #[derive(Deserialize)]
@@ -244,7 +257,7 @@ impl Problem for PreemptiveScheduling {
 }
 
 crate::declare_variants! {
-    default PreemptiveScheduling => "2^(num_tasks * num_tasks)",
+    default PreemptiveScheduling => "2^(num_tasks * num_tasks)" create PreemptiveSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
