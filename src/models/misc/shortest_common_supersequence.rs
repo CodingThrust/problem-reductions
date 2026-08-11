@@ -12,7 +12,7 @@
 //! lengths (the worst case where no overlap exists). This problem is NP-hard
 //! (Maier, 1978).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -25,11 +25,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find a shortest common supersequence for a set of strings",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
-            FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "max_length", type_name: "usize", description: "Maximum possible supersequence length (sum of all string lengths)" },
-        ],
+        fields: ShortestCommonSupersequenceCreateSpec::FIELDS,
     }
 }
 
@@ -63,6 +59,48 @@ pub struct ShortestCommonSupersequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ShortestCommonSupersequenceCreateSpec {
+    /// Input strings; the alphabet and maximum length are inferred from them.
+    #[create(codec = "semicolon-separated")]
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<ShortestCommonSupersequenceCreateSpec> for ShortestCommonSupersequence {
+    type Error = String;
+
+    fn try_from(spec: ShortestCommonSupersequenceCreateSpec) -> Result<Self, Self::Error> {
+        if spec.strings.is_empty() {
+            return Err("must have at least one string".to_string());
+        }
+
+        let alphabet_size = spec
+            .strings
+            .iter()
+            .flatten()
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let max_length = spec.strings.iter().try_fold(0_usize, |total, string| {
+            total
+                .checked_add(string.len())
+                .ok_or_else(|| "maximum supersequence length overflows usize".to_string())
+        })?;
+
+        Ok(Self {
+            alphabet_size,
+            strings: spec.strings,
+            max_length,
+        })
+    }
 }
 
 impl ShortestCommonSupersequence {
@@ -179,7 +217,7 @@ impl Problem for ShortestCommonSupersequence {
 }
 
 crate::declare_variants! {
-    default ShortestCommonSupersequence => "(alphabet_size + 1) ^ max_length",
+    default ShortestCommonSupersequence => "(alphabet_size + 1) ^ max_length" create ShortestCommonSupersequenceCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

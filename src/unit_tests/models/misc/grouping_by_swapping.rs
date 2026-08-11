@@ -106,3 +106,34 @@ fn test_grouping_by_swapping_symbol_out_of_range_panics() {
 fn test_grouping_by_swapping_empty_string_requires_zero_budget() {
     GroupingBySwapping::new(0, vec![], 1);
 }
+
+#[test]
+fn test_grouping_by_swapping_create_spec_derives_alphabet_and_renames_bound() {
+    let problem = GroupingBySwapping::try_from(GroupingBySwappingCreateSpec {
+        alphabet_size: None,
+        string: vec![0, 2, 1],
+        bound: 4,
+    })
+    .unwrap();
+
+    assert_eq!(problem.alphabet_size(), 3);
+    assert_eq!(problem.budget(), 4);
+    assert_eq!(
+        GroupingBySwappingCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["alphabet_size", "string", "bound"]
+    );
+}
+
+#[test]
+fn test_grouping_by_swapping_create_spec_rejects_nonzero_bound_for_empty_string() {
+    let result = GroupingBySwapping::try_from(GroupingBySwappingCreateSpec {
+        alphabet_size: None,
+        string: vec![],
+        bound: 1,
+    });
+
+    assert!(result.is_err());
+}

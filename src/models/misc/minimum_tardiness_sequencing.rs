@@ -8,7 +8,7 @@
 //! - `MinimumTardinessSequencing<One>` — unit-length tasks (`1|prec, pj=1|∑Uj`)
 //! - `MinimumTardinessSequencing<i32>` — arbitrary-length tasks (`1|prec|∑Uj`)
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -21,11 +21,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("weight", "One", &["One", "i32"])],
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<W>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "deadlines", type_name: "Vec<usize>", description: "Deadline d(t) for each task" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-        ],
+        fields: MinimumTardinessSequencingOneCreateSpec::FIELDS,
     }
 }
 
@@ -63,6 +59,64 @@ pub struct MinimumTardinessSequencing<W> {
     deadlines: Vec<usize>,
     precedences: Vec<(usize, usize)>,
 }
+
+macro_rules! minimum_tardiness_create_spec {
+    ($name:ident, $weight:ty, $construct:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            lengths: Vec<$weight>,
+            deadlines: Vec<usize>,
+            precedences: Option<Vec<(usize, usize)>>,
+        }
+
+        impl TryFrom<$name> for MinimumTardinessSequencing<$weight> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                if spec.lengths.len() != spec.deadlines.len() {
+                    return Err("lengths and deadlines must have the same length".to_string());
+                }
+                let precedences = spec.precedences.unwrap_or_default();
+                let num_tasks = spec.lengths.len();
+                if let Some(&(pred, succ)) = precedences
+                    .iter()
+                    .find(|&&(pred, succ)| pred >= num_tasks || succ >= num_tasks)
+                {
+                    return Err(format!(
+                        "precedence ({pred}, {succ}) is out of range for {num_tasks} tasks"
+                    ));
+                }
+                $construct(spec.lengths, spec.deadlines, precedences)
+            }
+        }
+    };
+}
+
+minimum_tardiness_create_spec!(
+    MinimumTardinessSequencingOneCreateSpec,
+    One,
+    |lengths: Vec<One>, deadlines, precedences| {
+        Ok(MinimumTardinessSequencing::new(
+            lengths.len(),
+            deadlines,
+            precedences,
+        ))
+    }
+);
+minimum_tardiness_create_spec!(
+    MinimumTardinessSequencingI32CreateSpec,
+    i32,
+    |lengths: Vec<i32>, deadlines, precedences| {
+        if lengths.iter().any(|&length| length <= 0) {
+            return Err("all task lengths must be positive".to_string());
+        }
+        Ok(MinimumTardinessSequencing::with_lengths(
+            lengths,
+            deadlines,
+            precedences,
+        ))
+    }
+);
 
 impl MinimumTardinessSequencing<One> {
     /// Create a new unit-length MinimumTardinessSequencing instance.
@@ -247,8 +301,8 @@ impl Problem for MinimumTardinessSequencing<i32> {
 }
 
 crate::declare_variants! {
-    default MinimumTardinessSequencing<One> => "2^num_tasks",
-    MinimumTardinessSequencing<i32> => "2^num_tasks",
+    default MinimumTardinessSequencing<One> => "2^num_tasks" create MinimumTardinessSequencingOneCreateSpec,
+    MinimumTardinessSequencing<i32> => "2^num_tasks" create MinimumTardinessSequencingI32CreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -4,7 +4,7 @@
 //! subsets of X, determine if C contains an exact cover -- a subcollection of
 //! q disjoint triples covering every element exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -17,10 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Determine if a collection of 3-element subsets contains an exact cover",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of universe X (must be divisible by 3)" },
-            FieldInfo { name: "subsets", type_name: "Vec<[usize; 3]>", description: "Collection C of 3-element subsets of X" },
-        ],
+        fields: ExactCoverBy3SetsCreateSpec::FIELDS,
     }
 }
 
@@ -59,6 +56,40 @@ pub struct ExactCoverBy3Sets {
     universe_size: usize,
     /// Collection of 3-element subsets, each represented as a sorted triple of elements.
     subsets: Vec<[usize; 3]>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ExactCoverBy3SetsCreateSpec {
+    universe_size: usize,
+    #[create(codec = "semicolon-separated")]
+    subsets: Vec<[usize; 3]>,
+}
+
+impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
+    type Error = String;
+    fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
+        if !spec.universe_size.is_multiple_of(3) {
+            return Err("universe_size must be divisible by 3".into());
+        }
+        for (index, subset) in spec.subsets.iter_mut().enumerate() {
+            if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
+                return Err(format!("subset {index} contains duplicate elements"));
+            }
+            if let Some(&element) = subset
+                .iter()
+                .find(|&&element| element >= spec.universe_size)
+            {
+                return Err(format!(
+                    "subset {index} contains out-of-range element {element}"
+                ));
+            }
+            subset.sort();
+        }
+        Ok(Self {
+            universe_size: spec.universe_size,
+            subsets: spec.subsets,
+        })
+    }
 }
 
 impl ExactCoverBy3Sets {
@@ -207,7 +238,7 @@ impl Problem for ExactCoverBy3Sets {
 }
 
 crate::declare_variants! {
-    default ExactCoverBy3Sets => "2^universe_size",
+    default ExactCoverBy3Sets => "2^universe_size" create ExactCoverBy3SetsCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -1,4 +1,14 @@
 use super::*;
+
+#[test]
+fn create_spec_maps_rhs_to_target() {
+    let problem = MinimumWeightDecoding::try_from(MinimumWeightDecodingCreateSpec {
+        matrix: vec![vec![true, false]],
+        target: vec![true],
+    })
+    .unwrap();
+    assert_eq!(problem.target(), &[true]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

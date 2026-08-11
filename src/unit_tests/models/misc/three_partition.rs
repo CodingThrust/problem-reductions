@@ -22,6 +22,20 @@ fn test_three_partition_basic() {
 }
 
 #[test]
+fn test_three_partition_create_spec_preserves_u64_bound() {
+    let entry = crate::registry::find_variant_entry("ThreePartition", &Default::default()).unwrap();
+    let problem = (entry.construct_fn)(serde_json::json!({
+        "sizes": vec![6148914691236517205_u64; 3],
+        "bound": u64::MAX,
+    }))
+    .unwrap();
+    assert_eq!(
+        problem.serialize_json()["bound"],
+        serde_json::json!(u64::MAX)
+    );
+}
+
+#[test]
 fn test_three_partition_evaluate_yes_instance() {
     let problem = yes_problem();
     assert_eq!(problem.evaluate(&[0, 0, 0, 1, 1, 1]), Or(true));

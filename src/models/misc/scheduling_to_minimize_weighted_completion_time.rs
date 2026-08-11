@@ -6,7 +6,7 @@
 //! completion time. Within each processor, tasks are ordered by Smith's
 //! rule (non-decreasing length-to-weight ratio).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -19,11 +19,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Assign tasks to processors to minimize total weighted completion time (Smith's rule ordering)",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task" },
-            FieldInfo { name: "weights", type_name: "Vec<u64>", description: "Weight w(t) for each task" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-        ],
+        fields: SchedulingToMinimizeWeightedCompletionTimeCreateSpec::FIELDS,
     }
 }
 
@@ -63,6 +59,34 @@ pub struct SchedulingToMinimizeWeightedCompletionTime {
     weights: Vec<u64>,
     #[serde(serialize_with = "serialize_num_processors")]
     num_processors: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SchedulingToMinimizeWeightedCompletionTimeCreateSpec {
+    /// Processing time for each task.
+    lengths: Vec<u64>,
+    /// Task weights; defaults to one per task.
+    weights: Option<Vec<u64>>,
+    /// Number of identical processors.
+    num_processors: usize,
+}
+impl TryFrom<SchedulingToMinimizeWeightedCompletionTimeCreateSpec>
+    for SchedulingToMinimizeWeightedCompletionTime
+{
+    type Error = String;
+    fn try_from(
+        spec: SchedulingToMinimizeWeightedCompletionTimeCreateSpec,
+    ) -> Result<Self, Self::Error> {
+        if spec.num_processors == 0 {
+            return Err("num_processors must be positive".to_string());
+        }
+        let count = spec.lengths.len();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err("weights length must equal lengths length".to_string());
+        }
+        Ok(Self::new(spec.lengths, weights, spec.num_processors))
+    }
 }
 
 fn serialize_num_processors<S: serde::Serializer>(v: &usize, s: S) -> Result<S::Ok, S::Error> {
@@ -222,7 +246,7 @@ impl Problem for SchedulingToMinimizeWeightedCompletionTime {
 }
 
 crate::declare_variants! {
-    default SchedulingToMinimizeWeightedCompletionTime => "num_processors^num_tasks",
+    default SchedulingToMinimizeWeightedCompletionTime => "num_processors^num_tasks" create SchedulingToMinimizeWeightedCompletionTimeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

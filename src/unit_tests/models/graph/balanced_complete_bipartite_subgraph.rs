@@ -1,4 +1,27 @@
 use super::*;
+
+#[test]
+fn create_spec_builds_bipartite_graph_and_rejects_invalid_edges() {
+    let problem =
+        BalancedCompleteBipartiteSubgraph::try_from(BalancedCompleteBipartiteSubgraphCreateSpec {
+            left: 2,
+            right: 2,
+            biedges: vec![(0, 1), (1, 0)],
+            k: 1,
+        })
+        .unwrap();
+    assert_eq!(problem.graph().left_edges(), &[(0, 1), (1, 0)]);
+    assert_eq!(problem.k(), 1);
+    assert!(BalancedCompleteBipartiteSubgraph::try_from(
+        BalancedCompleteBipartiteSubgraphCreateSpec {
+            left: 1,
+            right: 1,
+            biedges: vec![(1, 0)],
+            k: 1,
+        }
+    )
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;

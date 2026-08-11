@@ -1,4 +1,16 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_indistinguishable_objects() {
+    assert!(
+        MinimumDecisionTree::try_from(MinimumDecisionTreeCreateSpec {
+            test_matrix: vec![vec![false, false]],
+            num_objects: 2,
+            num_tests: 1
+        })
+        .is_err()
+    );
+}
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 use crate::types::Min;

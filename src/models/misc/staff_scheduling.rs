@@ -4,7 +4,7 @@
 //! worker budget, determine whether workers can be assigned to schedules so that
 //! all requirements are met without exceeding the budget.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -16,12 +16,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Assign workers to schedule patterns to satisfy per-period staffing requirements within a worker budget",
-        fields: &[
-            FieldInfo { name: "shifts_per_schedule", type_name: "usize", description: "Required number of active periods in each schedule pattern" },
-            FieldInfo { name: "schedules", type_name: "Vec<Vec<bool>>", description: "Binary schedule patterns available to workers" },
-            FieldInfo { name: "requirements", type_name: "Vec<u64>", description: "Minimum staffing requirement for each period" },
-            FieldInfo { name: "num_workers", type_name: "u64", description: "Maximum number of workers available" },
-        ],
+        fields: StaffSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -36,6 +31,50 @@ pub struct StaffScheduling {
     schedules: Vec<Vec<bool>>,
     requirements: Vec<u64>,
     num_workers: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct StaffSchedulingCreateSpec {
+    /// Required number of active periods in each schedule pattern.
+    k: usize,
+    /// Binary schedule patterns available to workers.
+    schedules: Vec<Vec<bool>>,
+    /// Minimum staffing requirement for each period.
+    requirements: Vec<u64>,
+    /// Maximum number of workers available.
+    num_workers: u64,
+}
+
+impl TryFrom<StaffSchedulingCreateSpec> for StaffScheduling {
+    type Error = String;
+
+    fn try_from(spec: StaffSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_workers >= usize::MAX as u64 {
+            return Err("num_workers must be smaller than usize::MAX".to_string());
+        }
+        for (schedule_index, schedule) in spec.schedules.iter().enumerate() {
+            if schedule.len() != spec.requirements.len() {
+                return Err(format!(
+                    "schedules[{schedule_index}] has {} periods, expected {}",
+                    schedule.len(),
+                    spec.requirements.len()
+                ));
+            }
+            let active_periods = schedule.iter().filter(|&&active| active).count();
+            if active_periods != spec.k {
+                return Err(format!(
+                    "schedules[{schedule_index}] has {active_periods} active periods, expected {}",
+                    spec.k
+                ));
+            }
+        }
+        Ok(Self::new(
+            spec.k,
+            spec.schedules,
+            spec.requirements,
+            spec.num_workers,
+        ))
+    }
 }
 
 impl StaffScheduling {
@@ -173,7 +212,7 @@ impl Problem for StaffScheduling {
 }
 
 crate::declare_variants! {
-    default StaffScheduling => "(num_workers + 1)^num_schedules",
+    default StaffScheduling => "(num_workers + 1)^num_schedules" create StaffSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -46,7 +46,7 @@ pub struct ProblemSchemaEntry {
     pub module_path: &'static str,
     /// Human-readable description.
     pub description: &'static str,
-    /// Struct fields.
+    /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
 }
 
@@ -72,7 +72,7 @@ pub struct ProblemSchemaJson {
     pub name: String,
     /// Problem description.
     pub description: String,
-    /// Struct fields.
+    /// Inputs accepted when constructing this problem.
     pub fields: Vec<FieldInfoJson>,
 }
 

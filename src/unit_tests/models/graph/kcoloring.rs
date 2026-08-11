@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn create_specs_separate_runtime_and_fixed_color_counts() {
+    let runtime = KColoring::<KN, SimpleGraph>::try_from(RuntimeKColoringCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        k: 4,
+    })
+    .unwrap();
+    assert_eq!(runtime.num_vertices(), 3);
+    assert_eq!(runtime.num_colors(), 4);
+
+    let fixed = KColoring::<K3, SimpleGraph>::try_from(FixedKColoringCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+    })
+    .unwrap();
+    assert_eq!(fixed.num_colors(), 3);
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::variant::{K1, K2, K3, K4};

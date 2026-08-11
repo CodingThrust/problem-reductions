@@ -10,7 +10,7 @@
 //! the domain. The query is satisfiable iff there exists an assignment to the
 //! variables such that every conjunct's resolved tuple belongs to its relation.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -22,12 +22,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Evaluate a conjunctive Boolean query over a relational database",
-        fields: &[
-            FieldInfo { name: "domain_size", type_name: "usize", description: "Size of the finite domain D" },
-            FieldInfo { name: "relations", type_name: "Vec<Relation>", description: "Collection of relations R" },
-            FieldInfo { name: "num_variables", type_name: "usize", description: "Number of existentially quantified variables" },
-            FieldInfo { name: "conjuncts", type_name: "Vec<(usize, Vec<QueryArg>)>", description: "Query conjuncts: (relation_index, arguments)" },
-        ],
+        fields: ConjunctiveBooleanQueryCreateSpec::FIELDS,
     }
 }
 
@@ -85,6 +80,89 @@ pub struct ConjunctiveBooleanQuery {
     relations: Vec<Relation>,
     num_variables: usize,
     conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConjunctiveBooleanQueryCreateSpec {
+    /// Size of the finite domain.
+    domain_size: usize,
+    /// Relations evaluated by the query.
+    #[create(codec = "json")]
+    relations: Vec<Relation>,
+    /// Query atoms; the number of variables is inferred from their arguments.
+    #[create(codec = "json")]
+    conjuncts: Vec<(usize, Vec<QueryArg>)>,
+}
+
+impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
+    type Error = String;
+
+    fn try_from(spec: ConjunctiveBooleanQueryCreateSpec) -> Result<Self, Self::Error> {
+        let mut num_variables = 0_usize;
+        for (_, args) in &spec.conjuncts {
+            for arg in args {
+                if let QueryArg::Variable(variable) = arg {
+                    let count = variable
+                        .checked_add(1)
+                        .ok_or_else(|| "number of query variables overflows usize".to_string())?;
+                    num_variables = num_variables.max(count);
+                }
+            }
+        }
+
+        for (relation_index, relation) in spec.relations.iter().enumerate() {
+            for (tuple_index, tuple) in relation.tuples.iter().enumerate() {
+                if tuple.len() != relation.arity {
+                    return Err(format!(
+                        "relation {relation_index} tuple {tuple_index} has length {}, expected arity {}",
+                        tuple.len(),
+                        relation.arity
+                    ));
+                }
+                for (entry_index, &value) in tuple.iter().enumerate() {
+                    if value >= spec.domain_size {
+                        return Err(format!(
+                            "relation {relation_index} tuple {tuple_index} entry {entry_index} is {value}, must be less than domain size {}",
+                            spec.domain_size
+                        ));
+                    }
+                }
+            }
+        }
+
+        for (conjunct_index, (relation_index, args)) in spec.conjuncts.iter().enumerate() {
+            let relation = spec.relations.get(*relation_index).ok_or_else(|| {
+                format!(
+                    "conjunct {conjunct_index} relation index {relation_index} is out of range for {} relations",
+                    spec.relations.len()
+                )
+            })?;
+            if args.len() != relation.arity {
+                return Err(format!(
+                    "conjunct {conjunct_index} has {} arguments, expected arity {}",
+                    args.len(),
+                    relation.arity
+                ));
+            }
+            for (argument_index, arg) in args.iter().enumerate() {
+                if let QueryArg::Constant(value) = arg {
+                    if *value >= spec.domain_size {
+                        return Err(format!(
+                            "conjunct {conjunct_index} argument {argument_index} constant {value} must be less than domain size {}",
+                            spec.domain_size
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(Self {
+            domain_size: spec.domain_size,
+            relations: spec.relations,
+            num_variables,
+            conjuncts: spec.conjuncts,
+        })
+    }
 }
 
 impl ConjunctiveBooleanQuery {
@@ -224,7 +302,7 @@ impl Problem for ConjunctiveBooleanQuery {
 }
 
 crate::declare_variants! {
-    default ConjunctiveBooleanQuery => "domain_size ^ num_variables",
+    default ConjunctiveBooleanQuery => "domain_size ^ num_variables" create ConjunctiveBooleanQueryCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

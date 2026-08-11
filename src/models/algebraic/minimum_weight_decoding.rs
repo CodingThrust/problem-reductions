@@ -4,7 +4,7 @@
 //! vector s of length n, find a binary vector x of length m minimizing the
 //! Hamming weight |x| subject to Hx ≡ s (mod 2).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -17,10 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find minimum Hamming weight binary vector x such that Hx ≡ s (mod 2)",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "n×m binary parity-check matrix H" },
-            FieldInfo { name: "target", type_name: "Vec<bool>", description: "binary syndrome vector s of length n" },
-        ],
+        fields: MinimumWeightDecodingCreateSpec::FIELDS,
     }
 }
 
@@ -59,6 +56,39 @@ pub struct MinimumWeightDecoding {
     matrix: Vec<Vec<bool>>,
     /// The binary syndrome vector s of length n.
     target: Vec<bool>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumWeightDecodingCreateSpec {
+    /// Binary parity-check matrix as JSON.
+    #[create(codec = "json")]
+    matrix: Vec<Vec<bool>>,
+    /// Binary syndrome vector.
+    #[create(name = "rhs", codec = "comma-separated")]
+    target: Vec<bool>,
+}
+
+impl TryFrom<MinimumWeightDecodingCreateSpec> for MinimumWeightDecoding {
+    type Error = String;
+    fn try_from(spec: MinimumWeightDecodingCreateSpec) -> Result<Self, Self::Error> {
+        let first = spec
+            .matrix
+            .first()
+            .ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
+        }
+        if spec.matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if spec.target.len() != spec.matrix.len() {
+            return Err("rhs length must equal number of rows".into());
+        }
+        Ok(Self {
+            matrix: spec.matrix,
+            target: spec.target,
+        })
+    }
 }
 
 impl MinimumWeightDecoding {
@@ -144,7 +174,7 @@ impl Problem for MinimumWeightDecoding {
 }
 
 crate::declare_variants! {
-    default MinimumWeightDecoding => "2^(0.0494 * num_cols)",
+    default MinimumWeightDecoding => "2^(0.0494 * num_cols)" create MinimumWeightDecodingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

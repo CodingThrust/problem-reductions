@@ -6,6 +6,19 @@ use crate::types::{Max, One};
 use crate::variant::KN;
 use crate::Solver;
 
+#[test]
+fn create_spec_uses_k_input() {
+    assert_eq!(MaximumCoKPlexCreateSpec::<i32>::FIELDS[2].name, "k");
+    let problem = MaximumCoKPlex::try_from(MaximumCoKPlexCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        weights: vec![2, 3],
+        k: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.bound_k(), 1);
+    assert_eq!(problem.weights(), &[2, 3]);
+}
+
 fn c5() -> SimpleGraph {
     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
 }

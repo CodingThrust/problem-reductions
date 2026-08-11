@@ -1,4 +1,21 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_vector_length_mismatch() {
+    assert_eq!(
+        SequencingToMinimizeWeightedTardinessCreateSpec::FIELDS[1].name,
+        "weights"
+    );
+    assert!(SequencingToMinimizeWeightedTardiness::try_from(
+        SequencingToMinimizeWeightedTardinessCreateSpec {
+            lengths: vec![1],
+            weights: vec![],
+            deadlines: vec![1],
+            bound: 0
+        }
+    )
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

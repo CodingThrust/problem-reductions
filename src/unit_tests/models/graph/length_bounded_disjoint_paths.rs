@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_derives_path_slot_bound() {
+    let problem = LengthBoundedDisjointPaths::try_from(LengthBoundedDisjointPathsCreateSpec {
+        graph: vec![(0, 1), (1, 3), (0, 2), (2, 3)],
+        num_vertices: None,
+        source: 0,
+        sink: 3,
+        max_length: 2,
+    })
+    .unwrap();
+    assert_eq!(problem.max_paths(), 2);
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

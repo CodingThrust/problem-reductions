@@ -3,7 +3,7 @@
 //! The problem asks whether an undirected graph contains pairwise
 //! vertex-disjoint paths connecting a prescribed collection of terminal pairs.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::VariantParam;
@@ -20,10 +20,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find pairwise vertex-disjoint paths connecting given terminal pairs",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "terminal_pairs", type_name: "Vec<(usize, usize)>", description: "Disjoint terminal pairs (s_i, t_i)" },
-        ],
+        fields: DisjointConnectingPathsCreateSpec::FIELDS,
     }
 }
 
@@ -37,6 +34,62 @@ inventory::submit! {
 pub struct DisjointConnectingPaths<G> {
     graph: G,
     terminal_pairs: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct DisjointConnectingPathsCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "edge-list")]
+    terminal_pairs: Vec<(usize, usize)>,
+}
+
+impl TryFrom<DisjointConnectingPathsCreateSpec> for DisjointConnectingPaths<SimpleGraph> {
+    type Error = String;
+    fn try_from(spec: DisjointConnectingPathsCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed"));
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.terminal_pairs.is_empty() {
+            return Err("terminal_pairs must contain at least one pair".into());
+        }
+        let mut used = vec![false; count];
+        for &(source, sink) in &spec.terminal_pairs {
+            if source >= count || sink >= count {
+                return Err("terminal pair endpoint is out of bounds".into());
+            }
+            if source == sink {
+                return Err("terminal pair endpoints must be distinct".into());
+            }
+            if used[source] || used[sink] {
+                return Err("terminal vertices must be pairwise disjoint".into());
+            }
+            used[source] = true;
+            used[sink] = true;
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            terminal_pairs: spec.terminal_pairs,
+        })
+    }
 }
 
 impl<G: Graph> DisjointConnectingPaths<G> {
@@ -243,7 +296,7 @@ fn is_valid_disjoint_connecting_paths<G: Graph>(
 }
 
 crate::declare_variants! {
-    default DisjointConnectingPaths<SimpleGraph> => "2^num_edges",
+    default DisjointConnectingPaths<SimpleGraph> => "2^num_edges" create DisjointConnectingPathsCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

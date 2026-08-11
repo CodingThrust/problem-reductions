@@ -132,3 +132,19 @@ fn test_bounded_diameter_spanning_tree_wrong_weights_length_panics() {
     let _ =
         BoundedDiameterSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1], 5, 2);
 }
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = BoundedDiameterSpanningTree::try_from(BoundedDiameterSpanningTreeCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+        weight_bound: 1,
+        diameter_bound: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.edge_weights(), &[1]);
+    assert_eq!(
+        BoundedDiameterSpanningTreeCreateSpec::FIELDS[2].name,
+        "edge_weights"
+    );
+}

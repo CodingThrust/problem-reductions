@@ -3,7 +3,7 @@
 //! Given a set of attributes A, a collection of functional dependencies F on A,
 //! and a query attribute x, determine if x belongs to any candidate key of <A, F>.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -15,11 +15,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Determine if an attribute belongs to any candidate key under functional dependencies",
-        fields: &[
-            FieldInfo { name: "num_attributes", type_name: "usize", description: "Number of attributes" },
-            FieldInfo { name: "dependencies", type_name: "Vec<(Vec<usize>, Vec<usize>)>", description: "Functional dependencies (lhs, rhs) pairs" },
-            FieldInfo { name: "query_attribute", type_name: "usize", description: "The query attribute index" },
-        ],
+        fields: PrimeAttributeNameCreateSpec::FIELDS,
     }
 }
 
@@ -68,6 +64,51 @@ pub struct PrimeAttributeName {
     dependencies: Vec<(Vec<usize>, Vec<usize>)>,
     /// The query attribute index.
     query_attribute: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PrimeAttributeNameCreateSpec {
+    /// Number of attributes.
+    universe_size: usize,
+    /// Functional dependencies (lhs, rhs) pairs.
+    dependencies: Vec<(Vec<usize>, Vec<usize>)>,
+    /// The query attribute index.
+    query_attribute: usize,
+}
+
+impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
+    type Error = String;
+
+    fn try_from(spec: PrimeAttributeNameCreateSpec) -> Result<Self, Self::Error> {
+        if spec.query_attribute >= spec.universe_size {
+            return Err(format!(
+                "query_attribute {} is outside universe of size {}",
+                spec.query_attribute, spec.universe_size
+            ));
+        }
+        for (dependency_index, (lhs, rhs)) in spec.dependencies.iter().enumerate() {
+            if lhs.is_empty() {
+                return Err(format!(
+                    "dependencies[{dependency_index}] has an empty left side"
+                ));
+            }
+            if let Some(&attribute) = lhs
+                .iter()
+                .chain(rhs)
+                .find(|&&attribute| attribute >= spec.universe_size)
+            {
+                return Err(format!(
+                    "dependencies[{dependency_index}] contains attribute {attribute} outside universe of size {}",
+                    spec.universe_size
+                ));
+            }
+        }
+        Ok(Self::new(
+            spec.universe_size,
+            spec.dependencies,
+            spec.query_attribute,
+        ))
+    }
 }
 
 impl PrimeAttributeName {
@@ -205,7 +246,7 @@ impl Problem for PrimeAttributeName {
 }
 
 crate::declare_variants! {
-    default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes",
+    default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes" create PrimeAttributeNameCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

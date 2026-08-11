@@ -118,3 +118,15 @@ fn test_qubo_paper_example() {
     let best = solver.find_witness(&problem).unwrap();
     assert_eq!(Problem::evaluate(&problem, &best), Min(Some(-2.0)));
 }
+
+#[test]
+fn test_qubo_create_spec_derives_num_vars() {
+    let problem = QUBO::try_from(QuboCreateSpec {
+        matrix: vec![vec![1.0, 2.0], vec![0.0, 3.0]],
+    })
+    .unwrap();
+
+    assert_eq!(problem.num_vars(), 2);
+    assert_eq!(QuboCreateSpec::FIELDS[0].name, "matrix");
+    assert_eq!(QuboCreateSpec::FIELDS.len(), 1);
+}

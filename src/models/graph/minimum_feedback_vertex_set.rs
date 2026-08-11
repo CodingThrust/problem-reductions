@@ -3,7 +3,7 @@
 //! The Feedback Vertex Set problem asks for a minimum weight subset of vertices
 //! whose removal makes the directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -20,10 +20,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find minimum weight feedback vertex set in a directed graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MinimumFeedbackVertexSetCreateSpec::FIELDS,
     }
 }
 
@@ -57,6 +54,28 @@ pub struct MinimumFeedbackVertexSet<W> {
     graph: DirectedGraph,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackVertexSetCreateSpec {
+    /// The directed graph.
+    graph: DirectedGraph,
+    /// Vertex weights; defaults to one per vertex.
+    weights: Option<Vec<i32>>,
+}
+impl TryFrom<MinimumFeedbackVertexSetCreateSpec> for MinimumFeedbackVertexSet<i32> {
+    type Error = String;
+    fn try_from(spec: MinimumFeedbackVertexSetCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_vertices();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err(format!(
+                "weights has {} entries, expected {count}",
+                weights.len()
+            ));
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
@@ -153,7 +172,7 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
+    default MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

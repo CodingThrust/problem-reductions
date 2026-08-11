@@ -4,7 +4,7 @@
 //! bounded-size sets (containing designated source and sink vertices) that
 //! minimizes total cut weight. From Garey & Johnson, A2 ND17.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -22,13 +22,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find a minimum-weight cut partitioning vertices into two bounded-size sets",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G = (V, E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> Z+" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s (must be in V1)" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t (must be in V2)" },
-            FieldInfo { name: "size_bound", type_name: "usize", description: "Maximum size B for each partition set" },
-        ],
+        fields: MinimumCutIntoBoundedSetsCreateSpec::FIELDS,
     }
 }
 
@@ -73,6 +67,44 @@ pub struct MinimumCutIntoBoundedSets<G, W: WeightElement> {
     sink: usize,
     /// Maximum size B for each partition set.
     size_bound: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumCutIntoBoundedSetsCreateSpec {
+    /// The undirected graph.
+    graph: SimpleGraph,
+    /// Edge weights; defaults to one per edge.
+    edge_weights: Option<Vec<i32>>,
+    /// Source vertex.
+    source: usize,
+    /// Sink vertex.
+    sink: usize,
+    /// Maximum size for each partition set.
+    size_bound: usize,
+}
+impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
+    type Error = String;
+    fn try_from(spec: MinimumCutIntoBoundedSetsCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_edges();
+        let edge_weights = spec.edge_weights.unwrap_or_else(|| vec![1; count]);
+        if edge_weights.len() != count {
+            return Err(format!(
+                "edge_weights has {} entries, expected {count}",
+                edge_weights.len()
+            ));
+        }
+        let vertices = spec.graph.num_vertices();
+        if spec.source >= vertices || spec.sink >= vertices || spec.source == spec.sink {
+            return Err("source and sink must be distinct valid graph vertices".to_string());
+        }
+        Ok(Self::new(
+            spec.graph,
+            edge_weights,
+            spec.source,
+            spec.sink,
+            spec.size_bound,
+        ))
+    }
 }
 
 impl<G: Graph, W: WeightElement> MinimumCutIntoBoundedSets<G, W> {
@@ -228,7 +260,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices",
+    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec,
 }
 
 #[cfg(test)]

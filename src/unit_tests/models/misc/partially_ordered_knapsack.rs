@@ -200,3 +200,15 @@ fn test_partially_ordered_knapsack_negative_weight() {
 fn test_partially_ordered_knapsack_negative_value() {
     PartiallyOrderedKnapsack::new(vec![1, 2], vec![-3, 4], vec![], 5);
 }
+#[test]
+fn create_spec_defaults_precedences_to_empty() {
+    let problem = PartiallyOrderedKnapsack::try_from(PartiallyOrderedKnapsackCreateSpec {
+        weights: vec![1, 2],
+        values: vec![3, 4],
+        precedences: None,
+        capacity: 2,
+    })
+    .unwrap();
+    assert!(problem.precedences().is_empty());
+    assert!(!PartiallyOrderedKnapsackCreateSpec::INPUTS[2].required);
+}

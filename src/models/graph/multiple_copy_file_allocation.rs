@@ -3,7 +3,7 @@
 //! The Multiple Copy File Allocation problem asks for a placement of file copies
 //! on graph vertices that minimizes the combined storage and access cost.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -18,11 +18,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Place file copies on graph vertices to minimize total storage plus access cost",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The network graph G=(V,E)" },
-            FieldInfo { name: "usage", type_name: "Vec<i64>", description: "Usage frequencies u(v) for each vertex" },
-            FieldInfo { name: "storage", type_name: "Vec<i64>", description: "Storage costs s(v) for placing a copy at each vertex" },
-        ],
+        fields: MultipleCopyFileAllocationCreateSpec::FIELDS,
     }
 }
 
@@ -47,6 +43,58 @@ pub struct MultipleCopyFileAllocation {
     graph: SimpleGraph,
     usage: Vec<i64>,
     storage: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MultipleCopyFileAllocationCreateSpec {
+    /// Network graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed for isolated vertices.
+    num_vertices: Option<usize>,
+    /// Usage frequency per vertex.
+    #[create(codec = "comma-separated")]
+    usage: Vec<i64>,
+    /// Storage cost per vertex.
+    #[create(codec = "comma-separated")]
+    storage: Vec<i64>,
+}
+
+impl TryFrom<MultipleCopyFileAllocationCreateSpec> for MultipleCopyFileAllocation {
+    type Error = String;
+    fn try_from(spec: MultipleCopyFileAllocationCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed"));
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.usage.len() != count {
+            return Err("usage length must match num_vertices".into());
+        }
+        if spec.storage.len() != count {
+            return Err("storage length must match num_vertices".into());
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            usage: spec.usage,
+            storage: spec.storage,
+        })
+    }
 }
 
 impl MultipleCopyFileAllocation {
@@ -201,7 +249,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default MultipleCopyFileAllocation => "2^num_vertices",
+    default MultipleCopyFileAllocation => "2^num_vertices" create MultipleCopyFileAllocationCreateSpec,
 }
 
 #[cfg(test)]

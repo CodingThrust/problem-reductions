@@ -2,6 +2,21 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
+#[test]
+fn test_prime_attribute_create_spec_uses_universe_size_input() {
+    assert_eq!(
+        PrimeAttributeNameCreateSpec::FIELDS[0].name,
+        "universe_size"
+    );
+    let problem = PrimeAttributeName::try_from(PrimeAttributeNameCreateSpec {
+        universe_size: 2,
+        dependencies: vec![(vec![0], vec![1])],
+        query_attribute: 0,
+    })
+    .unwrap();
+    assert_eq!(problem.num_attributes(), 2);
+}
+
 /// Helper: Issue Example 1 — 6 attributes, 3 FDs, query=3
 /// Candidate keys: {0,1}, {2,3}, {0,3} — attribute 3 is prime
 fn example1() -> PrimeAttributeName {

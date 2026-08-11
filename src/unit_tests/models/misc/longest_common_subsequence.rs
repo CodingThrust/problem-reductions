@@ -159,3 +159,32 @@ fn test_lcs_full_length_witness() {
     assert_eq!(problem.max_length(), 2);
     assert_eq!(problem.evaluate(&[0, 1]), Max(Some(2)));
 }
+
+#[test]
+fn test_lcs_create_spec_derives_internal_fields() {
+    let problem = LongestCommonSubsequence::try_from(LongestCommonSubsequenceCreateSpec {
+        alphabet_size: None,
+        strings: vec![vec![0, 2], vec![2, 1, 0]],
+    })
+    .unwrap();
+
+    assert_eq!(problem.alphabet_size(), 3);
+    assert_eq!(problem.max_length(), 2);
+    assert_eq!(
+        LongestCommonSubsequenceCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["alphabet_size", "strings"]
+    );
+}
+
+#[test]
+fn test_lcs_create_spec_rejects_all_empty_strings() {
+    let result = LongestCommonSubsequence::try_from(LongestCommonSubsequenceCreateSpec {
+        alphabet_size: Some(2),
+        strings: vec![vec![], vec![]],
+    });
+
+    assert!(result.is_err());
+}

@@ -202,3 +202,30 @@ fn test_minmaxmulticenter_negative_edge_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     MinMaxMulticenter::new(graph, vec![1i32; 3], vec![1i32, -1], 1);
 }
+#[test]
+fn create_specs_map_weight_inputs_for_both_variants() {
+    let weighted = MinMaxMulticenter::try_from(MinMaxMulticenterI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        weights: None,
+        edge_weights: Some(vec![2]),
+        k: 1,
+    })
+    .unwrap();
+    let unit = MinMaxMulticenter::try_from(MinMaxMulticenterOneCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        weights: None,
+        edge_weights: None,
+        k: 1,
+    })
+    .unwrap();
+    assert_eq!(weighted.vertex_weights(), &[1, 1]);
+    assert_eq!(weighted.edge_lengths(), &[2]);
+    assert_eq!(unit.vertex_weights(), &[One, One]);
+    assert_eq!(MinMaxMulticenterI32CreateSpec::FIELDS[2].name, "weights");
+    assert_eq!(
+        MinMaxMulticenterI32CreateSpec::FIELDS[3].name,
+        "edge_weights"
+    );
+}

@@ -1,4 +1,13 @@
 use super::*;
+#[test]
+fn create_spec_sorts_triples() {
+    let problem = ExactCoverBy3Sets::try_from(ExactCoverBy3SetsCreateSpec {
+        universe_size: 3,
+        subsets: vec![[2, 0, 1]],
+    })
+    .unwrap();
+    assert_eq!(problem.subsets(), &[[0, 1, 2]]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

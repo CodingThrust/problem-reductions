@@ -1,4 +1,18 @@
 use super::*;
+#[test]
+fn create_spec_defaults_capacities() {
+    let problem = IntegralFlowHomologousArcs::try_from(IntegralFlowHomologousArcsCreateSpec {
+        arcs: vec![(0, 1)],
+        num_vertices: None,
+        capacities: None,
+        source: 0,
+        sink: 1,
+        requirement: 1,
+        homologous_pairs: vec![],
+    })
+    .unwrap();
+    assert_eq!(problem.capacities(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

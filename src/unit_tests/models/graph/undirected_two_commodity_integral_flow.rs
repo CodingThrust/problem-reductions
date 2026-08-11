@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn create_spec_validates_capacity_shape() {
+    let problem = UndirectedTwoCommodityIntegralFlow::try_from(
+        UndirectedTwoCommodityIntegralFlowCreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: None,
+            capacities: vec![1],
+            source_1: 0,
+            sink_1: 1,
+            source_2: 1,
+            sink_2: 0,
+            requirement_1: 1,
+            requirement_2: 1,
+        },
+    )
+    .unwrap();
+    assert_eq!(problem.capacities(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;

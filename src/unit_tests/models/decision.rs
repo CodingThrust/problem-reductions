@@ -77,6 +77,50 @@ fn test_decision_serialization() {
 }
 
 #[test]
+fn construction_contract_decision_uses_flat_inner_fields() {
+    let inner = triangle_mvc();
+    let mut flat = serde_json::to_value(&inner)
+        .unwrap()
+        .as_object()
+        .unwrap()
+        .clone();
+    flat.insert("bound".to_string(), serde_json::json!(2));
+    let variant = crate::export::variant_to_map(
+        <Decision<MinimumVertexCover<SimpleGraph, i32>> as Problem>::variant(),
+    );
+
+    let constructed = crate::registry::construct_dyn(
+        "DecisionMinimumVertexCover",
+        &variant,
+        serde_json::Value::Object(flat),
+    )
+    .unwrap();
+    let canonical = constructed.serialize_json();
+
+    assert!(canonical.get("inner").is_some());
+    assert_eq!(canonical["bound"], serde_json::json!(2));
+    assert_eq!(canonical["inner"]["weights"], serde_json::json!([1, 1, 1]));
+}
+
+#[test]
+fn construction_contract_decision_rejects_nested_persisted_shape() {
+    let variant = crate::export::variant_to_map(
+        <Decision<MinimumVertexCover<SimpleGraph, i32>> as Problem>::variant(),
+    );
+    let error = crate::registry::construct_dyn(
+        "DecisionMinimumVertexCover",
+        &variant,
+        serde_json::json!({"inner": triangle_mvc(), "bound": 2}),
+    )
+    .err()
+    .expect("nested persisted shape must not be accepted for construction");
+
+    assert!(error
+        .to_string()
+        .contains("unknown construction input(s): inner"));
+}
+
+#[test]
 fn test_decision_reduce_to_aggregate() {
     use crate::rules::{AggregateReductionResult, ReduceToAggregate};
 

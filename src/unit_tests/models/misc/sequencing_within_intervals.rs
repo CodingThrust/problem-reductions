@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_empty_window() {
+    assert_eq!(
+        SequencingWithinIntervalsCreateSpec::FIELDS[0].name,
+        "release_times"
+    );
+    assert!(
+        SequencingWithinIntervals::try_from(SequencingWithinIntervalsCreateSpec {
+            release_times: vec![2],
+            deadlines: vec![2],
+            lengths: vec![1]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

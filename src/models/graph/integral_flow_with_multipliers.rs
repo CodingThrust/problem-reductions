@@ -4,7 +4,7 @@
 //! non-terminals, and a sink demand, determine whether there exists an
 //! integral flow satisfying multiplier-scaled conservation.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -17,14 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with multiplier-scaled conservation at non-terminal vertices",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "Directed graph G = (V, A)" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
-            FieldInfo { name: "multipliers", type_name: "Vec<u64>", description: "Vertex multipliers h(v) in vertex order; source/sink entries are ignored" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Arc capacities c(a) in graph arc order" },
-            FieldInfo { name: "requirement", type_name: "u64", description: "Required net inflow R at the sink" },
-        ],
+        fields: IntegralFlowWithMultipliersCreateSpec::FIELDS,
     }
 }
 
@@ -43,6 +36,75 @@ pub struct IntegralFlowWithMultipliers {
     multipliers: Vec<u64>,
     capacities: Vec<u64>,
     requirement: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct IntegralFlowWithMultipliersCreateSpec {
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    capacities: Vec<u64>,
+    source: usize,
+    sink: usize,
+    #[create(codec = "comma-separated")]
+    multipliers: Vec<u64>,
+    requirement: u64,
+}
+
+impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipliers {
+    type Error = String;
+    fn try_from(spec: IntegralFlowWithMultipliersCreateSpec) -> Result<Self, String> {
+        if spec.arcs.is_empty() {
+            return Err("arcs must be non-empty".into());
+        }
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small".into());
+        }
+        if spec.capacities.len() != spec.arcs.len() {
+            return Err("capacities length must match arcs length".into());
+        }
+        if spec.multipliers.len() != count {
+            return Err("multipliers length must match num_vertices".into());
+        }
+        if spec.source >= count || spec.sink >= count {
+            return Err("source and sink must be valid vertices".into());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".into());
+        }
+        for (v, &m) in spec.multipliers.iter().enumerate() {
+            if v != spec.source && v != spec.sink && m == 0 {
+                return Err("non-terminal multipliers must be positive".into());
+            }
+        }
+        for &c in &spec.capacities {
+            if usize::try_from(c)
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+            {
+                return Err("capacity is too large".into());
+            }
+        }
+        Ok(Self {
+            graph: DirectedGraph::new(count, spec.arcs),
+            source: spec.source,
+            sink: spec.sink,
+            multipliers: spec.multipliers,
+            capacities: spec.capacities,
+            requirement: spec.requirement,
+        })
+    }
 }
 
 impl IntegralFlowWithMultipliers {
@@ -214,7 +276,7 @@ impl Problem for IntegralFlowWithMultipliers {
 }
 
 crate::declare_variants! {
-    default IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs",
+    default IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs" create IntegralFlowWithMultipliersCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

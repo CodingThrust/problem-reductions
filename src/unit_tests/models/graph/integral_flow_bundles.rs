@@ -1,4 +1,19 @@
 use super::*;
+#[test]
+fn create_spec_requires_bundle_coverage() {
+    assert!(
+        IntegralFlowBundles::try_from(IntegralFlowBundlesCreateSpec {
+            arcs: vec![(0, 1), (1, 2)],
+            num_vertices: None,
+            bundles: vec![vec![0]],
+            bundle_capacities: vec![1],
+            source: 0,
+            sink: 2,
+            requirement: 1
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

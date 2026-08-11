@@ -229,3 +229,14 @@ fn test_preemptive_scheduling_deserialize_invalid_zero_processors() {
     let result: Result<PreemptiveScheduling, _> = serde_json::from_value(json);
     assert!(result.is_err());
 }
+#[test]
+fn create_spec_defaults_precedences_to_empty() {
+    let problem = PreemptiveScheduling::try_from(PreemptiveSchedulingCreateSpec {
+        lengths: vec![1, 2],
+        num_processors: 1,
+        precedences: None,
+    })
+    .unwrap();
+    assert!(problem.precedences().is_empty());
+    assert!(!PreemptiveSchedulingCreateSpec::INPUTS[2].required);
+}

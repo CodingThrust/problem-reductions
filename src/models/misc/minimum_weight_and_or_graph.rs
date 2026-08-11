@@ -3,7 +3,7 @@
 //! Given a directed acyclic graph with AND/OR gates, find the minimum-weight
 //! solution subgraph from a designated source vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -16,13 +16,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find the minimum-weight solution subgraph from a source in a DAG with AND/OR gates",
-        fields: &[
-            FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices in the DAG" },
-            FieldInfo { name: "arcs", type_name: "Vec<(usize, usize)>", description: "Directed arcs (u, v)" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex index" },
-            FieldInfo { name: "gate_types", type_name: "Vec<Option<bool>>", description: "Gate type per vertex: Some(true)=AND, Some(false)=OR, None=leaf" },
-            FieldInfo { name: "arc_weights", type_name: "Vec<i32>", description: "Weight of each arc" },
-        ],
+        fields: MinimumWeightAndOrGraphCreateSpec::FIELDS,
     }
 }
 
@@ -76,6 +70,56 @@ pub struct MinimumWeightAndOrGraph {
     /// Precomputed: outgoing arcs for each vertex (arc indices).
     #[serde(skip)]
     outgoing: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumWeightAndOrGraphCreateSpec {
+    /// Number of vertices in the DAG.
+    num_vertices: usize,
+    /// Directed arcs.
+    arcs: Vec<(usize, usize)>,
+    /// Source vertex.
+    source: usize,
+    /// Gate type per vertex.
+    gate_types: Vec<Option<bool>>,
+    /// Arc weights; defaults to one per arc.
+    arc_weights: Option<Vec<i32>>,
+}
+impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
+    type Error = String;
+    fn try_from(spec: MinimumWeightAndOrGraphCreateSpec) -> Result<Self, Self::Error> {
+        if spec.source >= spec.num_vertices {
+            return Err("source is outside the graph".to_string());
+        }
+        if spec.gate_types.len() != spec.num_vertices {
+            return Err("gate_types length must equal num_vertices".to_string());
+        }
+        if spec.gate_types[spec.source].is_none() {
+            return Err("source must be an AND or OR gate".to_string());
+        }
+        if let Some(&(u, v)) = spec
+            .arcs
+            .iter()
+            .find(|&&(u, v)| u >= spec.num_vertices || v >= spec.num_vertices)
+        {
+            return Err(format!("arc ({u}, {v}) is out of bounds"));
+        }
+        let count = spec.arcs.len();
+        let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; count]);
+        if arc_weights.len() != count {
+            return Err(format!(
+                "arc_weights has {} entries, expected {count}",
+                arc_weights.len()
+            ));
+        }
+        Ok(Self::new(
+            spec.num_vertices,
+            spec.arcs,
+            spec.source,
+            spec.gate_types,
+            arc_weights,
+        ))
+    }
 }
 
 #[derive(Deserialize)]
@@ -295,7 +339,7 @@ impl Problem for MinimumWeightAndOrGraph {
 }
 
 crate::declare_variants! {
-    default MinimumWeightAndOrGraph => "2^num_arcs",
+    default MinimumWeightAndOrGraph => "2^num_arcs" create MinimumWeightAndOrGraphCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

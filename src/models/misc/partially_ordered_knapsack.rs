@@ -4,7 +4,7 @@
 //! an item requires including all its predecessors (downward-closed set).
 //! NP-complete in the strong sense (Garey & Johnson, A6 MP12).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -17,12 +17,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Select items to maximize total value subject to precedence constraints and weight capacity",
-        fields: &[
-            FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Item weights w(u) for each item" },
-            FieldInfo { name: "values", type_name: "Vec<i64>", description: "Item values v(u) for each item" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (a, b) meaning a must be included before b" },
-            FieldInfo { name: "capacity", type_name: "i64", description: "Knapsack capacity B" },
-        ],
+        fields: PartiallyOrderedKnapsackCreateSpec::FIELDS,
     }
 }
 
@@ -74,6 +69,69 @@ pub struct PartiallyOrderedKnapsack {
     /// Precomputed transitive predecessors for each item.
     /// `predecessors[b]` contains all items that must be selected when `b` is selected.
     predecessors: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PartiallyOrderedKnapsackCreateSpec {
+    weights: Vec<i64>,
+    values: Vec<i64>,
+    precedences: Option<Vec<(usize, usize)>>,
+    capacity: i64,
+}
+
+impl TryFrom<PartiallyOrderedKnapsackCreateSpec> for PartiallyOrderedKnapsack {
+    type Error = String;
+
+    fn try_from(spec: PartiallyOrderedKnapsackCreateSpec) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.values.len() {
+            return Err("weights and values must have the same length".to_string());
+        }
+        if spec.capacity < 0 {
+            return Err("capacity must be non-negative".to_string());
+        }
+        if let Some((index, weight)) = spec
+            .weights
+            .iter()
+            .enumerate()
+            .find(|(_, weight)| **weight < 0)
+        {
+            return Err(format!(
+                "weight[{index}] must be non-negative, got {weight}"
+            ));
+        }
+        if let Some((index, value)) = spec
+            .values
+            .iter()
+            .enumerate()
+            .find(|(_, value)| **value < 0)
+        {
+            return Err(format!("value[{index}] must be non-negative, got {value}"));
+        }
+        let precedences = spec.precedences.unwrap_or_default();
+        let num_items = spec.weights.len();
+        if let Some(&(pred, succ)) = precedences
+            .iter()
+            .find(|&&(pred, succ)| pred >= num_items || succ >= num_items)
+        {
+            return Err(format!(
+                "precedence ({pred}, {succ}) is out of range for {num_items} items"
+            ));
+        }
+        let predecessors = Self::compute_predecessors(&precedences, num_items);
+        if let Some(item) = predecessors
+            .iter()
+            .enumerate()
+            .find_map(|(item, preds)| preds.contains(&item).then_some(item))
+        {
+            return Err(format!("precedences contain a cycle involving item {item}"));
+        }
+        Ok(Self::new(
+            spec.weights,
+            spec.values,
+            precedences,
+            spec.capacity,
+        ))
+    }
 }
 
 impl Serialize for PartiallyOrderedKnapsack {
@@ -266,7 +324,7 @@ impl Problem for PartiallyOrderedKnapsack {
 }
 
 crate::declare_variants! {
-    default PartiallyOrderedKnapsack => "2^num_items",
+    default PartiallyOrderedKnapsack => "2^num_items" create PartiallyOrderedKnapsackCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

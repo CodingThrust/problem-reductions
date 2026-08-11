@@ -3,7 +3,7 @@
 //! The Partial Feedback Edge Set problem asks whether removing at most `K`
 //! edges can hit every cycle of length at most `L`.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -20,11 +20,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Remove at most K edges so that every cycle of length at most L is hit",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "budget", type_name: "usize", description: "Maximum number K of edges that may be removed" },
-            FieldInfo { name: "max_cycle_length", type_name: "usize", description: "Cycle length bound L; every cycle with length at most L must be hit" },
-        ],
+        fields: PartialFeedbackEdgeSetCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +40,23 @@ pub struct PartialFeedbackEdgeSet<G> {
     graph: G,
     budget: usize,
     max_cycle_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PartialFeedbackEdgeSetCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Maximum number K of edges that may be removed.
+    budget: usize,
+    /// Cycle length bound L.
+    max_cycle_length: usize,
+}
+
+impl TryFrom<PartialFeedbackEdgeSetCreateSpec> for PartialFeedbackEdgeSet<SimpleGraph> {
+    type Error = String;
+    fn try_from(spec: PartialFeedbackEdgeSetCreateSpec) -> Result<Self, Self::Error> {
+        Ok(Self::new(spec.graph, spec.budget, spec.max_cycle_length))
+    }
 }
 
 impl<G: Graph> PartialFeedbackEdgeSet<G> {
@@ -242,7 +255,7 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
 }
 
 crate::declare_variants! {
-    default PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges",
+    default PartialFeedbackEdgeSet<SimpleGraph> => "2^num_edges" create PartialFeedbackEdgeSetCreateSpec,
 }
 
 #[cfg(test)]

@@ -13,7 +13,7 @@
 //! lower bounds, so the registered exact complexity matches brute-force
 //! enumeration over the `2^|E|` edge orientations.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -27,14 +27,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Determine whether an undirected lower-bounded flow of value at least R exists",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "Undirected graph G=(V,E)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Upper capacities c(e) in graph edge order" },
-            FieldInfo { name: "lower_bounds", type_name: "Vec<u64>", description: "Lower bounds l(e) in graph edge order" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
-            FieldInfo { name: "requirement", type_name: "u64", description: "Required net inflow R at sink t" },
-        ],
+        fields: UndirectedFlowLowerBoundsCreateSpec::FIELDS,
     }
 }
 
@@ -53,6 +46,67 @@ pub struct UndirectedFlowLowerBounds {
     source: usize,
     sink: usize,
     requirement: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct UndirectedFlowLowerBoundsCreateSpec {
+    /// Undirected graph.
+    graph: SimpleGraph,
+    /// Upper capacities in graph edge order.
+    capacities: Vec<u64>,
+    /// Lower bounds in graph edge order.
+    lower_bounds: Vec<u64>,
+    /// Source vertex.
+    source: usize,
+    /// Sink vertex.
+    sink: usize,
+    /// Required net inflow at the sink.
+    requirement: u64,
+}
+impl TryFrom<UndirectedFlowLowerBoundsCreateSpec> for UndirectedFlowLowerBounds {
+    type Error = String;
+    fn try_from(spec: UndirectedFlowLowerBoundsCreateSpec) -> Result<Self, Self::Error> {
+        let edges = spec.graph.num_edges();
+        if spec.capacities.len() != edges {
+            return Err(format!(
+                "capacities has {} entries, expected {edges}",
+                spec.capacities.len()
+            ));
+        }
+        if spec.lower_bounds.len() != edges {
+            return Err(format!(
+                "lower_bounds has {} entries, expected {edges}",
+                spec.lower_bounds.len()
+            ));
+        }
+        let vertices = spec.graph.num_vertices();
+        if spec.source >= vertices || spec.sink >= vertices {
+            return Err("source and sink must be valid graph vertices".to_string());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".to_string());
+        }
+        if spec.requirement == 0 {
+            return Err("requirement must be at least 1".to_string());
+        }
+        if let Some((index, _)) = spec
+            .lower_bounds
+            .iter()
+            .zip(&spec.capacities)
+            .enumerate()
+            .find(|(_, (&lower, &upper))| lower > upper)
+        {
+            return Err(format!("lower bound at edge {index} exceeds its capacity"));
+        }
+        Ok(Self::new(
+            spec.graph,
+            spec.capacities,
+            spec.lower_bounds,
+            spec.source,
+            spec.sink,
+            spec.requirement,
+        ))
+    }
 }
 
 impl UndirectedFlowLowerBounds {
@@ -232,7 +286,7 @@ impl Problem for UndirectedFlowLowerBounds {
 }
 
 crate::declare_variants! {
-    default UndirectedFlowLowerBounds => "2^num_edges",
+    default UndirectedFlowLowerBounds => "2^num_edges" create UndirectedFlowLowerBoundsCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

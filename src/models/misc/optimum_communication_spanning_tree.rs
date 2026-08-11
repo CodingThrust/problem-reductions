@@ -5,7 +5,7 @@
 //! minimizes the total communication cost: sum_{u<v} r(u,v) * W_T(u,v),
 //! where W_T(u,v) is the sum of edge weights on the unique path from u to v in T.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -19,11 +19,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Find spanning tree minimizing total weighted communication cost",
-        fields: &[
-            FieldInfo { name: "num_vertices", type_name: "usize", description: "Number of vertices n" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<Vec<i32>>", description: "Symmetric weight matrix w(i,j)" },
-            FieldInfo { name: "requirements", type_name: "Vec<Vec<i32>>", description: "Symmetric requirement matrix r(i,j)" },
-        ],
+        fields: OptimumCommunicationSpanningTreeCreateSpec::FIELDS,
     }
 }
 
@@ -70,6 +66,49 @@ pub struct OptimumCommunicationSpanningTree {
     num_vertices: usize,
     edge_weights: Vec<Vec<i32>>,
     requirements: Vec<Vec<i32>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct OptimumCommunicationSpanningTreeCreateSpec {
+    /// Number of vertices.
+    num_vertices: usize,
+    /// Symmetric weight matrix; defaults to unit off-diagonal weights.
+    edge_weights: Option<Vec<Vec<i32>>>,
+    /// Symmetric communication requirement matrix.
+    requirements: Vec<Vec<i32>>,
+}
+impl TryFrom<OptimumCommunicationSpanningTreeCreateSpec> for OptimumCommunicationSpanningTree {
+    type Error = String;
+    fn try_from(spec: OptimumCommunicationSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
+        let n = spec.num_vertices;
+        if n < 2 {
+            return Err("must have at least two vertices".to_string());
+        }
+        let edge_weights = spec.edge_weights.unwrap_or_else(|| {
+            (0..n)
+                .map(|i| (0..n).map(|j| i32::from(i != j)).collect())
+                .collect()
+        });
+        for (name, matrix) in [
+            ("edge_weights", &edge_weights),
+            ("requirements", &spec.requirements),
+        ] {
+            if matrix.len() != n || matrix.iter().any(|row| row.len() != n) {
+                return Err(format!("{name} must be a {n} x {n} matrix"));
+            }
+            for (i, row) in matrix.iter().enumerate() {
+                if row[i] != 0 {
+                    return Err(format!("{name} diagonal must be zero"));
+                }
+                for (j, &value) in row.iter().enumerate().skip(i + 1) {
+                    if value != matrix[j][i] || value < 0 {
+                        return Err(format!("{name} must be symmetric and nonnegative"));
+                    }
+                }
+            }
+        }
+        Ok(Self::new(edge_weights, spec.requirements))
+    }
 }
 
 impl OptimumCommunicationSpanningTree {
@@ -312,7 +351,7 @@ impl Problem for OptimumCommunicationSpanningTree {
 }
 
 crate::declare_variants! {
-    default OptimumCommunicationSpanningTree => "2^num_edges",
+    default OptimumCommunicationSpanningTree => "2^num_edges" create OptimumCommunicationSpanningTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

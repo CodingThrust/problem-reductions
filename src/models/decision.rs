@@ -4,7 +4,7 @@ use crate::rules::{AggregateReductionResult, ReduceTo, ReduceToAggregate, Reduct
 use crate::traits::Problem;
 use crate::types::{OptimizationValue, Or};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Metadata for concrete optimization problems that expose a decision wrapper.
 pub trait DecisionProblemMeta: Problem
@@ -46,8 +46,17 @@ macro_rules! register_decision_variant {
         fields: [$($field:expr),* $(,)?],
         size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
     ) => {
+        impl $crate::registry::CreateSpec
+            for $crate::models::decision::DecisionCreateSpec<$inner>
+        {
+            const FIELDS: &'static [$crate::registry::FieldInfo] = &[$($field),*];
+            const INPUTS: &'static [$crate::registry::CreateInputInfo] = &[
+                $($crate::registry::CreateInputInfo::from_field($field)),*
+            ];
+        }
+
         $crate::declare_variants! {
-            default $crate::models::decision::Decision<$inner> => $complexity,
+            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
         }
 
         $crate::inventory::submit! {
@@ -143,6 +152,54 @@ macro_rules! register_decision_variant {
     (@display_name $name:literal) => {
         $name
     };
+}
+
+/// Flat construction DTO used by [`register_decision_variant!`].
+///
+/// Persisted decision problems remain `{ "inner": ..., "bound": ... }`, while
+/// construction inputs expose the inner problem's fields beside `bound`.
+#[doc(hidden)]
+pub struct DecisionCreateSpec<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    inner: P,
+    bound: <P::Value as OptimizationValue>::Inner,
+}
+
+impl<'de, P> Deserialize<'de> for DecisionCreateSpec<P>
+where
+    P: Problem + DeserializeOwned,
+    P::Value: OptimizationValue,
+    <P::Value as OptimizationValue>::Inner: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let mut inputs = value.as_object().cloned().ok_or_else(|| {
+            serde::de::Error::custom("decision construction inputs must be an object")
+        })?;
+        let bound = inputs
+            .remove("bound")
+            .ok_or_else(|| serde::de::Error::missing_field("bound"))?;
+        let inner = serde_json::from_value(serde_json::Value::Object(inputs))
+            .map_err(serde::de::Error::custom)?;
+        let bound = serde_json::from_value(bound).map_err(serde::de::Error::custom)?;
+        Ok(Self { inner, bound })
+    }
+}
+
+impl<P> From<DecisionCreateSpec<P>> for Decision<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    fn from(spec: DecisionCreateSpec<P>) -> Self {
+        Self::new(spec.inner, spec.bound)
+    }
 }
 
 /// Decision version of an optimization problem with a fixed objective bound.

@@ -4,7 +4,7 @@
 //! threshold, determine whether there exists a high-weight branching that
 //! picks at most one arc from each partition group.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -22,12 +22,7 @@ inventory::submit! {
         ],
         module_path: module_path!(),
         description: "Find a branching with partition constraints and weight at least K",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Arc weights w(a) for each arc a in A" },
-            FieldInfo { name: "partition", type_name: "Vec<Vec<usize>>", description: "Partition of arc indices; each arc index must appear in exactly one group" },
-            FieldInfo { name: "threshold", type_name: "W::Sum", description: "Weight threshold K" },
-        ],
+        fields: MultipleChoiceBranchingCreateSpec::FIELDS,
     }
 }
 
@@ -46,6 +41,56 @@ pub struct MultipleChoiceBranching<W: WeightElement> {
     weights: Vec<W>,
     partition: Vec<Vec<usize>>,
     threshold: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MultipleChoiceBranchingCreateSpec {
+    /// Directed graph arcs.
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+    /// Arc weights w(a) for each arc a in A.
+    weights: Vec<i32>,
+    /// Partition of arc indices; each arc must appear exactly once.
+    partition: Vec<Vec<usize>>,
+    /// Weight threshold K.
+    threshold: i64,
+}
+
+impl TryFrom<MultipleChoiceBranchingCreateSpec> for MultipleChoiceBranching<i32> {
+    type Error = String;
+    fn try_from(spec: MultipleChoiceBranchingCreateSpec) -> Result<Self, Self::Error> {
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err("num_vertices is too small for arc endpoints".to_string());
+        }
+        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let num_arcs = graph.num_arcs();
+        if spec.weights.len() != num_arcs {
+            return Err(format!(
+                "weights has {} entries, expected {num_arcs}",
+                spec.weights.len()
+            ));
+        }
+        if let Some(message) = partition_validation_error(&spec.partition, num_arcs) {
+            return Err(message);
+        }
+        Ok(Self::new(
+            graph,
+            spec.weights,
+            spec.partition,
+            spec.threshold,
+        ))
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -294,7 +339,7 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
 }
 
 crate::declare_variants! {
-    default MultipleChoiceBranching<i32> => "2^num_arcs",
+    default MultipleChoiceBranching<i32> => "2^num_arcs" create MultipleChoiceBranchingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

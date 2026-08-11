@@ -3,6 +3,18 @@ use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
+#[test]
+fn create_spec_uses_sink_input() {
+    assert_eq!(GeneralizedHexCreateSpec::FIELDS[2].name, "sink");
+    let problem = GeneralizedHex::try_from(GeneralizedHexCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        source: 0,
+        sink: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.target(), 1);
+}
+
 fn issue_example() -> GeneralizedHex<SimpleGraph> {
     GeneralizedHex::new(
         SimpleGraph::new(

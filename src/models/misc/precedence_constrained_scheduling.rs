@@ -4,7 +4,7 @@
 //! deadline D, determine whether all tasks can be scheduled to meet D while
 //! respecting precedences. NP-complete via reduction from 3SAT (Ullman, 1975).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -16,12 +16,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Schedule unit-length tasks on m processors by deadline D respecting precedence constraints",
-        fields: &[
-            FieldInfo { name: "num_tasks", type_name: "usize", description: "Number of tasks n = |T|" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of processors m" },
-            FieldInfo { name: "deadline", type_name: "usize", description: "Global deadline D" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (i, j) meaning task i must finish before task j starts" },
-        ],
+        fields: PrecedenceConstrainedSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -56,6 +51,43 @@ pub struct PrecedenceConstrainedScheduling {
     num_processors: usize,
     deadline: usize,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct PrecedenceConstrainedSchedulingCreateSpec {
+    num_tasks: usize,
+    num_processors: usize,
+    deadline: usize,
+    precedences: Option<Vec<(usize, usize)>>,
+}
+
+impl TryFrom<PrecedenceConstrainedSchedulingCreateSpec> for PrecedenceConstrainedScheduling {
+    type Error = String;
+
+    fn try_from(spec: PrecedenceConstrainedSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_tasks > 0 && spec.num_processors == 0 {
+            return Err("num_processors must be positive when there are tasks".to_string());
+        }
+        if spec.num_tasks > 0 && spec.deadline == 0 {
+            return Err("deadline must be positive when there are tasks".to_string());
+        }
+        let precedences = spec.precedences.unwrap_or_default();
+        if let Some(&(pred, succ)) = precedences
+            .iter()
+            .find(|&&(pred, succ)| pred >= spec.num_tasks || succ >= spec.num_tasks)
+        {
+            return Err(format!(
+                "precedence ({pred}, {succ}) is out of range for {} tasks",
+                spec.num_tasks
+            ));
+        }
+        Ok(Self::new(
+            spec.num_tasks,
+            spec.num_processors,
+            spec.deadline,
+            precedences,
+        ))
+    }
 }
 
 impl PrecedenceConstrainedScheduling {
@@ -157,7 +189,7 @@ impl Problem for PrecedenceConstrainedScheduling {
 }
 
 crate::declare_variants! {
-    default PrecedenceConstrainedScheduling => "2^num_tasks",
+    default PrecedenceConstrainedScheduling => "2^num_tasks" create PrecedenceConstrainedSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

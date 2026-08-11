@@ -3,7 +3,7 @@
 //! KClique is the decision version of Clique: determine whether a graph
 //! contains a clique of size at least `k`.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -16,10 +16,7 @@ inventory::submit! {
         dimensions: &[VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"])],
         module_path: module_path!(),
         description: "Determine whether a graph contains a clique of size at least k",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "k", type_name: "usize", description: "Minimum clique size threshold" },
-        ],
+        fields: KCliqueCreateSpec::FIELDS,
     }
 }
 
@@ -32,6 +29,50 @@ inventory::submit! {
 pub struct KClique<G> {
     graph: G,
     k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KCliqueCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    k: usize,
+}
+
+impl TryFrom<KCliqueCreateSpec> for KClique<SimpleGraph> {
+    type Error = String;
+    fn try_from(spec: KCliqueCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed"));
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.k == 0 {
+            return Err("k must be positive".into());
+        }
+        if spec.k > count {
+            return Err("k must be <= graph num_vertices".into());
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            k: spec.k,
+        })
+    }
 }
 
 impl<G: Graph> KClique<G> {
@@ -136,7 +177,7 @@ fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
 }
 
 crate::declare_variants! {
-    default KClique<SimpleGraph> => "1.1996^num_vertices",
+    default KClique<SimpleGraph> => "1.1996^num_vertices" create KCliqueCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

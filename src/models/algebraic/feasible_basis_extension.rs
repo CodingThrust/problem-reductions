@@ -7,7 +7,7 @@
 //!
 //! NP-complete (Murty, 1972).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -19,11 +19,7 @@ inventory::submit! {
         dimensions: &[],
         module_path: module_path!(),
         description: "Given matrix A, vector a_bar, and required columns S, find a feasible basis extending S",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i64>>", description: "m x n integer matrix A (row-major)" },
-            FieldInfo { name: "rhs", type_name: "Vec<i64>", description: "Column vector a_bar of length m" },
-            FieldInfo { name: "required_columns", type_name: "Vec<usize>", description: "Subset S of column indices that must be in the basis" },
-        ],
+        fields: FeasibleBasisExtensionCreateSpec::FIELDS,
     }
 }
 
@@ -64,6 +60,57 @@ pub struct FeasibleBasisExtension {
     matrix: Vec<Vec<i64>>,
     rhs: Vec<i64>,
     required_columns: Vec<usize>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct FeasibleBasisExtensionCreateSpec {
+    /// Integer matrix as JSON.
+    #[create(codec = "json")]
+    matrix: Vec<Vec<i64>>,
+    /// Right-hand side vector.
+    #[create(codec = "comma-separated")]
+    rhs: Vec<i64>,
+    /// Required column indices.
+    #[create(codec = "comma-separated")]
+    required_columns: Vec<usize>,
+}
+
+impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
+    type Error = String;
+    fn try_from(spec: FeasibleBasisExtensionCreateSpec) -> Result<Self, Self::Error> {
+        let m = spec.matrix.len();
+        let first = spec
+            .matrix
+            .first()
+            .ok_or("matrix must have at least one row")?;
+        let n = first.len();
+        if spec.matrix.iter().any(|row| row.len() != n) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if m >= n {
+            return Err("number of rows must be less than number of columns".into());
+        }
+        if spec.rhs.len() != m {
+            return Err("rhs length must equal number of rows".into());
+        }
+        if spec.required_columns.len() >= m {
+            return Err("required_columns length must be less than number of rows".into());
+        }
+        let mut seen = std::collections::HashSet::new();
+        for &column in &spec.required_columns {
+            if column >= n {
+                return Err(format!("required column {column} is out of bounds"));
+            }
+            if !seen.insert(column) {
+                return Err(format!("duplicate required column {column}"));
+            }
+        }
+        Ok(Self {
+            matrix: spec.matrix,
+            rhs: spec.rhs,
+            required_columns: spec.required_columns,
+        })
+    }
 }
 
 impl FeasibleBasisExtension {
@@ -322,7 +369,7 @@ impl Problem for FeasibleBasisExtension {
 }
 
 crate::declare_variants! {
-    default FeasibleBasisExtension => "2^num_columns * num_rows^3",
+    default FeasibleBasisExtension => "2^num_columns * num_rows^3" create FeasibleBasisExtensionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

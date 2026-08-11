@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_couplings_and_fields() {
+    let problem = SpinGlass::<SimpleGraph, i32>::try_from(SpinGlassI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        couplings: None,
+        fields: None,
+    })
+    .unwrap();
+    assert_eq!(problem.couplings(), &[1]);
+    assert_eq!(problem.fields(), &[0, 0, 0]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");

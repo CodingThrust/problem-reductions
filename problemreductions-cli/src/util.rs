@@ -101,29 +101,6 @@ pub fn ser_kcoloring(
     }
 }
 
-/// Serialize a KSatisfiability instance given clauses and validated k.
-#[cfg(feature = "mcp")]
-pub fn ser_ksat(
-    num_vars: usize,
-    clauses: Vec<CNFClause>,
-    k: usize,
-) -> Result<(serde_json::Value, BTreeMap<String, String>)> {
-    match k {
-        2 => Ok((
-            ser(KSatisfiability::<K2>::new(num_vars, clauses))?,
-            variant_map(&[("k", "K2")]),
-        )),
-        3 => Ok((
-            ser(KSatisfiability::<K3>::new(num_vars, clauses))?,
-            variant_map(&[("k", "K3")]),
-        )),
-        _ => Ok((
-            ser(KSatisfiability::<KN>::new(num_vars, clauses))?,
-            variant_map(&[("k", "KN")]),
-        )),
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Parsing helpers
 // ---------------------------------------------------------------------------

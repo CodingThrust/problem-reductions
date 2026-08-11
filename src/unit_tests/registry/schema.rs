@@ -76,9 +76,10 @@ fn test_schema_json_serialization() {
 fn test_field_info_json_fields() {
     let schemas = collect_schemas();
     let sg = schemas.iter().find(|s| s.name == "SpinGlass").unwrap();
-    assert_eq!(sg.fields.len(), 3);
+    assert_eq!(sg.fields.len(), 4);
     let field_names: Vec<&str> = sg.fields.iter().map(|f| f.name.as_str()).collect();
     assert!(field_names.contains(&"graph"));
+    assert!(field_names.contains(&"num_vertices"));
     assert!(field_names.contains(&"couplings"));
     assert!(field_names.contains(&"fields"));
     for f in &sg.fields {

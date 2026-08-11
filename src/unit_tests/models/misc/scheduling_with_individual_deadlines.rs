@@ -1,4 +1,21 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_deadline_count_mismatch() {
+    assert_eq!(
+        SchedulingWithIndividualDeadlinesCreateSpec::FIELDS[2].name,
+        "deadlines"
+    );
+    assert!(SchedulingWithIndividualDeadlines::try_from(
+        SchedulingWithIndividualDeadlinesCreateSpec {
+            num_tasks: 2,
+            num_processors: 1,
+            deadlines: vec![1],
+            precedences: None
+        }
+    )
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
@@ -131,4 +148,17 @@ fn test_scheduling_with_individual_deadlines_mismatched_deadlines() {
 #[should_panic(expected = "predecessor index 4 out of range")]
 fn test_scheduling_with_individual_deadlines_invalid_precedence() {
     SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 1], vec![(4, 1)]);
+}
+#[test]
+fn create_spec_defaults_precedences_to_empty() {
+    let problem =
+        SchedulingWithIndividualDeadlines::try_from(SchedulingWithIndividualDeadlinesCreateSpec {
+            num_tasks: 2,
+            num_processors: 1,
+            deadlines: vec![1, 2],
+            precedences: None,
+        })
+        .unwrap();
+    assert!(problem.precedences().is_empty());
+    assert!(!SchedulingWithIndividualDeadlinesCreateSpec::INPUTS[3].required);
 }

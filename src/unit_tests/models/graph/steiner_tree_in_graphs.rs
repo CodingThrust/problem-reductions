@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_edge_weights() {
+    let p = SteinerTreeInGraphs::try_from(SteinerTreeInGraphsCreateSpec::<i32> {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        terminals: vec![0, 1],
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(p.weights(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
