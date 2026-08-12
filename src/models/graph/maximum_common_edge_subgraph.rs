@@ -23,6 +23,7 @@ inventory::submit! {
         display_name: "Maximum Common Edge Subgraph",
         aliases: &["MCES"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Maximize the number of preserved labelled directed arcs under a partial injective vertex map from G1 into G2",
         fields: &[

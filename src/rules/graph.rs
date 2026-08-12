@@ -84,8 +84,8 @@ pub(crate) struct NodeJson {
     pub(crate) name: String,
     /// Variant attributes as key-value pairs.
     pub(crate) variant: BTreeMap<String, String>,
-    /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
-    pub(crate) category: String,
+    /// Structural category declared by the problem schema.
+    pub(crate) category: crate::registry::ProblemCategory,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
     /// Worst-case time complexity expression (empty if not declared).
@@ -1672,11 +1672,12 @@ impl ReductionGraph {
     pub(crate) fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
 
-        // Build name -> module_path lookup from ProblemSchemaEntry inventory
-        let schema_modules: HashMap<&str, &str> = inventory::iter::<ProblemSchemaEntry>
-            .into_iter()
-            .map(|entry| (entry.name, entry.module_path))
-            .collect();
+        // Build the model-owned metadata lookup from ProblemSchemaEntry inventory.
+        let schema_metadata: HashMap<&str, (&str, crate::registry::ProblemCategory)> =
+            inventory::iter::<ProblemSchemaEntry>
+                .into_iter()
+                .map(|entry| (entry.name, (entry.module_path, entry.category)))
+                .collect();
 
         // Build sorted node list from the internal nodes
         let mut json_nodes: Vec<(usize, NodeJson)> = self
@@ -1684,21 +1685,20 @@ impl ReductionGraph {
             .iter()
             .enumerate()
             .map(|(i, node)| {
-                let (category, doc_path) = if let Some(&mod_path) = schema_modules.get(node.name) {
-                    (
-                        Self::category_from_module_path(mod_path),
-                        Self::doc_path_from_module_path(mod_path, node.name),
-                    )
-                } else {
-                    ("other".to_string(), String::new())
-                };
+                let &(module_path, category) =
+                    schema_metadata.get(node.name).unwrap_or_else(|| {
+                        panic!(
+                            "missing problem schema for registered variant `{}`",
+                            node.name
+                        )
+                    });
                 (
                     i,
                     NodeJson {
                         name: node.name.to_string(),
                         variant: node.variant.clone(),
                         category,
-                        doc_path,
+                        doc_path: Self::doc_path_from_module_path(module_path, node.name),
                         complexity: node.complexity.to_string(),
                     },
                 )
@@ -1843,15 +1843,6 @@ impl ReductionGraph {
             .strip_prefix("problemreductions::")
             .unwrap_or(module_path);
         format!("{}/index.html", stripped.replace("::", "/"))
-    }
-
-    /// Extract the category from a module path.
-    ///
-    /// E.g., `"problemreductions::models::graph::maximum_independent_set"` -> `"graph"`.
-    fn category_from_module_path(module_path: &str) -> String {
-        crate::registry::problem_type::problem_category_from_module_path(module_path)
-            .unwrap_or("other")
-            .to_string()
     }
 
     /// Build the rustdoc path from a module path and problem name.

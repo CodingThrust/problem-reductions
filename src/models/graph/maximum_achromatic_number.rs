@@ -20,6 +20,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a complete proper coloring maximizing the number of colors",
         fields: &[

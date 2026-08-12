@@ -1,4 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use problemreductions::registry::ProblemCategory;
 use std::path::PathBuf;
 
 pub use crate::create_args::CreateArgs;
@@ -68,7 +69,7 @@ Examples:
 
         /// Restrict problems to a model category such as graph, set, or misc
         #[arg(long, conflicts_with = "rules")]
-        category: Option<String>,
+        category: Option<ProblemCategory>,
 
         /// List the complete catalog instead of the summary
         #[arg(long)]

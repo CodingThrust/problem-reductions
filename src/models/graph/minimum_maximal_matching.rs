@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "BipartiteGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-size matching that cannot be extended",
         fields: &[

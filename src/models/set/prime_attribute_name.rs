@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "Prime Attribute Name",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if an attribute belongs to any candidate key under functional dependencies",
         fields: PrimeAttributeNameCreateSpec::FIELDS,

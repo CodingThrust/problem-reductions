@@ -24,6 +24,7 @@ inventory::submit! {
         display_name: "Maximum Edge-Weighted k-Clique",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Select exactly k pairwise-adjacent vertices maximizing the total weight of induced clique edges",
         fields: MaximumEdgeWeightedKCliqueCreateSpec::<i32>::FIELDS,

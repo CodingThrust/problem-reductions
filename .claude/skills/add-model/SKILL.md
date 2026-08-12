@@ -75,7 +75,7 @@ Read these first to understand the patterns:
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
 - Derive numeric implementation types from the mathematical domains in the issue and follow `docs/src/design.md#numeric-types-and-arithmetic`; serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation
-- `ProblemSchemaEntry` metadata is complete for the construction interface (`display_name`, `aliases`, `dimensions`, and `fields`)
+- `ProblemSchemaEntry` metadata is complete (`display_name`, `aliases`, `dimensions`, explicit `category`, and construction `fields`)
 - `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
@@ -91,6 +91,8 @@ Choose the appropriate sub-module under `src/models/`:
 - `set/` -- set-based problems (set packing, set cover)
 - `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
 - `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
+
+Declare the same structural choice explicitly in `ProblemSchemaEntry.category`. This is required metadata and is never inferred from `module_path!()` or the file location.
 
 ## Step 1.5: Infer problem size getters
 
@@ -122,7 +124,7 @@ Create `src/models/<category>/<name>.rs`:
 ```
 
 Key decisions:
-- **Schema metadata:** `ProblemSchemaEntry` must reflect the construction interface, including `display_name`, `aliases`, `dimensions`, and `fields`
+- **Schema metadata:** `ProblemSchemaEntry` must include the explicit structural `category` and reflect the construction interface through `display_name`, `aliases`, `dimensions`, and `fields`
 - **Objective problems:** use `type Value = Max<_>`, `Min<_>`, or `Extremum<_>` when the model should expose optimization-style witness helpers
 - **Witness problems:** use `type Value = Or` for existential feasibility problems
 - **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate` when witnesses are not meaningful
@@ -313,6 +315,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 |---------|-----|
 | Implementing weight management as a trait | Use inherent methods: `weights()`, `set_weights()`, `is_weighted()` |
 | Forgetting `inventory::submit!` | Every problem needs a `ProblemSchemaEntry` registration |
+| Omitting or inferring the model category | Set the required `ProblemSchemaEntry.category` explicitly to one of `Algebraic`, `Formula`, `Graph`, `Misc`, or `Set`; never parse `module_path!()`. |
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
 | Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `bool`, aggregate-only models use a fold value like `Sum` / `And` |

@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "QUBO",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "f64", &["f64"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
         fields: QuboCreateSpec::FIELDS,

@@ -3,6 +3,7 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::Result;
 use problemreductions::registry::collect_schemas;
+use problemreductions::registry::ProblemCategory;
 use problemreductions::rules::{MeasuredPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
 use std::any::Any;
@@ -11,7 +12,7 @@ use std::path::Path;
 
 pub fn list(
     query: Option<&str>,
-    category: Option<&str>,
+    category: Option<ProblemCategory>,
     all: bool,
     verbose: bool,
     out: &OutputConfig,
@@ -38,30 +39,25 @@ pub fn list(
         }
     }
     let query = query.map(str::to_lowercase);
-    let category = category.map(str::to_lowercase);
     let selected = catalog
         .iter()
         .filter(|problem| {
-            category.as_ref().is_none_or(|wanted| {
-                problem
-                    .category
-                    .unwrap_or("uncategorized")
-                    .eq_ignore_ascii_case(wanted)
-            }) && query.as_ref().is_none_or(|needle| {
-                problem.canonical_name.to_lowercase().contains(needle)
-                    || problem.display_name.to_lowercase().contains(needle)
-                    || problem
-                        .aliases
-                        .iter()
-                        .any(|alias| alias.to_lowercase().contains(needle))
-                    || variant_aliases
-                        .get(problem.canonical_name)
-                        .is_some_and(|aliases| {
-                            aliases
-                                .iter()
-                                .any(|alias| alias.to_lowercase().contains(needle))
-                        })
-            })
+            category.is_none_or(|wanted| problem.category == wanted)
+                && query.as_ref().is_none_or(|needle| {
+                    problem.canonical_name.to_lowercase().contains(needle)
+                        || problem.display_name.to_lowercase().contains(needle)
+                        || problem
+                            .aliases
+                            .iter()
+                            .any(|alias| alias.to_lowercase().contains(needle))
+                        || variant_aliases
+                            .get(problem.canonical_name)
+                            .is_some_and(|aliases| {
+                                aliases
+                                    .iter()
+                                    .any(|alias| alias.to_lowercase().contains(needle))
+                            })
+                })
         })
         .collect::<Vec<_>>();
     let graph = needs_variant_rows.then(ReductionGraph::new);
@@ -79,6 +75,7 @@ pub fn list(
         rules: usize,
         /// Best-known complexity
         complexity: String,
+        category: ProblemCategory,
     }
 
     let mut rows_data: Vec<VariantRow> = Vec::new();
@@ -124,6 +121,7 @@ pub fn list(
                     is_default,
                     rules: if i == 0 { rules } else { 0 },
                     complexity,
+                    category: problem.category,
                 });
             }
         }
@@ -131,9 +129,7 @@ pub fn list(
 
     let mut category_counts = BTreeMap::new();
     for problem in &catalog {
-        *category_counts
-            .entry(problem.category.unwrap_or("uncategorized"))
-            .or_insert(0usize) += 1;
+        *category_counts.entry(problem.category).or_insert(0usize) += 1;
     }
 
     let columns: Vec<(&str, Align, usize)> = vec![
@@ -201,7 +197,7 @@ pub fn list(
                     vec![
                         problem.canonical_name.to_string(),
                         aliases.join(", "),
-                        problem.category.unwrap_or("uncategorized").to_string(),
+                        problem.category.to_string(),
                         variant_counts
                             .get(problem.canonical_name)
                             .copied()
@@ -248,6 +244,7 @@ pub fn list(
                 "default": r.is_default,
                 "rules": r.rules,
                 "complexity": r.complexity,
+                "category": r.category,
             })
         }).collect::<Vec<_>>(),
     });

@@ -24,6 +24,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["One", "i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight tree connecting terminal vertices",
         fields: SteinerTreeCreateSpec::<i32>::FIELDS,

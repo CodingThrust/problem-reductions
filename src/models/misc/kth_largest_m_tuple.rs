@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Kth Largest m-Tuple",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Count m-tuples whose total size meets a bound and compare against a threshold K",
         fields: KthLargestMTupleCreateSpec::FIELDS,

@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Cyclic Ordering",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a permutation satisfying cyclic ordering constraints on triples",
         fields: &[

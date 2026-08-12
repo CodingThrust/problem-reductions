@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Optimum Communication Spanning Tree",
         aliases: &["OCST"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find spanning tree minimizing total weighted communication cost",
         fields: OptimumCommunicationSpanningTreeCreateSpec::FIELDS,

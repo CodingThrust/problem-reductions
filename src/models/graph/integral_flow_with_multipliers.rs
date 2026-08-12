@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Integral Flow With Multipliers",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with multiplier-scaled conservation at non-terminal vertices",
         fields: IntegralFlowWithMultipliersCreateSpec::FIELDS,

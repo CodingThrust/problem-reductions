@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Feasible Register Assignment",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a DAG computation can be scheduled without register conflicts under a fixed assignment",
         fields: &[

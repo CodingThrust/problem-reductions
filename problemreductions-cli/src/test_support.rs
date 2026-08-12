@@ -135,12 +135,30 @@ problemreductions::inventory::submit! {
         display_name: "CLI test aggregate value source",
         aliases: &[],
         dimensions: &[],
+        category: problemreductions::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Test-only dynamically discovered construction model",
         fields: &[FieldInfo {
             name: "values",
             type_name: "Vec<u64>",
             description: "Values included by selected configuration bits",
+        }],
+    }
+}
+
+problemreductions::inventory::submit! {
+    ProblemSchemaEntry {
+        name: AggregateValueTarget::NAME,
+        display_name: "CLI test aggregate value target",
+        aliases: &[],
+        dimensions: &[],
+        category: problemreductions::registry::ProblemCategory::Misc,
+        module_path: module_path!(),
+        description: "Test-only aggregate reduction target",
+        fields: &[FieldInfo {
+            name: "base",
+            type_name: "u64",
+            description: "Base aggregate value",
         }],
     }
 }

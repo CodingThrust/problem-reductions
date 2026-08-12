@@ -26,6 +26,7 @@ inventory::submit! {
         display_name: "Biclique Cover",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Cover bipartite edges with k bicliques",
         fields: BicliqueCoverCreateSpec::FIELDS,

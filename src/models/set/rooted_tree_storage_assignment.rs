@@ -11,6 +11,7 @@ inventory::submit! {
         display_name: "Rooted Tree Storage Assignment",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Does there exist a rooted tree whose subset path extensions cost at most K?",
         fields: &[

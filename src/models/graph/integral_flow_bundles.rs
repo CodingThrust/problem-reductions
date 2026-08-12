@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Integral Flow with Bundles",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with overlapping bundle capacities",
         fields: IntegralFlowBundlesCreateSpec::FIELDS,

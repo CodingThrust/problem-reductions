@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Scheduling to Minimize Weighted Completion Time",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign tasks to processors to minimize total weighted completion time (Smith's rule ordering)",
         fields: SchedulingToMinimizeWeightedCompletionTimeCreateSpec::FIELDS,

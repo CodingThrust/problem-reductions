@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Integer Expression Membership",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Decide whether a target integer belongs to the set represented by an expression tree over union and Minkowski sum",
         fields: &[

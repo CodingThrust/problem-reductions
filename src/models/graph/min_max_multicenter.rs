@@ -19,6 +19,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find K centers minimizing the maximum weighted distance from any vertex to its nearest center (vertex p-center)",
         fields: MinMaxMulticenterI32CreateSpec::FIELDS,

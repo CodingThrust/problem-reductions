@@ -20,6 +20,7 @@ inventory::submit! {
         display_name: "Minimum Dummy Activities in PERT Networks",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a PERT event network for a precedence DAG minimizing dummy activities",
         fields: MinimumDummyActivitiesPertCreateSpec::FIELDS,

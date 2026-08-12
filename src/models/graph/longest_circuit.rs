@@ -20,6 +20,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a simple circuit in a graph that maximizes total edge length",
         fields: LongestCircuitCreateSpec::FIELDS,

@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "Three-Matroid Intersection",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find a common independent set of size K in three partition matroids",
         fields: &[

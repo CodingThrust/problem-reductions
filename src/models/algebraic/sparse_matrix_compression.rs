@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Sparse Matrix Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Overlay binary-matrix rows into a short storage vector by shifting each row without collisions",
         fields: SparseMatrixCompressionCreateSpec::FIELDS,

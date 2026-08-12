@@ -23,6 +23,7 @@ inventory::submit! {
         display_name: "Comparative Containment",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["One", "i32", "f64"])],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Compare containment-weight sums for two set families over a shared universe",
         fields: ComparativeContainmentI32CreateSpec::FIELDS,

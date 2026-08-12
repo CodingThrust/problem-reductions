@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Set Basis",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine whether a collection of sets admits a basis of size k under union",
         fields: SetBasisCreateSpec::FIELDS,

@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Feasible Basis Extension",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Given matrix A, vector a_bar, and required columns S, find a feasible basis extending S",
         fields: FeasibleBasisExtensionCreateSpec::FIELDS,

@@ -21,6 +21,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Partition vertices into at most K connected components, each of total weight at most B",
         fields: BoundedComponentSpanningForestCreateSpec::FIELDS,

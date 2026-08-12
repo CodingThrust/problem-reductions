@@ -22,6 +22,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight spanning tree with subtree capacity constraints",
         fields: MinimumCapacitatedSpanningTreeCreateSpec::FIELDS,

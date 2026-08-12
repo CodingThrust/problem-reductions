@@ -21,6 +21,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Add weighted potential edges to make a graph biconnected within budget",
         fields: BiconnectivityAugmentationCreateSpec::FIELDS,

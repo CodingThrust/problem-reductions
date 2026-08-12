@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight feedback arc set in a directed graph",
         fields: MinimumFeedbackArcSetCreateSpec::FIELDS,

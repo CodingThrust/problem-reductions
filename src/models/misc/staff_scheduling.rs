@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Staff Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign workers to schedule patterns to satisfy per-period staffing requirements within a worker budget",
         fields: StaffSchedulingCreateSpec::FIELDS,

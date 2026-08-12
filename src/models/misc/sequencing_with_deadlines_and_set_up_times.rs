@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Sequencing with Deadlines and Set-Up Times",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether all tasks can be scheduled on a single machine by their deadlines given compiler-switch setup penalties",
         fields: &[

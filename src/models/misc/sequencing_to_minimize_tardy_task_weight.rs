@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Tardy Task Weight",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with lengths, weights, and deadlines to minimize total weight of tardy tasks",
         fields: SequencingToMinimizeTardyTaskWeightCreateSpec::FIELDS,

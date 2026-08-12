@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Weight Decoding",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find minimum Hamming weight binary vector x such that Hx ≡ s (mod 2)",
         fields: MinimumWeightDecodingCreateSpec::FIELDS,

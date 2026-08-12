@@ -23,6 +23,7 @@ inventory::submit! {
         display_name: "Shortest Common Supersequence",
         aliases: &["SCS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a shortest common supersequence for a set of strings",
         fields: ShortestCommonSupersequenceCreateSpec::FIELDS,

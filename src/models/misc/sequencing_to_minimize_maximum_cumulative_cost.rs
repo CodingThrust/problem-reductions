@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Maximum Cumulative Cost",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints to minimize the maximum cumulative cost prefix",
         fields: SequencingCumulativeCostCreateSpec::FIELDS,

@@ -20,6 +20,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a branching with partition constraints and weight at least K",
         fields: MultipleChoiceBranchingCreateSpec::FIELDS,

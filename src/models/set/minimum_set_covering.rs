@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Set Covering",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
         fields: MinimumSetCoveringCreateSpec::FIELDS,

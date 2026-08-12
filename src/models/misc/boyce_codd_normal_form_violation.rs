@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Boyce-Codd Normal Form Violation",
         aliases: &["BCNFViolation", "BCNF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Test whether a subset of attributes violates Boyce-Codd normal form",
         fields: BoyceCoddNormalFormViolationCreateSpec::FIELDS,

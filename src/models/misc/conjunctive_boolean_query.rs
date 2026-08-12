@@ -20,6 +20,7 @@ inventory::submit! {
         display_name: "Conjunctive Boolean Query",
         aliases: &["CBQ"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Evaluate a conjunctive Boolean query over a relational database",
         fields: ConjunctiveBooleanQueryCreateSpec::FIELDS,

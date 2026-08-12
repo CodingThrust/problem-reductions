@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Register Sufficiency for Loops",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign registers to loop variables minimizing register count, no two conflicting variables share a register",
         fields: &[

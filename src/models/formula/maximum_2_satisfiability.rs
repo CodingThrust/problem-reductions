@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Maximum 2-Satisfiability",
         aliases: &["MAX2SAT"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Maximize the number of satisfied 2-literal clauses",
         fields: &[

@@ -51,6 +51,7 @@ inventory::submit! {
         display_name: "Minimum-Cost Maximum-Flow",
         aliases: &["MCMF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow that lexicographically maximizes value then minimizes total arc cost",
         fields: &[

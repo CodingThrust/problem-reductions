@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Resource Constrained Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule unit-length tasks on m processors with resource constraints and a deadline",
         fields: &[

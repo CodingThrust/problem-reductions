@@ -42,6 +42,7 @@ macro_rules! register_decision_variant {
         $complexity:literal,
         $aliases:expr,
         $description:literal,
+        category: $category:expr,
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
         size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
@@ -64,6 +65,7 @@ macro_rules! register_decision_variant {
                 display_name: $crate::register_decision_variant!(@display_name $name),
                 aliases: $aliases,
                 dimensions: &[$($dim),*],
+                category: $category,
                 module_path: module_path!(),
                 description: $description,
                 fields: &[$($field),*],

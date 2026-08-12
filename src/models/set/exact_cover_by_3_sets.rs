@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Exact Cover by 3-Sets",
         aliases: &["X3C"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if a collection of 3-element subsets contains an exact cover",
         fields: ExactCoverBy3SetsCreateSpec::FIELDS,

@@ -26,6 +26,7 @@ inventory::submit! {
             VariantDimension::new("weight", "One", &["One", "i32"]),
             VariantDimension::new("k", "KN", &["KN"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum-weight vertex subset whose induced subgraph has maximum degree at most k-1",
         fields: MaximumCoKPlexCreateSpec::<One>::FIELDS,

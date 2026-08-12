@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Maximum Set Packing",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "One", &["One", "i32", "f64"])],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
         fields: MaximumSetPackingCreateSpec::<One>::FIELDS,

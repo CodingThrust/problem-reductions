@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Consecutive Ones Matrix Augmentation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Augment a binary matrix with at most K zero-to-one flips so some column permutation has the consecutive ones property",
         fields: ConsecutiveOnesMatrixAugmentationCreateSpec::FIELDS,

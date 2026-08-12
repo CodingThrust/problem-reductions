@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Betweenness",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a linear ordering where specified elements are between others",
         fields: &[

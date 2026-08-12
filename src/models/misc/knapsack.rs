@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Knapsack",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Select items to maximize total value subject to weight capacity constraint",
         fields: KnapsackCreateSpec::FIELDS,

@@ -1,6 +1,20 @@
 use super::*;
 use crate::registry::find_variant_entry;
 use std::collections::BTreeMap;
+use std::str::FromStr;
+
+#[test]
+fn problem_category_parses_only_declared_values() {
+    for category in ProblemCategory::ALL {
+        assert_eq!(ProblemCategory::from_str(category.as_str()), Ok(category));
+    }
+    assert_eq!(
+        ProblemCategory::from_str("unknown")
+            .unwrap_err()
+            .to_string(),
+        "unknown problem category `unknown`; expected one of: algebraic, formula, graph, misc, set"
+    );
+}
 
 #[test]
 fn test_collect_schemas_returns_all_problems() {
@@ -70,6 +84,7 @@ fn test_schema_json_serialization() {
     let json = serde_json::to_string(&schemas).expect("Schemas should serialize to JSON");
     assert!(json.contains("MaximumIndependentSet"));
     assert!(json.contains("graph"));
+    assert!(json.contains("\"category\":\"graph\""));
 }
 
 #[test]

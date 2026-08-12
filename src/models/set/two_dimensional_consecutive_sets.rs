@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "2-Dimensional Consecutive Sets",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if alphabet can be partitioned into ordered groups with intersection and consecutiveness constraints",
         fields: &[

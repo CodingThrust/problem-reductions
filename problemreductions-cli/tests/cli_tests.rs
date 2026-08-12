@@ -88,6 +88,9 @@ fn test_list() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Registered catalog"));
     assert!(stdout.contains("graph"));
+    for category in ["algebraic", "formula", "graph", "misc", "set"] {
+        assert!(stdout.contains(category));
+    }
     assert!(!stdout.contains("MaximumIndependentSet"));
     assert!(stdout.lines().count() < 30, "default list is too verbose");
 }
@@ -119,7 +122,22 @@ fn test_list_json_respects_category_filter() {
         .all(|variant| variant["name"] != "MaximumIndependentSet"));
     assert!(variants
         .iter()
+        .all(|variant| variant["category"] == "formula"));
+    assert!(variants
+        .iter()
         .any(|variant| variant["name"] == "KSatisfiability/K3"));
+}
+
+#[test]
+fn test_list_category_rejects_unknown_value() {
+    let output = pred()
+        .args(["list", "--category", "unknown"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("unknown problem category `unknown`"));
+    assert!(stderr.contains("algebraic, formula, graph, misc, set"));
 }
 
 #[test]

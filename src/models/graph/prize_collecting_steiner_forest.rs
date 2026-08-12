@@ -42,6 +42,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "f64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components",
         fields: PrizeCollectingSteinerForestI32CreateSpec::FIELDS,

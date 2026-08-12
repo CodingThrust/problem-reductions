@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Flow Shop Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine if a flow-shop schedule for jobs on m processors meets a deadline",
         fields: &[

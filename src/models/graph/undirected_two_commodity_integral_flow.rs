@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Undirected Two-Commodity Integral Flow",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
         fields: UndirectedTwoCommodityIntegralFlowCreateSpec::FIELDS,

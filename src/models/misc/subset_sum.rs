@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Subset Sum",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a subset of positive integers that sums to exactly a target value",
         fields: &[

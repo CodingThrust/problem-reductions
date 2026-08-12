@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Subgraph Isomorphism",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
         fields: &[

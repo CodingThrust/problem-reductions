@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "3-Partition",
         aliases: &["3Partition", "3-Partition"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition 3m bounded positive integers into m triples whose sums all equal B",
         fields: ThreePartitionCreateSpec::FIELDS,

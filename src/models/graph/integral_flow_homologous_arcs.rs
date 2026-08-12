@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Integral Flow with Homologous Arcs",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow feasibility with arc-pair equality constraints",
         fields: IntegralFlowHomologousArcsCreateSpec::FIELDS,

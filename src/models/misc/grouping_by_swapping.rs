@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Grouping by Swapping",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Group equal symbols into contiguous blocks using at most K adjacent swaps",
         fields: GroupingBySwappingCreateSpec::FIELDS,

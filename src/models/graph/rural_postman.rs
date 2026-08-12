@@ -20,6 +20,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-cost circuit covering all required edges (Rural Postman Problem)",
         fields: RuralPostmanCreateSpec::FIELDS,

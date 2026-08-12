@@ -25,6 +25,7 @@ inventory::submit! {
         display_name: "Minimum External Macro Data Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum-cost compression using an external dictionary and compressed string with pointers",
         fields: &[

@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Hitting Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find a minimum-size subset of universe elements that hits every set",
         fields: MinimumHittingSetCreateSpec::FIELDS,

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Production Planning",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a multi-period production plan can satisfy all demand within a cost bound",
         fields: ProductionPlanningCreateSpec::FIELDS,
