@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Job-Shop Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize the makespan of a job-shop schedule",
         fields: JobShopSchedulingCreateSpec::FIELDS,

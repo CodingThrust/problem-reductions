@@ -88,6 +88,7 @@ inventory::submit! {
         display_name: "Consistency of Database Frequency Tables",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether pairwise frequency tables and known values admit a consistent complete database assignment",
         fields: ConsistencyOfDatabaseFrequencyTablesCreateSpec::FIELDS,

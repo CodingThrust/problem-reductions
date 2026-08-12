@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Longest Common Subsequence",
         aliases: &["LCS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a longest common subsequence for a set of strings",
         fields: LongestCommonSubsequenceCreateSpec::FIELDS,

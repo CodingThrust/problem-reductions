@@ -20,6 +20,7 @@ inventory::submit! {
         display_name: "Quadratic Diophantine Equations",
         aliases: &["QDE"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Decide whether ax^2 + by = c has a solution in positive integers x, y",
         fields: &[

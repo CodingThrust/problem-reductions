@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Precedence Constrained Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule unit-length tasks on m processors by deadline D respecting precedence constraints",
         fields: PrecedenceConstrainedSchedulingCreateSpec::FIELDS,

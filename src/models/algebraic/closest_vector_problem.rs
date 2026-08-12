@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Closest Vector Problem",
         aliases: &["CVP"],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find the closest lattice point to a target vector",
         fields: ClosestVectorProblemI32CreateSpec::FIELDS,

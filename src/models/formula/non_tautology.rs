@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Non-Tautology",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Find a falsifying assignment for a DNF formula (proving it is not a tautology)",
         fields: &[

@@ -27,6 +27,7 @@ inventory::submit! {
         display_name: "Shortest Common Superstring",
         aliases: &["SCSS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a shortest string that contains every input string as a contiguous substring",
         fields: &[

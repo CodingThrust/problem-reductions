@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Consecutive Block Minimization",
         aliases: &["CBM"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
         fields: ConsecutiveBlockMinimizationCreateSpec::FIELDS,

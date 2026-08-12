@@ -23,6 +23,7 @@ inventory::submit! {
         display_name: "Non-Liveness Free Petri Net",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a free-choice Petri net is not live (some transition can become permanently dead)",
         fields: &[

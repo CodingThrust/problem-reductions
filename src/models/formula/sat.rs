@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Satisfiability",
         aliases: &["SAT"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Find satisfying assignment for CNF formula",
         fields: &[

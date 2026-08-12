@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Weight Solution to Linear Equations",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find a rational solution to Ay=b minimizing the number of non-zero entries",
         fields: MinimumWeightSolutionCreateSpec::FIELDS,

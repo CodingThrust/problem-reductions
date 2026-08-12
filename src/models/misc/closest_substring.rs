@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Closest Substring",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a center string of fixed length and one length-ell window per input string that minimize the maximum Hamming distance between the center and any selected window",
         fields: &[

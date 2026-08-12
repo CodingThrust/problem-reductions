@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "Capacity Assignment",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize total cost of capacity assignment subject to a delay budget",
         fields: CapacityAssignmentCreateSpec::FIELDS,

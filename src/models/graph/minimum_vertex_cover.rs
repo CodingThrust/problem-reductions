@@ -20,6 +20,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
         fields: MinimumVertexCoverCreateSpec::<i32>::FIELDS,
@@ -251,6 +252,7 @@ crate::register_decision_variant!(
     "1.1996^num_vertices",
     &["DMVC", "VC", "VertexCover"],
     "Decision version: does a vertex cover of cost <= bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         VariantDimension::new("weight", "i32", &["i32"]),

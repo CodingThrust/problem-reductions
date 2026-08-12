@@ -21,6 +21,7 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Weighted Completion Time",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with lengths, weights, and precedence constraints to minimize total weighted completion time",
         fields: SequencingToMinimizeWeightedCompletionTimeCreateSpec::FIELDS,

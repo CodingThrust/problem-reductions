@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Not-All-Equal Satisfiability",
         aliases: &["NAESAT"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Find an assignment where every CNF clause has both a true and a false literal",
         fields: &[

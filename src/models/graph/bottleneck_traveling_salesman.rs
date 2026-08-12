@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Bottleneck Traveling Salesman",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a Hamiltonian cycle minimizing the maximum selected edge weight",
         fields: BottleneckTravelingSalesmanCreateSpec::FIELDS,

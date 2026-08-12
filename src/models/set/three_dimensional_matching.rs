@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Three-Dimensional Matching",
         aliases: &["3DM"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find a perfect matching in a tripartite hypergraph",
         fields: &[

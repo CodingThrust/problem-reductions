@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Partition",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a multiset of positive integers can be partitioned into two subsets of equal sum",
         fields: &[

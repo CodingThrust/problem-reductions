@@ -22,6 +22,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-cost closed walk covering all arcs and edges in a mixed graph",
         fields: MixedChinesePostmanI32CreateSpec::FIELDS,

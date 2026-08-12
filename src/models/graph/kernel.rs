@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed graph contain a kernel (independent and absorbing vertex subset)?",
         fields: &[

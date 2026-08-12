@@ -24,6 +24,7 @@ inventory::submit! {
         display_name: "String-to-String Correction",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Derive target string from source using at most K deletions and adjacent swaps",
         fields: StringToStringCorrectionCreateSpec::FIELDS,

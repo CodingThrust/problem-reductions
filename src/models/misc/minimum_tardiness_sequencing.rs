@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Minimum Tardiness Sequencing",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "One", &["One", "i32"])],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
         fields: MinimumTardinessSequencingOneCreateSpec::FIELDS,

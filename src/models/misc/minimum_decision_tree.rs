@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Decision Tree",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find decision tree identifying objects with minimum total path length",
         fields: MinimumDecisionTreeCreateSpec::FIELDS,

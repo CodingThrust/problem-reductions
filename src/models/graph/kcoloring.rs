@@ -18,6 +18,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("k", "KN", &["KN", "K2", "K3", "K4", "K5"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find valid k-coloring of a graph",
         fields: RuntimeKColoringCreateSpec::FIELDS,

@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Sequencing Within Intervals",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks non-overlappingly within their time windows",
         fields: SequencingWithinIntervalsCreateSpec::FIELDS,

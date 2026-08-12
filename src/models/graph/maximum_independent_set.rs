@@ -19,6 +19,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "KingsSubgraph", "TriangularSubgraph", "UnitDiskGraph"]),
             VariantDimension::new("weight", "One", &["One", "i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight independent set in a graph",
         fields: MaximumIndependentSetSimpleOneCreateSpec::FIELDS,

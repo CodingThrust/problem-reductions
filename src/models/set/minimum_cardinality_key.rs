@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Cardinality Key",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find a candidate key of minimum cardinality in a relational system",
         fields: &[

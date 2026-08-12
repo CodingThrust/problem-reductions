@@ -10,6 +10,7 @@ inventory::submit! {
         display_name: "Balanced Complete Bipartite Subgraph",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Decide whether a bipartite graph contains a K_{k,k} subgraph",
         fields: BalancedCompleteBipartiteSubgraphCreateSpec::FIELDS,

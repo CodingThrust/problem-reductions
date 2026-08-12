@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Weighted Tardiness",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule jobs on one machine so total weighted tardiness is at most K",
         fields: SequencingToMinimizeWeightedTardinessCreateSpec::FIELDS,

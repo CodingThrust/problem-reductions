@@ -25,6 +25,7 @@ inventory::submit! {
         display_name: "Undirected Flow with Lower Bounds",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether an undirected lower-bounded flow of value at least R exists",
         fields: UndirectedFlowLowerBoundsCreateSpec::FIELDS,

@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Conjunctive Query Foldability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine if one conjunctive query can be folded into another by substituting undistinguished variables",
         fields: &[

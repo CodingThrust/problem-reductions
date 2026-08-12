@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Path-Constrained Network Flow",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow feasibility on a prescribed collection of directed s-t paths",
         fields: PathConstrainedNetworkFlowCreateSpec::FIELDS,

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Preemptive Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize makespan for preemptive parallel-processor scheduling with precedence constraints",
         fields: PreemptiveSchedulingCreateSpec::FIELDS,

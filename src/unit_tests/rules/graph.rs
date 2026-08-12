@@ -8,7 +8,6 @@ use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
-use crate::registry::problem_type::problem_category_from_module_path;
 use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
@@ -1077,39 +1076,6 @@ fn test_to_json_string() {
 }
 
 #[test]
-fn test_category_from_module_path() {
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::graph::maximum_independent_set"
-        ),
-        "graph"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::set::minimum_set_covering"
-        ),
-        "set"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::algebraic::qubo"),
-        "algebraic"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::formula::sat"),
-        "formula"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::misc::factoring"),
-        "misc"
-    );
-    // Fallback for unexpected format
-    assert_eq!(
-        ReductionGraph::category_from_module_path("foo::bar"),
-        "other"
-    );
-}
-
-#[test]
 fn test_doc_path_from_module_path() {
     assert_eq!(
         ReductionGraph::doc_path_from_module_path(
@@ -1506,29 +1472,6 @@ fn test_edges_have_doc_paths() {
             json.target_node(edge).name
         );
     }
-}
-
-#[test]
-fn test_problem_category_from_module_path() {
-    assert_eq!(
-        problem_category_from_module_path(
-            "problemreductions::models::graph::maximum_independent_set"
-        ),
-        Some("graph")
-    );
-    assert_eq!(
-        problem_category_from_module_path("problemreductions::models::formula::satisfiability"),
-        Some("formula")
-    );
-    assert_eq!(
-        problem_category_from_module_path("problemreductions::models::set::maximum_set_packing"),
-        Some("set")
-    );
-    assert_eq!(
-        problem_category_from_module_path("problemreductions::models::algebraic::qubo"),
-        Some("algebraic")
-    );
-    assert_eq!(problem_category_from_module_path("unknown::path"), None);
 }
 
 #[test]

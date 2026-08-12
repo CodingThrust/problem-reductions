@@ -22,6 +22,7 @@ inventory::submit! {
         display_name: "Quadratic Congruences",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Decide whether x² ≡ a (mod b) has a solution for x in {1, ..., c-1}",
         fields: &[

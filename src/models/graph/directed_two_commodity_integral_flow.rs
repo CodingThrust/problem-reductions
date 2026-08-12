@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Directed Two-Commodity Integral Flow",
         aliases: &["D2CIF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Two-commodity integral flow feasibility on a directed graph",
         fields: &[

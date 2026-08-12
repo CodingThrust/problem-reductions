@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Timetable Design",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign craftsmen to tasks over work periods subject to availability and exact pairwise requirements",
         fields: TimetableDesignCreateSpec::FIELDS,

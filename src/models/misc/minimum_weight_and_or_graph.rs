@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Weight AND/OR Graph",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find the minimum-weight solution subgraph from a source in a DAG with AND/OR gates",
         fields: MinimumWeightAndOrGraphCreateSpec::FIELDS,

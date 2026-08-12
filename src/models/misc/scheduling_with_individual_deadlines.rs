@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Scheduling With Individual Deadlines",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether unit-length tasks can be scheduled on m processors while meeting individual deadlines",
         fields: SchedulingWithIndividualDeadlinesCreateSpec::FIELDS,

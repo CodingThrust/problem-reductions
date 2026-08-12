@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Multiple Copy File Allocation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Place file copies on graph vertices to minimize total storage plus access cost",
         fields: MultipleCopyFileAllocationCreateSpec::FIELDS,

@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "k-Clique",
         aliases: &["Clique"],
         dimensions: &[VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"])],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether a graph contains a clique of size at least k",
         fields: KCliqueCreateSpec::FIELDS,

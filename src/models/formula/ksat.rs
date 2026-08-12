@@ -54,6 +54,7 @@ inventory::submit! {
         display_name: "K-Satisfiability",
         aliases: &["KSAT"],
         dimensions: &[VariantDimension::new("k", "KN", &["KN", "K2", "K3"])],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
         fields: &[

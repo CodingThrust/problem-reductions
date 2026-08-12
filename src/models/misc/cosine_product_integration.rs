@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Cosine Product Integration",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Decide whether a balanced sign assignment exists for a sequence of integer frequencies",
         fields: &[

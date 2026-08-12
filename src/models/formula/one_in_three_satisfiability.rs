@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "One-in-Three Satisfiability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "3-SAT variant where each clause has exactly one true literal",
         fields: &[

@@ -21,6 +21,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight dominating set in a graph",
         fields: MinimumDominatingSetCreateSpec::<i32>::FIELDS,
@@ -246,6 +247,7 @@ crate::register_decision_variant!(
     "1.4969^num_vertices",
     &[],
     "Decision version: does a dominating set of cost <= bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         VariantDimension::new("weight", "i32", &["i32", "One"]),

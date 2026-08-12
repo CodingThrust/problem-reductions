@@ -60,7 +60,7 @@ fn main() -> anyhow::Result<()> {
             if rules {
                 commands::graph::list_rules(query.as_deref(), all, verbose, &out)
             } else {
-                commands::graph::list(query.as_deref(), category.as_deref(), all, verbose, &out)
+                commands::graph::list(query.as_deref(), category, all, verbose, &out)
             }
         }
         Commands::Show { problem } => commands::graph::show(&problem, &out),

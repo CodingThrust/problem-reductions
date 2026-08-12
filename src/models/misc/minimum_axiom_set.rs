@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Axiom Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find smallest axiom subset whose deductive closure equals the true sentences",
         fields: &[

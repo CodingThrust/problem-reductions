@@ -13,6 +13,7 @@ inventory::submit! {
         display_name: "Set Splitting",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Partition a universe into two parts so that every subset is non-monochromatic",
         fields: &[

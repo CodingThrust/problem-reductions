@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Minimum Edge-Cost Flow",
         aliases: &["MECF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow minimizing the number of arcs with nonzero flow (weighted by price)",
         fields: &[

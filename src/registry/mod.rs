@@ -56,8 +56,9 @@ pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
 pub use schema::{
-    collect_schemas, declared_size_fields, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson,
-    ProblemSizeFieldEntry, VariantDimension,
+    collect_schemas, declared_size_fields, FieldInfoJson, ParseProblemCategoryError,
+    ProblemCategory, ProblemSchemaEntry, ProblemSchemaJson, ProblemSizeFieldEntry,
+    VariantDimension,
 };
 pub use variant::{
     find_variant_by_alias, find_variant_entry, validate_create_inputs,

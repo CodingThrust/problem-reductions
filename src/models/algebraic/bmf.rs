@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "BMF",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Boolean matrix factorization",
         fields: &[

@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Minimum Code Generation (Unlimited Registers)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum-length instruction sequence for an unlimited-register machine with 2-address instructions to evaluate an expression DAG",
         fields: &[

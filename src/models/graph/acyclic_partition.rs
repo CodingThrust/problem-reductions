@@ -21,6 +21,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Partition a directed graph into bounded-weight groups with an acyclic quotient graph and bounded inter-partition cost",
         fields: AcyclicPartitionCreateSpec::FIELDS,

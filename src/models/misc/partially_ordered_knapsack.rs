@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Partially Ordered Knapsack",
         aliases: &["POK"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Select items to maximize total value subject to precedence constraints and weight capacity",
         fields: PartiallyOrderedKnapsackCreateSpec::FIELDS,

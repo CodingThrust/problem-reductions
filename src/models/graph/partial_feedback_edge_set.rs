@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Remove at most K edges so that every cycle of length at most L is hit",
         fields: PartialFeedbackEdgeSetCreateSpec::FIELDS,

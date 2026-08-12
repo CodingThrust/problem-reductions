@@ -1,6 +1,6 @@
 //! Problem type catalog: runtime lookup by name, alias, and variant validation.
 
-use super::schema::{ProblemSchemaEntry, VariantDimension};
+use super::schema::{ProblemCategory, ProblemSchemaEntry, VariantDimension};
 use super::FieldInfo;
 use std::collections::BTreeMap;
 
@@ -19,8 +19,8 @@ pub struct ProblemType {
     pub description: &'static str,
     /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
-    /// Top-level model category derived from the declaring module path.
-    pub category: Option<&'static str>,
+    /// Explicit structural model category.
+    pub category: ProblemCategory,
 }
 
 impl ProblemType {
@@ -33,7 +33,7 @@ impl ProblemType {
             dimensions: entry.dimensions,
             description: entry.description,
             fields: entry.fields,
-            category: problem_category_from_module_path(entry.module_path),
+            category: entry.category,
         }
     }
 
@@ -44,12 +44,6 @@ impl ProblemType {
             .map(|d| (d.key.to_string(), d.default_value.to_string()))
             .collect()
     }
-}
-
-/// Extract a model category from `...::models::<category>::...`.
-pub(crate) fn problem_category_from_module_path(module_path: &str) -> Option<&str> {
-    let (_, model_path) = module_path.split_once("::models::")?;
-    model_path.split("::").next()
 }
 
 /// Find a problem type by exact canonical name.

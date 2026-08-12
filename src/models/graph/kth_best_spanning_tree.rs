@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Kth Best Spanning Tree",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Do there exist k distinct spanning trees with total weight at most B?",
         fields: KthBestSpanningTreeCreateSpec::FIELDS,

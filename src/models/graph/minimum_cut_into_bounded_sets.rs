@@ -20,6 +20,7 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-weight cut partitioning vertices into two bounded-size sets",
         fields: MinimumCutIntoBoundedSetsCreateSpec::FIELDS,

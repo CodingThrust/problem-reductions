@@ -32,6 +32,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Minimum number of edge deletions so every component is an isolated vertex or a highly connected graph on >=3 vertices",
         fields: &[

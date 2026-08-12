@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Additional Key",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a relational schema has a candidate key not in a given set",
         fields: &[
