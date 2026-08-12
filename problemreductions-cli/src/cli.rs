@@ -1,5 +1,6 @@
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
 use problemreductions::registry::ProblemCategory;
+use std::ffi::OsString;
 use std::path::PathBuf;
 
 pub use crate::create_args::CreateArgs;
@@ -46,6 +47,35 @@ pub struct Cli {
 
     #[command(subcommand)]
     pub command: Commands,
+}
+
+impl Cli {
+    pub fn try_parse() -> Result<Self, clap::Error> {
+        Self::try_parse_from(std::env::args_os())
+    }
+
+    pub fn try_parse_from<I, T>(args: I) -> Result<Self, clap::Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString>,
+    {
+        // The discovery command treats the problem spec as an external subcommand,
+        // so it can capture the selected model without registering the whole catalog.
+        let args = args.into_iter().map(Into::into).collect::<Vec<_>>();
+        let command = <Self as CommandFactory>::command();
+        let discovery_matches = command.clone().try_get_matches_from(args.clone())?;
+        let selected = discovery_matches
+            .subcommand_matches("create")
+            .and_then(|matches| matches.subcommand_name());
+
+        let mut matches = if let Some(selected) = selected {
+            crate::create_args::command_for_selected_problem(command, selected)?
+                .try_get_matches_from(args)?
+        } else {
+            discovery_matches
+        };
+        Self::from_arg_matches_mut(&mut matches)
+    }
 }
 
 #[derive(Subcommand)]
@@ -365,10 +395,10 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::{error::ErrorKind, Parser};
+    use clap::error::ErrorKind;
 
     #[test]
-    fn dynamic_create_parser_uses_bounded_stack() {
+    fn two_stage_create_parser_uses_bounded_stack() {
         std::thread::Builder::new()
             .stack_size(1024 * 1024)
             .spawn(|| {
@@ -449,9 +479,7 @@ mod tests {
                     "0>1",
                 ])
                 .expect("ordinary edges fields keep their schema-derived name");
-                crate::create_args::with_static_completion_schema(|| {
-                    Cli::command().debug_assert();
-                });
+                Cli::command().debug_assert();
             })
             .expect("spawn parser thread")
             .join()
@@ -459,7 +487,7 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_create_parser_preserves_problem_and_variant_aliases() {
+    fn two_stage_create_parser_preserves_problem_and_variant_aliases() {
         let cli = Cli::try_parse_from([
             "pred",
             "create",
@@ -478,7 +506,41 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_create_parser_builds_every_registered_subcommand() {
-        Cli::command().debug_assert();
+    fn selected_create_parser_preserves_trailing_global_arguments() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "MIS",
+            "--graph",
+            "0-1",
+            "--output",
+            "problem.json",
+            "--json",
+        ])
+        .expect("global arguments parse after the selected model");
+        assert_eq!(cli.output, Some(PathBuf::from("problem.json")));
+        assert!(cli.json);
+    }
+
+    #[test]
+    fn selected_create_parser_renders_model_help() {
+        let error = match Cli::try_parse_from(["pred", "create", "MIS", "--help"]) {
+            Ok(_) => panic!("help should exit after rendering the selected model command"),
+            Err(error) => error,
+        };
+        assert_eq!(error.kind(), ErrorKind::DisplayHelp);
+        let help = error.to_string();
+        assert!(help.contains("--graph"));
+        assert!(!help.contains("--clauses"));
+    }
+
+    #[test]
+    fn static_create_parser_has_no_registered_model_subcommands() {
+        let command = Cli::command();
+        let create = command
+            .find_subcommand("create")
+            .expect("create subcommand");
+        assert_eq!(create.get_subcommands().count(), 0);
+        assert!(create.is_allow_external_subcommands_set());
     }
 }

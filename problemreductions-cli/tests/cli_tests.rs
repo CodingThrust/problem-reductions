@@ -7788,8 +7788,8 @@ fn test_create_mvc_kings_subgraph_unsupported_variant() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("unrecognized subcommand 'MVC/KingsSubgraph'"),
-        "should reject the unregistered variant command: {stderr}"
+        stderr.contains("Unknown variant value \"KingsSubgraph\""),
+        "should reject the unregistered variant: {stderr}"
     );
 }
 

@@ -1,8 +1,7 @@
 use clap::parser::ValueSource;
 use clap::{Arg, ArgAction, ArgMatches, Args, Command, Error, FromArgMatches};
-use problemreductions::registry::{problem_types, variant_entries, ProblemType};
-use std::cell::Cell;
-use std::collections::{BTreeMap, BTreeSet};
+use problemreductions::registry::{variant_entries, ProblemType};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::str::FromStr;
 
@@ -11,17 +10,6 @@ use crate::cli::ExampleSide;
 const EXAMPLE: &str = "example";
 const EXAMPLE_TARGET: &str = "to";
 const EXAMPLE_SIDE: &str = "example-side";
-
-thread_local! {
-    static STATIC_COMPLETION_BUILD: Cell<bool> = const { Cell::new(false) };
-}
-
-pub(crate) fn with_static_completion_schema<T>(build: impl FnOnce() -> T) -> T {
-    STATIC_COMPLETION_BUILD.set(true);
-    let result = build();
-    STATIC_COMPLETION_BUILD.set(false);
-    result
-}
 
 #[derive(Debug, Clone)]
 pub struct CreateArgs {
@@ -77,6 +65,8 @@ impl Args for CreateArgs {
     fn augment_args(command: Command) -> Command {
         command
             .subcommand_required(false)
+            .allow_external_subcommands(true)
+            .subcommand_value_name("PROBLEM_SPEC")
             .arg(Arg::new(EXAMPLE).long(EXAMPLE).value_name("PROBLEM_SPEC"))
             .arg(
                 Arg::new(EXAMPLE_TARGET)
@@ -90,7 +80,6 @@ impl Args for CreateArgs {
                     .value_parser(clap::builder::EnumValueParser::<ExampleSide>::new())
                     .default_value("source"),
             )
-            .defer(add_problem_subcommands)
     }
 
     fn augment_args_for_update(command: Command) -> Command {
@@ -147,132 +136,6 @@ fn os_value(value: &OsStr) -> String {
         .to_string()
 }
 
-fn add_problem_subcommands(mut command: Command) -> Command {
-    let include_problem_flags = !STATIC_COMPLETION_BUILD.get();
-    let problems = problem_types();
-    let entries = variant_entries();
-    let canonical_names = problems
-        .iter()
-        .map(|problem| problem.canonical_name)
-        .collect::<BTreeSet<_>>();
-    for problem in problems {
-        for variant in variants_for(&problem, &entries) {
-            let names = names_for_variant(&problem, &variant, &entries, &canonical_names);
-            let Some((name, aliases)) = names.split_first() else {
-                continue;
-            };
-            let canonical = problem.canonical_name.to_string();
-            let variant_spec = name.clone();
-            let mut subcommand = Command::new(name.clone())
-                .about(problem.description)
-                .aliases(aliases.iter().cloned())
-                .disable_help_subcommand(true);
-            if include_problem_flags {
-                subcommand = subcommand.defer(add_selected_problem_args);
-            }
-            command = command.subcommand(
-                subcommand.long_about(format!("Create a {canonical} instance ({variant_spec})")),
-            );
-        }
-    }
-    command
-}
-
-fn variants_for(
-    problem: &ProblemType,
-    entries: &[&problemreductions::registry::VariantEntry],
-) -> Vec<BTreeMap<String, String>> {
-    let mut variants = entries
-        .iter()
-        .filter(|entry| entry.name == problem.canonical_name)
-        .map(|entry| entry.variant_map())
-        .collect::<Vec<_>>();
-    variants.sort();
-    variants.dedup();
-    variants
-}
-
-fn names_for_variant(
-    problem: &ProblemType,
-    variant: &BTreeMap<String, String>,
-    entries: &[&problemreductions::registry::VariantEntry],
-    canonical_names: &BTreeSet<&str>,
-) -> Vec<String> {
-    let mut prefixes = vec![problem.canonical_name];
-    prefixes.extend(
-        problem
-            .aliases
-            .iter()
-            .copied()
-            .filter(|alias| !is_other_problem_name(problem.canonical_name, alias, canonical_names)),
-    );
-
-    let non_default = problem
-        .dimensions
-        .iter()
-        .filter(|dimension| {
-            dimension_value(variant, dimension.key, dimension.default_value)
-                != dimension.default_value
-        })
-        .collect::<Vec<_>>();
-    let mut names = BTreeSet::new();
-    for prefix in prefixes {
-        let suffix = non_default
-            .iter()
-            .map(|dimension| dimension_value(variant, dimension.key, dimension.default_value))
-            .collect::<Vec<_>>();
-        names.insert(join_spec(prefix, &suffix));
-
-        let full = problem
-            .dimensions
-            .iter()
-            .map(|dimension| dimension_value(variant, dimension.key, dimension.default_value))
-            .collect::<Vec<_>>();
-        names.insert(join_spec(prefix, &full));
-    }
-
-    for entry in entries
-        .iter()
-        .filter(|entry| entry.name == problem.canonical_name && entry.variant_map() == *variant)
-    {
-        names.extend(
-            entry
-                .aliases
-                .iter()
-                .filter(|alias| {
-                    !is_other_problem_name(problem.canonical_name, alias, canonical_names)
-                })
-                .map(|alias| (*alias).to_string()),
-        );
-    }
-
-    let canonical = join_spec(
-        problem.canonical_name,
-        &non_default
-            .iter()
-            .map(|dimension| dimension_value(variant, dimension.key, dimension.default_value))
-            .collect::<Vec<_>>(),
-    );
-    let mut names = names.into_iter().collect::<Vec<_>>();
-    names.sort();
-    let position = names
-        .iter()
-        .position(|name| name == &canonical)
-        .expect("canonical create command name");
-    names.swap(0, position);
-    names
-}
-
-fn is_other_problem_name(
-    canonical: &str,
-    candidate: &str,
-    canonical_names: &BTreeSet<&str>,
-) -> bool {
-    canonical_names
-        .iter()
-        .any(|name| *name != canonical && name.eq_ignore_ascii_case(candidate))
-}
-
 fn dimension_value<'a>(
     variant: &'a BTreeMap<String, String>,
     key: &str,
@@ -289,10 +152,12 @@ fn join_spec(prefix: &str, values: &[&str]) -> String {
     }
 }
 
-fn add_selected_problem_args(mut command: Command) -> Command {
-    let selected = command.get_name().to_string();
-    let (canonical, variant) = resolve_registered_create_variant(&selected);
-    let inputs = crate::commands::create::create_inputs_for(canonical, &variant);
+fn add_selected_problem_args(
+    mut command: Command,
+    canonical: &str,
+    variant: &BTreeMap<String, String>,
+) -> Command {
+    let inputs = crate::commands::create::create_inputs_for(canonical, variant);
 
     for input in inputs {
         let mut arg = Arg::new(input.name.clone()).long(input.name.clone());
@@ -308,6 +173,88 @@ fn add_selected_problem_args(mut command: Command) -> Command {
         command = command.arg(arg);
     }
     command
+}
+
+pub(crate) fn command_for_selected_problem(
+    mut command: Command,
+    selected: &str,
+) -> Result<Command, Error> {
+    let mut parts = selected.split('/');
+    let selected_name = parts.next().expect("selected problem spec has a name");
+    let catalog_problem = problemreductions::registry::find_problem_type_by_alias(selected_name);
+    let spec = if let Some(problem) = catalog_problem {
+        crate::problem_name::ProblemSpec {
+            name: problem.canonical_name.to_string(),
+            variant_values: parts.map(str::to_string).collect(),
+        }
+    } else {
+        crate::problem_name::parse_problem_spec(selected)
+            .map_err(|error| invalid_problem_spec(&command, error.to_string()))?
+    };
+    let problem = problemreductions::registry::find_problem_type(&spec.name).ok_or_else(|| {
+        invalid_problem_spec(
+            &command,
+            crate::problem_name::unknown_problem_error(&spec.name),
+        )
+    })?;
+    let problem_ref =
+        problemreductions::registry::ProblemRef::from_values(&problem, &spec.variant_values)
+            .map_err(|error| invalid_problem_spec(&command, error))?;
+    if problemreductions::registry::find_variant_entry(problem_ref.name(), problem_ref.variant())
+        .is_none()
+    {
+        return Err(invalid_problem_spec(
+            &command,
+            format!(
+                "No concrete variant is registered for {} with {:?}",
+                problem_ref.name(),
+                problem_ref.variant()
+            ),
+        ));
+    }
+
+    let canonical_spec = canonical_problem_spec(&problem, problem_ref.variant());
+    let mut selected_command = Command::new(canonical_spec.clone())
+        .about(problem.description)
+        .long_about(format!(
+            "Create a {} instance ({canonical_spec})",
+            problem.canonical_name
+        ))
+        .disable_help_subcommand(true);
+    if selected != canonical_spec {
+        selected_command = selected_command.alias(selected.to_string());
+    }
+    selected_command = add_selected_problem_args(
+        selected_command,
+        problem.canonical_name,
+        problem_ref.variant(),
+    );
+
+    let create = command
+        .find_subcommand_mut("create")
+        .expect("Cli has a create subcommand");
+    *create = std::mem::take(create)
+        .allow_external_subcommands(false)
+        .subcommand(selected_command);
+    Ok(command)
+}
+
+fn invalid_problem_spec(command: &Command, message: String) -> Error {
+    command
+        .clone()
+        .error(clap::error::ErrorKind::InvalidSubcommand, message)
+}
+
+fn canonical_problem_spec(problem: &ProblemType, variant: &BTreeMap<String, String>) -> String {
+    let values = problem
+        .dimensions
+        .iter()
+        .filter_map(|dimension| {
+            let value = dimension_value(variant, dimension.key, dimension.default_value);
+            (value != dimension.default_value).then_some(value)
+        })
+        .collect::<Vec<_>>();
+    join_spec(problem.canonical_name, &values)
 }
 
 pub(crate) fn resolve_registered_create_variant(

@@ -10,7 +10,7 @@ mod problem_name;
 mod test_support;
 mod util;
 
-use clap::{CommandFactory, Parser};
+use clap::CommandFactory;
 use cli::{Cli, Commands};
 use output::OutputConfig;
 
@@ -87,10 +87,8 @@ fn main() -> anyhow::Result<()> {
             let shell = shell
                 .or_else(clap_complete::Shell::from_env)
                 .unwrap_or(clap_complete::Shell::Bash);
-            create_args::with_static_completion_schema(|| {
-                let mut cmd = Cli::command();
-                clap_complete::generate(shell, &mut cmd, "pred", &mut std::io::stdout());
-            });
+            let mut cmd = Cli::command();
+            clap_complete::generate(shell, &mut cmd, "pred", &mut std::io::stdout());
             Ok(())
         }
     }

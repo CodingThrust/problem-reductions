@@ -2,8 +2,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use clap::Parser;
-
 use super::ensure_attribute_indices_in_range;
 use super::parse_bool_rows;
 use super::schema_support::*;
@@ -64,7 +62,7 @@ fn test_parse_field_value_parses_job_shop_jobs() {
 
 #[test]
 fn test_create_schema_driven_builds_job_shop_scheduling() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "JobShopScheduling",
@@ -72,7 +70,8 @@ fn test_create_schema_driven_builds_job_shop_scheduling() {
         "0:3,1:4;1:2,0:3,1:2",
         "--num-processors",
         "2",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -90,7 +89,8 @@ fn test_create_schema_driven_builds_job_shop_scheduling() {
 
 #[test]
 fn construction_contract_scs_uses_registered_spec_and_canonical_serialization() {
-    let cli = Cli::parse_from(["pred", "create", "SCS", "--strings", "0,1;1,2"]);
+    let cli = Cli::try_parse_from(["pred", "create", "SCS", "--strings", "0,1;1,2"])
+        .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -107,13 +107,14 @@ fn construction_contract_scs_uses_registered_spec_and_canonical_serialization() 
 
 #[test]
 fn construction_contract_cli_discovers_test_only_registered_model() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         crate::test_support::AGGREGATE_SOURCE_NAME,
         "--values",
         "2,5,7",
-    ]);
+    ])
+    .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -132,7 +133,7 @@ fn construction_contract_cli_discovers_test_only_registered_model() {
 #[test]
 fn construction_contract_preserves_variant_declared_numeric_types() {
     let max_u64 = u64::MAX.to_string();
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "ThreePartition",
@@ -140,7 +141,8 @@ fn construction_contract_preserves_variant_declared_numeric_types() {
         "6148914691236517205,6148914691236517205,6148914691236517205",
         "--bound",
         max_u64.as_str(),
-    ]);
+    ])
+    .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -148,7 +150,7 @@ fn construction_contract_preserves_variant_declared_numeric_types() {
     assert_eq!(data["bound"], serde_json::json!(u64::MAX));
 
     let huge = "340282366920938463463374607431768211457";
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "SubsetSum",
@@ -156,7 +158,8 @@ fn construction_contract_preserves_variant_declared_numeric_types() {
         huge,
         "--target",
         huge,
-    ]);
+    ])
+    .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -166,7 +169,7 @@ fn construction_contract_preserves_variant_declared_numeric_types() {
 
 #[test]
 fn construction_contract_biclique_uses_registered_composite_inputs() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "BicliqueCover",
@@ -178,7 +181,8 @@ fn construction_contract_biclique_uses_registered_composite_inputs() {
         "0-0,0-1,1-2",
         "--k",
         "2",
-    ]);
+    ])
+    .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -198,7 +202,7 @@ fn construction_contract_biclique_uses_registered_composite_inputs() {
 
 #[test]
 fn construction_contract_biclique_missing_input_comes_from_core_contract() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "BicliqueCover",
@@ -208,7 +212,8 @@ fn construction_contract_biclique_missing_input_comes_from_core_contract() {
         "3",
         "--k",
         "2",
-    ]);
+    ])
+    .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
@@ -224,7 +229,7 @@ Usage: pred create BicliqueCover --left <VALUE> --right <VALUE> --biedges <VALUE
 
 #[test]
 fn test_create_schema_driven_builds_quantified_boolean_formulas() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "QuantifiedBooleanFormulas",
@@ -234,7 +239,8 @@ fn test_create_schema_driven_builds_quantified_boolean_formulas() {
         "E,A,E",
         "--clauses",
         "1,2;-1,3",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -256,7 +262,7 @@ fn test_create_schema_driven_builds_quantified_boolean_formulas() {
 
 #[test]
 fn test_create_schema_driven_builds_undirected_flow_lower_bounds() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "UndirectedFlowLowerBounds",
@@ -272,7 +278,8 @@ fn test_create_schema_driven_builds_undirected_flow_lower_bounds() {
         "3",
         "--requirement",
         "2",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -293,7 +300,7 @@ fn test_create_schema_driven_builds_undirected_flow_lower_bounds() {
 
 #[test]
 fn test_create_schema_driven_builds_conjunctive_boolean_query() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "ConjunctiveBooleanQuery",
@@ -303,7 +310,7 @@ fn test_create_schema_driven_builds_conjunctive_boolean_query() {
         r#"[{"arity":2,"tuples":[[0,3],[1,3]]},{"arity":3,"tuples":[[0,1,5],[1,2,5]]}]"#,
         "--conjuncts",
         r#"[[0,[{"Variable":0},{"Constant":3}]],[0,[{"Variable":1},{"Constant":3}]],[1,[{"Variable":0},{"Variable":1},{"Constant":5}]]]"#,
-    ]);
+    ]).expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -326,7 +333,7 @@ fn test_create_schema_driven_builds_conjunctive_boolean_query() {
 
 #[test]
 fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "CVP",
@@ -334,7 +341,8 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         "1,0;0,1",
         "--target-vec",
         "0.5,0.5",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -359,7 +367,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
 
 #[test]
 fn test_create_schema_driven_builds_cdft() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "ConsistencyOfDatabaseFrequencyTables",
@@ -371,7 +379,7 @@ fn test_create_schema_driven_builds_cdft() {
         r#"[{"attribute_a":0,"attribute_b":1,"counts":[[1,1,1],[1,1,1]]},{"attribute_a":1,"attribute_b":2,"counts":[[1,1],[0,2],[1,1]]}]"#,
         "--known-values",
         r#"[{"object":0,"attribute":0,"value":0},{"object":3,"attribute":0,"value":1},{"object":1,"attribute":2,"value":1}]"#,
-    ]);
+    ]).expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -397,7 +405,7 @@ fn test_create_schema_driven_builds_cdft() {
 
 #[test]
 fn test_create_schema_driven_builds_balanced_complete_bipartite_subgraph() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "BalancedCompleteBipartiteSubgraph",
@@ -409,7 +417,8 @@ fn test_create_schema_driven_builds_balanced_complete_bipartite_subgraph() {
         "0-0,0-1,0-2,1-0,1-1,1-2,2-0,2-1,2-2,3-0,3-1,3-3",
         "--k",
         "3",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -432,7 +441,7 @@ fn test_create_schema_driven_builds_balanced_complete_bipartite_subgraph() {
 
 #[test]
 fn test_create_schema_driven_builds_mixed_chinese_postman() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "MixedChinesePostman/i32",
@@ -444,7 +453,8 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
         "2,3,1,2",
         "--arc-weights",
         "2,3,1,4",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
@@ -464,13 +474,14 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
 
 #[test]
 fn test_create_schema_driven_builds_unit_disk_graph_problem_with_default_radius() {
-    let cli = Cli::parse_from([
+    let cli = Cli::try_parse_from([
         "pred",
         "create",
         "MIS/UnitDiskGraph",
         "--positions",
         "0,0;1,0;0.5,0.8",
-    ]);
+    ])
+    .expect("create command parses");
 
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
