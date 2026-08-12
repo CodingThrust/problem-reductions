@@ -91,3 +91,36 @@ fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let witness = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&witness), Min(Some(2)));
 }
+
+#[test]
+fn test_job_shop_scheduling_create_spec_derives_processor_count() {
+    let problem = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![vec![(0, 2), (2, 1)]],
+        num_processors: None,
+    })
+    .unwrap();
+
+    assert_eq!(problem.num_processors(), 3);
+    assert_eq!(
+        JobShopSchedulingCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["jobs", "num_processors"]
+    );
+}
+
+#[test]
+fn test_job_shop_scheduling_create_spec_rejects_invalid_jobs() {
+    let empty = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![],
+        num_processors: None,
+    });
+    assert!(empty.is_err());
+
+    let repeated_processor = JobShopScheduling::try_from(JobShopSchedulingCreateSpec {
+        jobs: vec![vec![(0, 1), (0, 2)]],
+        num_processors: Some(1),
+    });
+    assert!(repeated_processor.is_err());
+}

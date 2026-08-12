@@ -8,7 +8,7 @@
 //! A "block" is a maximal contiguous run of 1-entries in a row.
 //! This is problem SR17 in Garey & Johnson.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -18,12 +18,10 @@ inventory::submit! {
         display_name: "Consecutive Block Minimization",
         aliases: &["CBM"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix A (m x n)" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on total consecutive blocks" },
-        ],
+        fields: ConsecutiveBlockMinimizationCreateSpec::FIELDS,
     }
 }
 
@@ -71,6 +69,22 @@ pub struct ConsecutiveBlockMinimization {
     num_cols: usize,
     /// Upper bound K on total consecutive blocks.
     bound: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConsecutiveBlockMinimizationCreateSpec {
+    /// Binary matrix A (m x n).
+    matrix: Vec<Vec<bool>>,
+    /// Upper bound K on total consecutive blocks.
+    bound_k: i64,
+}
+
+impl TryFrom<ConsecutiveBlockMinimizationCreateSpec> for ConsecutiveBlockMinimization {
+    type Error = String;
+
+    fn try_from(spec: ConsecutiveBlockMinimizationCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.matrix, spec.bound_k)
+    }
 }
 
 impl ConsecutiveBlockMinimization {
@@ -184,7 +198,7 @@ impl Problem for ConsecutiveBlockMinimization {
 }
 
 crate::declare_variants! {
-    default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveBlockMinimizationCreateSpec,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

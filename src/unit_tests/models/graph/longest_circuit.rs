@@ -116,3 +116,14 @@ fn test_longest_circuit_set_lengths_rejects_non_positive_values() {
     );
     problem.set_lengths(vec![1, -2, 1]);
 }
+#[test]
+fn create_spec_maps_edge_weights_to_edge_lengths() {
+    let problem = LongestCircuit::try_from(LongestCircuitCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: Some(vec![3]),
+    })
+    .unwrap();
+    assert_eq!(problem.edge_lengths(), &[3]);
+    assert_eq!(LongestCircuitCreateSpec::FIELDS[2].name, "edge_weights");
+}

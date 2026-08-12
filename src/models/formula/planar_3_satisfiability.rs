@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Planar 3-Satisfiability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "3-SAT with planar variable-clause incidence graph",
         fields: &[

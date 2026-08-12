@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Sequencing with Release Times and Deadlines",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Single-machine scheduling feasibility: can all tasks be scheduled within their release-deadline windows without overlap?",
         fields: &[

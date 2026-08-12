@@ -1,4 +1,21 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_nonpositive_edge_values() {
+    assert_eq!(
+        ShortestWeightConstrainedPathCreateSpec::FIELDS[1].name,
+        "edge_lengths"
+    );
+    let result = ShortestWeightConstrainedPath::try_from(ShortestWeightConstrainedPathCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        edge_lengths: vec![0],
+        edge_weights: vec![1],
+        source_vertex: 0,
+        target_vertex: 1,
+        weight_bound: 1,
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

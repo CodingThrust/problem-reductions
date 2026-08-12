@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "ILP",
         aliases: &[],
         dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i32"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[

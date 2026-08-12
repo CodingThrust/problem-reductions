@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum number of disjoint dominating sets partitioning V",
         fields: &[
@@ -154,8 +155,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MaximumDomaticNumber<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MaximumDomaticNumber::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices",
+    default MaximumDomaticNumber<SimpleGraph> => "2.695^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

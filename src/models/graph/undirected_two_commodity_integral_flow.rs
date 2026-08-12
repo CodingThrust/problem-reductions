@@ -3,7 +3,7 @@
 //! The problem asks whether two integral commodities can be routed through an
 //! undirected capacitated graph while sharing edge capacities.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -14,18 +14,10 @@ inventory::submit! {
         display_name: "Undirected Two-Commodity Integral Flow",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether two integral commodities can satisfy sink demands in an undirected capacitated graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "Undirected graph G=(V,E)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Edge capacities c(e) in graph edge order" },
-            FieldInfo { name: "source_1", type_name: "usize", description: "Source vertex s_1 for commodity 1" },
-            FieldInfo { name: "sink_1", type_name: "usize", description: "Sink vertex t_1 for commodity 1" },
-            FieldInfo { name: "source_2", type_name: "usize", description: "Source vertex s_2 for commodity 2" },
-            FieldInfo { name: "sink_2", type_name: "usize", description: "Sink vertex t_2 for commodity 2" },
-            FieldInfo { name: "requirement_1", type_name: "u64", description: "Required net inflow R_1 at sink t_1" },
-            FieldInfo { name: "requirement_2", type_name: "u64", description: "Required net inflow R_2 at sink t_2" },
-        ],
+        fields: UndirectedTwoCommodityIntegralFlowCreateSpec::FIELDS,
     }
 }
 
@@ -54,6 +46,82 @@ pub struct UndirectedTwoCommodityIntegralFlow {
     sink_2: usize,
     requirement_1: u64,
     requirement_2: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct UndirectedTwoCommodityIntegralFlowCreateSpec {
+    /// Undirected graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed for isolated vertices.
+    num_vertices: Option<usize>,
+    /// Edge capacities.
+    #[create(codec = "comma-separated")]
+    capacities: Vec<u64>,
+    source_1: usize,
+    sink_1: usize,
+    source_2: usize,
+    sink_2: usize,
+    requirement_1: u64,
+    requirement_2: u64,
+}
+
+impl TryFrom<UndirectedTwoCommodityIntegralFlowCreateSpec> for UndirectedTwoCommodityIntegralFlow {
+    type Error = String;
+    fn try_from(spec: UndirectedTwoCommodityIntegralFlowCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".into());
+        }
+        for &(u, v) in &spec.graph {
+            if u == v {
+                return Err(format!("self-loop {u}-{v} is not allowed"));
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small for graph endpoints".into());
+        }
+        if spec.capacities.len() != spec.graph.len() {
+            return Err("capacities length must match graph edge count".into());
+        }
+        for &capacity in &spec.capacities {
+            if usize::try_from(capacity)
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+            {
+                return Err("capacity is too large for this platform".into());
+            }
+        }
+        for (label, vertex) in [
+            ("source_1", spec.source_1),
+            ("sink_1", spec.sink_1),
+            ("source_2", spec.source_2),
+            ("sink_2", spec.sink_2),
+        ] {
+            if vertex >= count {
+                return Err(format!("{label} must be less than num_vertices"));
+            }
+        }
+        Ok(Self {
+            graph: SimpleGraph::new(count, spec.graph),
+            capacities: spec.capacities,
+            source_1: spec.source_1,
+            sink_1: spec.sink_1,
+            source_2: spec.source_2,
+            sink_2: spec.sink_2,
+            requirement_1: spec.requirement_1,
+            requirement_2: spec.requirement_2,
+        })
+    }
 }
 
 impl UndirectedTwoCommodityIntegralFlow {
@@ -299,7 +367,7 @@ impl Problem for UndirectedTwoCommodityIntegralFlow {
 }
 
 crate::declare_variants! {
-    default UndirectedTwoCommodityIntegralFlow => "5^num_edges",
+    default UndirectedTwoCommodityIntegralFlow => "5^num_edges" create UndirectedTwoCommodityIntegralFlowCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -1,6 +1,9 @@
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
-use std::collections::HashMap;
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand, ValueEnum};
+use problemreductions::registry::ProblemCategory;
+use std::ffi::OsString;
 use std::path::PathBuf;
+
+pub use crate::create_args::CreateArgs;
 
 #[derive(Parser)]
 #[command(
@@ -46,18 +49,65 @@ pub struct Cli {
     pub command: Commands,
 }
 
+impl Cli {
+    pub fn try_parse() -> Result<Self, clap::Error> {
+        Self::try_parse_from(std::env::args_os())
+    }
+
+    pub fn try_parse_from<I, T>(args: I) -> Result<Self, clap::Error>
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString>,
+    {
+        // The discovery command treats the problem spec as an external subcommand,
+        // so it can capture the selected model without registering the whole catalog.
+        let args = args.into_iter().map(Into::into).collect::<Vec<_>>();
+        let command = <Self as CommandFactory>::command();
+        let discovery_matches = command.clone().try_get_matches_from(args.clone())?;
+        let selected = discovery_matches
+            .subcommand_matches("create")
+            .and_then(|matches| matches.subcommand_name());
+
+        let mut matches = if let Some(selected) = selected {
+            crate::create_args::command_for_selected_problem(command, selected)?
+                .try_get_matches_from(args)?
+        } else {
+            discovery_matches
+        };
+        Self::from_arg_matches_mut(&mut matches)
+    }
+}
+
 #[derive(Subcommand)]
 pub enum Commands {
-    /// List all registered problem types (or reduction rules with --rules)
+    /// Browse registered problem types (or reduction rules with --rules)
     #[command(after_help = "\
 Examples:
-  pred list                   # list problem types
-  pred list --rules           # list all reduction rules
+  pred list                   # show catalog summary and categories
+  pred list matching          # search names and aliases
+  pred list --category graph  # list graph problems
+  pred list --all             # list every problem compactly
+  pred list --rules --all     # list every reduction rule
   pred list -o problems.json  # save as JSON")]
     List {
+        /// Case-insensitive substring to search in names and aliases
+        query: Option<String>,
+
         /// List reduction rules instead of problem types
         #[arg(long)]
         rules: bool,
+
+        /// Restrict problems to a model category such as graph, set, or misc
+        #[arg(long, conflicts_with = "rules")]
+        category: Option<ProblemCategory>,
+
+        /// List the complete catalog instead of the summary
+        #[arg(long)]
+        all: bool,
+
+        /// Include per-variant complexity, rule counts, or rule size contracts
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// Show details for a problem type or variant (fields, reductions, complexity)
@@ -222,998 +272,6 @@ pub enum ExampleSide {
 
 #[derive(clap::Args)]
 #[command(after_help = "\
-TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
-     Not every flag applies to every problem — the above list shows ALL flags.
-
-Flags by problem type:
-  MIS, MVC, MaxClique, MinDomSet  --graph, --weights
-  MaxCut, MaxMatching, TSP, BottleneckTravelingSalesman --graph, --edge-weights
-  LongestPath                     --graph, --edge-lengths, --source-vertex, --target-vertex
-  HamiltonianPathBetweenTwoVertices --graph, --source-vertex, --target-vertex
-  ShortestWeightConstrainedPath   --graph, --edge-lengths, --edge-weights, --source-vertex, --target-vertex, --weight-bound
-  GraphPartitioning               --graph, --num-partitions
-  MaximalIS                       --graph, --weights
-  SAT, NAESAT                     --num-vars, --clauses
-  KSAT                            --num-vars, --clauses [--k]
-  NonTautology                    --num-vars, --disjuncts
-  QUBO                            --matrix
-  SpinGlass                       --graph, --couplings, --fields
-  KColoring                       --graph, --k
-  KClique                         --graph, --k
-  DecisionMinimumVertexCover      --graph, --weights, --bound
-  MinimumMultiwayCut              --graph, --terminals, --edge-weights
-  MonochromaticTriangle           --graph
-  PartitionIntoTriangles          --graph
-  GeneralizedHex                  --graph, --source, --sink
-  IntegralFlowWithMultipliers     --arcs, --capacities, --source, --sink, --multipliers, --requirement
-  MinimumEdgeCostFlow             --arcs, --edge-weights (prices), --capacities, --source, --sink, --requirement
-  MinimumCostMaximumFlow          --arcs, --capacities, --costs, --source, --sink
-  MinimumCostCirculation, MCC     --arcs, --capacities, --costs
-  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound
-  HamiltonianCircuit, HC          --graph
-  MaximumLeafSpanningTree         --graph
-  LongestCircuit                  --graph, --edge-weights
-  BoundedComponentSpanningForest  --graph, --weights, --k, --max-weight
-  UndirectedFlowLowerBounds       --graph, --capacities, --lower-bounds, --source, --sink, --requirement
-  IntegralFlowBundles             --arcs, --bundles, --bundle-capacities, --source, --sink, --requirement [--num-vertices]
-  UndirectedTwoCommodityIntegralFlow --graph, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
-  DisjointConnectingPaths         --graph, --terminal-pairs
-  IntegralFlowHomologousArcs      --arcs, --capacities, --source, --sink, --requirement, --homologous-pairs
-  IsomorphicSpanningTree          --graph, --tree
-  KthBestSpanningTree             --graph, --edge-weights, --k, --bound
-  LengthBoundedDisjointPaths      --graph, --source, --sink, --max-length
-  PathConstrainedNetworkFlow      --arcs, --capacities, --source, --sink, --paths, --requirement
-  Factoring                       --target, --m, --n
-  BinPacking                      --sizes, --capacity
-  Clustering                      --distance-matrix, --k, --diameter-bound
-  CapacityAssignment              --capacities, --cost-matrix, --delay-matrix, --cost-budget, --delay-budget
-  ProductionPlanning             --num-periods, --demands, --capacities, --setup-costs, --production-costs, --inventory-costs, --cost-bound
-  SubsetProduct                    --sizes, --target
-  SubsetSum                       --sizes, --target
-  MinimumAxiomSet                 --n, --true-sentences, --implications
-  Numerical3DimensionalMatching    --w-sizes, --x-sizes, --y-sizes, --bound
-  Betweenness                     --n, --sets (triples a,b,c)
-  CyclicOrdering                  --n, --sets (triples a,b,c)
-  ThreePartition                  --sizes, --bound
-  DynamicStorageAllocation        --release-times, --deadlines, --sizes, --capacity
-  KthLargestMTuple                --sets, --k, --bound
-  QuadraticCongruences             --coeff-a, --coeff-b, --coeff-c
-  QuadraticDiophantineEquations    --coeff-a, --coeff-b, --coeff-c
-  SimultaneousIncongruences        --pairs (semicolon-separated a,b pairs)
-  SumOfSquaresPartition           --sizes, --num-groups
-  ExpectedRetrievalCost           --probabilities, --num-sectors
-  PaintShop                       --sequence
-  MaximumSetPacking               --subsets [--weights]
-  MinimumHittingSet               --universe-size, --subsets
-  MinimumSetCovering              --universe-size, --subsets [--weights]
-  EnsembleComputation             --universe-size, --subsets, --budget
-  ComparativeContainment          --universe-size, --r-sets, --s-sets [--r-weights] [--s-weights]
-  X3C (ExactCoverBy3Sets)         --universe-size, --subsets (3 elements each)
-  3DM (ThreeDimensionalMatching)  --universe-size, --subsets (triples w,x,y)
-  ThreeMatroidIntersection        --universe-size, --partitions, --bound
-  SetBasis                        --universe-size, --subsets, --k
-  MinimumCardinalityKey           --num-attributes, --dependencies
-  PrimeAttributeName              --universe-size, --dependencies, --query-attribute
-  RootedTreeStorageAssignment     --universe-size, --subsets, --bound
-  TwoDimensionalConsecutiveSets   --alphabet-size, --subsets
-  BicliqueCover                   --left, --right, --biedges, --k
-  BalancedCompleteBipartiteSubgraph --left, --right, --biedges, --k
-  BiconnectivityAugmentation      --graph, --potential-weights, --budget [--num-vertices]
-  PartialFeedbackEdgeSet          --graph, --budget, --max-cycle-length [--num-vertices]
-  BMF                             --matrix (0/1), --rank
-  ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
-  ConsecutiveOnesMatrixAugmentation --matrix (0/1), --bound
-  ConsecutiveOnesSubmatrix        --matrix (0/1), --k
-  SparseMatrixCompression         --matrix (0/1), --bound
-  MaximumLikelihoodRanking        --matrix (i32 rows, semicolon-separated)
-  MinimumMatrixCover              --matrix (i64 rows, semicolon-separated)
-  MinimumWeightDecoding           --matrix (JSON 2D bool), --rhs (comma-separated booleans)
-  FeasibleBasisExtension          --matrix (JSON 2D i64), --rhs, --required-columns
-  SteinerTree                     --graph, --edge-weights, --terminals
-  MultipleCopyFileAllocation      --graph, --usage, --storage
-  AcyclicPartition                --arcs [--weights] [--arc-weights] --weight-bound --cost-bound [--num-vertices]
-  CVP                             --basis, --target-vec [--bounds]
-  MultiprocessorScheduling        --lengths, --num-processors, --deadline
-  SchedulingToMinimizeWeightedCompletionTime  --lengths, --weights, --num-processors
-  SequencingWithinIntervals       --release-times, --deadlines, --lengths
-  OptimalLinearArrangement        --graph
-  RootedTreeArrangement           --graph, --bound
-  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k
-  MixedChinesePostman (MCPP)      --graph, --arcs, --edge-weights, --arc-weights [--num-vertices]
-  RuralPostman (RPP)              --graph, --edge-weights, --required-edges
-  StackerCrane                    --arcs, --graph, --arc-lengths, --edge-lengths [--num-vertices]
-  MultipleChoiceBranching         --arcs [--weights] --partition --threshold [--num-vertices]
-  AdditionalKey                   --num-attributes, --dependencies, --relation-attrs [--known-keys]
-  ConsistencyOfDatabaseFrequencyTables --num-objects, --attribute-domains, --frequency-tables [--known-values]
-  SubgraphIsomorphism             --graph (host), --pattern (pattern)
-  GroupingBySwapping             --string, --bound [--alphabet-size]
-  LCS                             --strings [--alphabet-size]
-  ClosestString                   --alphabet-size, --strings
-  ClosestSubstring                --alphabet-size, --strings, --substring-length
-  FAS                             --arcs [--weights] [--num-vertices]
-  FVS                             --arcs [--weights] [--num-vertices]
-  QBF                             --num-vars, --clauses, --quantifiers
-  SteinerTreeInGraphs             --graph, --edge-weights, --terminals
-  PartitionIntoPathsOfLength2     --graph
-  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
-  IntegerKnapsack                 --sizes, --values, --capacity
-  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
-  QAP                             --matrix (cost), --distance-matrix
-  StrongConnectivityAugmentation  --arcs, --candidate-arcs, --bound [--num-vertices]
-  JobShopScheduling               --jobs [--num-processors]
-  FlowShopScheduling              --task-lengths, --deadline [--num-processors]
-  StaffScheduling                 --schedules, --requirements, --num-workers, --k
-  TimetableDesign                 --num-periods, --num-craftsmen, --num-tasks, --craftsman-avail, --task-avail, --requirements
-  MinimumTardinessSequencing      --num-tasks, --deadlines [--precedences]
-  RectilinearPictureCompression   --matrix (0/1), --k
-  SchedulingWithIndividualDeadlines --num-tasks, --num-processors/--m, --deadlines [--precedences]
-  SequencingToMinimizeMaximumCumulativeCost --costs [--precedences]
-  SequencingToMinimizeTardyTaskWeight --lengths, --weights, --deadlines
-  SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedences]
-  SequencingToMinimizeWeightedTardiness --lengths, --weights, --deadlines, --bound
-  SequencingWithDeadlinesAndSetUpTimes --lengths, --deadlines, --compilers, --setup-times
-  MinimumExternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
-  MinimumInternalMacroDataCompression --string, --pointer-cost [--alphabet-size]
-  SCS                             --strings [--alphabet-size]
-  StringToStringCorrection         --source-string, --target-string, --bound [--alphabet-size]
-  D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
-  MinimumDummyActivitiesPert      --arcs [--num-vertices]
-  FeasibleRegisterAssignment      --arcs, --assignment, --k [--num-vertices]
-  MinimumFaultDetectionTestSet    --arcs, --inputs, --outputs [--num-vertices]
-  MinimumWeightAndOrGraph         --arcs, --source, --gate-types, --weights [--num-vertices]
-  MinimumCodeGenerationOneRegister --arcs [--num-vertices]
-  MinimumCodeGenerationParallelAssignments --num-variables, --assignments
-  MinimumCodeGenerationUnlimitedRegisters --left-arcs, --right-arcs [--num-vertices]
-  MinimumRegisterSufficiencyForLoops --loop-length, --loop-variables
-  RegisterSufficiency             --arcs, --bound [--num-vertices]
-  CBQ                              --domain-size, --relations, --conjuncts-spec
-  IntegerExpressionMembership     --expression (JSON), --target
-  MinimumGeometricConnectedDominatingSet --positions (float x,y pairs), --radius
-  MinimumDecisionTree             --test-matrix (JSON 2D bool), --num-objects, --num-tests
-  MinimumDisjunctiveNormalForm (MinDNF) --num-vars, --truth-table
-  SquareTiling (WangTiling)       --num-colors, --tiles, --grid-size
-  ILP, CircuitSAT                 (via reduction only)
-
-Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
-  KingsSubgraph, TriangularSubgraph   --positions (integer x,y pairs)
-  UnitDiskGraph                        --positions (float x,y pairs) [--radius]
-
-Random generation:
-  --random --num-vertices N [--edge-prob 0.5] [--seed 42]
-
-Examples:
-  pred create --example MIS/SimpleGraph/i32
-  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32
-  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target
-  pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
-  pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
-  pred create NonTautology --num-vars 3 --disjuncts \"1,2,3;-1,-2,-3\"
-  pred create QUBO --matrix \"1,0.5;0.5,2\"
-  pred create CapacityAssignment --capacities 1,2,3 --cost-matrix \"1,3,6;2,4,7;1,2,5\" --delay-matrix \"8,4,1;7,3,1;6,3,1\" --cost-budget 10 --delay-budget 12
-  pred create ProductionPlanning --num-periods 6 --demands 5,3,7,2,8,5 --capacities 12,12,12,12,12,12 --setup-costs 10,10,10,10,10,10 --production-costs 1,1,1,1,1,1 --inventory-costs 1,1,1,1,1,1 --cost-bound 80
-  pred create GeneralizedHex --graph 0-1,0-2,0-3,1-4,2-4,3-4,4-5 --source 0 --sink 5
-  pred create IntegralFlowWithMultipliers --arcs \"0>1,0>2,1>3,2>3\" --capacities 1,1,2,2 --source 0 --sink 3 --multipliers 1,2,3,1 --requirement 2
-  pred create MultipleChoiceBranching/i32 --arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10
-  pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 | pred solve - --solver brute-force
-  pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
-  pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
-  pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3
-  pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10
-  pred create SchedulingToMinimizeWeightedCompletionTime --lengths 1,2,3,4,5 --weights 6,4,3,2,1 --num-processors 2
-  pred create UndirectedFlowLowerBounds --graph 0-1,0-2,1-3,2-3,1-4,3-5,4-5 --capacities 2,2,2,2,1,3,2 --lower-bounds 1,1,0,0,1,0,1 --source 0 --sink 5 --requirement 3
-  pred create ConsistencyOfDatabaseFrequencyTables --num-objects 6 --attribute-domains \"2,3,2\" --frequency-tables \"0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1\" --known-values \"0,0,0;3,0,1;1,2,1\"
-  pred create BiconnectivityAugmentation --graph 0-1,1-2,2-3 --potential-weights 0-2:3,0-3:4,1-3:2 --budget 5
-  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
-  pred create MinimumDummyActivitiesPert --arcs \"0>2,0>3,1>3,1>4,2>5\" --num-vertices 6
-  pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
-  pred create IntegralFlowHomologousArcs --arcs \"0>1,0>2,1>3,2>3,1>4,2>4,3>5,4>5\" --capacities 1,1,1,1,1,1,1,1 --source 0 --sink 5 --requirement 2 --homologous-pairs \"2=5;4=3\"
-  pred create X3C --universe 9 --subsets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
-  pred create SetBasis --universe 4 --subsets \"0,1;1,2;0,2;0,1,2\" --k 3
-  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\"
-  pred create PrimeAttributeName --universe 6 --dependencies \"0,1>2,3,4,5;2,3>0,1,4,5\" --query-attribute 3
-  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
-pub struct CreateArgs {
-    /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
-    #[arg(value_parser = crate::problem_name::ProblemNameParser)]
-    pub problem: Option<String>,
-    /// Build a problem from the canonical example database using a structural problem spec.
-    #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
-    pub example: Option<String>,
-    /// Target problem spec for canonical rule example lookup.
-    #[arg(long = "to", value_parser = crate::problem_name::ProblemNameParser)]
-    pub example_target: Option<String>,
-    /// Which side of a rule example to emit [default: source].
-    #[arg(long, value_enum, default_value = "source")]
-    pub example_side: ExampleSide,
-    /// Graph edge list (e.g., 0-1,1-2,2-3)
-    #[arg(long)]
-    pub graph: Option<String>,
-    /// Vertex weights (e.g., 1,1,1,1) [default: all 1s]
-    #[arg(long)]
-    pub weights: Option<String>,
-    /// Edge weights (e.g., 2,3,1) [default: all 1s]
-    #[arg(long)]
-    pub edge_weights: Option<String>,
-    /// Edge lengths (e.g., 2,3,1) [default: all 1s]
-    #[arg(long)]
-    pub edge_lengths: Option<String>,
-    /// Capacities (edge capacities for flow problems, capacity levels for CapacityAssignment)
-    #[arg(long)]
-    pub capacities: Option<String>,
-    /// Demands for ProductionPlanning (comma-separated, e.g., "5,3,7,2,8,5")
-    #[arg(long)]
-    pub demands: Option<String>,
-    /// Setup costs for ProductionPlanning (comma-separated, e.g., "10,10,10,10,10,10")
-    #[arg(long)]
-    pub setup_costs: Option<String>,
-    /// Per-unit production costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
-    #[arg(long)]
-    pub production_costs: Option<String>,
-    /// Per-unit inventory costs for ProductionPlanning (comma-separated, e.g., "1,1,1,1,1,1")
-    #[arg(long)]
-    pub inventory_costs: Option<String>,
-    /// Bundle capacities for IntegralFlowBundles (e.g., 1,1,1)
-    #[arg(long)]
-    pub bundle_capacities: Option<String>,
-    /// Cost matrix for CapacityAssignment (semicolon-separated rows, e.g., "1,3,6;2,4,7")
-    #[arg(long)]
-    pub cost_matrix: Option<String>,
-    /// Delay matrix for CapacityAssignment (semicolon-separated rows, e.g., "8,4,1;7,3,1")
-    #[arg(long)]
-    pub delay_matrix: Option<String>,
-    /// Edge lower bounds for lower-bounded flow problems (e.g., 1,1,0,0,1,0,1)
-    #[arg(long)]
-    pub lower_bounds: Option<String>,
-    /// Vertex multipliers in vertex order (e.g., 1,2,3,1)
-    #[arg(long)]
-    pub multipliers: Option<String>,
-    /// Source vertex for path-based graph problems and MinimumCutIntoBoundedSets
-    #[arg(long)]
-    pub source: Option<usize>,
-    /// Sink vertex for path-based graph problems and MinimumCutIntoBoundedSets
-    #[arg(long)]
-    pub sink: Option<usize>,
-    /// Required total flow R for IntegralFlowBundles, IntegralFlowHomologousArcs, IntegralFlowWithMultipliers, PathConstrainedNetworkFlow, and UndirectedFlowLowerBounds
-    #[arg(long)]
-    pub requirement: Option<u64>,
-    /// Required number of paths for LengthBoundedDisjointPaths
-    #[arg(long)]
-    pub num_paths_required: Option<usize>,
-    /// Prescribed directed s-t paths as semicolon-separated arc-index sequences (e.g., "0,2,5;1,4,6")
-    #[arg(long)]
-    pub paths: Option<String>,
-    /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
-    #[arg(long)]
-    pub couplings: Option<String>,
-    /// On-site fields h_i for SpinGlass (e.g., 0,0,1) [default: all 0s]
-    #[arg(long)]
-    pub fields: Option<String>,
-    /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
-    #[arg(long)]
-    pub clauses: Option<String>,
-    /// Disjuncts for NonTautology (semicolon-separated, e.g., "1,2;-1,3")
-    #[arg(long)]
-    pub disjuncts: Option<String>,
-    /// Number of variables (for SAT/KSAT)
-    #[arg(long)]
-    pub num_vars: Option<usize>,
-    /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
-    /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
-    #[arg(long)]
-    pub matrix: Option<String>,
-    /// Shared integer parameter (use `pred create <PROBLEM>` for the problem-specific meaning)
-    #[arg(long)]
-    pub k: Option<usize>,
-    /// Number of partitions for GraphPartitioning (currently must be 2)
-    #[arg(long)]
-    pub num_partitions: Option<usize>,
-    /// Generate a random instance (graph-based problems only)
-    #[arg(long)]
-    pub random: bool,
-    /// Number of vertices for random graph generation
-    #[arg(long)]
-    pub num_vertices: Option<usize>,
-    /// Source vertex for path problems
-    #[arg(long)]
-    pub source_vertex: Option<usize>,
-    /// Target vertex for path problems
-    #[arg(long)]
-    pub target_vertex: Option<usize>,
-    /// Edge probability for random graph generation (0.0 to 1.0) [default: 0.5]
-    #[arg(long)]
-    pub edge_prob: Option<f64>,
-    /// Random seed for reproducibility
-    #[arg(long)]
-    pub seed: Option<u64>,
-    /// Target value (for Factoring, SubsetSum, and SubsetProduct)
-    #[arg(long)]
-    pub target: Option<String>,
-    /// Bits for first factor (for Factoring); also accepted as a processor-count alias for scheduling create commands
-    #[arg(long)]
-    pub m: Option<usize>,
-    /// Bits for second factor (for Factoring)
-    #[arg(long)]
-    pub n: Option<usize>,
-    /// Vertex positions for geometry-based graphs (semicolon-separated x,y pairs, e.g., "0,0;1,0;1,1")
-    #[arg(long)]
-    pub positions: Option<String>,
-    /// Radius for UnitDiskGraph [default: 1.0]
-    #[arg(long)]
-    pub radius: Option<f64>,
-    /// Source vertex s_1 for commodity 1
-    #[arg(long)]
-    pub source_1: Option<usize>,
-    /// Sink vertex t_1 for commodity 1
-    #[arg(long)]
-    pub sink_1: Option<usize>,
-    /// Source vertex s_2 for commodity 2
-    #[arg(long)]
-    pub source_2: Option<usize>,
-    /// Sink vertex t_2 for commodity 2
-    #[arg(long)]
-    pub sink_2: Option<usize>,
-    /// Required flow R_1 for commodity 1
-    #[arg(long)]
-    pub requirement_1: Option<u64>,
-    /// Required flow R_2 for commodity 2
-    #[arg(long)]
-    pub requirement_2: Option<u64>,
-    /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
-    #[arg(long)]
-    pub sizes: Option<String>,
-    /// Record access probabilities for ExpectedRetrievalCost (comma-separated, e.g., "0.2,0.15,0.15,0.2,0.1,0.2")
-    #[arg(long)]
-    pub probabilities: Option<String>,
-    /// Link lengths for MinimumDiscretePlanarInverseKinematics (comma-separated positive reals, e.g., "2.0,1.0")
-    #[arg(long)]
-    pub link_lengths: Option<String>,
-    /// Target point (x,y) for MinimumDiscretePlanarInverseKinematics (e.g., "2.0,1.0")
-    #[arg(long)]
-    pub target_point: Option<String>,
-    /// Sampled absolute orientations per link for MinimumDiscretePlanarInverseKinematics (semicolon-separated angle lists, e.g., "0.0,1.5707963267948966;0.0,1.5707963267948966")
-    #[arg(long)]
-    pub orientation_samples: Option<String>,
-    /// Admissible (a_{j-1}, a_j) pair sets per junction for MinimumDiscretePlanarInverseKinematics (pipe-separated junctions, each comma-separated "i-j" pairs, e.g., "0-0,0-1,1-1")
-    #[arg(long)]
-    pub allowed_pairs: Option<String>,
-    /// Source labelled digraph G1 for MaximumCommonEdgeSubgraph. Format: "<num_vertices>:<arc1>,<arc2>,..." with each arc "<src>-<label>-<dst>" (e.g., "5:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,3-1-4")
-    #[arg(long = "graph-1")]
-    pub graph_1: Option<String>,
-    /// Target labelled digraph G2 for MaximumCommonEdgeSubgraph. Same format as --graph-1 (e.g., "4:0-0-1,1-1-2,0-2-2,2-0-3,1-3-3,0-1-3")
-    #[arg(long = "graph-2")]
-    pub graph_2: Option<String>,
-    /// Number of ordered vertices in the first contact map G_1 for MaximumContactMapOverlap
-    #[arg(long = "num-vertices-1")]
-    pub num_vertices_1: Option<usize>,
-    /// Number of ordered vertices in the second contact map G_2 for MaximumContactMapOverlap
-    #[arg(long = "num-vertices-2")]
-    pub num_vertices_2: Option<usize>,
-    /// Contacts of G_1 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-2,1-3")
-    #[arg(long = "contacts-1")]
-    pub contacts_1: Option<String>,
-    /// Contacts of G_2 for MaximumContactMapOverlap as comma-separated unordered pairs (e.g., "0-3,1-4,0-2")
-    #[arg(long = "contacts-2")]
-    pub contacts_2: Option<String>,
-    /// Bin capacity for BinPacking
-    #[arg(long)]
-    pub capacity: Option<String>,
-    /// Car paint sequence for PaintShop (comma-separated, each label appears exactly twice, e.g., "a,b,a,c,c,b")
-    #[arg(long)]
-    pub sequence: Option<String>,
-    /// Subsets for set-system problems such as SetPacking, MinimumHittingSet, and SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
-    #[arg(long = "subsets", alias = "sets")]
-    pub sets: Option<String>,
-    /// R-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
-    #[arg(long)]
-    pub r_sets: Option<String>,
-    /// S-family sets for ComparativeContainment (semicolon-separated, e.g., "0,1;1,2")
-    #[arg(long)]
-    pub s_sets: Option<String>,
-    /// R-family weights for ComparativeContainment (comma-separated, e.g., "2,5")
-    #[arg(long)]
-    pub r_weights: Option<String>,
-    /// S-family weights for ComparativeContainment (comma-separated, e.g., "3,6")
-    #[arg(long)]
-    pub s_weights: Option<String>,
-    /// Partition groups for arc-index partitions (semicolon-separated, e.g., "0,1;2,3")
-    #[arg(long)]
-    pub partition: Option<String>,
-    /// Three partition matroids for ThreeMatroidIntersection (pipe-separated matroids, semicolon-separated groups, e.g., "0,1,2;3,4,5|0,3;1,4;2,5|0,4;1,5;2,3")
-    #[arg(long)]
-    pub partitions: Option<String>,
-    /// Arc bundles for IntegralFlowBundles (semicolon-separated groups of arc indices, e.g., "0,1;2,5;3,4")
-    #[arg(long)]
-    pub bundles: Option<String>,
-    /// Universe size for set-system problems such as MinimumHittingSet, MinimumSetCovering, and ComparativeContainment
-    #[arg(long = "universe-size", alias = "universe")]
-    pub universe: Option<usize>,
-    /// Bipartite graph edges for BicliqueCover / BalancedCompleteBipartiteSubgraph (e.g., "0-0,0-1,1-2" for left-right pairs)
-    #[arg(long)]
-    pub biedges: Option<String>,
-    /// Left partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
-    #[arg(long)]
-    pub left: Option<usize>,
-    /// Right partition size for BicliqueCover / BalancedCompleteBipartiteSubgraph
-    #[arg(long)]
-    pub right: Option<usize>,
-    /// Rank for BMF
-    #[arg(long)]
-    pub rank: Option<usize>,
-    /// Lattice basis for CVP (semicolon-separated column vectors, e.g., "1,0;0,1")
-    #[arg(long)]
-    pub basis: Option<String>,
-    /// Target vector for CVP (comma-separated, e.g., "0.5,0.5")
-    #[arg(long)]
-    pub target_vec: Option<String>,
-    /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
-    #[arg(long, allow_hyphen_values = true)]
-    pub bounds: Option<String>,
-    /// Release times for SequencingWithinIntervals (comma-separated, e.g., "0,0,5")
-    #[arg(long)]
-    pub release_times: Option<String>,
-    /// Processing lengths (comma-separated, e.g., "4,5,3,2,6")
-    #[arg(long)]
-    pub lengths: Option<String>,
-    /// Terminal vertices for SteinerTree or MinimumMultiwayCut (comma-separated indices, e.g., "0,2,4")
-    #[arg(long)]
-    pub terminals: Option<String>,
-    /// Terminal pairs for DisjointConnectingPaths (comma-separated pairs, e.g., "0-3,2-5")
-    #[arg(long = "terminal-pairs")]
-    pub terminal_pairs: Option<String>,
-    /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
-    #[arg(long)]
-    pub tree: Option<String>,
-    /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
-    #[arg(long)]
-    pub required_edges: Option<String>,
-    /// Bound parameter (upper or length bound for BoundedComponentSpanningForest, GroupingBySwapping, LengthBoundedDisjointPaths, MultipleChoiceBranching, RootedTreeArrangement, or StringToStringCorrection)
-    #[arg(
-        long,
-        alias = "max-length",
-        alias = "max-weight",
-        alias = "bound-k",
-        alias = "threshold",
-        allow_hyphen_values = true
-    )]
-    pub bound: Option<i64>,
-    /// Upper bound on expected retrieval latency for ExpectedRetrievalCost
-    #[arg(long)]
-    pub latency_bound: Option<f64>,
-    /// Upper bound on total path length
-    #[arg(long)]
-    pub length_bound: Option<i32>,
-    /// Upper bound on total path weight
-    #[arg(long)]
-    pub weight_bound: Option<i32>,
-    /// Upper bound on tree diameter (in edges) for BoundedDiameterSpanningTree
-    #[arg(long)]
-    pub diameter_bound: Option<usize>,
-    /// Upper bound on total inter-partition arc cost
-    #[arg(long)]
-    pub cost_bound: Option<i32>,
-    /// Budget on total delay penalty for CapacityAssignment
-    #[arg(long)]
-    pub delay_budget: Option<u64>,
-    /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
-    #[arg(long)]
-    pub pattern: Option<String>,
-    /// Input strings for LCS (e.g., "ABAC;BACA" or "0,1,0;1,0,1") or SCS (e.g., "0,1,2;1,2,0")
-    #[arg(long)]
-    pub strings: Option<String>,
-    /// Input string for GroupingBySwapping (comma-separated symbol indices, e.g., "0,1,2,0,1,2")
-    #[arg(long)]
-    pub string: Option<String>,
-    /// Task costs for SequencingToMinimizeMaximumCumulativeCost (comma-separated, e.g., "2,-1,3,-2,1,-3")
-    #[arg(long, allow_hyphen_values = true)]
-    pub costs: Option<String>,
-    /// Arc weights/lengths for directed graph problems with per-arc costs (comma-separated, e.g., "1,1,2,3")
-    #[arg(long = "arc-weights", alias = "arc-costs", alias = "arc-lengths")]
-    pub arc_costs: Option<String>,
-    /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
-    #[arg(long)]
-    pub arcs: Option<String>,
-    /// Left operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>3,2>3,0>1)
-    #[arg(long)]
-    pub left_arcs: Option<String>,
-    /// Right operand arcs for MinimumCodeGenerationUnlimitedRegisters (e.g., 1>4,2>4,0>2)
-    #[arg(long)]
-    pub right_arcs: Option<String>,
-    /// Arc-index equality constraints for IntegralFlowHomologousArcs (semicolon-separated, e.g., "2=5;4=3")
-    #[arg(long)]
-    pub homologous_pairs: Option<String>,
-    /// Quantifiers for QBF (comma-separated, E=Exists, A=ForAll, e.g., "E,A,E")
-    #[arg(long)]
-    pub quantifiers: Option<String>,
-    /// Size bound for partition sets (for MinimumCutIntoBoundedSets)
-    #[arg(long)]
-    pub size_bound: Option<usize>,
-    /// Cut weight bound (for MinimumCutIntoBoundedSets)
-    #[arg(long)]
-    pub cut_bound: Option<i32>,
-    /// Item values (e.g., 3,4,5,7) for PartiallyOrderedKnapsack
-    #[arg(long)]
-    pub values: Option<String>,
-    /// Precedence pairs (e.g., "0>2,0>3,1>4") for PartiallyOrderedKnapsack
-    #[arg(long, alias = "item-precedences")]
-    pub precedences: Option<String>,
-    /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
-    #[arg(long)]
-    pub distance_matrix: Option<String>,
-    /// Weighted potential augmentation edges (e.g., 0-2:3,1-3:5)
-    #[arg(long = "potential-weights", alias = "potential-edges")]
-    pub potential_edges: Option<String>,
-    /// Total budget for selected potential edges
-    #[arg(long)]
-    pub budget: Option<String>,
-    /// Maximum cycle length L for PartialFeedbackEdgeSet
-    #[arg(long)]
-    pub max_cycle_length: Option<usize>,
-    /// Candidate weighted arcs for StrongConnectivityAugmentation (e.g., 2>0:1,2>1:3)
-    #[arg(long)]
-    pub candidate_arcs: Option<String>,
-    /// Usage frequencies for MultipleCopyFileAllocation (comma-separated, e.g., "5,4,3,2")
-    #[arg(long)]
-    pub usage: Option<String>,
-    /// Storage costs for MultipleCopyFileAllocation (comma-separated, e.g., "1,1,1,1")
-    #[arg(long)]
-    pub storage: Option<String>,
-    /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
-    #[arg(long)]
-    pub deadlines: Option<String>,
-    /// Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime (e.g., "0>3,1>3,1>4,2>4")
-    #[arg(long)]
-    pub precedence_pairs: Option<String>,
-    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
-    #[arg(long)]
-    pub resource_bounds: Option<String>,
-    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
-    #[arg(long)]
-    pub resource_requirements: Option<String>,
-    /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
-    #[arg(long)]
-    pub task_lengths: Option<String>,
-    /// Job tasks for JobShopScheduling (semicolon-separated jobs, comma-separated processor:length tasks, e.g., "0:3,1:4;1:2,0:3,1:2")
-    #[arg(long = "jobs", alias = "job-tasks")]
-    pub job_tasks: Option<String>,
-    /// Deadline for FlowShopScheduling, MultiprocessorScheduling, or ResourceConstrainedScheduling
-    #[arg(long)]
-    pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines
-    #[arg(long)]
-    pub num_processors: Option<usize>,
-    /// Binary schedule patterns for StaffScheduling (semicolon-separated rows, e.g., "1,1,0;0,1,1")
-    #[arg(long)]
-    pub schedules: Option<String>,
-    /// Requirements for StaffScheduling (comma-separated) or TimetableDesign (semicolon-separated rows)
-    #[arg(long)]
-    pub requirements: Option<String>,
-    /// Number of available workers for StaffScheduling
-    #[arg(long)]
-    pub num_workers: Option<u64>,
-    /// Number of work periods for TimetableDesign
-    #[arg(long)]
-    pub num_periods: Option<usize>,
-    /// Number of craftsmen for TimetableDesign
-    #[arg(long)]
-    pub num_craftsmen: Option<usize>,
-    /// Number of tasks for TimetableDesign
-    #[arg(long)]
-    pub num_tasks: Option<usize>,
-    /// Craftsman availability rows for TimetableDesign (semicolon-separated 0/1 rows)
-    #[arg(long)]
-    pub craftsman_avail: Option<String>,
-    /// Task availability rows for TimetableDesign (semicolon-separated 0/1 rows)
-    #[arg(long)]
-    pub task_avail: Option<String>,
-    /// Alphabet size for GroupingBySwapping, LCS, SCS, StringToStringCorrection, or TwoDimensionalConsecutiveSets (optional; inferred from the input strings if omitted)
-    #[arg(long)]
-    pub alphabet_size: Option<usize>,
-    /// Common window length ell for ClosestSubstring
-    #[arg(long)]
-    pub substring_length: Option<usize>,
-
-    /// Number of attributes for AdditionalKey or MinimumCardinalityKey
-    #[arg(long)]
-    pub num_attributes: Option<usize>,
-    /// Functional dependencies for AdditionalKey (e.g., "0,1:2,3;2,3:4,5") or MinimumCardinalityKey (semicolon-separated "lhs>rhs" pairs, e.g., "0,1>2;0,2>3")
-    #[arg(long)]
-    pub dependencies: Option<String>,
-    /// Relation scheme attributes for AdditionalKey (comma-separated, e.g., "0,1,2,3,4,5")
-    #[arg(long)]
-    pub relation_attrs: Option<String>,
-    /// Known candidate keys for AdditionalKey (e.g., "0,1;2,3")
-    #[arg(long)]
-    pub known_keys: Option<String>,
-    /// Number of objects for ConsistencyOfDatabaseFrequencyTables
-    #[arg(long)]
-    pub num_objects: Option<usize>,
-    /// Attribute-domain sizes for ConsistencyOfDatabaseFrequencyTables (comma-separated, e.g., "2,3,2")
-    #[arg(long)]
-    pub attribute_domains: Option<String>,
-    /// Pairwise frequency tables for ConsistencyOfDatabaseFrequencyTables (e.g., "0,1:1,1|0,1;1,2:1,0|0,1")
-    #[arg(long)]
-    pub frequency_tables: Option<String>,
-    /// Known value triples for ConsistencyOfDatabaseFrequencyTables (e.g., "0,0,0;3,1,2")
-    #[arg(long)]
-    pub known_values: Option<String>,
-    /// Domain size for ConjunctiveBooleanQuery
-    #[arg(long)]
-    pub domain_size: Option<usize>,
-    /// Relations for ConjunctiveBooleanQuery (format: "arity:tuple1|tuple2;arity:tuple1|tuple2")
-    #[arg(long)]
-    pub relations: Option<String>,
-    /// Conjuncts for ConjunctiveBooleanQuery (format: "rel:args;rel:args" where args use v0,v1 for variables, c0,c1 for constants)
-    #[arg(long)]
-    pub conjuncts_spec: Option<String>,
-    /// Functional dependencies (semicolon-separated, each dep is lhs>rhs with comma-separated indices, e.g., "0,1>2,3;2,3>0,1")
-    #[arg(long)]
-    pub deps: Option<String>,
-    /// Query attribute index for PrimeAttributeName
-    #[arg(long = "query-attribute", alias = "query")]
-    pub query: Option<usize>,
-    /// Right-hand side vector for FeasibleBasisExtension (comma-separated, e.g., "7,5,3")
-    #[arg(long)]
-    pub rhs: Option<String>,
-    /// Required column indices for FeasibleBasisExtension (comma-separated, e.g., "0,1")
-    #[arg(long)]
-    pub required_columns: Option<String>,
-    /// Number of groups for SumOfSquaresPartition
-    #[arg(long)]
-    pub num_groups: Option<usize>,
-    /// Number of sectors for ExpectedRetrievalCost
-    #[arg(long)]
-    pub num_sectors: Option<usize>,
-    /// Compiler index for each task in SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "0,1,0,1,0")
-    #[arg(long)]
-    pub compilers: Option<String>,
-    /// Setup times per compiler for SequencingWithDeadlinesAndSetUpTimes (comma-separated, e.g., "1,2")
-    #[arg(long)]
-    pub setup_times: Option<String>,
-    /// Source string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,2,3")
-    #[arg(long)]
-    pub source_string: Option<String>,
-    /// Target string for StringToStringCorrection (comma-separated symbol indices, e.g., "0,1,3,2")
-    #[arg(long)]
-    pub target_string: Option<String>,
-    /// Pointer cost for MinimumExternalMacroDataCompression (positive integer)
-    #[arg(long)]
-    pub pointer_cost: Option<usize>,
-    /// Expression tree for IntegerExpressionMembership (JSON, e.g., '{"Sum":[{"Atom":1},{"Atom":2}]}')
-    #[arg(long)]
-    pub expression: Option<String>,
-    /// Equations for AlgebraicEquationsOverGF2 (semicolon-separated polynomials, each a colon-separated list of monomials, each a comma-separated list of variable indices; empty monomial = constant 1; e.g., "0,1:2;1,2:0:;0:1:2:")
-    #[arg(long)]
-    pub equations: Option<String>,
-    /// Register assignment for FeasibleRegisterAssignment (comma-separated register indices, e.g., "0,1,0,0")
-    #[arg(long)]
-    pub assignment: Option<String>,
-    /// Coefficient/parameter a for QuadraticCongruences (residue target) or QuadraticDiophantineEquations (coefficient of x²)
-    #[arg(long)]
-    pub coeff_a: Option<String>,
-    /// Coefficient/parameter b for QuadraticCongruences (modulus) or QuadraticDiophantineEquations (coefficient of y)
-    #[arg(long)]
-    pub coeff_b: Option<String>,
-    /// Constant c for QuadraticCongruences (search-space bound) or QuadraticDiophantineEquations (right-hand side of ax² + by = c)
-    #[arg(long)]
-    pub coeff_c: Option<String>,
-    /// Incongruence pairs for SimultaneousIncongruences (semicolon-separated "a,b" pairs, e.g., "2,2;1,3;2,5;3,7")
-    #[arg(long)]
-    pub pairs: Option<String>,
-    /// W-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
-    #[arg(long)]
-    pub w_sizes: Option<String>,
-    /// X-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "4,5")
-    #[arg(long)]
-    pub x_sizes: Option<String>,
-    /// Y-set sizes for Numerical3DimensionalMatching (comma-separated, e.g., "5,7")
-    #[arg(long)]
-    pub y_sizes: Option<String>,
-    /// Initial marking for NonLivenessFreePetriNet (comma-separated tokens per place, e.g., "1,0,0,0")
-    #[arg(long)]
-    pub initial_marking: Option<String>,
-    /// Output arcs (transition-to-place) for NonLivenessFreePetriNet (e.g., "0>1,1>2,2>3")
-    #[arg(long)]
-    pub output_arcs: Option<String>,
-    /// Gate types for MinimumWeightAndOrGraph (comma-separated: AND, OR, or L for leaf, e.g., "AND,OR,OR,L,L,L,L")
-    #[arg(long)]
-    pub gate_types: Option<String>,
-    /// Input vertex indices (comma-separated, e.g., "0,1")
-    #[arg(long)]
-    pub inputs: Option<String>,
-    /// Output vertex indices (comma-separated, e.g., "5,6")
-    #[arg(long)]
-    pub outputs: Option<String>,
-    /// True sentence indices for MinimumAxiomSet (comma-separated, e.g., "0,1,2,3,4,5,6,7")
-    #[arg(long)]
-    pub true_sentences: Option<String>,
-    /// Implications for MinimumAxiomSet (semicolon-separated "antecedents>consequent", e.g., "0>2;0>3;1>4;2,4>6")
-    #[arg(long)]
-    pub implications: Option<String>,
-    /// Loop length N for MinimumRegisterSufficiencyForLoops
-    #[arg(long)]
-    pub loop_length: Option<usize>,
-    /// Variables as semicolon-separated start,duration pairs for MinimumRegisterSufficiencyForLoops (e.g., "0,3;2,3;4,3")
-    #[arg(long)]
-    pub loop_variables: Option<String>,
-    /// Parallel assignments for MinimumCodeGenerationParallelAssignments (semicolon-separated "target:read1,read2" entries, e.g., "0:1,2;1:0;2:3;3:1,2")
-    #[arg(long)]
-    pub assignments: Option<String>,
-    /// Number of variables for MinimumCodeGenerationParallelAssignments
-    #[arg(long)]
-    pub num_variables: Option<usize>,
-    /// Truth table for MinimumDisjunctiveNormalForm (comma-separated 0/1, e.g., "0,1,1,1,1,1,1,0")
-    #[arg(long)]
-    pub truth_table: Option<String>,
-    /// Test matrix for MinimumDecisionTree (JSON 2D bool array, e.g., '[[true,true,false],[true,false,false]]')
-    #[arg(long)]
-    pub test_matrix: Option<String>,
-    /// Number of tests for MinimumDecisionTree
-    #[arg(long)]
-    pub num_tests: Option<usize>,
-    /// Tiles for SquareTiling (semicolon-separated top,right,bottom,left tuples, e.g., "0,1,2,0;0,0,2,1;2,1,0,0;2,0,0,1")
-    #[arg(long)]
-    pub tiles: Option<String>,
-    /// Grid size N for SquareTiling (N x N grid)
-    #[arg(long)]
-    pub grid_size: Option<usize>,
-    /// Number of colors for SquareTiling
-    #[arg(long)]
-    pub num_colors: Option<usize>,
-    /// Vertex prizes for PrizeCollectingSteinerForest (comma-separated nonnegative weights, e.g., "5,2,5")
-    #[arg(long)]
-    pub vertex_prizes: Option<String>,
-    /// Edge costs for PrizeCollectingSteinerForest (comma-separated nonnegative weights in graph.edges() order, e.g., "1,6")
-    #[arg(long)]
-    pub edge_costs: Option<String>,
-    /// Tradeoff coefficient beta >= 0 on the omitted-prize term for PrizeCollectingSteinerForest
-    #[arg(long)]
-    pub beta: Option<String>,
-    /// Per-component penalty omega >= 0 for PrizeCollectingSteinerForest
-    #[arg(long)]
-    pub omega: Option<String>,
-}
-
-impl CreateArgs {
-    #[allow(dead_code)]
-    pub fn flag_map(&self) -> HashMap<&'static str, Option<String>> {
-        let mut flags = HashMap::new();
-
-        macro_rules! insert {
-            ($key:literal, $expr:expr) => {
-                flags.insert($key, ($expr).map(|value| value.to_string()));
-            };
-        }
-
-        insert!("example", self.example.as_deref());
-        insert!("to", self.example_target.as_deref());
-        insert!("graph", self.graph.as_deref());
-        insert!("weights", self.weights.as_deref());
-        insert!("edge-weights", self.edge_weights.as_deref());
-        insert!("edge-lengths", self.edge_lengths.as_deref());
-        insert!("capacities", self.capacities.as_deref());
-        insert!("demands", self.demands.as_deref());
-        insert!("setup-costs", self.setup_costs.as_deref());
-        insert!("production-costs", self.production_costs.as_deref());
-        insert!("inventory-costs", self.inventory_costs.as_deref());
-        insert!("bundle-capacities", self.bundle_capacities.as_deref());
-        insert!("cost-matrix", self.cost_matrix.as_deref());
-        insert!("delay-matrix", self.delay_matrix.as_deref());
-        insert!("lower-bounds", self.lower_bounds.as_deref());
-        insert!("multipliers", self.multipliers.as_deref());
-        insert!("sink", self.sink);
-        insert!("requirement", self.requirement);
-        insert!("num-paths-required", self.num_paths_required);
-        insert!("paths", self.paths.as_deref());
-        insert!("couplings", self.couplings.as_deref());
-        insert!("fields", self.fields.as_deref());
-        insert!("clauses", self.clauses.as_deref());
-        insert!("disjuncts", self.disjuncts.as_deref());
-        insert!("num-vars", self.num_vars);
-        insert!("matrix", self.matrix.as_deref());
-        insert!("k", self.k);
-        insert!("num-partitions", self.num_partitions);
-        flags.insert("random", self.random.then(|| "true".to_string()));
-        insert!("num-vertices", self.num_vertices);
-        insert!("source-vertex", self.source_vertex);
-        insert!("target-vertex", self.target_vertex);
-        insert!("edge-prob", self.edge_prob);
-        insert!("seed", self.seed);
-        insert!("target", self.target.as_deref());
-        insert!("m", self.m);
-        insert!("n", self.n);
-        insert!("positions", self.positions.as_deref());
-        insert!("radius", self.radius);
-        insert!("source-1", self.source_1);
-        insert!("sink-1", self.sink_1);
-        insert!("source-2", self.source_2);
-        insert!("sink-2", self.sink_2);
-        insert!("requirement-1", self.requirement_1);
-        insert!("requirement-2", self.requirement_2);
-        insert!("sizes", self.sizes.as_deref());
-        insert!("probabilities", self.probabilities.as_deref());
-        insert!("link-lengths", self.link_lengths.as_deref());
-        insert!("target-point", self.target_point.as_deref());
-        insert!("orientation-samples", self.orientation_samples.as_deref());
-        insert!("allowed-pairs", self.allowed_pairs.as_deref());
-        insert!("graph-1", self.graph_1.as_deref());
-        insert!("graph-2", self.graph_2.as_deref());
-        insert!("num-vertices-1", self.num_vertices_1);
-        insert!("num-vertices-2", self.num_vertices_2);
-        insert!("contacts-1", self.contacts_1.as_deref());
-        insert!("contacts-2", self.contacts_2.as_deref());
-        insert!("capacity", self.capacity.as_deref());
-        insert!("sequence", self.sequence.as_deref());
-        insert!("subsets", self.sets.as_deref());
-        insert!("r-sets", self.r_sets.as_deref());
-        insert!("s-sets", self.s_sets.as_deref());
-        insert!("r-weights", self.r_weights.as_deref());
-        insert!("s-weights", self.s_weights.as_deref());
-        insert!("partition", self.partition.as_deref());
-        insert!("partitions", self.partitions.as_deref());
-        insert!("bundles", self.bundles.as_deref());
-        insert!("universe-size", self.universe);
-        insert!("universe", self.universe); // PrimeAttributeName maps num_attributes → --universe
-        insert!("biedges", self.biedges.as_deref());
-        insert!("left", self.left);
-        insert!("right", self.right);
-        insert!("rank", self.rank);
-        insert!("basis", self.basis.as_deref());
-        insert!("target-vec", self.target_vec.as_deref());
-        insert!("bounds", self.bounds.as_deref());
-        insert!("release-times", self.release_times.as_deref());
-        insert!("lengths", self.lengths.as_deref().or(self.sizes.as_deref()));
-        insert!("terminals", self.terminals.as_deref());
-        insert!("terminal-pairs", self.terminal_pairs.as_deref());
-        insert!("tree", self.tree.as_deref());
-        insert!("required-edges", self.required_edges.as_deref());
-        insert!("bound", self.bound);
-        insert!("max-length", self.bound);
-        insert!("max-weight", self.bound);
-        insert!("bound-k", self.bound);
-        insert!("threshold", self.bound);
-        insert!("latency-bound", self.latency_bound);
-        insert!("length-bound", self.length_bound);
-        insert!("weight-bound", self.weight_bound);
-        insert!("diameter-bound", self.diameter_bound);
-        insert!("cost-bound", self.cost_bound);
-        insert!("delay-budget", self.delay_budget);
-        insert!("pattern", self.pattern.as_deref());
-        insert!("strings", self.strings.as_deref());
-        insert!("string", self.string.as_deref());
-        insert!("costs", self.costs.as_deref());
-        insert!("arc-weights", self.arc_costs.as_deref());
-        insert!("arc-costs", self.arc_costs.as_deref());
-        insert!("arc-lengths", self.arc_costs.as_deref());
-        insert!("arcs", self.arcs.as_deref());
-        insert!("left-arcs", self.left_arcs.as_deref());
-        insert!("right-arcs", self.right_arcs.as_deref());
-        insert!("homologous-pairs", self.homologous_pairs.as_deref());
-        insert!("quantifiers", self.quantifiers.as_deref());
-        insert!("size-bound", self.size_bound);
-        insert!("cut-bound", self.cut_bound);
-        insert!("values", self.values.as_deref());
-        insert!(
-            "precedences",
-            self.precedences
-                .as_deref()
-                .or(self.precedence_pairs.as_deref())
-        );
-        insert!(
-            "precedence-pairs",
-            self.precedences
-                .as_deref()
-                .or(self.precedence_pairs.as_deref())
-        );
-        insert!("distance-matrix", self.distance_matrix.as_deref());
-        insert!("potential-weights", self.potential_edges.as_deref());
-        insert!("potential-edges", self.potential_edges.as_deref());
-        insert!("budget", self.budget.as_deref());
-        insert!("max-cycle-length", self.max_cycle_length);
-        insert!("candidate-arcs", self.candidate_arcs.as_deref());
-        insert!("usage", self.usage.as_deref());
-        insert!("storage", self.storage.as_deref());
-        insert!("deadlines", self.deadlines.as_deref());
-        insert!("resource-bounds", self.resource_bounds.as_deref());
-        insert!(
-            "resource-requirements",
-            self.resource_requirements.as_deref()
-        );
-        insert!("task-lengths", self.task_lengths.as_deref());
-        insert!("jobs", self.job_tasks.as_deref());
-        insert!("job-tasks", self.job_tasks.as_deref());
-        insert!("deadline", self.deadline);
-        insert!("num-processors", self.num_processors);
-        insert!("schedules", self.schedules.as_deref());
-        insert!("requirements", self.requirements.as_deref());
-        insert!("num-workers", self.num_workers);
-        insert!("num-periods", self.num_periods);
-        insert!("num-craftsmen", self.num_craftsmen);
-        insert!("num-tasks", self.num_tasks.or(self.n));
-        insert!("craftsman-avail", self.craftsman_avail.as_deref());
-        insert!("task-avail", self.task_avail.as_deref());
-        insert!("alphabet-size", self.alphabet_size);
-        insert!("substring-length", self.substring_length);
-        insert!("num-attributes", self.num_attributes);
-        insert!(
-            "dependencies",
-            self.dependencies.as_deref().or(self.deps.as_deref())
-        );
-        insert!(
-            "deps",
-            self.dependencies.as_deref().or(self.deps.as_deref())
-        );
-        insert!("relation-attrs", self.relation_attrs.as_deref());
-        insert!("known-keys", self.known_keys.as_deref());
-        insert!("num-objects", self.num_objects);
-        insert!("attribute-domains", self.attribute_domains.as_deref());
-        insert!("frequency-tables", self.frequency_tables.as_deref());
-        insert!("known-values", self.known_values.as_deref());
-        insert!("domain-size", self.domain_size);
-        insert!("relations", self.relations.as_deref());
-        insert!("conjuncts-spec", self.conjuncts_spec.as_deref());
-        insert!("query-attribute", self.query);
-        insert!("rhs", self.rhs.as_deref());
-        insert!("required-columns", self.required_columns.as_deref());
-        insert!("num-groups", self.num_groups);
-        insert!("num-sectors", self.num_sectors);
-        insert!("compilers", self.compilers.as_deref());
-        insert!("setup-times", self.setup_times.as_deref());
-        insert!("source-string", self.source_string.as_deref());
-        insert!("target-string", self.target_string.as_deref());
-        insert!("pointer-cost", self.pointer_cost);
-        insert!("expression", self.expression.as_deref());
-        insert!("equations", self.equations.as_deref());
-        insert!("assignment", self.assignment.as_deref());
-        insert!("coeff-a", self.coeff_a.as_deref());
-        insert!("coeff-b", self.coeff_b.as_deref());
-        insert!("coeff-c", self.coeff_c.as_deref());
-        insert!("pairs", self.pairs.as_deref());
-        insert!("w-sizes", self.w_sizes.as_deref());
-        insert!("x-sizes", self.x_sizes.as_deref());
-        insert!("y-sizes", self.y_sizes.as_deref());
-        insert!("initial-marking", self.initial_marking.as_deref());
-        insert!("output-arcs", self.output_arcs.as_deref());
-        insert!("gate-types", self.gate_types.as_deref());
-        insert!("inputs", self.inputs.as_deref());
-        insert!("outputs", self.outputs.as_deref());
-        insert!("true-sentences", self.true_sentences.as_deref());
-        insert!("implications", self.implications.as_deref());
-        insert!("loop-length", self.loop_length);
-        insert!("loop-variables", self.loop_variables.as_deref());
-        insert!("assignments", self.assignments.as_deref());
-        insert!("num-variables", self.num_variables);
-        insert!("truth-table", self.truth_table.as_deref());
-        insert!("test-matrix", self.test_matrix.as_deref());
-        insert!("num-tests", self.num_tests);
-        insert!("tiles", self.tiles.as_deref());
-        insert!("grid-size", self.grid_size);
-        insert!("num-colors", self.num_colors);
-        insert!("vertex-prizes", self.vertex_prizes.as_deref());
-        insert!("edge-costs", self.edge_costs.as_deref());
-        insert!("beta", self.beta.as_deref());
-        insert!("omega", self.omega.as_deref());
-
-        flags.insert(
-            "source",
-            self.source_string
-                .clone()
-                .or_else(|| self.source.map(|value| value.to_string())),
-        );
-        flags.insert(
-            "target",
-            self.target_string
-                .clone()
-                .or_else(|| self.target.clone())
-                .or_else(|| self.sink.map(|value| value.to_string())),
-        );
-
-        flags
-    }
-}
-
-#[derive(clap::Args)]
-#[command(after_help = "\
 Examples:
   pred solve problem.json                        # deterministic registered backend or fallback
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
@@ -1223,7 +281,7 @@ Examples:
   pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
   pred create GroupingBySwapping --string \"0,1,2,0,1,2\" --bound 5 | pred solve - --solver brute-force
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
-  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --subsets \"0,1,2;3,4,5;1,3;2,4;0,5\" | pred solve - --solver brute-force
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
@@ -1336,276 +394,164 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::Cli;
     use super::*;
-    use clap::CommandFactory;
+    use clap::error::ErrorKind;
 
     #[test]
-    fn test_create_help_mentions_scheduling_with_individual_deadlines_shared_flags() {
-        let mut cmd = Cli::command();
-        let create = cmd
-            .find_subcommand_mut("create")
-            .expect("create subcommand");
-        let mut help = Vec::new();
-        create
-            .write_long_help(&mut help)
-            .expect("render create help");
-        let help = String::from_utf8(help).expect("utf8 help");
-
-        assert!(help.contains(
-            "Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
-        ));
-        assert!(help.contains(
-            "Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"
-        ));
-        assert!(
-            help.contains(
-                "Number of processors/machines for FlowShopScheduling, JobShopScheduling, MultiprocessorScheduling, ResourceConstrainedScheduling, SchedulingToMinimizeWeightedCompletionTime, or SchedulingWithIndividualDeadlines"
-            ),
-            "create help should describe --num-processors for both scheduling models"
-        );
-        assert!(help.contains(
-            "SchedulingWithIndividualDeadlines --num-tasks, --num-processors/--m, --deadlines [--precedences]"
-        ));
+    fn two_stage_create_parser_uses_bounded_stack() {
+        std::thread::Builder::new()
+            .stack_size(1024 * 1024)
+            .spawn(|| {
+                assert_eq!(
+                    Cli::try_parse_from(["pred", "--version"])
+                        .err()
+                        .expect("version exits")
+                        .kind(),
+                    ErrorKind::DisplayVersion
+                );
+                Cli::try_parse_from(["pred", "list"]).expect("list parses");
+                Cli::try_parse_from(["pred", "create", "MIS", "--graph", "0-1"])
+                    .expect("MIS parses");
+                Cli::try_parse_from([
+                    "pred",
+                    "create",
+                    "SAT",
+                    "--num-vars",
+                    "2",
+                    "--clauses",
+                    "1,2",
+                ])
+                .expect("SAT parses");
+                assert_eq!(
+                    Cli::try_parse_from(["pred", "create", "MIS", "--clauses", "1,2"])
+                        .err()
+                        .expect("unrelated flag is rejected")
+                        .kind(),
+                    ErrorKind::UnknownArgument
+                );
+                assert_eq!(
+                    Cli::try_parse_from([
+                        "pred", "create", "KClique", "--graph", "0-1", "--k", "nope"
+                    ])
+                    .err()
+                    .expect("invalid numeric value is rejected by Clap")
+                    .kind(),
+                    ErrorKind::ValueValidation
+                );
+                Cli::try_parse_from([
+                    "pred",
+                    "create",
+                    "ShortestCommonSupersequence",
+                    "--strings",
+                    "0,1;1,2",
+                ])
+                .expect("derived SCS fields are not required as inputs");
+                assert_eq!(
+                    Cli::try_parse_from([
+                        "pred",
+                        "create",
+                        "LCS",
+                        "--strings",
+                        "0,1;1,2",
+                        "--max-length",
+                        "99",
+                    ])
+                    .err()
+                    .expect("derived LCS max_length is not exposed")
+                    .kind(),
+                    ErrorKind::UnknownArgument
+                );
+                Cli::try_parse_from([
+                    "pred",
+                    "create",
+                    "ThreePartition",
+                    "--sizes",
+                    "1,1,1",
+                    "--bound",
+                    "18446744073709551615",
+                ])
+                .expect("u64 construction inputs are typed by schema, not by flag name");
+                Cli::try_parse_from([
+                    "pred",
+                    "create",
+                    "MinimumCodeGenerationOneRegister",
+                    "--edges",
+                    "0>1",
+                ])
+                .expect("ordinary edges fields keep their schema-derived name");
+                Cli::command().debug_assert();
+            })
+            .expect("spawn parser thread")
+            .join()
+            .expect("parser thread completes");
     }
 
     #[test]
-    fn test_create_parses_biconnectivity_augmentation_flags() {
-        let cli = Cli::parse_from([
+    fn two_stage_create_parser_preserves_problem_and_variant_aliases() {
+        let cli = Cli::try_parse_from([
             "pred",
             "create",
-            "BiconnectivityAugmentation",
-            "--graph",
-            "0-1,1-2",
-            "--potential-weights",
-            "0-2:3,1-3:5",
-            "--budget",
-            "7",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        assert_eq!(args.problem.as_deref(), Some("BiconnectivityAugmentation"));
-        assert_eq!(args.graph.as_deref(), Some("0-1,1-2"));
-        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
-        assert_eq!(args.budget.as_deref(), Some("7"));
-    }
-
-    #[test]
-    fn test_create_parses_biconnectivity_augmentation_legacy_flag_alias() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "BiconnectivityAugmentation",
-            "--graph",
-            "0-1,1-2",
-            "--potential-edges",
-            "0-2:3,1-3:5",
-            "--budget",
-            "7",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        assert_eq!(args.potential_edges.as_deref(), Some("0-2:3,1-3:5"));
-    }
-
-    #[test]
-    fn test_create_help_mentions_biconnectivity_augmentation_flags() {
-        let cmd = Cli::command();
-        let create = cmd.find_subcommand("create").expect("create subcommand");
-        let help = create
-            .get_after_help()
-            .expect("create after_help")
-            .to_string();
-
-        assert!(help.contains("BiconnectivityAugmentation"));
-        assert!(help.contains("--potential-weights"));
-        assert!(help.contains("--budget"));
-    }
-
-    #[test]
-    fn test_create_parses_job_shop_scheduling_jobs_flag() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "JobShopScheduling",
-            "--jobs",
-            "0:3,1:4;1:2,0:3,1:2",
-            "--num-processors",
-            "2",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        assert_eq!(args.problem.as_deref(), Some("JobShopScheduling"));
-        assert_eq!(args.job_tasks.as_deref(), Some("0:3,1:4;1:2,0:3,1:2"));
-        assert_eq!(args.num_processors, Some(2));
-    }
-
-    #[test]
-    fn test_create_parses_prime_attribute_name_canonical_flags() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "PrimeAttributeName",
-            "--universe",
-            "6",
-            "--dependencies",
-            "0,1>2,3,4,5;2,3>0,1,4,5",
-            "--query-attribute",
+            "3SAT",
+            "--num-vars",
             "3",
-        ]);
-
+            "--clauses",
+            "1,2,3",
+        ])
+        .expect("variant alias parses");
         let Commands::Create(args) = cli.command else {
             panic!("expected create command");
         };
-
-        assert_eq!(args.problem.as_deref(), Some("PrimeAttributeName"));
-        assert_eq!(args.universe, Some(6));
-        assert_eq!(
-            args.dependencies.as_deref(),
-            Some("0,1>2,3,4,5;2,3>0,1,4,5")
-        );
-        assert_eq!(args.query, Some(3));
+        assert_eq!(args.problem.as_deref(), Some("KSatisfiability/K3"));
+        assert_eq!(args.raw("num-vars"), Some("3"));
     }
 
     #[test]
-    fn test_create_args_flag_map_prefers_canonical_prime_attribute_keys() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "PrimeAttributeName",
-            "--universe",
-            "6",
-            "--dependencies",
-            "0,1>2,3,4,5;2,3>0,1,4,5",
-            "--query-attribute",
-            "3",
-        ]);
-
+    fn canonical_problem_name_is_not_treated_as_an_alias() {
+        let cli =
+            Cli::try_parse_from(["pred", "create", "GraphPartitioning", "--graph", "0-1,2-3"])
+                .expect("canonical problem name parses");
         let Commands::Create(args) = cli.command else {
             panic!("expected create command");
         };
-
-        let flags = args.flag_map();
-        assert_eq!(flags.get("universe-size"), Some(&Some("6".to_string())));
-        assert_eq!(
-            flags.get("dependencies"),
-            Some(&Some("0,1>2,3,4,5;2,3>0,1,4,5".to_string()))
-        );
-        assert_eq!(flags.get("query-attribute"), Some(&Some("3".to_string())));
+        assert_eq!(args.problem.as_deref(), Some("GraphPartitioning"));
     }
 
     #[test]
-    fn test_create_args_flag_map_converts_numeric_and_alias_backed_values() {
-        let cli = Cli::parse_from([
+    fn selected_create_parser_preserves_trailing_global_arguments() {
+        let cli = Cli::try_parse_from([
             "pred",
             "create",
-            "LengthBoundedDisjointPaths",
+            "MIS",
             "--graph",
-            "0-1,1-2,2-3",
-            "--source",
-            "0",
-            "--sink",
-            "3",
-            "--max-length",
-            "4",
-        ]);
+            "0-1",
+            "--output",
+            "problem.json",
+            "--json",
+        ])
+        .expect("global arguments parse after the selected model");
+        assert_eq!(cli.output, Some(PathBuf::from("problem.json")));
+        assert!(cli.json);
+    }
 
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
+    #[test]
+    fn selected_create_parser_renders_model_help() {
+        let error = match Cli::try_parse_from(["pred", "create", "MIS", "--help"]) {
+            Ok(_) => panic!("help should exit after rendering the selected model command"),
+            Err(error) => error,
         };
-
-        let flags = args.flag_map();
-        assert_eq!(flags.get("source"), Some(&Some("0".to_string())));
-        assert_eq!(flags.get("sink"), Some(&Some("3".to_string())));
-        assert_eq!(flags.get("max-length"), Some(&Some("4".to_string())));
-        assert_eq!(flags.get("bound"), Some(&Some("4".to_string())));
-    }
-
-    #[test]
-    fn test_create_args_flag_map_promotes_legacy_jobs_alias_to_canonical_key() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "JobShopScheduling",
-            "--job-tasks",
-            "0:3,1:4;1:2,0:3,1:2",
-            "--num-processors",
-            "2",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        let flags = args.flag_map();
-        assert_eq!(
-            flags.get("jobs"),
-            Some(&Some("0:3,1:4;1:2,0:3,1:2".to_string()))
-        );
-    }
-
-    #[test]
-    fn test_create_parses_partial_feedback_edge_set_flags() {
-        let cli = Cli::parse_from([
-            "pred",
-            "create",
-            "PartialFeedbackEdgeSet",
-            "--graph",
-            "0-1,1-2,2-0",
-            "--budget",
-            "1",
-            "--max-cycle-length",
-            "3",
-        ]);
-
-        let Commands::Create(args) = cli.command else {
-            panic!("expected create command");
-        };
-
-        assert_eq!(args.problem.as_deref(), Some("PartialFeedbackEdgeSet"));
-        assert_eq!(args.graph.as_deref(), Some("0-1,1-2,2-0"));
-        assert_eq!(args.budget.as_deref(), Some("1"));
-        assert_eq!(args.max_cycle_length, Some(3));
-    }
-
-    #[test]
-    fn test_create_help_mentions_partial_feedback_edge_set_flags() {
-        let cmd = Cli::command();
-        let create = cmd.find_subcommand("create").expect("create subcommand");
-        let help = create
-            .get_after_help()
-            .expect("create after_help")
-            .to_string();
-
-        assert!(help.contains("PartialFeedbackEdgeSet"));
-        assert!(help.contains("--budget"));
-        assert!(help.contains("--max-cycle-length"));
-    }
-
-    #[test]
-    fn test_create_help_mentions_stacker_crane_flags() {
-        let cmd = Cli::command();
-        let create = cmd.find_subcommand("create").expect("create subcommand");
-        let help = create
-            .get_after_help()
-            .expect("create after_help")
-            .to_string();
-
-        assert!(help.contains("StackerCrane"));
-        assert!(help.contains("--arcs"));
+        assert_eq!(error.kind(), ErrorKind::DisplayHelp);
+        let help = error.to_string();
         assert!(help.contains("--graph"));
-        assert!(help.contains("--arc-lengths"));
-        assert!(help.contains("--edge-lengths"));
-        assert!(help.contains("--bound"));
-        assert!(help.contains("--num-vertices"));
+        assert!(!help.contains("--clauses"));
+    }
+
+    #[test]
+    fn static_create_parser_has_no_registered_model_subcommands() {
+        let command = Cli::command();
+        let create = command
+            .find_subcommand("create")
+            .expect("create subcommand");
+        assert_eq!(create.get_subcommands().count(), 0);
+        assert!(create.is_allow_external_subcommands_set());
     }
 }

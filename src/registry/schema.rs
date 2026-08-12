@@ -2,6 +2,73 @@
 
 use super::FieldInfo;
 use serde::Serialize;
+use std::fmt;
+use std::str::FromStr;
+
+/// Structural category used to organize problem implementations and catalog output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProblemCategory {
+    Algebraic,
+    Formula,
+    Graph,
+    Misc,
+    Set,
+}
+
+impl ProblemCategory {
+    pub const ALL: [Self; 5] = [
+        Self::Algebraic,
+        Self::Formula,
+        Self::Graph,
+        Self::Misc,
+        Self::Set,
+    ];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Algebraic => "algebraic",
+            Self::Formula => "formula",
+            Self::Graph => "graph",
+            Self::Misc => "misc",
+            Self::Set => "set",
+        }
+    }
+}
+
+impl fmt::Display for ProblemCategory {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// Error returned when a catalog category is not one of the five supported values.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseProblemCategoryError(String);
+
+impl fmt::Display for ParseProblemCategoryError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let expected = ProblemCategory::ALL.map(ProblemCategory::as_str).join(", ");
+        write!(
+            formatter,
+            "unknown problem category `{}`; expected one of: {expected}",
+            self.0,
+        )
+    }
+}
+
+impl std::error::Error for ParseProblemCategoryError {}
+
+impl FromStr for ProblemCategory {
+    type Err = ParseProblemCategoryError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|category| category.as_str() == value)
+            .ok_or_else(|| ParseProblemCategoryError(value.to_string()))
+    }
+}
 
 /// A declared variant dimension for a problem type.
 ///
@@ -33,6 +100,22 @@ impl VariantDimension {
 }
 
 /// A registered problem schema entry for static inventory registration.
+///
+/// Category is required rather than inferred from source location:
+///
+/// ```compile_fail
+/// use problemreductions::registry::ProblemSchemaEntry;
+///
+/// let _schema = ProblemSchemaEntry {
+///     name: "Example",
+///     display_name: "Example",
+///     aliases: &[],
+///     dimensions: &[],
+///     module_path: module_path!(),
+///     description: "Example schema",
+///     fields: &[],
+/// };
+/// ```
 pub struct ProblemSchemaEntry {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,
@@ -42,11 +125,13 @@ pub struct ProblemSchemaEntry {
     pub aliases: &'static [&'static str],
     /// Declared variant dimensions with defaults and allowed values.
     pub dimensions: &'static [VariantDimension],
+    /// Explicit structural category shown in catalog output.
+    pub category: ProblemCategory,
     /// Module path from `module_path!()` (e.g., "problemreductions::models::graph::maximum_independent_set").
     pub module_path: &'static str,
     /// Human-readable description.
     pub description: &'static str,
-    /// Struct fields.
+    /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
 }
 
@@ -72,7 +157,9 @@ pub struct ProblemSchemaJson {
     pub name: String,
     /// Problem description.
     pub description: String,
-    /// Struct fields.
+    /// Structural catalog category.
+    pub category: ProblemCategory,
+    /// Inputs accepted when constructing this problem.
     pub fields: Vec<FieldInfoJson>,
 }
 
@@ -94,6 +181,7 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
         .map(|entry| ProblemSchemaJson {
             name: entry.name.to_string(),
             description: entry.description.to_string(),
+            category: entry.category,
             fields: entry
                 .fields
                 .iter()

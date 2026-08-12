@@ -2,7 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -13,12 +13,10 @@ inventory::submit! {
         display_name: "QUBO",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "f64", &["f64"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
-        fields: &[
-            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Upper-triangular Q matrix" },
-        ],
+        fields: QuboCreateSpec::FIELDS,
     }
 }
 
@@ -66,6 +64,24 @@ pub struct QUBO<W = f64> {
     /// Q matrix stored as upper triangular (row-major).
     /// `Q[i][j]` for i <= j represents the coefficient of x_i * x_j
     matrix: Vec<Vec<W>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct QuboCreateSpec {
+    /// Q matrix; the number of variables is its row count.
+    #[create(codec = "semicolon-separated")]
+    matrix: Vec<Vec<f64>>,
+}
+
+impl TryFrom<QuboCreateSpec> for QUBO<f64> {
+    type Error = String;
+
+    fn try_from(spec: QuboCreateSpec) -> Result<Self, Self::Error> {
+        Ok(Self {
+            num_vars: spec.matrix.len(),
+            matrix: spec.matrix,
+        })
+    }
 }
 
 impl<W: Clone + Default> QUBO<W> {
@@ -181,7 +197,7 @@ where
 }
 
 crate::declare_variants! {
-    default QUBO<f64> => "2^num_vars",
+    default QUBO<f64> => "2^num_vars" create QuboCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

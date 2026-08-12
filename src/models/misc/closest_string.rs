@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Closest String",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a center string of fixed length that minimizes the maximum Hamming distance to a list of equal-length input strings",
         fields: &[

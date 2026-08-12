@@ -86,13 +86,75 @@ fn test_list() {
     let output = pred().args(["list"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MaximumIndependentSet"));
-    assert!(stdout.contains("QUBO"));
+    assert!(stdout.contains("Registered catalog"));
+    assert!(stdout.contains("graph"));
+    for category in ["algebraic", "formula", "graph", "misc", "set"] {
+        assert!(stdout.contains(category));
+    }
+    assert!(!stdout.contains("MaximumIndependentSet"));
+    assert!(stdout.lines().count() < 30, "default list is too verbose");
+}
+
+#[test]
+fn test_list_filters_by_category() {
+    let output = pred()
+        .args(["list", "--category", "formula"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(!stdout.contains("MaximumIndependentSet"));
+}
+
+#[test]
+fn test_list_json_respects_category_filter() {
+    let output = pred()
+        .args(["list", "--category", "formula", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let variants = json["variants"].as_array().unwrap();
+    assert_eq!(json["num_types"], 9);
+    assert!(variants
+        .iter()
+        .all(|variant| variant["name"] != "MaximumIndependentSet"));
+    assert!(variants
+        .iter()
+        .all(|variant| variant["category"] == "formula"));
+    assert!(variants
+        .iter()
+        .any(|variant| variant["name"] == "KSatisfiability/K3"));
+}
+
+#[test]
+fn test_list_category_rejects_unknown_value() {
+    let output = pred()
+        .args(["list", "--category", "unknown"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(stderr.contains("unknown problem category `unknown`"));
+    assert!(stderr.contains("algebraic, formula, graph, misc, set"));
+}
+
+#[test]
+fn test_list_searches_variant_aliases() {
+    let output = pred().args(["list", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+    assert!(stdout.contains("3SAT"));
 }
 
 #[test]
 fn test_list_includes_undirected_two_commodity_integral_flow() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "UndirectedTwoCommodity"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -104,7 +166,10 @@ fn test_list_includes_undirected_two_commodity_integral_flow() {
 
 #[test]
 fn test_list_includes_integral_flow_homologous_arcs() {
-    let output = pred().args(["list"]).output().unwrap();
+    let output = pred()
+        .args(["list", "IntegralFlowHomologousArcs"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -128,7 +193,10 @@ fn test_solve_help_mentions_string_to_string_correction_bruteforce() {
 
 #[test]
 fn test_list_rules() {
-    let output = pred().args(["list", "--rules"]).output().unwrap();
+    let output = pred()
+        .args(["list", "--rules", "--all", "--verbose"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -158,6 +226,30 @@ fn test_list_rules_json() {
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
     assert!(rules[0]["size_contract"].is_string());
+}
+
+#[test]
+fn test_list_rules_searches_problem_aliases() {
+    let output = pred().args(["list", "--rules", "3SAT"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("KSatisfiability"));
+}
+
+#[test]
+fn test_list_rules_json_respects_query() {
+    let output = pred()
+        .args(["list", "--rules", "3SAT", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let rules = json["rules"].as_array().unwrap();
+    assert_eq!(json["num_rules"].as_u64().unwrap() as usize, rules.len());
+    assert!(rules.iter().all(|rule| {
+        rule["source"].as_str().unwrap().contains("KSatisfiability")
+            || rule["target"].as_str().unwrap().contains("KSatisfiability")
+    }));
 }
 
 #[test]
@@ -664,7 +756,7 @@ fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_u
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --capacities"));
+    assert!(stderr.contains("missing required construction input(s): capacities"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -695,7 +787,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_invalid_capacity_t
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Invalid capacity `x`"));
+    assert!(stderr.contains("invalid digit found in string"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -726,7 +818,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_cou
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 3 capacities but got 2"));
+    assert!(stderr.contains("capacities length must match graph edge count"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
@@ -759,7 +851,6 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains(format!("Invalid capacity `{oversized}`").as_str()));
     assert!(stderr.contains("number too large to fit in target type"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
@@ -791,7 +882,7 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
+    assert!(stderr.contains("source_1 must be less than num_vertices"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
@@ -866,7 +957,7 @@ fn test_create_integral_flow_bundles_missing_bundles_shows_usage() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --bundles"));
+    assert!(stderr.contains("missing required construction input(s): bundles"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
 }
 
@@ -895,7 +986,7 @@ fn test_create_integral_flow_bundles_rejects_wrong_bundle_capacity_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 3 bundle capacities but got 2"));
+    assert!(stderr.contains("bundles length must match bundle_capacities length"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
 }
 
@@ -924,7 +1015,7 @@ fn test_create_integral_flow_bundles_rejects_out_of_range_bundle_arc() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("bundle 1 references arc 7"));
+    assert!(stderr.contains("bundle 1 arc is out of range"));
     assert!(stderr.contains("Usage: pred create IntegralFlowBundles"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
@@ -1007,7 +1098,7 @@ fn test_create_integral_flow_homologous_arcs_requires_homologous_pairs() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --homologous-pairs"));
+    assert!(stderr.contains("missing required construction input(s): homologous_pairs"));
     assert!(stderr.contains("Usage: pred create IntegralFlowHomologousArcs"));
 }
 
@@ -1034,7 +1125,7 @@ fn test_create_integral_flow_homologous_arcs_rejects_invalid_pair_token() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("u=v"));
+    assert!(stderr.contains("expected format left=right"));
     assert!(stderr.contains("Usage: pred create IntegralFlowHomologousArcs"));
 }
 
@@ -1102,7 +1193,7 @@ fn test_create_integral_flow_with_multipliers_missing_multipliers_shows_usage() 
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires --multipliers"));
+    assert!(stderr.contains("missing required construction input(s): multipliers"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1129,7 +1220,7 @@ fn test_create_integral_flow_with_multipliers_rejects_wrong_multiplier_count() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Expected 4 multipliers but got 3"));
+    assert!(stderr.contains("multipliers length must match num_vertices"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1183,7 +1274,7 @@ fn test_create_integral_flow_with_multipliers_rejects_identical_source_and_sink(
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("requires distinct --source and --sink"));
+    assert!(stderr.contains("source and sink must be distinct"));
     assert!(stderr.contains("Usage: pred create IntegralFlowWithMultipliers"));
 }
 
@@ -1194,38 +1285,17 @@ fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
             "create",
             "ConsecutiveBlockMinimization",
             "--matrix",
-            "[[true],[true,false]]",
-            "--bound",
+            "1;1,0",
+            "--bound-k",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("all matrix rows must have the same length"));
+    assert!(stderr.contains("All rows in --matrix must have the same length"));
     assert!(stderr.contains("Usage: pred create ConsecutiveBlockMinimization"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
-}
-
-#[test]
-fn test_create_consecutive_block_minimization_help_mentions_json_matrix_format() {
-    let output = pred()
-        .args(["create", "ConsecutiveBlockMinimization"])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("JSON 2D bool array"));
-    assert!(stderr.contains("[[true,false,true],[false,true,true]]"));
-}
-
-#[test]
-fn test_create_help_mentions_consecutive_block_minimization_matrix_format() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("ConsecutiveBlockMinimization"));
-    assert!(stdout.contains("JSON 2D bool array"));
 }
 
 #[test]
@@ -1701,7 +1771,7 @@ fn test_create_multiprocessor_scheduling_rejects_zero_processors() {
         "zero processors should return a user error, got panic output: {stderr}"
     );
     assert!(
-        stderr.contains("requires --num-processors > 0"),
+        stderr.contains("num_processors must be positive"),
         "expected a validation error for zero processors, got: {stderr}"
     );
 }
@@ -1715,9 +1785,9 @@ fn test_create_x3c_alias() {
             output_file.to_str().unwrap(),
             "create",
             "X3C",
-            "--universe",
+            "--universe-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;3,4,5",
         ])
         .output()
@@ -1878,7 +1948,14 @@ fn test_inspect_rectilinear_picture_compression_lists_ilp_and_bruteforce() {
 #[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
-        .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])
+        .args([
+            "create",
+            "X3C",
+            "--universe-size",
+            "6",
+            "--subsets",
+            "0,0,1;3,4,5",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -1902,7 +1979,7 @@ fn test_create_comparative_containment() {
             output_file.to_str().unwrap(),
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -1947,7 +2024,7 @@ fn test_create_comparative_containment_rejects_out_of_range_elements_without_pan
         .args([
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,4",
@@ -1971,7 +2048,7 @@ fn test_create_comparative_containment_rejects_nonpositive_weights_without_panic
         .args([
             "create",
             "ComparativeContainment",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1",
@@ -1997,9 +2074,9 @@ fn test_create_set_basis() {
             output_file.to_str().unwrap(),
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1;1,2;0,2;0,1,2",
             "--k",
             "3",
@@ -2032,7 +2109,7 @@ fn test_create_comparative_containment_f64() {
             output_file.to_str().unwrap(),
             "create",
             "ComparativeContainment/f64",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -2068,7 +2145,7 @@ fn test_create_comparative_containment_one_rejects_nonunit_weights() {
         .args([
             "create",
             "ComparativeContainment/One",
-            "--universe",
+            "--universe-size",
             "4",
             "--r-sets",
             "0,1,2,3;0,1",
@@ -2088,7 +2165,7 @@ fn test_create_comparative_containment_one_rejects_nonunit_weights() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        stderr.contains("expected 1 for One, got 2"),
         "stderr: {stderr}"
     );
 }
@@ -2107,7 +2184,6 @@ fn test_create_comparative_containment_no_flags_shows_help() {
     assert!(stderr.contains("--universe-size"), "stderr: {stderr}");
     assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
     assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
-    assert!(!stderr.contains("--universe "), "stderr: {stderr}");
 }
 
 #[test]
@@ -2119,9 +2195,9 @@ fn test_create_minimum_hitting_set() {
             output_file.to_str().unwrap(),
             "create",
             "MinimumHittingSet",
-            "--universe",
+            "--universe-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;0,3,4;1,3,5;2,4,5;0,1,5;2,3;1,4",
         ])
         .output()
@@ -2159,9 +2235,9 @@ fn test_create_minimum_hitting_set_rejects_out_of_range_elements_without_panicki
         .args([
             "create",
             "MinimumHittingSet",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,4;1,2",
         ])
         .output()
@@ -2176,36 +2252,24 @@ fn test_create_minimum_hitting_set_rejects_out_of_range_elements_without_panicki
 }
 
 #[test]
-fn test_create_help_lists_minimum_hitting_set_flags() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(
-        stdout.contains("MinimumHittingSet") && stdout.contains("--universe-size, --subsets"),
-        "stdout: {stdout}"
-    );
-}
-
-#[test]
 fn test_create_set_basis_requires_k() {
     let output = pred()
         .args([
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1;1,2;0,2;0,1,2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("missing required construction input(s): k"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -2214,9 +2278,9 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
         .args([
             "create",
             "SetBasis",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,4",
             "--k",
             "1",
@@ -2242,7 +2306,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness() {
             output_file.to_str().unwrap(),
             "create",
             "SequencingToMinimizeWeightedTardiness",
-            "--sizes",
+            "--lengths",
             "3,4,2,5,3",
             "--weights",
             "2,3,1,4,2",
@@ -2293,7 +2357,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_rejects_mismatched_leng
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("lengths length (3) must equal weights length (2)"),
+        stderr.contains("weights length must equal lengths length"),
         "stderr: {stderr}"
     );
 }
@@ -2308,10 +2372,6 @@ fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
     assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
-    assert!(
-        stderr.contains("semicolon-separated dependencies"),
-        "stderr: {stderr}"
-    );
 }
 
 #[test]
@@ -2344,14 +2404,7 @@ fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
 #[test]
 fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
     let output = pred()
-        .args([
-            "create",
-            "MinimumCardinalityKey",
-            "--dependencies",
-            "0>0",
-            "--bound",
-            "1",
-        ])
+        .args(["create", "MinimumCardinalityKey", "--dependencies", "0>0"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -2372,7 +2425,7 @@ fn test_create_two_dimensional_consecutive_sets_accepts_alphabet_size_flag() {
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "6",
-            "--sets",
+            "--subsets",
             "0,1,2;3,4,5;1,3;2,4;0,5",
         ])
         .output()
@@ -2400,7 +2453,7 @@ fn test_create_two_dimensional_consecutive_sets_rejects_zero_alphabet_size_witho
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "0",
-            "--sets",
+            "--subsets",
             "0",
         ])
         .output()
@@ -2422,7 +2475,7 @@ fn test_create_two_dimensional_consecutive_sets_rejects_duplicate_elements_witho
             "TwoDimensionalConsecutiveSets",
             "--alphabet-size",
             "3",
-            "--sets",
+            "--subsets",
             "0,0",
         ])
         .output()
@@ -2522,7 +2575,7 @@ fn test_create_multiple_choice_branching() {
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,6",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -2616,7 +2669,7 @@ fn test_kth_largest_m_tuple_solve_uses_k_threshold() {
             .args([
                 "create",
                 "KthLargestMTuple",
-                "--sets",
+                "--subsets",
                 "2,5,8;3,6;1,4,7",
                 "--k",
                 &k.to_string(),
@@ -2771,10 +2824,8 @@ fn test_create_mixed_chinese_postman() {
             "0>1,1>2,2>3,3>0",
             "--edge-weights",
             "2,3,1,2",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2824,10 +2875,8 @@ fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
             "0-2,1-3,0-4,4-2",
             "--edge-weights",
             "2,3,1,2",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2835,7 +2884,7 @@ fn test_create_mixed_chinese_postman_missing_arcs_shows_usage() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("MixedChinesePostman requires --arcs"),
+        stderr.contains("missing required construction input(s): arcs"),
         "expected missing --arcs error, got: {stderr}"
     );
     assert!(
@@ -2856,10 +2905,8 @@ fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
             "0>1,1>2,2>3,3>0",
             "--edge-weights",
             "2,3",
-            "--arc-costs",
+            "--arc-weights",
             "2,3,1,4",
-            "--bound",
-            "24",
         ])
         .output()
         .unwrap();
@@ -2867,57 +2914,8 @@ fn test_create_mixed_chinese_postman_rejects_edge_weight_length_mismatch() {
 
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Expected 4 edge weight"),
+        stderr.contains("edge_weights length must match num_edges"),
         "expected edge-weight mismatch diagnostic, got: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_multiple_choice_branching_rejects_negative_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "MultipleChoiceBranching/i32",
-            "--arcs",
-            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
-            "--weights",
-            "3,2,4,1,2,3,1,3",
-            "--partition",
-            "0,1;2,3;4,7;5,6",
-            "--bound=-1",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-        stderr.contains("threshold") || stderr.contains("--bound"),
-        "stderr should mention the invalid threshold: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_multiple_choice_branching_rejects_overflowing_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "MultipleChoiceBranching/i32",
-            "--arcs",
-            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
-            "--weights",
-            "3,2,4,1,2,3,1,3",
-            "--partition",
-            "0,1;2,3;4,7;5,6",
-            "--bound",
-            "2147483648",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(
-        stderr.contains("threshold") || stderr.contains("--bound"),
-        "stderr should mention the overflowing threshold: {stderr}"
     );
 }
 
@@ -2933,7 +2931,7 @@ fn test_create_multiple_choice_branching_rejects_invalid_partition_without_panic
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,7",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -3417,7 +3415,7 @@ fn test_solve_partial_ilp_route_defaults_to_brute_force() {
             "2,1,3,1,2",
             "--weights",
             "3,5,1,4,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>4",
         ])
         .output()
@@ -3591,7 +3589,7 @@ fn test_create_bounded_component_spanning_forest() {
             "2,3,1,2,3,1,2,1",
             "--k",
             "3",
-            "--bound",
+            "--max-weight",
             "6",
         ])
         .output()
@@ -3621,14 +3619,14 @@ fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
             "1,1,1,1",
             "--k",
             "0",
-            "--bound",
+            "--max-weight",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+    assert!(stderr.contains("k must be at least 1"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3644,7 +3642,7 @@ fn test_create_bounded_component_spanning_forest_accepts_k_larger_than_num_verti
             "1,1,1,1",
             "--k",
             "5",
-            "--bound",
+            "--max-weight",
             "2",
             "-o",
         ])
@@ -3672,14 +3670,17 @@ fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
             "1,-1,1,1",
             "--k",
             "2",
-            "--bound",
+            "--max-weight",
             "2",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("weights must be nonnegative"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3701,29 +3702,10 @@ fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("positive --max-weight"), "stderr: {stderr}");
-}
-
-#[test]
-fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
-    let output = pred()
-        .args([
-            "create",
-            "BoundedComponentSpanningForest",
-            "--graph",
-            "0-1,1-2,2-3",
-            "--weights",
-            "1,1,1,1",
-            "--k",
-            "2",
-            "--bound",
-            "3000000000",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("max_weight must be positive"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]
@@ -3870,7 +3852,7 @@ fn test_create_string_to_string_correction_rejects_negative_bound() {
         "negative bound should be rejected"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -3974,8 +3956,6 @@ fn test_create_3sat() {
             "3",
             "--clauses",
             "1,2,3;-1,2,-3",
-            "--k",
-            "3",
         ])
         .output()
         .unwrap();
@@ -4081,7 +4061,7 @@ fn test_create_sequencing_to_minimize_weighted_completion_time() {
             "2,1,3,1,2",
             "--weights",
             "3,5,1,4,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>4",
         ])
         .output()
@@ -4101,18 +4081,6 @@ fn test_create_sequencing_to_minimize_weighted_completion_time() {
         serde_json::json!([[0, 2], [1, 4]])
     );
     std::fs::remove_file(&output_file).ok();
-}
-
-#[test]
-fn test_create_help_describes_precedence_pairs_generically() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Precedence pairs for MinimumTardinessSequencing, SchedulingWithIndividualDeadlines, or SequencingToMinimizeWeightedCompletionTime"));
 }
 
 #[test]
@@ -4331,10 +4299,6 @@ fn test_create_no_flags_shows_help() {
         stderr.contains("--weights"),
         "expected '--weights' in help output, got: {stderr}"
     );
-    assert!(
-        stderr.contains("Example:"),
-        "expected 'Example:' in help output, got: {stderr}"
-    );
 }
 
 #[test]
@@ -4367,10 +4331,6 @@ fn test_create_multiple_choice_branching_help_uses_threshold_flag() {
     assert!(
         !stderr.contains("--bound"),
         "help output should not advertise '--bound', got: {stderr}"
-    );
-    assert!(
-        stderr.contains("semicolon-separated groups"),
-        "expected '--partition' help to describe groups, got: {stderr}"
     );
 }
 
@@ -4473,29 +4433,6 @@ fn test_create_register_sufficiency() {
 }
 
 #[test]
-fn test_create_help_uses_generic_matrix_and_k_descriptions() {
-    let output = pred().args(["create", "--help"]).output().unwrap();
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(
-        stdout.contains("Matrix input"),
-        "expected generic matrix help, got: {stdout}"
-    );
-    assert!(
-        stdout.contains("Shared integer parameter"),
-        "expected generic k help, got: {stdout}"
-    );
-    assert!(
-        !stdout.contains("Matrix for QUBO"),
-        "create --help should not imply --matrix is QUBO-only, got: {stdout}"
-    );
-    assert!(
-        !stdout.contains("Number of colors for KColoring"),
-        "create --help should not imply --k is KColoring-only, got: {stdout}"
-    );
-}
-
-#[test]
 fn test_create_length_bounded_disjoint_paths_help_uses_max_length_flag() {
     let output = pred()
         .args(["create", "LengthBoundedDisjointPaths"])
@@ -4529,10 +4466,6 @@ fn test_create_consecutive_ones_submatrix_no_flags_uses_actual_cli_help() {
         stderr.contains("--bound"),
         "expected '--bound' in help output, got: {stderr}"
     );
-    assert!(
-        stderr.contains("semicolon-separated 0/1 rows: \"1,0;0,1\""),
-        "expected bool matrix format hint in help output, got: {stderr}"
-    );
 }
 
 #[test]
@@ -4544,8 +4477,8 @@ fn test_create_prime_attribute_name_no_flags_uses_actual_cli_flag_names() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--universe"),
-        "expected '--universe' in help output, got: {stderr}"
+        stderr.contains("--universe-size"),
+        "expected '--universe-size' in help output, got: {stderr}"
     );
     assert!(
         stderr.contains("--dependencies"),
@@ -4591,6 +4524,27 @@ fn test_create_lcs_with_raw_strings_infers_alphabet() {
 }
 
 #[test]
+fn test_create_shortest_common_supersequence_derives_internal_fields() {
+    let output = pred()
+        .args([
+            "create",
+            "ShortestCommonSupersequence",
+            "--strings",
+            "0,1,2;1,2,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["data"]["alphabet_size"], 3);
+    assert_eq!(json["data"]["max_length"], 6);
+}
+
+#[test]
 fn test_create_lcs_rejects_empty_strings_without_panicking() {
     let output = pred()
         .args(["create", "LCS", "--strings", ""])
@@ -4599,7 +4553,7 @@ fn test_create_lcs_rejects_empty_strings_without_panicking() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("at least one non-empty string"),
+        stderr.contains("at least one input string must be non-empty"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4855,7 +4809,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
             "0",
             "--sink",
             "0",
-            "--bound",
+            "--max-length",
             "1",
         ])
         .output()
@@ -4863,7 +4817,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--source and --sink must be distinct"),
+        stderr.contains("source and sink must be distinct"),
         "expected user-facing validation error, got: {stderr}"
     );
     assert!(
@@ -4884,7 +4838,7 @@ fn test_create_length_bounded_disjoint_paths_succeeds() {
             "0",
             "--sink",
             "3",
-            "--bound",
+            "--max-length",
             "2",
         ])
         .output()
@@ -4923,11 +4877,7 @@ fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr
-            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
-        "expected user-facing negative-bound error, got: {stderr}"
-    );
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -4947,11 +4897,7 @@ fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr
-            .contains("--max-length must be a nonnegative integer for LengthBoundedDisjointPaths"),
-        "expected shared negative-bound validation, got: {stderr}"
-    );
+    assert!(stderr.contains("invalid value '-1'"), "stderr: {stderr}");
 }
 
 #[test]
@@ -6020,7 +5966,7 @@ fn test_create_multiple_choice_branching_pipe_to_solve() {
             "3,2,4,1,2,3,1,3",
             "--partition",
             "0,1;2,3;4,7;5,6",
-            "--bound",
+            "--threshold",
             "10",
         ])
         .output()
@@ -6943,8 +6889,8 @@ fn test_create_random_unsupported() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("not supported"),
-        "expected 'not supported' in error, got: {stderr}"
+        stderr.contains("unexpected argument '--random'"),
+        "expected Clap to reject unsupported random generation, got: {stderr}"
     );
 }
 
@@ -6957,7 +6903,7 @@ fn test_create_random_steiner_tree_requires_two_vertices() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("SteinerTree random generation requires --num-vertices >= 2"),
+        stderr.contains("num_vertices must be at least 2"),
         "{stderr}"
     );
 }
@@ -6979,7 +6925,7 @@ fn test_create_random_invalid_edge_prob() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--edge-prob must be between"),
+        stderr.contains("edge_prob must be between"),
         "expected edge-prob validation error, got: {stderr}"
     );
 }
@@ -7191,7 +7137,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "0:4",
             "--target",
             "0,1,2",
@@ -7208,7 +7154,7 @@ fn test_create_bcnf_rejects_out_of_range_attribute_indices() {
         "CLI should return a user-facing error, got: {stderr}"
     );
     assert!(
-        stderr.contains("out of range"),
+        stderr.contains("outside universe of size 3"),
         "expected out-of-range error, got: {stderr}"
     );
 }
@@ -7221,7 +7167,7 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "4:0",
             "--target",
             "0,1,2",
@@ -7234,7 +7180,7 @@ fn test_create_bcnf_rejects_out_of_range_lhs_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("lhs contains attribute index 4"),
+        stderr.contains("subsets[0] contains attribute 4 outside universe of size 3"),
         "expected lhs-specific out-of-range error, got: {stderr}"
     );
 }
@@ -7247,7 +7193,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
             "BoyceCoddNormalFormViolation",
             "--n",
             "3",
-            "--sets",
+            "--subsets",
             "0:1",
             "--target",
             "0,1,4",
@@ -7260,7 +7206,7 @@ fn test_create_bcnf_rejects_out_of_range_target_attribute_indices() {
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Target subset contains attribute index 4"),
+        stderr.contains("target contains attribute 4 outside universe of size 3"),
         "expected target-specific out-of-range error, got: {stderr}"
     );
 }
@@ -7276,9 +7222,9 @@ fn test_create_consistency_of_database_frequency_tables() {
             "--attribute-domains",
             "2,3,2",
             "--frequency-tables",
-            "0,1:1,1,1|1,1,1;1,2:1,1|0,2|1,1",
+            r#"[{"attribute_a":0,"attribute_b":1,"counts":[[1,1,1],[1,1,1]]},{"attribute_a":1,"attribute_b":2,"counts":[[1,1],[0,2],[1,1]]}]"#,
             "--known-values",
-            "0,0,0;3,0,1;1,2,1",
+            r#"[{"object":0,"attribute":0,"value":0},{"object":3,"attribute":0,"value":1},{"object":1,"attribute":2,"value":1}]"#,
         ])
         .output()
         .unwrap();
@@ -7338,8 +7284,6 @@ fn test_create_multiple_copy_file_allocation() {
             "5,4,3,2",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -7365,10 +7309,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost() {
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "2,-1,3,-2,1,-3",
-            "--precedence-pairs",
+            "--precedences",
             "0>2,1>2,1>3,2>4,3>5,4>5",
-            "--bound",
-            "4",
         ])
         .output()
         .unwrap();
@@ -7444,8 +7386,6 @@ fn test_create_multiple_copy_file_allocation_rejects_length_mismatch() {
             "5,4",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -7467,15 +7407,15 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_missing_costs() {
         .args([
             "create",
             "SequencingToMinimizeMaximumCumulativeCost",
-            "--bound",
-            "4",
+            "--precedences",
+            "0>1",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("requires --costs"),
+        stderr.contains("missing required construction input(s): costs"),
         "expected missing --costs message, got: {stderr}"
     );
 }
@@ -7492,8 +7432,6 @@ fn test_create_multiple_copy_file_allocation_rejects_storage_length_mismatch() {
             "5,4,3,2",
             "--storage",
             "1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
@@ -7517,10 +7455,8 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_bad_precedence() {
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "1,-1,2",
-            "--precedence-pairs",
+            "--precedences",
             "0>3",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -7544,15 +7480,13 @@ fn test_create_multiple_copy_file_allocation_rejects_invalid_usage_values() {
             "5,x,3,2",
             "--storage",
             "1,1,1,1",
-            "--bound",
-            "8",
         ])
         .output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("invalid usage list"),
+        stderr.contains("invalid digit found in string"),
         "expected usage parse diagnostic, got: {stderr}"
     );
     assert!(
@@ -7571,8 +7505,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence
             "1,-1,2",
             "--precedences",
             "a>b",
-            "--bound",
-            "2",
         ])
         .output()
         .unwrap();
@@ -7592,8 +7524,6 @@ fn test_create_sequencing_to_minimize_maximum_cumulative_cost_allows_negative_va
             "SequencingToMinimizeMaximumCumulativeCost",
             "--costs",
             "-1,2,-3",
-            "--bound",
-            "-1",
         ])
         .output()
         .unwrap();
@@ -7858,8 +7788,8 @@ fn test_create_mvc_kings_subgraph_unsupported_variant() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("Unknown variant token \"KingsSubgraph\""),
-        "should mention unknown variant token: {stderr}"
+        stderr.contains("Unknown variant value \"KingsSubgraph\""),
+        "should reject the unregistered variant: {stderr}"
     );
 }
 
@@ -8389,7 +8319,7 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("Expected 8 edge length values but got 7"),
+        stderr.contains("edge_lengths has 7 entries, expected 8"),
         "stderr: {stderr}"
     );
 }
@@ -8408,14 +8338,6 @@ fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
     assert!(
         stderr.contains("--edge-lengths"),
         "expected '--edge-lengths' in help output, got: {stderr}"
-    );
-    assert!(
-        stderr.match_indices("comma-separated: 1,2,3").count() >= 2,
-        "expected vector hints for edge lengths and weights, got: {stderr}"
-    );
-    assert!(
-        stderr.match_indices("numeric value: 10").count() >= 1,
-        "expected numeric hint for weight bound, got: {stderr}"
     );
 }
 
@@ -8443,7 +8365,7 @@ fn test_create_shortest_weight_constrained_path_rejects_out_of_bounds_source_ver
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("source_vertex 9 out of bounds"),
+        stderr.contains("source_vertex 9 is outside graph with 6 vertices"),
         "stderr: {stderr}"
     );
     assert!(
@@ -8474,7 +8396,7 @@ fn test_create_shortest_weight_constrained_path_requires_edge_lengths() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("ShortestWeightConstrainedPath requires --edge-lengths"),
+        stderr.contains("missing required construction input(s): edge_lengths"),
         "stderr: {stderr}"
     );
 }
@@ -8503,7 +8425,7 @@ fn test_create_shortest_weight_constrained_path_rejects_weights_flag_typo() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("uses --edge-weights, not --weights"),
+        stderr.contains("unexpected argument '--weights'"),
         "stderr: {stderr}"
     );
 }
@@ -8531,7 +8453,7 @@ fn test_create_shortest_weight_constrained_path_rejects_non_positive_edge_length
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("All edge lengths must be positive (> 0)"),
+        stderr.contains("edge_lengths must be positive"),
         "stderr: {stderr}"
     );
 }
@@ -8549,16 +8471,16 @@ fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("edge_lengths (Vec<W>)"),
-        "expected Vec<W> schema type for edge_lengths, got: {stdout}"
+        stdout.contains("edge_lengths (Vec<i32>)"),
+        "expected concrete Vec<i32> construction type for edge_lengths, got: {stdout}"
     );
     assert!(
-        stdout.contains("edge_weights (Vec<W>)"),
-        "expected Vec<W> schema type for edge_weights, got: {stdout}"
+        stdout.contains("edge_weights (Vec<i32>)"),
+        "expected concrete Vec<i32> construction type for edge_weights, got: {stdout}"
     );
     assert!(
-        stdout.contains("weight_bound (W::Sum)"),
-        "expected W::Sum schema type for weight_bound, got: {stdout}"
+        stdout.contains("weight_bound (i64)"),
+        "expected concrete i64 construction type for weight_bound, got: {stdout}"
     );
 }
 
@@ -8597,12 +8519,8 @@ fn test_create_nonunit_weights_require_weighted_variant() {
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("Use the weighted variant instead"),
-        "stderr should point to the explicit weighted variant: {stderr}"
-    );
-    assert!(
-        stderr.contains("MaximumIndependentSet/SimpleGraph/i32"),
-        "stderr should include the exact weighted variant: {stderr}"
+        stderr.contains("expected 1 for One, got 3"),
+        "stderr should reject non-unit input for the One variant: {stderr}"
     );
 }
 
@@ -8754,9 +8672,9 @@ fn test_create_ensemble_computation() {
             output_file.to_str().unwrap(),
             "create",
             "EnsembleComputation",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,2;0,1,3",
             "--budget",
             "4",
@@ -8803,10 +8721,6 @@ fn test_create_ensemble_computation_no_flags_uses_cli_flag_names() {
         stderr.contains("--budget"),
         "expected --budget in help, got: {stderr}"
     );
-    assert!(
-        !stderr.contains("--universe "),
-        "help should use canonical CLI flags, got: {stderr}"
-    );
 }
 
 #[test]
@@ -8815,9 +8729,9 @@ fn test_create_ensemble_computation_rejects_out_of_range_elements_without_panick
         .args([
             "create",
             "EnsembleComputation",
-            "--universe",
+            "--universe-size",
             "4",
-            "--sets",
+            "--subsets",
             "0,1,5",
             "--budget",
             "4",
@@ -8837,7 +8751,7 @@ fn test_create_ensemble_computation_rejects_out_of_range_elements_without_panick
 }
 
 #[test]
-fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
+fn test_create_scheduling_with_individual_deadlines() {
     let output_file =
         std::env::temp_dir().join("pred_test_create_scheduling_with_individual_deadlines.json");
     let output = pred()
@@ -8846,13 +8760,13 @@ fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
             output_file.to_str().unwrap(),
             "create",
             "SchedulingWithIndividualDeadlines",
-            "--n",
+            "--num-tasks",
             "7",
             "--deadlines",
             "2,1,2,2,3,3,2",
-            "--m",
+            "--num-processors",
             "3",
-            "--precedence-pairs",
+            "--precedences",
             "0>3,1>3,1>4,2>4,2>5",
         ])
         .output()
@@ -8868,48 +8782,6 @@ fn test_create_scheduling_with_individual_deadlines_with_m_alias() {
     assert_eq!(json["data"]["num_processors"], 3);
     assert_eq!(json["data"]["num_tasks"], 7);
     std::fs::remove_file(&output_file).ok();
-}
-
-#[test]
-fn test_create_scheduling_with_individual_deadlines_help_mentions_m_alias() {
-    let output = pred()
-        .args(["create", "SchedulingWithIndividualDeadlines"])
-        .output()
-        .unwrap();
-    assert!(
-        !output.status.success(),
-        "problem-specific help should exit non-zero"
-    );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("--num-processors/--m"),
-        "expected alias in problem-specific help, got: {stderr}"
-    );
-}
-
-#[test]
-fn test_create_scheduling_with_individual_deadlines_rejects_conflicting_processor_flags() {
-    let output = pred()
-        .args([
-            "create",
-            "SchedulingWithIndividualDeadlines",
-            "--n",
-            "3",
-            "--deadlines",
-            "1,1,2",
-            "--num-processors",
-            "3",
-            "--m",
-            "2",
-        ])
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("conflicting processor counts"),
-        "expected conflict error, got: {stderr}"
-    );
 }
 
 #[test]
@@ -9045,7 +8917,7 @@ fn test_create_sequencing_within_intervals_rejects_empty_window() {
         "expected graceful CLI error, got panic: {stderr}"
     );
     assert!(
-        stderr.contains("time window is empty"),
+        stderr.contains("task 0 has an empty time window"),
         "expected empty-window validation error, got: {stderr}"
     );
 }
@@ -9099,7 +8971,7 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         "expected graceful CLI error, got panic: {stderr}"
     );
     assert!(
-        stderr.contains("overflow computing r(i) + l(i)"),
+        stderr.contains("task 0 release time plus length overflows u64"),
         "expected overflow validation error, got: {stderr}"
     );
 }

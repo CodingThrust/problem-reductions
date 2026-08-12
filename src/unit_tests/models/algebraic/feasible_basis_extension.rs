@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn create_spec_validates_matrix_shape() {
+    let problem = FeasibleBasisExtension::try_from(FeasibleBasisExtensionCreateSpec {
+        matrix: vec![vec![1, 0]],
+        rhs: vec![1],
+        required_columns: vec![],
+    })
+    .unwrap();
+    assert_eq!(problem.num_columns(), 2);
+    assert!(
+        FeasibleBasisExtension::try_from(FeasibleBasisExtensionCreateSpec {
+            matrix: vec![vec![1], vec![1]],
+            rhs: vec![1, 1],
+            required_columns: vec![]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

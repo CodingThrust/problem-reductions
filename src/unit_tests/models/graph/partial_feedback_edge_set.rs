@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_constructs_model() {
+    assert_eq!(
+        PartialFeedbackEdgeSetCreateSpec::FIELDS[2].name,
+        "max_cycle_length"
+    );
+    let problem = PartialFeedbackEdgeSet::try_from(PartialFeedbackEdgeSetCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        budget: 1,
+        max_cycle_length: 3,
+    })
+    .unwrap();
+    assert_eq!(problem.budget(), 1);
+}
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;

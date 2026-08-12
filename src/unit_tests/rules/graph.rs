@@ -8,7 +8,8 @@ use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
-use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
+use crate::registry::ProblemCategory;
+use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::topology::SimpleGraph;
@@ -1036,8 +1037,14 @@ fn test_to_json() {
     // Check nodes
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
-    assert!(json.nodes.iter().any(|n| n.category == "graph"));
-    assert!(json.nodes.iter().any(|n| n.category == "algebraic"));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Graph));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Algebraic));
 
     // Check edges
     assert!(json.edges.len() >= 10);
@@ -1072,39 +1079,6 @@ fn test_to_json_string() {
     assert!(
         !json_string.contains("\"bidirectional\""),
         "JSON should not contain the removed 'bidirectional' field"
-    );
-}
-
-#[test]
-fn test_category_from_module_path() {
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::graph::maximum_independent_set"
-        ),
-        "graph"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::set::minimum_set_covering"
-        ),
-        "set"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::algebraic::qubo"),
-        "algebraic"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::formula::sat"),
-        "formula"
-    );
-    assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::misc::factoring"),
-        "misc"
-    );
-    // Fallback for unexpected format
-    assert_eq!(
-        ReductionGraph::category_from_module_path("foo::bar"),
-        "other"
     );
 }
 
@@ -1320,12 +1294,11 @@ fn test_unknown_name_returns_empty() {
 }
 
 #[test]
-fn test_category_derived_from_schema() {
-    // CircuitSAT's category is derived from its ProblemSchemaEntry module_path
+fn test_category_comes_from_schema() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
     let circuit = json.nodes.iter().find(|n| n.name == "CircuitSAT").unwrap();
-    assert_eq!(circuit.category, "formula");
+    assert_eq!(circuit.category, ProblemCategory::Formula);
 }
 
 #[test]
@@ -1398,8 +1371,6 @@ fn test_to_json_nodes_have_variants() {
     for node in &json.nodes {
         // Verify node has a name
         assert!(!node.name.is_empty());
-        // Verify node has a category
-        assert!(!node.category.is_empty());
     }
 }
 
@@ -1505,27 +1476,6 @@ fn test_edges_have_doc_paths() {
             json.target_node(edge).name
         );
     }
-}
-
-#[test]
-fn test_classify_problem_category() {
-    assert_eq!(
-        classify_problem_category("problemreductions::models::graph::maximum_independent_set"),
-        "graph"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::formula::satisfiability"),
-        "formula"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::set::maximum_set_packing"),
-        "set"
-    );
-    assert_eq!(
-        classify_problem_category("problemreductions::models::algebraic::qubo"),
-        "algebraic"
-    );
-    assert_eq!(classify_problem_category("unknown::path"), "other");
 }
 
 #[test]

@@ -4,7 +4,7 @@
 //! whether the rows can be overlaid into a storage vector of length `n + K`
 //! by assigning each row a shift in `{1, ..., K}` without collisions.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Sparse Matrix Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Overlay binary-matrix rows into a short storage vector by shifting each row without collisions",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m x n binary matrix A" },
-            FieldInfo { name: "bound_k", type_name: "usize", description: "Maximum shift range K" },
-        ],
+        fields: SparseMatrixCompressionCreateSpec::FIELDS,
     }
 }
 
@@ -33,6 +31,28 @@ inventory::submit! {
 pub struct SparseMatrixCompression {
     matrix: Vec<Vec<bool>>,
     bound_k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SparseMatrixCompressionCreateSpec {
+    /// m x n binary matrix A.
+    matrix: Vec<Vec<bool>>,
+    /// Maximum shift range K.
+    bound_k: usize,
+}
+
+impl TryFrom<SparseMatrixCompressionCreateSpec> for SparseMatrixCompression {
+    type Error = String;
+    fn try_from(spec: SparseMatrixCompressionCreateSpec) -> Result<Self, Self::Error> {
+        if spec.bound_k == 0 {
+            return Err("bound_k must be positive".to_string());
+        }
+        let columns = spec.matrix.first().map_or(0, Vec::len);
+        if spec.matrix.iter().any(|row| row.len() != columns) {
+            return Err("all matrix rows must have the same length".to_string());
+        }
+        Ok(Self::new(spec.matrix, spec.bound_k))
+    }
 }
 
 impl SparseMatrixCompression {
@@ -135,7 +155,7 @@ impl Problem for SparseMatrixCompression {
 }
 
 crate::declare_variants! {
-    default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols",
+    default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols" create SparseMatrixCompressionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

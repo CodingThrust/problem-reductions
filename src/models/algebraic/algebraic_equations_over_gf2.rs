@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Algebraic Equations over GF(2)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find assignment satisfying multilinear polynomial equations over GF(2)",
         fields: &[

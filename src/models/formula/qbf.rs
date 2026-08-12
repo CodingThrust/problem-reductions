@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Quantified Boolean Formulas",
         aliases: &["QBF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Determine if a quantified Boolean formula is true",
         fields: &[

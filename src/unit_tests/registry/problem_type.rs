@@ -1,6 +1,6 @@
 use crate::registry::{
     find_problem_type, find_problem_type_by_alias, parse_catalog_problem_ref, problem_types,
-    ProblemRef, ProblemSchemaEntry,
+    ProblemCategory, ProblemRef, ProblemSchemaEntry,
 };
 use std::collections::HashMap;
 
@@ -64,6 +64,43 @@ fn problem_types_returns_all_registered() {
     assert!(types
         .iter()
         .any(|t| t.canonical_name == "MaximumIndependentSet"));
+}
+
+#[test]
+fn problem_category_comes_from_explicit_schema_metadata() {
+    assert_eq!(
+        find_problem_type("QUBO").unwrap().category,
+        ProblemCategory::Algebraic
+    );
+    assert_eq!(
+        find_problem_type("KSatisfiability").unwrap().category,
+        ProblemCategory::Formula
+    );
+    assert_eq!(
+        find_problem_type("MaximumClique").unwrap().category,
+        ProblemCategory::Graph
+    );
+    assert_eq!(
+        find_problem_type("JobShopScheduling").unwrap().category,
+        ProblemCategory::Misc
+    );
+    assert_eq!(
+        find_problem_type("MinimumSetCovering").unwrap().category,
+        ProblemCategory::Set
+    );
+
+    static MISMATCHED_PATH_SCHEMA: ProblemSchemaEntry = ProblemSchemaEntry {
+        name: "ExplicitCategoryTest",
+        display_name: "Explicit category test",
+        aliases: &[],
+        dimensions: &[],
+        category: ProblemCategory::Set,
+        module_path: "problemreductions::models::graph::explicit_category_test",
+        description: "Test fixture",
+        fields: &[],
+    };
+    let problem = super::ProblemType::from_entry(&MISMATCHED_PATH_SCHEMA);
+    assert_eq!(problem.category, ProblemCategory::Set);
 }
 
 #[test]
@@ -164,10 +201,20 @@ fn every_public_problem_schema_has_dimension_defaults() {
 
 #[test]
 fn every_alias_is_globally_unique() {
+    let canonical_names = inventory::iter::<ProblemSchemaEntry>
+        .into_iter()
+        .map(|entry| (entry.name.to_lowercase(), entry.name))
+        .collect::<HashMap<_, _>>();
     let mut seen: HashMap<String, &str> = HashMap::new();
     for entry in inventory::iter::<ProblemSchemaEntry> {
         for alias in entry.aliases {
             let lower = alias.to_lowercase();
+            if let Some(canonical) = canonical_names.get(&lower) {
+                panic!(
+                    "Alias '{}' on {} conflicts with canonical problem name {}",
+                    alias, entry.name, canonical,
+                );
+            }
             if let Some(prev) = seen.get(&lower) {
                 panic!(
                     "Alias '{}' is used by both {} and {}",

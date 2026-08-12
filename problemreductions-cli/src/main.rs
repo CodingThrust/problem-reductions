@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod create_args;
 mod dispatch;
 #[cfg(feature = "mcp")]
 mod mcp;
@@ -9,24 +10,11 @@ mod problem_name;
 mod test_support;
 mod util;
 
-use clap::{CommandFactory, Parser};
+use clap::CommandFactory;
 use cli::{Cli, Commands};
 use output::OutputConfig;
 
-const CLI_STACK_SIZE: usize = 8 * 1024 * 1024;
-
 fn main() -> anyhow::Result<()> {
-    match std::thread::Builder::new()
-        .stack_size(CLI_STACK_SIZE)
-        .spawn(run)?
-        .join()
-    {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-    }
-}
-
-fn run() -> anyhow::Result<()> {
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
@@ -62,11 +50,17 @@ fn run() -> anyhow::Result<()> {
     };
 
     match cli.command {
-        Commands::List { rules } => {
+        Commands::List {
+            query,
+            rules,
+            category,
+            all,
+            verbose,
+        } => {
             if rules {
-                commands::graph::list_rules(&out)
+                commands::graph::list_rules(query.as_deref(), all, verbose, &out)
             } else {
-                commands::graph::list(&out)
+                commands::graph::list(query.as_deref(), category, all, verbose, &out)
             }
         }
         Commands::Show { problem } => commands::graph::show(&problem, &out),

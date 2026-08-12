@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_zero_processors() {
+    assert_eq!(
+        MultiprocessorSchedulingCreateSpec::FIELDS[1].name,
+        "num_processors"
+    );
+    assert!(
+        MultiprocessorScheduling::try_from(MultiprocessorSchedulingCreateSpec {
+            lengths: vec![1],
+            num_processors: 0,
+            deadline: 1
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

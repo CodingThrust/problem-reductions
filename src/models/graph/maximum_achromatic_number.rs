@@ -20,6 +20,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a complete proper coloring maximizing the number of colors",
         fields: &[
@@ -155,8 +156,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MaximumAchromaticNumber<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MaximumAchromaticNumber::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MaximumAchromaticNumber<SimpleGraph> => "num_vertices^num_vertices",
+    default MaximumAchromaticNumber<SimpleGraph> => "num_vertices^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

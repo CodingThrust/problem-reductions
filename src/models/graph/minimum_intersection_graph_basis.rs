@@ -19,6 +19,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum universe size for intersection graph representation",
         fields: &[
@@ -156,8 +157,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MinimumIntersectionGraphBasis<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MinimumIntersectionGraphBasis::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MinimumIntersectionGraphBasis<SimpleGraph> => "num_edges^num_edges",
+    default MinimumIntersectionGraphBasis<SimpleGraph> => "num_edges^num_edges" random,
 }
 
 #[cfg(feature = "example-db")]

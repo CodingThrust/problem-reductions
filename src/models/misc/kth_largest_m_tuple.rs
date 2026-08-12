@@ -4,7 +4,7 @@
 //! at least K distinct m-tuples (one element per set) have total size at least B.
 //! Garey & Johnson MP10.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -16,13 +16,10 @@ inventory::submit! {
         display_name: "Kth Largest m-Tuple",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Count m-tuples whose total size meets a bound and compare against a threshold K",
-        fields: &[
-            FieldInfo { name: "sets", type_name: "Vec<Vec<u64>>", description: "m sets, each containing positive integer sizes" },
-            FieldInfo { name: "k", type_name: "u64", description: "Threshold K (answer YES iff count >= K)" },
-            FieldInfo { name: "bound", type_name: "u64", description: "Lower bound B on tuple sum" },
-        ],
+        fields: KthLargestMTupleCreateSpec::FIELDS,
     }
 }
 
@@ -66,6 +63,24 @@ pub struct KthLargestMTuple {
     sets: Vec<Vec<u64>>,
     k: u64,
     bound: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KthLargestMTupleCreateSpec {
+    /// m sets, each containing positive integer sizes.
+    subsets: Vec<Vec<u64>>,
+    /// Threshold K (answer YES iff count >= K).
+    k: u64,
+    /// Lower bound B on tuple sum.
+    bound: u64,
+}
+
+impl TryFrom<KthLargestMTupleCreateSpec> for KthLargestMTuple {
+    type Error = String;
+
+    fn try_from(spec: KthLargestMTupleCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.subsets, spec.k, spec.bound)
+    }
 }
 
 impl KthLargestMTuple {
@@ -201,7 +216,7 @@ impl Problem for KthLargestMTuple {
 // Best known: brute-force enumeration of all tuples, O(total_tuples * num_sets).
 // No sub-exponential exact algorithm is known for the general case.
 crate::declare_variants! {
-    default KthLargestMTuple => "total_tuples * num_sets",
+    default KthLargestMTuple => "total_tuples * num_sets" create KthLargestMTupleCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

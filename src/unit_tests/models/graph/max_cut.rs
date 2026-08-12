@@ -154,3 +154,21 @@ fn test_maxcut_paper_example() {
     let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 5);
 }
+#[test]
+fn create_specs_use_edge_weights_for_both_weight_variants() {
+    let weighted = MaxCut::try_from(MaxCutI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    let unit = MaxCut::try_from(MaxCutOneCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(weighted.edge_weights(), vec![1]);
+    assert_eq!(unit.edge_weights(), vec![One]);
+    assert_eq!(MaxCutI32CreateSpec::FIELDS[2].name, "edge_weights");
+}

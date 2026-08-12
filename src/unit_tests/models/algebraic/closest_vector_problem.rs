@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_expands_shared_default_bounds() {
+    let problem = ClosestVectorProblem::<i32>::try_from(ClosestVectorProblemI32CreateSpec {
+        basis: vec![vec![1, 0], vec![0, 1]],
+        target: vec![0.5, 0.5],
+        bounds: None,
+    })
+    .unwrap();
+    assert_eq!(problem.bounds(), &[VarBounds::bounded(-10, 10); 2]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

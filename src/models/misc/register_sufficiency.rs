@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Register Sufficiency",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether a DAG computation can be performed using K or fewer registers",
         fields: &[

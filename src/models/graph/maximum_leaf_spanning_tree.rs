@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find spanning tree maximizing the number of leaves",
         fields: &[
@@ -163,8 +164,19 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MaximumLeafSpanningTree<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| {
+        if spec.num_vertices < 2 {
+            return Err("num_vertices must be at least 2".to_string());
+        }
+        Ok(MaximumLeafSpanningTree::new(spec.graph()?))
+    }
+);
+
 crate::declare_variants! {
-    default MaximumLeafSpanningTree<SimpleGraph> => "1.8966^num_vertices",
+    default MaximumLeafSpanningTree<SimpleGraph> => "1.8966^num_vertices" random,
 }
 
 #[cfg(feature = "example-db")]

@@ -12,7 +12,183 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use std::collections::{HashMap, HashSet};
-use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Type};
+use syn::{parse_macro_input, DeriveInput, GenericArgument, ItemImpl, Path, PathArguments, Type};
+
+/// Generate static construction-input metadata from a typed create spec.
+#[proc_macro_derive(CreateSpec, attributes(create))]
+pub fn derive_create_spec(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    match generate_create_spec(&input) {
+        Ok(tokens) => tokens.into(),
+        Err(error) => error.to_compile_error().into(),
+    }
+}
+
+fn generate_create_spec(input: &DeriveInput) -> syn::Result<TokenStream2> {
+    let name = &input.ident;
+    let syn::Data::Struct(data) = &input.data else {
+        return Err(syn::Error::new_spanned(
+            input,
+            "CreateSpec can only be derived for structs",
+        ));
+    };
+    let syn::Fields::Named(fields) = &data.fields else {
+        return Err(syn::Error::new_spanned(
+            &data.fields,
+            "CreateSpec requires named fields",
+        ));
+    };
+
+    let mut field_entries = Vec::new();
+    let mut input_entries = Vec::new();
+    let mut input_renames = Vec::new();
+    for field in &fields.named {
+        let ident = field.ident.as_ref().expect("named field");
+        let rust_name = ident.to_string();
+        let mut input_name = rust_name.clone();
+        let mut codec = quote!(crate::registry::CreateInputCodec::Auto);
+        for attribute in &field.attrs {
+            if attribute.path().is_ident("create") {
+                attribute.parse_nested_meta(|meta| {
+                    if meta.path.is_ident("name") {
+                        input_name = meta.value()?.parse::<syn::LitStr>()?.value();
+                        return Ok(());
+                    }
+                    if meta.path.is_ident("codec") {
+                        let value = meta.value()?.parse::<syn::LitStr>()?;
+                        codec = create_codec_tokens(&value)?;
+                        return Ok(());
+                    }
+                    Err(meta.error("expected `name` or `codec`"))
+                })?;
+            }
+        }
+        if input_name.is_empty()
+            || !input_name
+                .bytes()
+                .all(|byte| byte == b'_' || byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        {
+            return Err(syn::Error::new(
+                ident.span(),
+                "construction input names must use non-empty snake_case",
+            ));
+        }
+
+        let (value_type, required) = option_inner_type(&field.ty)
+            .map(|inner| (inner, false))
+            .unwrap_or((&field.ty, true));
+        let type_name = quote!(#value_type).to_string().replace(' ', "");
+        let description = field
+            .attrs
+            .iter()
+            .filter(|attribute| attribute.path().is_ident("doc"))
+            .filter_map(|attribute| match &attribute.meta {
+                syn::Meta::NameValue(value) => match &value.value {
+                    syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(text),
+                        ..
+                    }) => Some(text.value().trim().to_string()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+        if input_name != rust_name {
+            let external_name = syn::LitStr::new(&input_name, ident.span());
+            let rust_name = syn::LitStr::new(&rust_name, ident.span());
+            input_renames.push(quote! {
+                if let Some(value) = object.remove(#external_name) {
+                    object.insert(#rust_name.to_string(), value);
+                }
+            });
+        }
+        let input_name = syn::LitStr::new(&input_name, ident.span());
+        let type_name = syn::LitStr::new(&type_name, ident.span());
+        let description = syn::LitStr::new(&description, ident.span());
+        field_entries.push(quote! {
+            crate::registry::FieldInfo {
+                name: #input_name,
+                type_name: #type_name,
+                description: #description,
+            }
+        });
+        input_entries.push(quote! {
+            crate::registry::CreateInputInfo {
+                name: #input_name,
+                type_name: #type_name,
+                description: #description,
+                required: #required,
+                codec: #codec,
+            }
+        });
+    }
+
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    Ok(quote! {
+        impl #impl_generics crate::registry::CreateSpec for #name #type_generics #where_clause {
+            const FIELDS: &'static [crate::registry::FieldInfo] = &[
+                #(#field_entries),*
+            ];
+            const INPUTS: &'static [crate::registry::CreateInputInfo] = &[
+                #(#input_entries),*
+            ];
+
+            fn deserialize_inputs(
+                mut data: serde_json::Value,
+            ) -> Result<Self, serde_json::Error>
+            where
+                Self: serde::de::DeserializeOwned,
+            {
+                let object = data
+                    .as_object_mut()
+                    .expect("construction inputs were validated as an object");
+                #(#input_renames)*
+                serde_json::from_value(data)
+            }
+        }
+    })
+}
+
+fn create_codec_tokens(value: &syn::LitStr) -> syn::Result<TokenStream2> {
+    let variant = match value.value().as_str() {
+        "auto" => quote!(Auto),
+        "scalar" => quote!(Scalar),
+        "json" => quote!(Json),
+        "comma-separated" => quote!(CommaSeparated),
+        "semicolon-separated" => quote!(SemicolonSeparated),
+        "edge-list" => quote!(EdgeList),
+        "arc-list" => quote!(ArcList),
+        "bipartite-edge-list" => quote!(BipartiteEdgeList),
+        "equality-pair-list" => quote!(EqualityPairList),
+        "functional-dependency-list" => quote!(FunctionalDependencyList),
+        "character-rows" => quote!(CharacterRows),
+        _ => {
+            return Err(syn::Error::new(
+                value.span(),
+                "unknown construction codec; expected one of: auto, scalar, json, comma-separated, semicolon-separated, edge-list, arc-list, bipartite-edge-list, equality-pair-list, functional-dependency-list, character-rows",
+            ))
+        }
+    };
+    Ok(quote!(crate::registry::CreateInputCodec::#variant))
+}
+
+fn option_inner_type(ty: &Type) -> Option<&Type> {
+    let Type::Path(path) = ty else {
+        return None;
+    };
+    let segment = path.path.segments.last()?;
+    if segment.ident != "Option" {
+        return None;
+    }
+    let PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return None;
+    };
+    arguments.args.iter().find_map(|argument| match argument {
+        GenericArgument::Type(inner) => Some(inner),
+        _ => None,
+    })
+}
 
 /// Attribute macro for automatic reduction registration.
 ///
@@ -444,6 +620,8 @@ struct DeclareVariantEntry {
     ty: Type,
     complexity: syn::LitStr,
     aliases: Vec<syn::LitStr>,
+    create_spec: Option<Type>,
+    random: bool,
 }
 
 impl syn::parse::Parse for DeclareVariantsInput {
@@ -460,15 +638,14 @@ impl syn::parse::Parse for DeclareVariantsInput {
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
 
-            // Optional: `aliases ["X", "Y", ...]`
-            let aliases = if input.peek(syn::Ident) {
-                let fork = input.fork();
-                let ident: syn::Ident = fork.parse()?;
+            let mut aliases = Vec::new();
+            let mut create_spec = None;
+            let mut random = false;
+            while input.peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
                 if ident == "aliases" {
-                    input.parse::<syn::Ident>()?;
                     let content;
                     syn::bracketed!(content in input);
-                    let mut out = Vec::new();
                     while !content.is_empty() {
                         let lit: syn::LitStr = content.parse()?;
                         if lit.value().trim().is_empty() {
@@ -477,29 +654,36 @@ impl syn::parse::Parse for DeclareVariantsInput {
                                 "variant alias must not be empty or whitespace-only",
                             ));
                         }
-                        out.push(lit);
+                        aliases.push(lit);
                         if content.peek(syn::Token![,]) {
                             content.parse::<syn::Token![,]>()?;
                         }
                     }
-                    out
-                } else if fork.peek(syn::token::Bracket) {
+                } else if ident == "create" {
+                    if create_spec.is_some() {
+                        return Err(syn::Error::new(ident.span(), "duplicate `create` clause"));
+                    }
+                    create_spec = Some(input.parse()?);
+                } else if ident == "random" {
+                    if random {
+                        return Err(syn::Error::new(ident.span(), "duplicate `random` clause"));
+                    }
+                    random = true;
+                } else {
                     return Err(syn::Error::new(
                         ident.span(),
-                        format!("expected 'aliases', found '{ident}'"),
+                        format!("expected `aliases`, `create`, or `random`, found `{ident}`"),
                     ));
-                } else {
-                    Vec::new()
                 }
-            } else {
-                Vec::new()
-            };
+            }
 
             entries.push(DeclareVariantEntry {
                 is_default,
                 ty,
                 complexity,
                 aliases,
+                create_spec,
+                random,
             });
 
             if input.peek(syn::Token![,]) {
@@ -582,6 +766,8 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
     for entry in &input.entries {
         let ty = &entry.ty;
+        let create_spec = &entry.create_spec;
+        let random = entry.random;
         let complexity_str = entry.complexity.value();
         let is_default = entry.is_default;
         let alias_lits: Vec<_> = entry.aliases.iter().map(|s| s.value()).collect();
@@ -631,7 +817,50 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             let config = crate::solvers::BruteForce::find_witness(&solver, p)?;
         };
 
+        let construction_fields = if let Some(create_spec) = create_spec {
+            quote! {
+                create_inputs: Some(<#create_spec as crate::registry::CreateSpec>::INPUTS),
+                construct_fn: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                    crate::registry::validate_create_inputs(
+                        <#create_spec as crate::registry::CreateSpec>::INPUTS,
+                        &data,
+                    )?;
+                    let spec: #create_spec = <#create_spec as crate::registry::CreateSpec>::deserialize_inputs(data)
+                        .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))?;
+                    let problem: #ty = <#ty as std::convert::TryFrom<#create_spec>>::try_from(spec)
+                        .map_err(|error| crate::registry::ConstructionError::Conversion(error.to_string()))?;
+                    Ok(Box::new(problem))
+                },
+            }
+        } else {
+            quote! {
+                create_inputs: None,
+                construct_fn: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                    let problem_type = <#ty as crate::traits::Problem>::problem_type();
+                    crate::registry::validate_direct_create_inputs(problem_type.fields, &data)?;
+                    let problem: #ty = serde_json::from_value(data)
+                        .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))?;
+                    Ok(Box::new(problem))
+                },
+            }
+        };
+
+        let random_registration = if random {
+            quote! {
+                Some(crate::registry::RandomRegistration {
+                    inputs: <#ty as crate::registry::RandomGenerate>::INPUTS,
+                    generate: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+                        Ok(Box::new(<#ty as crate::registry::RandomGenerate>::generate(data)?))
+                    },
+                })
+            }
+        } else {
+            quote! { None }
+        };
+
         let dispatch_fields = quote! {
+            #construction_fields
+            random: #random_registration,
             factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
                 let p: #ty = serde_json::from_value(data)?;
                 Ok(Box::new(p))
@@ -845,7 +1074,95 @@ mod tests {
             Ok(_) => panic!("unknown aliases keyword should be rejected"),
             Err(err) => err,
         };
-        assert_eq!(err.to_string(), "expected 'aliases', found 'nicknames'");
+        assert_eq!(
+            err.to_string(),
+            "expected `aliases`, `create`, or `random`, found `nicknames`"
+        );
+    }
+
+    #[test]
+    fn create_spec_derive_generates_required_optional_and_codec_metadata() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec {
+                /// Required edge data.
+                #[create(name = "edges", codec = "edge-list")]
+                graph_edges: Vec<(usize, usize)>,
+                /// Optional limit.
+                limit: Option<usize>,
+            }
+        };
+        let tokens = generate_create_spec(&input).unwrap().to_string();
+        assert!(tokens.contains("CreateSpec for ExampleCreateSpec"));
+        assert!(tokens.contains("const FIELDS"));
+        assert!(tokens.contains("crate :: registry :: FieldInfo"));
+        assert!(tokens.contains("name : \"edges\""));
+        assert!(tokens.contains("type_name : \"Vec<(usize,usize)>\""));
+        assert!(tokens.contains("required : true"));
+        assert!(tokens.contains("required : false"));
+        assert!(tokens.contains("CreateInputCodec :: EdgeList"));
+        assert!(tokens.contains("Required edge data."));
+    }
+
+    #[test]
+    fn create_spec_derive_rejects_unknown_codec() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec {
+                #[create(codec = "model-specific")]
+                value: usize,
+            }
+        };
+        let error = generate_create_spec(&input).unwrap_err();
+        assert!(error.to_string().contains("unknown construction codec"));
+    }
+
+    #[test]
+    fn create_spec_derive_supports_generics() {
+        let input: DeriveInput = syn::parse_quote! {
+            struct ExampleCreateSpec<T>
+            where
+                T: Clone,
+            {
+                /// Generic value.
+                value: T,
+            }
+        };
+        let tokens = generate_create_spec(&input).unwrap().to_string();
+        assert!(tokens.contains("impl < T > crate :: registry :: CreateSpec"));
+        assert!(tokens.contains("for ExampleCreateSpec < T >"));
+        assert!(tokens.contains("where T : Clone"));
+    }
+
+    #[test]
+    fn declare_variants_generates_custom_constructor() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1" create FooCreateSpec aliases ["F"],
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("create_inputs : Some"));
+        assert!(tokens.contains("FooCreateSpec as crate :: registry :: CreateSpec"));
+        assert!(tokens.contains("TryFrom < FooCreateSpec >"));
+        assert!(tokens.contains("validate_create_inputs"));
+    }
+
+    #[test]
+    fn declare_variants_generates_direct_constructor_by_default() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1",
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("create_inputs : None"));
+        assert!(tokens.contains("validate_direct_create_inputs"));
+        assert!(tokens.contains("construct_fn :"));
+    }
+
+    #[test]
+    fn declare_variants_rejects_duplicate_create_clause() {
+        let error = syn::parse_str::<DeclareVariantsInput>(
+            "default Foo => \"1\" create First create Second",
+        )
+        .err()
+        .expect("duplicate create clause must fail");
+        assert_eq!(error.to_string(), "duplicate `create` clause");
     }
 
     #[test]

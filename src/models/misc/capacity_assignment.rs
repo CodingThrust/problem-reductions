@@ -3,7 +3,7 @@
 //! Capacity Assignment asks for the minimum-cost assignment of capacity levels
 //! to communication links, subject to a delay budget constraint.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -13,14 +13,10 @@ inventory::submit! {
         display_name: "Capacity Assignment",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize total cost of capacity assignment subject to a delay budget",
-        fields: &[
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Ordered capacity levels M" },
-            FieldInfo { name: "cost", type_name: "Vec<Vec<u64>>", description: "Cost matrix g(c, m) for each link and capacity" },
-            FieldInfo { name: "delay", type_name: "Vec<Vec<u64>>", description: "Delay matrix d(c, m) for each link and capacity" },
-            FieldInfo { name: "delay_budget", type_name: "u64", description: "Budget J on total delay penalty" },
-        ],
+        fields: CapacityAssignmentCreateSpec::FIELDS,
     }
 }
 
@@ -36,6 +32,57 @@ pub struct CapacityAssignment {
     cost: Vec<Vec<u64>>,
     delay: Vec<Vec<u64>>,
     delay_budget: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct CapacityAssignmentCreateSpec {
+    #[create(codec = "comma-separated")]
+    capacities: Vec<u64>,
+    #[create(codec = "semicolon-separated")]
+    cost: Vec<Vec<u64>>,
+    #[create(codec = "semicolon-separated")]
+    delay: Vec<Vec<u64>>,
+    delay_budget: u64,
+}
+
+impl TryFrom<CapacityAssignmentCreateSpec> for CapacityAssignment {
+    type Error = String;
+    fn try_from(spec: CapacityAssignmentCreateSpec) -> Result<Self, Self::Error> {
+        if spec.capacities.is_empty() {
+            return Err("capacities must be non-empty".into());
+        }
+        if spec.capacities.contains(&0) {
+            return Err("capacities must be positive".into());
+        }
+        if !spec.capacities.windows(2).all(|w| w[0] < w[1]) {
+            return Err("capacities must be strictly increasing".into());
+        }
+        if spec.cost.len() != spec.delay.len() {
+            return Err("cost and delay must have the same number of links".into());
+        }
+        for (i, row) in spec.cost.iter().enumerate() {
+            if row.len() != spec.capacities.len() {
+                return Err(format!("cost row {i} length must match capacities length"));
+            }
+            if !row.windows(2).all(|w| w[0] <= w[1]) {
+                return Err(format!("cost row {i} must be non-decreasing"));
+            }
+        }
+        for (i, row) in spec.delay.iter().enumerate() {
+            if row.len() != spec.capacities.len() {
+                return Err(format!("delay row {i} length must match capacities length"));
+            }
+            if !row.windows(2).all(|w| w[0] >= w[1]) {
+                return Err(format!("delay row {i} must be non-increasing"));
+            }
+        }
+        Ok(Self {
+            capacities: spec.capacities,
+            cost: spec.cost,
+            delay: spec.delay,
+            delay_budget: spec.delay_budget,
+        })
+    }
 }
 
 impl CapacityAssignment {
@@ -169,7 +216,7 @@ impl Problem for CapacityAssignment {
 }
 
 crate::declare_variants! {
-    default CapacityAssignment => "num_capacities ^ num_links",
+    default CapacityAssignment => "num_capacities ^ num_links" create CapacityAssignmentCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

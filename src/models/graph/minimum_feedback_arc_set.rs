@@ -3,7 +3,7 @@
 //! The Feedback Arc Set problem asks for a minimum-weight subset of arcs
 //! whose removal makes a directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -18,12 +18,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight feedback arc set in a directed graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Arc weights w: A -> R" },
-        ],
+        fields: MinimumFeedbackArcSetCreateSpec::FIELDS,
     }
 }
 
@@ -63,6 +61,28 @@ pub struct MinimumFeedbackArcSet<W> {
     graph: DirectedGraph,
     /// Weights for each arc.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumFeedbackArcSetCreateSpec {
+    /// The directed graph.
+    graph: DirectedGraph,
+    /// Arc weights; defaults to one per arc.
+    weights: Option<Vec<i32>>,
+}
+impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i32> {
+    type Error = String;
+    fn try_from(spec: MinimumFeedbackArcSetCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_arcs();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err(format!(
+                "weights has {} entries, expected {count}",
+                weights.len()
+            ));
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
@@ -165,7 +185,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackArcSet<i32> => "2^num_vertices",
+    default MinimumFeedbackArcSet<i32> => "2^num_vertices" create MinimumFeedbackArcSetCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Minimum Fault Detection Test Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum set of input-output paths covering all internal DAG vertices",
         fields: &[

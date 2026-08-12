@@ -4,7 +4,7 @@
 //! whether there exists a subset of the universe whose containment weight
 //! in the first family is at least its containment weight in the second.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
@@ -23,15 +23,10 @@ inventory::submit! {
         display_name: "Comparative Containment",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["One", "i32", "f64"])],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Compare containment-weight sums for two set families over a shared universe",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe X" },
-            FieldInfo { name: "r_sets", type_name: "Vec<Vec<usize>>", description: "First set family R over X" },
-            FieldInfo { name: "s_sets", type_name: "Vec<Vec<usize>>", description: "Second set family S over X" },
-            FieldInfo { name: "r_weights", type_name: "Vec<W>", description: "Positive weights for sets in R" },
-            FieldInfo { name: "s_weights", type_name: "Vec<W>", description: "Positive weights for sets in S" },
-        ],
+        fields: ComparativeContainmentI32CreateSpec::FIELDS,
     }
 }
 
@@ -49,6 +44,88 @@ pub struct ComparativeContainment<W = i32> {
     r_weights: Vec<W>,
     s_weights: Vec<W>,
 }
+
+macro_rules! comparative_containment_create_spec {
+    ($name:ident, $weight:ty, $one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            /// Size of the common universe.
+            universe_size: usize,
+            /// First set family.
+            #[create(codec = "semicolon-separated")]
+            r_sets: Vec<Vec<usize>>,
+            /// Second set family.
+            #[create(codec = "semicolon-separated")]
+            s_sets: Vec<Vec<usize>>,
+            /// Positive weights for the first family; defaults to one.
+            #[create(codec = "comma-separated")]
+            r_weights: Option<Vec<$weight>>,
+            /// Positive weights for the second family; defaults to one.
+            #[create(codec = "comma-separated")]
+            s_weights: Option<Vec<$weight>>,
+        }
+
+        impl TryFrom<$name> for ComparativeContainment<$weight> {
+            type Error = String;
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                validate_create_set_family("R", spec.universe_size, &spec.r_sets)?;
+                validate_create_set_family("S", spec.universe_size, &spec.s_sets)?;
+                let r_weights = spec
+                    .r_weights
+                    .unwrap_or_else(|| vec![$one; spec.r_sets.len()]);
+                let s_weights = spec
+                    .s_weights
+                    .unwrap_or_else(|| vec![$one; spec.s_sets.len()]);
+                validate_create_weights("R", spec.r_sets.len(), &r_weights)?;
+                validate_create_weights("S", spec.s_sets.len(), &s_weights)?;
+                Ok(ComparativeContainment {
+                    universe_size: spec.universe_size,
+                    r_sets: spec.r_sets,
+                    s_sets: spec.s_sets,
+                    r_weights,
+                    s_weights,
+                })
+            }
+        }
+    };
+}
+
+fn validate_create_set_family(
+    label: &str,
+    universe_size: usize,
+    sets: &[Vec<usize>],
+) -> Result<(), String> {
+    for (set_index, set) in sets.iter().enumerate() {
+        for &element in set {
+            if element >= universe_size {
+                return Err(format!("{label} set {set_index} contains element {element} outside universe of size {universe_size}"));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_create_weights<W: WeightElement>(
+    label: &str,
+    count: usize,
+    weights: &[W],
+) -> Result<(), String> {
+    if weights.len() != count {
+        return Err(format!("number of {label} sets and weights must match"));
+    }
+    for (index, weight) in weights.iter().enumerate() {
+        if weight.to_sum().partial_cmp(&W::Sum::zero()) != Some(std::cmp::Ordering::Greater) {
+            return Err(format!(
+                "{label} weight at index {index} must be finite and positive"
+            ));
+        }
+    }
+    Ok(())
+}
+
+comparative_containment_create_spec!(ComparativeContainmentI32CreateSpec, i32, 1_i32);
+comparative_containment_create_spec!(ComparativeContainmentF64CreateSpec, f64, 1.0_f64);
+comparative_containment_create_spec!(ComparativeContainmentOneCreateSpec, One, One);
 
 impl<W: WeightElement> ComparativeContainment<W> {
     /// Create a new instance with unit weights.
@@ -200,9 +277,9 @@ where
 }
 
 crate::declare_variants! {
-    ComparativeContainment<One> => "2^universe_size",
-    default ComparativeContainment<i32> => "2^universe_size",
-    ComparativeContainment<f64> => "2^universe_size",
+    ComparativeContainment<One> => "2^universe_size" create ComparativeContainmentOneCreateSpec,
+    default ComparativeContainment<i32> => "2^universe_size" create ComparativeContainmentI32CreateSpec,
+    ComparativeContainment<f64> => "2^universe_size" create ComparativeContainmentF64CreateSpec,
 }
 
 fn validate_set_family(label: &str, universe_size: usize, sets: &[Vec<usize>]) {

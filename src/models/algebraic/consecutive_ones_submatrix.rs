@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Consecutive Ones Submatrix",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find K columns of a binary matrix that can be permuted to have the consecutive ones property",
         fields: &[

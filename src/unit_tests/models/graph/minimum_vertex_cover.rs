@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_weight_count_mismatch() {
+    assert_eq!(
+        MinimumVertexCoverCreateSpec::<i32>::FIELDS[1].name,
+        "weights"
+    );
+    let result = MinimumVertexCover::try_from(MinimumVertexCoverCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        weights: Some(vec![1]),
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

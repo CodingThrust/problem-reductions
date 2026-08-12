@@ -4,7 +4,7 @@
 //! whether there exists a permutation of the columns and at most K zero-to-one
 //! augmentations such that every row has consecutive 1s.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Consecutive Ones Matrix Augmentation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Augment a binary matrix with at most K zero-to-one flips so some column permutation has the consecutive ones property",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "m x n binary matrix A" },
-            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on zero-to-one augmentations" },
-        ],
+        fields: ConsecutiveOnesMatrixAugmentationCreateSpec::FIELDS,
     }
 }
 
@@ -27,6 +25,20 @@ inventory::submit! {
 pub struct ConsecutiveOnesMatrixAugmentation {
     matrix: Vec<Vec<bool>>,
     bound: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConsecutiveOnesMatrixAugmentationCreateSpec {
+    /// m x n binary matrix A.
+    matrix: Vec<Vec<bool>>,
+    /// Upper bound K on zero-to-one augmentations.
+    bound: i64,
+}
+impl TryFrom<ConsecutiveOnesMatrixAugmentationCreateSpec> for ConsecutiveOnesMatrixAugmentation {
+    type Error = String;
+    fn try_from(spec: ConsecutiveOnesMatrixAugmentationCreateSpec) -> Result<Self, Self::Error> {
+        Self::try_new(spec.matrix, spec.bound)
+    }
 }
 
 impl ConsecutiveOnesMatrixAugmentation {
@@ -137,7 +149,7 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
 }
 
 crate::declare_variants! {
-    default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols",
+    default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveOnesMatrixAugmentationCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

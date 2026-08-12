@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Factoring",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Factor a composite integer into two factors",
         fields: &[

@@ -6,7 +6,7 @@
 //! assignment of attribute values to all objects that matches every published
 //! frequency table and every known value.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -88,14 +88,10 @@ inventory::submit! {
         display_name: "Consistency of Database Frequency Tables",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether pairwise frequency tables and known values admit a consistent complete database assignment",
-        fields: &[
-            FieldInfo { name: "num_objects", type_name: "usize", description: "Number of objects in the database" },
-            FieldInfo { name: "attribute_domains", type_name: "Vec<usize>", description: "Domain size for each attribute" },
-            FieldInfo { name: "frequency_tables", type_name: "Vec<FrequencyTable>", description: "Published pairwise frequency tables" },
-            FieldInfo { name: "known_values", type_name: "Vec<KnownValue>", description: "Known object-attribute-value triples" },
-        ],
+        fields: ConsistencyOfDatabaseFrequencyTablesCreateSpec::FIELDS,
     }
 }
 
@@ -106,6 +102,110 @@ pub struct ConsistencyOfDatabaseFrequencyTables {
     attribute_domains: Vec<usize>,
     frequency_tables: Vec<FrequencyTable>,
     known_values: Vec<KnownValue>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ConsistencyOfDatabaseFrequencyTablesCreateSpec {
+    /// Number of database objects.
+    num_objects: usize,
+    /// Domain size for each attribute.
+    #[create(codec = "comma-separated")]
+    attribute_domains: Vec<usize>,
+    /// Pairwise frequency tables as JSON objects.
+    #[create(codec = "json")]
+    frequency_tables: Vec<FrequencyTable>,
+    /// Known object-attribute values as JSON objects; defaults to empty.
+    #[create(codec = "json")]
+    known_values: Option<Vec<KnownValue>>,
+}
+
+impl TryFrom<ConsistencyOfDatabaseFrequencyTablesCreateSpec>
+    for ConsistencyOfDatabaseFrequencyTables
+{
+    type Error = String;
+    fn try_from(spec: ConsistencyOfDatabaseFrequencyTablesCreateSpec) -> Result<Self, Self::Error> {
+        let known_values = spec.known_values.unwrap_or_default();
+        validate_cdft_create(
+            spec.num_objects,
+            &spec.attribute_domains,
+            &spec.frequency_tables,
+            &known_values,
+        )?;
+        Ok(Self {
+            num_objects: spec.num_objects,
+            attribute_domains: spec.attribute_domains,
+            frequency_tables: spec.frequency_tables,
+            known_values,
+        })
+    }
+}
+
+fn validate_cdft_create(
+    num_objects: usize,
+    domains: &[usize],
+    tables: &[FrequencyTable],
+    known: &[KnownValue],
+) -> Result<(), String> {
+    for (attribute, &size) in domains.iter().enumerate() {
+        if size == 0 {
+            return Err(format!(
+                "attribute domain size at index {attribute} must be positive"
+            ));
+        }
+    }
+    let mut pairs = BTreeSet::new();
+    for table in tables {
+        let a = table.attribute_a();
+        let b = table.attribute_b();
+        if a >= domains.len() || b >= domains.len() {
+            return Err("frequency table attribute is out of range".into());
+        }
+        if a == b {
+            return Err("frequency table attributes must be distinct".into());
+        }
+        let pair = if a < b { (a, b) } else { (b, a) };
+        if !pairs.insert(pair) {
+            return Err(format!(
+                "duplicate frequency table pair ({}, {})",
+                pair.0, pair.1
+            ));
+        }
+        if table.counts().len() != domains[a] {
+            return Err(format!(
+                "frequency table row count must equal domain size for attribute {a}"
+            ));
+        }
+        if table.counts().iter().any(|row| row.len() != domains[b]) {
+            return Err(format!(
+                "frequency table column count must equal domain size for attribute {b}"
+            ));
+        }
+        let total = table
+            .counts()
+            .iter()
+            .flatten()
+            .try_fold(0usize, |sum, &value| {
+                sum.checked_add(value)
+                    .ok_or("frequency table count total overflows usize")
+            })?;
+        if total != num_objects {
+            return Err(format!(
+                "frequency table total {total} must equal num_objects {num_objects}"
+            ));
+        }
+    }
+    for value in known {
+        if value.object() >= num_objects {
+            return Err("known value object is out of range".into());
+        }
+        if value.attribute() >= domains.len() {
+            return Err("known value attribute is out of range".into());
+        }
+        if value.value() >= domains[value.attribute()] {
+            return Err("known value is outside the attribute domain".into());
+        }
+    }
+    Ok(())
 }
 
 impl ConsistencyOfDatabaseFrequencyTables {
@@ -336,7 +436,7 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
 }
 
 crate::declare_variants! {
-    default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects",
+    default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

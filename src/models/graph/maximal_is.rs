@@ -3,7 +3,7 @@
 //! The Maximal Independent Set problem asks for an independent set that
 //! cannot be extended by adding any other vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -19,12 +19,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight maximal independent set",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MaximalISCreateSpec::FIELDS,
     }
 }
 
@@ -61,6 +59,28 @@ pub struct MaximalIS<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MaximalISCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Vec<i32>,
+}
+
+impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i32> {
+    type Error = String;
+    fn try_from(spec: MaximalISCreateSpec) -> Result<Self, Self::Error> {
+        if spec.weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                spec.weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, spec.weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
@@ -222,8 +242,12 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
     true
 }
 
+crate::impl_random_generate!(MaximalIS<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximalIS::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
+    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)" create MaximalISCreateSpec random,
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@
 //! DAG, each group's total vertex weight is bounded, and the total
 //! inter-partition arc cost is bounded.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -21,15 +21,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Partition a directed graph into bounded-weight groups with an acyclic quotient graph and bounded inter-partition cost",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
-            FieldInfo { name: "vertex_weights", type_name: "Vec<W>", description: "Vertex weights w(v) for each vertex v in V" },
-            FieldInfo { name: "arc_costs", type_name: "Vec<W>", description: "Arc costs c(a) for each arc a in A, matching graph.arcs() order" },
-            FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Maximum total vertex weight B for each partition" },
-            FieldInfo { name: "cost_bound", type_name: "W::Sum", description: "Maximum total inter-partition arc cost K" },
-        ],
+        fields: AcyclicPartitionCreateSpec::FIELDS,
     }
 }
 
@@ -48,6 +43,68 @@ pub struct AcyclicPartition<W: WeightElement> {
     arc_costs: Vec<W>,
     weight_bound: W::Sum,
     cost_bound: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct AcyclicPartitionCreateSpec {
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    weights: Option<Vec<i32>>,
+    #[create(name = "arc_costs", codec = "comma-separated")]
+    arc_weights: Option<Vec<i32>>,
+    weight_bound: i64,
+    cost_bound: i64,
+}
+
+impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i32> {
+    type Error = String;
+
+    fn try_from(spec: AcyclicPartitionCreateSpec) -> Result<Self, Self::Error> {
+        if spec.arcs.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty arc list".to_string());
+        }
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err(format!(
+                "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
+            ));
+        }
+        let graph = DirectedGraph::new(num_vertices, spec.arcs);
+        let vertex_weights = spec.weights.unwrap_or_else(|| vec![1; num_vertices]);
+        if vertex_weights.len() != num_vertices {
+            return Err(format!(
+                "weights has length {}, expected {num_vertices}",
+                vertex_weights.len()
+            ));
+        }
+        let arc_costs = spec
+            .arc_weights
+            .unwrap_or_else(|| vec![1; graph.num_arcs()]);
+        if arc_costs.len() != graph.num_arcs() {
+            return Err(format!(
+                "arc_weights has length {}, expected {}",
+                arc_costs.len(),
+                graph.num_arcs()
+            ));
+        }
+        Ok(Self::new(
+            graph,
+            vertex_weights,
+            arc_costs,
+            spec.weight_bound,
+            spec.cost_bound,
+        ))
+    }
 }
 
 impl<W: WeightElement> AcyclicPartition<W> {
@@ -237,7 +294,7 @@ fn is_valid_acyclic_partition<W: WeightElement>(
 }
 
 crate::declare_variants! {
-    default AcyclicPartition<i32> => "num_vertices^num_vertices",
+    default AcyclicPartition<i32> => "num_vertices^num_vertices" create AcyclicPartitionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

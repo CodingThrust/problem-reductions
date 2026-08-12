@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Equilibrium Point",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Decide whether a pure-strategy Nash equilibrium exists for a multi-player game with polynomial payoff functions",
         fields: &[

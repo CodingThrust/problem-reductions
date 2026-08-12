@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_rhs_length_mismatch() {
+    assert!(
+        MinimumWeightSolutionToLinearEquations::try_from(MinimumWeightSolutionCreateSpec {
+            matrix: vec![vec![1, 2]],
+            rhs: vec![]
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

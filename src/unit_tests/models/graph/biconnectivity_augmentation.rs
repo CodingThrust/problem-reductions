@@ -1,4 +1,16 @@
 use super::*;
+#[test]
+fn create_spec_rejects_existing_potential_edge() {
+    assert!(
+        BiconnectivityAugmentation::try_from(BiconnectivityAugmentationCreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: None,
+            potential_weights: vec![(0, 1, 2)],
+            budget: 3
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

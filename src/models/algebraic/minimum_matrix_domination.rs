@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Matrix Domination",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find minimum subset of 1-entries in a binary matrix that dominates all other 1-entries by shared row or column",
         fields: &[

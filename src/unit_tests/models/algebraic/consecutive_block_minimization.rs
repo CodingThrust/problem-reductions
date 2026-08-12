@@ -3,6 +3,20 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
+fn test_consecutive_block_create_spec_uses_bound_k_input() {
+    assert_eq!(
+        ConsecutiveBlockMinimizationCreateSpec::FIELDS[1].name,
+        "bound_k"
+    );
+    let problem = ConsecutiveBlockMinimization::try_from(ConsecutiveBlockMinimizationCreateSpec {
+        matrix: vec![vec![true, false]],
+        bound_k: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.bound(), 1);
+}
+
+#[test]
 fn test_consecutive_block_minimization_basic() {
     let problem = ConsecutiveBlockMinimization::new(
         vec![vec![true, false, true], vec![false, true, true]],

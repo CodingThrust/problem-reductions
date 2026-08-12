@@ -3,19 +3,65 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::Result;
 use problemreductions::registry::collect_schemas;
+use problemreductions::registry::ProblemCategory;
 use problemreductions::rules::{MeasuredPath, ReductionGraph, ReductionPath, TraversalFlow};
 use problemreductions::{Expr, Growth};
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::path::Path;
 
-pub fn list(out: &OutputConfig) -> Result<()> {
+pub fn list(
+    query: Option<&str>,
+    category: Option<ProblemCategory>,
+    all: bool,
+    verbose: bool,
+    out: &OutputConfig,
+) -> Result<()> {
     use crate::output::{format_table, Align};
 
-    let graph = ReductionGraph::new();
-
-    let mut types = graph.problem_types();
-    types.sort();
+    let needs_variant_rows = verbose || out.json || out.output.is_some();
+    let catalog = problemreductions::registry::problem_types();
+    let mut variant_aliases = BTreeMap::<&str, Vec<&str>>::new();
+    let mut variant_counts = BTreeMap::<&str, usize>::new();
+    let mut aliases_by_variant =
+        BTreeMap::<&str, BTreeMap<BTreeMap<String, String>, &'static [&'static str]>>::new();
+    for entry in problemreductions::registry::variant_entries() {
+        variant_aliases
+            .entry(entry.name)
+            .or_default()
+            .extend(entry.aliases);
+        *variant_counts.entry(entry.name).or_default() += 1;
+        if needs_variant_rows {
+            aliases_by_variant
+                .entry(entry.name)
+                .or_default()
+                .insert(entry.variant_map(), entry.aliases);
+        }
+    }
+    let query = query.map(str::to_lowercase);
+    let selected = catalog
+        .iter()
+        .filter(|problem| {
+            category.is_none_or(|wanted| problem.category == wanted)
+                && query.as_ref().is_none_or(|needle| {
+                    problem.canonical_name.to_lowercase().contains(needle)
+                        || problem.display_name.to_lowercase().contains(needle)
+                        || problem
+                            .aliases
+                            .iter()
+                            .any(|alias| alias.to_lowercase().contains(needle))
+                        || variant_aliases
+                            .get(problem.canonical_name)
+                            .is_some_and(|aliases| {
+                                aliases
+                                    .iter()
+                                    .any(|alias| alias.to_lowercase().contains(needle))
+                            })
+                })
+        })
+        .collect::<Vec<_>>();
+    let graph = needs_variant_rows.then(ReductionGraph::new);
+    let num_reductions = problemreductions::rules::registry::reduction_entries().len();
 
     // Collect data: one row per variant, grouped by problem type.
     struct VariantRow {
@@ -29,60 +75,62 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         rules: usize,
         /// Best-known complexity
         complexity: String,
+        category: ProblemCategory,
     }
 
     let mut rows_data: Vec<VariantRow> = Vec::new();
-    for name in &types {
-        let variants = graph.variants_for(name);
-        let default_variant = graph.default_variant_for(name);
-        let problem_aliases = aliases_for(name);
-
-        for (i, v) in variants.iter().enumerate() {
-            let slash = variant_to_full_slash(v);
-            let display = if slash.is_empty() {
-                name.to_string()
-            } else {
-                format!("{name}{slash}")
-            };
-            let is_default = default_variant.as_ref() == Some(v);
+    if let Some(graph) = &graph {
+        for problem in &selected {
+            let name = problem.canonical_name;
+            let variants = graph.variants_for(name);
+            let default_variant = graph.default_variant_for(name);
+            let problem_aliases = aliases_for(name);
             let rules = graph.outgoing_reductions(name).len();
-            let complexity = graph
-                .variant_complexity(name, v)
-                .map(|c| big_o_of(&Expr::parse(c)))
-                .unwrap_or_default();
 
-            // Per-row aliases: problem-level aliases on the first row, plus any
-            // variant-level aliases attached to the specific reduction-graph node.
-            let variant_aliases: Vec<&'static str> =
-                problemreductions::registry::find_variant_entry(name, v)
-                    .map(|entry| entry.aliases.to_vec())
+            for (i, v) in variants.iter().enumerate() {
+                let slash = variant_to_full_slash(v);
+                let display = if slash.is_empty() {
+                    name.to_string()
+                } else {
+                    format!("{name}{slash}")
+                };
+                let is_default = default_variant.as_ref() == Some(v);
+                let complexity = graph
+                    .variant_complexity(name, v)
+                    .map(|c| big_o_of(&Expr::parse(c)))
                     .unwrap_or_default();
-            let mut parts: Vec<String> = Vec::new();
-            if i == 0 {
-                for alias in &problem_aliases {
-                    push_alias_part(&mut parts, alias);
-                }
-            }
-            for alias in &variant_aliases {
-                push_alias_part(&mut parts, alias);
-            }
 
-            rows_data.push(VariantRow {
-                display,
-                aliases: parts.join(", "),
-                is_default,
-                rules: if i == 0 { rules } else { 0 },
-                complexity,
-            });
+                let mut parts: Vec<String> = Vec::new();
+                if i == 0 {
+                    for alias in &problem_aliases {
+                        push_alias_part(&mut parts, alias);
+                    }
+                }
+                if let Some(aliases) = aliases_by_variant
+                    .get(name)
+                    .and_then(|by_variant| by_variant.get(v))
+                {
+                    for alias in *aliases {
+                        push_alias_part(&mut parts, alias);
+                    }
+                }
+
+                rows_data.push(VariantRow {
+                    display,
+                    aliases: parts.join(", "),
+                    is_default,
+                    rules: if i == 0 { rules } else { 0 },
+                    complexity,
+                    category: problem.category,
+                });
+            }
         }
     }
 
-    let summary = format!(
-        "Registered problems: {} types, {} reductions, {} variant nodes\n",
-        graph.num_types(),
-        graph.num_reductions(),
-        graph.num_variant_nodes(),
-    );
+    let mut category_counts = BTreeMap::new();
+    for problem in &catalog {
+        *category_counts.entry(problem.category).or_insert(0usize) += 1;
+    }
 
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Problem", Align::Left, 7),
@@ -115,17 +163,80 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     let color_fns: Vec<Option<crate::output::CellFormatter>> =
         vec![Some(crate::output::fmt_problem_name), None, None, None];
 
-    let mut text = String::new();
-    text.push_str(&crate::output::fmt_section(&summary));
-    text.push('\n');
-    text.push_str(&format_table(&columns, &rows, &color_fns));
-    text.push_str("\n* = default variant\n");
-    text.push_str("Use `pred show <problem>` to see reductions and fields.\n");
+    let expanded = all || query.is_some() || category.is_some() || verbose;
+    let mut text = format!(
+        "{}\n\n",
+        crate::output::fmt_section(&format!(
+            "Registered catalog: {} problem types, {} variant nodes, {} reduction rules",
+            catalog.len(),
+            variant_counts.values().sum::<usize>(),
+            num_reductions,
+        ))
+    );
+    if expanded {
+        if selected.is_empty() {
+            text.push_str("No matching problem types.\n");
+        } else if verbose {
+            text.push_str(&format_table(&columns, &rows, &color_fns));
+            text.push_str("\n* = default variant\n");
+        } else {
+            let compact_rows = selected
+                .iter()
+                .map(|problem| {
+                    let mut aliases = problem.aliases.to_vec();
+                    if let Some(extra) = variant_aliases.get(problem.canonical_name) {
+                        for alias in extra {
+                            if !aliases
+                                .iter()
+                                .any(|known| known.eq_ignore_ascii_case(alias))
+                            {
+                                aliases.push(alias);
+                            }
+                        }
+                    }
+                    vec![
+                        problem.canonical_name.to_string(),
+                        aliases.join(", "),
+                        problem.category.to_string(),
+                        variant_counts
+                            .get(problem.canonical_name)
+                            .copied()
+                            .unwrap_or_default()
+                            .to_string(),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            text.push_str(&format_table(
+                &[
+                    ("Problem", Align::Left, 7),
+                    ("Aliases", Align::Left, 7),
+                    ("Category", Align::Left, 8),
+                    ("Variants", Align::Right, 8),
+                ],
+                &compact_rows,
+                &[Some(crate::output::fmt_problem_name), None, None, None],
+            ));
+        }
+        text.push_str("\nUse `pred show <problem>` for fields, variants, and reductions.\n");
+    } else {
+        let category_rows = category_counts
+            .iter()
+            .map(|(name, count)| vec![name.to_string(), count.to_string()])
+            .collect::<Vec<_>>();
+        text.push_str(&format_table(
+            &[("Category", Align::Left, 8), ("Problems", Align::Right, 8)],
+            &category_rows,
+            &[None, None],
+        ));
+        text.push_str(
+            "\nSearch with `pred list <query>`, browse a category with `pred list --category <name>`, or use `pred list --all`.\n",
+        );
+    }
 
     let json = serde_json::json!({
-        "num_types": graph.num_types(),
-        "num_reductions": graph.num_reductions(),
-        "num_variant_nodes": graph.num_variant_nodes(),
+        "num_types": selected.len(),
+        "num_reductions": num_reductions,
+        "num_variant_nodes": rows_data.len(),
         "variants": rows_data.iter().map(|r| {
             serde_json::json!({
                 "name": r.display,
@@ -133,6 +244,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                 "default": r.is_default,
                 "rules": r.rules,
                 "complexity": r.complexity,
+                "category": r.category,
             })
         }).collect::<Vec<_>>(),
     });
@@ -140,8 +252,19 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("pred_graph_list.json", &text, &json)
 }
 
-pub fn list_rules(out: &OutputConfig) -> Result<()> {
+pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
+
+    let num_registered = problemreductions::rules::registry::reduction_entries().len();
+    let expanded = all || query.is_some() || verbose || out.json || out.output.is_some();
+    if !expanded {
+        let text = format!(
+            "{}\n\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
+            crate::output::fmt_section(&format!("Registered reduction rules: {num_registered}"))
+        );
+        let json = serde_json::json!({ "num_rules": num_registered, "rules": [] });
+        return out.emit_with_default_name("pred_rules_list.json", &text, &json);
+    }
 
     let graph = ReductionGraph::new();
 
@@ -168,7 +291,46 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         }
     }
 
-    let summary = format!("Registered reduction rules: {}\n", rows_data.len());
+    let query = query.map(str::to_lowercase);
+    let alias_matches = query
+        .as_ref()
+        .map(|needle| {
+            problemreductions::registry::variant_entries()
+                .into_iter()
+                .filter(|entry| {
+                    entry
+                        .aliases
+                        .iter()
+                        .any(|alias| alias.to_lowercase().contains(needle))
+                })
+                .map(|entry| entry.name.to_lowercase())
+                .chain(
+                    problemreductions::registry::problem_types()
+                        .into_iter()
+                        .filter(|problem| {
+                            problem
+                                .aliases
+                                .iter()
+                                .any(|alias| alias.to_lowercase().contains(needle))
+                        })
+                        .map(|problem| problem.canonical_name.to_lowercase()),
+                )
+                .collect::<std::collections::BTreeSet<_>>()
+        })
+        .unwrap_or_default();
+    let selected = rows_data
+        .iter()
+        .filter(|row| {
+            query.as_ref().is_none_or(|needle| {
+                row.source.to_lowercase().contains(needle)
+                    || row.target.to_lowercase().contains(needle)
+                    || alias_matches.iter().any(|name| {
+                        row.source.to_lowercase().contains(name)
+                            || row.target.to_lowercase().contains(name)
+                    })
+            })
+        })
+        .collect::<Vec<_>>();
 
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Source", Align::Left, 6),
@@ -176,9 +338,15 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         ("Size change", Align::Left, 8),
     ];
 
-    let rows: Vec<Vec<String>> = rows_data
+    let rows: Vec<Vec<String>> = selected
         .iter()
-        .map(|r| vec![r.source.clone(), r.target.clone(), r.size_contract.clone()])
+        .map(|r| {
+            let mut row = vec![r.source.clone(), r.target.clone()];
+            if verbose {
+                row.push(r.size_contract.clone());
+            }
+            row
+        })
         .collect();
 
     let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
@@ -187,15 +355,36 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         None,
     ];
 
-    let mut text = String::new();
-    text.push_str(&crate::output::fmt_section(&summary));
-    text.push('\n');
-    text.push_str(&format_table(&columns, &rows, &color_fns));
-    text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
+    let mut text = format!(
+        "{}\n",
+        crate::output::fmt_section(&format!("Registered reduction rules: {}", rows_data.len()))
+    );
+    if expanded {
+        let compact_columns = if verbose {
+            columns
+        } else {
+            vec![("Source", Align::Left, 6), ("Target", Align::Left, 6)]
+        };
+        let compact_colors: Vec<Option<crate::output::CellFormatter>> = if verbose {
+            color_fns
+        } else {
+            vec![
+                Some(crate::output::fmt_problem_name),
+                Some(crate::output::fmt_problem_name),
+            ]
+        };
+        text.push('\n');
+        text.push_str(&format_table(&compact_columns, &rows, &compact_colors));
+        text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
+    } else {
+        text.push_str(
+            "\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
+        );
+    }
 
     let json = serde_json::json!({
-        "num_rules": rows_data.len(),
-        "rules": rows_data.iter().map(|r| {
+        "num_rules": selected.len(),
+        "rules": selected.iter().map(|r| {
             serde_json::json!({
                 "source": r.source,
                 "target": r.target,

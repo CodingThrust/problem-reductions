@@ -8,7 +8,7 @@
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -22,15 +22,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight spanning tree with subtree capacity constraints",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-            FieldInfo { name: "root", type_name: "usize", description: "Root vertex" },
-            FieldInfo { name: "requirements", type_name: "Vec<W>", description: "Vertex requirements r: V -> R (root has 0)" },
-            FieldInfo { name: "capacity", type_name: "W::Sum", description: "Subtree capacity bound" },
-        ],
+        fields: MinimumCapacitatedSpanningTreeCreateSpec::FIELDS,
     }
 }
 
@@ -65,6 +60,55 @@ pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     requirements: Vec<W>,
     /// Subtree capacity bound.
     capacity: W::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumCapacitatedSpanningTreeCreateSpec {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    /// Edge weights; defaults to one per edge.
+    weights: Option<Vec<i32>>,
+    /// Root vertex.
+    root: usize,
+    /// Vertex requirements.
+    requirements: Vec<i32>,
+    /// Subtree capacity bound.
+    capacity: i64,
+}
+impl TryFrom<MinimumCapacitatedSpanningTreeCreateSpec>
+    for MinimumCapacitatedSpanningTree<SimpleGraph, i32>
+{
+    type Error = String;
+    fn try_from(spec: MinimumCapacitatedSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
+        let edges = spec.graph.num_edges();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; edges]);
+        if weights.len() != edges {
+            return Err(format!(
+                "weights has {} entries, expected {edges}",
+                weights.len()
+            ));
+        }
+        let vertices = spec.graph.num_vertices();
+        if vertices < 2 {
+            return Err("graph must have at least two vertices".to_string());
+        }
+        if spec.requirements.len() != vertices {
+            return Err(format!(
+                "requirements has {} entries, expected {vertices}",
+                spec.requirements.len()
+            ));
+        }
+        if spec.root >= vertices {
+            return Err("root is outside the graph".to_string());
+        }
+        Ok(Self::new(
+            spec.graph,
+            weights,
+            spec.root,
+            spec.requirements,
+            spec.capacity,
+        ))
+    }
 }
 
 impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
@@ -323,7 +367,7 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumCapacitatedSpanningTree<SimpleGraph, i32> => "2^num_edges",
+    default MinimumCapacitatedSpanningTree<SimpleGraph, i32> => "2^num_edges" create MinimumCapacitatedSpanningTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

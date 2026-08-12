@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_capacities_and_validates_paths() {
+    let problem = PathConstrainedNetworkFlow::try_from(PathConstrainedNetworkFlowCreateSpec {
+        arcs: vec![(0, 1), (1, 2)],
+        num_vertices: None,
+        capacities: None,
+        source: 0,
+        sink: 2,
+        paths: vec![vec![0, 1]],
+        requirement: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.capacities(), &[1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

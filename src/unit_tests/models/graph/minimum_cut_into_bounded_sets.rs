@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_edge_weights() {
+    let p = MinimumCutIntoBoundedSets::try_from(MinimumCutIntoBoundedSetsCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        edge_weights: None,
+        source: 0,
+        sink: 1,
+        size_bound: 1,
+    })
+    .unwrap();
+    assert_eq!(p.edge_weights(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

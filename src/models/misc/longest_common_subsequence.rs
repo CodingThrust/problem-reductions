@@ -5,7 +5,7 @@
 //! `max_length` positions, where each entry is either a valid symbol or the
 //! padding symbol (`alphabet_size`). Padding must be contiguous at the end.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -16,13 +16,10 @@ inventory::submit! {
         display_name: "Longest Common Subsequence",
         aliases: &["LCS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a longest common subsequence for a set of strings",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
-            FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "max_length", type_name: "usize", description: "Maximum possible subsequence length (min of string lengths)" },
-        ],
+        fields: LongestCommonSubsequenceCreateSpec::FIELDS,
     }
 }
 
@@ -43,6 +40,54 @@ pub struct LongestCommonSubsequence {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     max_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct LongestCommonSubsequenceCreateSpec {
+    /// Optional alphabet size; omitted values are inferred from the strings.
+    alphabet_size: Option<usize>,
+    /// Input strings over the shared alphabet.
+    #[create(codec = "character-rows")]
+    strings: Vec<Vec<usize>>,
+}
+
+impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
+    type Error = String;
+
+    fn try_from(spec: LongestCommonSubsequenceCreateSpec) -> Result<Self, Self::Error> {
+        if !spec.strings.iter().any(|string| !string.is_empty()) {
+            return Err("at least one input string must be non-empty".to_string());
+        }
+        let inferred_alphabet_size = spec
+            .strings
+            .iter()
+            .flatten()
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
+        if alphabet_size < inferred_alphabet_size {
+            return Err(format!(
+                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
+            ));
+        }
+        if alphabet_size == 0 {
+            return Err("alphabet size must be positive".to_string());
+        }
+        let max_length = spec.strings.iter().map(Vec::len).min().unwrap_or(0);
+
+        Ok(Self {
+            alphabet_size,
+            strings: spec.strings,
+            max_length,
+        })
+    }
 }
 
 impl LongestCommonSubsequence {
@@ -203,7 +248,7 @@ impl Problem for LongestCommonSubsequence {
 }
 
 crate::declare_variants! {
-    default LongestCommonSubsequence => "(alphabet_size + 1) ^ max_length",
+    default LongestCommonSubsequence => "(alphabet_size + 1) ^ max_length" create LongestCommonSubsequenceCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

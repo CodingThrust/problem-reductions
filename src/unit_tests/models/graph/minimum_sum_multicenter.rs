@@ -263,3 +263,21 @@ fn test_min_sum_multicenter_serialization() {
         deserialized.evaluate(&config).unwrap()
     );
 }
+#[test]
+fn create_spec_maps_weight_inputs_to_canonical_fields() {
+    let problem = MinimumSumMulticenter::try_from(MinimumSumMulticenterCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        weights: Some(vec![2, 3]),
+        edge_weights: None,
+        k: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.vertex_weights(), &[2, 3]);
+    assert_eq!(problem.edge_lengths(), &[1]);
+    assert_eq!(MinimumSumMulticenterCreateSpec::FIELDS[2].name, "weights");
+    assert_eq!(
+        MinimumSumMulticenterCreateSpec::FIELDS[3].name,
+        "edge_weights"
+    );
+}

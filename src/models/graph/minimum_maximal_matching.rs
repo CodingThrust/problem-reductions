@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "BipartiteGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-size matching that cannot be extended",
         fields: &[
@@ -145,8 +146,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    MinimumMaximalMatching<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(MinimumMaximalMatching::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default MinimumMaximalMatching<SimpleGraph> => "1.3160^num_vertices",
+    default MinimumMaximalMatching<SimpleGraph> => "1.3160^num_vertices" random,
     MinimumMaximalMatching<BipartiteGraph> => "1.3160^num_vertices",
 }
 

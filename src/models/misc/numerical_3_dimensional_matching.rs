@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Numerical 3-Dimensional Matching",
         aliases: &["N3DM"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition W∪X∪Y into m triples (one from each set) each summing to B",
         fields: &[

@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Minimum Discrete Planar Inverse Kinematics",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Pick one sampled absolute orientation per link, subject to consecutive-pair feasibility constraints, to minimize the squared distance from the end-effector to a target point",
         fields: &[

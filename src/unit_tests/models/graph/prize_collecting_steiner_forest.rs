@@ -171,3 +171,32 @@ fn test_prize_collecting_steiner_forest_rejects_edge_costs_length_mismatch() {
         2,
     );
 }
+#[test]
+fn create_specs_default_prizes_and_costs_to_one() {
+    let weighted =
+        PrizeCollectingSteinerForest::try_from(PrizeCollectingSteinerForestI32CreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: Some(3),
+            vertex_prizes: None,
+            edge_costs: None,
+            beta: 2,
+            omega: 3,
+        })
+        .unwrap();
+    let floating =
+        PrizeCollectingSteinerForest::try_from(PrizeCollectingSteinerForestF64CreateSpec {
+            graph: vec![(0, 1)],
+            num_vertices: None,
+            vertex_prizes: None,
+            edge_costs: None,
+            beta: 2.0,
+            omega: 3.0,
+        })
+        .unwrap();
+    assert_eq!(weighted.vertex_prizes(), &[1, 1, 1]);
+    assert_eq!(weighted.edge_costs(), &[1]);
+    assert_eq!(floating.vertex_prizes(), &[1.0, 1.0]);
+    assert_eq!(floating.edge_costs(), &[1.0]);
+    assert!(!PrizeCollectingSteinerForestI32CreateSpec::INPUTS[2].required);
+    assert!(!PrizeCollectingSteinerForestI32CreateSpec::INPUTS[3].required);
+}

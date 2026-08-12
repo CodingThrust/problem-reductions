@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Dynamic Storage Allocation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign starting addresses for items with time intervals and sizes within bounded memory",
         fields: &[

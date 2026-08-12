@@ -4,7 +4,7 @@
 //! minimum-cost closed walk that traverses every directed arc in its prescribed
 //! direction and every undirected edge in at least one direction.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{DirectedGraph, MixedGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
@@ -22,13 +22,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a minimum-cost closed walk covering all arcs and edges in a mixed graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "MixedGraph", description: "The mixed graph G=(V,A,E)" },
-            FieldInfo { name: "arc_weights", type_name: "Vec<W>", description: "Lengths for the directed arcs in A" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Lengths for the undirected edges in E" },
-        ],
+        fields: MixedChinesePostmanI32CreateSpec::FIELDS,
     }
 }
 
@@ -45,6 +42,81 @@ pub struct MixedChinesePostman<W: WeightElement<Sum = i64>> {
     edge_weights: Vec<W>,
 }
 
+macro_rules! mixed_chinese_postman_create_spec {
+    ($name:ident, $weight:ty, $one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            /// Undirected graph edges.
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            /// Directed graph arcs.
+            #[create(codec = "arc-list")]
+            arcs: Vec<(usize, usize)>,
+            /// Vertex count, needed to preserve isolated vertices.
+            num_vertices: Option<usize>,
+            /// Directed-arc lengths; defaults to one per arc.
+            #[create(codec = "comma-separated")]
+            arc_weights: Option<Vec<$weight>>,
+            /// Undirected-edge lengths; defaults to one per edge.
+            #[create(codec = "comma-separated")]
+            edge_weights: Option<Vec<$weight>>,
+        }
+
+        impl TryFrom<$name> for MixedChinesePostman<$weight> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                if spec.graph.is_empty() && spec.num_vertices.is_none() {
+                    return Err("num_vertices is required for an empty graph".to_string());
+                }
+                if spec.arcs.is_empty() {
+                    return Err("arcs must be non-empty".to_string());
+                }
+                for (index, &(u, v)) in spec.graph.iter().enumerate() {
+                    if u == v {
+                        return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+                    }
+                }
+                let inferred = spec
+                    .graph
+                    .iter()
+                    .flat_map(|&(u, v)| [u, v])
+                    .max()
+                    .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+                    .transpose()?
+                    .unwrap_or(0);
+                let num_vertices = spec.num_vertices.unwrap_or(inferred);
+                if num_vertices < inferred {
+                    return Err(format!(
+                        "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+                    ));
+                }
+                for (index, &(u, v)) in spec.arcs.iter().enumerate() {
+                    if u >= num_vertices || v >= num_vertices {
+                        return Err(format!(
+                            "arc {index} endpoint is out of range for {num_vertices} vertices"
+                        ));
+                    }
+                }
+                let arc_weights = spec
+                    .arc_weights
+                    .unwrap_or_else(|| vec![$one; spec.arcs.len()]);
+                let edge_weights = spec
+                    .edge_weights
+                    .unwrap_or_else(|| vec![$one; spec.graph.len()]);
+                MixedChinesePostman::try_new(
+                    MixedGraph::new(num_vertices, spec.arcs, spec.graph),
+                    arc_weights,
+                    edge_weights,
+                )
+            }
+        }
+    };
+}
+
+mixed_chinese_postman_create_spec!(MixedChinesePostmanI32CreateSpec, i32, 1_i32);
+mixed_chinese_postman_create_spec!(MixedChinesePostmanOneCreateSpec, One, One);
+
 impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
     /// Create a new mixed Chinese postman instance.
     ///
@@ -53,42 +125,44 @@ impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
     /// Panics if the weight-vector lengths do not match the graph shape or if
     /// any weight is negative.
     pub fn new(graph: MixedGraph, arc_weights: Vec<W>, edge_weights: Vec<W>) -> Self {
-        assert_eq!(
-            arc_weights.len(),
-            graph.num_arcs(),
-            "arc_weights length must match num_arcs"
-        );
-        assert_eq!(
-            edge_weights.len(),
-            graph.num_edges(),
-            "edge_weights length must match num_edges"
-        );
+        Self::try_new(graph, arc_weights, edge_weights)
+            .unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create an instance, returning validation errors instead of panicking.
+    pub fn try_new(
+        graph: MixedGraph,
+        arc_weights: Vec<W>,
+        edge_weights: Vec<W>,
+    ) -> Result<Self, String> {
+        if arc_weights.len() != graph.num_arcs() {
+            return Err("arc_weights length must match num_arcs".to_string());
+        }
+        if edge_weights.len() != graph.num_edges() {
+            return Err("edge_weights length must match num_edges".to_string());
+        }
         for (index, weight) in arc_weights.iter().enumerate() {
-            assert!(
-                matches!(
-                    weight.to_sum().partial_cmp(&W::Sum::zero()),
-                    Some(Ordering::Equal | Ordering::Greater)
-                ),
-                "arc weight at index {} must be nonnegative",
-                index
-            );
+            if !matches!(
+                weight.to_sum().partial_cmp(&W::Sum::zero()),
+                Some(Ordering::Equal | Ordering::Greater)
+            ) {
+                return Err(format!("arc weight at index {index} must be nonnegative"));
+            }
         }
         for (index, weight) in edge_weights.iter().enumerate() {
-            assert!(
-                matches!(
-                    weight.to_sum().partial_cmp(&W::Sum::zero()),
-                    Some(Ordering::Equal | Ordering::Greater)
-                ),
-                "edge weight at index {} must be nonnegative",
-                index
-            );
+            if !matches!(
+                weight.to_sum().partial_cmp(&W::Sum::zero()),
+                Some(Ordering::Equal | Ordering::Greater)
+            ) {
+                return Err(format!("edge weight at index {index} must be nonnegative"));
+            }
         }
 
-        Self {
+        Ok(Self {
             graph,
             arc_weights,
             edge_weights,
-        }
+        })
     }
 
     /// Return the mixed graph.
@@ -238,8 +312,8 @@ where
 }
 
 crate::declare_variants! {
-    default MixedChinesePostman<i32> => "2^num_edges * num_vertices^3",
-    MixedChinesePostman<One> => "2^num_edges * num_vertices^3",
+    default MixedChinesePostman<i32> => "2^num_edges * num_vertices^3" create MixedChinesePostmanI32CreateSpec,
+    MixedChinesePostman<One> => "2^num_edges * num_vertices^3" create MixedChinesePostmanOneCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

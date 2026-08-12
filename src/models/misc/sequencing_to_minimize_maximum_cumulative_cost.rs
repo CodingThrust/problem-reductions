@@ -4,7 +4,7 @@
 //! a valid one-machine schedule that minimizes the maximum cumulative cost
 //! over all prefixes.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
@@ -15,12 +15,10 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Maximum Cumulative Cost",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints to minimize the maximum cumulative cost prefix",
-        fields: &[
-            FieldInfo { name: "costs", type_name: "Vec<i64>", description: "Task costs in schedule order-independent indexing" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-        ],
+        fields: SequencingCumulativeCostCreateSpec::FIELDS,
     }
 }
 
@@ -38,6 +36,30 @@ inventory::submit! {
 pub struct SequencingToMinimizeMaximumCumulativeCost {
     costs: Vec<i64>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SequencingCumulativeCostCreateSpec {
+    /// Task costs.
+    #[create(codec = "comma-separated")]
+    costs: Vec<i64>,
+    /// Precedence arcs; omitted means no constraints.
+    #[create(codec = "arc-list")]
+    precedences: Option<Vec<(usize, usize)>>,
+}
+
+impl TryFrom<SequencingCumulativeCostCreateSpec> for SequencingToMinimizeMaximumCumulativeCost {
+    type Error = String;
+    fn try_from(spec: SequencingCumulativeCostCreateSpec) -> Result<Self, Self::Error> {
+        let precedences = spec.precedences.unwrap_or_default();
+        if let Some(message) = precedence_validation_error(&precedences, spec.costs.len()) {
+            return Err(message);
+        }
+        Ok(Self {
+            costs: spec.costs,
+            precedences,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -165,7 +187,7 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
 }
 
 crate::declare_variants! {
-    default SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)",
+    default SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)" create SequencingCumulativeCostCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -3,7 +3,7 @@
 //! The Longest Circuit problem asks for a simple circuit in a graph
 //! that maximizes the total edge length.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, WeightElement};
@@ -20,12 +20,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a simple circuit in a graph that maximizes total edge length",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Positive edge lengths l: E -> Z_(> 0)" },
-        ],
+        fields: LongestCircuitCreateSpec::FIELDS,
     }
 }
 
@@ -46,6 +44,65 @@ inventory::submit! {
 pub struct LongestCircuit<G, W: WeightElement> {
     graph: G,
     edge_lengths: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct LongestCircuitCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i32>>,
+}
+
+impl TryFrom<LongestCircuitCreateSpec> for LongestCircuit<SimpleGraph, i32> {
+    type Error = String;
+
+    fn try_from(spec: LongestCircuitCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_lengths = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_lengths.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_lengths.len(),
+                graph.num_edges()
+            ));
+        }
+        if edge_lengths.iter().any(|&length| length <= 0) {
+            return Err("edge_weights must be positive".to_string());
+        }
+        Ok(Self::new(graph, edge_lengths))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        ));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> LongestCircuit<G, W> {
@@ -255,8 +312,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(LongestCircuit<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let lengths = vec![1; graph.num_edges()];
+    Ok(LongestCircuit::new(graph, lengths))
+});
+
 crate::declare_variants! {
-    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
+    default LongestCircuit<SimpleGraph, i32> => "2^num_vertices * num_vertices^2" create LongestCircuitCreateSpec random,
 }
 
 #[cfg(test)]

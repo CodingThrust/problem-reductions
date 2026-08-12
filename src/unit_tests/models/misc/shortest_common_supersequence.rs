@@ -4,6 +4,57 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 #[test]
+fn test_shortestcommonsupersequence_create_spec_derives_stored_fields() {
+    let problem = ShortestCommonSupersequence::try_from(ShortestCommonSupersequenceCreateSpec {
+        strings: vec![vec![0, 1], vec![1, 2]],
+    })
+    .unwrap();
+
+    assert_eq!(problem.alphabet_size(), 3);
+    assert_eq!(problem.strings(), &[vec![0, 1], vec![1, 2]]);
+    assert_eq!(problem.max_length(), 4);
+
+    let entry = inventory::iter::<crate::registry::VariantEntry>()
+        .find(|entry| entry.name == "ShortestCommonSupersequence")
+        .unwrap();
+    let inputs = entry.create_inputs.unwrap();
+    assert_eq!(inputs.len(), 1);
+    assert_eq!(inputs[0].name, "strings");
+    assert_eq!(
+        inputs[0].codec,
+        crate::registry::CreateInputCodec::SemicolonSeparated
+    );
+
+    let constructed = (entry.construct_fn)(serde_json::json!({
+        "strings": [[0, 1], [1, 2]]
+    }))
+    .unwrap();
+    let constructed = constructed
+        .as_any()
+        .downcast_ref::<ShortestCommonSupersequence>()
+        .unwrap();
+    assert_eq!(constructed.alphabet_size(), 3);
+    assert_eq!(constructed.max_length(), 4);
+}
+
+#[test]
+fn test_shortestcommonsupersequence_create_spec_rejects_invalid_input() {
+    let empty = ShortestCommonSupersequence::try_from(ShortestCommonSupersequenceCreateSpec {
+        strings: vec![],
+    });
+    assert_eq!(empty.unwrap_err(), "must have at least one string");
+
+    let overflowing_symbol =
+        ShortestCommonSupersequence::try_from(ShortestCommonSupersequenceCreateSpec {
+            strings: vec![vec![usize::MAX]],
+        });
+    assert_eq!(
+        overflowing_symbol.unwrap_err(),
+        "alphabet size overflows usize"
+    );
+}
+
+#[test]
 fn test_shortestcommonsupersequence_basic() {
     let problem = ShortestCommonSupersequence::new(
         3,

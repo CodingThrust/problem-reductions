@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Quadratic Assignment",
         aliases: &["QAP"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Minimize total cost of assigning facilities to locations",
         fields: &[

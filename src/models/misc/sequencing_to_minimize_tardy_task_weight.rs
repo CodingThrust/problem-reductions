@@ -4,7 +4,7 @@
 //! Garey & Johnson, 1979) where tasks with processing times, weights,
 //! and deadlines must be scheduled to minimize the total weight of tardy tasks.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -15,13 +15,10 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Tardy Task Weight",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with lengths, weights, and deadlines to minimize total weight of tardy tasks",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time for each task" },
-            FieldInfo { name: "weights", type_name: "Vec<u64>", description: "Weight w(t) for each task" },
-            FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadline d(t) for each task" },
-        ],
+        fields: SequencingToMinimizeTardyTaskWeightCreateSpec::FIELDS,
     }
 }
 
@@ -42,6 +39,32 @@ pub struct SequencingToMinimizeTardyTaskWeight {
     lengths: Vec<u64>,
     weights: Vec<u64>,
     deadlines: Vec<u64>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SequencingToMinimizeTardyTaskWeightCreateSpec {
+    /// Processing time for each task.
+    lengths: Vec<u64>,
+    /// Task weights; defaults to one per task.
+    weights: Option<Vec<u64>>,
+    /// Deadline for each task.
+    deadlines: Vec<u64>,
+}
+impl TryFrom<SequencingToMinimizeTardyTaskWeightCreateSpec>
+    for SequencingToMinimizeTardyTaskWeight
+{
+    type Error = String;
+    fn try_from(spec: SequencingToMinimizeTardyTaskWeightCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.lengths.len();
+        if spec.deadlines.len() != count {
+            return Err("deadlines length must equal lengths length".to_string());
+        }
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err("weights length must equal lengths length".to_string());
+        }
+        Ok(Self::new(spec.lengths, weights, spec.deadlines))
+    }
 }
 
 #[derive(Deserialize)]
@@ -166,7 +189,7 @@ impl Problem for SequencingToMinimizeTardyTaskWeight {
 }
 
 crate::declare_variants! {
-    default SequencingToMinimizeTardyTaskWeight => "factorial(num_tasks)",
+    default SequencingToMinimizeTardyTaskWeight => "factorial(num_tasks)" create SequencingToMinimizeTardyTaskWeightCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

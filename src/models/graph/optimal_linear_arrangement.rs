@@ -19,6 +19,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a vertex ordering on a line minimizing total edge length",
         fields: &[
@@ -153,8 +154,14 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    OptimalLinearArrangement<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(OptimalLinearArrangement::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices" random,
 }
 
 impl<G> crate::models::decision::DecisionProblemMeta for OptimalLinearArrangement<G>
@@ -187,6 +194,7 @@ crate::register_decision_variant!(
     "2^num_vertices",
     &["DOLA"],
     "Decision version: does a linear arrangement of total edge length <= bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
     ],

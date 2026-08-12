@@ -135,3 +135,36 @@ fn test_conjunctivebooleanquery_paper_example() {
     assert_eq!(all.len(), 1);
     assert_eq!(all[0], vec![0, 1]);
 }
+
+#[test]
+fn test_conjunctivebooleanquery_create_spec_derives_variables() {
+    let problem = ConjunctiveBooleanQuery::try_from(ConjunctiveBooleanQueryCreateSpec {
+        domain_size: 3,
+        relations: vec![Relation {
+            arity: 2,
+            tuples: vec![vec![0, 2]],
+        }],
+        conjuncts: vec![(0, vec![QueryArg::Variable(2), QueryArg::Constant(2)])],
+    })
+    .unwrap();
+
+    assert_eq!(problem.num_variables(), 3);
+    assert_eq!(
+        ConjunctiveBooleanQueryCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["domain_size", "relations", "conjuncts"]
+    );
+}
+
+#[test]
+fn test_conjunctivebooleanquery_create_spec_rejects_invalid_relation_index() {
+    let result = ConjunctiveBooleanQuery::try_from(ConjunctiveBooleanQueryCreateSpec {
+        domain_size: 1,
+        relations: vec![],
+        conjuncts: vec![(0, vec![])],
+    });
+
+    assert!(result.is_err());
+}

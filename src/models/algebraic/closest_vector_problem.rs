@@ -3,7 +3,7 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Closest Vector Problem",
         aliases: &["CVP"],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find the closest lattice point to a target vector",
-        fields: &[
-            FieldInfo { name: "basis", type_name: "Vec<Vec<T>>", description: "Basis matrix B as column vectors" },
-            FieldInfo { name: "target", type_name: "Vec<f64>", description: "Target vector t" },
-            FieldInfo { name: "bounds", type_name: "Vec<VarBounds>", description: "Integer bounds per variable" },
-        ],
+        fields: ClosestVectorProblemI32CreateSpec::FIELDS,
     }
 }
 
@@ -153,6 +150,52 @@ pub struct ClosestVectorProblem<T> {
     bounds: Vec<VarBounds>,
 }
 
+macro_rules! cvp_create_spec {
+    ($name:ident, $element:ty) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            /// Basis matrix as semicolon-separated column vectors.
+            #[create(codec = "semicolon-separated")]
+            basis: Vec<Vec<$element>>,
+            /// Target vector.
+            #[create(name = "target_vec", codec = "comma-separated")]
+            target: Vec<f64>,
+            /// Shared lower and upper coefficient bounds.
+            #[create(codec = "comma-separated")]
+            bounds: Option<Vec<i64>>,
+        }
+
+        impl TryFrom<$name> for ClosestVectorProblem<$element> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                for (index, column) in spec.basis.iter().enumerate() {
+                    if column.len() != spec.target.len() {
+                        return Err(format!(
+                            "basis vector {index} has length {}, expected {}",
+                            column.len(),
+                            spec.target.len()
+                        ));
+                    }
+                }
+                let limits = spec.bounds.unwrap_or_else(|| vec![-10, 10]);
+                if limits.len() != 2 {
+                    return Err("bounds expects exactly lower,upper".to_string());
+                }
+                let bounds = vec![VarBounds::bounded(limits[0], limits[1]); spec.basis.len()];
+                Ok(ClosestVectorProblem {
+                    basis: spec.basis,
+                    target: spec.target,
+                    bounds,
+                })
+            }
+        }
+    };
+}
+
+cvp_create_spec!(ClosestVectorProblemI32CreateSpec, i32);
+cvp_create_spec!(ClosestVectorProblemF64CreateSpec, f64);
+
 impl<T> ClosestVectorProblem<T> {
     /// Create a new CVP instance.
     ///
@@ -275,8 +318,8 @@ where
 }
 
 crate::declare_variants! {
-    default ClosestVectorProblem<i32> => "2^num_basis_vectors",
-    ClosestVectorProblem<f64> => "2^num_basis_vectors",
+    default ClosestVectorProblem<i32> => "2^num_basis_vectors" create ClosestVectorProblemI32CreateSpec,
+    ClosestVectorProblem<f64> => "2^num_basis_vectors" create ClosestVectorProblemF64CreateSpec,
 }
 
 #[cfg(feature = "example-db")]

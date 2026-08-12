@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_edge_weights() {
+    let p = MinimumCapacitatedSpanningTree::try_from(MinimumCapacitatedSpanningTreeCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        weights: None,
+        root: 0,
+        requirements: vec![0, 1],
+        capacity: 1,
+    })
+    .unwrap();
+    assert_eq!(p.weights(), &[1]);
+}
 use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// 5-vertex instance from issue #901.

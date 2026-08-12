@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Minimum Matrix Cover",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find sign assignment minimizing quadratic form over nonnegative integer matrix",
         fields: &[

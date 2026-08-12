@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Expected Retrieval Cost",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign records to circular storage sectors to minimize expected retrieval latency",
         fields: &[

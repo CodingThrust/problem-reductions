@@ -2,6 +2,19 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
+#[test]
+fn test_staff_scheduling_create_spec_uses_k_input() {
+    assert_eq!(StaffSchedulingCreateSpec::FIELDS[0].name, "k");
+    let problem = StaffScheduling::try_from(StaffSchedulingCreateSpec {
+        k: 1,
+        schedules: vec![vec![true, false]],
+        requirements: vec![1, 0],
+        num_workers: 1,
+    })
+    .unwrap();
+    assert_eq!(problem.shifts_per_schedule(), 1);
+}
+
 fn issue_example_problem() -> StaffScheduling {
     StaffScheduling::new(
         5,

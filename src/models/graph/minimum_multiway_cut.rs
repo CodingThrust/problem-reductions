@@ -3,7 +3,7 @@
 //! The Minimum Multiway Cut problem asks for a minimum weight set of edges
 //! whose removal disconnects all terminal pairs.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -20,13 +20,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight set of edges whose removal disconnects all terminal pairs",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
-            FieldInfo { name: "terminals", type_name: "Vec<usize>", description: "Terminal vertices that must be separated" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R (same order as graph.edges())" },
-        ],
+        fields: MinimumMultiwayCutCreateSpec::FIELDS,
     }
 }
 
@@ -50,6 +47,49 @@ pub struct MinimumMultiwayCut<G, W> {
     graph: G,
     terminals: Vec<usize>,
     edge_weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumMultiwayCutCreateSpec {
+    /// The undirected graph G=(V,E).
+    graph: SimpleGraph,
+    /// Terminal vertices that must be separated.
+    terminals: Vec<usize>,
+    /// Edge weights w: E -> R in graph edge order.
+    edge_weights: Vec<i32>,
+}
+
+impl TryFrom<MinimumMultiwayCutCreateSpec> for MinimumMultiwayCut<SimpleGraph, i32> {
+    type Error = String;
+    fn try_from(spec: MinimumMultiwayCutCreateSpec) -> Result<Self, Self::Error> {
+        if spec.edge_weights.len() != spec.graph.num_edges() {
+            return Err(format!(
+                "edge_weights has {} entries, expected {}",
+                spec.edge_weights.len(),
+                spec.graph.num_edges()
+            ));
+        }
+        if spec.terminals.len() < 2 {
+            return Err("at least two terminals are required".to_string());
+        }
+        let mut distinct = spec.terminals.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != spec.terminals.len() {
+            return Err("terminals must be distinct".to_string());
+        }
+        if let Some(&terminal) = spec
+            .terminals
+            .iter()
+            .find(|&&t| t >= spec.graph.num_vertices())
+        {
+            return Err(format!(
+                "terminal {terminal} is outside graph with {} vertices",
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, spec.terminals, spec.edge_weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumMultiwayCut<G, W> {
@@ -188,7 +228,7 @@ where
 }
 
 crate::declare_variants! {
-    default MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3",
+    default MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3" create MinimumMultiwayCutCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Circuit SAT",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "Find satisfying input to a boolean circuit",
         fields: &[

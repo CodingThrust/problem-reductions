@@ -4,7 +4,7 @@
 //! respecting availability, per-period exclusivity, and exact pairwise work
 //! requirements.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,16 +14,10 @@ inventory::submit! {
         display_name: "Timetable Design",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign craftsmen to tasks over work periods subject to availability and exact pairwise requirements",
-        fields: &[
-            FieldInfo { name: "num_periods", type_name: "usize", description: "Number of work periods |H|" },
-            FieldInfo { name: "num_craftsmen", type_name: "usize", description: "Number of craftsmen |C|" },
-            FieldInfo { name: "num_tasks", type_name: "usize", description: "Number of tasks |T|" },
-            FieldInfo { name: "craftsman_avail", type_name: "Vec<Vec<bool>>", description: "Availability matrix A(c) for craftsmen (|C| x |H|)" },
-            FieldInfo { name: "task_avail", type_name: "Vec<Vec<bool>>", description: "Availability matrix A(t) for tasks (|T| x |H|)" },
-            FieldInfo { name: "requirements", type_name: "Vec<Vec<u64>>", description: "Required work periods R(c,t) for each craftsman-task pair (|C| x |T|)" },
-        ],
+        fields: TimetableDesignCreateSpec::FIELDS,
     }
 }
 
@@ -40,6 +34,92 @@ pub struct TimetableDesign {
     craftsman_avail: Vec<Vec<bool>>,
     task_avail: Vec<Vec<bool>>,
     requirements: Vec<Vec<u64>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct TimetableDesignCreateSpec {
+    /// Number of work periods.
+    num_periods: usize,
+    /// Number of craftsmen.
+    num_craftsmen: usize,
+    /// Number of tasks.
+    num_tasks: usize,
+    /// Craftsman availability matrix.
+    craftsman_avail: Vec<Vec<bool>>,
+    /// Task availability matrix.
+    task_avail: Vec<Vec<bool>>,
+    /// Required work periods for each craftsman-task pair.
+    requirements: Vec<Vec<u64>>,
+}
+impl TryFrom<TimetableDesignCreateSpec> for TimetableDesign {
+    type Error = String;
+    fn try_from(spec: TimetableDesignCreateSpec) -> Result<Self, Self::Error> {
+        if spec.craftsman_avail.len() != spec.num_craftsmen {
+            return Err(format!(
+                "craftsman_avail has {} rows, expected {}",
+                spec.craftsman_avail.len(),
+                spec.num_craftsmen
+            ));
+        }
+        if let Some((index, row)) = spec
+            .craftsman_avail
+            .iter()
+            .enumerate()
+            .find(|(_, row)| row.len() != spec.num_periods)
+        {
+            return Err(format!(
+                "craftsman_avail row {index} has {} periods, expected {}",
+                row.len(),
+                spec.num_periods
+            ));
+        }
+        if spec.task_avail.len() != spec.num_tasks {
+            return Err(format!(
+                "task_avail has {} rows, expected {}",
+                spec.task_avail.len(),
+                spec.num_tasks
+            ));
+        }
+        if let Some((index, row)) = spec
+            .task_avail
+            .iter()
+            .enumerate()
+            .find(|(_, row)| row.len() != spec.num_periods)
+        {
+            return Err(format!(
+                "task_avail row {index} has {} periods, expected {}",
+                row.len(),
+                spec.num_periods
+            ));
+        }
+        if spec.requirements.len() != spec.num_craftsmen {
+            return Err(format!(
+                "requirements has {} rows, expected {}",
+                spec.requirements.len(),
+                spec.num_craftsmen
+            ));
+        }
+        if let Some((index, row)) = spec
+            .requirements
+            .iter()
+            .enumerate()
+            .find(|(_, row)| row.len() != spec.num_tasks)
+        {
+            return Err(format!(
+                "requirements row {index} has {} tasks, expected {}",
+                row.len(),
+                spec.num_tasks
+            ));
+        }
+        Ok(Self::new(
+            spec.num_periods,
+            spec.num_craftsmen,
+            spec.num_tasks,
+            spec.craftsman_avail,
+            spec.task_avail,
+            spec.requirements,
+        ))
+    }
 }
 
 impl TimetableDesign {
@@ -355,7 +435,7 @@ impl Problem for TimetableDesign {
 }
 
 crate::declare_variants! {
-    default TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)",
+    default TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)" create TimetableDesignCreateSpec,
 }
 
 #[cfg(any(test, feature = "example-db"))]
