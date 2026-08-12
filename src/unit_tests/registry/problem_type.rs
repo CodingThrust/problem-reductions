@@ -201,10 +201,20 @@ fn every_public_problem_schema_has_dimension_defaults() {
 
 #[test]
 fn every_alias_is_globally_unique() {
+    let canonical_names = inventory::iter::<ProblemSchemaEntry>
+        .into_iter()
+        .map(|entry| (entry.name.to_lowercase(), entry.name))
+        .collect::<HashMap<_, _>>();
     let mut seen: HashMap<String, &str> = HashMap::new();
     for entry in inventory::iter::<ProblemSchemaEntry> {
         for alias in entry.aliases {
             let lower = alias.to_lowercase();
+            if let Some(canonical) = canonical_names.get(&lower) {
+                panic!(
+                    "Alias '{}' on {} conflicts with canonical problem name {}",
+                    alias, entry.name, canonical,
+                );
+            }
             if let Some(prev) = seen.get(&lower) {
                 panic!(
                     "Alias '{}' is used by both {} and {}",

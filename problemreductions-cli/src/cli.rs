@@ -506,6 +506,17 @@ mod tests {
     }
 
     #[test]
+    fn canonical_problem_name_is_not_treated_as_an_alias() {
+        let cli =
+            Cli::try_parse_from(["pred", "create", "GraphPartitioning", "--graph", "0-1,2-3"])
+                .expect("canonical problem name parses");
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create command");
+        };
+        assert_eq!(args.problem.as_deref(), Some("GraphPartitioning"));
+    }
+
+    #[test]
     fn selected_create_parser_preserves_trailing_global_arguments() {
         let cli = Cli::try_parse_from([
             "pred",

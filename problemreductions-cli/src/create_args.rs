@@ -179,18 +179,8 @@ pub(crate) fn command_for_selected_problem(
     mut command: Command,
     selected: &str,
 ) -> Result<Command, Error> {
-    let mut parts = selected.split('/');
-    let selected_name = parts.next().expect("selected problem spec has a name");
-    let catalog_problem = problemreductions::registry::find_problem_type_by_alias(selected_name);
-    let spec = if let Some(problem) = catalog_problem {
-        crate::problem_name::ProblemSpec {
-            name: problem.canonical_name.to_string(),
-            variant_values: parts.map(str::to_string).collect(),
-        }
-    } else {
-        crate::problem_name::parse_problem_spec(selected)
-            .map_err(|error| invalid_problem_spec(&command, error.to_string()))?
-    };
+    let spec = crate::problem_name::parse_problem_spec(selected)
+        .map_err(|error| invalid_problem_spec(&command, error.to_string()))?;
     let problem = problemreductions::registry::find_problem_type(&spec.name).ok_or_else(|| {
         invalid_problem_spec(
             &command,

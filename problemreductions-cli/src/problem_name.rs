@@ -42,9 +42,6 @@ pub fn resolve_alias(input: &str) -> String {
     if input.eq_ignore_ascii_case("ThreeMatroidIntersection") {
         return "ThreeMatroidIntersection".to_string();
     }
-    if input.eq_ignore_ascii_case("GraphPartitioning") {
-        return "GraphPartitioning".to_string();
-    }
     if let Some((entry, _)) = problemreductions::registry::find_variant_by_alias(input) {
         return entry.name.to_string();
     }
