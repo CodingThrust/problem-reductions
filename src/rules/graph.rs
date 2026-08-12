@@ -84,8 +84,8 @@ pub(crate) struct NodeJson {
     pub(crate) name: String,
     /// Variant attributes as key-value pairs.
     pub(crate) variant: BTreeMap<String, String>,
-    /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
-    pub(crate) category: String,
+    /// Structural category declared by the problem schema.
+    pub(crate) category: crate::registry::ProblemCategory,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
     /// Worst-case time complexity expression (empty if not declared).
@@ -1697,7 +1697,7 @@ impl ReductionGraph {
                     NodeJson {
                         name: node.name.to_string(),
                         variant: node.variant.clone(),
-                        category: category.to_string(),
+                        category,
                         doc_path: Self::doc_path_from_module_path(module_path, node.name),
                         complexity: node.complexity.to_string(),
                     },

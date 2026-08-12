@@ -8,6 +8,7 @@ use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
+use crate::registry::ProblemCategory;
 use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
@@ -1036,8 +1037,14 @@ fn test_to_json() {
     // Check nodes
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
-    assert!(json.nodes.iter().any(|n| n.category == "graph"));
-    assert!(json.nodes.iter().any(|n| n.category == "algebraic"));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Graph));
+    assert!(json
+        .nodes
+        .iter()
+        .any(|n| n.category == ProblemCategory::Algebraic));
 
     // Check edges
     assert!(json.edges.len() >= 10);
@@ -1287,12 +1294,11 @@ fn test_unknown_name_returns_empty() {
 }
 
 #[test]
-fn test_category_derived_from_schema() {
-    // CircuitSAT's category is derived from its ProblemSchemaEntry module_path
+fn test_category_comes_from_schema() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
     let circuit = json.nodes.iter().find(|n| n.name == "CircuitSAT").unwrap();
-    assert_eq!(circuit.category, "formula");
+    assert_eq!(circuit.category, ProblemCategory::Formula);
 }
 
 #[test]
@@ -1365,8 +1371,6 @@ fn test_to_json_nodes_have_variants() {
     for node in &json.nodes {
         // Verify node has a name
         assert!(!node.name.is_empty());
-        // Verify node has a category
-        assert!(!node.category.is_empty());
     }
 }
 
