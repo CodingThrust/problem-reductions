@@ -116,6 +116,15 @@ pub enum ConstructionError {
 pub type ConstructProblemFn =
     fn(serde_json::Value) -> Result<Box<dyn DynProblem>, ConstructionError>;
 
+/// Random-generation contract for one concrete problem variant.
+#[derive(Clone, Copy)]
+pub struct RandomRegistration {
+    /// Inputs accepted by the generator.
+    pub inputs: &'static [CreateInputInfo],
+    /// Generate a concrete problem from normalized inputs.
+    pub generate: ConstructProblemFn,
+}
+
 /// A concrete problem type that can generate itself from typed random inputs.
 pub trait RandomGenerate: DynProblem + Sized {
     /// Inputs accepted by this model's random generator.
@@ -208,10 +217,8 @@ pub struct VariantEntry {
     pub create_inputs: Option<&'static [CreateInputInfo]>,
     /// Construct a validated concrete problem from normalized construction data.
     pub construct_fn: ConstructProblemFn,
-    /// Model-owned random generation inputs, when this variant supports generation.
-    pub random_inputs: Option<&'static [CreateInputInfo]>,
-    /// Generate a concrete random problem for this exact variant.
-    pub random_fn: Option<ConstructProblemFn>,
+    /// Model-owned random generator for this exact variant.
+    pub random: Option<RandomRegistration>,
     /// Factory: deserialize JSON into a boxed dynamic problem.
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.

@@ -386,17 +386,17 @@ fn create_registered_random(
                 "No concrete variant is registered for {canonical} with {resolved_variant:?}"
             )
         })?;
-    let inputs = entry.random_inputs.ok_or_else(|| {
+    let random = entry.random.ok_or_else(|| {
         anyhow::anyhow!(
             "Random generation is not registered for {}",
             problemreductions::registry::variant::variant_label(entry)
         )
     })?;
+    let inputs = random.inputs;
     let data = normalize_registered_create_inputs(args, inputs, resolved_variant)
         .map_err(|error| with_registered_usage(error, canonical, inputs))?;
-    let problem =
-        problemreductions::registry::generate_random_dyn(canonical, resolved_variant, data)
-            .map_err(|error| with_registered_usage(error.into(), canonical, inputs))?;
+    let problem = (random.generate)(data)
+        .map_err(|error| with_registered_usage(error.into(), canonical, inputs))?;
     let variant = problem.variant_map();
     anyhow::ensure!(
         problem.problem_name() == canonical && variant == *resolved_variant,

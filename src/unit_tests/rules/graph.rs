@@ -8,7 +8,8 @@ use crate::models::graph::MaxCut;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::misc::Knapsack;
 use crate::models::set::MaximumSetPacking;
-use crate::rules::graph::{classify_problem_category, ReductionMode, ReductionStep};
+use crate::registry::problem_type::problem_category_from_module_path;
+use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
 use crate::topology::SimpleGraph;
@@ -1508,24 +1509,26 @@ fn test_edges_have_doc_paths() {
 }
 
 #[test]
-fn test_classify_problem_category() {
+fn test_problem_category_from_module_path() {
     assert_eq!(
-        classify_problem_category("problemreductions::models::graph::maximum_independent_set"),
-        "graph"
+        problem_category_from_module_path(
+            "problemreductions::models::graph::maximum_independent_set"
+        ),
+        Some("graph")
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::formula::satisfiability"),
-        "formula"
+        problem_category_from_module_path("problemreductions::models::formula::satisfiability"),
+        Some("formula")
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::set::maximum_set_packing"),
-        "set"
+        problem_category_from_module_path("problemreductions::models::set::maximum_set_packing"),
+        Some("set")
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::algebraic::qubo"),
-        "algebraic"
+        problem_category_from_module_path("problemreductions::models::algebraic::qubo"),
+        Some("algebraic")
     );
-    assert_eq!(classify_problem_category("unknown::path"), "other");
+    assert_eq!(problem_category_from_module_path("unknown::path"), None);
 }
 
 #[test]

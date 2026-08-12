@@ -315,22 +315,16 @@ fn variant_label_with_variant_dimensions() {
 }
 
 #[test]
-fn random_contract_metadata_and_generator_are_registered_together() {
+fn random_contract_input_names_are_unique() {
     let entries = variant_entries();
-    assert!(entries.iter().any(|entry| entry.random_fn.is_some()));
+    assert!(entries.iter().any(|entry| entry.random.is_some()));
 
     for entry in entries {
-        assert_eq!(
-            entry.random_inputs.is_some(),
-            entry.random_fn.is_some(),
-            "{} has a partial random-generation registration",
-            variant_label(entry)
-        );
-        let Some(inputs) = entry.random_inputs else {
+        let Some(random) = entry.random else {
             continue;
         };
         let mut names = BTreeSet::new();
-        for input in inputs {
+        for input in random.inputs {
             assert!(
                 !input.name.is_empty(),
                 "{} has an empty random input",
@@ -360,7 +354,7 @@ fn established_random_generation_models_remain_registered() {
     ";
     let registered = variant_entries()
         .into_iter()
-        .filter(|entry| entry.random_fn.is_some())
+        .filter(|entry| entry.random.is_some())
         .map(|entry| entry.name)
         .collect::<BTreeSet<_>>();
 

@@ -845,23 +845,22 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
             }
         };
 
-        let (random_inputs, random_fn) = if random {
-            (
-                quote! { Some(<#ty as crate::registry::RandomGenerate>::INPUTS) },
-                quote! {
-                    Some(|data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
+        let random_registration = if random {
+            quote! {
+                Some(crate::registry::RandomRegistration {
+                    inputs: <#ty as crate::registry::RandomGenerate>::INPUTS,
+                    generate: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, crate::registry::ConstructionError> {
                         Ok(Box::new(<#ty as crate::registry::RandomGenerate>::generate(data)?))
-                    })
-                },
-            )
+                    },
+                })
+            }
         } else {
-            (quote! { None }, quote! { None })
+            quote! { None }
         };
 
         let dispatch_fields = quote! {
             #construction_fields
-            random_inputs: #random_inputs,
-            random_fn: #random_fn,
+            random: #random_registration,
             factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
                 let p: #ty = serde_json::from_value(data)?;
                 Ok(Box::new(p))

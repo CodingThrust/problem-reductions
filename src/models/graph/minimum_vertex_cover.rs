@@ -261,7 +261,7 @@ crate::register_decision_variant!(
         FieldInfo { name: "bound", type_name: "W::Sum", description: "Decision bound (maximum allowed cover cost)" },
     ],
     size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)],
-    random: DecisionMinimumVertexCoverRandomSpec
+    random
 );
 
 #[cfg(feature = "example-db")]

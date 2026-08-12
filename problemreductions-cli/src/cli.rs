@@ -66,7 +66,7 @@ Examples:
         #[arg(long)]
         rules: bool,
 
-        /// Restrict problems to a model category such as graph, set, or scheduling
+        /// Restrict problems to a model category such as graph, set, or misc
         #[arg(long, conflicts_with = "rules")]
         category: Option<String>,
 

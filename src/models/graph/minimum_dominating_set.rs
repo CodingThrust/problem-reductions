@@ -281,8 +281,7 @@ inventory::submit! {
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)
                 .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))
         },
-        random_inputs: None,
-        random_fn: None,
+        random: None,
         factory: |data| {
             serde_json::from_value::<Decision<MinimumDominatingSet<SimpleGraph, One>>>(data)
                 .map(|problem| Box::new(problem) as Box<dyn crate::registry::DynProblem>)

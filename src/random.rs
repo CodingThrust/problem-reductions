@@ -202,14 +202,12 @@ pub fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64
 pub fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
     let mut state = lcg_init(seed);
     let grid_size = (num_vertices as f64).sqrt().ceil() as i32 + 1;
-    let mut positions = std::collections::BTreeSet::new();
-    while positions.len() < num_vertices {
-        positions.insert((
-            (lcg_step(&mut state) * grid_size as f64) as i32,
-            (lcg_step(&mut state) * grid_size as f64) as i32,
-        ));
-    }
-    positions.into_iter().collect()
+    let capacity = (grid_size * grid_size) as usize;
+    lcg_choose(&mut state, capacity, num_vertices)
+        .expect("grid capacity exceeds the requested position count")
+        .into_iter()
+        .map(|index| (index as i32 / grid_size, index as i32 % grid_size))
+        .collect()
 }
 
 /// Generate float positions in `[0, sqrt(N)]²`.

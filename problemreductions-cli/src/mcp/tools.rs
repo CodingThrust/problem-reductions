@@ -291,6 +291,12 @@ impl McpServer {
         let resolved = resolve_catalog_problem_ref(problem_type)?;
         let canonical = resolved.name().to_string();
         let resolved_variant = resolved.variant().clone();
+        let entry = problemreductions::registry::find_variant_entry(&canonical, &resolved_variant)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "No concrete variant is registered for {canonical} with {resolved_variant:?}"
+                )
+            })?;
 
         // Check for random generation
         let is_random = params
@@ -299,12 +305,11 @@ impl McpServer {
             .unwrap_or(false);
 
         if is_random {
-            return self.generate_registered_random_inner(&canonical, &resolved_variant, params);
+            return self.generate_registered_random_inner(entry, params);
         }
 
         let normalized = normalize_mcp_create_inputs(params)?;
-        let problem =
-            problemreductions::registry::construct_dyn(&canonical, &resolved_variant, normalized)?;
+        let problem = (entry.construct_fn)(normalized)?;
 
         let output = ProblemJsonOutput {
             problem_type: problem.problem_name().to_string(),
@@ -316,8 +321,7 @@ impl McpServer {
 
     fn generate_registered_random_inner(
         &self,
-        canonical: &str,
-        resolved_variant: &BTreeMap<String, String>,
+        entry: &problemreductions::registry::VariantEntry,
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
         let mut inputs = params
@@ -325,11 +329,13 @@ impl McpServer {
             .ok_or_else(|| anyhow::anyhow!("random inputs must be a JSON object"))?
             .clone();
         inputs.remove("random");
-        let problem = problemreductions::registry::generate_random_dyn(
-            canonical,
-            resolved_variant,
-            serde_json::Value::Object(inputs),
-        )?;
+        let random = entry.random.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Random generation is not registered for {}",
+                problemreductions::registry::variant::variant_label(entry)
+            )
+        })?;
+        let problem = (random.generate)(serde_json::Value::Object(inputs))?;
         let output = ProblemJsonOutput {
             problem_type: problem.problem_name().to_string(),
             variant: problem.variant_map(),

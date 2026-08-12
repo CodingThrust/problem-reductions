@@ -341,20 +341,6 @@ impl std::fmt::Display for ReductionStep {
     }
 }
 
-/// Classify a problem's category from its module path.
-/// Expected format: "problemreductions::models::<category>::<module_name>"
-pub(crate) fn classify_problem_category(module_path: &str) -> &str {
-    let parts: Vec<&str> = module_path.split("::").collect();
-    if parts.len() >= 3 {
-        if let Some(pos) = parts.iter().position(|&p| p == "models") {
-            if pos + 1 < parts.len() {
-                return parts[pos + 1];
-            }
-        }
-    }
-    "other"
-}
-
 /// Internal node data for the variant-level graph.
 #[derive(Debug, Clone)]
 struct VariantNode {
@@ -1863,7 +1849,9 @@ impl ReductionGraph {
     ///
     /// E.g., `"problemreductions::models::graph::maximum_independent_set"` -> `"graph"`.
     fn category_from_module_path(module_path: &str) -> String {
-        classify_problem_category(module_path).to_string()
+        crate::registry::problem_type::problem_category_from_module_path(module_path)
+            .unwrap_or("other")
+            .to_string()
     }
 
     /// Build the rustdoc path from a module path and problem name.

@@ -105,6 +105,24 @@ fn test_list_filters_by_category() {
 }
 
 #[test]
+fn test_list_json_respects_category_filter() {
+    let output = pred()
+        .args(["list", "--category", "formula", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let variants = json["variants"].as_array().unwrap();
+    assert_eq!(json["num_types"], 9);
+    assert!(variants
+        .iter()
+        .all(|variant| variant["name"] != "MaximumIndependentSet"));
+    assert!(variants
+        .iter()
+        .any(|variant| variant["name"] == "KSatisfiability/K3"));
+}
+
+#[test]
 fn test_list_searches_variant_aliases() {
     let output = pred().args(["list", "3SAT"]).output().unwrap();
     assert!(output.status.success());
@@ -198,6 +216,22 @@ fn test_list_rules_searches_problem_aliases() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("KSatisfiability"));
+}
+
+#[test]
+fn test_list_rules_json_respects_query() {
+    let output = pred()
+        .args(["list", "--rules", "3SAT", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let rules = json["rules"].as_array().unwrap();
+    assert_eq!(json["num_rules"].as_u64().unwrap() as usize, rules.len());
+    assert!(rules.iter().all(|rule| {
+        rule["source"].as_str().unwrap().contains("KSatisfiability")
+            || rule["target"].as_str().unwrap().contains("KSatisfiability")
+    }));
 }
 
 #[test]

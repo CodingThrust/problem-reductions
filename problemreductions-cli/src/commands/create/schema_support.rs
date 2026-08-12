@@ -112,7 +112,7 @@ pub(super) fn create_schema_driven(
     if let Some(inputs) = variant_entry.create_inputs {
         let data = normalize_registered_create_inputs(args, inputs, resolved_variant)
             .map_err(|error| with_registered_usage(error, canonical, inputs))?;
-        return construct_canonical(canonical, resolved_variant, data)
+        return construct_canonical(variant_entry, canonical, resolved_variant, data)
             .map_err(|error| with_registered_usage(error, canonical, inputs));
     }
 
@@ -143,15 +143,16 @@ pub(super) fn create_schema_driven(
     }
 
     let data = serde_json::Value::Object(json_map);
-    construct_canonical(canonical, resolved_variant, data)
+    construct_canonical(variant_entry, canonical, resolved_variant, data)
 }
 
 fn construct_canonical(
+    entry: &problemreductions::registry::VariantEntry,
     canonical: &str,
     resolved_variant: &BTreeMap<String, String>,
     data: serde_json::Value,
 ) -> Result<(serde_json::Value, BTreeMap<String, String>)> {
-    let problem = problemreductions::registry::construct_dyn(canonical, resolved_variant, data)?;
+    let problem = (entry.construct_fn)(data)?;
     let constructed_variant = problem.variant_map();
     anyhow::ensure!(
         problem.problem_name() == canonical && constructed_variant == *resolved_variant,
@@ -356,14 +357,14 @@ pub(crate) fn create_inputs_for(
             );
         }
     }
-    if let Some(random_inputs) = variant_entry.random_inputs {
+    if let Some(random) = variant_entry.random {
         insert_create_input(
             &mut inputs,
             "random",
             InputValueKind::Bool,
             "random generation",
         );
-        for input in random_inputs {
+        for input in random.inputs {
             let concrete_type = resolve_schema_field_type(input.type_name, resolved_variant);
             insert_create_input(
                 &mut inputs,

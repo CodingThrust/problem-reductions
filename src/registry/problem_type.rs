@@ -33,11 +33,7 @@ impl ProblemType {
             dimensions: entry.dimensions,
             description: entry.description,
             fields: entry.fields,
-            category: entry
-                .module_path
-                .split("::models::")
-                .nth(1)
-                .and_then(|path| path.split("::").next()),
+            category: problem_category_from_module_path(entry.module_path),
         }
     }
 
@@ -48,6 +44,12 @@ impl ProblemType {
             .map(|d| (d.key.to_string(), d.default_value.to_string()))
             .collect()
     }
+}
+
+/// Extract a model category from `...::models::<category>::...`.
+pub(crate) fn problem_category_from_module_path(module_path: &str) -> Option<&str> {
+    let (_, model_path) = module_path.split_once("::models::")?;
+    model_path.split("::").next()
 }
 
 /// Find a problem type by exact canonical name.

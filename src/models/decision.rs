@@ -45,7 +45,7 @@ macro_rules! register_decision_variant {
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
         size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
-        $(, random: $random:ty)?
+        $(, $random:ident)?
     ) => {
         impl $crate::registry::CreateSpec
             for $crate::models::decision::DecisionCreateSpec<$inner>
@@ -140,7 +140,7 @@ macro_rules! register_decision_variant {
         }
     };
 
-    (@declare $inner:ty, $complexity:literal, $random:ty) => {
+    (@declare $inner:ty, $complexity:literal, random) => {
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner> random,
         }
