@@ -8,7 +8,8 @@
   target: e.target,
   source-name: graph-data.nodes.at(e.source).name,
   target-name: graph-data.nodes.at(e.target).name,
-  overhead: e.overhead,
+  size-fields: e.size_fields,
+  size-contract-error: e.size_contract_error,
 ))
 
 #let _edges-by-source-name = {
@@ -65,7 +66,7 @@
 #show: thmrules.with(qed-symbol: $square$)
 
 // === Example JSON helpers ===
-// Load canonical example database directly from the checked-in fixture file.
+// Load the generated canonical example database.
 #let example-db = json("data/examples.json")
 
 // Pre-index rules by (source, target) and models by name so lookups are O(bucket)
@@ -496,12 +497,6 @@
   ]
 }
 
-// Format target problem spec for pred reduce --to (handles empty variant dicts)
-#let target-spec(data) = {
-  if data.target.variant.len() == 0 { data.target.problem }
-  else { data.target.problem + "/" + data.target.variant.values().join("/") }
-}
-
 // Format a canonical example's problem spec for pred create --example
 #let problem-spec(data) = {
   if data.variant.len() == 0 { data.problem }
@@ -558,10 +553,14 @@
   if parts.len() > 0 { [#base (#parts.join(", "))] } else { base }
 }
 
-// Format overhead fields as inline text
-#let format-overhead(overhead) = {
-  let parts = overhead.map(o => raw(o.field + " = " + o.formula))
-  [_Overhead:_ #parts.join(", ").]
+// Format explicitly classified size fields as inline text.
+#let format-size-contract(fields) = {
+  let parts = fields.map(o => {
+    if o.contract == "exact" { raw(o.field + " = " + o.formula) }
+    else if o.contract == "bound-only" { raw(o.field + " <= " + o.formula) }
+    else { raw(o.field + " unavailable: " + o.reason) }
+  })
+  [_Size contract:_ #parts.join(", ").]
 }
 
 // Unified function for reduction rules: theorem + proof + optional example
@@ -582,7 +581,7 @@
                  else { display-name.at(target) }
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
-  let overhead = if edge != none and edge.overhead.len() > 0 { edge.overhead } else { none }
+  let size-fields = if edge != none and edge.size-fields.len() > 0 { edge.size-fields } else { none }
   let thm-lbl = label("thm:" + source + "-to-" + target)
   covered-rules.update(old => old + ((source, target),))
 
@@ -590,7 +589,7 @@
     #v(1em)
     #theorem[
     *(*#context { if query(src-lbl).len() > 0 { link(src-lbl)[#src-disp] } else [#src-disp] }* #arrow *#context { if query(tgt-lbl).len() > 0 { link(tgt-lbl)[#tgt-disp] } else [#tgt-disp] }*)* #theorem-body
-    #if overhead != none { linebreak(); format-overhead(overhead) }
+    #if size-fields != none { linebreak(); format-size-contract(size-fields) }
   ] #thm-lbl]
 
   proof[#proof-body]
@@ -8147,7 +8146,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sets = x.instance.sets
   let k = x.instance.k
   let bound = x.instance.bound
-  let config = x.optimal_config
   let m = sets.len()
   // Count qualifying tuples by enumerating the Cartesian product
   let total = sets.fold(1, (acc, s) => acc * s.len())
@@ -8157,12 +8155,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
 
-      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. For instance, the tuple $(#config.enumerate().map(((i, c)) => str(sets.at(i).at(c))).join(", "))$ has sum $#config.enumerate().map(((i, c)) => sets.at(i).at(c)).sum() >= #bound$, contributing 1 to the count. In total, #k of the #total tuples satisfy the bound, so the answer is _yes_ (count $= K$).
+      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. Exactly #k tuples have sum at least #bound, so the answer is _yes_ (count $= K$). The evaluator enumerates the Cartesian product internally and stops once it has found $K$ qualifying tuples.
 
       #pred-commands(
         "pred create --example KthLargestMTuple -o kth-largest-m-tuple.json",
         "pred solve kth-largest-m-tuple.json --solver brute-force",
-        "pred evaluate kth-largest-m-tuple.json --config " + config.map(str).join(","),
       )
     ]
   ]
@@ -11434,7 +11431,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 = Reductions <sec:reductions>
 
-Each reduction is presented as a *Rule* (with linked problem names and overhead from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
+Each reduction is presented as a *Rule* (with linked problem names and explicit size contracts from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
+
+The command blocks assume `route.json` contains the explicitly chosen direct route for
+the displayed rule, extracted from the corresponding `pred path` entry.
 
 
 #let max2sat_mc = load-example("Maximum2Satisfiability", "MaxCut")
@@ -11445,7 +11445,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
-      "pred reduce max2sat.json --to " + target-spec(max2sat_mc) + " -o bundle.json",
+      "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + max2sat_mc_sol.source_config.map(str).join(","),
     )
@@ -11496,7 +11496,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example Maximum2Satisfiability -o max2sat.json",
-      "pred reduce max2sat.json --to " + target-spec(max2sat_ilp) + " -o bundle.json",
+      "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate max2sat.json --config " + max2sat_ilp_sol.source_config.map(str).join(","),
     )
@@ -11658,7 +11658,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example MVC -o mvc.json",
-      "pred reduce mvc.json --to " + target-spec(mvc_mis) + " -o bundle.json",
+      "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + mvc_mis_sol.source_config.map(str).join(","),
     )
@@ -11691,7 +11691,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
-      "pred reduce dmds.json --to " + target-spec(dmds_mmmc) + " -o bundle.json",
+      "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + dmds_mmmc_sol.source_config.map(str).join(","),
     )
@@ -11726,7 +11726,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
-      "pred reduce dmds.json --to " + target-spec(dmds_msmc) + " -o bundle.json",
+      "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmds.json --config " + dmds_msmc_sol.source_config.map(str).join(","),
     )
@@ -11807,7 +11807,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
       [
         #pred-commands(
           "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
-          "pred reduce mvc.json --to " + target-spec(mvc_lcs) + " -o bundle.json",
+          "pred reduce mvc.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mvc.json --config " + mvc_lcs_sol.source_config.map(str).join(","),
         )
@@ -11848,7 +11848,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example MVC -o mvc.json",
-      "pred reduce mvc.json --to " + target-spec(mvc_fvs) + " -o bundle.json",
+      "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + mvc_fvs_sol.source_config.map(str).join(","),
     )
@@ -11892,7 +11892,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example MIS -o mis.json",
-      "pred reduce mis.json --to " + target-spec(mis_clique) + " -o bundle.json",
+      "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mis.json --config " + mis_clique_sol.source_config.map(str).join(","),
     )
@@ -11948,7 +11948,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dmvc_cc.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(dmvc_cc) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + dmvc_cc_sol.source_config.map(str).join(","),
     )
@@ -11989,7 +11989,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example MVC -o mvc.json",
-      "pred reduce mvc.json --to " + target-spec(mvc_aog) + " -o bundle.json",
+      "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + mvc_aog_sol.source_config.map(str).join(","),
     )
@@ -12043,7 +12043,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     #pred-commands(
       "pred create --example SpinGlass -o spinglass.json",
-      "pred reduce spinglass.json --to " + target-spec(sg_qubo) + " -o bundle.json",
+      "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + sg_qubo_sol.source_config.map(str).join(","),
     )
@@ -12092,7 +12092,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
       extra: [
         #pred-commands(
           "pred create --example CVP -o cvp.json",
-          "pred reduce cvp.json --to " + target-spec(cvp_qubo) + " -o bundle.json",
+          "pred reduce cvp.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate cvp.json --config " + cvp_qubo_sol.source_config.map(str).join(","),
         )
@@ -12115,7 +12115,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
       $ w_(i,p) = 2^p quad (0 <= p < L_i - 1), quad w_(i,L_i-1) = r_i + 1 - 2^(L_i - 1) $
       so that every bit vector represents an offset in ${0, dots, r_i}$. Then
       $ x_i = ell_i + sum_(p=0)^(L_i-1) w_(i,p) z_(i,p) $
-      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported overhead `num_vars = num_encoding_bits`.
+      and the total number of QUBO variables is $N = sum_i L_i$, exactly the exported size map `num_vars = num_encoding_bits`.
 
       Let $G = A^top A$ and $h = A^top bold(t)$. Writing $bold(x) = bold(ell) + B bold(z)$ for the encoding matrix $B in RR^(n times N)$ gives
       $ norm(A bold(x) - bold(t))_2^2 = bold(z)^top (B^top G B) bold(z) + 2 bold(z)^top B^top (G bold(ell) - h) + "const" $
@@ -12144,7 +12144,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(kc_qubo.source) + " -o kcoloring.json",
-      "pred reduce kcoloring.json --to " + target-spec(kc_qubo) + " -o bundle.json",
+      "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + kc_qubo_sol.source_config.map(str).join(","),
     )
@@ -12242,7 +12242,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_qc) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred evaluate ksat.json --config " + ksat_qc_sol.source_config.map(str).join(","),
     )
 
@@ -12305,7 +12305,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_ss.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_ss) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_ss_sol.source_config.map(str).join(","),
     )
@@ -12346,7 +12346,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       extra: [
         #pred-commands(
           "pred create --example SubsetSum -o subsetsum.json",
-          "pred reduce subsetsum.json --to " + target-spec(ss-cvp) + " -o bundle.json",
+          "pred reduce subsetsum.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate subsetsum.json --config " + ss-cvp-sol.source_config.map(str).join(","),
         )
@@ -12432,7 +12432,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_ks) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
     )
@@ -12474,7 +12474,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_ss) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_ss_sol.source_config.map(str).join(","),
     )
@@ -12516,7 +12516,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_ifwm.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_ifwm) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_ifwm_sol.source_config.map(str).join(","),
     )
@@ -12559,7 +12559,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example Knapsack -o knapsack.json",
-      "pred reduce knapsack.json --to " + target-spec(ks_qubo) + " -o bundle.json",
+      "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + ks_qubo_sol.source_config.map(str).join(","),
     )
@@ -12600,7 +12600,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
-      "pred reduce ik.json --to " + target-spec(mdpik_qubo) + " -o bundle.json",
+      "pred reduce ik.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ik.json --config " + mdpik_qubo_sol.source_config.map(str).join(","),
     )
@@ -12653,7 +12653,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example MinimumMultiwayCut -o minimummultiwaycut.json",
-      "pred reduce minimummultiwaycut.json --to " + target-spec(mwc_qubo) + " -o bundle.json",
+      "pred reduce minimummultiwaycut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate minimummultiwaycut.json --config " + mwc_qubo_sol.source_config.map(str).join(","),
     )
@@ -12712,7 +12712,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example QUBO -o qubo.json",
-      "pred reduce qubo.json --to " + target-spec(qubo_ilp) + " -o bundle.json",
+      "pred reduce qubo.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate qubo.json --config " + qubo_ilp_sol.source_config.map(str).join(","),
     )
@@ -12754,7 +12754,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example CircuitSAT -o circuitsat.json",
-      "pred reduce circuitsat.json --to " + target-spec(cs_ilp) + " -o bundle.json",
+      "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cs_ilp_sol.source_config.map(str).join(","),
     )
@@ -12805,7 +12805,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SAT -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_mis) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_mis_sol.source_config.map(str).join(","),
     )
@@ -12835,7 +12835,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SAT -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_kc) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_kc_sol.source_config.map(str).join(","),
     )
@@ -12863,7 +12863,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SAT -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_ds) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_ds_sol.source_config.map(str).join(","),
     )
@@ -12889,7 +12889,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_ifha) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_ifha_sol.source_config.map(str).join(","),
     )
@@ -12945,7 +12945,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SAT -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_ksat) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_ksat_sol.source_config.map(str).join(","),
     )
@@ -12976,7 +12976,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_max2sat) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_max2sat_sol.source_config.map(str).join(","),
     )
@@ -13041,7 +13041,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SAT -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_cs) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_cs_sol.source_config.map(str).join(","),
     )
@@ -13074,7 +13074,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
-      "pred reduce circuitsat.json --to " + target-spec(cs_sat) + " -o bundle.json",
+      "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cs_sat_sol.source_config.map(str).join(","),
     )
@@ -13114,7 +13114,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example CircuitSAT -o circuitsat.json",
-      "pred reduce circuitsat.json --to " + target-spec(cs_sg) + " -o bundle.json",
+      "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate circuitsat.json --config " + cs_sg_sol.source_config.map(str).join(","),
     )
@@ -13166,7 +13166,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example Factoring -o factoring.json",
-      "pred reduce factoring.json --to " + target-spec(fact_cs) + " -o bundle.json",
+      "pred reduce factoring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate factoring.json --config " + fact_cs_sol.source_config.map(str).join(","),
     )
@@ -13198,7 +13198,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example MaxCut -o maxcut.json",
-      "pred reduce maxcut.json --to " + target-spec(mc_sg) + " -o bundle.json",
+      "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + mc_sg_sol.source_config.map(str).join(","),
     )
@@ -13224,7 +13224,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   extra: [
     #pred-commands(
       "pred create --example SpinGlass -o spinglass.json",
-      "pred reduce spinglass.json --to " + target-spec(sg_mc) + " -o bundle.json",
+      "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate spinglass.json --config " + sg_mc_sol.source_config.map(str).join(","),
     )
@@ -13380,7 +13380,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
-      "pred reduce mfdts.json --to " + target-spec(mfdts_ilp) + " -o bundle.json",
+      "pred reduce mfdts.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mfdts.json --config " + mfdts_ilp_sol.source_config.map(str).join(","),
     )
@@ -13455,7 +13455,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example MinimumFeedbackVertexSet -o fvs.json",
-      "pred reduce fvs.json --to " + target-spec(fvs_cg) + " -o bundle.json",
+      "pred reduce fvs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate fvs.json --config " + fvs_cg_sol.source_config.map(str).join(","),
     )
@@ -13506,7 +13506,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mckp_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(mckp_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + mckp_ilp_sol.source_config.map(str).join(","),
     )
@@ -13540,7 +13540,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mces_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(mces_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + mces_ilp_sol.source_config.map(str).join(","),
     )
@@ -13578,7 +13578,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(cmo_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(cmo_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cmo_ilp_sol.source_config.map(str).join(","),
     )
@@ -13618,7 +13618,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mewkc_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(mewkc_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + mewkc_ilp_sol.source_config.map(str).join(","),
     )
@@ -13654,7 +13654,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example Knapsack -o knapsack.json",
-      "pred reduce knapsack.json --to " + target-spec(ks_ilp) + " -o bundle.json",
+      "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate knapsack.json --config " + ks_ilp_sol.source_config.map(str).join(","),
     )
@@ -13704,7 +13704,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       [
         #pred-commands(
           "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
-          "pred reduce integer-knapsack.json --to " + target-spec(ik_ilp) + " -o bundle.json",
+          "pred reduce integer-knapsack.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate integer-knapsack.json --config " + ik_ilp_sol.source_config.map(str).join(","),
         )
@@ -13759,7 +13759,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example MaximumClique -o maximumclique.json",
-      "pred reduce maximumclique.json --to " + target-spec(clique_mis) + " -o bundle.json",
+      "pred reduce maximumclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maximumclique.json --config " + clique_mis_sol.source_config.map(str).join(","),
     )
@@ -13836,7 +13836,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ola_seqmwct.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(ola_seqmwct) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + ola_seqmwct_sol.source_config.map(str).join(","),
     )
@@ -13872,7 +13872,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dola_c1ma.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(dola_c1ma) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + dola_c1ma_sol.source_config.map(str).join(","),
     )
@@ -13937,7 +13937,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_tsp) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_tsp_sol.source_config.map(str).join(","),
     )
@@ -13968,7 +13968,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example TSP -o tsp.json",
-      "pred reduce tsp.json --to " + target-spec(tsp_ilp) + " -o bundle.json",
+      "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + tsp_ilp_sol.source_config.map(str).join(","),
     )
@@ -14014,7 +14014,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example LongestPath -o longest-path.json",
-      "pred reduce longest-path.json --to " + target-spec(lp_ilp) + " -o bundle.json",
+      "pred reduce longest-path.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate longest-path.json --config " + lp_ilp_sol.source_config.map(str).join(","),
     )
@@ -14059,7 +14059,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example TSP -o tsp.json",
-      "pred reduce tsp.json --to " + target-spec(tsp_qubo) + " -o bundle.json",
+      "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tsp.json --config " + tsp_qubo_sol.source_config.map(str).join(","),
     )
@@ -14096,7 +14096,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example LCS -o lcs.json",
-      "pred reduce lcs.json --to " + target-spec(lcs_mis) + " -o bundle.json",
+      "pred reduce lcs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate lcs.json --config " + lcs_mis_sol.source_config.map(str).join(","),
     )
@@ -14131,7 +14131,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(cs_ilp_str.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(cs_ilp_str) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + cs_ilp_str_sol.source_config.map(str).join(","),
     )
@@ -14174,7 +14174,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(css_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(css_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + css_ilp_sol.source_config.map(str).join(","),
     )
@@ -14276,7 +14276,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example SteinerTree -o steinertree.json",
-      "pred reduce steinertree.json --to " + target-spec(st_ilp) + " -o bundle.json",
+      "pred reduce steinertree.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate steinertree.json --config " + st_ilp_sol.source_config.map(str).join(","),
     )
@@ -14331,7 +14331,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example 'MVC {weight: One}' -o mvc.json",
-      "pred reduce mvc.json --to " + target-spec(mvc_hs) + " -o bundle.json",
+      "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + mvc_hs_sol.source_config.map(str).join(","),
     )
@@ -14426,7 +14426,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
-      "pred reduce monochromatic-triangle.json --to " + target-spec(mono_ilp) + " -o bundle.json",
+      "pred reduce monochromatic-triangle.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate monochromatic-triangle.json --config " + mono_ilp_sol.source_config.map(str).join(","),
     )
@@ -14463,7 +14463,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
-      "pred reduce set-splitting.json --to " + target-spec(ss_bt) + " -o bundle.json",
+      "pred reduce set-splitting.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate set-splitting.json --config " + ss_bt_sol.source_config.map(str).join(","),
     )
@@ -14538,7 +14538,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
-      "pred reduce kclique.json --to " + target-spec(kc_bcbs) + " -o bundle.json",
+      "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + kc_bcbs_sol.source_config.map(str).join(","),
     )
@@ -14603,7 +14603,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       [
         #pred-commands(
           "pred create --example " + problem-spec(mmm_ach.source) + " -o mmm.json",
-          "pred reduce mmm.json --to " + target-spec(mmm_ach) + " -o bundle.json",
+          "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + mmm_ach_sol.source_config.map(str).join(","),
         )
@@ -14664,7 +14664,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       [
         #pred-commands(
           "pred create --example " + problem-spec(mmm_mmd.source) + " -o mmm.json",
-          "pred reduce mmm.json --to " + target-spec(mmm_mmd) + " -o bundle.json",
+          "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mmm.json --config " + s-cfg.map(str).join(","),
         )
@@ -14946,7 +14946,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
-      "pred reduce ppl2.json --to " + target-spec(ppl2_bcsf) + " -o bundle.json",
+      "pred reduce ppl2.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ppl2.json --config " + ppl2_bcsf_sol.source_config.map(str).join(","),
     )
@@ -15592,7 +15592,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hcd_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(hcd_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + hcd_ilp_sol.source_config.map(str).join(","),
     )
@@ -15626,7 +15626,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ep_ilp.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(ep_ilp) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + ep_ilp_sol.source_config.map(str).join(","),
     )
@@ -15688,7 +15688,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_lc) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_lc_sol.source_config.map(str).join(","),
     )
@@ -16283,7 +16283,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
-      "pred reduce paintshop.json --to " + target-spec(ps_qubo) + " -o bundle.json",
+      "pred reduce paintshop.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate paintshop.json --config " + ps_qubo_sol.source_config.map(str).join(","),
     )
@@ -16363,7 +16363,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
-      "pred reduce rta.json --to " + target-spec(rta_rtsa) + " -o bundle.json",
+      "pred reduce rta.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate rta.json --config " + rta_rtsa_sol.source_config.map(str).join(","),
     )
@@ -16486,7 +16486,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mcmf_mcc.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(mcmf_mcc) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + mcmf_mcc_sol.source_config.map(str).join(","),
     )
@@ -16555,7 +16555,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       extra: [
         #pred-commands(
           "pred create --example " + problem-spec(mfas_mlr.source) + " -o mfas.json",
-          "pred reduce mfas.json --to " + target-spec(mfas_mlr) + " -o bundle.json",
+          "pred reduce mfas.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mfas.json --config " + mfas_mlr_sol.source_config.map(str).join(","),
         )
@@ -16607,7 +16607,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       extra: [
         #pred-commands(
           "pred create --example MaximumLikelihoodRanking -o mlr.json",
-          "pred reduce mlr.json --to " + target-spec(mlr_ilp) + " -o bundle.json",
+          "pred reduce mlr.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate mlr.json --config " + mlr_ilp_sol.source_config.map(str).join(","),
         )
@@ -16651,7 +16651,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       extra: [
         #pred-commands(
           "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
-          "pred reduce ocst.json --to " + target-spec(ocst_ilp) + " -o bundle.json",
+          "pred reduce ocst.json --via route.json -o bundle.json",
           "pred solve bundle.json",
           "pred evaluate ocst.json --config " + ocst_ilp_sol.source_config.map(str).join(","),
         )
@@ -16762,10 +16762,10 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
 == Variant Cast Reductions
 
-Problems parameterized by graph type, weight type, or clause-width ($k$) admit identity reductions between specialised and general variants. Each cast preserves the problem structure exactly (same number of vertices/variables, same constraints), converting only the type parameter to a more general one. These are registered as self-edges in the reduction graph with identity overhead.
+Problems parameterized by graph type, weight type, or clause-width ($k$) admit identity reductions between specialised and general variants. Each cast preserves the problem structure exactly (same number of vertices/variables, same constraints), converting only the type parameter to a more general one. These are registered as self-edges in the reduction graph with exact identity size maps.
 
 #reduction-rule("MaximumIndependentSet", "MaximumIndependentSet")[
-  The graph hierarchy $"KingsSubgraph" subset "UnitDiskGraph" subset "SimpleGraph"$ and weight hierarchy $"One" subset ZZ subset RR$ induce identity-overhead casts between MIS variants. Graph casts discard geometric information (grid coordinates $arrow.r$ Euclidean coordinates $arrow.r$ adjacency list); weight casts embed unit weights into integers ($1 arrow.r 1_ZZ$) or integers into floats ($w arrow.r w_RR$). All edges and weights are preserved verbatim.
+  The graph hierarchy $"KingsSubgraph" subset "UnitDiskGraph" subset "SimpleGraph"$ and weight hierarchy $"One" subset ZZ subset RR$ induce exact identity size maps between MIS variants. Graph casts discard geometric information (grid coordinates $arrow.r$ Euclidean coordinates $arrow.r$ adjacency list); weight casts embed unit weights into integers ($1 arrow.r 1_ZZ$) or integers into floats ($w arrow.r w_RR$). All edges and weights are preserved verbatim.
 ][
   _Construction._ Given $"MIS"(G, bold(w))$ with graph type $G_"sub"$ and weight type $W_"sub"$, construct $"MIS"(G', bold(w)')$ where $G' = "cast"(G_"sub")$ lifts the graph to its parent type and $bold(w)' = "cast"(bold(w))$ lifts each weight. The `CastToParent` trait defines the concrete maps:
   - _KingsSubgraph $arrow.r$ UnitDiskGraph:_ integer grid positions $(i, j)$ map to float coordinates with radius $r = 1.5$.
@@ -16854,7 +16854,7 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
 
 == Resource Estimation from Examples
 
-The following table shows concrete variable overhead for example instances, taken directly from the canonical fixture examples.
+The following table shows concrete target-variable counts for example instances, taken directly from the canonical fixture examples.
 
 #let example-files = (
   (source: "MaximumIndependentSet", target: "MinimumVertexCover"),
@@ -17094,7 +17094,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_hp) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_hp_sol.source_config.map(str).join(","),
     )
@@ -17125,7 +17125,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
-      "pred reduce kclique.json --to " + target-spec(kc_si) + " -o bundle.json",
+      "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + kc_si_sol.source_config.map(str).join(","),
     )
@@ -17189,7 +17189,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_mps) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_mps_sol.source_config.map(str).join(","),
     )
@@ -17229,7 +17229,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_sosp.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_sosp) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_sosp_sol.source_config.map(str).join(","),
     )
@@ -17262,7 +17262,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_btsp) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_btsp_sol.source_config.map(str).join(","),
     )
@@ -17293,7 +17293,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
-      "pred reduce kclique.json --to " + target-spec(kc_cbq) + " -o bundle.json",
+      "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kclique.json --config " + kc_cbq_sol.source_config.map(str).join(","),
     )
@@ -17342,7 +17342,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_ss) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_ss_sol.source_config.map(str).join(","),
     )
@@ -17381,7 +17381,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_dmvc) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_dmvc_sol.source_config.map(str).join(","),
     )
@@ -17417,7 +17417,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
-      "pred reduce dmvc.json --to " + target-spec(dmvc_hc) + " -o bundle.json",
+      "pred reduce dmvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate dmvc.json --config " + dmvc_hc_sol.source_config.map(str).join(","),
     )
@@ -17448,7 +17448,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_mvc) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_mvc_sol.source_config.map(str).join(","),
     )
@@ -17489,7 +17489,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_mono.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_mono) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_mono_sol.source_config.map(str).join(","),
     )
@@ -17520,7 +17520,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_1in3) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_1in3_sol.source_config.map(str).join(","),
     )
@@ -17572,7 +17572,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_d2cif) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_d2cif_sol.source_config.map(str).join(","),
     )
@@ -17617,7 +17617,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_rs) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_rs_sol.source_config.map(str).join(","),
     )
@@ -17678,7 +17678,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
-      "pred reduce mvc.json --to " + target-spec(mvc_mfas) + " -o bundle.json",
+      "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mvc.json --config " + mvc_mfas_sol.source_config.map(str).join(","),
     )
@@ -17722,7 +17722,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_kc) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_kc_sol.source_config.map(str).join(","),
     )
@@ -17761,7 +17761,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_co) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_co_sol.source_config.map(str).join(","),
     )
@@ -17800,7 +17800,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_ps) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_ps_sol.source_config.map(str).join(","),
     )
@@ -17853,7 +17853,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_td) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_td_sol.source_config.map(str).join(","),
     )
@@ -17896,7 +17896,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_ap.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_ap) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_ap_sol.source_config.map(str).join(","),
     )
@@ -17940,7 +17940,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_bicon) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_bicon_sol.source_config.map(str).join(","),
     )
@@ -17986,7 +17986,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_sca) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_sca_sol.source_config.map(str).join(","),
     )
@@ -18021,7 +18021,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_sc) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_sc_sol.source_config.map(str).join(","),
     )
@@ -18053,7 +18053,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_rp) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_rp_sol.source_config.map(str).join(","),
     )
@@ -18084,7 +18084,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mis_ifb.source) + " -o mis.json",
-      "pred reduce mis.json --to " + target-spec(mis_ifb) + " -o bundle.json",
+      "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate mis.json --config " + mis_ifb_sol.source_config.map(str).join(","),
     )
@@ -18136,7 +18136,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
-      "pred reduce hc.json --to " + target-spec(hc_qa) + " -o bundle.json",
+      "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hc.json --config " + hc_qa_sol.source_config.map(str).join(","),
     )
@@ -18179,7 +18179,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_bp) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_bp_sol.source_config.map(str).join(","),
     )
@@ -18210,7 +18210,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_msp) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_msp_sol.source_config.map(str).join(","),
     )
@@ -18250,7 +18250,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_mfdts) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_mfdts_sol.source_config.map(str).join(","),
     )
@@ -18285,7 +18285,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_mas) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_mas_sol.source_config.map(str).join(","),
     )
@@ -18334,7 +18334,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ss_part.source) + " -o subsetsum.json",
-      "pred reduce subsetsum.json --to " + target-spec(ss_part) + " -o bundle.json",
+      "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + ss_part_sol.source_config.map(str).join(","),
     )
@@ -18435,7 +18435,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(sat_nt.source) + " -o sat.json",
-      "pred reduce sat.json --to " + target-spec(sat_nt) + " -o bundle.json",
+      "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate sat.json --config " + sat_nt_sol.source_config.map(str).join(","),
     )
@@ -18467,7 +18467,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(kc_pic.source) + " -o kcoloring.json",
-      "pred reduce kcoloring.json --to " + target-spec(kc_pic) + " -o bundle.json",
+      "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate kcoloring.json --config " + kc_pic_sol.source_config.map(str).join(","),
     )
@@ -18557,7 +18557,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
-      "pred reduce clustering.json --to " + target-spec(clustering_ilp) + " -o bundle.json",
+      "pred reduce clustering.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate clustering.json --config " + clustering_ilp_sol.source_config.map(str).join(","),
     )
@@ -18602,7 +18602,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
-      "pred reduce partition-into-cliques.json --to " + target-spec(pic_mcbc) + " -o bundle.json",
+      "pred reduce partition-into-cliques.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition-into-cliques.json --config " + pic_mcbc_sol.source_config.map(str).join(","),
     )
@@ -18641,7 +18641,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mcbc_migb.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(mcbc_migb) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + mcbc_migb_sol.source_config.map(str).join(","),
     )
@@ -18668,7 +18668,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_ker.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_ker) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_ker_sol.source_config.map(str).join(","),
     )
@@ -18713,7 +18713,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hp_dcst.source) + " -o hampath.json",
-      "pred reduce hampath.json --to " + target-spec(hp_dcst) + " -o bundle.json",
+      "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + hp_dcst_sol.source_config.map(str).join(","),
     )
@@ -18745,7 +18745,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(nae_ss.source) + " -o naesat.json",
-      "pred reduce naesat.json --to " + target-spec(nae_ss) + " -o bundle.json",
+      "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + nae_ss_sol.source_config.map(str).join(","),
     )
@@ -18784,7 +18784,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
-      "pred reduce naesat.json --to " + target-spec(nae_ppm) + " -o bundle.json",
+      "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + nae_ppm_sol.source_config.map(str).join(","),
     )
@@ -18828,7 +18828,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_sp.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_sp) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_sp_sol.source_config.map(str).join(","),
     )
@@ -18869,7 +18869,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_bdst.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_bdst) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_bdst_sol.source_config.map(str).join(","),
     )
@@ -18915,7 +18915,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ss_iem.source) + " -o subsetsum.json",
-      "pred reduce subsetsum.json --to " + target-spec(ss_iem) + " -o bundle.json",
+      "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate subsetsum.json --config " + ss_iem_sol.source_config.map(str).join(","),
     )
@@ -18956,7 +18956,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(ksat_si.source) + " -o ksat.json",
-      "pred reduce ksat.json --to " + target-spec(ksat_si) + " -o bundle.json",
+      "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate ksat.json --config " + ksat_si_sol.source_config.map(str).join(","),
     )
@@ -18995,7 +18995,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(n3dm_nmts.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(n3dm_nmts) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + n3dm_nmts_sol.source_config.map(str).join(","),
     )
@@ -19020,7 +19020,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_stw.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_stw) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_stw_sol.source_config.map(str).join(","),
     )
@@ -19074,7 +19074,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_oss.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_oss) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_oss_sol.source_config.map(str).join(","),
     )
@@ -19125,7 +19125,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
-      "pred reduce naesat.json --to " + target-spec(nae_mc) + " -o bundle.json",
+      "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate naesat.json --config " + nae_mc_sol.source_config.map(str).join(","),
     )
@@ -19171,7 +19171,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tdm_tmi.source) + " -o source.json",
-      "pred reduce source.json --to " + target-spec(tdm_tmi) + " -o bundle.json",
+      "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate source.json --config " + tdm_tmi_sol.source_config.map(str).join(","),
     )
@@ -19199,7 +19199,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
-      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_tp) + " -o bundle.json",
+      "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + tdm_tp_sol.source_config.map(str).join(","),
     )
@@ -19269,7 +19269,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
-      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_ilp) + " -o bundle.json",
+      "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + tdm_ilp_sol.source_config.map(str).join(","),
     )
@@ -19314,7 +19314,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tdm_mwd.source) + " -o three-dimensional-matching.json",
-      "pred reduce three-dimensional-matching.json --to " + target-spec(tdm_mwd) + " -o bundle.json",
+      "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate three-dimensional-matching.json --config " + tdm_mwd_sol.source_config.map(str).join(","),
     )
@@ -19361,7 +19361,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
-      "pred reduce threepartition.json --to " + target-spec(tp_rcs) + " -o bundle.json",
+      "pred reduce threepartition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate threepartition.json --config " + tp_rcs_sol.source_config.map(str).join(","),
     )
@@ -19396,7 +19396,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
-      "pred reduce tp.json --to " + target-spec(tp_srd) + " -o bundle.json",
+      "pred reduce tp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate tp.json --config " + tp_srd_sol.source_config.map(str).join(","),
     )
@@ -19435,7 +19435,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
-      "pred reduce maxcut.json --to " + target-spec(mc_mcbs) + " -o bundle.json",
+      "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + mc_mcbs_sol.source_config.map(str).join(","),
     )
@@ -19474,7 +19474,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(mc_mmc.source) + " -o maxcut.json",
-      "pred reduce maxcut.json --to " + target-spec(mc_mmc) + " -o bundle.json",
+      "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate maxcut.json --config " + mc_mmc_sol.source_config.map(str).join(","),
     )
@@ -19512,7 +19512,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hp_ist.source) + " -o hampath.json",
-      "pred reduce hampath.json --to " + target-spec(hp_ist) + " -o bundle.json",
+      "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath.json --config " + hp_ist_sol.source_config.map(str).join(","),
     )
@@ -19544,7 +19544,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(x3c_gf2.source) + " -o x3c.json",
-      "pred reduce x3c.json --to " + target-spec(x3c_gf2) + " -o bundle.json",
+      "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate x3c.json --config " + x3c_gf2_sol.source_config.map(str).join(","),
     )
@@ -19587,7 +19587,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(part_pp.source) + " -o partition.json",
-      "pred reduce partition.json --to " + target-spec(part_pp) + " -o bundle.json",
+      "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate partition.json --config " + part_pp_sol.source_config.map(str).join(","),
     )
@@ -19639,7 +19639,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(hpbtv_lp.source) + " -o hampath2v.json",
-      "pred reduce hampath2v.json --to " + target-spec(hpbtv_lp) + " -o bundle.json",
+      "pred reduce hampath2v.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate hampath2v.json --config " + hpbtv_lp_sol.source_config.map(str).join(","),
     )
@@ -19671,7 +19671,7 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(gp_mc.source) + " -o graphpart.json",
-      "pred reduce graphpart.json --to " + target-spec(gp_mc) + " -o bundle.json",
+      "pred reduce graphpart.json --via route.json -o bundle.json",
       "pred solve bundle.json",
       "pred evaluate graphpart.json --config " + gp_mc_sol.source_config.map(str).join(","),
     )
@@ -19729,10 +19729,10 @@ The following table shows concrete variable overhead for example instances, take
   extra: [
     #pred-commands(
       "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
-      "pred reduce pcsf.json --to " + target-spec(pcsf_st) + " -o bundle.json",
+      "pred reduce pcsf.json --via route.json -o bundle.json",
       "pred solve bundle.json",
     )
-    The canonical PCSF source has $beta = #pcsf_st.source.instance.beta$, $omega = #pcsf_st.source.instance.omega$, and prizes $p = (#pcsf_st_prizes.at(0), #pcsf_st_prizes.at(1), #pcsf_st_prizes.at(2))$. The target SteinerTree has $|V_H| = n + k + 1 = #(pcsf_st_n + pcsf_st_k + 1)$ vertices, $|E_H| = m + n + 2 k = #(pcsf_st_m + pcsf_st_n + 2 * pcsf_st_k)$ edges, and $|T_H| = k + 1 = #(pcsf_st_k + 1)$ terminals, matching the registered overhead formulas.
+    The canonical PCSF source has $beta = #pcsf_st.source.instance.beta$, $omega = #pcsf_st.source.instance.omega$, and prizes $p = (#pcsf_st_prizes.at(0), #pcsf_st_prizes.at(1), #pcsf_st_prizes.at(2))$. The target SteinerTree has $|V_H| = n + k + 1 = #(pcsf_st_n + pcsf_st_k + 1)$ vertices, $|E_H| = m + n + 2 k = #(pcsf_st_m + pcsf_st_n + 2 * pcsf_st_k)$ edges, and $|T_H| = k + 1 = #(pcsf_st_k + 1)$ terminals, matching the registered exact size formulas.
   ],
 )[
   Bienstock, Goemans, Simchi-Levi, Williamson @BienstockGoemansSimchiLeviWilliamson1993 introduced the prize/penalty framework for prize-collecting network design; Tuncbag and coauthors @TuncbagEtAl2013PCSF @TuncbagEtAl2012RECOMB used the same artificial-root idea to translate PCSF into a rooted prize-collecting Steiner tree on biological networks. The combined construction recorded here adds a per-vertex auxiliary-terminal gadget that compiles the remaining omitted-prize term `beta * p(v)` into ordinary Steiner-tree edge costs, so the target is a plain (unweighted-prize) Steiner Tree instance.

@@ -68,14 +68,14 @@ Read these first to understand the patterns:
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions / aggregate types:** `src/traits.rs` (`Problem`), `src/types.rs` (`Aggregate`, `Max`, `Min`, `Sum`, `Or`, `And`, `Extremum`)
 - **Registry dispatch boundary:** `src/registry/mod.rs`, `src/registry/variant.rs`
-- **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
-- **CLI creation:** `problemreductions-cli/src/commands/create.rs`
+- **CLI and MCP construction:** discovered from the model's registry entry; no frontend model-name dispatch
 - **Canonical model examples:** `src/example_db/model_builders.rs`
 
 ## Pre-review Checklist
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
-- `ProblemSchemaEntry` metadata is complete for the current schema shape (`display_name`, `aliases`, `dimensions`, and constructor-facing `fields`)
+- Derive numeric implementation types from the mathematical domains in the issue and follow `docs/src/design.md#numeric-types-and-arithmetic`; serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation
+- `ProblemSchemaEntry` metadata is complete (`display_name`, `aliases`, `dimensions`, explicit `category`, and construction `fields`)
 - `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
@@ -91,6 +91,8 @@ Choose the appropriate sub-module under `src/models/`:
 - `set/` -- set-based problems (set packing, set cover)
 - `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
 - `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
+
+Declare the same structural choice explicitly in `ProblemSchemaEntry.category`. This is required metadata and is never inferred from `module_path!()` or the file location.
 
 ## Step 1.5: Infer problem size getters
 
@@ -122,7 +124,7 @@ Create `src/models/<category>/<name>.rs`:
 ```
 
 Key decisions:
-- **Schema metadata:** `ProblemSchemaEntry` must reflect the current registry schema shape, including `display_name`, `aliases`, `dimensions`, and constructor-facing `fields`
+- **Schema metadata:** `ProblemSchemaEntry` must include the explicit structural `category` and reflect the construction interface through `display_name`, `aliases`, `dimensions`, and `fields`
 - **Objective problems:** use `type Value = Max<_>`, `Min<_>`, or `Extremum<_>` when the model should expose optimization-style witness helpers
 - **Witness problems:** use `type Value = Or` for existential feasibility problems
 - **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate` when witnesses are not meaningful
@@ -168,22 +170,32 @@ The CLI now loads, serializes, and brute-force solves problems through the core 
 1. **Registry-backed dispatch comes from `declare_variants!`:**
    - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
    - Mark the intended default variant with `default` when applicable
+   - Declare well-established problem aliases in `ProblemSchemaEntry.aliases` and variant-specific aliases in `declare_variants!`; CLI and MCP discover both from the registry
 
-2. **`problemreductions-cli/src/problem_name.rs`:**
-   - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
-   - Only add short aliases to the `ALIASES` array if the abbreviation is **well-established in the literature** (e.g., MIS, MVC, SAT, TSP, CVP are standard; "KS" for Knapsack or "BP" for BinPacking are NOT — do not invent new abbreviations)
+## Step 4.5: Add construction support
 
-## Step 4.5: Add CLI creation support
+CLI and MCP construction are registry-driven. Do not edit either frontend to recognize a model name.
 
-CLI creation is **schema-driven** — `pred create <ProblemName>` automatically maps `ProblemSchemaEntry` fields to CLI flags via `snake_case → kebab-case` convention. No match arm in `create.rs` is needed.
+1. If user-facing inputs exactly match persisted JSON fields, do nothing. The ordinary `declare_variants!` entry uses `ProblemSchemaEntry.fields` as required construction inputs and deserializes the model directly.
 
-1. **Ensure CLI flags exist** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) for each field in your `ProblemSchemaEntry`. The flag name must match the field name via `snake_case → kebab-case` (e.g., field `edge_weights` → flag `--edge-weights`). If a flag already exists with the right name, you're done.
+2. If construction has derived fields, renamed inputs, defaults depending on other inputs, or a composite value assembled from multiple inputs, define a model-local DTO with `#[derive(Deserialize, CreateSpec)]`. Its named fields are the complete public construction contract. Use `Option<T>` only for genuinely optional inputs, doc comments for help text, and `#[create(codec = "...")]` when the transport syntax cannot be inferred from the Rust type. Set `ProblemSchemaEntry.fields` to `LocalCreateSpec::FIELDS` so the catalog and executable constructor share the derived metadata.
 
-2. **Add new CLI flags** only if the problem needs flags not already present. Add them to `CreateArgs` and update `all_data_flags_empty()` accordingly. Also add entries to the `flag_map()` method on `CreateArgs`.
+3. Implement `TryFrom<LocalCreateSpec> for Model`. Validate before calling constructors that assert or panic, return a descriptive error, compute derived state there, and build the canonical model value.
 
-3. **Add type parser support** if the field uses a type not yet handled by `parse_field_value()` in `create.rs`. Check the existing type dispatch table — most standard types (`Vec<i32>`, `Vec<usize>`, `Vec<(usize, usize)>`, graph types, etc.) are already covered. Only add a new parser for genuinely new types.
+4. Register the spec on each applicable variant: `default Model => "..." create LocalCreateSpec`. Both frontends then discover the inputs automatically and serialize the constructed typed model back to canonical persisted JSON.
 
-4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema. Field names must match the struct field names exactly (used for JSON serialization and CLI flag mapping).
+5. A new reusable external syntax may add one transport codec. It must dispatch by codec/type, never by canonical model name. Unknown or missing inputs are rejected by the core construction contract.
+
+### Optional random generation
+
+Random generation is an optional model capability, not a model-completeness requirement. Many models do not have a natural or useful probability distribution over instances; leave random generation unregistered for those models. Do not invent arbitrary size limits, value ranges, or distributions merely to make `--random` available.
+
+When the model does have a well-defined generator with a concrete testing or example use, random generation is registry-driven and belongs beside the model. Do not edit CLI or MCP dispatch code.
+
+1. Define a typed random input DTO with `#[derive(Deserialize, CreateSpec)]`, or reuse a matching shared spec from `crate::random`.
+2. Implement `RandomGenerate` with `crate::impl_random_generate!(ConcreteModel, RandomSpec, |spec| { ... })`. Validate values and return `Result`; do not round, clamp, or silently replace invalid inputs.
+3. Add `random` only to the exact `declare_variants!` entries that implement the trait: `default Model => "..." create LocalCreateSpec random`.
+4. The generated problem must have the same canonical name and variant as the selected registry entry. Use the concrete variant's actual graph and numeric types instead of attaching requested metadata to a different concrete instance.
 
 ## Step 4.6: Add canonical model example to example_db
 
@@ -303,6 +315,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 |---------|-----|
 | Implementing weight management as a trait | Use inherent methods: `weights()`, `set_weights()`, `is_weighted()` |
 | Forgetting `inventory::submit!` | Every problem needs a `ProblemSchemaEntry` registration |
+| Omitting or inferring the model category | Set the required `ProblemSchemaEntry.category` explicitly to one of `Algebraic`, `Formula`, `Graph`, `Misc`, or `Set`; never parse `module_path!()`. |
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
 | Using the wrong aggregate wrapper | Objective models use `Max` / `Min` / `Extremum`, witness models use `bool`, aggregate-only models use a fold value like `Sum` / `And` |
@@ -310,12 +323,12 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
 | Wrong aggregate wrapper | Use `Max` / `Min` / `Extremum` for objective problems, `Or` for existential witness problems, and `Sum` / `And` (or a custom aggregate) for value-only folds |
 | Wrong `declare_variants!` syntax | Entries no longer use `opt` / `sat`; one entry per problem may be marked `default` |
-| Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
+| Adding aliases in CLI code | Declare problem aliases in `ProblemSchemaEntry.aliases` and variant aliases in `declare_variants!` |
 | Adding a hand-written decision model | Use `Decision<P>` wrapper instead — see `decision_problem_meta!` + `register_decision_variant!` in `src/models/graph/minimum_vertex_cover.rs` for the pattern |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
-| Forgetting CLI flags | Schema-driven create needs matching CLI flags in `CreateArgs` for each `ProblemSchemaEntry` field (snake_case → kebab-case). Also add to `flag_map()`. |
-| Missing type parser | If the problem uses a new field type, add a handler in `parse_field_value()` in `create.rs` |
-| Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Adding frontend model-name branches | Construction is model-owned. Use a local `CreateSpec` and register it with `declare_variants!`; CLI and MCP must discover it. |
+| Hand-maintaining custom construction fields twice | Derive `CreateSpec`, use `LocalCreateSpec::FIELDS` in `ProblemSchemaEntry`, and register the same type in `declare_variants!`. |
+| Calling a panicking constructor from `TryFrom<CreateSpec>` | Validate the spec first and return a descriptive conversion error. |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
 | Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with exact overhead metadata and production-level ILP tests |

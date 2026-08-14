@@ -25,7 +25,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - [review-quality](skills/review-quality/SKILL.md) -- Generic code quality review: DRY, KISS, cohesion/coupling, test quality, HCI. Read-only, no code changes. Called by `review-pipeline`.
 - [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments, fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
 - [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-model` Step 6.
-- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 5.
+- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper (standalone, for improving existing entries). Core instructions are inlined in `add-rule` Step 6.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
 - [fix-issue](skills/fix-issue/SKILL.md) -- Fix quality issues found by check-issue — auto-fixes mechanical problems, brainstorms substantive issues with human, then re-checks and moves to Ready.
@@ -59,7 +59,7 @@ make fmt-check      # Check code formatting
 make clippy         # Run clippy lints
 make doc            # Build mdBook documentation (includes reduction graph export)
 make mdbook         # Build and serve mdBook with live reload
-make paper          # Build Typst paper from checked-in example fixtures
+make paper          # Generate example data and build the Typst paper
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
 make rust-export    # Generate Julia parity test data (mapping stages)
@@ -151,13 +151,15 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
 - `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
-- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts `dims`, `fields`, and `size_getters` parameters for problem-specific size fields.
+- `register_decision_variant!` macro generates `declare_variants!`, `ProblemSchemaEntry`, and both `ReductionEntry` submissions (aggregate Decision→Opt + Turing Opt→Decision) for a `Decision<P>` variant. Callers must define inherent getters (`num_vertices()`, `num_edges()`, `k()`) on `Decision<P>` before invoking. Accepts an explicit structural `category` plus `dims`, `fields`, and `size_getters` parameters for problem-specific size fields.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `Solver::solve()` computes the aggregate value for any `Problem` whose `Value` implements `Aggregate`
 - `BruteForce::find_witness()` / `find_all_witnesses()` recover witnesses only when `P::Value::supports_witnesses()`
 - `ReductionResult` provides `target_problem()` and `extract_solution()` for witness/config workflows; `AggregateReductionResult` provides `extract_value()` for aggregate/value workflows
+- Every direct `extract_solution()` must call `validate_target_solution()` once before decoding; composed extractors delegate validation to the first direct decoder.
+- Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
@@ -165,10 +167,10 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
-### Overhead System
-Reduction overhead is expressed using `Expr` AST (in `src/expr.rs`) with the `#[reduction]` macro. The `overhead` attribute is **required** — omitting it is a compile error:
+### Size Relations
+Each reduction declares one rule-level size relation using the `Expr` AST in `src/expr.rs`. The `size` declaration is required:
 ```rust
-#[reduction(overhead = {
+#[reduction(size = upper_bound {
     num_vertices = "num_vertices + num_clauses",
     num_edges = "3 * num_clauses",
 })]
@@ -177,9 +179,10 @@ impl ReduceTo<Target> for Source { ... }
 - Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
 - Variable names are validated against actual getter methods on the source type — typos cause compile errors
 - Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
-- **Overhead expressions describe scaling (asymptotic upper bounds), not exact sizes.** To determine the actual target problem size for a specific instance, read the `reduce_to()` construction code and count the actual variables/constraints/vertices built.
-- `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
-- `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
+- Use `size = exact { ... }` when every formula is an equality and `size = upper_bound { ... }` when every formula is only an upper bound. One rule cannot mix relations.
+- Use `size = unavailable { ... }` when no formula is representable, or an auxiliary `unavailable = { ... }` block for omitted target fields.
+- `SizeTransform` evaluates and composes formulas with exact rational and arbitrary-precision integer arithmetic. It never performs budget pruning or Pareto ranking.
+- Concrete instance sizes are measured independently by compiled endpoint getters on `ReductionEntry`, including target fields on sink variants.
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
 - Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`, `factorial()`
 - Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
@@ -197,25 +200,42 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 - Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
 - Reduction edges carry `EdgeCapabilities { witness, aggregate, turing }`; graph search defaults to witness mode, aggregate mode is available through `ReductionMode::Aggregate`, and Turing (multi-query) mode via `ReductionMode::Turing`
-- `#[reduction]` accepts only `overhead = { ... }` and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
+- `#[reduction]` requires one `size = exact`, `size = upper_bound`, or `size = unavailable` declaration and currently registers witness/config reductions; aggregate-only and Turing edges require manual `ReductionEntry` registration
 - `Decision<P> → P` is an aggregate-only edge (solve optimization, compare to bound); `P → Decision<P>` is a Turing edge (binary search over decision bound)
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
-- **CLI creation is schema-driven:** `pred create` automatically maps `ProblemSchemaEntry` fields to CLI flags via `snake_case → kebab-case` convention. New models need only: (1) matching CLI flags in `CreateArgs` + `flag_map()`, and (2) type parser support in `parse_field_value()` if using a new field type. No match arm in `create.rs` is needed.
-- **CLI flag names must match schema field names.** The canonical name for a CLI flag is the schema field name in kebab-case (e.g., schema field `universe_size` → `--universe-size`, field `subsets` → `--subsets`). Old aliases (e.g., `--universe`, `--sets`) may exist as clap `alias` for backward compatibility at the clap level, but `flag_map()`, help text, error messages, and documentation must use the schema-derived name. Do not add new backward-compat aliases; if a field is renamed in the schema, update the CLI flag name to match.
-- **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `size_getters`. Schema-driven CLI creation auto-restructures flat JSON into `{inner: {...}, bound}`.
+- **Model category is explicit registry metadata.** Every `ProblemSchemaEntry` declares exactly one of `Algebraic`, `Formula`, `Graph`, `Misc`, or `Set`; catalog behavior never derives it from `module_path!()` or source location.
+- **CLI creation is registry-driven and two-stage:** the static parser discovers the requested problem spec without registering model subcommands, then a second parse adds flags only for the selected concrete variant. Ordinary models use `ProblemSchemaEntry.fields` directly. Models whose construction differs from persisted JSON own a typed `CreateSpec` and fallible conversion beside the model; CLI and MCP only normalize transport values and invoke the registered constructor.
+- **Each construction input has one name and one concrete type per variant.** Do not add compatibility aliases or infer types from flag names. `CreateSpec` field names render as `snake_case → kebab-case` in CLI and remain `snake_case` in MCP. Add a reusable codec only for a genuinely new transport representation, never a model-name parser branch.
+- **Random generation is optional and variant-owned.** Not every model has a useful, well-defined random-instance distribution. Add `RandomGenerate` only when the generator has clear semantics and a concrete use (for example, testing or examples); never invent arbitrary bounds or distributions merely to make every model support `--random`. Implement it beside the model (normally through `impl_random_generate!` and a typed `CreateSpec` input DTO), then add `random` only to the applicable `declare_variants!` entries. CLI and MCP discover the exact variant's inputs and callback; never add a model-name random dispatch or advertise random generation on an unsupported variant.
+- **Decision variants** of optimization problems use `Decision<P>` wrapper. Add via: (1) `decision_problem_meta!` for the inner type, (2) inherent methods on `Decision<Inner>`, (3) `register_decision_variant!` with `dims`, `fields`, `size_getters`. The generated construction spec accepts flat inner fields plus `bound`; persisted JSON remains `{inner: {...}, bound}`.
 - Aggregate-only models are first-class in `declare_variants!`; aggregate-only and Turing reduction edges still need manual `ReductionEntry` wiring because `#[reduction]` only registers witness/config reductions today
 - Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
 - `pred create` schema-driven dispatch lives in `problemreductions-cli/src/commands/create.rs` (`create_schema_driven()`)
-- Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
+- Canonical model examples live in `src/example_db/model_builders.rs`; rule examples live beside their rules and are collected by `src/rules/mod.rs`
 
 ## Conventions
+
+### Numeric Contract
+
+Follow the [numeric types and arithmetic standard](../docs/src/design.md#numeric-types-and-arithmetic)
+for every model and reduction. Before implementation, identify each numeric
+input and domain, each computed total and result type, the largest supported
+value, every range/sign-changing conversion, overflow behavior, and whether
+arithmetic is exact or approximate. Use `TryFrom` at range boundaries and
+checked arithmetic for derived values that may overflow. Rust construction,
+serde, CLI, and MCP must enforce the same range.
+
+Issue contributors provide the mathematical definition, domains, and
+constraints; implementers derive the Rust representation. Do not require issue
+authors to choose implementation types or add implementation-specific numeric
+fields to issue templates. Changes to issue templates require user approval.
 
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
-- Canonical examples: builder functions in `src/example_db/rule_builders.rs` and `src/example_db/model_builders.rs`
+- Canonical examples: model builders in `src/example_db/model_builders.rs`; rule-local `canonical_rule_example_specs()` functions collected by `src/rules/mod.rs`
 - Example binaries in `examples/`: utility/export tools and pedagogical demos only (not per-reduction files)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
@@ -261,7 +281,7 @@ Model review automation checks for a dedicated test file under `src/unit_tests/m
 - `.claude/` — Claude Code instructions and skills
 - `docs/book/` — mdBook user documentation (built with `make doc`)
 - `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
-- `src/example_db/` — Canonical model/rule examples: `model_builders.rs`, `rule_builders.rs` (in-memory builders), `specs.rs` (per-module invariant specs), consumed by `pred create --example` and paper exports
+- `src/example_db/` — Model builders, shared example specs, and rule-example aggregation consumed by `pred create --example` and paper exports
 - `examples/` — Export utilities, graph-analysis helpers, and pedagogical demos
 
 ## Documentation Requirements
@@ -309,8 +329,8 @@ The complexity string represents the **worst-case time complexity of the best kn
 5. Use only concrete numeric values — no symbolic constants (epsilon, omega); inline the actual numbers with citations
 6. Variable names must match getter methods on the problem type (enforced at compile time)
 
-### Reduction Overhead (`#[reduction(overhead = {...})]`)
-Overhead expressions describe how target problem size relates to source problem size. To verify correctness:
+### Reduction Size Relation (`#[reduction(size = exact|upper_bound {...})]`)
+Size expressions describe how target problem size relates to source problem size. To verify correctness:
 1. Read the `reduce_to()` implementation and count the actual output sizes
 2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
 3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions

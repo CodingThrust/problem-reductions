@@ -176,7 +176,7 @@
       if (srcName === dstName) return;
       var key = srcName + '->' + dstName;
       if (!nameLevelEdges[key]) {
-        nameLevelEdges[key] = { count: 0, overhead: e.overhead, doc_path: e.doc_path };
+        nameLevelEdges[key] = { count: 0, sizeFields: e.size_fields, doc_path: e.doc_path };
       }
       nameLevelEdges[key].count++;
     });
@@ -191,7 +191,7 @@
           target: problemNodeIds[parts[1]],
           label: info.count > 1 ? '\u00d7' + info.count : '',
           edgeLevel: 'collapsed',
-          overhead: info.overhead,
+          sizeFields: info.sizeFields,
           doc_path: info.doc_path
         }
       });
@@ -208,7 +208,7 @@
         edgeMap[key] = {
           source: srcId,
           target: dstId,
-          overhead: e.overhead || [],
+          sizeFields: e.size_fields || [],
           doc_path: e.doc_path || ''
         };
       }
@@ -219,16 +219,18 @@
       var srcName = e.source.split('/')[0];
       var dstName = e.target.split('/')[0];
       var isVariantCast = srcName === dstName &&
-        e.overhead &&
-        e.overhead.length > 0 &&
-        e.overhead.every(function(o) { return o.field === o.formula; });
+        e.sizeFields &&
+        e.sizeFields.length > 0 &&
+        e.sizeFields.every(function(o) {
+          return o.contract === 'exact' && o.field === o.formula;
+        });
       return {
         data: {
           id: 'variant_' + key,
           source: e.source,
           target: e.target,
           edgeLevel: 'variant',
-          overhead: e.overhead,
+          sizeFields: e.sizeFields,
           doc_path: e.doc_path,
           isVariantCast: isVariantCast
         }
@@ -531,8 +533,12 @@
         cy.on('mouseover', 'edge', function(evt) {
           var d = evt.target.data();
           var html = '<strong>' + evt.target.source().data('label') + ' \u2192 ' + evt.target.target().data('label') + '</strong>';
-          if (d.overhead && d.overhead.length > 0) {
-            html += '<br>' + d.overhead.map(function(o) { return '<code>' + o.field + '</code> = <code>' + o.formula + '</code>'; }).join('<br>');
+          if (d.sizeFields && d.sizeFields.length > 0) {
+            html += '<br>' + d.sizeFields.map(function(o) {
+              if (o.contract === 'exact') return '<code>' + o.field + '</code> = <code>' + o.formula + '</code> (exact)';
+              if (o.contract === 'upper_bound') return '<code>' + o.field + '</code> &le; <code>' + o.formula + '</code> (upper bound)';
+              return '<code>' + o.field + '</code> unavailable: ' + o.reason;
+            }).join('<br>');
           }
           html += '<br><em>Click to highlight, double-click for source code</em>';
           tooltip.innerHTML = html;
@@ -642,8 +648,12 @@
           edge.source().addClass('highlighted');
           edge.target().addClass('highlighted');
           var text = edge.source().data('label') + ' \u2192 ' + edge.target().data('label');
-          if (d.overhead && d.overhead.length > 0) {
-            text += '  |  ' + d.overhead.map(function(o) { return o.field + ' = ' + o.formula; }).join(', ');
+          if (d.sizeFields && d.sizeFields.length > 0) {
+            text += '  |  ' + d.sizeFields.map(function(o) {
+              if (o.contract === 'exact') return o.field + ' = ' + o.formula + ' (exact)';
+              if (o.contract === 'upper_bound') return o.field + ' <= ' + o.formula + ' (upper bound)';
+              return o.field + ' unavailable: ' + o.reason;
+            }).join(', ');
           }
           instructions.textContent = text;
           clearBtn.style.display = 'inline';
