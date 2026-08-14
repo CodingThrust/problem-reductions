@@ -25,7 +25,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
     let target_solution = solver
         .find_witness(target)
         .expect("target should be satisfiable");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&extracted));
 }

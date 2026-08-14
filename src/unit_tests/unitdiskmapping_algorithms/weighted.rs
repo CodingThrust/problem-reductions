@@ -715,7 +715,7 @@ fn test_weighted_map_config_back_standard_graphs() {
         let grid_config: Vec<usize> = solver
             .solve(&ilp)
             .map(|sol| sol.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect())
-            .unwrap_or_else(|| vec![0; num_grid]);
+            .unwrap_or_else(|_| vec![0; num_grid]);
 
         // Use triangular-specific trace_centers (not the KSG version)
         // Build position to node index map

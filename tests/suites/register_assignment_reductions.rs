@@ -2,9 +2,9 @@ use problemreductions::models::algebraic::ILP;
 use problemreductions::models::formula::{CNFClause, KSatisfiability};
 use problemreductions::models::misc::FeasibleRegisterAssignment;
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath};
+use problemreductions::rules::{ReductionGraph, ReductionPath};
 use problemreductions::solvers::ILPSolver;
-use problemreductions::types::{Or, ProblemSize};
+use problemreductions::types::Or;
 use problemreductions::variant::K3;
 
 fn ksat_to_fra_path() -> ReductionPath {
@@ -12,15 +12,10 @@ fn ksat_to_fra_path() -> ReductionPath {
     let src = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
     let dst = ReductionGraph::variant_to_map(&FeasibleRegisterAssignment::variant());
     graph
-        .find_cheapest_path(
-            "KSatisfiability",
-            &src,
-            "FeasibleRegisterAssignment",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .expect("expected a direct KSatisfiability<K3> -> FeasibleRegisterAssignment path")
+        .find_all_paths("KSatisfiability", &src, "FeasibleRegisterAssignment", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("expected direct route")
 }
 
 fn fra_to_ilp_path() -> ReductionPath {
@@ -28,15 +23,10 @@ fn fra_to_ilp_path() -> ReductionPath {
     let src = ReductionGraph::variant_to_map(&FeasibleRegisterAssignment::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<i32>::variant());
     graph
-        .find_cheapest_path(
-            "FeasibleRegisterAssignment",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .expect("expected a direct FeasibleRegisterAssignment -> ILP<i32> path")
+        .find_all_paths("FeasibleRegisterAssignment", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.len() == 1)
+        .expect("expected direct route")
 }
 
 #[test]
@@ -77,10 +67,10 @@ fn test_ksat_to_fra_structure_and_closed_loop_via_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("satisfiable FRA instance should reduce to a feasible ILP");
-    let fra_solution = fra_chain.extract_solution(&ilp_solution);
+    let fra_solution = fra_chain.extract_solution(&ilp_solution).unwrap();
     assert_eq!(fra.evaluate(&fra_solution), Or(true));
 
-    let sat_solution = ksat_chain.extract_solution(&fra_solution);
+    let sat_solution = ksat_chain.extract_solution(&fra_solution).unwrap();
     assert_eq!(source.evaluate(&sat_solution), Or(true));
 }
 
@@ -106,7 +96,7 @@ fn test_unsatisfiable_ksat_stays_infeasible_through_fra_to_ilp() {
     assert!(
         ILPSolver::new()
             .solve(fra_chain.target_problem::<ILP<i32>>())
-            .is_none(),
+            .is_err(),
         "unsatisfiable source instance should yield an infeasible ILP"
     );
 }

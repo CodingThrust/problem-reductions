@@ -7,28 +7,28 @@
 // ANCHOR: imports
 use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{ReductionGraph, ReductionMode};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
-use problemreductions::types::ProblemSize;
 // ANCHOR_END: imports
 
-pub fn run() {
+pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR: example
     // ANCHOR: step1
     let graph = ReductionGraph::new(); // all registered reductions
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant()); // {} (no variant params)
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant()); // {graph: "SimpleGraph", weight: "f64"}
-    let rpath = graph
-        .find_cheapest_path(
-            "Factoring",               // source problem name
-            &src_var,                  // source variant map
-            "SpinGlass",               // target problem name
-            &dst_var,                  // target variant map
-            &ProblemSize::new(vec![]), // input size (empty = unknown)
-            &MinimizeSteps,            // cost function: fewest hops
-        )
-        .unwrap();
+    let paths = graph.find_all_paths_mode(
+        "Factoring",
+        &src_var,
+        "SpinGlass",
+        &dst_var,
+        ReductionMode::Witness,
+    );
+    let rpath = paths
+        .iter()
+        .find(|path| path.type_names() == ["Factoring", "CircuitSAT", "SpinGlass"])
+        .expect("explicit Factoring -> CircuitSAT -> SpinGlass route");
     println!("  {}", rpath);
     // ANCHOR_END: step1
 
@@ -45,7 +45,7 @@ pub fn run() {
     let solver = ILPSolver::new();
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
     let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
-    let solution = reduction.extract_solution(&ilp_solution);
+    let solution = reduction.extract_solution(&ilp_solution).unwrap();
     // ANCHOR_END: step3
 
     // ANCHOR: step4
@@ -54,26 +54,10 @@ pub fn run() {
     assert_eq!(p * q, 6, "Factors should multiply to 6");
     // ANCHOR_END: step4
 
-    // ANCHOR: overhead
-    // Print per-edge overhead polynomials
-    let edge_overheads = graph.path_overheads(&rpath);
-    for (i, overhead) in edge_overheads.iter().enumerate() {
-        println!("{} → {}:", rpath.steps[i], rpath.steps[i + 1]);
-        for (field, poly) in &overhead.output_size {
-            println!("  {} = {}", field, poly);
-        }
-    }
-
-    // Compose overheads symbolically along the full path
-    let composed = graph.compose_path_overhead(&rpath);
-    println!("Composed (source → target):");
-    for (field, poly) in &composed.output_size {
-        println!("  {} = {}", field, poly);
-    }
-    // ANCHOR_END: overhead
     // ANCHOR_END: example
+    Ok(())
 }
 
-fn main() {
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     run()
 }
