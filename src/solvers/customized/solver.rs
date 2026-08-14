@@ -1,4 +1,4 @@
-//! Exact native solvers and their exact-variant registrations.
+//! Exact customized solvers and their exact-variant registrations.
 
 use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
@@ -7,21 +7,21 @@ use super::fd_subset_search::{
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
 use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation, TimetableDesign};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
-use crate::solvers::registry::NativeSolverRegistration;
+use crate::solvers::registry::CustomizedSolverRegistration;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use std::collections::HashSet;
 
-macro_rules! register_native_solver {
+macro_rules! register_customized_solver {
     ($problem:ty, $implementation:literal, $solve:path) => {
         inventory::submit! {
-            NativeSolverRegistration {
+            CustomizedSolverRegistration {
                 source_name: <$problem as Problem>::NAME,
                 source_variant_fn: <$problem as Problem>::variant,
                 implementation: $implementation,
                 solve_fn: |any| {
                     let problem = any.downcast_ref::<$problem>().expect(
-                        "native solver registration received the wrong concrete type",
+                        "customized solver registration received the wrong concrete type",
                     );
                     $solve(problem)
                 },
@@ -30,33 +30,33 @@ macro_rules! register_native_solver {
     };
 }
 
-register_native_solver!(
+register_customized_solver!(
     MinimumCardinalityKey,
     "fd-minimum-cardinality-key",
     solve_minimum_cardinality_key
 );
-register_native_solver!(AdditionalKey, "fd-additional-key", solve_additional_key);
-register_native_solver!(
+register_customized_solver!(AdditionalKey, "fd-additional-key", solve_additional_key);
+register_customized_solver!(
     PrimeAttributeName,
     "fd-prime-attribute-name",
     solve_prime_attribute_name
 );
-register_native_solver!(
+register_customized_solver!(
     BoyceCoddNormalFormViolation,
     "fd-bcnf-violation",
     solve_bcnf_violation
 );
-register_native_solver!(
+register_customized_solver!(
     PartialFeedbackEdgeSet<SimpleGraph>,
     "partial-feedback-edge-set",
     super::partial_feedback_edge_set::find_witness
 );
-register_native_solver!(
+register_customized_solver!(
     RootedTreeArrangement<SimpleGraph>,
     "rooted-tree-arrangement",
     super::rooted_tree_arrangement::find_witness
 );
-register_native_solver!(
+register_customized_solver!(
     TimetableDesign,
     "timetable-required-assignments",
     TimetableDesign::solve_via_required_assignments
@@ -259,5 +259,5 @@ pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Op
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/solvers/native/solver.rs"]
+#[path = "../../unit_tests/solvers/customized/solver.rs"]
 mod tests;

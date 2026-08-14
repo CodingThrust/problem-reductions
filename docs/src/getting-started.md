@@ -174,7 +174,7 @@ Three solvers are available:
 |--------|----------|-------|
 | [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
 | [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Uses the bundled HiGHS backend |
-| [`CustomizedSolver`](api/problemreductions/solvers/customized/struct.CustomizedSolver.html) | Structure-exploiting | Uses problem-specific exact algorithms |
+| **Customized backend** | Structure-exploiting | Uses problem-specific exact algorithms registered for exact problem variants |
 
 ILP support through HiGHS is part of the library and is always available.
 

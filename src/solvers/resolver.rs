@@ -2,7 +2,7 @@
 
 use super::registry::CompiledIlpPipeline;
 use super::registry::{
-    solver_capability_registry, ExactProblemKey, NativeSolverRegistration, RegistryBuildError,
+    solver_capability_registry, CustomizedSolverRegistration, ExactProblemKey, RegistryBuildError,
 };
 use crate::registry::LoadedDynProblem;
 use serde::Serialize;
@@ -12,6 +12,7 @@ use serde::Serialize;
 pub enum SolverRequest {
     #[default]
     Default,
+    Customized,
     Ilp,
     BruteForce,
 }
@@ -20,7 +21,7 @@ pub enum SolverRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum SolverExecution {
-    Native { implementation: &'static str },
+    Customized { implementation: &'static str },
     Ilp { reduction_path: Vec<String> },
     BruteForce,
 }
@@ -39,8 +40,10 @@ pub enum DeterministicSolveError {
     InvalidRegistry(&'static RegistryBuildError),
     #[error("No ILP pipeline is registered for {0}")]
     MissingIlpCapability(String),
-    #[error("native solver found no solution for {problem}")]
-    NativeNoSolution { problem: String },
+    #[error("No customized solver is registered for {0}")]
+    MissingCustomizedCapability(String),
+    #[error("customized solver found no solution for {problem}")]
+    CustomizedNoSolution { problem: String },
     #[error("ILP solver failed for {problem}: {source}")]
     IlpSolve {
         problem: String,
@@ -53,18 +56,18 @@ fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
     ExactProblemKey::new(problem.problem_name(), problem.variant_map())
 }
 
-fn solve_native(
+fn solve_customized(
     problem: &LoadedDynProblem,
-    registration: &'static NativeSolverRegistration,
+    registration: &'static CustomizedSolverRegistration,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let config = (registration.solve_fn)(problem.as_any()).ok_or_else(|| {
-        DeterministicSolveError::NativeNoSolution {
+        DeterministicSolveError::CustomizedNoSolution {
             problem: problem_key(problem).label(),
         }
     })?;
     let evaluation = problem.evaluate_dyn(&config);
     Ok(DeterministicSolveResult {
-        solver: SolverExecution::Native {
+        solver: SolverExecution::Customized {
             implementation: registration.implementation,
         },
         config: Some(config),
@@ -109,7 +112,7 @@ fn solve_brute_force(problem: &LoadedDynProblem) -> DeterministicSolveResult {
 
 /// Solve a loaded problem using deterministic exact-variant dispatch.
 ///
-/// Default dispatch is native, then the registered fixed ILP pipeline, then
+/// Default dispatch is customized, then the registered fixed ILP pipeline, then
 /// brute force. Once selected, backend failure is returned without fallback.
 pub fn solve_deterministically(
     problem: &LoadedDynProblem,
@@ -126,6 +129,12 @@ pub fn solve_deterministically(
 
     match request {
         SolverRequest::BruteForce => unreachable!("handled before registry initialization"),
+        SolverRequest::Customized => {
+            let registration = capabilities
+                .customized
+                .ok_or_else(|| DeterministicSolveError::MissingCustomizedCapability(key.label()))?;
+            solve_customized(problem, registration)
+        }
         SolverRequest::Ilp => {
             let pipeline = capabilities
                 .ilp
@@ -133,8 +142,8 @@ pub fn solve_deterministically(
             solve_ilp(problem, pipeline)
         }
         SolverRequest::Default => {
-            if let Some(native) = capabilities.native {
-                return solve_native(problem, native);
+            if let Some(customized) = capabilities.customized {
+                return solve_customized(problem, customized);
             }
             if let Some(pipeline) = capabilities.ilp {
                 return solve_ilp(problem, pipeline);

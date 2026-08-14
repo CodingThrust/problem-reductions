@@ -1,4 +1,4 @@
-//! Dedicated native solver backends.
+//! Dedicated customized solver backends.
 //!
 //! Each backend is registered for one exact problem variant. Dispatch is
 //! performed by the solver capability registry rather than a downcast chain.

@@ -274,6 +274,7 @@ pub enum ExampleSide {
 #[command(after_help = "\
 Examples:
   pred solve problem.json                        # deterministic registered backend or fallback
+  pred solve problem.json --solver customized    # require a problem-specific solver
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve problem.json --solver ilp           # require the registered fixed ILP pipeline
   pred solve reduced.json                        # solve a reduction bundle
@@ -294,14 +295,14 @@ Solve via explicit reduction:
 
 Input: a problem JSON from `pred create`, or a reduction bundle from `pred reduce`.
 When given a bundle, the target is solved and the solution is mapped back to the source.
-By default, solve deterministically selects the exact variant's registered native
+By default, solve deterministically selects the exact variant's registered customized
 backend, then its fixed ILP pipeline, and otherwise brute force. `--solver ilp`
 requires a registered ILP pipeline; it never searches the reduction graph.
 ILP problems are solved with HiGHS.")]
 pub struct SolveArgs {
     /// Problem JSON file (from `pred create`) or reduction bundle (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Solver override: ilp or brute-force. Omit for deterministic default dispatch.
+    /// Solver override: customized, ilp, or brute-force. Omit for deterministic default dispatch.
     #[arg(long)]
     pub solver: Option<String>,
     /// Timeout in seconds (0 = no limit)

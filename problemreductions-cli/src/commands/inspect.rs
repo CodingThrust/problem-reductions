@@ -46,10 +46,10 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     let solver_view = solver_capabilities_view(&problem)?;
     text.push_str(&format!("Default solver: {}\n", solver_view.default_solver));
     text.push_str(&format!("Solvers: {}\n", solver_view.solvers.join(", ")));
-    if let Some(native) = solver_view.capabilities.native.as_ref() {
+    if let Some(customized) = solver_view.capabilities.customized.as_ref() {
         text.push_str(&format!(
-            "Native implementation: {}\n",
-            native.implementation
+            "Customized implementation: {}\n",
+            customized.implementation
         ));
     }
     if let Some(ilp) = solver_view.capabilities.ilp.as_ref() {

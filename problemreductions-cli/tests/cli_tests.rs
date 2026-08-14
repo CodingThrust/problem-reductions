@@ -3055,7 +3055,7 @@ fn test_solve_ilp() {
 
 #[test]
 fn test_solve_ilp_default() {
-    // MIS has no native solver, so its registered ILP pipeline is the default.
+    // MIS has no customized solver, so its registered ILP pipeline is the default.
     let problem_file = std::env::temp_dir().join("pred_test_solve_default.json");
     let create_out = pred()
         .args([
@@ -8992,7 +8992,7 @@ fn deterministic_solver_dispatch_rejects_non_override_solver_names() {
         .unwrap();
     assert!(create_out.status.success());
 
-    for rejected in ["auto", "customized", "native", "fd-minimum-cardinality-key"] {
+    for rejected in ["auto", "native", "fd-minimum-cardinality-key"] {
         let output = pred()
             .args([
                 "solve",
@@ -9026,7 +9026,7 @@ fn deterministic_solver_dispatch_cli_output_is_repeatable_for_each_solver_class(
     });
     std::fs::write(&problem_file, serde_json::to_vec(&problem).unwrap()).unwrap();
 
-    for solver in [None, Some("ilp"), Some("brute-force")] {
+    for solver in [None, Some("customized"), Some("ilp"), Some("brute-force")] {
         let run = || {
             let mut command = pred();
             command.args(["--json", "solve", problem_file.to_str().unwrap()]);
@@ -9054,7 +9054,7 @@ fn deterministic_solver_dispatch_cli_output_is_repeatable_for_each_solver_class(
 }
 
 #[test]
-fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_native() {
+fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_customized() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_mck.json");
     let create_out = pred()
         .args([
@@ -9086,7 +9086,7 @@ fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_native() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["solver"]["kind"], "native");
+    assert_eq!(json["solver"]["kind"], "customized");
     assert_eq!(
         json["solver"]["implementation"],
         "fd-minimum-cardinality-key"
@@ -9100,7 +9100,7 @@ fn deterministic_solver_dispatch_defaults_minimum_cardinality_key_to_native() {
 }
 
 #[test]
-fn test_solve_bundle_rejects_removed_customized_override_without_panicking() {
+fn test_solve_bundle_rejects_unavailable_customized_solver_without_panicking() {
     let problem_file = std::env::temp_dir().join("pred_test_solve_customized_bundle_problem.json");
     let bundle_file = std::env::temp_dir().join("pred_test_solve_customized_bundle.json");
 
@@ -9148,15 +9148,15 @@ fn test_solve_bundle_rejects_removed_customized_override_without_panicking() {
     let stderr = String::from_utf8_lossy(&solve_out.stderr);
     assert!(
         !stderr.contains("panicked at"),
-        "removed override should fail gracefully, got: {stderr}"
+        "unavailable customized solver should fail gracefully, got: {stderr}"
     );
     assert!(
         !solve_out.status.success(),
-        "removed solver override should not silently succeed"
+        "unavailable customized solver should not silently succeed"
     );
     assert!(
-        stderr.contains("Unknown solver: customized"),
-        "expected removed solver error, got: {stderr}"
+        stderr.contains("No customized solver is registered"),
+        "expected missing customized capability error, got: {stderr}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -9164,7 +9164,7 @@ fn test_solve_bundle_rejects_removed_customized_override_without_panicking() {
 }
 
 #[test]
-fn test_inspect_minimum_cardinality_key_reports_native_capability() {
+fn test_inspect_minimum_cardinality_key_reports_customized_capability() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_customized_mck.json");
     let create_out = pred()
         .args([
@@ -9197,9 +9197,9 @@ fn test_inspect_minimum_cardinality_key_reports_native_capability() {
 
     let stdout = String::from_utf8(inspect_out.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["default_solver"], "native");
+    assert_eq!(json["default_solver"], "customized");
     assert_eq!(
-        json["solver_capabilities"]["native"]["implementation"],
+        json["solver_capabilities"]["customized"]["implementation"],
         "fd-minimum-cardinality-key"
     );
 

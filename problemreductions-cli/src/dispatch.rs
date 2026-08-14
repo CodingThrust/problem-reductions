@@ -48,7 +48,7 @@ impl LoadedProblem {
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
-pub struct NativeSolverCapabilityView {
+pub struct CustomizedSolverCapabilityView {
     pub implementation: &'static str,
 }
 
@@ -59,7 +59,7 @@ pub struct IlpSolverCapabilityView {
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SolverCapabilityDetailsView {
-    pub native: Option<NativeSolverCapabilityView>,
+    pub customized: Option<CustomizedSolverCapabilityView>,
     pub ilp: Option<IlpSolverCapabilityView>,
     pub brute_force: bool,
 }
@@ -75,22 +75,24 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
     let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
     let registered = solver_capabilities(&key)
         .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))?;
-    let native = registered.native.map(|entry| NativeSolverCapabilityView {
-        implementation: entry.implementation,
-    });
+    let customized = registered
+        .customized
+        .map(|entry| CustomizedSolverCapabilityView {
+            implementation: entry.implementation,
+        });
     let ilp = registered.ilp.map(|pipeline| IlpSolverCapabilityView {
         reduction_path: pipeline.path_labels(),
     });
-    let default_solver = if native.is_some() {
-        "native"
+    let default_solver = if customized.is_some() {
+        "customized"
     } else if ilp.is_some() {
         "ilp"
     } else {
         "brute-force"
     };
     let mut solvers = Vec::with_capacity(3);
-    if native.is_some() {
-        solvers.push("native");
+    if customized.is_some() {
+        solvers.push("customized");
     }
     if ilp.is_some() {
         solvers.push("ilp");
@@ -101,7 +103,7 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
         solvers,
         default_solver,
         capabilities: SolverCapabilityDetailsView {
-            native,
+            customized,
             ilp,
             brute_force: true,
         },
@@ -111,10 +113,13 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
 pub fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
     match solver_name {
         None => Ok(SolverRequest::Default),
+        Some("customized") => Ok(SolverRequest::Customized),
         Some("ilp") => Ok(SolverRequest::Ilp),
         Some("brute-force") => Ok(SolverRequest::BruteForce),
         Some(other) => {
-            anyhow::bail!("Unknown solver: {other}. Available solver overrides: brute-force, ilp")
+            anyhow::bail!(
+                "Unknown solver: {other}. Available solver overrides: customized, ilp, brute-force"
+            )
         }
     }
 }
@@ -510,12 +515,16 @@ mod tests {
     #[test]
     fn solver_request_accepts_only_documented_overrides() {
         assert_eq!(solver_request(None).unwrap(), SolverRequest::Default);
+        assert_eq!(
+            solver_request(Some("customized")).unwrap(),
+            SolverRequest::Customized
+        );
         assert_eq!(solver_request(Some("ilp")).unwrap(), SolverRequest::Ilp);
         assert_eq!(
             solver_request(Some("brute-force")).unwrap(),
             SolverRequest::BruteForce
         );
-        for rejected in ["auto", "customized", "native", "implementation-id"] {
+        for rejected in ["auto", "native", "implementation-id"] {
             let error = solver_request(Some(rejected)).unwrap_err();
             assert!(error.to_string().contains(rejected), "{error}");
         }
@@ -556,9 +565,9 @@ mod tests {
         .unwrap();
         let view = solver_capabilities_view(&loaded).unwrap();
 
-        assert_eq!(view.default_solver, "native");
-        assert_eq!(view.solvers, ["native", "ilp", "brute-force"]);
-        assert!(view.capabilities.native.is_some());
+        assert_eq!(view.default_solver, "customized");
+        assert_eq!(view.solvers, ["customized", "ilp", "brute-force"]);
+        assert!(view.capabilities.customized.is_some());
         assert!(view.capabilities.ilp.is_some());
         assert!(view.capabilities.brute_force);
     }

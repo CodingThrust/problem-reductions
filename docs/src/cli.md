@@ -335,10 +335,11 @@ The bundle contains everything needed to map solutions back:
 
 ### `pred solve` — Solve a problem
 
-Solve a problem instance using ILP (default), brute-force, or the customized solver:
+Solve a problem instance using deterministic customized → ILP → brute-force dispatch,
+or explicitly require one solver:
 
 ```bash
-pred solve problem.json                         # ILP solver (default)
+pred solve problem.json                         # customized, then ILP, then brute-force
 pred solve problem.json --solver brute-force    # brute-force solver
 pred solve problem.json --solver customized     # structure-exploiting exact solver
 pred solve problem.json --timeout 30            # abort after 30 seconds

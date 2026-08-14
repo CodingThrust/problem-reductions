@@ -1,8 +1,8 @@
 //! Solvers for computational problems.
 
 mod brute_force;
+mod customized;
 pub mod decision_search;
-mod native;
 mod pipelines;
 mod registry;
 mod resolver;
@@ -11,7 +11,7 @@ pub mod ilp;
 
 pub use brute_force::BruteForce;
 pub use registry::{
-    solver_capabilities, ExactProblemKey, IlpSolverCapability, NativeSolverCapability,
+    solver_capabilities, CustomizedSolverCapability, ExactProblemKey, IlpSolverCapability,
     RegistryBuildError, SolverCapabilities,
 };
 pub use resolver::{

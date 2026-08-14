@@ -89,7 +89,9 @@ pub struct ReduceParams {
 pub struct SolveParams {
     #[schemars(description = "Problem JSON string (from create_problem or reduce)")]
     pub problem_json: String,
-    #[schemars(description = "Solver override: 'ilp' or 'brute-force'; omit for default dispatch")]
+    #[schemars(
+        description = "Solver override: 'customized', 'ilp', or 'brute-force'; omit for default dispatch"
+    )]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
     pub timeout: Option<u64>,

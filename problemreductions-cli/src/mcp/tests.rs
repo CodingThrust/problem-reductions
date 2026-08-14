@@ -352,7 +352,7 @@ fn test_solve_ilp() {
 }
 
 #[test]
-fn deterministic_solver_dispatch_defaults_supported_problem_to_native() {
+fn deterministic_solver_dispatch_defaults_supported_problem_to_customized() {
     let server = McpServer::new();
     let problem_json = serde_json::json!({
         "type": "MinimumCardinalityKey",
@@ -368,19 +368,25 @@ fn deterministic_solver_dispatch_defaults_supported_problem_to_native() {
     let result = server.solve_inner(&problem_json, None, None);
     assert!(result.is_ok(), "solve failed: {:?}", result);
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-    assert_eq!(json["solver"]["kind"], "native");
+    assert_eq!(json["solver"]["kind"], "customized");
     assert_eq!(
         json["solver"]["implementation"],
         "fd-minimum-cardinality-key"
     );
     assert!(json["solution"].is_array(), "{json}");
+
+    let explicit = server
+        .solve_inner(&problem_json, Some("customized"), None)
+        .unwrap();
+    let explicit_json: serde_json::Value = serde_json::from_str(&explicit).unwrap();
+    assert_eq!(explicit_json["solver"]["kind"], "customized");
 }
 
 #[test]
 fn test_solve_unknown_solver() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    for rejected in ["auto", "customized", "native", "fd-minimum-cardinality-key"] {
+    for rejected in ["auto", "native", "fd-minimum-cardinality-key"] {
         let error = server
             .solve_inner(&problem_json, Some(rejected), None)
             .unwrap_err();
@@ -406,7 +412,7 @@ fn deterministic_solver_dispatch_mcp_output_is_repeatable_for_each_solver_class(
     })
     .to_string();
 
-    for solver in [None, Some("ilp"), Some("brute-force")] {
+    for solver in [None, Some("customized"), Some("ilp"), Some("brute-force")] {
         let first = server.solve_inner(&problem_json, solver, None).unwrap();
         let second = server.solve_inner(&problem_json, solver, None).unwrap();
         assert_eq!(first, second, "{solver:?} MCP output changed");
@@ -483,7 +489,7 @@ fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability
 }
 
 #[test]
-fn test_solve_bundle_rejects_removed_customized_override() {
+fn test_solve_bundle_rejects_unavailable_customized_solver() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
     let bundle_json = server
@@ -506,7 +512,7 @@ fn test_solve_bundle_rejects_removed_customized_override() {
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(
-        err.contains("Unknown solver: customized"),
+        err.contains("No customized solver is registered"),
         "unexpected error: {err}"
     );
 }
@@ -564,7 +570,7 @@ fn test_inspect_minmaxmulticenter_reports_registered_ilp_pipeline() {
 }
 
 #[test]
-fn test_inspect_minimum_cardinality_key_reports_native_solver() {
+fn test_inspect_minimum_cardinality_key_reports_customized_solver() {
     let server = McpServer::new();
     let problem_json = serde_json::json!({
         "type": "MinimumCardinalityKey",
@@ -580,9 +586,9 @@ fn test_inspect_minimum_cardinality_key_reports_native_solver() {
     let result = server.inspect_problem_inner(&problem_json);
     assert!(result.is_ok(), "inspect failed: {:?}", result);
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-    assert_eq!(json["default_solver"], "native");
+    assert_eq!(json["default_solver"], "customized");
     assert_eq!(
-        json["solver_capabilities"]["native"]["implementation"],
+        json["solver_capabilities"]["customized"]["implementation"],
         "fd-minimum-cardinality-key"
     );
 }

@@ -90,7 +90,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
 | `evaluate` | `problem_json` (string), `config` (array of int) | Evaluate a configuration against a problem instance and return the objective value or feasibility |
 | `reduce` | `problem_json` (string), `path_json` (string) | Reduce a problem instance along an explicitly supplied route, returning a bundle with the transformed instance and path metadata |
-| `solve` | `problem_json` (string), `solver` ("ilp"\|"brute-force", default: "ilp"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using ILP or brute-force, with optional timeout |
+| `solve` | `problem_json` (string), optional `solver` ("customized"\|"ilp"\|"brute-force"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using deterministic customized → ILP → brute-force dispatch, with optional override and timeout |
 
 ## Available Prompts
 

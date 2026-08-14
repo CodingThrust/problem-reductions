@@ -34,7 +34,7 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
 
 fn solver_text(solver: &SolverExecution) -> String {
     match solver {
-        SolverExecution::Native { implementation } => format!("native ({implementation})"),
+        SolverExecution::Customized { implementation } => format!("customized ({implementation})"),
         SolverExecution::Ilp { reduction_path } => {
             format!("ilp ({})", reduction_path.join(" -> "))
         }
@@ -148,7 +148,9 @@ fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputCon
 
 fn add_solver_hint(err: anyhow::Error) -> anyhow::Error {
     let message = err.to_string();
-    if message.starts_with("No ILP pipeline is registered for ") {
+    if message.starts_with("No ILP pipeline is registered for ")
+        || message.starts_with("No customized solver is registered for ")
+    {
         anyhow::anyhow!(
             "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
         )

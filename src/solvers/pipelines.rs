@@ -206,8 +206,8 @@ register_ilp_pipeline! {
     ("ILP", [("variable", "i32")]),
 }
 
-// This exact variant also has a native backend. Default dispatch selects the
-// native registration, while an explicit ILP override executes this pipeline.
+// This exact variant also has a customized backend. Default dispatch selects the
+// customized registration, while an explicit ILP override executes this pipeline.
 register_ilp_pipeline! {
     ("RootedTreeArrangement", [("graph", "SimpleGraph")]),
     ("RootedTreeStorageAssignment", []),

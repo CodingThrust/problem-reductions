@@ -74,18 +74,18 @@ pub(crate) struct IlpPipelineRegistration {
 
 inventory::collect!(IlpPipelineRegistration);
 
-type NativeSolveFn = fn(&dyn Any) -> Option<Vec<usize>>;
+type CustomizedSolveFn = fn(&dyn Any) -> Option<Vec<usize>>;
 
 /// A dedicated solver registered for one exact problem variant.
 #[derive(Debug)]
-pub(crate) struct NativeSolverRegistration {
+pub(crate) struct CustomizedSolverRegistration {
     pub(crate) source_name: &'static str,
     pub(crate) source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     pub(crate) implementation: &'static str,
-    pub(crate) solve_fn: NativeSolveFn,
+    pub(crate) solve_fn: CustomizedSolveFn,
 }
 
-impl NativeSolverRegistration {
+impl CustomizedSolverRegistration {
     fn source_key(&self) -> ExactProblemKey {
         ExactProblemKey::new(
             self.source_name,
@@ -97,7 +97,7 @@ impl NativeSolverRegistration {
     }
 }
 
-inventory::collect!(NativeSolverRegistration);
+inventory::collect!(CustomizedSolverRegistration);
 
 #[derive(Debug)]
 pub(crate) struct CompiledIlpPipeline {
@@ -147,22 +147,25 @@ impl CompiledIlpPipeline {
 
 #[derive(Clone, Copy)]
 pub(crate) struct RegisteredSolverCapabilities<'a> {
-    pub(crate) native: Option<&'static NativeSolverRegistration>,
+    pub(crate) customized: Option<&'static CustomizedSolverRegistration>,
     pub(crate) ilp: Option<&'a CompiledIlpPipeline>,
 }
 
 impl std::fmt::Debug for RegisteredSolverCapabilities<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SolverCapabilities")
-            .field("native", &self.native.map(|entry| entry.implementation))
+            .field(
+                "customized",
+                &self.customized.map(|entry| entry.implementation),
+            )
             .field("ilp", &self.ilp.map(CompiledIlpPipeline::path))
             .finish()
     }
 }
 
-/// Read-only metadata for a registered native solver.
+/// Read-only metadata for a registered customized solver.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct NativeSolverCapability {
+pub struct CustomizedSolverCapability {
     pub implementation: &'static str,
 }
 
@@ -185,29 +188,29 @@ impl IlpSolverCapability {
 /// Read-only solver capabilities for one exact problem variant.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct SolverCapabilities {
-    pub native: Option<NativeSolverCapability>,
+    pub customized: Option<CustomizedSolverCapability>,
     pub ilp: Option<IlpSolverCapability>,
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct SolverCapabilityRegistry {
-    native: BTreeMap<ExactProblemKey, &'static NativeSolverRegistration>,
+    customized: BTreeMap<ExactProblemKey, &'static CustomizedSolverRegistration>,
     ilp: BTreeMap<ExactProblemKey, CompiledIlpPipeline>,
 }
 
 impl SolverCapabilityRegistry {
     pub(crate) fn lookup(&self, key: &ExactProblemKey) -> RegisteredSolverCapabilities<'_> {
         RegisteredSolverCapabilities {
-            native: self.native.get(key).copied(),
+            customized: self.customized.get(key).copied(),
             ilp: self.ilp.get(key),
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn native_entries(
+    pub(crate) fn customized_entries(
         &self,
-    ) -> impl Iterator<Item = (&ExactProblemKey, &'static NativeSolverRegistration)> + '_ {
-        self.native.iter().map(|(key, entry)| (key, *entry))
+    ) -> impl Iterator<Item = (&ExactProblemKey, &'static CustomizedSolverRegistration)> + '_ {
+        self.customized.iter().map(|(key, entry)| (key, *entry))
     }
 
     #[cfg(test)]
@@ -222,8 +225,8 @@ impl SolverCapabilityRegistry {
 pub enum RegistryBuildError {
     #[error("solver registration references unknown exact variant {0}")]
     UnknownVariant(String),
-    #[error("duplicate native solver registration for {0}")]
-    DuplicateNative(String),
+    #[error("duplicate customized solver registration for {0}")]
+    DuplicateCustomized(String),
     #[error("duplicate ILP pipeline registration for {0}")]
     DuplicateIlp(String),
     #[error("ILP pipeline must contain at least one node")]
@@ -263,7 +266,7 @@ fn edge_key(entry: &ReductionEntry, source: bool) -> ExactProblemKey {
 
 fn build_registry(
     variants: &BTreeSet<ExactProblemKey>,
-    native_entries: impl IntoIterator<Item = &'static NativeSolverRegistration>,
+    customized_entries: impl IntoIterator<Item = &'static CustomizedSolverRegistration>,
     pipeline_entries: impl IntoIterator<Item = &'static IlpPipelineRegistration>,
     reductions: &[&'static ReductionEntry],
 ) -> Result<SolverCapabilityRegistry, RegistryBuildError> {
@@ -281,13 +284,17 @@ fn build_registry(
             .push(entry);
     }
 
-    for native in native_entries {
-        let source = native.source_key();
+    for customized in customized_entries {
+        let source = customized.source_key();
         if !variants.contains(&source) {
             return Err(RegistryBuildError::UnknownVariant(source.label()));
         }
-        if registry.native.insert(source.clone(), native).is_some() {
-            return Err(RegistryBuildError::DuplicateNative(source.label()));
+        if registry
+            .customized
+            .insert(source.clone(), customized)
+            .is_some()
+        {
+            return Err(RegistryBuildError::DuplicateCustomized(source.label()));
         }
     }
 
@@ -357,7 +364,7 @@ pub(crate) fn solver_capability_registry(
         .get_or_init(|| {
             build_registry(
                 &registered_variant_keys(),
-                inventory::iter::<NativeSolverRegistration>(),
+                inventory::iter::<CustomizedSolverRegistration>(),
                 inventory::iter::<IlpPipelineRegistration>(),
                 &reduction_entries(),
             )
@@ -371,9 +378,11 @@ pub fn solver_capabilities(
 ) -> Result<SolverCapabilities, &'static RegistryBuildError> {
     let registered = solver_capability_registry()?.lookup(key);
     Ok(SolverCapabilities {
-        native: registered.native.map(|entry| NativeSolverCapability {
-            implementation: entry.implementation,
-        }),
+        customized: registered
+            .customized
+            .map(|entry| CustomizedSolverCapability {
+                implementation: entry.implementation,
+            }),
         ilp: registered.ilp.map(|pipeline| IlpSolverCapability {
             path: pipeline.path.clone(),
         }),

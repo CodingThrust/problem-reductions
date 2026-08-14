@@ -57,16 +57,16 @@ fn no_solution(_: &dyn std::any::Any) -> Option<Vec<usize>> {
     None
 }
 
-static NATIVE_A: NativeSolverRegistration = NativeSolverRegistration {
+static CUSTOMIZED_A: CustomizedSolverRegistration = CustomizedSolverRegistration {
     source_name: "Source",
     source_variant_fn: source_variant,
-    implementation: "native-a",
+    implementation: "customized-a",
     solve_fn: no_solution,
 };
-static NATIVE_B: NativeSolverRegistration = NativeSolverRegistration {
+static CUSTOMIZED_B: CustomizedSolverRegistration = CustomizedSolverRegistration {
     source_name: "Source",
     source_variant_fn: source_variant,
-    implementation: "native-b",
+    implementation: "customized-b",
     solve_fn: no_solution,
 };
 
@@ -103,16 +103,22 @@ fn solver_capability_registry_duplicate_ilp_registration_is_rejected_independent
 }
 
 #[test]
-fn solver_capability_registry_duplicate_native_registration_is_rejected() {
+fn solver_capability_registry_duplicate_customized_registration_is_rejected() {
     let variants = BTreeSet::from([ExactProblemKey::new("Source", BTreeMap::new())]);
-    let error =
-        build_registry(&variants, [&NATIVE_A, &NATIVE_B], std::iter::empty(), &[]).unwrap_err();
-    assert!(matches!(error, RegistryBuildError::DuplicateNative(_)));
+    let error = build_registry(
+        &variants,
+        [&CUSTOMIZED_A, &CUSTOMIZED_B],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
+    assert!(matches!(error, RegistryBuildError::DuplicateCustomized(_)));
 }
 
 #[test]
-fn solver_capability_registry_unknown_native_variant_is_rejected() {
-    let error = build_registry(&BTreeSet::new(), [&NATIVE_A], std::iter::empty(), &[]).unwrap_err();
+fn solver_capability_registry_unknown_customized_variant_is_rejected() {
+    let error =
+        build_registry(&BTreeSet::new(), [&CUSTOMIZED_A], std::iter::empty(), &[]).unwrap_err();
     assert!(matches!(error, RegistryBuildError::UnknownVariant(label) if label == "Source"));
 }
 
@@ -177,7 +183,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
 #[test]
 fn solver_capability_registry_production_registry_has_expected_exact_capability_counts() {
     let registry = solver_capability_registry().unwrap();
-    assert_eq!(registry.native_entries().count(), 7);
+    assert_eq!(registry.customized_entries().count(), 7);
     assert_eq!(registry.ilp_entries().count(), 151);
 }
 
@@ -193,19 +199,19 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
         )
     };
 
-    let native_only = solver_capabilities(&key("TimetableDesign", &[])).unwrap();
+    let customized_only = solver_capabilities(&key("TimetableDesign", &[])).unwrap();
     assert_eq!(
-        native_only.native.unwrap().implementation,
+        customized_only.customized.unwrap().implementation,
         "timetable-required-assignments"
     );
-    assert!(native_only.ilp.is_none());
+    assert!(customized_only.ilp.is_none());
 
     let direct_ilp = solver_capabilities(&key(
         "MaximumClique",
         &[("graph", "SimpleGraph"), ("weight", "i32")],
     ))
     .unwrap();
-    assert!(direct_ilp.native.is_none());
+    assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
         ["MaximumClique<SimpleGraph, i32>", "ILP<bool>"]
@@ -220,7 +226,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let both =
         solver_capabilities(&key("RootedTreeArrangement", &[("graph", "SimpleGraph")])).unwrap();
-    assert!(both.native.is_some());
+    assert!(both.customized.is_some());
     assert!(both.ilp.is_some());
 
     let brute_force_only = solver_capabilities(&key(
@@ -228,7 +234,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
         &[("graph", "SimpleGraph"), ("weight", "i32")],
     ))
     .unwrap();
-    assert!(brute_force_only.native.is_none());
+    assert!(brute_force_only.customized.is_none());
     assert!(brute_force_only.ilp.is_none());
 
     let ilp_itself = solver_capabilities(&key("ILP", &[("variable", "bool")])).unwrap();
@@ -243,7 +249,7 @@ fn solver_capability_registry_does_not_leak_across_exact_variants() {
         BTreeMap::from([("unexpected".to_string(), "variant".to_string())]),
     );
     let capabilities = registry.lookup(&key);
-    assert!(capabilities.native.is_none());
+    assert!(capabilities.customized.is_none());
     assert!(capabilities.ilp.is_none());
 }
 
