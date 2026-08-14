@@ -1,4 +1,19 @@
 use super::*;
+
+#[test]
+fn create_spec_infers_graph_and_default_weights() {
+    let problem = MixedChinesePostman::<i32>::try_from(MixedChinesePostmanI32CreateSpec {
+        graph: vec![(0, 1)],
+        arcs: vec![(1, 0)],
+        num_vertices: None,
+        arc_weights: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.num_vertices(), 2);
+    assert_eq!(problem.arc_weights(), &[1]);
+    assert_eq!(problem.edge_weights(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::MixedGraph;
 use crate::traits::Problem;

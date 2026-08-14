@@ -2,10 +2,10 @@ use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::models::misc::{ResourceConstrainedScheduling, ThreePartition};
 use crate::models::set::ThreeDimensionalMatching;
-use crate::rules::{MinimizeSteps, ReduceTo, ReductionGraph, ReductionResult};
+use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
-use crate::types::{Or, ProblemSize};
+use crate::types::Or;
 
 fn canonical_problem() -> ThreeDimensionalMatching {
     ThreeDimensionalMatching::new(
@@ -98,7 +98,7 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("direct ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1, 0, 0]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
@@ -115,7 +115,7 @@ fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
         "source instance should be infeasible"
     );
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "reduced ILP should be infeasible"
     );
 }
@@ -134,11 +134,11 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let direct_solution = solver
         .solve(direct.target_problem())
         .expect("direct ILP should solve");
-    let direct_source = direct.extract_solution(&direct_solution);
+    let direct_source = direct.extract_solution(&direct_solution).unwrap();
 
     assert_eq!(problem.evaluate(&direct_source), Or(true));
     assert!(
-        solver.solve(indirect.target_problem()).is_some(),
+        solver.solve(indirect.target_problem()).is_ok(),
         "indirect ILP should agree on feasibility"
     );
     assert!(direct.target_problem().num_vars < indirect.target_problem().num_vars);
@@ -150,18 +150,10 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let src = ReductionGraph::variant_to_map(&ThreeDimensionalMatching::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
-        .find_cheapest_path(
-            "ThreeDimensionalMatching",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![
-                ("universe_size", problem.universe_size()),
-                ("num_triples", problem.num_triples()),
-            ]),
-            &MinimizeSteps,
-        )
-        .expect("reduction graph should find a direct 3DM -> ILP path");
+        .find_all_paths("ThreeDimensionalMatching", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["ThreeDimensionalMatching", "ILP"])
+        .expect("reduction graph should contain the direct 3DM -> ILP path");
 
     assert_eq!(path.type_names(), vec!["ThreeDimensionalMatching", "ILP"]);
 }

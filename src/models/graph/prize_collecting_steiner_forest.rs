@@ -24,7 +24,7 @@
 //! - Earlier conference version, RECOMB 2012, LNBI 7262, pp. 287--301.
 //!   <https://doi.org/10.1007/978-3-642-29627-7_31>
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -42,15 +42,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "f64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying network G=(V,E)" },
-            FieldInfo { name: "vertex_prizes", type_name: "Vec<W>", description: "Nonnegative vertex prizes p: V -> R_{>=0}" },
-            FieldInfo { name: "edge_costs", type_name: "Vec<W>", description: "Nonnegative edge costs c: E -> R_{>=0} in graph.edges() order" },
-            FieldInfo { name: "beta", type_name: "W", description: "Tradeoff coefficient beta >= 0 on the omitted-prize term" },
-            FieldInfo { name: "omega", type_name: "W", description: "Per-component penalty omega >= 0 on the number of tree components" },
-        ],
+        fields: PrizeCollectingSteinerForestI32CreateSpec::FIELDS,
     }
 }
 
@@ -108,6 +103,89 @@ pub struct PrizeCollectingSteinerForest<G, W> {
     beta: W,
     /// Per-component penalty.
     omega: W,
+}
+
+macro_rules! prize_collecting_steiner_forest_create_spec {
+    ($name:ident, $weight:ty, $one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            num_vertices: Option<usize>,
+            #[create(codec = "comma-separated")]
+            vertex_prizes: Option<Vec<$weight>>,
+            #[create(codec = "comma-separated")]
+            edge_costs: Option<Vec<$weight>>,
+            beta: $weight,
+            omega: $weight,
+        }
+
+        impl TryFrom<$name> for PrizeCollectingSteinerForest<SimpleGraph, $weight> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+                let vertex_prizes = spec
+                    .vertex_prizes
+                    .unwrap_or_else(|| vec![$one; graph.num_vertices()]);
+                if vertex_prizes.len() != graph.num_vertices() {
+                    return Err(format!(
+                        "vertex_prizes has length {}, expected {}",
+                        vertex_prizes.len(),
+                        graph.num_vertices()
+                    ));
+                }
+                let edge_costs = spec
+                    .edge_costs
+                    .unwrap_or_else(|| vec![$one; graph.num_edges()]);
+                if edge_costs.len() != graph.num_edges() {
+                    return Err(format!(
+                        "edge_costs has length {}, expected {}",
+                        edge_costs.len(),
+                        graph.num_edges()
+                    ));
+                }
+                Ok(Self::new(
+                    graph,
+                    vertex_prizes,
+                    edge_costs,
+                    spec.beta,
+                    spec.omega,
+                ))
+            }
+        }
+    };
+}
+
+prize_collecting_steiner_forest_create_spec!(PrizeCollectingSteinerForestI32CreateSpec, i32, 1);
+prize_collecting_steiner_forest_create_spec!(PrizeCollectingSteinerForestF64CreateSpec, f64, 1.0);
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!(
+            "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+        ));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: Clone + Default> PrizeCollectingSteinerForest<G, W> {
@@ -306,8 +384,8 @@ fn forest_components<G: Graph>(graph: &G, config: &[usize]) -> Option<usize> {
 }
 
 crate::declare_variants! {
-    default PrizeCollectingSteinerForest<SimpleGraph, i32> => "2^(num_vertices + num_edges)",
-    PrizeCollectingSteinerForest<SimpleGraph, f64> => "2^(num_vertices + num_edges)",
+    default PrizeCollectingSteinerForest<SimpleGraph, i32> => "2^(num_vertices + num_edges)" create PrizeCollectingSteinerForestI32CreateSpec,
+    PrizeCollectingSteinerForest<SimpleGraph, f64> => "2^(num_vertices + num_edges)" create PrizeCollectingSteinerForestF64CreateSpec,
 }
 
 #[cfg(feature = "example-db")]

@@ -53,49 +53,36 @@ impl ReductionResult for ReductionSATToDS {
     ///   - 3*i+1: negative literal NOT x_i (selecting means x_i = false)
     ///   - 3*i+2: dummy vertex (selecting means x_i can be either)
     ///
-    /// If more than num_literals vertices are selected, the solution is invalid
-    /// and we return a default assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let selected_count: usize = target_solution.iter().sum();
+    /// If more than num_literals vertices are selected, the target witness is invalid.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // If more vertices selected than variables, not a minimal dominating set
-        // corresponding to a satisfying assignment
-        if selected_count > self.num_literals {
-            // Return default assignment (all false)
-            return vec![0; self.num_literals];
+        let assignment = target_solution[..3 * self.num_literals]
+            .chunks_exact(3)
+            .enumerate()
+            .map(|(variable, gadget)| match gadget {
+                [1, 0, 0] => Ok(1),
+                [0, 1, 0] | [0, 0, 1] => Ok(0),
+                _ => Err(crate::rules::ExtractionError::invalid(format!(
+                    "variable {variable} gadget must select exactly one vertex, got {}",
+                    gadget.iter().sum::<usize>()
+                ))),
+            })
+            .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
+
+        if let Some(clause) = target_solution[3 * self.num_literals..]
+            .iter()
+            .position(|&selected| selected == 1)
+        {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "clause vertex {clause} is selected"
+            )));
         }
 
-        let mut assignment = vec![0usize; self.num_literals];
-
-        for (i, &value) in target_solution.iter().enumerate() {
-            if value == 1 {
-                // Only consider variable gadget vertices (first 3*num_literals vertices)
-                if i >= 3 * self.num_literals {
-                    continue; // Skip clause vertices
-                }
-
-                let var_index = i / 3;
-                let vertex_type = i % 3;
-
-                match vertex_type {
-                    0 => {
-                        // Positive literal selected: x_i = true
-                        assignment[var_index] = 1;
-                    }
-                    1 => {
-                        // Negative literal selected: x_i = false
-                        assignment[var_index] = 0;
-                    }
-                    2 => {
-                        // Dummy vertex selected: variable is unconstrained
-                        // Default to false (already 0), but could be anything
-                    }
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        assignment
+        Ok(assignment)
     }
 }
 
@@ -112,7 +99,7 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
     }

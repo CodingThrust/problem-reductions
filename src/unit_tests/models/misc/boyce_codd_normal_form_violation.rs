@@ -16,6 +16,22 @@ fn canonical_problem() -> BoyceCoddNormalFormViolation {
 }
 
 #[test]
+fn test_bcnf_create_spec_uses_construction_names() {
+    let names: Vec<_> = BoyceCoddNormalFormViolationCreateSpec::FIELDS
+        .iter()
+        .map(|field| field.name)
+        .collect();
+    assert_eq!(names, ["n", "subsets", "target"]);
+    let problem = BoyceCoddNormalFormViolation::try_from(BoyceCoddNormalFormViolationCreateSpec {
+        n: 3,
+        subsets: vec![(vec![0], vec![1])],
+        target: vec![0, 1, 2],
+    })
+    .unwrap();
+    assert_eq!(problem.num_attributes(), 3);
+}
+
+#[test]
 fn test_bcnf_creation() {
     let problem = canonical_problem();
     assert_eq!(problem.num_attributes(), 6);

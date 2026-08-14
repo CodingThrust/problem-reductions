@@ -36,19 +36,26 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
     /// The target config is a parent array defining a rooted tree on X = V.
     /// The source config is [parent_array | identity_mapping] since X = V
     /// means the mapping f is the identity.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        // target_solution is the parent array of the rooted tree on X = V
-        // Source config = [parent_array, identity_mapping]
-        let mut source_config = target_solution.to_vec();
-        // Append identity mapping: f(v) = v for all v
-        source_config.extend(0..n);
-        source_config
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_vertices;
+            // target_solution is the parent array of the rooted tree on X = V
+            // Source config = [parent_array, identity_mapping]
+            let mut source_config = target_solution.to_vec();
+            // Append identity mapping: f(v) = v for all v
+            source_config.extend(0..n);
+            source_config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         universe_size = "num_vertices",
         num_subsets = "num_edges",
     }

@@ -28,15 +28,21 @@ impl ReductionResult for ReductionTDToILP {
 
     /// Extract: direct identity mapping — the ILP variable layout matches the
     /// source configuration layout exactly.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_craftsmen * num_tasks * num_periods",
-    num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_craftsmen * num_tasks * num_periods",
+        num_constraints = "num_craftsmen * num_periods + num_tasks * num_periods + num_craftsmen * num_tasks",
+    },)]
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 

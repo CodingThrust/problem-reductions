@@ -22,16 +22,21 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_items",
         num_constraints = "num_items + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for IntegerKnapsack {
     type Result = ReductionIntegerKnapsackToILP;

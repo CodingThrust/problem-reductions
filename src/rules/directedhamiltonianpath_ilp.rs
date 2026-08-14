@@ -32,19 +32,26 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
-        let perm = one_hot_decode(target_solution, n, n, 0);
-        permutation_to_lehmer(&perm)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_vertices;
+            // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
+            let perm = one_hot_decode(target_solution, n, n, 0)?;
+            permutation_to_lehmer(&perm)
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices^2",
         num_constraints = "3 * num_vertices + (num_vertices - 1) * (num_vertices^2 - num_arcs)",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;

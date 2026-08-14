@@ -2,6 +2,8 @@ use super::*;
 use crate::solvers::Solver;
 use crate::traits::Problem;
 use crate::types::{Max, Min, Or, Sum};
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Clone)]
 struct MaxSumProblem {
@@ -87,6 +89,29 @@ struct SumProblem {
     weights: Vec<u64>,
 }
 
+#[derive(Clone)]
+struct CountingSatProblem {
+    evaluations: Rc<Cell<usize>>,
+}
+
+impl Problem for CountingSatProblem {
+    const NAME: &'static str = "CountingSatProblem";
+    type Value = Or;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2, 2]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> Self::Value {
+        self.evaluations.set(self.evaluations.get() + 1);
+        Or(config == [0, 0])
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![]
+    }
+}
+
 impl Problem for SumProblem {
     const NAME: &'static str = "SumProblem";
     type Value = Sum<u64>;
@@ -160,6 +185,19 @@ fn test_solver_find_witness_for_satisfaction_problem() {
     let witness = solver.find_witness(&problem);
     assert!(witness.is_some());
     assert_eq!(problem.evaluate(&witness.unwrap()), Or(true));
+}
+
+#[test]
+fn test_solver_find_witness_stops_after_first_optimal_configuration() {
+    let evaluations = Rc::new(Cell::new(0));
+    let problem = CountingSatProblem {
+        evaluations: Rc::clone(&evaluations),
+    };
+
+    assert_eq!(BruteForce::new().find_witness(&problem), Some(vec![0, 0]));
+    // Four evaluations compute the aggregate; the witness pass stops at the
+    // first configuration instead of collecting every optimal witness.
+    assert_eq!(evaluations.get(), 5);
 }
 
 #[test]

@@ -20,9 +20,20 @@ fn test_ksatisfiability_to_acyclicpartition_closed_loop() {
     assert!(!solutions.is_empty());
 
     for solution in solutions {
-        let extracted = reduction.extract_solution(&solution);
+        let extracted = reduction.extract_solution(&solution).unwrap();
         assert!(source.evaluate(&extracted).0);
     }
+}
+
+#[test]
+fn test_partition_to_acyclicpartition_rejects_malformed_target_configuration() {
+    let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
+    let reduction = ReduceTo::<AcyclicPartition<i32>>::reduce_to(&source);
+
+    assert!(reduction
+        .partition_to_acyclic
+        .extract_solution(&[])
+        .is_err());
 }
 
 #[test]

@@ -19,7 +19,7 @@ fn test_minimummultiwaycut_to_qubo_closed_loop() {
 
     // All QUBO optimal solutions should extract to valid source solutions with cost 8
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let metric = source.evaluate(&extracted);
         assert_eq!(metric, Min(Some(8)));
     }
@@ -41,7 +41,7 @@ fn test_minimummultiwaycut_to_qubo_small() {
 
     // All solutions should extract to valid cuts
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let metric = source.evaluate(&extracted);
         // With 2 terminals and path 0-1-2, minimum cut is 1 (cut either edge)
         assert_eq!(metric, Min(Some(1)));

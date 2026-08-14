@@ -58,29 +58,29 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     /// 2..2+m (right after the forced-center path edges). For a YES-instance,
     /// the optimal target witness selects exactly q of these edges, which
     /// correspond to the q chosen subsets.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let m = self.source_num_subsets;
-        let root_to_set_offset = 2;
-        (0..m)
-            .map(|i| {
-                usize::from(
-                    target_solution
-                        .get(root_to_set_offset + i)
-                        .copied()
-                        .unwrap_or(0)
-                        == 1,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let m = self.source_num_subsets;
+            let root_to_set_offset = 2;
+            (0..m)
+                .map(|i| usize::from(target_solution[root_to_set_offset + i] == 1))
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 3",
-    num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
-    weight_bound = "4 * universe_size / 3 + num_subsets + 2",
-    diameter_bound = "4",
-})]
+#[reduction(
+    size = exact {
+        num_vertices = "num_subsets + universe_size + 3",
+        num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
+        weight_bound = "4 * universe_size / 3 + num_subsets + 2",
+        diameter_bound = "4",
+    })]
 impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToBoundedDiameterSpanningTree;
 
@@ -132,7 +132,12 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
             }
         }
 
-        let weight_bound: i32 = (4 * q + m + 2) as i32;
+        let weight_bound = q
+            .checked_mul(4)
+            .and_then(|value| value.checked_add(m))
+            .and_then(|value| value.checked_add(2))
+            .and_then(|value| i64::try_from(value).ok())
+            .expect("ExactCoverBy3Sets -> BoundedDiameterSpanningTree weight bound must fit i64");
         let diameter_bound: usize = 4;
 
         let graph = SimpleGraph::new(num_vertices, edges);

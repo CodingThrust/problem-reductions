@@ -39,17 +39,24 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First m variables are edge selectors
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // First m variables are edge selectors
+            target_solution[..self.num_edges].to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "3 * num_edges + num_vertices",
         num_constraints = "3 * num_vertices + 2 * num_edges + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MaximumLeafSpanningTree<SimpleGraph> {
     type Result = ReductionMaximumLeafSpanningTreeToILP;

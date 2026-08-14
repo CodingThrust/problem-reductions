@@ -17,77 +17,100 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_elements = self.target.num_jobs().saturating_sub(1);
-        let mut source_config = vec![0; num_elements];
-        let Some(orders) = self.target.decode_orders(target_solution) else {
-            return source_config;
-        };
-        if num_elements == 0 {
-            return source_config;
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let special_job = num_elements;
-        let half_sum = self.target.processing_times()[special_job][0];
+        Ok({
+            let num_elements = self.target.num_jobs() - 1;
+            let mut source_config = vec![0; num_elements];
+            let Some(orders) = self.target.decode_orders(target_solution) else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration does not encode valid machine orders",
+                ));
+            };
+            if num_elements == 0 {
+                return Ok(source_config);
+            }
 
-        // Find the middle machine and compute start times
-        let makespan_orders = &orders;
-        let n = self.target.num_jobs();
-        let m = self.target.num_machines();
+            let special_job = num_elements;
+            let half_sum = self.target.processing_times()[special_job][0];
 
-        // Simulate to get start times
-        let mut machine_avail = vec![0usize; m];
-        let mut job_avail = vec![0usize; n];
-        let mut start_times = vec![vec![0usize; m]; n];
+            // Find the middle machine and compute start times
+            let makespan_orders = &orders;
+            let n = self.target.num_jobs();
+            let m = self.target.num_machines();
 
-        // Schedule by processing the orders
-        let mut cursor = vec![0usize; m];
-        let total_ops = n * m;
-        for _ in 0..total_ops {
-            let mut best: Option<(usize, usize, usize)> = None; // (start, machine, job)
-            for (mi, order) in makespan_orders.iter().enumerate() {
-                if cursor[mi] < order.len() {
-                    let job = order[cursor[mi]];
-                    let start = machine_avail[mi].max(job_avail[job]);
-                    if best.is_none_or(|(bs, _, _)| start < bs) {
-                        best = Some((start, mi, job));
+            // Simulate to get start times
+            let mut machine_avail = vec![0usize; m];
+            let mut job_avail = vec![0usize; n];
+            let mut start_times = vec![vec![0usize; m]; n];
+
+            // Schedule by processing the orders
+            let mut cursor = vec![0usize; m];
+            let total_ops = n * m;
+            for _ in 0..total_ops {
+                let mut best: Option<(usize, usize, usize)> = None; // (start, machine, job)
+                for (mi, order) in makespan_orders.iter().enumerate() {
+                    if cursor[mi] < order.len() {
+                        let job = order[cursor[mi]];
+                        let start = machine_avail[mi].max(job_avail[job]);
+                        if best.is_none_or(|(bs, _, _)| start < bs) {
+                            best = Some((start, mi, job));
+                        }
                     }
                 }
+                let (start, mi, job) = best.ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid("target schedule is incomplete")
+                })?;
+                start_times[job][mi] = start;
+                let end = start
+                    .checked_add(self.target.processing_times()[job][mi])
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target schedule time overflows usize",
+                        )
+                    })?;
+                machine_avail[mi] = end;
+                job_avail[job] = end;
+                cursor[mi] += 1;
             }
-            let (start, mi, job) = best.expect("schedule incomplete");
-            start_times[job][mi] = start;
-            let end = start + self.target.processing_times()[job][mi];
-            machine_avail[mi] = end;
-            job_avail[job] = end;
-            cursor[mi] += 1;
-        }
 
-        // Find the middle machine where the special job starts at half_sum
-        let middle_machine = (0..m)
-            .find(|&machine| start_times[special_job][machine] == half_sum)
-            .unwrap_or_else(|| {
-                let mut machines: Vec<usize> = (0..m).collect();
-                machines.sort_by_key(|&machine| (start_times[special_job][machine], machine));
-                machines[m / 2]
-            });
-        let pivot = start_times[special_job][middle_machine];
+            // Find the middle machine where the special job starts at half_sum
+            let middle_machine = (0..m)
+                .find(|&machine| start_times[special_job][machine] == half_sum)
+                .ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "target schedule has no machine at the partition boundary",
+                    )
+                })?;
+            let pivot = start_times[special_job][middle_machine];
 
-        for (job, slot) in source_config.iter_mut().enumerate() {
-            let completion = start_times[job][middle_machine]
-                + self.target.processing_times()[job][middle_machine];
-            if completion <= pivot {
-                *slot = 1;
+            for (job, slot) in source_config.iter_mut().enumerate() {
+                let completion = start_times[job][middle_machine]
+                    .checked_add(self.target.processing_times()[job][middle_machine])
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target schedule time overflows usize",
+                        )
+                    })?;
+                if completion <= pivot {
+                    *slot = 1;
+                }
             }
-        }
 
-        source_config
+            source_config
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_jobs = "num_elements + 1",
-    num_machines = "3",
-})]
+#[reduction(
+    size = exact {
+        num_jobs = "num_elements + 1",
+        num_machines = "3",
+    })]
 impl ReduceTo<OpenShopScheduling> for Partition {
     type Result = ReductionPartitionToOpenShopScheduling;
 

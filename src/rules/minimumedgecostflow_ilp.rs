@@ -43,16 +43,21 @@ impl ReductionResult for ReductionMECFToILP {
     }
 
     /// Extract flow solution: first m variables are the flow values.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_edges].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "2 * num_edges",
         num_constraints = "2 * num_edges + num_vertices - 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
     type Result = ReductionMECFToILP;

@@ -29,14 +29,22 @@ where
     }
 
     /// Solutions map directly: vertex selection = set selection.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 macro_rules! impl_is_to_sp {
     ($W:ty) => {
-        #[reduction(overhead = { num_sets = "num_vertices", universe_size = "num_edges" })]
+        #[reduction(size = unavailable {
+            num_sets = "the exact set statistic depends on membership or intersection incidence not represented by registered source fields",
+            universe_size = "the exact set statistic depends on membership or intersection incidence not represented by registered source fields",
+        })]
         impl ReduceTo<MaximumSetPacking<$W>> for MaximumIndependentSet<SimpleGraph, $W> {
             type Result = ReductionISToSP<$W>;
 
@@ -80,14 +88,22 @@ where
     }
 
     /// Solutions map directly.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 macro_rules! impl_sp_to_is {
     ($W:ty) => {
-        #[reduction(overhead = { num_vertices = "num_sets", num_edges = "num_sets^2" })]
+        #[reduction(size = unavailable {
+                    num_vertices = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+                    num_edges = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+                })]
         impl ReduceTo<MaximumIndependentSet<SimpleGraph, $W>> for MaximumSetPacking<$W> {
             type Result = ReductionSPToIS<$W>;
 

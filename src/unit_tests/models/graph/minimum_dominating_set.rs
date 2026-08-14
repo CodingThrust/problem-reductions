@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_weight_count_mismatch() {
+    assert_eq!(
+        MinimumDominatingSetCreateSpec::<i32>::FIELDS[1].name,
+        "weights"
+    );
+    let result = MinimumDominatingSet::try_from(MinimumDominatingSetCreateSpec {
+        graph: SimpleGraph::new(2, vec![(0, 1)]),
+        weights: vec![1],
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -138,7 +151,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,

@@ -73,7 +73,7 @@ fn test_hamiltoniancircuit_to_bottlenecktravelingsalesman_extract_solution_cycle
         .map(|(u, v)| usize::from(cycle_edges.contains(&(u, v)) || cycle_edges.contains(&(v, u))))
         .collect();
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     // Bottleneck should be 1 (all selected edges are original cycle edges)
     assert_eq!(target.evaluate(&target_solution), Min(Some(1)));

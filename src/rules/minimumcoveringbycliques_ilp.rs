@@ -39,28 +39,33 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if self.num_edges == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         (0..self.num_edges)
-            .map(|edge_idx| {
+            .map(|edge| {
                 (0..self.num_edges)
-                    .find(|&slot| {
-                        target_solution[self.y_offset + edge_idx * self.num_edges + slot] == 1
+                    .find(|&clique| {
+                        target_solution[self.y_offset + edge * self.num_edges + clique] == 1
                     })
-                    .unwrap_or(0)
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "edge {edge} is not covered by any clique"
+                        ))
+                    })
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices * num_edges + num_edges + num_edges * num_edges",
         num_constraints = "num_vertices * num_edges + (num_vertices * (num_vertices - 1) / 2 - num_edges) * num_edges + 3 * num_edges * num_edges + num_edges",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
     type Result = ReductionMinimumCoveringByCliquesToILP;

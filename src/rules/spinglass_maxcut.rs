@@ -36,13 +36,18 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_spins = "num_vertices",
         num_interactions = "num_edges",
     }
@@ -112,27 +117,34 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match self.ancilla {
-            None => target_solution.to_vec(),
-            Some(anc) => {
-                // If ancilla is 1, flip all bits; then remove ancilla
-                let mut sol = target_solution.to_vec();
-                if sol[anc] == 1 {
-                    for x in sol.iter_mut() {
-                        *x = 1 - *x;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            match self.ancilla {
+                None => target_solution.to_vec(),
+                Some(anc) => {
+                    // If ancilla is 1, flip all bits; then remove ancilla
+                    let mut sol = target_solution.to_vec();
+                    if sol[anc] == 1 {
+                        for x in sol.iter_mut() {
+                            *x = 1 - *x;
+                        }
                     }
+                    sol.remove(anc);
+                    sol
                 }
-                sol.remove(anc);
-                sol
             }
-        }
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_spins",
+    size = upper_bound {
+        num_vertices = "num_spins + 1",
         num_edges = "num_interactions + num_spins",
     }
 )]

@@ -81,7 +81,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         problem.evaluate(&extracted).0,
@@ -94,7 +94,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should produce infeasible ILP"
     );
 }
@@ -106,7 +106,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
 
     let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
     );
 }
@@ -124,7 +124,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
     target_solution[8 + 3] = 1; // f2 on arc (1,3)
     target_solution[8 + 7] = 1; // f2 on arc (3,5)
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), 16);
     assert!(
         problem.evaluate(&extracted).0,

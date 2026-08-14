@@ -294,75 +294,82 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreePartition {
 
     /// Reverse the 4-Partition -> 3-Partition pairing gadget, then decode the
     /// surviving real ABCD groups back into selected source triples.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut groups = vec![Vec::new(); self.target.num_groups()];
-        for (element_index, &group_index) in target_solution.iter().enumerate() {
-            groups[group_index].push(element_index);
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let mut pair_usage: HashMap<(usize, usize), PairUsage> = HashMap::new();
-
-        for members in groups.into_iter().filter(|members| !members.is_empty()) {
-            let mut regulars = Vec::new();
-            let mut pairing = None;
-            let mut has_filler = false;
-
-            for element_index in members {
-                match self.classify_target_element(element_index) {
-                    TargetElement::Regular { step2_index } => regulars.push(step2_index),
-                    TargetElement::Pairing { pair_index, kind } => {
-                        pairing = Some((pair_index, kind))
-                    }
-                    TargetElement::Filler => has_filler = true,
-                }
+        Ok({
+            let mut groups = vec![Vec::new(); self.target.num_groups()];
+            for (element_index, &group_index) in target_solution.iter().enumerate() {
+                groups[group_index].push(element_index);
             }
 
-            if has_filler || regulars.len() != 2 {
-                continue;
-            }
+            let mut pair_usage: HashMap<(usize, usize), PairUsage> = HashMap::new();
 
-            let Some((pair_index, kind)) = pairing else {
-                continue;
-            };
+            for members in groups.into_iter().filter(|members| !members.is_empty()) {
+                let mut regulars = Vec::new();
+                let mut pairing = None;
+                let mut has_filler = false;
 
-            let pair_key = self.pair_keys[pair_index];
-            let regular_pair = sorted_pair(regulars[0], regulars[1]);
-            let usage = pair_usage.entry(pair_key).or_default();
-
-            match kind {
-                PairingKind::U => {
-                    if regular_pair == [pair_key.0, pair_key.1] {
-                        usage.saw_u = true;
+                for element_index in members {
+                    match self.classify_target_element(element_index) {
+                        TargetElement::Regular { step2_index } => regulars.push(step2_index),
+                        TargetElement::Pairing { pair_index, kind } => {
+                            pairing = Some((pair_index, kind))
+                        }
+                        TargetElement::Filler => has_filler = true,
                     }
                 }
-                PairingKind::UPrime => {
-                    usage.uprime_regulars = Some(regular_pair);
+
+                if has_filler || regulars.len() != 2 {
+                    continue;
+                }
+
+                let Some((pair_index, kind)) = pairing else {
+                    continue;
+                };
+
+                let pair_key = self.pair_keys[pair_index];
+                let regular_pair = sorted_pair(regulars[0], regulars[1]);
+                let usage = pair_usage.entry(pair_key).or_default();
+
+                match kind {
+                    PairingKind::U => {
+                        if regular_pair == [pair_key.0, pair_key.1] {
+                            usage.saw_u = true;
+                        }
+                    }
+                    PairingKind::UPrime => {
+                        usage.uprime_regulars = Some(regular_pair);
+                    }
                 }
             }
-        }
 
-        let mut source_solution = vec![0; self.num_source_triples];
+            let mut source_solution = vec![0; self.num_source_triples];
 
-        for ((left, right), usage) in pair_usage {
-            let Some(other_two) = usage.uprime_regulars else {
-                continue;
-            };
-            if !usage.saw_u {
-                continue;
+            for ((left, right), usage) in pair_usage {
+                let Some(other_two) = usage.uprime_regulars else {
+                    continue;
+                };
+                if !usage.saw_u {
+                    continue;
+                }
+
+                let mut group = [left, right, other_two[0], other_two[1]];
+                group.sort_unstable();
+                if group.windows(2).any(|window| window[0] == window[1]) {
+                    continue;
+                }
+
+                if let Some(source_triple) = self.decode_real_group(group) {
+                    source_solution[source_triple] = 1;
+                }
             }
 
-            let mut group = [left, right, other_two[0], other_two[1]];
-            group.sort_unstable();
-            if group.windows(2).any(|window| window[0] == window[1]) {
-                continue;
-            }
-
-            if let Some(source_triple) = self.decode_real_group(group) {
-                source_solution[source_triple] = 1;
-            }
-        }
-
-        source_solution
+            source_solution
+        })
     }
 }
 
@@ -419,10 +426,11 @@ fn enumerate_pair_keys(num_regulars: usize) -> Vec<(usize, usize)> {
     pairs
 }
 
-#[reduction(overhead = {
-    num_elements = "24 * num_triples * num_triples - 3 * num_triples",
-    num_groups = "8 * num_triples * num_triples - num_triples",
-})]
+#[reduction(
+    size = exact {
+        num_elements = "24 * num_triples * num_triples - 3 * num_triples",
+        num_groups = "8 * num_triples * num_triples - num_triples",
+    })]
 impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreePartition;
 

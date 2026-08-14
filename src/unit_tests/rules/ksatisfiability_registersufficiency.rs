@@ -88,8 +88,9 @@ fn test_ksatisfiability_to_register_sufficiency_extract_solution_uses_w_snapshot
         }
     }
 
-    let extracted =
-        reduction.extract_solution(&positions_from_order(&order, target.num_vertices()));
+    let extracted = reduction
+        .extract_solution(&positions_from_order(&order, target.num_vertices()))
+        .unwrap();
     assert_eq!(extracted, vec![1]);
 }
 
@@ -107,7 +108,7 @@ fn test_ksatisfiability_to_register_sufficiency_closed_loop_via_exact_solver() {
         Or(true)
     );
 
-    let extracted = reduction.extract_solution(&register_schedule);
+    let extracted = reduction.extract_solution(&register_schedule).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
     assert_eq!(extracted, vec![1]);
 }

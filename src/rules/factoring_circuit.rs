@@ -42,34 +42,34 @@ impl ReductionResult for ReductionFactoringToCircuit {
     ///
     /// Returns a configuration where the first m bits are the first factor p,
     /// and the next n bits are the second factor q.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let var_names = self.target.variable_names();
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build a map from variable name to its value
-        let var_map: std::collections::HashMap<&str, usize> = var_names
-            .iter()
-            .enumerate()
-            .map(|(i, name)| (name.as_str(), target_solution.get(i).copied().unwrap_or(0)))
-            .collect();
+        Ok({
+            let var_names = self.target.variable_names();
 
-        // Extract p bits
-        let p_bits: Vec<usize> = self
-            .p_vars
-            .iter()
-            .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-            .collect();
+            // Build a map from variable name to its value
+            let var_map: std::collections::HashMap<&str, usize> = var_names
+                .iter()
+                .enumerate()
+                .map(|(i, name)| (name.as_str(), target_solution[i]))
+                .collect();
 
-        // Extract q bits
-        let q_bits: Vec<usize> = self
-            .q_vars
-            .iter()
-            .map(|name| *var_map.get(name.as_str()).unwrap_or(&0))
-            .collect();
-
-        // Concatenate p and q bits
-        let mut result = p_bits;
-        result.extend(q_bits);
-        result
+            self.p_vars
+                .iter()
+                .chain(&self.q_vars)
+                .map(|name| {
+                    var_map.get(name.as_str()).copied().ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target circuit does not contain factor variable {name}"
+                        ))
+                    })
+                })
+                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
+        })
     }
 }
 
@@ -175,10 +175,11 @@ fn build_multiplier_cell(
     (assignments, ancillas)
 }
 
-#[reduction(overhead = {
-    num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-    num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-})]
+#[reduction(
+    size = exact {
+        num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
+        num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
+    })]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 

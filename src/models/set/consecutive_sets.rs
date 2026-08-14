@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Consecutive Sets",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine if a string exists where each subset's elements appear consecutively",
         fields: &[

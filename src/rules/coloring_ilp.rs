@@ -10,6 +10,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::KColoring;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K1, K2, K3, K4, KN};
@@ -28,13 +29,6 @@ pub struct ReductionKColoringToILP<K: KValue, G> {
     _phantom: std::marker::PhantomData<(K, G)>,
 }
 
-impl<K: KValue, G> ReductionKColoringToILP<K, G> {
-    /// Get the variable index for vertex v with color c.
-    fn var_index(&self, vertex: usize, color: usize) -> usize {
-        vertex * self.num_colors + color
-    }
-}
-
 impl<K: KValue, G> ReductionResult for ReductionKColoringToILP<K, G>
 where
     G: Graph + crate::variant::VariantParam,
@@ -50,18 +44,13 @@ where
     ///
     /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = self.num_colors;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..k)
-                    .find(|&c| {
-                        let var_idx = self.var_index(v, c);
-                        var_idx < target_solution.len() && target_solution[var_idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
     }
 }
 
@@ -112,9 +101,9 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    overhead = {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices + num_vertices * num_edges",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for KColoring<KN, SimpleGraph> {

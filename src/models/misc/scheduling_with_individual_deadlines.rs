@@ -4,7 +4,7 @@
 //! determine whether they can be scheduled on `m` identical processors so that
 //! every task finishes by its own deadline.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -15,14 +15,10 @@ inventory::submit! {
         display_name: "Scheduling With Individual Deadlines",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Determine whether unit-length tasks can be scheduled on m processors while meeting individual deadlines",
-        fields: &[
-            FieldInfo { name: "num_tasks", type_name: "usize", description: "Number of tasks |T|" },
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "deadlines", type_name: "Vec<usize>", description: "Deadline d(t) for each task" },
-            FieldInfo { name: "precedences", type_name: "Vec<(usize, usize)>", description: "Precedence pairs (predecessor, successor)" },
-        ],
+        fields: SchedulingWithIndividualDeadlinesCreateSpec::FIELDS,
     }
 }
 
@@ -38,6 +34,46 @@ pub struct SchedulingWithIndividualDeadlines {
     num_processors: usize,
     deadlines: Vec<usize>,
     precedences: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SchedulingWithIndividualDeadlinesCreateSpec {
+    /// Number of tasks.
+    num_tasks: usize,
+    /// Number of identical processors.
+    num_processors: usize,
+    /// Deadline for each task.
+    deadlines: Vec<usize>,
+    /// Precedence pairs.
+    precedences: Option<Vec<(usize, usize)>>,
+}
+impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndividualDeadlines {
+    type Error = String;
+    fn try_from(spec: SchedulingWithIndividualDeadlinesCreateSpec) -> Result<Self, Self::Error> {
+        if spec.deadlines.len() != spec.num_tasks {
+            return Err(format!(
+                "deadlines has {} entries, expected {}",
+                spec.deadlines.len(),
+                spec.num_tasks
+            ));
+        }
+        let precedences = spec.precedences.unwrap_or_default();
+        if let Some(&(pred, succ)) = precedences
+            .iter()
+            .find(|&&(p, s)| p >= spec.num_tasks || s >= spec.num_tasks)
+        {
+            return Err(format!(
+                "precedence ({pred}, {succ}) is out of range for {} tasks",
+                spec.num_tasks
+            ));
+        }
+        Ok(Self::new(
+            spec.num_tasks,
+            spec.num_processors,
+            spec.deadlines,
+            precedences,
+        ))
+    }
 }
 
 impl SchedulingWithIndividualDeadlines {
@@ -145,7 +181,7 @@ impl Problem for SchedulingWithIndividualDeadlines {
 }
 
 crate::declare_variants! {
-    default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks",
+    default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks" create SchedulingWithIndividualDeadlinesCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

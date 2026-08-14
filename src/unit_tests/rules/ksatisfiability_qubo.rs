@@ -25,7 +25,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 
     // Verify all solutions satisfy all clauses
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
     }
 }
@@ -41,7 +41,7 @@ fn test_ksatisfiability_to_qubo_simple() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
     }
 }
@@ -86,7 +86,7 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
     }
 }
@@ -130,7 +130,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 
     // Verify all extracted solutions maximize satisfied clauses
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 5);
         let assignment: Vec<bool> = extracted.iter().map(|&v| v == 1).collect();
         let satisfied = ksat.count_satisfied(&assignment);
@@ -153,7 +153,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 
     // All solutions should satisfy the single clause
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted));
     }
@@ -172,7 +172,7 @@ fn test_k3satisfiability_to_qubo_all_negated() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
     }
     // 7 out of 8 assignments satisfy (¬x1 ∨ ¬x2 ∨ ¬x3)

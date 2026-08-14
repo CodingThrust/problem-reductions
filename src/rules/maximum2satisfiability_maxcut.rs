@@ -33,11 +33,18 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToMaxCut {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let reference_side = target_solution[0];
-        (0..self.source_num_vars)
-            .map(|i| usize::from(target_solution[i + 1] == reference_side))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let reference_side = target_solution[0];
+            (0..self.source_num_vars)
+                .map(|i| usize::from(target_solution[i + 1] == reference_side))
+                .collect()
+        })
     }
 }
 
@@ -55,9 +62,9 @@ fn literal_polarity(lit: i32) -> i32 {
 }
 
 #[reduction(
-    overhead = {
+    size = upper_bound {
         num_vertices = "num_vars + 1",
-        num_edges = "num_vars + num_clauses",
+        num_edges = "(num_vars + 1)^2",
     }
 )]
 impl ReduceTo<MaxCut<SimpleGraph, i32>> for Maximum2Satisfiability {

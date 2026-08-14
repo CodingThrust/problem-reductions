@@ -43,23 +43,33 @@ impl ReductionResult for ReductionMCESToILP {
     /// Extract: for each source vertex `u`, output the unique target vertex
     /// `p` with `x_(u,p) = 1`, or the sentinel `n2` ("bottom") when no
     /// mapping variable is selected.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|u| {
-                (0..n2)
-                    .find(|&p| target_solution[u * n2 + p] == 1)
-                    .unwrap_or(n2)
+        (0..self.num_vertices_1)
+            .map(|vertex| {
+                let mut selected =
+                    (0..n2).filter(|&mapped| target_solution[vertex * n2 + mapped] == 1);
+                match (selected.next(), selected.next()) {
+                    (Some(mapped), None) => Ok(mapped),
+                    (None, _) => Ok(n2),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "source vertex {vertex} maps to multiple target vertices"
+                    ))),
+                }
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
-        num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {

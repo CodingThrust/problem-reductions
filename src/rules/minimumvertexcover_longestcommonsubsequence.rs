@@ -21,20 +21,27 @@ impl ReductionResult for ReductionVCToLCS {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut cover = vec![1; self.num_vertices];
-        for &symbol in target_solution {
-            if symbol >= self.num_vertices {
-                break;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut cover = vec![1; self.num_vertices];
+            for &symbol in target_solution {
+                if symbol >= self.num_vertices {
+                    break;
+                }
+                cover[symbol] = 0;
             }
-            cover[symbol] = 0;
-        }
-        cover
+            cover
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         alphabet_size = "num_vertices",
         num_strings = "num_edges + 1",
         max_length = "num_vertices",

@@ -26,6 +26,7 @@ inventory::submit! {
         display_name: "Maximum Contact Map Overlap",
         aliases: &["CMO", "MaxCMO"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Maximize the number of preserved contacts under an order-preserving partial injective alignment from G_1 into G_2",
         fields: &[

@@ -62,7 +62,7 @@ fn test_maximumcommonedgesubgraph_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("matched paths ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(2)));
@@ -91,7 +91,7 @@ fn test_maximumcommonedgesubgraph_to_ilp_truncated_target() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("truncated ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(1)));
@@ -115,7 +115,7 @@ fn test_maximumcommonedgesubgraph_to_ilp_empty_graphs() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("empty-arc ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(0)));
 }
@@ -132,7 +132,7 @@ fn test_maximumcommonedgesubgraph_to_ilp_self_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("self-loop ILP must be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.is_valid_solution(&extracted));
     assert_eq!(source.evaluate(&extracted), Max(Some(1)));

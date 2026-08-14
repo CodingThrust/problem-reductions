@@ -44,7 +44,7 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(target);
     for sol in &best {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let metric = source.evaluate(&extracted);
         assert!(metric.is_valid());
     }

@@ -4,7 +4,7 @@ use crate::rules::{AggregateReductionResult, ReduceTo, ReduceToAggregate, Reduct
 use crate::traits::Problem;
 use crate::types::{OptimizationValue, Or};
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Metadata for concrete optimization problems that expose a decision wrapper.
 pub trait DecisionProblemMeta: Problem
@@ -29,8 +29,8 @@ macro_rules! decision_problem_meta {
 ///
 /// The `size_getters` parameter defines problem-specific size fields as
 /// `(name, getter_on_inner)` pairs, e.g., `[("num_vertices", num_vertices), ("num_edges", num_edges)]`.
-/// These are used for overhead expressions and `ProblemSize` extraction.
-/// The macro automatically adds a `("k", k)` entry for `source_size_fn` on the Decision side.
+/// These are used for size expressions and `ProblemSize` extraction.
+/// The macro also measures `k` on the Decision source side.
 ///
 /// Callers must define inherent methods on `Decision<Inner>` (delegating to `self.inner()`)
 /// and a `k()` method (from `self.bound()`) **before** invoking this macro.
@@ -42,13 +42,22 @@ macro_rules! register_decision_variant {
         $complexity:literal,
         $aliases:expr,
         $description:literal,
+        category: $category:expr,
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
         size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
+        $(, $random:ident)?
     ) => {
-        $crate::declare_variants! {
-            default $crate::models::decision::Decision<$inner> => $complexity,
+        impl $crate::registry::CreateSpec
+            for $crate::models::decision::DecisionCreateSpec<$inner>
+        {
+            const FIELDS: &'static [$crate::registry::FieldInfo] = &[$($field),*];
+            const INPUTS: &'static [$crate::registry::CreateInputInfo] = &[
+                $($crate::registry::CreateInputInfo::from_field($field)),*
+            ];
         }
+
+        $crate::register_decision_variant!(@declare $inner, $complexity $(, $random)?);
 
         $crate::inventory::submit! {
             $crate::registry::ProblemSchemaEntry {
@@ -56,6 +65,7 @@ macro_rules! register_decision_variant {
                 display_name: $crate::register_decision_variant!(@display_name $name),
                 aliases: $aliases,
                 dimensions: &[$($dim),*],
+                category: $category,
                 module_path: module_path!(),
                 description: $description,
                 fields: &[$($field),*],
@@ -69,7 +79,11 @@ macro_rules! register_decision_variant {
                 target_name: <$inner as $crate::traits::Problem>::NAME,
                 source_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
                 target_variant_fn: <$inner as $crate::traits::Problem>::variant,
-                overhead_fn: || $crate::rules::ReductionOverhead::identity(&[$($sg_name),*]),
+                size_declarations_fn: || $crate::rules::registry::ReductionSizeDeclarations {
+                    relation: Some($crate::size::SizeRelation::Exact),
+                    fields: vec![$(($sg_name, $crate::expr::Expr::variable($sg_name))),*],
+                    unavailable: vec![],
+                },
                 module_path: module_path!(),
                 reduce_fn: Some(|any| {
                     let source = any
@@ -87,22 +101,22 @@ macro_rules! register_decision_variant {
                         <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source),
                     )
                 }),
-                capabilities: $crate::rules::EdgeCapabilities::both(),
-                overhead_eval_fn: |any| {
-                    let source = any
-                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .expect(concat!($name, " overhead source type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, source.$sg_method())),*
-                    ])
-                },
-                source_size_fn: |any| {
+                turing: false,
+                source_size_measure_fn: |any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
                         .expect(concat!($name, " size source type mismatch"));
                     $crate::types::ProblemSize::new(vec![
                         $(($sg_name, source.$sg_method()),)*
                         ("k", source.k()),
+                    ])
+                },
+                target_size_measure_fn: |any| {
+                    let target = any
+                        .downcast_ref::<$inner>()
+                        .expect(concat!($name, " size target type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        $(($sg_name, target.$sg_method())),*
                     ])
                 },
             }
@@ -115,20 +129,16 @@ macro_rules! register_decision_variant {
                 target_name: $name,
                 source_variant_fn: <$inner as $crate::traits::Problem>::variant,
                 target_variant_fn: <$crate::models::decision::Decision<$inner> as $crate::traits::Problem>::variant,
-                overhead_fn: || $crate::rules::ReductionOverhead::identity(&[$($sg_name),*]),
+                size_declarations_fn: || $crate::rules::registry::ReductionSizeDeclarations {
+                    relation: Some($crate::size::SizeRelation::Exact),
+                    fields: vec![$(($sg_name, $crate::expr::Expr::variable($sg_name))),*],
+                    unavailable: vec![],
+                },
                 module_path: module_path!(),
                 reduce_fn: None,
                 reduce_aggregate_fn: None,
-                capabilities: $crate::rules::EdgeCapabilities::turing(),
-                overhead_eval_fn: |any| {
-                    let source = any
-                        .downcast_ref::<$inner>()
-                        .expect(concat!($name, " turing overhead source type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, source.$sg_method())),*
-                    ])
-                },
-                source_size_fn: |any| {
+                turing: true,
+                source_size_measure_fn: |any| {
                     let source = any
                         .downcast_ref::<$inner>()
                         .expect(concat!($name, " turing size source type mismatch"));
@@ -136,7 +146,26 @@ macro_rules! register_decision_variant {
                         $(($sg_name, source.$sg_method())),*
                     ])
                 },
+                target_size_measure_fn: |any| {
+                    let target = any
+                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
+                        .expect(concat!($name, " turing size target type mismatch"));
+                    $crate::types::ProblemSize::new(vec![
+                        $(($sg_name, target.$sg_method())),*
+                    ])
+                },
             }
+        }
+    };
+
+    (@declare $inner:ty, $complexity:literal, random) => {
+        $crate::declare_variants! {
+            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner> random,
+        }
+    };
+    (@declare $inner:ty, $complexity:literal) => {
+        $crate::declare_variants! {
+            default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
         }
     };
     (@display_name "DecisionMinimumVertexCover") => {
@@ -151,6 +180,54 @@ macro_rules! register_decision_variant {
     (@display_name $name:literal) => {
         $name
     };
+}
+
+/// Flat construction DTO used by [`register_decision_variant!`].
+///
+/// Persisted decision problems remain `{ "inner": ..., "bound": ... }`, while
+/// construction inputs expose the inner problem's fields beside `bound`.
+#[doc(hidden)]
+pub struct DecisionCreateSpec<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    inner: P,
+    bound: <P::Value as OptimizationValue>::Inner,
+}
+
+impl<'de, P> Deserialize<'de> for DecisionCreateSpec<P>
+where
+    P: Problem + DeserializeOwned,
+    P::Value: OptimizationValue,
+    <P::Value as OptimizationValue>::Inner: DeserializeOwned,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let mut inputs = value.as_object().cloned().ok_or_else(|| {
+            serde::de::Error::custom("decision construction inputs must be an object")
+        })?;
+        let bound = inputs
+            .remove("bound")
+            .ok_or_else(|| serde::de::Error::missing_field("bound"))?;
+        let inner = serde_json::from_value(serde_json::Value::Object(inputs))
+            .map_err(serde::de::Error::custom)?;
+        let bound = serde_json::from_value(bound).map_err(serde::de::Error::custom)?;
+        Ok(Self { inner, bound })
+    }
+}
+
+impl<P> From<DecisionCreateSpec<P>> for Decision<P>
+where
+    P: Problem,
+    P::Value: OptimizationValue,
+{
+    fn from(spec: DecisionCreateSpec<P>) -> Self {
+        Self::new(spec.inner, spec.bound)
+    }
 }
 
 /// Decision version of an optimization problem with a fixed objective bound.
@@ -279,8 +356,13 @@ where
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 

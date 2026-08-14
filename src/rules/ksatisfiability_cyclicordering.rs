@@ -30,17 +30,24 @@ impl ReductionResult for Reduction3SATToCyclicOrdering {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|var_idx| {
-                let (alpha, beta, gamma) = variable_triple(var_idx);
-                usize::from(!is_cyclic_order(
-                    target_solution[alpha],
-                    target_solution[beta],
-                    target_solution[gamma],
-                ))
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.source_num_vars)
+                .map(|var_idx| {
+                    let (alpha, beta, gamma) = variable_triple(var_idx);
+                    usize::from(!is_cyclic_order(
+                        target_solution[alpha],
+                        target_solution[beta],
+                        target_solution[gamma],
+                    ))
+                })
+                .collect()
+        })
     }
 }
 
@@ -64,7 +71,7 @@ fn is_cyclic_order(a: usize, b: usize, c: usize) -> bool {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_elements = "3 * num_vars + 5 * num_clauses",
         num_triples = "10 * num_clauses",
     }

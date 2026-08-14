@@ -98,13 +98,15 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     /// 4. Map normalized variables back to source variables by reading
     ///    each original `t_i`.
     ///
-    /// If no qualifying `B_1` is found (e.g. the witness is invalid),
-    /// the extracted assignment defaults to all-false.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n = self.normalized_n;
         let left_size = self.target.left_size();
         let k = self.target.k();
-
         // Unified-vertex helpers for the named gadget anchors.
         let s11_u = self.s1_left_offset; // s_{1,1}^u
         let s11_v = left_size + self.s1_right_offset; // s_{1,1}^v
@@ -115,11 +117,9 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         // Find a biclique containing both s_11^u and s_11^v, but no
         // Y-matching vertex. By Lemma 17, free-edge bicliques touch the
         // Y matching; the important-edge biclique B_1 does not.
-        let mut b1_index: Option<usize> = None;
+        let mut b1_index = None;
         for r in 0..k {
-            let in_b1 = |vertex: usize| -> bool {
-                target_solution.get(vertex * k + r).copied().unwrap_or(0) == 1
-            };
+            let in_b1 = |vertex: usize| target_solution[vertex * k + r] == 1;
             if !in_b1(s11_u) || !in_b1(s11_v) {
                 continue;
             }
@@ -133,11 +133,14 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         }
 
         // Read off normalized assignment: t_i = (h_i^u in B_1) for i in 0..n.
+        let b1_index = b1_index.ok_or_else(|| {
+            crate::rules::ExtractionError::invalid(
+                "target configuration has no important-edge biclique B_1",
+            )
+        })?;
         let mut normalized_assignment = vec![false; n];
-        if let Some(r) = b1_index {
-            for (i, slot) in normalized_assignment.iter_mut().enumerate() {
-                *slot = target_solution.get(h_left(i) * k + r).copied().unwrap_or(0) == 1;
-            }
+        for (i, slot) in normalized_assignment.iter_mut().enumerate() {
+            *slot = target_solution[h_left(i) * k + b1_index] == 1;
         }
 
         // Map normalized t_i back to the source: source x_s = t_s
@@ -146,13 +149,9 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         let mut source_assignment = vec![0usize; self.source_num_vars];
         for (s, slot) in source_assignment.iter_mut().enumerate() {
             let t_idx = 2 * s;
-            *slot = if normalized_assignment.get(t_idx).copied().unwrap_or(false) {
-                1
-            } else {
-                0
-            };
+            *slot = if normalized_assignment[t_idx] { 1 } else { 0 };
         }
-        source_assignment
+        Ok(source_assignment)
     }
 }
 
@@ -237,7 +236,7 @@ fn free_edge_budget(ell: usize, m: usize) -> usize {
     4 * ell + 2 * ceil_log2(m) + 6
 }
 
-// Overhead expressions are upper bounds in terms of source counts.
+// Size expressions are upper bounds in terms of source counts.
 // After normalization, `n ≤ 4·num_vars` (next power of two of `2·num_vars`)
 // and `m ≤ num_clauses + n ≤ num_clauses + 4·num_vars`. With
 // `ell = log2 n ≤ 2 + log2(num_vars)` we use the coarser bound
@@ -245,7 +244,7 @@ fn free_edge_budget(ell: usize, m: usize) -> usize {
 // giving the polynomial bounds below. Edges are bounded by
 // `partition_size^2` which is `O((num_vars + num_clauses)^2)`.
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "32 * num_vars + 24 * num_clauses + 100",
         num_edges = "(32 * num_vars + 24 * num_clauses + 100) * (32 * num_vars + 24 * num_clauses + 100)",
         rank = "10 * num_vars + 4 * num_clauses + 20",

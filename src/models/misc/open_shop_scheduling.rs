@@ -6,7 +6,7 @@
 //! both machine capacity (one job at a time per machine) and job capacity
 //! (each job uses at most one machine at a time) constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -17,12 +17,10 @@ inventory::submit! {
         display_name: "Open Shop Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize the makespan of an open-shop schedule",
-        fields: &[
-            FieldInfo { name: "num_machines", type_name: "usize", description: "Number of machines m" },
-            FieldInfo { name: "processing_times", type_name: "Vec<Vec<usize>>", description: "processing_times[j][i] = processing time of job j on machine i (n x m)" },
-        ],
+        fields: OpenShopSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -67,6 +65,31 @@ pub struct OpenShopScheduling {
     /// Processing time matrix: `processing_times[j][i]` is the time to process
     /// job `j` on machine `i`. Dimensions: n jobs × m machines.
     processing_times: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct OpenShopSchedulingCreateSpec {
+    /// Number of machines m.
+    num_processors: usize,
+    /// Processing time of each job on each machine (n x m).
+    processing_times: Vec<Vec<usize>>,
+}
+
+impl TryFrom<OpenShopSchedulingCreateSpec> for OpenShopScheduling {
+    type Error = String;
+
+    fn try_from(spec: OpenShopSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        for (job, times) in spec.processing_times.iter().enumerate() {
+            if times.len() != spec.num_processors {
+                return Err(format!(
+                    "processing_times[{job}] has {} entries, expected {}",
+                    times.len(),
+                    spec.num_processors
+                ));
+            }
+        }
+        Ok(Self::new(spec.num_processors, spec.processing_times))
+    }
 }
 
 impl OpenShopScheduling {
@@ -222,7 +245,7 @@ impl Problem for OpenShopScheduling {
 }
 
 crate::declare_variants! {
-    default OpenShopScheduling => "factorial(num_jobs)^num_machines",
+    default OpenShopScheduling => "factorial(num_jobs)^num_machines" create OpenShopSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

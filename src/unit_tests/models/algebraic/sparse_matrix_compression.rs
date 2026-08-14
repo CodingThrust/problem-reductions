@@ -1,4 +1,14 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_zero_bound() {
+    assert_eq!(SparseMatrixCompressionCreateSpec::FIELDS[1].name, "bound_k");
+    let result = SparseMatrixCompression::try_from(SparseMatrixCompressionCreateSpec {
+        matrix: vec![vec![true]],
+        bound_k: 0,
+    });
+    assert!(result.is_err());
+}
 use crate::registry::VariantEntry;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;

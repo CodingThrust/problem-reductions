@@ -25,7 +25,7 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     assert_eq!(value, Min(Some(-20)));
 }
@@ -66,7 +66,7 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -80,7 +80,7 @@ fn test_minimum_matrix_cover_to_ilp_2x2() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     // Optimal: different signs → value = -(3+2) = -5
     assert_eq!(value, Min(Some(-5)));
@@ -102,7 +102,7 @@ fn test_minimum_matrix_cover_to_ilp_1x1() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("1x1 ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
 }
 
@@ -116,7 +116,7 @@ fn test_minimum_matrix_cover_to_ilp_diagonal_matrix() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("diagonal ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     // All configs give value 2+3+1 = 6
     assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
 }
@@ -132,7 +132,7 @@ fn test_minimum_matrix_cover_to_ilp_asymmetric() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);

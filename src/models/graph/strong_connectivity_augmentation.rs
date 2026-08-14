@@ -20,6 +20,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Add a bounded set of weighted candidate arcs to make a digraph strongly connected",
         fields: &[

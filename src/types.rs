@@ -32,8 +32,9 @@ impl<T> NumericSize for T where
 /// Maps a weight element to its sum/metric type.
 ///
 /// This decouples the per-element weight type from the accumulation type.
-/// For concrete weights (`i32`, `f64`), `Sum` is the same type.
-/// For the unit weight `One`, `Sum = i32`.
+/// Exact integer weights use a wider accumulation type: `i32` and the unit
+/// weight [`One`] both use `i64`. Approximate `f64` weights continue to sum
+/// into `f64`.
 pub trait WeightElement: Clone + Default + 'static {
     /// The numeric type used for sums and comparisons.
     type Sum: NumericSize;
@@ -44,10 +45,10 @@ pub trait WeightElement: Clone + Default + 'static {
 }
 
 impl WeightElement for i32 {
-    type Sum = i32;
+    type Sum = i64;
     const IS_UNIT: bool = false;
-    fn to_sum(&self) -> i32 {
-        *self
+    fn to_sum(&self) -> i64 {
+        i64::from(*self)
     }
 }
 
@@ -62,7 +63,7 @@ impl WeightElement for f64 {
 /// The constant 1. Unit weight for unweighted problems.
 ///
 /// When used as the weight type parameter `W`, indicates that all weights
-/// are uniformly 1. `One::to_sum()` returns `1i32`.
+/// are uniformly 1. `One::to_sum()` returns `1i64`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct One;
 
@@ -142,9 +143,9 @@ impl<'de> Deserialize<'de> for One {
 }
 
 impl WeightElement for One {
-    type Sum = i32;
+    type Sum = i64;
     const IS_UNIT: bool = true;
-    fn to_sum(&self) -> i32 {
+    fn to_sum(&self) -> i64 {
         1
     }
 }
@@ -556,11 +557,6 @@ impl ProblemSize {
             .iter()
             .find(|(k, _)| k == name)
             .map(|(_, v)| *v)
-    }
-
-    /// Sum of all component values.
-    pub fn total(&self) -> usize {
-        self.components.iter().map(|(_, v)| *v).sum()
     }
 }
 

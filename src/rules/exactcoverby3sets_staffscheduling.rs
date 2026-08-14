@@ -33,16 +33,23 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
     ///
     /// StaffScheduling config[j] = number of workers assigned to schedule j.
     /// XC3S config[j] = 1 if subset j is selected, 0 otherwise.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
-            .iter()
-            .map(|&count| if count > 0 { 1 } else { 0 })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            target_solution
+                .iter()
+                .map(|&count| if count > 0 { 1 } else { 0 })
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_periods = "universe_size",
         num_schedules = "num_subsets",
         num_workers = "universe_size / 3",

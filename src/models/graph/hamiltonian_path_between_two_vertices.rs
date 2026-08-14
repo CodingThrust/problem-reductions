@@ -18,6 +18,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a Hamiltonian path between two specified vertices in a graph",
         fields: &[
@@ -73,6 +74,20 @@ pub struct HamiltonianPathBetweenTwoVertices<G> {
     graph: G,
     source_vertex: usize,
     target_vertex: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct HamiltonianPathBetweenTwoVerticesRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<u64>,
+    /// Path start vertex (default: 0).
+    source_vertex: Option<usize>,
+    /// Path end vertex (default: the final vertex).
+    target_vertex: Option<usize>,
 }
 
 impl<G: Graph> HamiltonianPathBetweenTwoVertices<G> {
@@ -229,8 +244,32 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
+crate::impl_random_generate!(
+    HamiltonianPathBetweenTwoVertices<SimpleGraph>,
+    HamiltonianPathBetweenTwoVerticesRandomSpec,
+    |spec| {
+        if spec.num_vertices < 2 {
+            return Err("num_vertices must be at least 2".to_string());
+        }
+        let source = spec.source_vertex.unwrap_or(0);
+        let sink = spec.target_vertex.unwrap_or(spec.num_vertices - 1);
+        if source >= spec.num_vertices || sink >= spec.num_vertices || source == sink {
+            return Err(
+                "source_vertex and target_vertex must be distinct valid vertices".to_string(),
+            );
+        }
+        let graph = crate::random::SimpleGraphRandomSpec {
+            num_vertices: spec.num_vertices,
+            edge_prob: spec.edge_prob,
+            seed: spec.seed,
+        }
+        .graph()?;
+        Ok(HamiltonianPathBetweenTwoVertices::new(graph, source, sink))
+    }
+);
+
 crate::declare_variants! {
-    default HamiltonianPathBetweenTwoVertices<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianPathBetweenTwoVertices<SimpleGraph> => "1.657^num_vertices" random,
 }
 
 #[cfg(test)]

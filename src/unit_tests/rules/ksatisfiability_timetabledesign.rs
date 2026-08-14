@@ -1,7 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::models::misc::TimetableDesign;
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -53,7 +52,7 @@ fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_tim
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 
@@ -66,28 +65,26 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
         construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
             .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let source = satisfiable_instance();
     let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
 
     let target_solution = ILPSolver::new()
-        .solve_reduced(reduction.target_problem())
+        .solve_reduced::<bool, _>(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let source = unsatisfiable_instance();
@@ -95,8 +92,8 @@ fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
 
     assert!(
         ILPSolver::new()
-            .solve_reduced(reduction.target_problem())
-            .is_none(),
+            .solve_reduced::<bool, _>(reduction.target_problem())
+            .is_err(),
         "unsatisfiable 3SAT instance should produce an infeasible timetable"
     );
 }

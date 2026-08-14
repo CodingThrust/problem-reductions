@@ -7,7 +7,7 @@ use std::collections::{HashMap, VecDeque};
 
 use serde::{Deserialize, Serialize};
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::VariantParam;
@@ -20,13 +20,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Determine whether Player 1 has a forced blue path between two terminals",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "source", type_name: "usize", description: "The source terminal s" },
-            FieldInfo { name: "target", type_name: "usize", description: "The target terminal t" },
-        ],
+        fields: GeneralizedHexCreateSpec::FIELDS,
     }
 }
 
@@ -41,6 +38,40 @@ pub struct GeneralizedHex<G> {
     graph: G,
     source: usize,
     target: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct GeneralizedHexCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// The source terminal s.
+    source: usize,
+    /// The target terminal t.
+    sink: usize,
+}
+
+impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
+    type Error = String;
+
+    fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
+        let num_vertices = spec.graph.num_vertices();
+        if spec.source >= num_vertices {
+            return Err(format!(
+                "source {} is outside graph with {num_vertices} vertices",
+                spec.source
+            ));
+        }
+        if spec.sink >= num_vertices {
+            return Err(format!(
+                "sink {} is outside graph with {num_vertices} vertices",
+                spec.sink
+            ));
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".to_string());
+        }
+        Ok(Self::new(spec.graph, spec.source, spec.sink))
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -263,8 +294,17 @@ where
     }
 }
 
+crate::impl_random_generate!(
+    GeneralizedHex<SimpleGraph>,
+    crate::random::EndpointRandomSpec,
+    |spec| {
+        let (source, sink) = spec.endpoints()?;
+        Ok(GeneralizedHex::new(spec.graph()?, source, sink))
+    }
+);
+
 crate::declare_variants! {
-    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices",
+    default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices" create GeneralizedHexCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]

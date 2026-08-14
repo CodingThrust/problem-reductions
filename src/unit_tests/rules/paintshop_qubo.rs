@@ -47,7 +47,7 @@ fn test_paintshop_to_qubo_optimal_value() {
 
     // Extract solutions and verify they are optimal for the source
     for sol in &best_target {
-        let source_sol = reduction.extract_solution(sol);
+        let source_sol = reduction.extract_solution(sol).unwrap();
         let switches = source.count_switches(&source_sol);
         // Optimal is 2 switches
         assert_eq!(switches, 2, "Expected 2 switches for optimal solution");

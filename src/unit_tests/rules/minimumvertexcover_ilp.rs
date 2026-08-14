@@ -1,10 +1,10 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MinimumVertexCover;
-use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Min, ProblemSize};
+use crate::types::Min;
 
 fn reduce_vc_to_ilp(
     problem: &MinimumVertexCover<SimpleGraph, i32>,
@@ -13,15 +13,10 @@ fn reduce_vc_to_ilp(
     let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MinimumVertexCover",
-            &src,
-            "ILP",
-            &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
-        )
-        .expect("Should find path MinimumVertexCover -> ILP");
+        .find_all_paths("MinimumVertexCover", &src, "ILP", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["MinimumVertexCover", "MinimumSetCovering", "ILP"])
+        .expect("expected explicit MinimumSetCovering route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
         .expect("Should reduce MinimumVertexCover to ILP along path");
@@ -61,7 +56,7 @@ fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     let ilp_size: usize = extracted.iter().sum();
     assert_eq!(ilp_size, 2);
@@ -77,7 +72,7 @@ fn test_minimumvertexcover_to_ilp_via_path_weighted() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
     assert_eq!(extracted, vec![0, 1, 0]);
@@ -94,6 +89,6 @@ fn test_minimumvertexcover_to_ilp_bf_vs_ilp() {
     let bf_solutions = BruteForce::new().find_all_witnesses(&problem);
     let bf_value = problem.evaluate(&bf_solutions[0]);
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution);
+    let extracted = chain.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_value);
 }

@@ -70,7 +70,7 @@ fn test_hamiltoniancircuit_to_longestcircuit_extract_solution() {
 
     // All edges selected forms a Hamiltonian circuit on the cycle graph
     let target_solution = vec![1, 1, 1, 1];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(target.evaluate(&target_solution), Max(Some(4)));
     assert_eq!(extracted.len(), 4);

@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Disjunctive Normal Form",
         aliases: &["MinDNF"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find minimum-term DNF formula equivalent to a Boolean function",
         fields: &[

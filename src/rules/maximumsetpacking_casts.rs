@@ -9,6 +9,7 @@ impl_variant_reduction!(
     MaximumSetPacking,
     <One> => <i32>,
     fields: [num_sets, universe_size],
+    aggregate: identity,
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),
         src.weights_ref().iter().map(|w| w.cast_to_parent()).collect())

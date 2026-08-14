@@ -2,84 +2,132 @@
 
 use crate::expr::Expr;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
+use crate::size::{SizeRelation, SizeTransform, SizeTransformError};
 use crate::types::ProblemSize;
 use std::any::Any;
 use std::collections::HashSet;
 
-/// Overhead specification for a reduction.
-#[derive(Clone, Debug, Default, serde::Serialize)]
-pub struct ReductionOverhead {
-    /// Output size as expressions of input size variables.
-    /// Each entry is (output_field_name, expression).
-    pub output_size: Vec<(&'static str, Expr)>,
+/// One target field whose size cannot be propagated through a reduction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct UnavailableSizeField {
+    pub field: &'static str,
+    pub reason: &'static str,
 }
 
-impl ReductionOverhead {
-    pub fn new(output_size: Vec<(&'static str, Expr)>) -> Self {
-        Self { output_size }
+/// Raw symbolic declaration emitted by the reduction proc macro.
+#[derive(Clone, Debug, Default)]
+pub struct ReductionSizeDeclarations {
+    pub relation: Option<SizeRelation>,
+    pub fields: Vec<(&'static str, Expr)>,
+    pub unavailable: Vec<UnavailableSizeField>,
+}
+
+/// Validated size metadata for one reduction edge.
+#[derive(Clone, Debug)]
+pub struct ReductionSizeContract {
+    transform: Option<SizeTransform>,
+    unavailable: Vec<UnavailableSizeField>,
+}
+
+impl ReductionSizeContract {
+    pub fn new(
+        edge: impl Into<Box<str>>,
+        declarations: ReductionSizeDeclarations,
+    ) -> Result<Self, SizeContractError> {
+        let edge = edge.into();
+        let formula_names: HashSet<_> = declarations
+            .fields
+            .iter()
+            .map(|(field, _)| *field)
+            .collect();
+        let mut unavailable_names = HashSet::new();
+        for unavailable in &declarations.unavailable {
+            if unavailable.reason.trim().is_empty() {
+                return Err(SizeContractError::EmptyUnavailableReason {
+                    edge,
+                    field: unavailable.field.into(),
+                });
+            }
+            if !unavailable_names.insert(unavailable.field)
+                || formula_names.contains(unavailable.field)
+            {
+                return Err(SizeContractError::DuplicateClassification {
+                    edge,
+                    field: unavailable.field.into(),
+                });
+            }
+        }
+        let transform = match (declarations.relation, declarations.fields.is_empty()) {
+            (Some(relation), false) => {
+                Some(SizeTransform::new(edge, relation, declarations.fields)?)
+            }
+            (None, true) if !declarations.unavailable.is_empty() => None,
+            (None, true) => return Err(SizeContractError::EmptyContract { edge }),
+            (Some(_), true) => return Err(SizeContractError::EmptyTransform { edge }),
+            (None, false) => return Err(SizeContractError::MissingRelation { edge }),
+        };
+        Ok(Self {
+            transform,
+            unavailable: declarations.unavailable,
+        })
     }
 
-    /// Identity overhead: each output field equals the same-named input field.
-    /// Used by variant cast reductions where problem size doesn't change.
-    pub fn identity(fields: &[&'static str]) -> Self {
-        Self {
-            output_size: fields.iter().map(|&f| (f, Expr::Var(f))).collect(),
+    pub fn transform(&self) -> Option<&SizeTransform> {
+        self.transform.as_ref()
+    }
+
+    pub fn unavailable(&self) -> &[UnavailableSizeField] {
+        &self.unavailable
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SizeContractError {
+    Transform(SizeTransformError),
+    EmptyContract { edge: Box<str> },
+    EmptyTransform { edge: Box<str> },
+    MissingRelation { edge: Box<str> },
+    DuplicateClassification { edge: Box<str>, field: Box<str> },
+    EmptyUnavailableReason { edge: Box<str>, field: Box<str> },
+}
+
+impl std::fmt::Display for SizeContractError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Transform(error) => write!(formatter, "invalid size transform: {error}"),
+            Self::EmptyContract { edge } => write!(
+                formatter,
+                "reduction `{edge}` has no size formulas or unavailable fields"
+            ),
+            Self::EmptyTransform { edge } => {
+                write!(
+                    formatter,
+                    "reduction `{edge}` declares an empty size transform"
+                )
+            }
+            Self::MissingRelation { edge } => write!(
+                formatter,
+                "reduction `{edge}` declares size formulas without a relation"
+            ),
+            Self::DuplicateClassification { edge, field } => {
+                write!(
+                    formatter,
+                    "reduction `{edge}` classifies target field `{field}` more than once"
+                )
+            }
+            Self::EmptyUnavailableReason { edge, field } => write!(
+                formatter,
+                "reduction `{edge}` marks target field `{field}` unavailable without a reason"
+            ),
         }
     }
+}
 
-    /// Evaluate output size given input size.
-    ///
-    /// Uses `round()` for the f64 to usize conversion because expression values
-    /// are typically integers and any fractional results come from floating-point
-    /// arithmetic imprecision, not intentional fractions.
-    pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
-        let fields: Vec<_> = self
-            .output_size
-            .iter()
-            .map(|(name, expr)| (*name, expr.eval(input).round() as usize))
-            .collect();
-        ProblemSize::new(fields)
-    }
+impl std::error::Error for SizeContractError {}
 
-    /// Collect all input variable names referenced by the overhead expressions.
-    pub fn input_variable_names(&self) -> HashSet<&'static str> {
-        self.output_size
-            .iter()
-            .flat_map(|(_, expr)| expr.variables())
-            .collect()
-    }
-
-    /// Compose two overheads: substitute self's output into `next`'s input.
-    ///
-    /// Returns a new overhead whose expressions map from self's input variables
-    /// directly to `next`'s output variables.
-    pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
-        use std::collections::HashMap;
-
-        // Build substitution map: output field name → output expression
-        let mapping: HashMap<&str, &Expr> = self
-            .output_size
-            .iter()
-            .map(|(name, expr)| (*name, expr))
-            .collect();
-
-        let composed = next
-            .output_size
-            .iter()
-            .map(|(name, expr)| (*name, expr.substitute(&mapping)))
-            .collect();
-
-        ReductionOverhead {
-            output_size: composed,
-        }
-    }
-
-    /// Get the expression for a named output field.
-    pub fn get(&self, name: &str) -> Option<&Expr> {
-        self.output_size
-            .iter()
-            .find(|(n, _)| *n == name)
-            .map(|(_, e)| e)
+impl From<SizeTransformError> for SizeContractError {
+    fn from(error: SizeTransformError) -> Self {
+        Self::Transform(error)
     }
 }
 
@@ -101,52 +149,16 @@ pub struct EdgeCapabilities {
 }
 
 impl EdgeCapabilities {
-    pub const fn none() -> Self {
+    pub(crate) const fn from_executors(
+        reduce_fn: Option<ReduceFn>,
+        reduce_aggregate_fn: Option<AggregateReduceFn>,
+        turing: bool,
+    ) -> Self {
         Self {
-            witness: false,
-            aggregate: false,
-            turing: false,
+            witness: reduce_fn.is_some(),
+            aggregate: reduce_aggregate_fn.is_some(),
+            turing,
         }
-    }
-
-    pub const fn witness_only() -> Self {
-        Self {
-            witness: true,
-            aggregate: false,
-            turing: false,
-        }
-    }
-
-    pub const fn aggregate_only() -> Self {
-        Self {
-            witness: false,
-            aggregate: true,
-            turing: false,
-        }
-    }
-
-    pub const fn both() -> Self {
-        Self {
-            witness: true,
-            aggregate: true,
-            turing: false,
-        }
-    }
-
-    pub const fn turing() -> Self {
-        Self {
-            witness: false,
-            aggregate: false,
-            turing: true,
-        }
-    }
-}
-
-/// Defaults to `witness_only()` — the conservative choice for edges registered
-/// via `#[reduction]`, which are witness/config reductions.
-impl Default for EdgeCapabilities {
-    fn default() -> Self {
-        Self::witness_only()
     }
 }
 
@@ -161,8 +173,8 @@ pub struct ReductionEntry {
     pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to derive target variant attributes from `Problem::variant()`.
     pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-    /// Function to create overhead information (lazy evaluation for static context).
-    pub overhead_fn: fn() -> ReductionOverhead,
+    /// The rule's single size relation, formulas, and unavailable target fields.
+    pub size_declarations_fn: fn() -> ReductionSizeDeclarations,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
     /// Type-erased reduction executor.
@@ -174,22 +186,18 @@ pub struct ReductionEntry {
     /// `ReduceToAggregate::reduce_to_aggregate()`, and returns the result as a
     /// boxed `DynAggregateReductionResult`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
-    /// Capability metadata for runtime path filtering.
-    pub capabilities: EdgeCapabilities,
-    /// Compiled overhead evaluation function.
-    /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
-    /// and returns the computed target problem size.
-    pub overhead_eval_fn: fn(&dyn Any) -> ProblemSize,
-    /// Extract source problem size from a type-erased instance.
-    /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods,
-    /// and returns the source problem's size fields as a `ProblemSize`.
-    pub source_size_fn: fn(&dyn Any) -> ProblemSize,
+    /// Whether this is a Turing (multi-query) reduction.
+    pub turing: bool,
+    /// Measure the source fields referenced by this rule's size formulas.
+    pub source_size_measure_fn: fn(&dyn Any) -> ProblemSize,
+    /// Measure the target fields declared by this rule's size contract.
+    pub target_size_measure_fn: fn(&dyn Any) -> ProblemSize,
 }
 
 impl ReductionEntry {
-    /// Get the overhead by calling the function.
-    pub fn overhead(&self) -> ReductionOverhead {
-        (self.overhead_fn)()
+    pub fn size_contract(&self) -> Result<ReductionSizeContract, SizeContractError> {
+        let edge: Box<str> = format!("{} -> {}", self.source_name, self.target_name).into();
+        ReductionSizeContract::new(edge, (self.size_declarations_fn)())
     }
 
     /// Get the source variant by calling the function.
@@ -200,6 +208,11 @@ impl ReductionEntry {
     /// Get the target variant by calling the function.
     pub fn target_variant(&self) -> Vec<(&'static str, &'static str)> {
         (self.target_variant_fn)()
+    }
+
+    /// Return the modes backed by this entry's executors.
+    pub fn capabilities(&self) -> EdgeCapabilities {
+        EdgeCapabilities::from_executors(self.reduce_fn, self.reduce_aggregate_fn, self.turing)
     }
 
     /// Check if this reduction involves only the base (unweighted) variants.
@@ -227,9 +240,9 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_name", &self.target_name)
             .field("source_variant", &self.source_variant())
             .field("target_variant", &self.target_variant())
-            .field("overhead", &self.overhead())
+            .field("size_contract", &self.size_contract())
             .field("module_path", &self.module_path)
-            .field("capabilities", &self.capabilities)
+            .field("capabilities", &self.capabilities())
             .finish()
     }
 }

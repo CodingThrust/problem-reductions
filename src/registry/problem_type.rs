@@ -1,6 +1,6 @@
 //! Problem type catalog: runtime lookup by name, alias, and variant validation.
 
-use super::schema::{ProblemSchemaEntry, VariantDimension};
+use super::schema::{ProblemCategory, ProblemSchemaEntry, VariantDimension};
 use super::FieldInfo;
 use std::collections::BTreeMap;
 
@@ -17,8 +17,10 @@ pub struct ProblemType {
     pub dimensions: &'static [VariantDimension],
     /// Human-readable description.
     pub description: &'static str,
-    /// Struct fields.
+    /// Inputs accepted when constructing this problem.
     pub fields: &'static [FieldInfo],
+    /// Explicit structural model category.
+    pub category: ProblemCategory,
 }
 
 impl ProblemType {
@@ -31,6 +33,7 @@ impl ProblemType {
             dimensions: entry.dimensions,
             description: entry.description,
             fields: entry.fields,
+            category: entry.category,
         }
     }
 

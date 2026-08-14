@@ -31,7 +31,7 @@ fn test_solution_extraction_no_ancilla() {
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
 
     let mc_sol = vec![0, 1];
-    let extracted = reduction.extract_solution(&mc_sol);
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
     assert_eq!(extracted, vec![0, 1]);
 }
 
@@ -42,12 +42,12 @@ fn test_solution_extraction_with_ancilla() {
 
     // If ancilla is 0, don't flip
     let mc_sol = vec![0, 1, 0];
-    let extracted = reduction.extract_solution(&mc_sol);
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
     assert_eq!(extracted, vec![0, 1]);
 
     // If ancilla is 1, flip all
     let mc_sol = vec![0, 1, 1];
-    let extracted = reduction.extract_solution(&mc_sol);
+    let extracted = reduction.extract_solution(&mc_sol).unwrap();
     assert_eq!(extracted, vec![1, 0]); // flipped and ancilla removed
 }
 

@@ -10,21 +10,6 @@ pub struct ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
     target: SequencingToMinimizeTardyTaskWeight,
 }
 
-impl ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
-    fn decode_schedule(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.target.num_tasks();
-        assert_eq!(
-            target_solution.len(),
-            n,
-            "target solution length must equal target num_tasks"
-        );
-
-        // The target model uses direct permutation encoding (dims = [n; n]).
-        // Each position is a task index; the solver returns a valid permutation.
-        target_solution.to_vec()
-    }
-}
-
 impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
     type Source = Partition;
     type Target = SequencingToMinimizeTardyTaskWeight;
@@ -33,27 +18,47 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let schedule = self.decode_schedule(target_solution);
-        let mut source_config = vec![1; self.target.num_tasks()];
-        let mut completion_time = 0u64;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for task in schedule {
-            completion_time = completion_time
-                .checked_add(self.target.lengths()[task])
-                .expect("completion time overflowed u64");
-            if completion_time <= self.target.deadlines()[task] {
-                source_config[task] = 0;
+        Ok({
+            let mut seen = vec![false; self.target.num_tasks()];
+            for &task in target_solution {
+                if std::mem::replace(&mut seen[task], true) {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "target schedule contains task {task} more than once"
+                    )));
+                }
             }
-        }
 
-        source_config
+            let mut source_config = vec![1; self.target.num_tasks()];
+            let mut completion_time = 0u64;
+
+            for &task in target_solution {
+                completion_time = completion_time
+                    .checked_add(self.target.lengths()[task])
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target schedule completion time overflows u64",
+                        )
+                    })?;
+                if completion_time <= self.target.deadlines()[task] {
+                    source_config[task] = 0;
+                }
+            }
+
+            source_config
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    size = exact {
+        num_tasks = "num_elements",
+    })]
 impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
     type Result = ReductionPartitionToSequencingToMinimizeTardyTaskWeight;
 

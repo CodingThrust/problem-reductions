@@ -1,5 +1,9 @@
-use crate::registry::variant::{validate_variant_aliases, variant_label};
-use std::collections::BTreeMap;
+use crate::registry::variant::{
+    validate_create_inputs, validate_direct_create_inputs, validate_variant_aliases,
+    variant_entries, variant_label,
+};
+use crate::registry::{ConstructionError, CreateInputCodec, CreateInputInfo, FieldInfo};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[test]
 fn variant_alias_inventory_is_valid() {
@@ -14,6 +18,193 @@ use crate::registry::variant::validate_aliases_inner;
 
 fn empty_problem_names() -> BTreeMap<String, Vec<String>> {
     BTreeMap::new()
+}
+
+const CREATE_INPUTS: &[CreateInputInfo] = &[
+    CreateInputInfo {
+        name: "required_value",
+        type_name: "usize",
+        description: "A required value",
+        required: true,
+        codec: CreateInputCodec::Scalar,
+    },
+    CreateInputInfo {
+        name: "optional_value",
+        type_name: "usize",
+        description: "An optional value",
+        required: false,
+        codec: CreateInputCodec::Scalar,
+    },
+];
+
+#[test]
+fn construction_contract_accepts_declared_inputs() {
+    let data = serde_json::json!({"required_value": 1, "optional_value": 2});
+    assert_eq!(validate_create_inputs(CREATE_INPUTS, &data), Ok(()));
+}
+
+#[test]
+fn construction_contract_rejects_unknown_inputs() {
+    let data = serde_json::json!({"required_value": 1, "removed_value": 2});
+    assert_eq!(
+        validate_create_inputs(CREATE_INPUTS, &data),
+        Err(ConstructionError::UnknownInputs(vec![
+            "removed_value".to_string()
+        ]))
+    );
+}
+
+#[test]
+fn construction_contract_rejects_missing_required_inputs() {
+    let data = serde_json::json!({"optional_value": 2});
+    assert_eq!(
+        validate_create_inputs(CREATE_INPUTS, &data),
+        Err(ConstructionError::MissingInputs(vec![
+            "required_value".to_string()
+        ]))
+    );
+}
+
+#[test]
+fn construction_contract_rejects_non_object_values() {
+    assert_eq!(
+        validate_create_inputs(CREATE_INPUTS, &serde_json::json!([])),
+        Err(ConstructionError::ExpectedObject)
+    );
+}
+
+#[test]
+fn construction_contract_rejects_duplicate_declarations() {
+    let duplicate = [CREATE_INPUTS[0], CREATE_INPUTS[0]];
+    assert_eq!(
+        validate_create_inputs(&duplicate, &serde_json::json!({"required_value": 1})),
+        Err(ConstructionError::DuplicateInput(
+            "required_value".to_string()
+        ))
+    );
+}
+
+#[test]
+fn catalog_custom_construction_metadata_is_well_formed() {
+    for entry in inventory::iter::<crate::registry::VariantEntry>() {
+        let Some(inputs) = entry.create_inputs else {
+            continue;
+        };
+        let label = variant_label(entry);
+        let mut names = BTreeSet::new();
+        for input in inputs {
+            assert!(
+                !input.name.is_empty(),
+                "{label} declares an empty construction input name"
+            );
+            assert!(
+                input
+                    .name
+                    .bytes()
+                    .all(|byte| byte == b'_' || byte.is_ascii_lowercase() || byte.is_ascii_digit()),
+                "{label} construction input `{}` must use snake_case",
+                input.name
+            );
+            assert!(
+                names.insert(input.name),
+                "{label} declares construction input `{}` more than once",
+                input.name
+            );
+            assert!(
+                !input.type_name.trim().is_empty(),
+                "{label} construction input `{}` has no Rust type",
+                input.name
+            );
+            assert_eq!(
+                input.description,
+                input.description.trim(),
+                "{label} construction input `{}` has surrounding whitespace in its description",
+                input.name
+            );
+        }
+    }
+}
+
+#[test]
+fn default_custom_construction_inputs_match_catalog_schema_fields() {
+    for entry in inventory::iter::<crate::registry::VariantEntry>()
+        .filter(|entry| entry.is_default && entry.create_inputs.is_some())
+    {
+        let schema = inventory::iter::<crate::registry::ProblemSchemaEntry>()
+            .find(|schema| schema.name == entry.name)
+            .unwrap_or_else(|| panic!("{} has no ProblemSchemaEntry", entry.name));
+        let schema_names = schema
+            .fields
+            .iter()
+            .map(|field| field.name)
+            .collect::<BTreeSet<_>>();
+        let input_names = entry
+            .create_inputs
+            .unwrap()
+            .iter()
+            .map(|input| input.name)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            schema_names,
+            input_names,
+            "default variant {} catalog fields differ from its construction inputs",
+            variant_label(entry)
+        );
+    }
+}
+
+#[test]
+fn every_custom_construction_contract_rejects_unknown_and_missing_inputs() {
+    for entry in inventory::iter::<crate::registry::VariantEntry>() {
+        let Some(inputs) = entry.create_inputs else {
+            continue;
+        };
+        assert_eq!(
+            validate_create_inputs(inputs, &serde_json::json!({"unknown_input": null})),
+            Err(ConstructionError::UnknownInputs(vec![
+                "unknown_input".to_string()
+            ])),
+            "{} accepted an undeclared construction input",
+            variant_label(entry)
+        );
+
+        let required = inputs
+            .iter()
+            .filter(|input| input.required)
+            .map(|input| input.name.to_string())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        let result = validate_create_inputs(inputs, &serde_json::json!({}));
+        if required.is_empty() {
+            assert_eq!(
+                result,
+                Ok(()),
+                "{} rejected an empty payload",
+                variant_label(entry)
+            );
+        } else {
+            assert_eq!(
+                result,
+                Err(ConstructionError::MissingInputs(required)),
+                "{} did not report all missing required inputs",
+                variant_label(entry)
+            );
+        }
+    }
+}
+
+#[test]
+fn construction_contract_direct_fields_are_required() {
+    let fields = [FieldInfo {
+        name: "value",
+        type_name: "usize",
+        description: "Stored value",
+    }];
+    assert_eq!(
+        validate_direct_create_inputs(&fields, &serde_json::json!({})),
+        Err(ConstructionError::MissingInputs(vec!["value".to_string()]))
+    );
 }
 
 #[test]
@@ -121,4 +312,53 @@ fn variant_label_with_variant_dimensions() {
         label.contains("k=K3"),
         "expected label to include k=K3, got: {label}"
     );
+}
+
+#[test]
+fn random_contract_input_names_are_unique() {
+    let entries = variant_entries();
+    assert!(entries.iter().any(|entry| entry.random.is_some()));
+
+    for entry in entries {
+        let Some(random) = entry.random else {
+            continue;
+        };
+        let mut names = BTreeSet::new();
+        for input in random.inputs {
+            assert!(
+                !input.name.is_empty(),
+                "{} has an empty random input",
+                variant_label(entry)
+            );
+            assert!(
+                names.insert(input.name),
+                "{} declares random input `{}` more than once",
+                variant_label(entry),
+                input.name
+            );
+        }
+    }
+}
+
+#[test]
+fn established_random_generation_models_remain_registered() {
+    let expected = "
+        DecisionMinimumVertexCover MaximumIndependentSet MinimumVertexCover MaximumClique
+        MinimumDominatingSet MaximalIS KClique MinimumCutIntoBoundedSets HamiltonianCircuit
+        HamiltonianPath HamiltonianPathBetweenTwoVertices LongestCircuit MinimumMaximalMatching
+        RootedTreeArrangement SteinerTree SteinerTreeInGraphs LengthBoundedDisjointPaths
+        MaximumAchromaticNumber MaximumDomaticNumber MinimumCoveringByCliques
+        MinimumIntersectionGraphBasis MaximumLeafSpanningTree GeneralizedHex
+        BottleneckTravelingSalesman MaxCut MaximumMatching TravelingSalesman SpinGlass KColoring
+        OptimalLinearArrangement MinimumSumMulticenter
+    ";
+    let registered = variant_entries()
+        .into_iter()
+        .filter(|entry| entry.random.is_some())
+        .map(|entry| entry.name)
+        .collect::<BTreeSet<_>>();
+
+    for name in expected.split_whitespace() {
+        assert!(registered.contains(name), "{name} lost random generation");
+    }
 }

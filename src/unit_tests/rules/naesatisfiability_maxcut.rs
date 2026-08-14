@@ -106,7 +106,7 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
     // x2=F -> vertex 2 in set 0, vertex 3 in set 1
     // x3=T -> vertex 4 in set 1, vertex 5 in set 0
     let target_config = vec![1, 0, 0, 1, 1, 0];
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0, 1]); // x1=T, x2=F, x3=T
 
     // Verify this is a valid NAE-SAT solution

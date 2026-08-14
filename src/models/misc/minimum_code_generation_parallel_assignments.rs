@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Minimum Code Generation (Parallel Assignments)",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find an ordering of parallel assignments minimizing backward dependencies",
         fields: &[

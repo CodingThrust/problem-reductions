@@ -83,7 +83,7 @@ fn test_partition_to_multiprocessorscheduling_solution_extraction() {
     let target_solutions = solver.find_all_witnesses(target);
 
     for sol in &target_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         // Solution length should match number of elements
         assert_eq!(extracted.len(), source.num_elements());
         // Extracted solution should satisfy source if target is satisfied

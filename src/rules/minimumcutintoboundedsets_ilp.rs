@@ -26,16 +26,21 @@ impl ReductionResult for ReductionMinCutBSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices + num_edges",
         num_constraints = "2 + 2 + 2 * num_edges",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
     type Result = ReductionMinCutBSToILP;

@@ -56,7 +56,7 @@ fn test_ksatisfiability_to_quadraticcongruences_yes_vector_matches_reference() {
         .expect("reference witness must fit target encoding");
     assert_eq!(target.evaluate(&target_config), crate::types::Or(true));
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0, 0]);
     assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
 }
@@ -93,13 +93,22 @@ fn test_ksatisfiability_to_quadraticcongruences_extracts_assignment_from_constru
     let target_config = witness_config_for_assignment(&source, &[1, 0, 0, 0])
         .expect("assignment should lift to a target witness");
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0, 0, 0]);
     assert_eq!(source.evaluate(&extracted), crate::types::Or(true));
     assert_eq!(
         reduction.target_problem().evaluate(&target_config),
         crate::types::Or(true)
     );
+}
+
+#[test]
+fn test_ksatisfiability_to_quadraticcongruences_rejects_missing_variable_signs() {
+    let source = yes_source();
+    let reduction = ReduceTo::<QuadraticCongruences>::reduce_to(&source);
+    let target_config = vec![0; reduction.target_problem().dims().len()];
+
+    assert!(reduction.extract_solution(&target_config).is_err());
 }
 
 #[test]
@@ -128,7 +137,7 @@ fn test_ksatisfiability_to_quadraticcongruences_closed_loop() {
     );
 
     // Verify round-trip: extracting the source solution recovers the original assignment.
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0, 0]);
     assert_eq!(
         source.evaluate(&extracted),

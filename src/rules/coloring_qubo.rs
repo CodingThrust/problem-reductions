@@ -11,6 +11,7 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::KColoring;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K2, K3, KN};
@@ -33,15 +34,13 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     }
 
     /// Decode one-hot: for each vertex, find which color bit is 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = self.num_colors;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..k)
-                    .find(|&c| target_solution[v * k + c] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
     }
 }
 
@@ -105,7 +104,9 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    overhead = { num_vars = "num_vertices^2" }
+    size = exact {
+        num_vars = "num_vertices * num_colors",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<KN>;

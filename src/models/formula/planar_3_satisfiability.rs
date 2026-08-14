@@ -9,7 +9,7 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
-use super::CNFClause;
+use super::{sat::validate_cnf_literals, CNFClause};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Planar 3-Satisfiability",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Formula,
         module_path: module_path!(),
         description: "3-SAT with planar variable-clause incidence graph",
         fields: &[
@@ -64,6 +65,7 @@ inventory::submit! {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "Planar3SatisfiabilityDef")]
 pub struct Planar3Satisfiability {
     /// Number of variables.
     num_vars: usize,
@@ -80,26 +82,21 @@ impl Planar3Satisfiability {
     ///
     /// **Note:** Planarity of the incidence graph is not checked.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self::try_new(num_vars, clauses).unwrap_or_else(|message| panic!("{message}"))
+    }
+
+    /// Create a new Planar 3-SAT problem after validating its clauses.
+    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+        validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() == 3,
-                "Clause {} has {} literals, expected 3",
-                i,
-                clause.len()
-            );
-            for &lit in &clause.literals {
-                let var = lit.unsigned_abs() as usize;
-                assert!(
-                    var >= 1 && var <= num_vars,
-                    "Clause {} contains literal {} referencing variable {} outside range [1, {}]",
-                    i,
-                    lit,
-                    var,
-                    num_vars
-                );
+            if clause.len() != 3 {
+                return Err(format!(
+                    "Clause {i} has {} literals, expected 3",
+                    clause.len()
+                ));
             }
         }
-        Self { num_vars, clauses }
+        Ok(Self { num_vars, clauses })
     }
 
     /// Get the number of variables.
@@ -150,6 +147,20 @@ impl Problem for Planar3Satisfiability {
 
 crate::declare_variants! {
     default Planar3Satisfiability => "1.307^num_variables",
+}
+
+#[derive(Deserialize)]
+struct Planar3SatisfiabilityDef {
+    num_vars: usize,
+    clauses: Vec<CNFClause>,
+}
+
+impl TryFrom<Planar3SatisfiabilityDef> for Planar3Satisfiability {
+    type Error = String;
+
+    fn try_from(value: Planar3SatisfiabilityDef) -> Result<Self, Self::Error> {
+        Self::try_new(value.num_vars, value.clauses)
+    }
 }
 
 #[cfg(feature = "example-db")]

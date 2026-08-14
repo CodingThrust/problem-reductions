@@ -41,8 +41,13 @@ impl ReductionResult for ReductionMSMCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 
@@ -110,9 +115,12 @@ fn weighted_distances_msmc(
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices + num_vertices^2",
-        num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {

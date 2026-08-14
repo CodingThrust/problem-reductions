@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_invalid_partition() {
+    assert_eq!(
+        MultipleChoiceBranchingCreateSpec::FIELDS[3].name,
+        "partition"
+    );
+    let result = MultipleChoiceBranching::try_from(MultipleChoiceBranchingCreateSpec {
+        arcs: vec![(0, 1)],
+        num_vertices: Some(2),
+        weights: vec![1],
+        partition: vec![],
+        threshold: 1,
+    });
+    assert!(result.is_err());
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

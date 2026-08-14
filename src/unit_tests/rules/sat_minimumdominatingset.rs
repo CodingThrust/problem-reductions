@@ -5,7 +5,6 @@ use crate::rules::test_helpers::{
 };
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
-use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
@@ -50,7 +49,7 @@ fn test_extract_solution_positive_literal() {
     // Solution: select vertex 0 (positive literal x1)
     // This dominates vertices 1, 2 (gadget) and vertex 3 (clause)
     let ds_sol = vec![1, 0, 0, 0];
-    let sat_sol = reduction.extract_solution(&ds_sol);
+    let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
     assert_eq!(sat_sol, vec![1]); // x1 = true
 }
 
@@ -63,7 +62,7 @@ fn test_extract_solution_negative_literal() {
     // Solution: select vertex 1 (negative literal NOT x1)
     // This dominates vertices 0, 2 (gadget) and vertex 3 (clause)
     let ds_sol = vec![0, 1, 0, 0];
-    let sat_sol = reduction.extract_solution(&ds_sol);
+    let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
     assert_eq!(sat_sol, vec![0]); // x1 = false
 }
 
@@ -77,7 +76,7 @@ fn test_extract_solution_dummy() {
     // Vertex 0 dominates: itself, 1, 2, and clause 6
     // Vertex 5 dominates: 3, 4, and itself
     let ds_sol = vec![1, 0, 0, 0, 0, 1, 0];
-    let sat_sol = reduction.extract_solution(&ds_sol);
+    let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
     assert_eq!(sat_sol, vec![1, 0]); // x1 = true, x2 = false (from dummy)
 }
 
@@ -134,15 +133,42 @@ fn test_accessors() {
 
 #[test]
 fn test_extract_solution_too_many_selected() {
-    // Test that extract_solution handles invalid (non-minimal) dominating sets
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
-    // Select all 4 vertices (more than num_literals=1)
-    let ds_sol = vec![1, 1, 1, 1];
-    let sat_sol = reduction.extract_solution(&ds_sol);
-    // Should return default (all false)
-    assert_eq!(sat_sol, vec![0]);
+    let ds_sol = vec![1, 1, 0, 0];
+    assert_eq!(
+        reduction.extract_solution(&ds_sol).unwrap_err().to_string(),
+        "variable 0 gadget must select exactly one vertex, got 2"
+    );
+}
+
+#[test]
+fn test_extract_solution_rejects_unselected_variable_gadget() {
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+
+    assert_eq!(
+        reduction
+            .extract_solution(&[0, 0, 0, 0])
+            .unwrap_err()
+            .to_string(),
+        "variable 0 gadget must select exactly one vertex, got 0"
+    );
+}
+
+#[test]
+fn test_extract_solution_rejects_selected_clause_vertex() {
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+
+    assert_eq!(
+        reduction
+            .extract_solution(&[1, 0, 0, 1])
+            .unwrap_err()
+            .to_string(),
+        "clause vertex 0 is selected"
+    );
 }
 
 #[test]
@@ -205,11 +231,7 @@ fn test_jl_parity_sat_to_dominatingset() {
             if sat_solutions.is_empty() {
                 let target_solution = solve_optimization_problem(result.target_problem())
                     .expect("SAT->DS: target should have an optimal solution");
-                let extracted = result.extract_solution(&target_solution);
-                assert!(
-                    !source.evaluate(&extracted),
-                    "SAT->DS [{label}]: unsatisfiable but extracted satisfies"
-                );
+                assert!(result.extract_solution(&target_solution).is_err());
             } else {
                 assert_satisfaction_round_trip_from_optimization_target(
                     &source,

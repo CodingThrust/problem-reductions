@@ -31,17 +31,24 @@ impl ReductionResult for ReductionSCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
-        one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Decode the permutation: for each position p, find the arc a with x_{a,p} = 1
+            one_hot_decode(target_solution, self.num_arcs, self.num_arcs, 0)?
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_arcs * num_arcs + num_arcs * num_arcs * num_arcs",
         num_constraints = "num_arcs + num_arcs + 3 * num_arcs * num_arcs * num_arcs",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;

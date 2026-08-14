@@ -1,10 +1,10 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::MaximumIndependentSet;
-use crate::rules::{Minimize, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::BruteForce;
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{Max, ProblemSize};
+use crate::types::Max;
 
 fn reduce_mis_to_qubo(
     problem: &MaximumIndependentSet<SimpleGraph, i32>,
@@ -13,18 +13,10 @@ fn reduce_mis_to_qubo(
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
     let path = graph
-        .find_cheapest_path(
-            "MaximumIndependentSet",
-            &src,
-            "QUBO",
-            &dst,
-            &ProblemSize::new(vec![
-                ("num_vertices", problem.graph().num_vertices()),
-                ("num_edges", problem.graph().num_edges()),
-            ]),
-            &Minimize("num_vars"),
-        )
-        .expect("Should find path MaximumIndependentSet -> QUBO");
+        .find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst)
+        .into_iter()
+        .find(|path| path.type_names() == ["MaximumIndependentSet", "MaximumSetPacking", "QUBO"])
+        .expect("expected explicit MaximumSetPacking route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
         .expect("Should reduce MaximumIndependentSet to QUBO along path");
@@ -53,7 +45,7 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
     let solver = BruteForce::new();
     let qubo_solutions = solver.find_all_witnesses(qubo);
     for sol in &qubo_solutions {
-        let extracted = chain.extract_solution(sol);
+        let extracted = chain.extract_solution(sol).unwrap();
         assert!(problem.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
@@ -70,7 +62,7 @@ fn test_maximumindependentset_to_qubo_via_path_weighted() {
     let qubo_solution = solver
         .find_witness(qubo)
         .expect("QUBO should be solvable via path");
-    let extracted = chain.extract_solution(&qubo_solution);
+    let extracted = chain.extract_solution(&qubo_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Max(Some(100)));
     assert_eq!(extracted, vec![0, 1, 0]);
@@ -86,7 +78,7 @@ fn test_maximumindependentset_to_qubo_via_path_empty_graph() {
 
     let solver = BruteForce::new();
     let qubo_solution = solver.find_witness(qubo).expect("QUBO should be solvable");
-    let extracted = chain.extract_solution(&qubo_solution);
+    let extracted = chain.extract_solution(&qubo_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1]);
     assert_eq!(problem.evaluate(&extracted), Max(Some(3)));

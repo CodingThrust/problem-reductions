@@ -24,13 +24,18 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinMaxMulticente
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

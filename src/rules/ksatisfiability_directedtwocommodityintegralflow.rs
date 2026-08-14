@@ -171,26 +171,26 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.variable_paths
-            .iter()
-            .map(|paths| {
-                usize::from(
-                    target_solution
-                        .get(paths.lower_entry_arc)
-                        .copied()
-                        .unwrap_or(0)
-                        > 0,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.variable_paths
+                .iter()
+                .map(|paths| usize::from(target_solution[paths.lower_entry_arc] > 0))
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
-    num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
-})]
+#[reduction(
+    size = exact {
+        num_vertices = "6 * num_vars + 2 * num_literals + num_clauses + 4",
+        num_arcs = "7 * num_vars + 4 * num_literals + num_clauses + 1",
+    })]
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 

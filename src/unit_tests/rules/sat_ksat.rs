@@ -152,7 +152,7 @@ fn test_sat_to_3sat_solution_extraction() {
 
     // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
-        let sat_sol = reduction.extract_solution(ksat_sol);
+        let sat_sol = reduction.extract_solution(ksat_sol).unwrap();
         // Should only have original 2 variables
         assert_eq!(sat_sol.len(), 2);
         // Should satisfy original problem
@@ -188,7 +188,7 @@ fn test_3sat_to_sat_solution_extraction() {
     let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat);
 
     let sol = vec![1, 0, 1];
-    let extracted = reduction.extract_solution(&sol);
+    let extracted = reduction.extract_solution(&sol).unwrap();
     assert_eq!(extracted, vec![1, 0, 1]);
 }
 
@@ -244,14 +244,14 @@ fn test_sat_to_3sat_mixed_clause_types() {
 
 #[test]
 fn test_ksat_structure() {
-    let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3, 4])]);
+    let sat = Satisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
     let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // K-SAT should preserve original variables plus auxiliary vars
     // A 4-literal clause requires 1 auxiliary variable for Tseitin
-    assert_eq!(ksat.num_vars(), 3 + 1); // Original vars + 1 auxiliary for Tseitin
+    assert_eq!(ksat.num_vars(), 4 + 1); // Original vars + 1 auxiliary for Tseitin
 }
 
 #[test]

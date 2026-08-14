@@ -14,7 +14,7 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -32,7 +32,7 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -43,7 +43,7 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_infeasible() {
         SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0);
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible STMWT should produce infeasible ILP"
     );
 }
@@ -61,6 +61,6 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_no_tardiness() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

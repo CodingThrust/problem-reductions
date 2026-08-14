@@ -41,7 +41,7 @@ fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -65,7 +65,7 @@ fn test_solution_extraction() {
         1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, // x vars
         1, 0, 1, 0, 0, 1, 0, 1, // y vars
     ];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
@@ -80,7 +80,7 @@ fn test_partitionintopathsoflength2_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),

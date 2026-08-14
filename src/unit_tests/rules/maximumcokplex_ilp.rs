@@ -72,7 +72,7 @@ fn test_maximumcokplex_to_ilp_k_equals_1_regression() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("k=1 instance should be ILP-solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(source.evaluate(&extracted), Max(Some(2)));
     assert_eq!(extracted.iter().sum::<usize>(), 2);
@@ -84,7 +84,7 @@ fn test_maximumcokplex_to_ilp_extract_solution_identity() {
     let source = issue_instance();
     let reduction: ReductionCoKPlexToILP<i32> = ReduceTo::<ILP<bool>>::reduce_to(&source);
     let target_solution = vec![1, 0, 1, 0, 1];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, target_solution);
     assert_eq!(source.evaluate(&extracted), Max(Some(12)));

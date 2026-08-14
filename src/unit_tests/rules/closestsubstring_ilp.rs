@@ -71,6 +71,21 @@ fn test_closestsubstring_to_ilp_structure() {
 }
 
 #[test]
+fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
+    let source = issue_instance();
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let target_solution = vec![0; reduction.target_problem().num_vars];
+
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "center position 0 has no selected value"
+    );
+}
+
+#[test]
 fn test_closestsubstring_to_ilp_closed_loop() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
@@ -79,7 +94,7 @@ fn test_closestsubstring_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Extracted config must be syntactically valid (length ell + n = 6) and
     // match the brute-force optimum.
@@ -112,7 +127,7 @@ fn test_closestsubstring_to_ilp_zero_radius_when_common_substring_exists() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let extracted_value = source.evaluate(&extracted);
     assert!(extracted_value.is_valid());
@@ -157,7 +172,7 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
     target_solution[6 + 6] = 1; // y_{3, 0}
     target_solution[ilp.num_vars - 1] = 1; // R = 1
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0, 0, 1, 0]);
     assert_eq!(source.evaluate(&extracted), Min(Some(1)));
 }

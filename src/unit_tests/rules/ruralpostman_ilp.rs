@@ -22,7 +22,7 @@ fn test_ruralpostman_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(source.evaluate(&extracted).0.is_some());
 }
@@ -47,7 +47,7 @@ fn test_ruralpostman_to_ilp_optimization() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let ilp_value = source.evaluate(&extracted);
     assert!(ilp_value.0.is_some(), "ILP solution must be valid");

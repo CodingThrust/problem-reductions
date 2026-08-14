@@ -54,57 +54,66 @@ impl ReductionResult for ReductionSTSCToILP {
     }
 
     /// Extract operation sequence from ILP solution.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let k = self.bound;
-        let noop_code = 2 * n;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        if n == 0 {
-            return vec![noop_code; k];
-        }
+        Ok({
+            let n = self.n;
+            let k = self.bound;
+            let noop_code = 2 * n;
 
-        let nm1 = n.saturating_sub(1);
-        let mut ops = Vec::with_capacity(k);
+            if n == 0 {
+                return Ok(vec![noop_code; k]);
+            }
 
-        for t in 1..=k {
-            // current length at step t-1
-            let current_len = (0..n)
-                .filter(|&p| target_solution[idx_e(n, k, t - 1, p)] == 0)
-                .count();
+            let nm1 = n.saturating_sub(1);
+            let mut ops = Vec::with_capacity(k);
 
-            if target_solution[idx_nu(n, k, t)] == 1 {
-                ops.push(noop_code);
-            } else {
-                let mut found = false;
-                for j in 0..n {
-                    if target_solution[idx_d(n, k, t, j)] == 1 {
-                        ops.push(j);
-                        found = true;
-                        break;
-                    }
+            for t in 1..=k {
+                // current length at step t-1
+                let current_len = (0..n)
+                    .filter(|&p| target_solution[idx_e(n, k, t - 1, p)] == 0)
+                    .count();
+
+                let mut selected = Vec::new();
+                if target_solution[idx_nu(n, k, t)] == 1 {
+                    selected.push(noop_code);
                 }
-                if !found {
-                    for j in 0..nm1 {
-                        if target_solution[idx_s(n, k, t, j)] == 1 {
-                            ops.push(current_len + j);
-                            found = true;
-                            break;
-                        }
+                selected.extend((0..n).filter(|&j| target_solution[idx_d(n, k, t, j)] == 1));
+                selected.extend(
+                    (0..nm1)
+                        .filter(|&j| target_solution[idx_s(n, k, t, j)] == 1)
+                        .map(|j| current_len + j),
+                );
+                match selected.as_slice() {
+                    [operation] => ops.push(*operation),
+                    [] => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "edit step {t} has no selected operation"
+                        )))
                     }
-                    if !found {
-                        ops.push(noop_code);
+                    _ => {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "edit step {t} has multiple selected operations"
+                        )))
                     }
                 }
             }
-        }
-        ops
+            ops
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "(bound + 1) * source_length * source_length + (bound + 1) * source_length + 2 * bound * source_length",
-        num_constraints = "(bound + 1) * source_length * source_length",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for StringToStringCorrection {
@@ -391,7 +400,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

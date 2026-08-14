@@ -28,14 +28,20 @@ impl ReductionResult for ReductionPartitionToCPI {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_coefficients = "num_elements",
-})]
+#[reduction(
+    size = exact {
+        num_coefficients = "num_elements",
+    })]
 impl ReduceTo<CosineProductIntegration> for Partition {
     type Result = ReductionPartitionToCPI;
 

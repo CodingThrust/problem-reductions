@@ -22,7 +22,7 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted);
 
     // Both should find optimal size = 2
@@ -80,7 +80,7 @@ fn test_minimummetricdimension_to_ilp_path_graph() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.evaluate(&extracted).is_valid());
     assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
@@ -103,7 +103,7 @@ fn test_minimummetricdimension_to_ilp_complete_graph() {
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_size = problem.evaluate(&extracted);
 
     assert_eq!(bf_size, Min(Some(3)));
@@ -117,7 +117,7 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 0];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 0]);
 
     // Verify this is a valid resolving set
@@ -136,7 +136,7 @@ fn test_minimummetricdimension_to_ilp_cycle() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(problem.evaluate(&extracted).is_valid());
     assert_eq!(problem.evaluate(&extracted), Min(Some(2)));

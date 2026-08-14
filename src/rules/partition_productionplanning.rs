@@ -17,18 +17,23 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.target.num_periods() - 1]
             .iter()
-            .take(self.target.num_periods().saturating_sub(1))
             .map(|&production| usize::from(production > 0))
-            .collect()
+            .collect())
     }
 }
 
-#[reduction(overhead = {
-    num_periods = "num_elements + 1",
-})]
+#[reduction(
+    size = exact {
+        num_periods = "num_elements + 1",
+    })]
 impl ReduceTo<ProductionPlanning> for Partition {
     type Result = ReductionPartitionToProductionPlanning;
 

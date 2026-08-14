@@ -10,7 +10,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::SubgraphIsomorphism;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_assignment_constraints;
+use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode_rows};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
 
@@ -34,22 +34,28 @@ impl ReductionResult for ReductionSubIsoToILP {
     }
 
     /// Extract: for each pattern vertex v, output the unique host vertex u with x_{v,u} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n_host = self.num_host_vertices;
-        (0..self.num_pattern_vertices)
-            .map(|v| {
-                (0..n_host)
-                    .find(|&u| target_solution[v * n_host + u] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(
+            target_solution,
+            self.num_pattern_vertices,
+            self.num_host_vertices,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_pattern_vertices * num_host_vertices",
-        num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {

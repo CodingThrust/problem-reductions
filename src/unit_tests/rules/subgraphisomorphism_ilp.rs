@@ -37,7 +37,7 @@ fn test_subgraphisomorphism_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -65,7 +65,7 @@ fn test_subgraphisomorphism_to_ilp_path_in_cycle() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -78,7 +78,7 @@ fn test_subgraphisomorphism_to_ilp_infeasible() {
     let reduction: ReductionSubIsoToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
-    assert!(result.is_none(), "K3 in path should be infeasible");
+    assert!(result.is_err(), "K3 in path should be infeasible");
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn test_solution_extraction() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 

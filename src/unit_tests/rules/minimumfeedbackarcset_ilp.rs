@@ -38,7 +38,7 @@ fn test_minimumfeedbackarcset_to_ilp_bf_vs_ilp() {
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     // Both should find optimal value = 1
@@ -55,7 +55,7 @@ fn test_solution_extraction() {
 
     // Simulate ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
     let ilp_solution = vec![0, 0, 1, 0, 1, 2];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]);
 
     // Verify this is a valid FAS (removing arc 2->0 breaks the 3-cycle)
@@ -79,7 +79,7 @@ fn test_minimumfeedbackarcset_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let value = problem.evaluate(&extracted);
     assert_eq!(value, Min(Some(0)), "DAG needs no arc removal");

@@ -2,7 +2,7 @@ use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::topology::Graph;
 use crate::traits::Problem;
-use crate::types::{Min, Or};
+use crate::types::Min;
 
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
@@ -68,7 +68,10 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
         ],
     );
     assert_eq!(target.evaluate(&target_solution), Min(Some(6)));
-    assert_eq!(reduction.extract_solution(&target_solution), vec![0, 0, 1]);
+    assert_eq!(
+        reduction.extract_solution(&target_solution).unwrap(),
+        vec![0, 0, 1]
+    );
 }
 
 #[test]
@@ -97,7 +100,11 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_
     );
     assert_eq!(target.evaluate(&target_solution), Min(Some(4)));
 
-    let extracted = reduction.extract_solution(&target_solution);
-
-    assert_eq!(source.evaluate(&extracted), Or(false));
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "target cover uses 2 cliques, exceeding source bound 1"
+    );
 }

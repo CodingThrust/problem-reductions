@@ -44,21 +44,31 @@ impl ReductionResult for ReductionNMTSToILP {
     }
 
     /// Extract solution: for each x_i find the y_j it is paired with.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut assignment = vec![0usize; self.m];
-        for (var_idx, triple) in self.triples.iter().enumerate() {
-            if target_solution[var_idx] == 1 {
-                assignment[triple.i] = triple.j;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut assignment = vec![0usize; self.m];
+            for (var_idx, triple) in self.triples.iter().enumerate() {
+                if target_solution[var_idx] == 1 {
+                    assignment[triple.i] = triple.j;
+                }
             }
-        }
-        assignment
+            assignment
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_pairs * num_pairs * num_pairs",
+    size = exact {
+
         num_constraints = "3 * num_pairs",
+    },
+    unavailable = {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {

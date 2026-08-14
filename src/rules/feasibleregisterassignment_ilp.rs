@@ -29,15 +29,21 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
-    num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
+        num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
+    },)]
 impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 

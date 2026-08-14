@@ -33,16 +33,21 @@ impl ReductionResult for ReductionSCToILP {
     ///
     /// Since the mapping is 1:1 (each set maps to one binary variable),
     /// the solution extraction is simply copying the configuration.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_sets",
         num_constraints = "universe_size",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
     type Result = ReductionSCToILP;

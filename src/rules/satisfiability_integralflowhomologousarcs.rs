@@ -102,26 +102,26 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.variable_paths
-            .iter()
-            .map(|paths| {
-                usize::from(
-                    target_solution
-                        .get(paths.true_base_arc)
-                        .copied()
-                        .unwrap_or(0)
-                        > 0,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.variable_paths
+                .iter()
+                .map(|paths| usize::from(target_solution[paths.true_base_arc] > 0))
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
-    num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
-})]
+#[reduction(
+    size = exact {
+        num_vertices = "2 * num_vars * num_clauses + 3 * num_vars + 2 * num_clauses + 2",
+        num_arcs = "2 * num_vars * num_clauses + 5 * num_vars + num_clauses + num_literals",
+    })]
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;
 

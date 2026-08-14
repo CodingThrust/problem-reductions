@@ -8,7 +8,8 @@
 //! (for example, on `C5`, `mmm(G) = 2` but `mvc(G) = 3`).
 
 use crate::models::graph::{MinimumMaximalMatching, MinimumVertexCover};
-use crate::rules::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use crate::rules::registry::ReductionSizeDeclarations;
+use crate::rules::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, ProblemSize};
@@ -30,13 +31,28 @@ inventory::submit! {
         target_name: MinimumMaximalMatching::<SimpleGraph>::NAME,
         source_variant_fn: <MinimumVertexCover<SimpleGraph, One> as Problem>::variant,
         target_variant_fn: <MinimumMaximalMatching<SimpleGraph> as Problem>::variant,
-        overhead_fn: || ReductionOverhead::identity(&["num_vertices", "num_edges"]),
+        size_declarations_fn: || ReductionSizeDeclarations {
+            relation: Some(crate::size::SizeRelation::Exact),
+            fields: vec![
+                ("num_vertices", crate::expr::Expr::variable("num_vertices")),
+                ("num_edges", crate::expr::Expr::variable("num_edges")),
+            ],
+            unavailable: vec![],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
-        capabilities: EdgeCapabilities::none(),
-        overhead_eval_fn: source_problem_size,
-        source_size_fn: source_problem_size,
+        turing: false,
+        source_size_measure_fn: source_problem_size,
+        target_size_measure_fn: |any| {
+            let target = any
+                .downcast_ref::<MinimumMaximalMatching<SimpleGraph>>()
+                .expect("MinimumVertexCover -> MinimumMaximalMatching target type mismatch");
+            ProblemSize::new(vec![
+                ("num_vertices", target.num_vertices()),
+                ("num_edges", target.num_edges()),
+            ])
+        },
     }
 }
 

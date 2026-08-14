@@ -108,7 +108,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
             metric.is_valid(),
             "best RPP solution should be a valid circuit"
         );
-        let two_n = 2 * n as i32;
+        let two_n = 2 * i64::try_from(n).unwrap();
         assert!(
             metric.unwrap() > two_n,
             "non-Hamiltonian source should give RPP cost > 2n={two_n}, got {}",
@@ -127,7 +127,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
         .find_witness(target)
         .expect("should find a solution");
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert_eq!(
         extracted.len(),
         3,

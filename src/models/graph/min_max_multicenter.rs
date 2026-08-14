@@ -3,10 +3,10 @@
 //! The vertex p-center problem asks for K centers on vertices of a graph that
 //! minimize the maximum weighted distance from any vertex to its nearest center.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::types::{Min, WeightElement};
+use crate::types::{Min, One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -19,14 +19,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find K centers minimizing the maximum weighted distance from any vertex to its nearest center (vertex p-center)",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "vertex_weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l: E -> R" },
-            FieldInfo { name: "k", type_name: "usize", description: "Number of centers to place" },
-        ],
+        fields: MinMaxMulticenterI32CreateSpec::FIELDS,
     }
 }
 
@@ -67,6 +63,96 @@ pub struct MinMaxMulticenter<G, W: WeightElement> {
     edge_lengths: Vec<W>,
     /// Number of centers to place.
     k: usize,
+}
+
+macro_rules! min_max_multicenter_create_spec {
+    ($name:ident, $weight:ty, $one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            num_vertices: Option<usize>,
+            #[create(codec = "comma-separated")]
+            weights: Option<Vec<$weight>>,
+            #[create(codec = "comma-separated")]
+            edge_weights: Option<Vec<$weight>>,
+            k: usize,
+        }
+
+        impl TryFrom<$name> for MinMaxMulticenter<SimpleGraph, $weight> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+                let vertex_weights = spec
+                    .weights
+                    .unwrap_or_else(|| vec![$one; graph.num_vertices()]);
+                if vertex_weights.len() != graph.num_vertices() {
+                    return Err(format!(
+                        "weights has length {}, expected {}",
+                        vertex_weights.len(),
+                        graph.num_vertices()
+                    ));
+                }
+                let edge_lengths = spec
+                    .edge_weights
+                    .unwrap_or_else(|| vec![$one; graph.num_edges()]);
+                if edge_lengths.len() != graph.num_edges() {
+                    return Err(format!(
+                        "edge_weights has length {}, expected {}",
+                        edge_lengths.len(),
+                        graph.num_edges()
+                    ));
+                }
+                let zero = <$weight as WeightElement>::Sum::zero();
+                if vertex_weights
+                    .iter()
+                    .any(|weight| weight.to_sum() < zero.clone())
+                {
+                    return Err("weights must be non-negative".to_string());
+                }
+                if edge_lengths
+                    .iter()
+                    .any(|weight| weight.to_sum() < zero.clone())
+                {
+                    return Err("edge_weights must be non-negative".to_string());
+                }
+                if spec.k == 0 || spec.k > graph.num_vertices() {
+                    return Err(format!("k must be between 1 and {}", graph.num_vertices()));
+                }
+                Ok(Self::new(graph, vertex_weights, edge_lengths, spec.k))
+            }
+        }
+    };
+}
+
+min_max_multicenter_create_spec!(MinMaxMulticenterI32CreateSpec, i32, 1);
+min_max_multicenter_create_spec!(MinMaxMulticenterOneCreateSpec, One, One);
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
@@ -272,8 +358,8 @@ where
 }
 
 crate::declare_variants! {
-    default MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices",
-    MinMaxMulticenter<SimpleGraph, crate::types::One> => "1.4969^num_vertices",
+    default MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices" create MinMaxMulticenterI32CreateSpec,
+    MinMaxMulticenter<SimpleGraph, One> => "1.4969^num_vertices" create MinMaxMulticenterOneCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

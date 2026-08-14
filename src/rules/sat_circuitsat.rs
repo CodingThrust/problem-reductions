@@ -26,18 +26,25 @@ impl ReductionResult for ReductionSATToCircuit {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_var_indices
-            .iter()
-            .map(|&idx| target_solution[idx])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.source_var_indices
+                .iter()
+                .map(|&idx| target_solution[idx])
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_variables = "num_vars + num_clauses",
-        num_assignments = "num_vars + num_clauses",
+    size = unavailable {
+        num_variables = "the exact circuit variable count depends on used-variable and clause-expression incidence absent from the source size vector",
+        num_assignments = "the exact assignment count depends on the number of source variables unused by every clause",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {

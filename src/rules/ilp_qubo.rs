@@ -29,13 +29,20 @@ impl ReductionResult for ReductionILPToQUBO {
     }
 
     /// Extract only the original variables (discard slack).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_original_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_original_vars].to_vec())
     }
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars + num_constraints * num_vars" }
+    size = unavailable {
+        num_vars = "the exact count depends on source incidence structure or construction branches not represented by registered source fields",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;

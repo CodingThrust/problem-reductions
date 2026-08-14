@@ -31,24 +31,25 @@ impl ReductionResult for ReductionCVPToQUBO {
     }
 
     /// Reconstruct the source configuration offsets from the encoded QUBO bits.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.encodings
-            .iter()
-            .map(|encoding| {
-                encoding
-                    .weights
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, weight)| {
-                        target_solution
-                            .get(encoding.start + offset)
-                            .copied()
-                            .unwrap_or(0)
-                            * weight
-                    })
-                    .sum()
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.encodings
+                .iter()
+                .map(|encoding| {
+                    encoding
+                        .weights
+                        .iter()
+                        .enumerate()
+                        .map(|(offset, weight)| target_solution[encoding.start + offset] * weight)
+                        .sum()
+                })
+                .collect()
+        })
     }
 }
 
@@ -111,7 +112,9 @@ fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
         .collect()
 }
 
-#[reduction(overhead = { num_vars = "num_encoding_bits" })]
+#[reduction(size = exact {
+    num_vars = "num_encoding_bits",
+})]
 impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
     type Result = ReductionCVPToQUBO;
 

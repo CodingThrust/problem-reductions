@@ -6,9 +6,7 @@ use crate::traits::Problem;
 use crate::variant::K3;
 use std::collections::BTreeSet;
 
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 
 #[test]
@@ -58,12 +56,11 @@ fn test_ksatisfiability_to_monochromatic_triangle_complement_extraction() {
         "the supplied target coloring must avoid monochromatic triangles"
     );
 
-    let extracted = reduction.extract_solution(&target_coloring);
+    let extracted = reduction.extract_solution(&target_coloring).unwrap();
     assert_eq!(extracted, vec![1, 1, 1]);
     assert!(source.evaluate(&extracted));
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
     let source = KSatisfiability::<K3>::new(
@@ -79,10 +76,10 @@ fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(mono_to_ilp.target_problem())
         .expect("reduced MonochromaticTriangle instance should be feasible");
-    let mono_solution = mono_to_ilp.extract_solution(&ilp_solution);
+    let mono_solution = mono_to_ilp.extract_solution(&ilp_solution).unwrap();
 
     assert!(reduction.target_problem().evaluate(&mono_solution));
 
-    let extracted = reduction.extract_solution(&mono_solution);
+    let extracted = reduction.extract_solution(&mono_solution).unwrap();
     assert!(source.evaluate(&extracted));
 }

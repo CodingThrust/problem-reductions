@@ -29,7 +29,7 @@ fn test_ksatisfiability_to_kclique_closed_loop() {
 
     // Every KClique solution must map back to a satisfying 3-SAT assignment
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted));
     }
@@ -79,7 +79,7 @@ fn test_ksatisfiability_to_kclique_single_clause() {
     // Each solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
         sat_assignments.insert(extracted);
     }
@@ -142,7 +142,7 @@ fn test_ksatisfiability_to_kclique_three_clauses() {
 
     // Verify all solutions map back correctly
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted));
     }
@@ -170,7 +170,7 @@ fn test_ksatisfiability_to_kclique_extract_solution_example() {
     let specific_config = vec![0, 0, 1, 1, 0, 0];
     assert!(target.evaluate(&specific_config));
 
-    let extracted = reduction.extract_solution(&specific_config);
+    let extracted = reduction.extract_solution(&specific_config).unwrap();
     // Vertex 2 = clause 0, pos 2 → literal 3 (x3) → x3=T → assignment[2]=1
     // Vertex 3 = clause 1, pos 0 → literal -1 (¬x1) → x1=F → assignment[0]=0
     // Unset variables default to 0.

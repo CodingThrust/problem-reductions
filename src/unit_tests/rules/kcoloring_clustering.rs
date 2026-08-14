@@ -42,7 +42,7 @@ fn test_kcoloring_to_clustering_extract_solution_identity() {
     let reduction = ReduceTo::<Clustering>::reduce_to(&source);
     let config = vec![0, 1, 0];
 
-    assert_eq!(reduction.extract_solution(&config), config);
+    assert_eq!(reduction.extract_solution(&config).unwrap(), config);
 }
 
 #[test]
@@ -64,6 +64,9 @@ fn test_kcoloring_to_clustering_empty_graph() {
     assert_eq!(target.num_elements(), 1);
     assert_eq!(target.num_clusters(), 3);
     assert_eq!(target.diameter_bound(), 0);
-    assert_eq!(reduction.extract_solution(&[2]), Vec::<usize>::new());
+    assert_eq!(
+        reduction.extract_solution(&[2]).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_satisfaction_round_trip_from_satisfaction_target(&source, &reduction, "empty graph");
 }

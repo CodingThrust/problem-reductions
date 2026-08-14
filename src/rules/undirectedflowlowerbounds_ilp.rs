@@ -21,7 +21,7 @@
 //! Flow conservation at non-terminal vertices.
 //! Net flow into sink ≥ requirement.
 //!
-//! Overhead: 3*|E| variables, 4*|E| + |V| + 1 constraints (conservative for non-terminals).
+//! Size upper bound: 3*|E| variables, 4*|E| + |V| + 1 constraints (conservative for non-terminals).
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::UndirectedFlowLowerBounds;
@@ -54,20 +54,27 @@ impl ReductionResult for ReductionUFLBToILP {
     /// The model encodes orientation as config[e] = 0 for u→v, 1 for v→u.
     /// The ILP uses z_e = 1 for u→v, z_e = 0 for v→u.
     /// So we return 1 - z_e to match the model's convention.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let e = self.num_edges;
-        target_solution[2 * e..3 * e]
-            .iter()
-            .map(|&z| 1 - z)
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let e = self.num_edges;
+            target_solution[2 * e..3 * e]
+                .iter()
+                .map(|&z| 1 - z)
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "3 * num_edges",
         num_constraints = "4 * num_edges + num_vertices + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;

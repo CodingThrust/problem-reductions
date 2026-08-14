@@ -48,7 +48,7 @@ fn test_steinertree_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
     let best_source = bf.find_all_witnesses(&problem);
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&best_source[0]), Min(Some(6)));
     assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
@@ -66,7 +66,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
     ];
 
     assert_eq!(
-        reduction.extract_solution(&target_solution),
+        reduction.extract_solution(&target_solution).unwrap(),
         vec![1, 1, 1, 1, 0, 0, 0]
     );
 }
@@ -75,7 +75,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_solve_reduced_uses_new_rule() {
     let problem = canonical_instance();
     let solution = ILPSolver::new()
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should find the Steiner tree via ILP");
     assert_eq!(problem.evaluate(&solution), Min(Some(6)));
 }

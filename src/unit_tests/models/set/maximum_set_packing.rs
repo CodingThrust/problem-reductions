@@ -5,6 +5,21 @@ use crate::types::Max;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_maximum_set_packing_create_spec_uses_subsets_input() {
+    assert_eq!(
+        MaximumSetPackingCreateSpec::<i32>::FIELDS[0].name,
+        "subsets"
+    );
+    let problem = MaximumSetPacking::try_from(MaximumSetPackingCreateSpec {
+        subsets: vec![vec![0], vec![1]],
+        weights: vec![2, 3],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0], vec![1]]);
+    assert_eq!(problem.weights_ref(), &[2, 3]);
+}
+
+#[test]
 fn test_set_packing_creation() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
     assert_eq!(problem.num_sets(), 3);
@@ -115,7 +130,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,

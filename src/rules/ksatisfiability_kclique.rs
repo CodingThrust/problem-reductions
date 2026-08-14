@@ -36,28 +36,35 @@ impl ReductionResult for Reduction3SATToKClique {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.source_num_vars;
-        // Start with all variables unset (false = 0).
-        let mut assignment = vec![0usize; n];
-        // Track which variables have been explicitly set by a clique vertex.
-        let mut set = vec![false; n];
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for (v, &val) in target_solution.iter().enumerate() {
-            if val != 1 {
-                continue;
+        Ok({
+            let n = self.source_num_vars;
+            // Start with all variables unset (false = 0).
+            let mut assignment = vec![0usize; n];
+            // Track which variables have been explicitly set by a clique vertex.
+            let mut set = vec![false; n];
+
+            for (v, &val) in target_solution.iter().enumerate() {
+                if val != 1 {
+                    continue;
+                }
+                // Vertex v corresponds to clause j, position p.
+                let j = v / 3;
+                let p = v % 3;
+                let lit = self.source_clauses[j][p];
+                let var_idx = (lit.unsigned_abs() as usize) - 1; // 0-indexed
+                if !set[var_idx] {
+                    assignment[var_idx] = if lit > 0 { 1 } else { 0 };
+                    set[var_idx] = true;
+                }
             }
-            // Vertex v corresponds to clause j, position p.
-            let j = v / 3;
-            let p = v % 3;
-            let lit = self.source_clauses[j][p];
-            let var_idx = (lit.unsigned_abs() as usize) - 1; // 0-indexed
-            if !set[var_idx] {
-                assignment[var_idx] = if lit > 0 { 1 } else { 0 };
-                set[var_idx] = true;
-            }
-        }
-        assignment
+            assignment
+        })
     }
 }
 
@@ -67,10 +74,10 @@ fn literals_contradict(lit1: i32, lit2: i32) -> bool {
 }
 
 #[reduction(
-    overhead = {
+    size = upper_bound {
         num_vertices = "3 * num_clauses",
-        num_edges = "9 * num_clauses * (num_clauses - 1) / 2",
         k = "num_clauses",
+        num_edges = "9 * num_clauses^2",
     }
 )]
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {

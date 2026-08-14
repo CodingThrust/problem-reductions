@@ -63,7 +63,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
 
     // Select edges (0,1), (0,3), (1,2), (2,3) => config [1, 0, 1, 1, 0, 1]
     let target_config = vec![1, 0, 1, 1, 0, 1];
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
 
     assert_eq!(extracted.len(), 4);
     assert!(

@@ -29,22 +29,26 @@ impl ReductionResult for ReductionRCSToILP {
     }
 
     /// Extract: for each task j, find the unique slot t with x_{j,t} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d = self.deadline;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..d)
-                    .find(|&t| target_solution.get(j * d + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.deadline,
+            0,
+        )
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * deadline",
-    num_constraints = "num_tasks + deadline + num_resources * deadline",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * deadline",
+        num_constraints = "num_tasks + deadline + num_resources * deadline",
+    },)]
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 

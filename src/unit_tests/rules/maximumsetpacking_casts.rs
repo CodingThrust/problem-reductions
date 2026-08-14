@@ -15,7 +15,7 @@ fn test_maximumsetpacking_one_to_i32_cast_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(sp_i32).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     let metric = sp_one.evaluate(&source_solution);
     assert!(metric.is_valid());
@@ -32,7 +32,7 @@ fn test_maximumsetpacking_i32_to_f64_cast_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver.find_witness(sp_f64).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     let metric = sp_i32.evaluate(&source_solution);
     assert!(metric.is_valid());

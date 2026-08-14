@@ -36,10 +36,17 @@ impl ReductionResult for ReductionNAESATToMaxCut {
     /// Variable x_i is assigned based on vertex 2*i: if it is in set 0
     /// (config[2*i] == 0), set x_i = false (config value 0); if in set 1,
     /// set x_i = true (config value 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.source_num_vars)
-            .map(|i| target_solution[2 * i])
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.source_num_vars)
+                .map(|i| target_solution[2 * i])
+                .collect()
+        })
     }
 }
 
@@ -57,7 +64,7 @@ fn literal_vertex(lit: i32) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "2 * num_vars",
         num_edges = "num_vars + num_literal_pairs",
     }

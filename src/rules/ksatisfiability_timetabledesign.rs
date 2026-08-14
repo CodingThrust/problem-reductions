@@ -23,6 +23,7 @@
 use crate::models::formula::{CNFClause, KSatisfiability};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 #[cfg(any(test, feature = "example-db"))]
 use crate::traits::Problem;
@@ -128,7 +129,7 @@ pub struct Reduction3SATToTimetableDesign {
 }
 
 fn literal_var_index(literal: i32) -> usize {
-    literal.unsigned_abs() as usize - 1
+    usize::try_from(literal.unsigned_abs()).expect("SAT literal magnitude must fit usize") - 1
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -203,7 +204,11 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
     let (mut clauses, pure_assignments) = eliminate_pure_literals(source);
     let source_num_vars = source.num_vars();
     let mut transformed_to_original = Vec::new();
-    let mut next_var = source_num_vars + 1;
+    let mut variables = SatVariableAllocator::new(
+        "KSatisfiability -> TimetableDesign normalization",
+        source_num_vars,
+    )
+    .unwrap_or_else(|message| panic!("{message}"));
 
     for original_var in 1..=source_num_vars {
         let mut occurrences = Vec::new();
@@ -220,41 +225,38 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
         }
 
         if occurrences.len() <= 3 {
-            let replacement = next_var;
-            next_var += 1;
+            let replacement = variables
+                .allocate()
+                .unwrap_or_else(|message| panic!("{message}"));
             transformed_to_original.push(original_var - 1);
             for (clause_idx, lit_idx, is_positive) in occurrences {
                 clauses[clause_idx].literals[lit_idx] = if is_positive {
-                    replacement as i32
+                    replacement
                 } else {
-                    -(replacement as i32)
+                    -replacement
                 };
             }
             continue;
         }
 
-        let replacements: Vec<usize> = (0..occurrences.len())
-            .map(|_| {
-                let id = next_var;
-                next_var += 1;
-                transformed_to_original.push(original_var - 1);
-                id
-            })
-            .collect();
+        let replacements = variables
+            .allocate_many(occurrences.len())
+            .unwrap_or_else(|message| panic!("{message}"));
+        transformed_to_original.extend(std::iter::repeat_n(original_var - 1, replacements.len()));
 
         for ((clause_idx, lit_idx, is_positive), replacement) in
             occurrences.into_iter().zip(replacements.iter().copied())
         {
             clauses[clause_idx].literals[lit_idx] = if is_positive {
-                replacement as i32
+                replacement
             } else {
-                -(replacement as i32)
+                -replacement
             };
         }
 
         for idx in 0..replacements.len() {
-            let current = replacements[idx] as i32;
-            let next = replacements[(idx + 1) % replacements.len()] as i32;
+            let current = replacements[idx];
+            let next = replacements[(idx + 1) % replacements.len()];
             clauses.push(CNFClause::new(vec![current, -next]));
         }
     }
@@ -262,13 +264,16 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
     for clause in &mut clauses {
         for literal in &mut clause.literals {
             let sign = if *literal < 0 { -1 } else { 1 };
-            let temp_var = literal.unsigned_abs() as usize;
+            let temp_var = usize::try_from(literal.unsigned_abs())
+                .expect("SAT literal magnitude must fit usize");
             debug_assert!(
                 temp_var > source_num_vars,
                 "all residual literals should have been replaced by transformed variables"
             );
             let compact_var = temp_var - source_num_vars;
-            *literal = sign * compact_var as i32;
+            *literal = sign
+                * i32::try_from(compact_var)
+                    .expect("checked normalized SAT variable count fits i32");
         }
     }
 
@@ -745,47 +750,57 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_tasks = self.target.num_tasks();
-        let num_periods = self.target.num_periods();
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let mut transformed_assignment = vec![0usize; self.layout.transformed_to_original.len()];
-        for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
-            let vb_pair = match &encoding.vb {
-                EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
-                EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
-            };
-            let vb_color = core_edge_color(target_solution, vb_pair, num_tasks, num_periods);
-            transformed_assignment[index] = usize::from(vb_color == encoding.neg2);
-        }
+        Ok({
+            let num_tasks = self.target.num_tasks();
+            let num_periods = self.target.num_periods();
 
-        let mut source_assignment = vec![0usize; self.layout.source_num_vars];
-        for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
-            if let Some(value) = fixed {
-                source_assignment[var] = value;
+            let mut transformed_assignment =
+                vec![0usize; self.layout.transformed_to_original.len()];
+            for (index, encoding) in self.layout.variable_encodings.iter().enumerate() {
+                let vb_pair = match &encoding.vb {
+                    EdgeEncoding::Direct { edge, .. } => self.layout.edge_pairs[*edge],
+                    EdgeEncoding::TwoList { left_outer, .. } => self.layout.edge_pairs[*left_outer],
+                };
+                let vb_color = core_edge_color(target_solution, vb_pair, num_tasks, num_periods);
+                transformed_assignment[index] = usize::from(vb_color == encoding.neg2);
             }
-        }
 
-        let mut seen_transformed = vec![false; self.layout.source_num_vars];
-        for (value, &original_var) in transformed_assignment
-            .iter()
-            .zip(self.layout.transformed_to_original.iter())
-        {
-            if !seen_transformed[original_var] {
-                source_assignment[original_var] = *value;
-                seen_transformed[original_var] = true;
+            let mut source_assignment = vec![0usize; self.layout.source_num_vars];
+            for (var, fixed) in self.layout.pure_assignments.iter().copied().enumerate() {
+                if let Some(value) = fixed {
+                    source_assignment[var] = value;
+                }
             }
-        }
 
-        source_assignment
+            let mut seen_transformed = vec![false; self.layout.source_num_vars];
+            for (value, &original_var) in transformed_assignment
+                .iter()
+                .zip(self.layout.transformed_to_original.iter())
+            {
+                if !seen_transformed[original_var] {
+                    source_assignment[original_var] = *value;
+                    seen_transformed[original_var] = true;
+                }
+            }
+
+            source_assignment
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_periods = "4 * num_literals",
-    num_craftsmen = "24 * num_literals + 1",
-    num_tasks = "24 * num_literals + 1",
-})]
+#[reduction(
+    size = upper_bound {
+        num_periods = "4 * num_literals",
+        num_craftsmen = "24 * num_literals + 1",
+        num_tasks = "24 * num_literals + 1",
+    }
+)]
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
     type Result = Reduction3SATToTimetableDesign;
 

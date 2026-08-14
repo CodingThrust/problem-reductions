@@ -87,7 +87,7 @@ fn test_mis_simple_one_to_kings_one_closed_loop() {
     let grid_solutions = solver.find_all_witnesses(target);
     assert!(!grid_solutions.is_empty());
 
-    let original_solution = result.extract_solution(&grid_solutions[0]);
+    let original_solution = result.extract_solution(&grid_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 5);
     let size: usize = original_solution.iter().sum();
     assert_eq!(size, 3, "Max IS in path of 5 should be 3");

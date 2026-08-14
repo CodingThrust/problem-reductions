@@ -17,6 +17,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a Hamiltonian path in a graph",
         fields: &[
@@ -167,8 +168,14 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
+crate::impl_random_generate!(
+    HamiltonianPath<SimpleGraph>,
+    crate::random::SimpleGraphRandomSpec,
+    |spec| { Ok(HamiltonianPath::new(spec.graph()?)) }
+);
+
 crate::declare_variants! {
-    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices" random,
 }
 
 #[cfg(test)]

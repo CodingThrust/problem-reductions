@@ -108,7 +108,7 @@ fn test_solution_extraction() {
 
     // Target has 9 arcs; first 3 are internal. Extract should take first 3.
     let target_config = vec![1, 1, 0, 0, 0, 0, 0, 0, 0];
-    let source_config = reduction.extract_solution(&target_config);
+    let source_config = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(source_config, vec![1, 1, 0]);
 }
 

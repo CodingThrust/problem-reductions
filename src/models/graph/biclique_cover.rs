@@ -13,7 +13,7 @@
 //! matrix of `G` (Monson, Pullman, Rees 1995), matching exact Boolean
 //! Matrix Factorization.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -26,14 +26,10 @@ inventory::submit! {
         display_name: "Biclique Cover",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Cover bipartite edges with k bicliques",
-        fields: &[
-            FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },
-            FieldInfo { name: "right_size", type_name: "usize", description: "Vertices in right partition" },
-            FieldInfo { name: "edges", type_name: "Vec<(usize, usize)>", description: "Bipartite edges" },
-            FieldInfo { name: "k", type_name: "usize", description: "Number of bicliques" },
-        ],
+        fields: BicliqueCoverCreateSpec::FIELDS,
     }
 }
 
@@ -68,6 +64,43 @@ pub struct BicliqueCover {
     graph: BipartiteGraph,
     /// Number of bicliques to use.
     k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct BicliqueCoverCreateSpec {
+    /// Number of vertices in the left partition.
+    left: usize,
+    /// Number of vertices in the right partition.
+    right: usize,
+    /// Bipartite edges in left-local, right-local coordinates.
+    #[create(codec = "bipartite-edge-list")]
+    biedges: Vec<(usize, usize)>,
+    /// Number of bicliques available to cover the edges.
+    k: usize,
+}
+
+impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
+    type Error = String;
+
+    fn try_from(spec: BicliqueCoverCreateSpec) -> Result<Self, Self::Error> {
+        for (edge_index, &(left_vertex, right_vertex)) in spec.biedges.iter().enumerate() {
+            if left_vertex >= spec.left {
+                return Err(format!(
+                    "biedges[{edge_index}] left vertex {left_vertex} is out of bounds for left partition size {}",
+                    spec.left
+                ));
+            }
+            if right_vertex >= spec.right {
+                return Err(format!(
+                    "biedges[{edge_index}] right vertex {right_vertex} is out of bounds for right partition size {}",
+                    spec.right
+                ));
+            }
+        }
+
+        let graph = BipartiteGraph::new(spec.left, spec.right, spec.biedges);
+        Ok(Self::new(graph, spec.k))
+    }
 }
 
 impl BicliqueCover {
@@ -290,7 +323,7 @@ impl Problem for BicliqueCover {
 }
 
 crate::declare_variants! {
-    default BicliqueCover => "2^(num_vertices * rank)",
+    default BicliqueCover => "2^(num_vertices * rank)" create BicliqueCoverCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

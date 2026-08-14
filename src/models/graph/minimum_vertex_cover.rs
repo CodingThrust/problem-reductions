@@ -4,7 +4,7 @@
 //! such that every edge has at least one endpoint in the subset.
 
 use crate::models::decision::Decision;
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
@@ -20,12 +20,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "One"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MinimumVertexCoverCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -60,6 +58,33 @@ pub struct MinimumVertexCover<G, W> {
     graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumVertexCoverCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Vertex weights w: V -> R.
+    weights: Option<Vec<W>>,
+}
+
+impl<W: Clone + Default> TryFrom<MinimumVertexCoverCreateSpec<W>>
+    for MinimumVertexCover<SimpleGraph, W>
+{
+    type Error = String;
+    fn try_from(spec: MinimumVertexCoverCreateSpec<W>) -> Result<Self, Self::Error> {
+        let weights = spec
+            .weights
+            .unwrap_or_else(|| vec![W::default(); spec.graph.num_vertices()]);
+        if weights.len() != spec.graph.num_vertices() {
+            return Err(format!(
+                "weights has {} entries, expected {}",
+                weights.len(),
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
@@ -151,9 +176,16 @@ pub(crate) fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> b
     true
 }
 
+crate::impl_random_generate!(MinimumVertexCover<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MinimumVertexCover::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MinimumVertexCover<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MinimumVertexCover::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
-    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices",
+    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<i32> random,
+    MinimumVertexCover<SimpleGraph, One> => "1.1996^num_vertices" create MinimumVertexCoverCreateSpec<One> random,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MinimumVertexCover<G, W>
@@ -182,12 +214,45 @@ impl Decision<MinimumVertexCover<SimpleGraph, i32>> {
     }
 }
 
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct DecisionMinimumVertexCoverRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<u64>,
+    /// Maximum allowed cover cost.
+    bound: i64,
+}
+
+crate::impl_random_generate!(
+    Decision<MinimumVertexCover<SimpleGraph, i32>>,
+    DecisionMinimumVertexCoverRandomSpec,
+    |spec| {
+        if spec.bound < 0 {
+            return Err("bound must be nonnegative".to_string());
+        }
+        let graph = crate::random::SimpleGraphRandomSpec {
+            num_vertices: spec.num_vertices,
+            edge_prob: spec.edge_prob,
+            seed: spec.seed,
+        }
+        .graph()?;
+        Ok(Decision::new(
+            MinimumVertexCover::new(graph, vec![1; spec.num_vertices]),
+            spec.bound,
+        ))
+    }
+);
+
 crate::register_decision_variant!(
     MinimumVertexCover<SimpleGraph, i32>,
     "DecisionMinimumVertexCover",
     "1.1996^num_vertices",
     &["DMVC", "VC", "VertexCover"],
     "Decision version: does a vertex cover of cost <= bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
     dims: [
         VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         VariantDimension::new("weight", "i32", &["i32"]),
@@ -195,9 +260,10 @@ crate::register_decision_variant!(
     fields: [
         FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
         FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        FieldInfo { name: "bound", type_name: "i32", description: "Decision bound (maximum allowed cover cost)" },
+        FieldInfo { name: "bound", type_name: "W::Sum", description: "Decision bound (maximum allowed cover cost)" },
     ],
-    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)]
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)],
+    random
 );
 
 #[cfg(feature = "example-db")]

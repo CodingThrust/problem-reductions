@@ -5,7 +5,7 @@
 //! makespan (completion time of the last task) while respecting both within-job
 //! precedence and single-processor capacity constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -17,12 +17,10 @@ inventory::submit! {
         display_name: "Job-Shop Scheduling",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Minimize the makespan of a job-shop schedule",
-        fields: &[
-            FieldInfo { name: "num_processors", type_name: "usize", description: "Number of processors m" },
-            FieldInfo { name: "jobs", type_name: "Vec<Vec<(usize, u64)>>", description: "jobs[j][k] = (processor, length) for the k-th task of job j" },
-        ],
+        fields: JobShopSchedulingCreateSpec::FIELDS,
     }
 }
 
@@ -30,6 +28,64 @@ inventory::submit! {
 pub struct JobShopScheduling {
     num_processors: usize,
     jobs: Vec<Vec<(usize, u64)>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct JobShopSchedulingCreateSpec {
+    /// Jobs expressed as ordered processor-duration operations.
+    #[create(codec = "semicolon-separated")]
+    jobs: Vec<Vec<(usize, u64)>>,
+    /// Optional processor count; omitted values are inferred from the jobs.
+    num_processors: Option<usize>,
+}
+
+impl TryFrom<JobShopSchedulingCreateSpec> for JobShopScheduling {
+    type Error = String;
+
+    fn try_from(spec: JobShopSchedulingCreateSpec) -> Result<Self, Self::Error> {
+        let inferred_processors = spec
+            .jobs
+            .iter()
+            .flatten()
+            .map(|(processor, _)| *processor)
+            .max()
+            .map(|processor| {
+                processor
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred processor count overflows usize".to_string())
+            })
+            .transpose()?;
+        let num_processors = spec.num_processors.or(inferred_processors).ok_or_else(|| {
+            "cannot infer processor count from an empty job list; provide num_processors"
+                .to_string()
+        })?;
+        if num_processors == 0 {
+            return Err("num_processors must be positive".to_string());
+        }
+
+        for (job_index, job) in spec.jobs.iter().enumerate() {
+            for (task_index, &(processor, _)) in job.iter().enumerate() {
+                if processor >= num_processors {
+                    return Err(format!(
+                        "job {job_index} task {task_index} uses processor {processor}, but num_processors is {num_processors}"
+                    ));
+                }
+            }
+            for (task_index, pair) in job.windows(2).enumerate() {
+                if pair[0].0 == pair[1].0 {
+                    return Err(format!(
+                        "job {job_index} tasks {task_index} and {} must use different processors",
+                        task_index + 1
+                    ));
+                }
+            }
+        }
+
+        Ok(Self {
+            num_processors,
+            jobs: spec.jobs,
+        })
+    }
 }
 
 struct FlattenedTasks {
@@ -234,7 +290,7 @@ impl Problem for JobShopScheduling {
 }
 
 crate::declare_variants! {
-    default JobShopScheduling => "factorial(num_tasks)",
+    default JobShopScheduling => "factorial(num_tasks)" create JobShopSchedulingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

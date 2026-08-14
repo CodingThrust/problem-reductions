@@ -20,7 +20,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -60,7 +60,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_unsatisfiable() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let result = ILPSolver::new().solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Unsatisfiable instance should have no ILP solution"
     );
 }
@@ -78,7 +78,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_single_pair() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("single-pair ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
@@ -98,7 +98,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_compatible_triples_only() {
     assert_eq!(ilp.num_vars(), 2);
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

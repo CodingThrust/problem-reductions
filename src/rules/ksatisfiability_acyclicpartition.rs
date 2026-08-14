@@ -72,14 +72,10 @@ impl ReductionPartitionToAcyclicPartition {
             DirectedGraph::new(num_elements + 2, arcs),
             vertex_weights,
             arc_costs,
-            u64_to_i32(
-                weight_bound,
-                "Partition -> AcyclicPartition requires weight bound to fit in i32",
-            ),
-            usize_to_i32(
-                num_elements,
-                "Partition -> AcyclicPartition requires num_elements to fit in i32",
-            ),
+            i64::try_from(weight_bound)
+                .expect("Partition -> AcyclicPartition weight bound must fit in i64"),
+            i64::try_from(num_elements)
+                .expect("Partition -> AcyclicPartition cost bound must fit in i64"),
         );
 
         Self {
@@ -99,21 +95,25 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() != self.source_num_elements + 2 {
-            return vec![0; self.source_num_elements];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let source_label = target_solution[self.source_vertex];
-        let sink_label = target_solution[self.sink_vertex];
-        debug_assert_ne!(
-            source_label, sink_label,
-            "valid target witnesses must place source and sink in different blocks"
-        );
+        Ok({
+            let source_label = target_solution[self.source_vertex];
+            let sink_label = target_solution[self.sink_vertex];
+            if source_label == sink_label {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target partition places the source and sink in the same block",
+                ));
+            }
 
-        (0..self.source_num_elements)
-            .map(|item| usize::from(target_solution[item] == sink_label))
-            .collect()
+            (0..self.source_num_elements)
+                .map(|item| usize::from(target_solution[item] == sink_label))
+                .collect()
+        })
     }
 }
 
@@ -133,12 +133,21 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
         self.partition_to_acyclic.target_problem()
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let partition_solution = self.partition_to_acyclic.extract_solution(target_solution);
-        let subset_solution = self
-            .subset_to_partition
-            .extract_solution(&partition_solution);
-        self.sat_to_subset.extract_solution(&subset_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let partition_solution = self
+                .partition_to_acyclic
+                .extract_solution(target_solution)?;
+            let subset_solution = self
+                .subset_to_partition
+                .extract_solution(&partition_solution)?;
+            self.sat_to_subset.extract_solution(&subset_solution)?
+        })
     }
 }
 
@@ -146,12 +155,8 @@ fn u64_to_i32(value: u64, context: &str) -> i32 {
     i32::try_from(value).expect(context)
 }
 
-fn usize_to_i32(value: usize, context: &str) -> i32 {
-    i32::try_from(value).expect(context)
-}
-
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "2 * num_vars + 2 * num_clauses + 3",
         num_arcs = "4 * num_vars + 4 * num_clauses + 2",
     }

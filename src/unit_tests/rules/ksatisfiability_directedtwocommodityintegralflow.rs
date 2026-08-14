@@ -1,13 +1,11 @@
 #[cfg(feature = "example-db")]
 use super::canonical_rule_example_specs;
 use super::*;
-#[cfg(feature = "ilp-solver")]
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 #[cfg(feature = "example-db")]
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::rules::{ReduceTo, ReductionGraph, ReductionResult};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::variant::K3;
@@ -42,13 +40,12 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
         .collect()
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
     let reduction = ReduceTo::<ILP<i32>>::reduce_to(problem);
-    let ilp_solution = ILPSolver::new().solve(reduction.target_problem())?;
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     problem.evaluate(&extracted).0.then_some(extracted)
 }
 
@@ -95,10 +92,9 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
     let assignment = vec![1, 1, 0];
     let flow = reduction.encode_assignment(&assignment);
     assert!(reduction.target_problem().evaluate(&flow).0);
-    assert_eq!(reduction.extract_solution(&flow), assignment);
+    assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     let source = issue_example();
@@ -110,11 +106,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
     let source = unsatisfiable_instance();

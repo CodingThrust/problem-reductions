@@ -120,3 +120,17 @@ fn test_bottleneck_traveling_salesman_paper_example() {
     assert_eq!(best.len(), 1);
     assert_eq!(best[0], config);
 }
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = BottleneckTravelingSalesman::try_from(BottleneckTravelingSalesmanCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), vec![1]);
+    assert_eq!(
+        BottleneckTravelingSalesmanCreateSpec::FIELDS[2].name,
+        "edge_weights"
+    );
+}

@@ -265,7 +265,6 @@ fn test_find_rule_example_sat_to_kcoloring_contains_full_instances() {
     );
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -285,7 +284,6 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert!(!example.solutions[0].target_config.is_empty());
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instances() {
     let source = ProblemRef {
@@ -421,7 +419,7 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         .into_iter()
         .filter(|entry| entry.source_name != entry.target_name)
         // Turing (multi-query) edges have no single-shot reduction to demonstrate
-        .filter(|entry| !entry.capabilities.turing)
+        .filter(|entry| !entry.turing)
         .map(|entry| {
             (
                 ProblemRef {
@@ -499,13 +497,10 @@ fn model_specs_are_self_consistent() {
     }
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn model_specs_are_optimal() {
-    use crate::registry::find_variant_entry;
-    use crate::solvers::ILPSolver;
-
-    let ilp_solver = ILPSolver::new();
+    use crate::registry::{find_variant_entry, load_dyn};
+    use crate::solvers::{solve_deterministically, SolverRequest};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -520,13 +515,19 @@ fn model_specs_are_optimal() {
         // Try brute force first for small instances (fast, avoids expensive ILP chains)
         let dims = spec.instance.dims_dyn();
         let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
+        let solve_registered_ilp = || {
+            let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
+            solve_deterministically(&loaded, SolverRequest::Ilp)
+                .ok()?
+                .config
+        };
         let best_config = if log_space <= 20.0 {
             find_variant_entry(name, &variant)
                 .and_then(|entry| (entry.solve_witness_fn)(spec.instance.as_any()))
                 .map(|(config, _)| config)
-                .or_else(|| ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any()))
+                .or_else(solve_registered_ilp)
         } else {
-            ilp_solver.solve_via_reduction(name, &variant, spec.instance.as_any())
+            solve_registered_ilp()
         };
 
         if let Some(best_config) = best_config {
@@ -583,31 +584,35 @@ fn rule_specs_solution_pairs_are_consistent() {
         )
         .unwrap_or_else(|e| panic!("Failed to load target for {label}: {e}"));
 
-        // Try witness path first; fall back to aggregate for aggregate-only edges.
-        // Some authored direct reductions are proof-only and intentionally have
-        // no runtime capability in any mode.
-        let witness_path = graph.find_cheapest_path(
-            &example.source.problem,
-            &example.source.variant,
-            &example.target.problem,
-            &example.target.variant,
-            &crate::types::ProblemSize::new(vec![]),
-            &crate::rules::MinimizeSteps,
-        );
-        if witness_path.is_none() {
-            let aggregate_path = graph.find_cheapest_path_mode(
+        // Inspect the authored direct reduction. Indirect paths between the same
+        // problem variants do not implement this rule's stored solution pairs.
+        let witness_path = graph
+            .find_all_paths(
                 &example.source.problem,
                 &example.source.variant,
                 &example.target.problem,
                 &example.target.variant,
-                crate::rules::ReductionMode::Aggregate,
-                &crate::types::ProblemSize::new(vec![]),
-                &crate::rules::MinimizeSteps,
-            );
-            if aggregate_path.is_none() {
+            )
+            .into_iter()
+            .find(|path| path.len() == 1);
+        if witness_path.is_none() {
+            let has_aggregate_path = graph
+                .find_all_paths_mode(
+                    &example.source.problem,
+                    &example.source.variant,
+                    &example.target.problem,
+                    &example.target.variant,
+                    crate::rules::ReductionMode::Aggregate,
+                )
+                .iter()
+                .any(|path| path.len() == 1);
+            if !has_aggregate_path {
                 assert!(
-                    graph.has_direct_reduction_by_name(&example.source.problem, &example.target.problem),
-                    "No reduction path (witness or aggregate) or direct proof-only edge for {label}"
+                    graph.has_direct_reduction_by_name(
+                        &example.source.problem,
+                        &example.target.problem
+                    ),
+                    "No direct witness, aggregate, or proof-only reduction for {label}"
                 );
                 assert!(
                     !graph.has_direct_reduction_by_name_mode(
@@ -629,7 +634,9 @@ fn rule_specs_solution_pairs_are_consistent() {
         }
 
         // Only do witness round-trip when a witness path exists
-        let chain = witness_path.and_then(|path| graph.reduce_along_path(&path, source.as_any()));
+        let chain = witness_path
+            .as_ref()
+            .and_then(|path| graph.reduce_along_path(path, source.as_any()));
 
         for pair in &example.solutions {
             // Verify config lengths match problem dimensions
@@ -678,7 +685,7 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
-                let extracted = chain.extract_solution(&pair.target_config);
+                let extracted = chain.extract_solution(&pair.target_config).unwrap();
                 let extracted_val = source.evaluate_json(&extracted);
                 assert_eq!(
                     extracted_val, source_val,
@@ -687,6 +694,29 @@ fn rule_specs_solution_pairs_are_consistent() {
                      (extracted: {:?}, stored: {:?})",
                     extracted_val, source_val, extracted, pair.source_config
                 );
+
+                let mut wrong_length = pair.target_config.clone();
+                if wrong_length.is_empty() {
+                    wrong_length.push(0);
+                } else {
+                    wrong_length.pop();
+                }
+                assert!(
+                    chain.extract_solution(&wrong_length).is_err(),
+                    "Rule {label}: extraction accepted a target configuration with the wrong length"
+                );
+
+                let target_dims = target.dims_dyn();
+                if let Some((&dimension, value)) =
+                    target_dims.first().zip(pair.target_config.first())
+                {
+                    let mut out_of_domain = pair.target_config.clone();
+                    out_of_domain[0] = dimension;
+                    assert!(
+                        chain.extract_solution(&out_of_domain).is_err(),
+                        "Rule {label}: extraction accepted out-of-domain value {dimension} in place of {value}"
+                    );
+                }
             }
         }
     }

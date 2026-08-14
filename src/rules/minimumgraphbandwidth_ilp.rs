@@ -34,23 +34,26 @@ impl ReductionResult for ReductionMGBToILP {
     }
 
     /// Extract: for each vertex v, output its position p (the unique p with x_{v,p} = 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        (0..n)
-            .map(|v| {
-                (0..n)
-                    .find(|&p| target_solution[v * n + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_vertices,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices^2 + num_vertices + 1",
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 1 + 2 * num_edges",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumGraphBandwidth<SimpleGraph> {
     type Result = ReductionMGBToILP;

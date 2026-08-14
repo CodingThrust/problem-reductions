@@ -24,16 +24,23 @@ impl ReductionResult for ReductionCBMToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Decode the column permutation from x_{c,p}
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_cols * num_cols + num_rows * num_cols + num_rows * num_cols",
-        num_constraints = "num_cols + num_cols + num_rows * num_cols + num_rows + num_rows * num_cols + 1",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {

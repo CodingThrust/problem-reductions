@@ -53,7 +53,7 @@ fn test_naesatisfiability_to_setsplitting_extract_solution_uses_positive_literal
     let reduction = ReduceTo::<SetSplitting>::reduce_to(&source);
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1, 0]),
+        reduction.extract_solution(&[1, 0, 1, 0, 1, 0]).unwrap(),
         vec![1, 0, 1]
     );
 }
@@ -65,7 +65,7 @@ fn test_naesatisfiability_to_setsplitting_target_witness_extracts_to_satisfying_
     let solver = BruteForce::new();
 
     let target_solution = solver.find_witness(reduction.target_problem()).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&source_solution));
 }

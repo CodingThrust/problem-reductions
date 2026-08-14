@@ -38,7 +38,7 @@ fn test_directedhamiltonianpath_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -71,7 +71,7 @@ fn test_directedhamiltonianpath_to_ilp_issue_example() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should find a path");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -89,7 +89,7 @@ fn test_directedhamiltonianpath_to_ilp_no_path() {
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Graph with no Hamiltonian path should be infeasible"
     );
 }

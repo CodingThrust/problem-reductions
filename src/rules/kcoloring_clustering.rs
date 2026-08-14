@@ -28,8 +28,13 @@ impl ReductionResult for ReductionKColoringToClustering {
 
     /// Cluster labels are color labels. The empty-graph corner case uses one
     /// dummy target element because Clustering forbids empty instances.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vertices.min(target_solution.len())].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vertices].to_vec())
     }
 }
 
@@ -47,9 +52,10 @@ fn build_distances(graph: &SimpleGraph) -> Vec<Vec<u64>> {
     distances
 }
 
-#[reduction(overhead = {
-    num_elements = "num_vertices",
-})]
+#[reduction(
+    size = exact {
+        num_elements = "num_vertices",
+    })]
 impl ReduceTo<Clustering> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToClustering;
 

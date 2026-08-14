@@ -54,7 +54,7 @@ fn test_mis_simple_one_to_triangular_closed_loop() {
 
     // Map a trivial zero solution back to verify dimensions
     let zero_config = vec![0; target.graph().num_vertices()];
-    let original_solution = result.extract_solution(&zero_config);
+    let original_solution = result.extract_solution(&zero_config).unwrap();
     assert_eq!(original_solution.len(), 3);
 }
 

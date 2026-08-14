@@ -27,16 +27,21 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vars].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vars + num_clauses",
         num_constraints = "num_clauses",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToILP;

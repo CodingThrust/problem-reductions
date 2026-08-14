@@ -45,7 +45,7 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
     // Diameter bound is always 4 in the canonical construction.
     assert_eq!(target.diameter_bound(), 4);
     // Weight bound B = 4q + m + 2.
-    let expected_weight_bound = (4 * q + m + 2) as i32;
+    let expected_weight_bound = i64::try_from(4 * q + m + 2).unwrap();
     assert_eq!(*target.weight_bound(), expected_weight_bound);
 
     // Verify the first two edges are the forced-center path with weight 1.
@@ -73,13 +73,13 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let mut target_config = vec![0; reduction.target_problem().num_edges()];
     target_config[2] = 1;
     target_config[3] = 1;
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 1]);
 
     // Only s_0 selected via root edge.
     let mut target_config = vec![0; reduction.target_problem().num_edges()];
     target_config[2] = 1;
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0]);
 }
 

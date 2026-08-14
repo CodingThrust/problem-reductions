@@ -26,8 +26,13 @@ impl ReductionResult for ReductionX3CToSubsetProduct {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -53,9 +58,10 @@ fn assigned_primes(universe_size: usize) -> Vec<u64> {
     }
 }
 
-#[reduction(overhead = {
-    num_elements = "num_sets",
-})]
+#[reduction(
+    size = exact {
+        num_elements = "num_sets",
+    })]
 impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
     type Result = ReductionX3CToSubsetProduct;
 

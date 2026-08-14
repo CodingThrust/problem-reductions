@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Clustering",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition elements into at most K clusters where all intra-cluster distances are at most B",
         fields: &[

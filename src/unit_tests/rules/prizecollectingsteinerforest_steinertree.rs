@@ -45,7 +45,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_target_structure()
     let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    // Issue overhead: V_H = n + k + 1, E_H = m + n + 2k, T_H = k + 1.
+    // Exact size relation: V_H = n + k + 1, E_H = m + n + 2k, T_H = k + 1.
     // n = 3, m = 2, k = 3 -> V_H = 7, E_H = 11, T_H = 4.
     assert_eq!(target.num_vertices(), 7);
     assert_eq!(target.num_edges(), 11);
@@ -65,7 +65,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target SteinerTree must be feasible");
-    let source_witness = reduction.extract_solution(&target_witness);
+    let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
     // Source layout is `n` vertex-bits then `m` edge-bits.
     assert_eq!(source_witness.len(), source.num_variables());
@@ -123,7 +123,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
 
 /// No vertex carries a positive prize, so no gadget terminals are added.
 /// Only the artificial root remains as a terminal, but SteinerTree requires
-/// at least two terminals — so this corner case is delegated to overhead
+/// at least two terminals — so this corner case is covered by size-contract
 /// inspection plus a degenerate single-vertex source case that still has
 /// the construction proceed when `omega = 0`. We skip the SteinerTree
 /// instantiation when `k = 0` (which would produce a single-terminal

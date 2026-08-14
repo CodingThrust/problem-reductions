@@ -39,32 +39,39 @@ impl ReductionResult for ReductionKColoringToTDCS {
     /// The first `num_vertices` symbols correspond to graph vertices,
     /// so their group assignments directly give a valid 3-coloring
     /// (after remapping to colors 0, 1, 2).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The target solution is config[symbol] = group_index.
-        // Vertex symbols are indices 0..num_vertices.
-        // We need to remap the group indices to colors 0, 1, 2.
-        // The target may use any labels, so we compress the distinct
-        // group indices used by vertex symbols to 0..2.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let vertex_groups = &target_solution[..self.num_vertices];
+        Ok({
+            // The target solution is config[symbol] = group_index.
+            // Vertex symbols are indices 0..num_vertices.
+            // We need to remap the group indices to colors 0, 1, 2.
+            // The target may use any labels, so we compress the distinct
+            // group indices used by vertex symbols to 0..2.
 
-        // Collect distinct group indices used by vertices and map to 0..k-1
-        let mut used: Vec<usize> = vertex_groups.to_vec();
-        used.sort();
-        used.dedup();
+            let vertex_groups = &target_solution[..self.num_vertices];
 
-        let group_to_color: std::collections::HashMap<usize, usize> = used
-            .into_iter()
-            .enumerate()
-            .map(|(color, group)| (group, color % 3))
-            .collect();
+            // Collect distinct group indices used by vertices and map to 0..k-1
+            let mut used: Vec<usize> = vertex_groups.to_vec();
+            used.sort();
+            used.dedup();
 
-        vertex_groups.iter().map(|&g| group_to_color[&g]).collect()
+            let group_to_color: std::collections::HashMap<usize, usize> = used
+                .into_iter()
+                .enumerate()
+                .map(|(color, group)| (group, color % 3))
+                .collect();
+
+            vertex_groups.iter().map(|&g| group_to_color[&g]).collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         alphabet_size = "num_vertices + num_edges",
         num_subsets = "num_edges",
     }

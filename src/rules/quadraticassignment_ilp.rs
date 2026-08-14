@@ -34,22 +34,25 @@ impl ReductionResult for ReductionQAPToILP {
     }
 
     /// Extract: for each facility i, output the unique location p with x_{i,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let loc = self.num_locations;
-        (0..self.num_facilities)
-            .map(|i| {
-                (0..loc)
-                    .find(|&p| target_solution[i * loc + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_facilities,
+            self.num_locations,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_facilities * num_locations + num_facilities^2 * num_locations^2",
-        num_constraints = "num_facilities + num_locations + 3 * num_facilities^2 * num_locations^2",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for QuadraticAssignment {

@@ -9,6 +9,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::BinPacking;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing BinPacking to ILP.
@@ -36,26 +37,21 @@ impl ReductionResult for ReductionBPToILP {
     /// Extract solution from ILP back to BinPacking.
     ///
     /// For each item i, find the unique bin j where x_{ij} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        let mut assignment = vec![0usize; n];
-        for i in 0..n {
-            for j in 0..n {
-                if target_solution[i * n + j] == 1 {
-                    assignment[i] = j;
-                    break;
-                }
-            }
-        }
-        assignment
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for BinPacking<i32> {
     type Result = ReductionBPToILP;

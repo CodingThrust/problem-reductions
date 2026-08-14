@@ -27,23 +27,28 @@ impl ReductionResult for ReductionSCSToILP {
 
     /// At each position p, output the unique symbol a with x_{p,a} = 1.
     /// Uses alphabet_size + 1 symbols (last = padding).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let b = self.max_length;
-        let k = self.alphabet_size + 1; // includes padding symbol
-        (0..b)
-            .map(|p| {
-                (0..k)
-                    .find(|&a| target_solution[p * k + a] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.max_length,
+            self.alphabet_size + 1,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "max_length * (alphabet_size + 1) + total_length * max_length",
-        num_constraints = "max_length + total_length + total_length * max_length + total_length + max_length",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
@@ -154,7 +159,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .solve(reduction.target_problem())
                     .expect("ILP should be solvable")
             };
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

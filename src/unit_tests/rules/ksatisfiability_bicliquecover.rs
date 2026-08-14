@@ -137,12 +137,28 @@ fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
     set(&mut witness, 0, 0);
     // Leave h_1^u (vertex 1) unset → f_1 = false in B_1.
 
-    let assignment = reduction.extract_solution(&witness);
+    let assignment = reduction.extract_solution(&witness).unwrap();
     assert_eq!(assignment.len(), 1);
     assert_eq!(assignment[0], 1, "expected source x_1 = true from B_1");
 
     // Sanity: n should be 2 for this source.
     assert_eq!(n, 2);
+}
+
+#[test]
+fn test_ksatisfiability_to_bicliquecover_rejects_missing_b1() {
+    let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let target = reduction.target_problem();
+    let target_solution = vec![0; target.num_vertices() * target.k()];
+
+    assert_eq!(
+        reduction
+            .extract_solution(&target_solution)
+            .unwrap_err()
+            .to_string(),
+        "target configuration has no important-edge biclique B_1"
+    );
 }
 
 /// If `B_1` is shadowed by a free-edge biclique that touches `Y`, the
@@ -182,7 +198,7 @@ fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
     // h_1^u is unified vertex 1.
     set(&mut witness, 1, 1);
 
-    let assignment = reduction.extract_solution(&witness);
+    let assignment = reduction.extract_solution(&witness).unwrap();
     assert_eq!(assignment.len(), 1);
     assert_eq!(
         assignment[0], 0,
@@ -211,7 +227,7 @@ fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
         "forward witness must be a valid biclique cover"
     );
 
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted.len(), 1);
     assert_eq!(
         extracted[0], 1,

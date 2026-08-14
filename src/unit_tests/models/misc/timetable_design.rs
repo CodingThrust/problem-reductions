@@ -1,8 +1,20 @@
-use crate::models::misc::TimetableDesign;
+use super::*;
+
+#[test]
+fn create_spec_rejects_matrix_shape_mismatch() {
+    assert_eq!(TimetableDesignCreateSpec::FIELDS[3].name, "craftsman_avail");
+    assert!(TimetableDesign::try_from(TimetableDesignCreateSpec {
+        num_periods: 1,
+        num_craftsmen: 1,
+        num_tasks: 1,
+        craftsman_avail: vec![],
+        task_avail: vec![vec![true]],
+        requirements: vec![vec![1]]
+    })
+    .is_err());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-#[cfg(feature = "ilp-solver")]
-use std::collections::BTreeMap;
 
 fn timetable_design_flat_index(
     num_tasks: usize,
@@ -130,20 +142,18 @@ fn test_timetable_design_bruteforce_solver_finds_solution() {
     assert!(problem.evaluate(&solution.unwrap()));
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
-fn test_timetable_design_issue_example_is_solved_via_ilp_solver_dispatch() {
+fn test_timetable_design_native_backend_solves_feasible_example() {
     let problem = super::issue_example_problem();
-    let solution = crate::solvers::ILPSolver::new()
-        .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
-        .expect("expected ILP solver dispatch to find a satisfying timetable");
+    let solution = problem
+        .solve_via_required_assignments()
+        .expect("expected native backend to find a satisfying timetable");
 
     assert!(problem.evaluate(&solution));
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
-fn test_timetable_design_unsat_instance_returns_none_via_ilp_solver_dispatch() {
+fn test_timetable_design_unsat_instance_returns_none_via_native_backend() {
     let problem = TimetableDesign::new(
         1,
         2,
@@ -153,9 +163,7 @@ fn test_timetable_design_unsat_instance_returns_none_via_ilp_solver_dispatch() {
         vec![vec![1], vec![1]],
     );
 
-    assert!(crate::solvers::ILPSolver::new()
-        .solve_via_reduction("TimetableDesign", &BTreeMap::new(), &problem)
-        .is_none());
+    assert!(problem.solve_via_required_assignments().is_none());
 }
 
 #[test]

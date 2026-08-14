@@ -180,7 +180,7 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     let sp_solutions = solver.find_all_witnesses(sp_problem);
     assert!(!sp_solutions.is_empty());
 
-    let original_solution = reduction.extract_solution(&sp_solutions[0]);
+    let original_solution = reduction.extract_solution(&sp_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 3);
     let size: usize = original_solution.iter().sum();
     assert_eq!(size, 2, "Max IS in path of 3 should be 2");
@@ -200,7 +200,7 @@ fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
     let is_solutions = solver.find_all_witnesses(is_problem);
     assert!(!is_solutions.is_empty());
 
-    let original_solution = reduction.extract_solution(&is_solutions[0]);
+    let original_solution = reduction.extract_solution(&is_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 3);
     let size: usize = original_solution.iter().sum();
     assert_eq!(

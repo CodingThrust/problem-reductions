@@ -35,20 +35,27 @@ impl ReductionResult for Reduction3SATToSubsetSum {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Variable integers are the first 2n elements in 0-based indexing:
-        // for variable i (0 <= i < n), y_i is stored at index 2*i and z_i at index 2*i + 1.
-        // If y_i is selected (target_solution[2*i] == 1), set x_i = 1; otherwise x_i = 0.
-        (0..self.source_num_vars)
-            .map(|i| {
-                let y_selected = target_solution[2 * i] == 1;
-                if y_selected {
-                    1
-                } else {
-                    0
-                }
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Variable integers are the first 2n elements in 0-based indexing:
+            // for variable i (0 <= i < n), y_i is stored at index 2*i and z_i at index 2*i + 1.
+            // If y_i is selected (target_solution[2*i] == 1), set x_i = 1; otherwise x_i = 0.
+            (0..self.source_num_vars)
+                .map(|i| {
+                    let y_selected = target_solution[2 * i] == 1;
+                    if y_selected {
+                        1
+                    } else {
+                        0
+                    }
+                })
+                .collect()
+        })
     }
 }
 
@@ -65,7 +72,9 @@ fn digits_to_integer(digits: &[u8]) -> BigUint {
 }
 
 #[reduction(
-    overhead = { num_elements = "2 * num_vars + 2 * num_clauses" }
+    size = unavailable {
+        num_elements = "the exact set statistic depends on membership or intersection incidence not represented by registered source fields",
+    }
 )]
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;

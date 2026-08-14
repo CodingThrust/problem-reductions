@@ -88,7 +88,7 @@ fn test_partitionintopathsoflength2_to_boundedcomponentspanningforest_extract_so
     let result = ReduceTo::<BoundedComponentSpanningForest<SimpleGraph, i32>>::reduce_to(&source);
 
     let target_config = vec![0, 0, 0, 1, 1, 1];
-    let extracted = result.extract_solution(&target_config);
+    let extracted = result.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
 
     // Verify the extracted solution is valid in the source

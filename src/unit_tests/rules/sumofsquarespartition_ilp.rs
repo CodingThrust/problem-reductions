@@ -37,7 +37,7 @@ fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
     let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
     assert_eq!(
         ilp_value, bf_value,
@@ -59,7 +59,7 @@ fn test_solution_extraction() {
     ilp_solution[3] = 1; // x_{1,1}
     ilp_solution[5] = 1; // x_{2,1}
     ilp_solution[6] = 1; // x_{3,0}
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 1, 0]);
 }
 
@@ -75,7 +75,7 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     // Optimal: {1},{2} -> 1+4=5
     assert_eq!(value, Min(Some(5)));

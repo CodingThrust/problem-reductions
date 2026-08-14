@@ -31,37 +31,50 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut source_assignment = vec![0; self.source_num_vars];
-        let Some(x) = self.target.decode_witness(target_solution) else {
-            return source_assignment;
-        };
-        if x > self.h {
-            return source_assignment;
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let h_minus_x = &self.h - &x;
-        let h_plus_x = &self.h + &x;
-        let mut alpha = vec![0i8; self.prime_powers.len()];
-
-        for (j, prime_power) in self.prime_powers.iter().enumerate() {
-            if (&h_minus_x % prime_power).is_zero() {
-                alpha[j] = 1;
-            } else if (&h_plus_x % prime_power).is_zero() {
-                alpha[j] = -1;
-            }
-        }
-
-        for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
-            let alpha_index = 2 * self.standard_clause_count + active_index + 1;
-            source_assignment[source_index] = if alpha.get(alpha_index) == Some(&-1) {
-                1
-            } else {
-                0
+        Ok({
+            let mut source_assignment = vec![0; self.source_num_vars];
+            let Some(x) = self.target.decode_witness(target_solution) else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration does not encode a quadratic-congruence witness",
+                ));
             };
-        }
+            if x > self.h {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "decoded quadratic-congruence witness exceeds the construction bound",
+                ));
+            }
 
-        source_assignment
+            let h_minus_x = &self.h - &x;
+            let h_plus_x = &self.h + &x;
+            let mut alpha = vec![0i8; self.prime_powers.len()];
+
+            for (j, prime_power) in self.prime_powers.iter().enumerate() {
+                if (&h_minus_x % prime_power).is_zero() {
+                    alpha[j] = 1;
+                } else if (&h_plus_x % prime_power).is_zero() {
+                    alpha[j] = -1;
+                }
+            }
+
+            for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
+                let alpha_index = 2 * self.standard_clause_count + active_index + 1;
+                source_assignment[source_index] = match alpha[alpha_index] {
+                    1 => 0,
+                    -1 => 1,
+                    sign => return Err(crate::rules::ExtractionError::invalid(format!(
+                        "target witness encodes invalid sign {sign} for source variable {source_index}"
+                    ))),
+                };
+            }
+
+            source_assignment
+        })
     }
 }
 
@@ -501,11 +514,13 @@ fn exhaustive_alpha_solution(source: &KSatisfiability<K3>) -> Option<Vec<i8>> {
     None
 }
 
-#[reduction(overhead = {
-    bit_length_a = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_b = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_c = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-})]
+#[reduction(
+    size = unavailable {
+        bit_length_a = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+        bit_length_b = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+        bit_length_c = "the exact coefficient bit length depends on the selected prime sequence rather than only clause and variable counts",
+    }
+)]
 impl ReduceTo<QuadraticCongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticCongruences;
 

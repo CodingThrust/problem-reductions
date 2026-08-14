@@ -240,40 +240,44 @@ impl ReductionResult for ReductionSATToColoring {
     ///
     /// For each variable, we check if its positive literal vertex has TRUE color (0).
     /// If so, the variable is assigned true (1); otherwise false (0).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First determine which color is TRUE, FALSE, and AUX
-        // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
-        assert!(
-            target_solution.len() >= 3,
-            "Invalid solution: coloring must have at least 3 vertices"
-        );
-        let true_color = target_solution[0];
-        let false_color = target_solution[1];
-        let aux_color = target_solution[2];
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Sanity checks
-        assert!(
-            true_color != false_color && true_color != aux_color,
-            "Invalid coloring solution: special vertices must have distinct colors"
-        );
+        Ok({
+            // First determine which color is TRUE, FALSE, and AUX
+            // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
+            let true_color = target_solution[0];
+            let false_color = target_solution[1];
+            let aux_color = target_solution[2];
 
-        let mut assignment = vec![0usize; self.num_source_variables];
+            if true_color == false_color || true_color == aux_color || false_color == aux_color {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target coloring does not distinguish true, false, and auxiliary colors",
+                ));
+            }
 
-        for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
-            let vertex_color = target_solution[pos_vertex];
+            let mut assignment = vec![0usize; self.num_source_variables];
 
-            // Sanity check: variable vertices should not have AUX color
-            assert!(
-                vertex_color != aux_color,
-                "Invalid coloring solution: variable vertex has auxiliary color"
-            );
+            for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
+                let vertex_color = target_solution[pos_vertex];
 
-            // If positive literal has TRUE color, variable is true (1)
-            // Otherwise, variable is false (0)
-            assignment[i] = if vertex_color == true_color { 1 } else { 0 };
-        }
+                // Sanity check: variable vertices should not have AUX color
+                if vertex_color == aux_color {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "variable {i} has the auxiliary color"
+                    )));
+                }
 
-        assignment
+                // If positive literal has TRUE color, variable is true (1)
+                // Otherwise, variable is false (0)
+                assignment[i] = if vertex_color == true_color { 1 } else { 0 };
+            }
+
+            assignment
+        })
     }
 }
 
@@ -295,9 +299,9 @@ impl ReductionSATToColoring {
 }
 
 #[reduction(
-    overhead = {
-        num_vertices = "num_vars + num_literals",
-        num_edges = "num_vars + num_literals",
+    size = unavailable {
+        num_vertices = "the exact graph size depends on clause-length-specific coloring gadgets absent from the source size vector",
+        num_edges = "the exact graph size depends on clause-length-specific coloring gadgets absent from the source size vector",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {

@@ -28,16 +28,21 @@ impl ReductionResult for ReductionSetSplittingToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "universe_size",
         num_constraints = "2 * num_subsets",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;

@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_arc_weights() {
+    let p = MinimumWeightAndOrGraph::try_from(MinimumWeightAndOrGraphCreateSpec {
+        num_vertices: 2,
+        arcs: vec![(0, 1)],
+        source: 0,
+        gate_types: vec![Some(false), None],
+        arc_weights: None,
+    })
+    .unwrap();
+    assert_eq!(p.arc_weights(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

@@ -26,17 +26,24 @@ impl ReductionResult for ReductionRPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Output the traversal multiplicities t_e
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Output the traversal multiplicities t_e
+            target_solution[..self.num_edges].to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_edges + num_vertices + num_edges + num_vertices + 2 * num_edges",
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
     type Result = ReductionRPToILP;

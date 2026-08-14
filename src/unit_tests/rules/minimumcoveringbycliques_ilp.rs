@@ -31,7 +31,7 @@ fn test_minimumcoveringbycliques_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(source.evaluate(&extracted), Min(Some(2)));
     assert_eq!(source.evaluate(&extracted), bf_value);
@@ -46,7 +46,10 @@ fn test_minimumcoveringbycliques_to_ilp_empty_graph() {
 
     assert_eq!(ilp.num_vars, 0);
     assert_eq!(ilp.constraints.len(), 0);
-    assert_eq!(reduction.extract_solution(&[]), Vec::<usize>::new());
+    assert_eq!(
+        reduction.extract_solution(&[]).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(source.evaluate(&[]), Min(Some(0)));
 }
 

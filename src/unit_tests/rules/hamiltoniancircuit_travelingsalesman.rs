@@ -65,7 +65,7 @@ fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
         .map(|(u, v)| usize::from(cycle_edges.contains(&(u, v)) || cycle_edges.contains(&(v, u))))
         .collect();
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(target.evaluate(&target_solution), Min(Some(4)));
     assert_eq!(extracted.len(), 4);

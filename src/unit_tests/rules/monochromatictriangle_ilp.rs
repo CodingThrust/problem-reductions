@@ -46,7 +46,7 @@ fn test_monochromatic_triangle_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("K4 should admit a monochromatic-triangle-free 2-edge-coloring");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, ilp_solution);
     assert!(problem.evaluate(&extracted));
@@ -64,7 +64,7 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "K6 should be infeasible by R(3,3)=6"
     );
 }
@@ -75,7 +75,7 @@ fn test_monochromatic_triangle_to_ilp_extract_solution_identity() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let coloring = vec![0, 0, 1, 1, 0, 1];
 
-    let extracted = reduction.extract_solution(&coloring);
+    let extracted = reduction.extract_solution(&coloring).unwrap();
 
     assert_eq!(extracted, coloring);
     assert!(problem.evaluate(&extracted));

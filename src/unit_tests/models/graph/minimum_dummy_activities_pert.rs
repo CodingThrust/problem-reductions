@@ -1,4 +1,16 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_cycle() {
+    assert_eq!(MinimumDummyActivitiesPertCreateSpec::FIELDS[0].name, "arcs");
+    assert!(
+        MinimumDummyActivitiesPert::try_from(MinimumDummyActivitiesPertCreateSpec {
+            arcs: vec![(0, 1), (1, 0)],
+            num_vertices: Some(2),
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

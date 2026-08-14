@@ -132,7 +132,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,
@@ -186,4 +186,15 @@ fn test_matching_paper_example() {
     let solver = BruteForce::new();
     let best = solver.find_witness(&problem).unwrap();
     assert_eq!(problem.evaluate(&best).unwrap(), 2);
+}
+#[test]
+fn create_spec_uses_edge_weights_and_defaults_to_one() {
+    let problem = MaximumMatching::try_from(MaximumMatchingCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), vec![1]);
+    assert_eq!(MaximumMatchingCreateSpec::FIELDS[2].name, "edge_weights");
 }

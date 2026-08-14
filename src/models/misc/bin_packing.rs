@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Bin Packing",
         aliases: &[],
         dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign items to bins minimizing number of bins used, subject to capacity",
         fields: &[

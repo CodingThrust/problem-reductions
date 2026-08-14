@@ -44,7 +44,7 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
 
@@ -74,7 +74,7 @@ fn test_naesatisfiability_to_ilp_infeasible() {
     let ilp_solver = ILPSolver::new();
     // The ILP should be infeasible: x1 ≥ 1 (at least one true) AND x1 ≤ 0 (at least one false)
     assert!(
-        ilp_solver.solve(ilp).is_none(),
+        ilp_solver.solve(ilp).is_err(),
         "ILP should be infeasible for unsatisfiable NAE-SAT"
     );
 }
@@ -98,7 +98,7 @@ fn test_naesatisfiability_to_ilp_negative_literals() {
     let ilp_solution = ilp_solver
         .solve(ilp)
         .expect("NAE-SAT with (¬x1 ∨ x2) is feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),

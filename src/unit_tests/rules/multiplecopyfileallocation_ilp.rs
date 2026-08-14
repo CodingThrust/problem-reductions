@@ -46,7 +46,7 @@ fn test_multiplecopyfileallocation_to_ilp_bf_vs_ilp() {
     assert!(problem.evaluate(&bf_witness).0.is_some());
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         extracted.len(),
         3,
@@ -73,7 +73,7 @@ fn test_solution_extraction() {
         0, 1, 0, // y_{1,0}, y_{1,1}, y_{1,2}
         0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
     ];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(7)));
 }
@@ -91,7 +91,7 @@ fn test_multiplecopyfileallocation_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 1);
     assert_eq!(problem.evaluate(&extracted), Min(Some(3)));
 }

@@ -57,7 +57,7 @@ fn test_threedimensionalmatching_to_threepartition_extracts_manual_q1_witness() 
 
     assert!(reduction.target_problem().evaluate(&target_config).0);
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -68,7 +68,7 @@ fn test_threedimensionalmatching_to_threepartition_closed_loop_from_known_matchi
     let target_solution = reduction.build_target_witness(&[1]);
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -80,7 +80,7 @@ fn test_threedimensionalmatching_to_threepartition_round_trip_q2_minimal_matchin
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1]);
     assert!(source.evaluate(&extracted).0);
 }

@@ -39,7 +39,7 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_issue_example_
 
     assert_eq!(target.evaluate(&target_solution), Min(Some(2)));
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, vec![0, 0, 0, 1]);
     assert_eq!(source.evaluate(&extracted), Min(Some(2)));
@@ -54,9 +54,13 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_invalid_target
 
     assert_eq!(target.evaluate(&invalid_target_solution), Min(None));
 
-    let extracted = reduction.extract_solution(&invalid_target_solution);
-
-    assert_eq!(source.evaluate(&extracted), Min(None));
+    let error = reduction
+        .extract_solution(&invalid_target_solution)
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "target configuration is not a valid intersection graph basis"
+    );
 }
 
 #[test]
@@ -66,6 +70,9 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_empty_graph() 
     let target = reduction.target_problem();
 
     assert_eq!(target.evaluate(&[]), Min(Some(0)));
-    assert_eq!(reduction.extract_solution(&[]), Vec::<usize>::new());
+    assert_eq!(
+        reduction.extract_solution(&[]).unwrap(),
+        Vec::<usize>::new()
+    );
     assert_eq!(source.evaluate(&[]), Min(Some(0)));
 }

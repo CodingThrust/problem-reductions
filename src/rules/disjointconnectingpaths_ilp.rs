@@ -34,27 +34,37 @@ impl ReductionResult for ReductionDCPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Mark an edge selected iff some orientation carries flow for some commodity.
-        let m = self.edges.len();
-        let mut result = vec![0usize; m];
-        for k in 0..self.num_commodities {
-            for e in 0..m {
-                let fwd = target_solution[k * self.num_edge_vars_per_commodity + 2 * e];
-                let rev = target_solution[k * self.num_edge_vars_per_commodity + 2 * e + 1];
-                if fwd == 1 || rev == 1 {
-                    result[e] = 1;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Mark an edge selected iff some orientation carries flow for some commodity.
+            let m = self.edges.len();
+            let mut result = vec![0usize; m];
+            for k in 0..self.num_commodities {
+                for e in 0..m {
+                    let fwd = target_solution[k * self.num_edge_vars_per_commodity + 2 * e];
+                    let rev = target_solution[k * self.num_edge_vars_per_commodity + 2 * e + 1];
+                    if fwd == 1 || rev == 1 {
+                        result[e] = 1;
+                    }
                 }
             }
-        }
-        result
+            result
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_pairs * 2 * num_edges",
-        num_constraints = "num_pairs * num_vertices + num_pairs * num_edges + num_edges + num_vertices",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {

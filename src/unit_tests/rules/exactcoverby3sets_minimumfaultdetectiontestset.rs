@@ -76,7 +76,7 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&best), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert!(!source.evaluate(&extracted));
 }
 
@@ -85,6 +85,9 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_extract_solution_ident
     let source = issue_yes_instance();
     let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source);
 
-    assert_eq!(reduction.extract_solution(&[1, 1, 0]), vec![1, 1, 0]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 1, 0]).unwrap(),
+        vec![1, 1, 0]
+    );
     assert!(source.evaluate(&[1, 1, 0]).0);
 }

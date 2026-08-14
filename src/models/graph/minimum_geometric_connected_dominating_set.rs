@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Minimum Geometric Connected Dominating Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum connected dominating set in a geometric point set",
         fields: &[

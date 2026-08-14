@@ -64,8 +64,21 @@ fn test_solution_extraction_sentinel_false() {
     let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
 
     // target_solution: [1, 0, 1, 0] means x1=true, x2=false, x3=true, sentinel=false
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0]);
+    let extracted = reduction.extract_solution(&[1, 0, 1, 0]).unwrap();
     assert_eq!(extracted, vec![1, 0, 1]);
+}
+
+#[test]
+fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input() {
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![-1, -2])]);
+    let reduction = ReduceTo::<NAESatisfiability>::reduce_to(&sat);
+
+    assert_eq!(reduction.extract_solution(&[0, 0, 0]).unwrap(), vec![0, 0]);
+
+    let error = reduction.extract_solution(&[0, 0]).unwrap_err();
+    assert_eq!(error.to_string(), "expected 3 target values, got 2");
+    assert!(reduction.extract_solution(&[0, 0, 0, 0]).is_err());
+    assert!(reduction.extract_solution(&[0, 2, 0]).is_err());
 }
 
 #[test]
@@ -77,7 +90,7 @@ fn test_solution_extraction_sentinel_true() {
 
     // target_solution: [0, 1, 0, 1] means x1=false, x2=true, x3=false, sentinel=true
     // Complement: x1=true, x2=false, x3=true
-    let extracted = reduction.extract_solution(&[0, 1, 0, 1]);
+    let extracted = reduction.extract_solution(&[0, 1, 0, 1]).unwrap();
     assert_eq!(extracted, vec![1, 0, 1]);
 }
 
@@ -170,7 +183,7 @@ fn test_all_satisfying_assignments_map_back() {
     let nae_solutions = solver.find_all_witnesses(naesat);
 
     for nae_sol in &nae_solutions {
-        let sat_sol = reduction.extract_solution(nae_sol);
+        let sat_sol = reduction.extract_solution(nae_sol).unwrap();
         assert_eq!(sat_sol.len(), 2);
         assert!(
             sat.evaluate(&sat_sol).0,

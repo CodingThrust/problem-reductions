@@ -16,15 +16,6 @@ pub struct ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis {
     target: MinimumIntersectionGraphBasis<SimpleGraph>,
 }
 
-fn invalid_source_solution(num_edges: usize) -> Vec<usize> {
-    if num_edges == 0 {
-        // Deliberately wrong length so source `evaluate` returns `Min(None)`.
-        vec![0]
-    } else {
-        vec![0; num_edges - 1]
-    }
-}
-
 fn extract_edge_clique_cover(graph: &SimpleGraph, target_solution: &[usize]) -> Option<Vec<usize>> {
     let n = graph.num_vertices();
     let m = graph.num_edges();
@@ -89,18 +80,30 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if !self.target.evaluate(target_solution).is_valid() {
-            return invalid_source_solution(self.target.num_edges());
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        extract_edge_clique_cover(self.target.graph(), target_solution)
-            .unwrap_or_else(|| invalid_source_solution(self.target.num_edges()))
+        Ok({
+            if !self.target.evaluate(target_solution).is_valid() {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration is not a valid intersection graph basis",
+                ));
+            }
+
+            extract_edge_clique_cover(self.target.graph(), target_solution).ok_or_else(|| {
+                crate::rules::ExtractionError::invalid(
+                    "target basis does not assign a shared label to every source edge",
+                )
+            })?
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }

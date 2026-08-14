@@ -1,15 +1,44 @@
 //! ILP solver implementation using HiGHS.
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
-use crate::models::misc::TimetableDesign;
-use crate::rules::{ReduceTo, ReductionMode, ReductionResult};
-#[cfg(not(feature = "ilp-highs"))]
-use good_lp::default_solver;
-#[cfg(feature = "ilp-highs")]
+use crate::rules::{ReduceTo, ReductionResult};
 use good_lp::highs;
-#[cfg(feature = "ilp-highs")]
 use good_lp::solvers::highs::HighsParallelType;
-use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
+use good_lp::{
+    variable, ProblemVariables, ResolutionError, Solution, SolutionStatus, SolverModel, Variable,
+};
+
+/// A failure to produce a proven-optimal ILP solution.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ILPSolveError {
+    /// The constraints have no feasible assignment.
+    #[error("the ILP is infeasible")]
+    Infeasible,
+    /// The objective is unbounded.
+    #[error("the ILP objective is unbounded")]
+    Unbounded,
+    /// The configured time limit was reached before optimality was proven.
+    #[error("the ILP solver reached its time limit before proving optimality")]
+    Timeout,
+    /// The selected backend failed for another reason.
+    #[error("the ILP backend failed: {0}")]
+    BackendFailure(String),
+    /// Type-erased dispatch received a value other than a supported ILP variant.
+    #[error("the ILP backend supports only ILP<bool> and ILP<i32>")]
+    UnsupportedProblemType,
+    /// A target witness could not be mapped back to the source problem.
+    #[error(transparent)]
+    Extraction(#[from] crate::rules::ExtractionError),
+}
+
+fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
+    match error {
+        ResolutionError::Infeasible => ILPSolveError::Infeasible,
+        ResolutionError::Unbounded => ILPSolveError::Unbounded,
+        ResolutionError::Other("NoSolutionFound") if time_limit.is_some() => ILPSolveError::Timeout,
+        other => ILPSolveError::BackendFailure(other.to_string()),
+    }
+}
 
 /// An ILP solver using the HiGHS backend.
 ///
@@ -30,42 +59,15 @@ use good_lp::{variable, ProblemVariables, Solution, SolverModel, Variable};
 /// );
 ///
 /// let solver = ILPSolver::new();
-/// if let Some(solution) = solver.solve(&ilp) {
-///     println!("Solution: {:?}", solution);
-/// }
+/// let solution = solver.solve(&ilp)?;
+/// println!("Solution: {:?}", solution);
+/// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct ILPSolver {
     /// Time limit in seconds (None = no limit).
     pub time_limit: Option<f64>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SolveViaReductionError {
-    WitnessPathRequired { name: String },
-    NoReductionPath { name: String },
-    NoSolution { name: String },
-}
-
-impl std::fmt::Display for SolveViaReductionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SolveViaReductionError::WitnessPathRequired { name } => write!(
-                f,
-                "ILP solving requires a witness-capable source problem and reduction path; only aggregate-value solving is available for {}.",
-                name
-            ),
-            SolveViaReductionError::NoReductionPath { name } => {
-                write!(f, "No reduction path from {} to ILP", name)
-            }
-            SolveViaReductionError::NoSolution { name } => {
-                write!(f, "ILP solver found no solution for {}", name)
-            }
-        }
-    }
-}
-
-impl std::error::Error for SolveViaReductionError {}
 
 impl ILPSolver {
     /// Create a new ILP solver with default settings.
@@ -82,13 +84,17 @@ impl ILPSolver {
 
     /// Solve an ILP problem directly.
     ///
-    /// Returns `None` if the problem is infeasible or the solver fails.
+    /// Returns a classified error when the problem is infeasible, the time
+    /// limit is reached, or the backend fails.
     /// The returned solution is a configuration vector where each element
     /// is the variable value (config index = value).
-    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Option<Vec<usize>> {
+    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<usize>, ILPSolveError> {
         let n = problem.num_vars;
         if n == 0 {
-            return problem.is_feasible(&[]).then_some(vec![]);
+            return problem
+                .is_feasible(&[])
+                .then_some(vec![])
+                .ok_or(ILPSolveError::Infeasible);
         }
 
         // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
@@ -136,7 +142,6 @@ impl ILPSolver {
         };
 
         // Create the solver model
-        #[cfg(feature = "ilp-highs")]
         let mut model = {
             let mut model = unsolved
                 .using(highs)
@@ -149,9 +154,6 @@ impl ILPSolver {
             }
             model
         };
-
-        #[cfg(not(feature = "ilp-highs"))]
-        let mut model = unsolved.using(default_solver);
 
         // Add constraints
         for constraint in &problem.constraints {
@@ -173,7 +175,20 @@ impl ILPSolver {
         }
 
         // Solve
-        let solution = model.solve().ok()?;
+        let effective_time_limit = self.time_limit;
+        let solution = model
+            .solve()
+            .map_err(|error| classify_backend_error(error, effective_time_limit))?;
+
+        match solution.status() {
+            SolutionStatus::Optimal => {}
+            SolutionStatus::TimeLimit => return Err(ILPSolveError::Timeout),
+            SolutionStatus::GapLimit => {
+                return Err(ILPSolveError::BackendFailure(
+                    "the backend stopped at its gap limit before proving optimality".to_string(),
+                ));
+            }
+        }
 
         // Extract solution: config index = value (no lower bound offset)
         let result: Vec<usize> = vars
@@ -184,12 +199,12 @@ impl ILPSolver {
             })
             .collect();
 
-        Some(result)
+        Ok(result)
     }
 
-    /// Solve any problem that reduces to `ILP<bool>`.
+    /// Solve any problem that reduces directly to `ILP<V>`.
     ///
-    /// This method first reduces the problem to a binary ILP, solves the ILP,
+    /// This method first reduces the problem to the selected ILP domain, solves the ILP,
     /// and then extracts the solution back to the original problem space.
     ///
     /// # Example
@@ -207,143 +222,29 @@ impl ILPSolver {
     ///
     /// // Solve using ILP solver
     /// let solver = ILPSolver::new();
-    /// if let Some(solution) = solver.solve_reduced(&problem) {
-    ///     println!("Solution: {:?}", solution);
-    /// }
+    /// let solution = solver.solve_reduced::<bool, _>(&problem)?;
+    /// println!("Solution: {:?}", solution);
+    /// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
     /// ```
-    pub fn solve_reduced<P>(&self, problem: &P) -> Option<Vec<usize>>
+    pub fn solve_reduced<V, P>(&self, problem: &P) -> Result<Vec<usize>, ILPSolveError>
     where
-        P: ReduceTo<ILP<bool>>,
+        V: VariableDomain,
+        P: ReduceTo<ILP<V>>,
     {
         let reduction = problem.reduce_to();
         let ilp_solution = self.solve(reduction.target_problem())?;
-        Some(reduction.extract_solution(&ilp_solution))
+        Ok(reduction.extract_solution(&ilp_solution)?)
     }
 
-    /// Solve a type-erased problem directly when a native solver hook exists.
-    ///
-    /// Returns `None` if the input type has no direct solver or the solver finds no solution.
-    pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
+    /// Solve a type-erased supported ILP variant directly.
+    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<usize>, ILPSolveError> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }
         if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
             return self.solve(ilp);
         }
-        if let Some(problem) = any.downcast_ref::<TimetableDesign>() {
-            return problem.solve_via_required_assignments();
-        }
-        None
-    }
-
-    fn supports_direct_dyn(&self, any: &dyn std::any::Any) -> bool {
-        any.is::<ILP<bool>>() || any.is::<ILP<i32>>() || any.is::<TimetableDesign>()
-    }
-
-    /// Two-level path selection:
-    /// 1. Dijkstra finds the cheapest path to each ILP variant using
-    ///    `MinimizeStepsThenOverhead` (additive edge costs: step count + log overhead).
-    /// 2. Across ILP variants, we pick the path whose composed final output size
-    ///    is smallest — this is the actual ILP problem size the solver will face.
-    fn best_path_to_ilp(
-        &self,
-        graph: &crate::rules::ReductionGraph,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        mode: ReductionMode,
-        instance: &dyn std::any::Any,
-    ) -> Option<crate::rules::ReductionPath> {
-        let ilp_variants = graph.variants_for("ILP");
-        let input_size = crate::rules::ReductionGraph::compute_source_size(name, instance);
-        let mut best_path: Option<crate::rules::ReductionPath> = None;
-        let mut best_cost = f64::INFINITY;
-
-        for dv in &ilp_variants {
-            if let Some(path) = graph.find_cheapest_path_mode(
-                name,
-                variant,
-                "ILP",
-                dv,
-                mode,
-                &input_size,
-                &crate::rules::MinimizeStepsThenOverhead,
-            ) {
-                // Use composed final output size for cross-variant comparison,
-                // since this determines the actual ILP problem size.
-                let final_size = graph
-                    .evaluate_path_overhead(&path, &input_size)
-                    .unwrap_or_default();
-                let cost = final_size.total() as f64;
-                if cost < best_cost {
-                    best_cost = cost;
-                    best_path = Some(path);
-                }
-            }
-        }
-
-        best_path
-    }
-
-    pub fn try_solve_via_reduction(
-        &self,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        instance: &dyn std::any::Any,
-    ) -> Result<Vec<usize>, SolveViaReductionError> {
-        if self.supports_direct_dyn(instance) {
-            return self
-                .solve_dyn(instance)
-                .ok_or_else(|| SolveViaReductionError::NoSolution {
-                    name: name.to_string(),
-                });
-        }
-
-        let graph = crate::rules::ReductionGraph::new();
-
-        let Some(path) =
-            self.best_path_to_ilp(&graph, name, variant, ReductionMode::Witness, instance)
-        else {
-            if self
-                .best_path_to_ilp(&graph, name, variant, ReductionMode::Aggregate, instance)
-                .is_some()
-            {
-                return Err(SolveViaReductionError::WitnessPathRequired {
-                    name: name.to_string(),
-                });
-            }
-
-            return Err(SolveViaReductionError::NoReductionPath {
-                name: name.to_string(),
-            });
-        };
-
-        let chain = graph.reduce_along_path(&path, instance).ok_or_else(|| {
-            SolveViaReductionError::WitnessPathRequired {
-                name: name.to_string(),
-            }
-        })?;
-        let ilp_solution = self.solve_dyn(chain.target_problem_any()).ok_or_else(|| {
-            SolveViaReductionError::NoSolution {
-                name: name.to_string(),
-            }
-        })?;
-        Ok(chain.extract_solution(&ilp_solution))
-    }
-
-    /// Solve a type-erased problem by finding a reduction path to ILP.
-    ///
-    /// Tries all ILP variants, picks the cheapest path, reduces, solves,
-    /// and extracts the solution back. Falls back to direct ILP solve if
-    /// the problem is already an ILP type.
-    ///
-    /// Returns `None` if no path to ILP exists or the solver finds no solution.
-    pub fn solve_via_reduction(
-        &self,
-        name: &str,
-        variant: &std::collections::BTreeMap<String, String>,
-        instance: &dyn std::any::Any,
-    ) -> Option<Vec<usize>> {
-        self.try_solve_via_reduction(name, variant, instance).ok()
+        Err(ILPSolveError::UnsupportedProblemType)
     }
 }
 

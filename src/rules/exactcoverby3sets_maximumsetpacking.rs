@@ -29,14 +29,20 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
     /// The configuration is identity (same binary selection vector).
     /// A packing of q disjoint 3-sets over a 3q-element universe is necessarily
     /// an exact cover, so no additional checking is needed.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_sets = "num_subsets",
-})]
+#[reduction(
+    size = exact {
+        num_sets = "num_subsets",
+    })]
 impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMaximumSetPacking;
 

@@ -59,7 +59,7 @@ fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 0, 0, 1]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(2)));
@@ -80,7 +80,7 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
 
     assert_eq!(problem.evaluate(&[0]), Min(None));
     assert_eq!(problem.evaluate(&[1]), Min(None));
-    assert!(ILPSolver::new().solve(ilp).is_none());
+    assert!(ILPSolver::new().solve(ilp).is_err());
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_reduction_handles_instances_without_internal_vertices() {
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("ILP should be feasible when there are no internal vertices");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0]);
     assert_eq!(problem.evaluate(&extracted), Min(Some(0)));

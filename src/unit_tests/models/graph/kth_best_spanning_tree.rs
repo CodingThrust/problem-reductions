@@ -154,3 +154,19 @@ fn test_kthbestspanningtree_creation_rejects_weight_length_mismatch() {
 fn test_kthbestspanningtree_creation_rejects_zero_k() {
     let _ = KthBestSpanningTree::<i32>::new(SimpleGraph::new(1, vec![]), vec![], 0, 0);
 }
+#[test]
+fn create_spec_maps_edge_weights_to_weights() {
+    let problem = KthBestSpanningTree::try_from(KthBestSpanningTreeCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: None,
+        edge_weights: None,
+        k: 1,
+        bound: 2,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), &[1]);
+    assert_eq!(
+        KthBestSpanningTreeCreateSpec::FIELDS[2].name,
+        "edge_weights"
+    );
+}

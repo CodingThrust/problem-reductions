@@ -22,16 +22,21 @@ impl ReductionResult for ReductionPCNFToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_paths",
         num_constraints = "num_arcs + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;

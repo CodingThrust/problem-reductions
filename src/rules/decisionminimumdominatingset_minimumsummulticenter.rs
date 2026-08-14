@@ -24,12 +24,20 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = { num_vertices = "num_vertices", num_edges = "num_edges" })]
+#[reduction(size = unavailable {
+    num_vertices = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+    num_edges = "the exact graph statistic depends on adjacency, incidence, or reachability structure not represented by registered source fields",
+})]
 impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i32>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {

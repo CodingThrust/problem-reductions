@@ -32,8 +32,13 @@ impl ReductionResult for ReductionKSatToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
@@ -52,8 +57,13 @@ impl ReductionResult for Reduction3SATToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_vars].to_vec())
     }
 }
 
@@ -291,7 +301,9 @@ fn build_qubo_matrix(
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars" }
+    size = exact {
+        num_vars = "num_vars",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
@@ -308,7 +320,9 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars + num_clauses" }
+    size = exact {
+        num_vars = "num_vars + num_clauses",
+    }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;

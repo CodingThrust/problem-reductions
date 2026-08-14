@@ -3,7 +3,7 @@
 //! The 0-1 Knapsack problem asks for a subset of items that maximizes
 //! total value while respecting a weight capacity constraint.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -14,13 +14,17 @@ inventory::submit! {
         display_name: "Knapsack",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Select items to maximize total value subject to weight capacity constraint",
-        fields: &[
-            FieldInfo { name: "weights", type_name: "Vec<i64>", description: "Nonnegative item weights w_i" },
-            FieldInfo { name: "values", type_name: "Vec<i64>", description: "Nonnegative item values v_i" },
-            FieldInfo { name: "capacity", type_name: "i64", description: "Nonnegative knapsack capacity C" },
-        ],
+        fields: KnapsackCreateSpec::FIELDS,
+    }
+}
+
+inventory::submit! {
+    ProblemSizeFieldEntry {
+        name: "Knapsack",
+        fields: &["num_items"],
     }
 }
 
@@ -54,6 +58,33 @@ pub struct Knapsack {
     values: Vec<i64>,
     #[serde(deserialize_with = "nonnegative_i64::deserialize")]
     capacity: i64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct KnapsackCreateSpec {
+    /// Nonnegative item weights; defaults to one per value.
+    weights: Option<Vec<i64>>,
+    /// Nonnegative item values.
+    values: Vec<i64>,
+    /// Nonnegative knapsack capacity.
+    capacity: i64,
+}
+impl TryFrom<KnapsackCreateSpec> for Knapsack {
+    type Error = String;
+    fn try_from(spec: KnapsackCreateSpec) -> Result<Self, Self::Error> {
+        let count = spec.values.len();
+        let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
+        if weights.len() != count {
+            return Err("weights length must equal values length".to_string());
+        }
+        if weights.iter().any(|&value| value < 0)
+            || spec.values.iter().any(|&value| value < 0)
+            || spec.capacity < 0
+        {
+            return Err("weights, values, and capacity must be nonnegative".to_string());
+        }
+        Ok(Self::new(weights, spec.values, spec.capacity))
+    }
 }
 
 impl Knapsack {
@@ -156,7 +187,7 @@ impl Problem for Knapsack {
 }
 
 crate::declare_variants! {
-    default Knapsack => "2^(num_items / 2)",
+    default Knapsack => "2^(num_items / 2)" create KnapsackCreateSpec,
 }
 
 mod nonnegative_i64 {

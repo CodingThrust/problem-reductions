@@ -9,7 +9,7 @@ use crate::types::{One, Or};
 fn decision_mds(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    k: i32,
+    k: i64,
 ) -> Decision<MinimumDominatingSet<SimpleGraph, One>> {
     Decision::new(
         MinimumDominatingSet::new(
@@ -58,7 +58,7 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_yes_in
 
     for target_solution in target_solutions {
         assert_eq!(target.evaluate(&target_solution).unwrap(), 4);
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
         assert_eq!(source.evaluate(&extracted), Or(true));
     }
@@ -80,13 +80,14 @@ fn test_decisionminimumdominatingset_to_minimumsummulticenter_closed_loop_no_ins
         "target should still have optimal K-center placements"
     );
 
-    let threshold = source.inner().graph().num_vertices() as i32 - source.k() as i32;
+    let threshold = i64::try_from(source.inner().graph().num_vertices()).unwrap()
+        - i64::try_from(source.k()).unwrap();
     for target_solution in target_solutions {
         let target_value = target.evaluate(&target_solution).unwrap();
         assert_eq!(target_value, 6);
         assert!(target_value > threshold);
 
-        let extracted = reduction.extract_solution(&target_solution);
+        let extracted = reduction.extract_solution(&target_solution).unwrap();
         assert_eq!(extracted, target_solution);
         assert_eq!(source.evaluate(&extracted), Or(false));
     }

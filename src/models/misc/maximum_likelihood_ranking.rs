@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Maximum Likelihood Ranking",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find a ranking minimizing total pairwise disagreement cost",
         fields: &[

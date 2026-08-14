@@ -15,7 +15,7 @@ fn test_imdc_to_ilp_closed_loop_simple() {
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness);
+    let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config);
     assert!(val.0.is_some());
     assert_eq!(val.0.unwrap(), 2);
@@ -31,7 +31,7 @@ fn test_imdc_to_ilp_closed_loop_repeated() {
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness);
+    let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config);
     assert!(val.0.is_some());
     assert_eq!(val.0.unwrap(), 4);
@@ -48,7 +48,7 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness);
+    let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config);
     assert!(val.0.is_some());
     // Verify against brute force
@@ -62,7 +62,7 @@ fn test_imdc_to_ilp_empty_string() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
     let target = reduction.target_problem();
     assert_eq!(target.num_variables(), 0);
-    let source_config = reduction.extract_solution(&[]);
+    let source_config = reduction.extract_solution(&[]).unwrap();
     assert_eq!(source.evaluate(&source_config), Min(Some(0)));
 }
 
@@ -76,7 +76,7 @@ fn test_imdc_to_ilp_single_char() {
 
     let solver = BruteForce::new();
     let target_witness = solver.find_witness(target).expect("ILP should be feasible");
-    let source_config = reduction.extract_solution(&target_witness);
+    let source_config = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.evaluate(&source_config), Min(Some(1)));
 }
 
@@ -108,7 +108,7 @@ fn test_imdc_to_ilp_vs_brute_force() {
         let target_witness = BruteForce::new()
             .find_witness(target)
             .expect("ILP should be feasible");
-        let source_config = reduction.extract_solution(&target_witness);
+        let source_config = reduction.extract_solution(&target_witness).unwrap();
         let ilp_val = source.evaluate(&source_config);
 
         assert_eq!(

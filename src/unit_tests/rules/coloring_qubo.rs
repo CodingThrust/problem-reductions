@@ -15,7 +15,7 @@ fn test_kcoloring_to_qubo_closed_loop() {
 
     // All solutions should extract to valid colorings
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(kc.evaluate(&extracted));
     }
 
@@ -34,7 +34,7 @@ fn test_kcoloring_to_qubo_path() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(kc.evaluate(&extracted));
     }
 
@@ -54,7 +54,7 @@ fn test_kcoloring_to_qubo_reversed_edges() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(kc.evaluate(&extracted));
     }
 

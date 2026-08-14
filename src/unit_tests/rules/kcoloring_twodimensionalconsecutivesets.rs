@@ -100,7 +100,7 @@ fn test_kcoloring_to_tdcs_extract_solution_valid() {
     let target_solutions = solver.find_all_witnesses(reduction.target_problem());
 
     for target_sol in &target_solutions {
-        let source_sol = reduction.extract_solution(target_sol);
+        let source_sol = reduction.extract_solution(target_sol).unwrap();
         assert_eq!(source_sol.len(), 3);
         // Verify it is a valid coloring
         assert!(

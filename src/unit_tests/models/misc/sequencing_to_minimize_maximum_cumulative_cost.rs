@@ -1,4 +1,15 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_precedences() {
+    let problem =
+        SequencingToMinimizeMaximumCumulativeCost::try_from(SequencingCumulativeCostCreateSpec {
+            costs: vec![1, -1],
+            precedences: None,
+        })
+        .unwrap();
+    assert!(problem.precedences().is_empty());
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;

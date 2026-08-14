@@ -43,22 +43,38 @@ impl ReductionResult for ReductionSWIToILP {
     ///
     /// For each task j, find the offset k where x_{j,k} = 1.
     /// Returns config[j] = k (start time offset from release time).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         self.task_layout
             .iter()
-            .map(|&(base, count)| {
-                (0..count)
-                    .find(|&k| target_solution.get(base + k).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0)
+            .enumerate()
+            .map(|(task, &(base, count))| {
+                let mut selected = (0..count).filter(|&offset| target_solution[base + offset] == 1);
+                match (selected.next(), selected.next()) {
+                    (Some(offset), None) => Ok(offset),
+                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "task {task} has no selected start time"
+                    ))),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "task {task} has multiple selected start times"
+                    ))),
+                }
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_tasks^2",
-        num_constraints = "num_tasks^2 + num_tasks",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
@@ -139,7 +155,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

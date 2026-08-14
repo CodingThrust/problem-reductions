@@ -1,4 +1,19 @@
 use super::*;
+#[test]
+fn create_spec_rejects_zero_internal_multiplier() {
+    assert!(
+        IntegralFlowWithMultipliers::try_from(IntegralFlowWithMultipliersCreateSpec {
+            arcs: vec![(0, 1), (1, 2)],
+            num_vertices: None,
+            capacities: vec![1, 1],
+            source: 0,
+            sink: 2,
+            multipliers: vec![1, 0, 1],
+            requirement: 1
+        })
+        .is_err()
+    );
+}
 use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;

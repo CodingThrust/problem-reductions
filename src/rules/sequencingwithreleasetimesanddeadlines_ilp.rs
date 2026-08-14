@@ -46,28 +46,34 @@ impl ReductionResult for ReductionSWRTDToILP {
 
     /// Extract: read each task's start time, sort tasks by start time,
     /// encode as Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let horizon = self.time_horizon;
-        // For each task, find the start time
-        let mut start_times: Vec<(usize, usize)> = (0..n)
-            .map(|j| {
-                let start = (0..horizon)
-                    .find(|&t| target_solution.get(j * horizon + t).copied().unwrap_or(0) == 1)
-                    .unwrap_or(0);
-                (j, start)
-            })
-            .collect();
-        // Sort by start time (break ties by task index)
-        start_times.sort_by_key(|&(j, t)| (t, j));
-        let schedule: Vec<usize> = start_times.iter().map(|&(j, _)| j).collect();
-        Self::encode_schedule_as_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_tasks;
+            let horizon = self.time_horizon;
+            // For each task, find the start time
+            let starts =
+                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, horizon, 0)?;
+            let mut start_times: Vec<_> = starts.into_iter().enumerate().collect();
+            // Sort by start time (break ties by task index)
+            start_times.sort_by_key(|&(j, t)| (t, j));
+            let schedule: Vec<usize> = start_times.iter().map(|&(j, _)| j).collect();
+            Self::encode_schedule_as_lehmer(&schedule)
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * time_horizon",
-    num_constraints = "num_tasks + time_horizon",
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * time_horizon",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSWRTDToILP;

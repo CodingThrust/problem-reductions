@@ -57,7 +57,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
     assert_eq!(target.evaluate(&target_witness), Or(true));
 
     // Reconstructed source arrangement must be a valid arrangement of length <= k.
-    let arrangement = reduction.extract_solution(&target_witness);
+    let arrangement = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.evaluate(&arrangement), Or(true));
 }
 
@@ -95,9 +95,10 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_s
     assert_eq!(target.evaluate(&witness), Or(true));
 
     // Reconstructed source arrangement covers all 3 vertices and is YES.
-    let arrangement = reduction.extract_solution(&witness);
+    let arrangement = reduction.extract_solution(&witness).unwrap();
     assert_eq!(arrangement.len(), 3);
     assert_eq!(source.evaluate(&arrangement), Or(true));
+    assert!(reduction.extract_solution(&[]).is_err());
 }
 
 #[test]
@@ -128,22 +129,26 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_negative_b
         BruteForce::new().find_witness(&source).is_none(),
         "P_6 has no arrangement of length <= 4"
     );
+    assert!(reduction.extract_solution(&[]).is_err());
 }
 
 #[test]
 fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_invalid() {
-    // A non-permutation target solution falls back to the identity arrangement.
     let source = decision_ola(example_graph(), 11);
     let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source);
 
-    // Wrong length.
     assert_eq!(
-        reduction.extract_solution(&[0, 1, 2]),
-        vec![0, 1, 2, 3, 4, 5]
+        reduction
+            .extract_solution(&[0, 1, 2])
+            .unwrap_err()
+            .to_string(),
+        "expected 6 target values, got 3"
     );
-    // Repeated column.
     assert_eq!(
-        reduction.extract_solution(&[0, 0, 1, 2, 3, 4]),
-        vec![0, 1, 2, 3, 4, 5]
+        reduction
+            .extract_solution(&[0, 0, 1, 2, 3, 4])
+            .unwrap_err()
+            .to_string(),
+        "target column order is not a permutation"
     );
 }

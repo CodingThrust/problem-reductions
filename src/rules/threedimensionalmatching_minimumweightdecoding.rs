@@ -44,26 +44,24 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
         &self.target
     }
 
-    /// Solution extraction: identity mapping in the main branch. The target
-    /// codeword `x ∈ {0,1}^m` is the source subset indicator over the same
-    /// triple index set. In the sentinel branch the target witness has length
-    /// `1` (always `[0]`); we return the all-zero source-sized vector,
-    /// which decodes to `S = ∅`. `ThreeDimensionalMatching::evaluate(∅)`
-    /// then yields `Or(true)` iff `q == 0` (the correct answer for both
-    /// sentinel sub-cases).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if target_solution.len() == self.source_num_triples {
-            target_solution.to_vec()
-        } else {
-            vec![0; self.source_num_triples]
-        }
+    /// The target codeword prefix is the source subset indicator over the same
+    /// triple index set. The sentinel target appends one synthetic column, so
+    /// an empty source maps back to the empty prefix.
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.source_num_triples].to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_rows = "3 * universe_size",
-    num_cols = "num_triples",
-})]
+#[reduction(
+    size = exact {
+        num_rows = "3 * universe_size",
+        num_cols = "num_triples",
+    })]
 impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToMinimumWeightDecoding;
 

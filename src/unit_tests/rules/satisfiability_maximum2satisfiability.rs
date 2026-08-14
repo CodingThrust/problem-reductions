@@ -55,7 +55,7 @@ fn test_satisfiability_to_maximum2satisfiability_unsatisfiable_gap() {
 
     let target_solution =
         solve_optimization_problem(target).expect("MAX-2-SAT target should always have a witness");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(!source.evaluate(&extracted).0);
 }
 

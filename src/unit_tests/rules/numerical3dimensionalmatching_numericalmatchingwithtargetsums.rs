@@ -41,7 +41,7 @@ fn test_n3dm_to_nmts_extracts_target_witness_into_source_witness() {
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![2, 0, 1, 0, 2, 1]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -54,7 +54,7 @@ fn test_n3dm_to_nmts_handles_repeated_targets() {
 
     assert!(reduction.target_problem().evaluate(&target_solution).0);
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).0);
 }

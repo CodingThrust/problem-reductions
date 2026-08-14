@@ -6,6 +6,66 @@ use serde::Serialize;
 use std::any::Any;
 use std::marker::PhantomData;
 
+/// Failure to map a target witness back into the source configuration space.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ExtractionError {
+    #[error("{0}")]
+    InvalidTargetSolution(String),
+    #[error("{source_problem} -> {target_problem}: {message}")]
+    Reduction {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        message: String,
+    },
+}
+
+impl ExtractionError {
+    pub fn invalid(message: impl Into<String>) -> Self {
+        Self::InvalidTargetSolution(message.into())
+    }
+
+    fn for_reduction<S: Problem, T: Problem>(self) -> Self {
+        match self {
+            Self::InvalidTargetSolution(message) => Self::Reduction {
+                source_problem: S::NAME,
+                target_problem: T::NAME,
+                message,
+            },
+            error => error,
+        }
+    }
+}
+
+pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
+
+/// Validate that a target configuration matches its declared discrete space.
+pub(crate) fn validate_target_solution<P: Problem>(
+    target: &P,
+    solution: &[usize],
+) -> ExtractionResult<()> {
+    let dims = target.dims();
+    if solution.len() != dims.len() {
+        return Err(ExtractionError::invalid(format!(
+            "expected {} target values, got {}",
+            dims.len(),
+            solution.len()
+        )));
+    }
+
+    if let Some((index, (&value, &dimension))) = solution
+        .iter()
+        .zip(&dims)
+        .enumerate()
+        .find(|(_, (value, dimension))| value >= dimension)
+    {
+        return Err(ExtractionError::invalid(format!(
+            "target value {value} at position {index} is outside dimension {dimension}"
+        )));
+    }
+
+    Ok(())
+}
+
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods
@@ -26,7 +86,7 @@ pub trait ReductionResult {
     ///
     /// # Returns
     /// The corresponding solution in the source problem space
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize>;
+    fn extract_solution(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>>;
 }
 
 /// Trait for problems that can be reduced to target type T.
@@ -124,8 +184,10 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -152,7 +214,7 @@ pub trait DynReductionResult {
     /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract a solution from target space to source space.
-    fn extract_solution_dyn(&self, target_solution: &[usize]) -> Vec<usize>;
+    fn extract_solution_dyn(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>>;
 }
 
 impl<R: ReductionResult + 'static> DynReductionResult for R
@@ -162,8 +224,9 @@ where
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem() as &dyn Any
     }
-    fn extract_solution_dyn(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution_dyn(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>> {
         self.extract_solution(target_solution)
+            .map_err(|error| error.for_reduction::<R::Source, R::Target>())
     }
 }
 

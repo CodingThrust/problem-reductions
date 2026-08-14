@@ -2,7 +2,7 @@
 //!
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -17,13 +17,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32", "f64"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Minimize Ising Hamiltonian on a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The interaction graph" },
-            FieldInfo { name: "couplings", type_name: "Vec<W>", description: "Pairwise couplings J_ij" },
-            FieldInfo { name: "fields", type_name: "Vec<W>", description: "On-site fields h_i" },
-        ],
+        fields: SpinGlassI32CreateSpec::FIELDS,
     }
 }
 
@@ -72,6 +69,72 @@ pub struct SpinGlass<G, W> {
     /// On-site fields h_i.
     fields: Vec<W>,
 }
+
+macro_rules! spin_glass_create_spec {
+    ($name:ident, $weight:ty, $one:expr, $zero:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            /// Undirected interaction graph edges.
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            /// Vertex count, needed to preserve isolated spins.
+            num_vertices: Option<usize>,
+            /// Pairwise couplings; defaults to one per edge.
+            #[create(codec = "comma-separated")]
+            couplings: Option<Vec<$weight>>,
+            /// On-site fields; defaults to zero per vertex.
+            #[create(codec = "comma-separated")]
+            fields: Option<Vec<$weight>>,
+        }
+
+        impl TryFrom<$name> for SpinGlass<SimpleGraph, $weight> {
+            type Error = String;
+
+            fn try_from(spec: $name) -> Result<Self, Self::Error> {
+                if spec.graph.is_empty() && spec.num_vertices.is_none() {
+                    return Err("num_vertices is required for an empty graph".to_string());
+                }
+                for (index, &(u, v)) in spec.graph.iter().enumerate() {
+                    if u == v {
+                        return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+                    }
+                }
+                let inferred = spec
+                    .graph
+                    .iter()
+                    .flat_map(|&(u, v)| [u, v])
+                    .max()
+                    .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+                    .transpose()?
+                    .unwrap_or(0);
+                let num_vertices = spec.num_vertices.unwrap_or(inferred);
+                if num_vertices < inferred {
+                    return Err(format!(
+                        "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+                    ));
+                }
+                let couplings = spec
+                    .couplings
+                    .unwrap_or_else(|| vec![$one; spec.graph.len()]);
+                if couplings.len() != spec.graph.len() {
+                    return Err("couplings length must match graph edge count".to_string());
+                }
+                let fields = spec.fields.unwrap_or_else(|| vec![$zero; num_vertices]);
+                if fields.len() != num_vertices {
+                    return Err("fields length must match num_vertices".to_string());
+                }
+                Ok(SpinGlass {
+                    graph: SimpleGraph::new(num_vertices, spec.graph),
+                    couplings,
+                    fields,
+                })
+            }
+        }
+    };
+}
+
+spin_glass_create_spec!(SpinGlassI32CreateSpec, i32, 1_i32, 0_i32);
+spin_glass_create_spec!(SpinGlassF64CreateSpec, f64, 1.0_f64, 0.0_f64);
 
 impl<W: Clone + Default> SpinGlass<SimpleGraph, W> {
     /// Create a new Spin Glass problem.
@@ -236,9 +299,15 @@ where
     }
 }
 
+crate::impl_random_generate!(SpinGlass<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    let graph = spec.graph()?;
+    let num_edges = graph.num_edges();
+    Ok(SpinGlass::from_graph(graph, vec![1; num_edges], vec![0; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    default SpinGlass<SimpleGraph, i32> => "2^num_spins",
-    SpinGlass<SimpleGraph, f64> => "2^num_spins",
+    default SpinGlass<SimpleGraph, i32> => "2^num_spins" create SpinGlassI32CreateSpec random,
+    SpinGlass<SimpleGraph, f64> => "2^num_spins" create SpinGlassF64CreateSpec,
 }
 
 #[cfg(feature = "example-db")]

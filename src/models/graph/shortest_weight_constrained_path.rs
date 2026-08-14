@@ -4,7 +4,7 @@
 //! source vertex to a target vertex that minimizes total length while keeping
 //! the total weight within a prescribed bound.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -21,16 +21,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a simple s-t path minimizing total length subject to a weight budget",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l: E -> ZZ_(> 0)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> ZZ_(> 0)" },
-            FieldInfo { name: "source_vertex", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "target_vertex", type_name: "usize", description: "Target vertex t" },
-            FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Upper bound W on total path weight" },
-        ],
+        fields: ShortestWeightConstrainedPathCreateSpec::FIELDS,
     }
 }
 
@@ -72,6 +66,73 @@ pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     target_vertex: usize,
     /// Upper bound W on total path weight.
     weight_bound: N::Sum,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct ShortestWeightConstrainedPathCreateSpec {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Positive edge lengths in graph edge order.
+    edge_lengths: Vec<i32>,
+    /// Positive edge weights in graph edge order.
+    edge_weights: Vec<i32>,
+    /// Source vertex s.
+    source_vertex: usize,
+    /// Target vertex t.
+    target_vertex: usize,
+    /// Positive upper bound on total path weight.
+    weight_bound: i64,
+}
+
+impl TryFrom<ShortestWeightConstrainedPathCreateSpec>
+    for ShortestWeightConstrainedPath<SimpleGraph, i32>
+{
+    type Error = String;
+    fn try_from(spec: ShortestWeightConstrainedPathCreateSpec) -> Result<Self, Self::Error> {
+        let edge_count = spec.graph.num_edges();
+        if spec.edge_lengths.len() != edge_count {
+            return Err(format!(
+                "edge_lengths has {} entries, expected {edge_count}",
+                spec.edge_lengths.len()
+            ));
+        }
+        if spec.edge_weights.len() != edge_count {
+            return Err(format!(
+                "edge_weights has {} entries, expected {edge_count}",
+                spec.edge_weights.len()
+            ));
+        }
+        if spec.edge_lengths.iter().any(|&value| value <= 0) {
+            return Err("edge_lengths must be positive".to_string());
+        }
+        if spec.edge_weights.iter().any(|&value| value <= 0) {
+            return Err("edge_weights must be positive".to_string());
+        }
+        let vertex_count = spec.graph.num_vertices();
+        if spec.source_vertex >= vertex_count {
+            return Err(format!(
+                "source_vertex {} is outside graph with {vertex_count} vertices",
+                spec.source_vertex
+            ));
+        }
+        if spec.target_vertex >= vertex_count {
+            return Err(format!(
+                "target_vertex {} is outside graph with {vertex_count} vertices",
+                spec.target_vertex
+            ));
+        }
+        if spec.weight_bound <= 0 {
+            return Err("weight_bound must be positive".to_string());
+        }
+        Ok(Self::new(
+            spec.graph,
+            spec.edge_lengths,
+            spec.edge_weights,
+            spec.source_vertex,
+            spec.target_vertex,
+            spec.weight_bound,
+        ))
+    }
 }
 
 impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
@@ -349,7 +410,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges",
+    default ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges" create ShortestWeightConstrainedPathCreateSpec,
 }
 
 #[cfg(test)]

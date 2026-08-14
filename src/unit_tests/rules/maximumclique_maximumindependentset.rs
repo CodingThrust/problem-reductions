@@ -52,7 +52,7 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
         .any(|s| s.iter().sum::<usize>() == 3));
 
     // Extract solution: should be the full clique {0,1,2}
-    let source_sol = reduction.extract_solution(&target_solutions[0]);
+    let source_sol = reduction.extract_solution(&target_solutions[0]).unwrap();
     assert_eq!(source.evaluate(&source_sol).unwrap(), 3);
 }
 
@@ -108,7 +108,7 @@ fn test_maximumclique_to_maximumindependentset_one_weights_closed_loop() {
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_overhead() {
-    // Verify overhead formula: complement edges = n*(n-1)/2 - m
+    // Verify exact size formula: complement edges = n*(n-1)/2 - m
     let source = MaximumClique::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1i32; 5],

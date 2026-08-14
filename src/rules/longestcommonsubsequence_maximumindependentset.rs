@@ -48,32 +48,39 @@ impl ReductionResult for ReductionLCSToIS {
     ///
     /// Selected vertices correspond to match nodes. Sort by position in
     /// the first string to get the subsequence order, then pad to `max_length`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Collect selected match nodes with their characters
-        let mut selected: Vec<(usize, usize)> = target_solution
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
-            .collect();
-        // Sort by position in the first string
-        selected.sort_by_key(|&(pos, _)| pos);
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build config: characters followed by padding
-        let mut config = Vec::with_capacity(self.max_length);
-        for &(_, ch) in &selected {
-            config.push(ch);
-        }
-        // Pad with alphabet_size (the padding symbol)
-        while config.len() < self.max_length {
-            config.push(self.alphabet_size);
-        }
-        config
+        Ok({
+            // Collect selected match nodes with their characters
+            let mut selected: Vec<(usize, usize)> = target_solution
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
+                .collect();
+            // Sort by position in the first string
+            selected.sort_by_key(|&(pos, _)| pos);
+
+            // Build config: characters followed by padding
+            let mut config = Vec::with_capacity(self.max_length);
+            for &(_, ch) in &selected {
+                config.push(ch);
+            }
+            // Pad with alphabet_size (the padding symbol)
+            while config.len() < self.max_length {
+                config.push(self.alphabet_size);
+            }
+            config
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = upper_bound {
         num_vertices = "cross_frequency_product",
         num_edges = "cross_frequency_product^2",
     }

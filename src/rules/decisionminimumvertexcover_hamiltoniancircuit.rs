@@ -14,7 +14,7 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone)]
 enum ConstructionKind {
     FixedYes { source_cover: Vec<usize> },
-    FixedNo { num_source_vertices: usize },
+    FixedNo,
     Theorem(TheoremConstruction),
 }
 
@@ -182,47 +182,55 @@ impl TheoremConstruction {
         witness
     }
 
-    fn extract_solution(
+    fn decode_solution(
         &self,
         target_problem: &HamiltonianCircuit<SimpleGraph>,
         target_solution: &[usize],
-    ) -> Vec<usize> {
-        let mut source_cover = vec![0; self.num_source_vertices];
-        if !target_problem.evaluate(target_solution).0 {
-            return source_cover;
-        }
-
-        let mut positions = vec![usize::MAX; target_solution.len()];
-        for (idx, &vertex) in target_solution.iter().enumerate() {
-            if vertex >= positions.len() || positions[vertex] != usize::MAX {
-                return vec![0; self.num_source_vertices];
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        Ok({
+            let mut source_cover = vec![0; self.num_source_vertices];
+            if !target_problem.evaluate(target_solution).0 {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration is not a Hamiltonian circuit",
+                ));
             }
-            positions[vertex] = idx;
-        }
 
-        let len = target_solution.len();
-        let touches_selector = |vertex: usize| {
-            let idx = positions[vertex];
-            let prev = target_solution[(idx + len - 1) % len];
-            let next = target_solution[(idx + 1) % len];
-            prev < self.selector_count || next < self.selector_count
-        };
+            let mut positions = vec![usize::MAX; target_solution.len()];
+            for (idx, &vertex) in target_solution.iter().enumerate() {
+                if vertex >= positions.len() || positions[vertex] != usize::MAX {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "target circuit contains an invalid or repeated vertex",
+                    ));
+                }
+                positions[vertex] = idx;
+            }
 
-        for vertex in self.active_vertices() {
-            let Some((start, end)) = self.path_endpoints(vertex) else {
-                continue;
+            let len = target_solution.len();
+            let touches_selector = |vertex: usize| {
+                let idx = positions[vertex];
+                let prev = target_solution[(idx + len - 1) % len];
+                let next = target_solution[(idx + 1) % len];
+                prev < self.selector_count || next < self.selector_count
             };
-            if touches_selector(start) && touches_selector(end) {
-                source_cover[vertex] = 1;
+
+            for vertex in self.active_vertices() {
+                let Some((start, end)) = self.path_endpoints(vertex) else {
+                    continue;
+                };
+                if touches_selector(start) && touches_selector(end) {
+                    source_cover[vertex] = 1;
+                }
             }
-        }
 
-        let selected_count = source_cover.iter().filter(|&&x| x == 1).count();
-        if selected_count != self.selector_count || !self.covers_all_edges(&source_cover) {
-            return vec![0; self.num_source_vertices];
-        }
+            let selected_count = source_cover.iter().filter(|&&x| x == 1).count();
+            if selected_count != self.selector_count || !self.covers_all_edges(&source_cover) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target circuit does not encode a source vertex cover of the required size",
+                ));
+            }
 
-        source_cover
+            source_cover
+        })
     }
 }
 
@@ -239,7 +247,7 @@ impl ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
     fn build_target_witness(&self, source_cover: &[usize]) -> Vec<usize> {
         match &self.construction {
             ConstructionKind::FixedYes { .. } => vec![0, 1, 2],
-            ConstructionKind::FixedNo { .. } => Vec::new(),
+            ConstructionKind::FixedNo => Vec::new(),
             ConstructionKind::Theorem(construction) => {
                 construction.build_target_witness(source_cover)
             }
@@ -255,22 +263,33 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        match &self.construction {
-            ConstructionKind::FixedYes { source_cover } => {
-                if self.target.evaluate(target_solution).0 {
-                    source_cover.clone()
-                } else {
-                    vec![0; source_cover.len()]
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            match &self.construction {
+                ConstructionKind::FixedYes { source_cover } => {
+                    if self.target.evaluate(target_solution).0 {
+                        source_cover.clone()
+                    } else {
+                        return Err(crate::rules::ExtractionError::invalid(
+                            "target configuration is not the fixed Hamiltonian circuit",
+                        ));
+                    }
+                }
+                ConstructionKind::FixedNo => {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "the fixed negative target instance has no extractable witness",
+                    ))
+                }
+                ConstructionKind::Theorem(construction) => {
+                    construction.decode_solution(&self.target, target_solution)?
                 }
             }
-            ConstructionKind::FixedNo {
-                num_source_vertices,
-            } => vec![0; *num_source_vertices],
-            ConstructionKind::Theorem(construction) => {
-                construction.extract_solution(&self.target, target_solution)
-            }
-        }
+        })
     }
 }
 
@@ -289,7 +308,7 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "12 * num_edges + k",
         num_edges = "16 * num_edges - num_vertices + 2 * k * num_vertices",
     }
@@ -309,9 +328,7 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
         if raw_bound < 0 {
             return ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::path(3)),
-                construction: ConstructionKind::FixedNo {
-                    num_source_vertices,
-                },
+                construction: ConstructionKind::FixedNo,
             };
         }
 
@@ -345,9 +362,7 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
         if k == 0 {
             return ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::path(3)),
-                construction: ConstructionKind::FixedNo {
-                    num_source_vertices,
-                },
+                construction: ConstructionKind::FixedNo,
             };
         }
 

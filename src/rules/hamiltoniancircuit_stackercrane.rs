@@ -32,16 +32,23 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // The target config is a permutation of arc indices.
-        // Arc i corresponds to original vertex i (arc from 2i to 2i+1).
-        // The permutation order directly gives the Hamiltonian circuit vertex order.
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // The target config is a permutation of arc indices.
+            // Arc i corresponds to original vertex i (arc from 2i to 2i+1).
+            // The permutation order directly gives the Hamiltonian circuit vertex order.
+            target_solution.to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices",
         num_edges = "2 * num_edges",

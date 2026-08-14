@@ -149,3 +149,37 @@ fn test_string_to_string_correction_is_available_in_prelude() {
     let problem = crate::prelude::StringToStringCorrection::new(2, vec![0], vec![0], 0);
     assert!(problem.evaluate(&[]));
 }
+
+#[test]
+fn test_string_to_string_correction_create_spec_derives_alphabet() {
+    let problem = StringToStringCorrection::try_from(StringToStringCorrectionCreateSpec {
+        alphabet_size: None,
+        source_string: vec![0, 3],
+        target_string: vec![3],
+        bound: 1,
+    })
+    .unwrap();
+
+    assert_eq!(problem.alphabet_size(), 4);
+    assert_eq!(problem.source(), &[0, 3]);
+    assert_eq!(problem.target(), &[3]);
+    assert_eq!(
+        StringToStringCorrectionCreateSpec::FIELDS
+            .iter()
+            .map(|field| field.name)
+            .collect::<Vec<_>>(),
+        ["alphabet_size", "source_string", "target_string", "bound"]
+    );
+}
+
+#[test]
+fn test_string_to_string_correction_create_spec_rejects_small_alphabet() {
+    let result = StringToStringCorrection::try_from(StringToStringCorrectionCreateSpec {
+        alphabet_size: Some(2),
+        source_string: vec![2],
+        target_string: vec![],
+        bound: 1,
+    });
+
+    assert!(result.is_err());
+}

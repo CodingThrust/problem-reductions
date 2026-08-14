@@ -43,6 +43,7 @@ inventory::submit! {
         display_name: "Minimum-Cost Circulation",
         aliases: &["MCC"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral circulation on a directed multigraph minimizing total signed arc cost",
         fields: &[

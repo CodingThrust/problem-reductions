@@ -38,7 +38,7 @@ fn test_reduction_c4_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify extracted solution is valid on source problem
     let metric = problem.evaluate(&extracted);
@@ -56,7 +56,7 @@ fn test_reduction_k4_weighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
@@ -83,7 +83,7 @@ fn test_reduction_c5_unweighted_closed_loop() {
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     let metric = problem.evaluate(&extracted);
     assert!(metric.is_valid());
@@ -104,7 +104,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
     let result = ilp_solver.solve(ilp);
 
     assert!(
-        result.is_none(),
+        result.is_err(),
         "Path graph should have no Hamiltonian cycle (infeasible ILP)"
     );
 }
@@ -121,7 +121,7 @@ fn test_solution_extraction_structure() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Should have one value per edge
     assert_eq!(extracted.len(), 4);
@@ -136,7 +136,7 @@ fn test_solve_reduced() {
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
-        .solve_reduced(&problem)
+        .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
     let metric = problem.evaluate(&solution);

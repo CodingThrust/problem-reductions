@@ -3,7 +3,7 @@
 //! Given an n×m integer matrix A and integer vector b, find a rational vector y
 //! with Ay = b that minimizes the number of non-zero entries (Hamming weight).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Minimum Weight Solution to Linear Equations",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find a rational solution to Ay=b minimizing the number of non-zero entries",
-        fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i64>>", description: "n×m integer matrix A" },
-            FieldInfo { name: "rhs", type_name: "Vec<i64>", description: "right-hand side vector b of length n" },
-        ],
+        fields: MinimumWeightSolutionCreateSpec::FIELDS,
     }
 }
 
@@ -58,6 +56,39 @@ pub struct MinimumWeightSolutionToLinearEquations {
     matrix: Vec<Vec<i64>>,
     /// The right-hand side vector b of length n.
     rhs: Vec<i64>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumWeightSolutionCreateSpec {
+    /// Integer matrix as JSON.
+    #[create(codec = "json")]
+    matrix: Vec<Vec<i64>>,
+    /// Right-hand side vector.
+    #[create(codec = "comma-separated")]
+    rhs: Vec<i64>,
+}
+
+impl TryFrom<MinimumWeightSolutionCreateSpec> for MinimumWeightSolutionToLinearEquations {
+    type Error = String;
+    fn try_from(spec: MinimumWeightSolutionCreateSpec) -> Result<Self, Self::Error> {
+        let first = spec
+            .matrix
+            .first()
+            .ok_or("matrix must have at least one row")?;
+        if first.is_empty() {
+            return Err("matrix must have at least one column".into());
+        }
+        if spec.matrix.iter().any(|row| row.len() != first.len()) {
+            return Err("all matrix rows must have the same length".into());
+        }
+        if spec.rhs.len() != spec.matrix.len() {
+            return Err("rhs length must equal number of rows".into());
+        }
+        Ok(Self {
+            matrix: spec.matrix,
+            rhs: spec.rhs,
+        })
+    }
 }
 
 impl MinimumWeightSolutionToLinearEquations {
@@ -205,7 +236,7 @@ impl Problem for MinimumWeightSolutionToLinearEquations {
 }
 
 crate::declare_variants! {
-    default MinimumWeightSolutionToLinearEquations => "2^num_variables",
+    default MinimumWeightSolutionToLinearEquations => "2^num_variables" create MinimumWeightSolutionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

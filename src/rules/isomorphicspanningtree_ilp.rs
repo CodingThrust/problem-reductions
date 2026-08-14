@@ -24,22 +24,23 @@ impl ReductionResult for ReductionISTToILP {
     }
 
     /// For each tree vertex u, output the unique graph vertex v with x_{u,v} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        (0..n)
-            .map(|u| {
-                (0..n)
-                    .find(|&v| target_solution[u * n + v] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, self.n, self.n, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices * num_vertices",
-        num_constraints = "2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {

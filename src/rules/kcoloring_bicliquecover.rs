@@ -68,57 +68,57 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     /// cover yields at most `q` such distinct bicliques, so the result is a
     /// proper `q`-coloring of the source.
     ///
-    /// If the witness is invalid (e.g. some diagonal edge is uncovered),
-    /// the extracted entry for `v` falls back to color `0`. Validation
-    /// downstream is the responsibility of `source.is_valid_solution`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        let k = self.target.k();
-        let left_size = 2 * n;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // For each source vertex v, find the first biclique r that contains
-        // both a_v (unified index v) and b_v (unified index left_size + v).
-        let mut diagonal_biclique = vec![None; n];
-        for (v, slot) in diagonal_biclique.iter_mut().enumerate() {
-            let a_v = v;
-            let b_v = left_size + v;
-            for r in 0..k {
-                let a_idx = a_v * k + r;
-                let b_idx = b_v * k + r;
-                if target_solution.get(a_idx).copied().unwrap_or(0) == 1
-                    && target_solution.get(b_idx).copied().unwrap_or(0) == 1
-                {
-                    *slot = Some(r);
-                    break;
-                }
+        Ok({
+            let n = self.num_vertices;
+            let k = self.target.k();
+            let left_size = 2 * n;
+
+            // For each source vertex v, find the first biclique r that contains
+            // both a_v (unified index v) and b_v (unified index left_size + v).
+            let mut diagonal_biclique = Vec::with_capacity(n);
+            for v in 0..n {
+                let a_v = v;
+                let b_v = left_size + v;
+                let biclique = (0..k)
+                    .find(|&r| {
+                        target_solution[a_v * k + r] == 1 && target_solution[b_v * k + r] == 1
+                    })
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(format!(
+                            "target cover leaves diagonal gadget edge {v} uncovered"
+                        ))
+                    })?;
+                diagonal_biclique.push(biclique);
             }
-        }
 
-        // Compact distinct biclique indices into colors 0..q-1 in first-seen order.
-        let mut color_of_biclique: std::collections::HashMap<usize, usize> =
-            std::collections::HashMap::new();
-        let mut coloring = vec![0usize; n];
-        for (v, slot) in diagonal_biclique.iter().enumerate() {
-            if let Some(r) = *slot {
+            // Compact distinct biclique indices into colors 0..q-1 in first-seen order.
+            let mut color_of_biclique: std::collections::HashMap<usize, usize> =
+                std::collections::HashMap::new();
+            let mut coloring = Vec::with_capacity(n);
+            for biclique in diagonal_biclique {
                 let next_color = color_of_biclique.len();
-                let color = *color_of_biclique.entry(r).or_insert(next_color);
-                // Clamp into [0, q-1]: if the witness exceeds q distinct
-                // diagonal bicliques (which a valid cover never does) keep
-                // the entry in range so the downstream validator can
-                // simply reject it as an improper coloring.
-                coloring[v] = if self.num_colors == 0 {
-                    0
-                } else {
-                    color.min(self.num_colors - 1)
-                };
+                let color = *color_of_biclique.entry(biclique).or_insert(next_color);
+                if color >= self.num_colors {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "target cover uses more than {} diagonal bicliques",
+                        self.num_colors
+                    )));
+                }
+                coloring.push(color);
             }
-        }
-        coloring
+            coloring
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "4 * num_vertices",
         num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
         rank = "num_vertices + num_colors",

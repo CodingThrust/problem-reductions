@@ -37,15 +37,23 @@ impl ReductionResult for ReductionD2CIFToILP {
     }
 
     /// Extract flow solution: all 2*|A| variables directly encode the flow.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..2 * self.num_arcs].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..2 * self.num_arcs].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "2 * num_arcs",
-        num_constraints = "num_arcs + 2 * num_vertices + 2",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {

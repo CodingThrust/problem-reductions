@@ -51,17 +51,24 @@ impl ReductionResult for ReductionPSToILP {
     /// Extract schedule from ILP solution.
     ///
     /// Returns a binary config of length n * D_max: `config[t * D_max + u] = x_{t,u}`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let nd = self.num_tasks * self.d_max;
-        target_solution[..nd.min(target_solution.len())].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let nd = self.num_tasks * self.d_max;
+            target_solution[..nd].to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_tasks * d_max + 1",
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;

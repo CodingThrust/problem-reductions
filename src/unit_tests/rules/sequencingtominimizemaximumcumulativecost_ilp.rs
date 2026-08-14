@@ -18,7 +18,7 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert!(
@@ -44,7 +44,7 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(problem.evaluate(&extracted).0.is_some());
 }
 
@@ -55,6 +55,6 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_no_precedences() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(problem.evaluate(&extracted).0.is_some());
 }

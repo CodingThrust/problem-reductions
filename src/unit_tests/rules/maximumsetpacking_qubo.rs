@@ -15,7 +15,7 @@ fn test_setpacking_to_qubo_closed_loop() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
@@ -32,7 +32,7 @@ fn test_setpacking_to_qubo_disjoint() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
@@ -50,7 +50,7 @@ fn test_setpacking_to_qubo_all_overlap() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
     }

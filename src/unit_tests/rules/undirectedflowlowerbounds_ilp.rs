@@ -58,7 +58,7 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // extract_solution returns edge orientations z_e
     assert_eq!(extracted.len(), 2);
@@ -73,7 +73,7 @@ fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
     );
 }
@@ -86,7 +86,7 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     // f_{01}=1, f_{10}=0, f_{12}=1, f_{21}=0, z_0=1, z_1=1
     // z_e=1 means u→v direction; model expects config[e]=0 for u→v → extract returns 1-z_e
     let target_solution = vec![1, 0, 1, 0, 1, 1];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     // z_0=1, z_1=1 → extracted = [1-1, 1-1] = [0, 0] (both u→v = 0→1 and 1→2)
     assert_eq!(extracted, vec![0, 0]);
     assert!(

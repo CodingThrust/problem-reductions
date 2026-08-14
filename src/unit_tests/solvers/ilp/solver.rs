@@ -16,7 +16,7 @@ fn test_ilp_solver_basic_maximize() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
 
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
     let sol = solution.unwrap();
 
     // Solution should be valid
@@ -40,7 +40,7 @@ fn test_ilp_solver_basic_minimize() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
 
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
     let sol = solution.unwrap();
 
     // Solution should be valid
@@ -86,11 +86,11 @@ fn test_ilp_empty_problem() {
     let ilp = ILP::<bool>::empty();
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
-    assert_eq!(solution, Some(vec![]));
+    assert_eq!(solution, Ok(vec![]));
 }
 
 #[test]
-fn test_ilp_empty_problem_with_infeasible_constraint_returns_none() {
+fn test_ilp_empty_problem_with_infeasible_constraint_returns_infeasible() {
     let ilp = ILP::<bool>::new(
         0,
         vec![LinearConstraint::le(vec![], -1.0)],
@@ -99,7 +99,27 @@ fn test_ilp_empty_problem_with_infeasible_constraint_returns_none() {
     );
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
-    assert_eq!(solution, None);
+    assert_eq!(solution, Err(ILPSolveError::Infeasible));
+}
+
+#[test]
+fn test_backend_errors_are_classified_without_losing_the_cause() {
+    assert_eq!(
+        classify_backend_error(ResolutionError::Infeasible, None),
+        ILPSolveError::Infeasible
+    );
+    assert_eq!(
+        classify_backend_error(ResolutionError::Unbounded, None),
+        ILPSolveError::Unbounded
+    );
+    assert_eq!(
+        classify_backend_error(ResolutionError::Other("NoSolutionFound"), Some(0.1)),
+        ILPSolveError::Timeout
+    );
+    assert!(matches!(
+        classify_backend_error(ResolutionError::Other("SolveError"), None),
+        ILPSolveError::BackendFailure(message) if message.contains("SolveError")
+    ));
 }
 
 #[test]
@@ -262,47 +282,32 @@ fn test_ilp_with_time_limit() {
     );
 
     let solution = solver.solve(&ilp);
-    assert!(solution.is_some());
+    assert!(solution.is_ok());
 }
 
 #[test]
-fn test_ilp_solve_via_reduction_success() {
+fn test_registered_ilp_pipeline_success() {
     use crate::models::graph::MaximumIndependentSet;
+    use crate::registry::load_dyn;
+    use crate::solvers::{solve_deterministically, SolverExecution, SolverRequest};
     use crate::topology::SimpleGraph;
     use std::collections::BTreeMap;
 
-    let solver = ILPSolver::new();
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i32".to_string()),
     ]);
-    let result = solver.try_solve_via_reduction("MaximumIndependentSet", &variant, &problem);
-    assert!(result.is_ok());
-    let sol = result.unwrap();
-    let eval = problem.evaluate(&sol);
+    let loaded = load_dyn(
+        "MaximumIndependentSet",
+        &variant,
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
+    let result = solve_deterministically(&loaded, SolverRequest::Ilp).unwrap();
+    assert!(matches!(result.solver, SolverExecution::Ilp { .. }));
+    let eval = problem.evaluate(result.config.as_ref().unwrap());
     assert!(eval.is_valid());
-}
-
-#[test]
-fn test_ilp_solve_via_reduction_no_path() {
-    use std::collections::BTreeMap;
-
-    // Use a problem name that doesn't exist in the graph
-    let solver = ILPSolver::new();
-    let ilp = ILP::<bool>::new(
-        2,
-        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
-        vec![(0, 1.0)],
-        ObjectiveSense::Maximize,
-    );
-    // solve_via_reduction on an ILP itself should succeed directly
-    let result = solver.try_solve_via_reduction(
-        "ILP",
-        &BTreeMap::from([("type".to_string(), "bool".to_string())]),
-        &ilp,
-    );
-    assert!(result.is_ok());
 }
 
 #[test]
@@ -315,7 +320,7 @@ fn test_ilp_solve_dyn_bool() {
         ObjectiveSense::Maximize,
     );
     let result = solver.solve_dyn(&ilp as &dyn std::any::Any);
-    assert!(result.is_some());
+    assert!(result.is_ok());
 }
 
 #[test]
@@ -328,63 +333,13 @@ fn test_ilp_solve_dyn_i32() {
         ObjectiveSense::Maximize,
     );
     let result = solver.solve_dyn(&ilp as &dyn std::any::Any);
-    assert!(result.is_some());
+    assert!(result.is_ok());
 }
 
 #[test]
-fn test_ilp_solve_dyn_unknown_type_returns_none() {
+fn test_ilp_solve_dyn_unknown_type_returns_unsupported_problem_type() {
     let solver = ILPSolver::new();
     let not_ilp: i32 = 42;
     let result = solver.solve_dyn(&not_ilp as &dyn std::any::Any);
-    assert!(result.is_none());
-}
-
-#[test]
-fn test_ilp_supports_direct_dyn() {
-    let solver = ILPSolver::new();
-    let ilp_bool = ILP::<bool>::empty();
-    let ilp_i32 = ILP::<i32>::new(1, vec![], vec![], ObjectiveSense::Maximize);
-    let not_ilp: i32 = 42;
-
-    assert!(solver.supports_direct_dyn(&ilp_bool as &dyn std::any::Any));
-    assert!(solver.supports_direct_dyn(&ilp_i32 as &dyn std::any::Any));
-    assert!(!solver.supports_direct_dyn(&not_ilp as &dyn std::any::Any));
-}
-
-#[test]
-fn test_solve_via_reduction_error_display() {
-    use crate::solvers::ilp::SolveViaReductionError;
-
-    let err = SolveViaReductionError::WitnessPathRequired {
-        name: "Foo".to_string(),
-    };
-    assert!(err.to_string().contains("witness-capable"));
-    assert!(err.to_string().contains("Foo"));
-
-    let err = SolveViaReductionError::NoReductionPath {
-        name: "Bar".to_string(),
-    };
-    assert!(err.to_string().contains("No reduction path"));
-    assert!(err.to_string().contains("Bar"));
-
-    let err = SolveViaReductionError::NoSolution {
-        name: "Baz".to_string(),
-    };
-    assert!(err.to_string().contains("no solution"));
-    assert!(err.to_string().contains("Baz"));
-
-    // std::error::Error is implemented
-    let _: &dyn std::error::Error = &err;
-}
-
-#[test]
-fn test_solve_via_reduction_returns_none_for_no_path() {
-    let solver = ILPSolver::new();
-    let not_ilp: i32 = 42;
-    let result = solver.solve_via_reduction(
-        "NonexistentProblem",
-        &std::collections::BTreeMap::new(),
-        &not_ilp as &dyn std::any::Any,
-    );
-    assert!(result.is_none());
+    assert_eq!(result, Err(ILPSolveError::UnsupportedProblemType));
 }

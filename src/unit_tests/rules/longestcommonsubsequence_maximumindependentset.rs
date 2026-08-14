@@ -116,7 +116,7 @@ fn test_lcs_to_mis_extract_solution() {
     let witness = solver
         .find_witness(reduction.target_problem())
         .expect("should have a solution");
-    let source_sol = reduction.extract_solution(&witness);
+    let source_sol = reduction.extract_solution(&witness).unwrap();
 
     // The extracted solution should be valid for the source
     let value = lcs.evaluate(&source_sol);

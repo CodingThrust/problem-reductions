@@ -36,7 +36,10 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
     let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
     let reduction = ReduceTo::<SubsetProduct>::reduce_to(&source);
 
-    assert_eq!(reduction.extract_solution(&[1, 0, 1]), vec![1, 0, 1]);
+    assert_eq!(
+        reduction.extract_solution(&[1, 0, 1]).unwrap(),
+        vec![1, 0, 1]
+    );
 }
 
 #[test]

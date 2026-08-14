@@ -46,25 +46,34 @@ impl ReductionResult for ReductionCMOToILP {
     /// For each source residue `i in V_1`, find the unique `j` with
     /// `x_(i,j) = 1` and encode it as `j + 1` (CMO's `bot` is `0`); if no
     /// `x_(i,*)` is selected, the residue is left unmatched (`0`).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n1 = self.num_vertices_1;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n2 = self.num_vertices_2;
-        (0..n1)
-            .map(|i| {
-                (0..n2)
-                    .find(|&j| target_solution[i * n2 + j] == 1)
-                    .map(|j| j + 1)
-                    .unwrap_or(0)
+        (0..self.num_vertices_1)
+            .map(|residue| {
+                let mut selected =
+                    (0..n2).filter(|&mapped| target_solution[residue * n2 + mapped] == 1);
+                match (selected.next(), selected.next()) {
+                    (Some(mapped), None) => Ok(mapped + 1),
+                    (None, _) => Ok(0),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "source residue {residue} maps to multiple target residues"
+                    ))),
+                }
             })
             .collect()
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_vertices_1 * num_vertices_2 + num_contacts_1 * num_contacts_2",
         num_constraints = "num_vertices_1 + num_vertices_2 + num_vertices_1 * (num_vertices_1 - 1) / 2 * num_vertices_2 * (num_vertices_2 + 1) / 2 + 2 * num_contacts_1 * num_contacts_2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
     type Result = ReductionCMOToILP;

@@ -11,6 +11,7 @@ inventory::submit! {
         display_name: "Ensemble Computation",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find the minimum-length sequence of disjoint unions that builds all required subsets",
         fields: &[

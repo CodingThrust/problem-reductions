@@ -38,16 +38,21 @@ impl ReductionResult for ReductionMFVSToILP {
     ///
     /// The first n variables of the ILP solution are the binary x_i values,
     /// which directly correspond to the FVS configuration (1 = removed).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_vertices].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "2 * num_vertices",
         num_constraints = "num_arcs + 2 * num_vertices",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for MinimumFeedbackVertexSet<i32> {
     type Result = ReductionMFVSToILP;

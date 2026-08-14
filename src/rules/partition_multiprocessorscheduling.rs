@@ -32,14 +32,20 @@ impl ReductionResult for ReductionPartitionToMPS {
 
     /// Solution extraction: identity mapping.
     /// Partition config (0/1 for subset) maps directly to processor assignment (0/1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements",
-})]
+#[reduction(
+    size = exact {
+        num_tasks = "num_elements",
+    })]
 impl ReduceTo<MultiprocessorScheduling> for Partition {
     type Result = ReductionPartitionToMPS;
 

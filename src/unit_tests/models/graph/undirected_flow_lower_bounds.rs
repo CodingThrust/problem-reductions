@@ -1,4 +1,23 @@
 use super::*;
+
+#[test]
+fn create_spec_rejects_lower_bound_above_capacity() {
+    assert_eq!(
+        UndirectedFlowLowerBoundsCreateSpec::FIELDS[2].name,
+        "lower_bounds"
+    );
+    assert!(
+        UndirectedFlowLowerBounds::try_from(UndirectedFlowLowerBoundsCreateSpec {
+            graph: SimpleGraph::new(2, vec![(0, 1)]),
+            capacities: vec![1],
+            lower_bounds: vec![2],
+            source: 0,
+            sink: 1,
+            requirement: 1
+        })
+        .is_err()
+    );
+}
 use crate::solvers::BruteForce;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;

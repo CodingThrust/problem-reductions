@@ -25,14 +25,13 @@ impl ReductionResult for ReductionNAESATToSetSplitting {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        assert!(
-            target_solution.len() >= self.num_source_variables,
-            "SetSplitting solution has {} variables but source requires {}",
-            target_solution.len(),
-            self.num_source_variables,
-        );
-        target_solution[..self.num_source_variables].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_source_variables].to_vec())
     }
 }
 
@@ -46,7 +45,7 @@ fn literal_element_index(lit: i32, num_vars: usize) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         universe_size = "2 * num_vars",
         num_subsets = "num_vars + num_clauses",
     }

@@ -26,7 +26,7 @@ fn test_circuitsat_to_satisfiability_closed_loop() {
 
     let target_solution = solve_satisfaction_problem(reduction.target_problem())
         .expect("issue example should yield a SAT witness");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), source.num_variables());
     assert!(source.evaluate(&extracted).0);
 }

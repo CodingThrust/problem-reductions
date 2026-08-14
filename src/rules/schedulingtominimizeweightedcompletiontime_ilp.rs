@@ -8,6 +8,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing SchedulingToMinimizeWeightedCompletionTime to ILP.
@@ -51,22 +52,21 @@ impl ReductionResult for ReductionSMWCTToILP {
     }
 
     /// Extract solution: for each task, find the processor with x_{t,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_tasks)
-            .map(|t| {
-                (0..self.num_processors)
-                    .find(|&p| target_solution[self.x_var(t, p)] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_tasks, self.num_processors, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_tasks * num_processors + num_tasks + num_tasks * (num_tasks - 1) / 2",
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;

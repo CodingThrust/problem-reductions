@@ -4,7 +4,7 @@
 //! determine whether all tasks can be scheduled non-overlappingly such that each
 //! task runs entirely within its allowed time window.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Sequencing Within Intervals",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks non-overlappingly within their time windows",
-        fields: &[
-            FieldInfo { name: "release_times", type_name: "Vec<u64>", description: "Release time r(t) for each task" },
-            FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadline d(t) for each task" },
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing length l(t) for each task" },
-        ],
+        fields: SequencingWithinIntervalsCreateSpec::FIELDS,
     }
 }
 
@@ -61,6 +58,36 @@ pub struct SequencingWithinIntervals {
     deadlines: Vec<u64>,
     /// Processing lengths for each task.
     lengths: Vec<u64>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SequencingWithinIntervalsCreateSpec {
+    /// Release times.
+    release_times: Vec<u64>,
+    /// Deadlines.
+    deadlines: Vec<u64>,
+    /// Processing lengths.
+    lengths: Vec<u64>,
+}
+impl TryFrom<SequencingWithinIntervalsCreateSpec> for SequencingWithinIntervals {
+    type Error = String;
+    fn try_from(spec: SequencingWithinIntervalsCreateSpec) -> Result<Self, Self::Error> {
+        if spec.release_times.len() != spec.deadlines.len() {
+            return Err("release_times and deadlines must have the same length".to_string());
+        }
+        if spec.release_times.len() != spec.lengths.len() {
+            return Err("release_times and lengths must have the same length".to_string());
+        }
+        for index in 0..spec.release_times.len() {
+            let finish = spec.release_times[index]
+                .checked_add(spec.lengths[index])
+                .ok_or_else(|| format!("task {index} release time plus length overflows u64"))?;
+            if finish > spec.deadlines[index] {
+                return Err(format!("task {index} has an empty time window"));
+            }
+        }
+        Ok(Self::new(spec.release_times, spec.deadlines, spec.lengths))
+    }
 }
 
 impl SequencingWithinIntervals {
@@ -173,7 +200,7 @@ impl Problem for SequencingWithinIntervals {
 }
 
 crate::declare_variants! {
-    default SequencingWithinIntervals => "2^num_tasks",
+    default SequencingWithinIntervals => "2^num_tasks" create SequencingWithinIntervalsCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

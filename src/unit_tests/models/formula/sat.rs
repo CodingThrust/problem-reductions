@@ -106,7 +106,7 @@ fn test_empty_formula_zero_vars_solver() {
 
 #[test]
 fn test_zero_vars_unsat_solver() {
-    let problem = Satisfiability::new(0, vec![CNFClause::new(vec![1])]);
+    let problem = Satisfiability::new(0, vec![CNFClause::new(vec![])]);
     let solver = BruteForce::new();
 
     assert_eq!(solver.find_witness(&problem), None);

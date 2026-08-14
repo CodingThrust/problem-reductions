@@ -27,9 +27,16 @@ impl ReductionResult for ReductionMinimumMatrixCoverToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // First n variables are the sign variables x_0,...,x_{n-1}
-        target_solution[..self.n].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // First n variables are the sign variables x_0,...,x_{n-1}
+            target_solution[..self.n].to_vec()
+        })
     }
 }
 
@@ -42,10 +49,10 @@ fn y_index(n: usize, i: usize, j: usize) -> usize {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_rows + num_rows * (num_rows - 1) / 2",
         num_constraints = "3 * num_rows * (num_rows - 1) / 2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
     type Result = ReductionMinimumMatrixCoverToILP;

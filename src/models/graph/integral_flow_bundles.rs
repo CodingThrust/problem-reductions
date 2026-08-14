@@ -3,7 +3,7 @@
 //! Given a directed graph with overlapping bundle-capacity constraints on arcs,
 //! determine whether an integral flow can deliver a required amount to the sink.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -15,16 +15,10 @@ inventory::submit! {
         display_name: "Integral Flow with Bundles",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with overlapping bundle capacities",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "DirectedGraph", description: "Directed graph G=(V,A)" },
-            FieldInfo { name: "source", type_name: "usize", description: "Source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "Sink vertex t" },
-            FieldInfo { name: "bundles", type_name: "Vec<Vec<usize>>", description: "Bundles of arc indices covering A" },
-            FieldInfo { name: "bundle_capacities", type_name: "Vec<u64>", description: "Capacity c_j for each bundle I_j" },
-            FieldInfo { name: "requirement", type_name: "u64", description: "Required net inflow R at the sink" },
-        ],
+        fields: IntegralFlowBundlesCreateSpec::FIELDS,
     }
 }
 
@@ -44,6 +38,92 @@ pub struct IntegralFlowBundles {
     bundles: Vec<Vec<usize>>,
     bundle_capacities: Vec<u64>,
     requirement: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct IntegralFlowBundlesCreateSpec {
+    #[create(codec = "arc-list")]
+    arcs: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "semicolon-separated")]
+    bundles: Vec<Vec<usize>>,
+    #[create(codec = "comma-separated")]
+    bundle_capacities: Vec<u64>,
+    source: usize,
+    sink: usize,
+    requirement: u64,
+}
+
+impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
+    type Error = String;
+    fn try_from(spec: IntegralFlowBundlesCreateSpec) -> Result<Self, String> {
+        if spec.arcs.is_empty() {
+            return Err("arcs must be non-empty".into());
+        }
+        let inferred = spec
+            .arcs
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let count = spec.num_vertices.unwrap_or(inferred);
+        if count < inferred {
+            return Err("num_vertices is too small".into());
+        }
+        if spec.source >= count || spec.sink >= count {
+            return Err("source and sink must be valid vertices".into());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".into());
+        }
+        if spec.bundles.len() != spec.bundle_capacities.len() {
+            return Err("bundles length must match bundle_capacities length".into());
+        }
+        if spec.requirement == 0 {
+            return Err("requirement must be positive".into());
+        }
+        let mut covered = vec![false; spec.arcs.len()];
+        let mut upper = vec![u64::MAX; spec.arcs.len()];
+        for (i, (bundle, &capacity)) in spec.bundles.iter().zip(&spec.bundle_capacities).enumerate()
+        {
+            if capacity == 0 {
+                return Err(format!("bundle capacity {i} must be positive"));
+            }
+            let mut seen = BTreeSet::new();
+            for &arc in bundle {
+                if arc >= spec.arcs.len() {
+                    return Err(format!("bundle {i} arc is out of range"));
+                }
+                if !seen.insert(arc) {
+                    return Err(format!("bundle {i} contains duplicate arc"));
+                }
+                covered[arc] = true;
+                upper[arc] = upper[arc].min(capacity);
+            }
+        }
+        for (arc, &is_covered) in covered.iter().enumerate() {
+            if !is_covered {
+                return Err(format!("arc {arc} must belong to a bundle"));
+            }
+            if usize::try_from(upper[arc])
+                .ok()
+                .and_then(|v| v.checked_add(1))
+                .is_none()
+            {
+                return Err(format!("arc {arc} upper bound is too large"));
+            }
+        }
+        Ok(Self {
+            graph: DirectedGraph::new(count, spec.arcs),
+            source: spec.source,
+            sink: spec.sink,
+            bundles: spec.bundles,
+            bundle_capacities: spec.bundle_capacities,
+            requirement: spec.requirement,
+        })
+    }
 }
 
 impl IntegralFlowBundles {
@@ -267,7 +347,7 @@ impl Problem for IntegralFlowBundles {
 }
 
 crate::declare_variants! {
-    default IntegralFlowBundles => "2^num_arcs",
+    default IntegralFlowBundles => "2^num_arcs" create IntegralFlowBundlesCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

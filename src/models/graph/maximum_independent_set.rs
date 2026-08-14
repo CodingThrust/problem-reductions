@@ -3,7 +3,7 @@
 //! The Independent Set problem asks for a maximum weight subset of vertices
 //! such that no two vertices in the subset are adjacent.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -19,12 +19,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "KingsSubgraph", "TriangularSubgraph", "UnitDiskGraph"]),
             VariantDimension::new("weight", "One", &["One", "i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find maximum weight independent set in a graph",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
-        ],
+        fields: MaximumIndependentSetSimpleOneCreateSpec::FIELDS,
     }
 }
 
@@ -65,6 +63,138 @@ pub struct MaximumIndependentSet<G, W> {
     /// Weights for each vertex.
     weights: Vec<W>,
 }
+
+macro_rules! simple_mis_spec {
+    ($name:ident,$weight:ty,$one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            #[create(codec = "edge-list")]
+            graph: Vec<(usize, usize)>,
+            num_vertices: Option<usize>,
+            #[create(codec = "comma-separated")]
+            weights: Option<Vec<$weight>>,
+        }
+        impl TryFrom<$name> for MaximumIndependentSet<SimpleGraph, $weight> {
+            type Error = String;
+            fn try_from(spec: $name) -> Result<Self, String> {
+                if spec.graph.is_empty() && spec.num_vertices.is_none() {
+                    return Err("num_vertices is required for an empty graph".into());
+                }
+                for &(u, v) in &spec.graph {
+                    if u == v {
+                        return Err("self-loops are not allowed".into());
+                    }
+                }
+                let inferred = spec
+                    .graph
+                    .iter()
+                    .flat_map(|&(u, v)| [u, v])
+                    .max()
+                    .map(|v| v.checked_add(1).ok_or("vertex count overflows usize"))
+                    .transpose()?
+                    .unwrap_or(0);
+                let count = spec.num_vertices.unwrap_or(inferred);
+                if count < inferred {
+                    return Err("num_vertices is too small".into());
+                }
+                let weights = spec.weights.unwrap_or_else(|| vec![$one; count]);
+                if weights.len() != count {
+                    return Err("weights length must match num_vertices".into());
+                }
+                Ok(Self {
+                    graph: SimpleGraph::new(count, spec.graph),
+                    weights,
+                })
+            }
+        }
+    };
+}
+simple_mis_spec!(MaximumIndependentSetSimpleOneCreateSpec, One, One);
+simple_mis_spec!(MaximumIndependentSetSimpleI32CreateSpec, i32, 1_i32);
+
+macro_rules! grid_mis_spec {
+    ($name:ident,$graph:ty,$weight:ty,$one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            positions: Vec<(i32, i32)>,
+            #[create(codec = "comma-separated")]
+            weights: Option<Vec<$weight>>,
+        }
+        impl TryFrom<$name> for MaximumIndependentSet<$graph, $weight> {
+            type Error = String;
+            fn try_from(spec: $name) -> Result<Self, String> {
+                let weights = spec
+                    .weights
+                    .unwrap_or_else(|| vec![$one; spec.positions.len()]);
+                if weights.len() != spec.positions.len() {
+                    return Err("weights length must match positions length".into());
+                }
+                Ok(Self {
+                    graph: <$graph>::new(spec.positions),
+                    weights,
+                })
+            }
+        }
+    };
+}
+grid_mis_spec!(
+    MaximumIndependentSetKingsOneCreateSpec,
+    KingsSubgraph,
+    One,
+    One
+);
+grid_mis_spec!(
+    MaximumIndependentSetKingsI32CreateSpec,
+    KingsSubgraph,
+    i32,
+    1_i32
+);
+grid_mis_spec!(
+    MaximumIndependentSetTriangularI32CreateSpec,
+    TriangularSubgraph,
+    i32,
+    1_i32
+);
+
+macro_rules! unit_disk_mis_spec {
+    ($name:ident,$weight:ty,$one:expr) => {
+        #[derive(Debug, Deserialize, crate::CreateSpec)]
+        struct $name {
+            positions: Vec<(f64, f64)>,
+            radius: Option<f64>,
+            #[create(codec = "comma-separated")]
+            weights: Option<Vec<$weight>>,
+        }
+        impl TryFrom<$name> for MaximumIndependentSet<UnitDiskGraph, $weight> {
+            type Error = String;
+            fn try_from(spec: $name) -> Result<Self, String> {
+                let radius = spec.radius.unwrap_or(1.0);
+                if !radius.is_finite() || radius < 0.0 {
+                    return Err("radius must be finite and nonnegative".into());
+                }
+                if spec
+                    .positions
+                    .iter()
+                    .any(|&(x, y)| !x.is_finite() || !y.is_finite())
+                {
+                    return Err("positions must be finite".into());
+                }
+                let weights = spec
+                    .weights
+                    .unwrap_or_else(|| vec![$one; spec.positions.len()]);
+                if weights.len() != spec.positions.len() {
+                    return Err("weights length must match positions length".into());
+                }
+                Ok(Self {
+                    graph: UnitDiskGraph::new(spec.positions, radius),
+                    weights,
+                })
+            }
+        }
+    };
+}
+unit_disk_mis_spec!(MaximumIndependentSetUnitDiskOneCreateSpec, One, One);
+unit_disk_mis_spec!(MaximumIndependentSetUnitDiskI32CreateSpec, i32, 1_i32);
 
 impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     /// Create an Independent Set problem from a graph with given weights.
@@ -153,14 +283,36 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     true
 }
 
+crate::impl_random_generate!(MaximumIndependentSet<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(spec.graph()?, vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(spec.graph()?, vec![One; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<KingsSubgraph, i32>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(KingsSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<KingsSubgraph, One>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(KingsSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![One; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<TriangularSubgraph, i32>, crate::random::IntegerGeometryRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(TriangularSubgraph::new(crate::random::create_random_int_positions(spec.num_vertices, spec.seed)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<UnitDiskGraph, i32>, crate::random::UnitDiskRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(UnitDiskGraph::new(crate::random::create_random_float_positions(spec.num_vertices, spec.seed), spec.radius.unwrap_or(1.0)), vec![1; spec.num_vertices]))
+});
+crate::impl_random_generate!(MaximumIndependentSet<UnitDiskGraph, One>, crate::random::UnitDiskRandomSpec, |spec| {
+    Ok(MaximumIndependentSet::new(UnitDiskGraph::new(crate::random::create_random_float_positions(spec.num_vertices, spec.seed), spec.radius.unwrap_or(1.0)), vec![One; spec.num_vertices]))
+});
+
 crate::declare_variants! {
-    MaximumIndependentSet<SimpleGraph, i32>        => "1.1996^num_vertices",
-    default MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
-    MaximumIndependentSet<KingsSubgraph, i32>      => "2^sqrt(num_vertices)",
-    MaximumIndependentSet<KingsSubgraph, One>       => "2^sqrt(num_vertices)",
-    MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)",
-    MaximumIndependentSet<UnitDiskGraph, i32>      => "2^sqrt(num_vertices)",
-    MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
+    MaximumIndependentSet<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumIndependentSetSimpleI32CreateSpec random,
+    default MaximumIndependentSet<SimpleGraph, One> => "1.1996^num_vertices" create MaximumIndependentSetSimpleOneCreateSpec random,
+    MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsI32CreateSpec random,
+    MaximumIndependentSet<KingsSubgraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetKingsOneCreateSpec random,
+    MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetTriangularI32CreateSpec random,
+    MaximumIndependentSet<UnitDiskGraph, i32> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskI32CreateSpec random,
+    MaximumIndependentSet<UnitDiskGraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskOneCreateSpec random,
 }
 
 impl<G, W> crate::models::decision::DecisionProblemMeta for MaximumIndependentSet<G, W>

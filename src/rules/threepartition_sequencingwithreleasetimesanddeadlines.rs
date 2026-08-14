@@ -48,36 +48,48 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
     /// Decode the Lehmer code to a task permutation, simulate the schedule to
     /// find each task's start time, then assign each element task to its slot
     /// based on start_time / (B + 1).
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.target.num_tasks();
-        // Decode Lehmer code to permutation
-        let schedule = crate::models::misc::decode_lehmer(target_solution, n)
-            .expect("target_solution must be a valid Lehmer code");
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Simulate the schedule to find start times
-        let mut current_time: u64 = 0;
-        let mut slot_assignment = vec![0usize; self.num_element_tasks];
-        let slot_width = self.bound + 1; // B + 1 (slot width including the filler gap)
+        Ok({
+            let n = self.target.num_tasks();
+            // Decode Lehmer code to permutation
+            let schedule =
+                crate::models::misc::decode_lehmer(target_solution, n).ok_or_else(|| {
+                    crate::rules::ExtractionError::invalid(
+                        "target configuration is not a Lehmer code",
+                    )
+                })?;
 
-        for &task in &schedule {
-            let start = current_time.max(self.target.release_times()[task]);
-            let finish = start + self.target.lengths()[task];
-            current_time = finish;
+            // Simulate the schedule to find start times
+            let mut current_time: u64 = 0;
+            let mut slot_assignment = vec![0usize; self.num_element_tasks];
+            let slot_width = self.bound + 1; // B + 1 (slot width including the filler gap)
 
-            // Only element tasks (indices 0..3m) contribute to the partition
-            if task < self.num_element_tasks {
-                let slot = (start / slot_width) as usize;
-                slot_assignment[task] = slot;
+            for &task in &schedule {
+                let start = current_time.max(self.target.release_times()[task]);
+                let finish = start + self.target.lengths()[task];
+                current_time = finish;
+
+                // Only element tasks (indices 0..3m) contribute to the partition
+                if task < self.num_element_tasks {
+                    let slot = (start / slot_width) as usize;
+                    slot_assignment[task] = slot;
+                }
             }
-        }
 
-        slot_assignment
+            slot_assignment
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_elements + num_groups - 1",
-})]
+#[reduction(
+    size = exact {
+        num_tasks = "num_elements + num_groups - 1",
+    })]
 impl ReduceTo<SequencingWithReleaseTimesAndDeadlines> for ThreePartition {
     type Result = ReductionThreePartitionToSRTD;
 

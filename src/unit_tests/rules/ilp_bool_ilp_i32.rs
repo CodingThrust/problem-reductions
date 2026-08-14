@@ -34,7 +34,7 @@ fn test_ilp_bool_to_ilp_i32_closed_loop() {
     assert_eq!(target.dims(), vec![(i32::MAX as usize) + 1; 3]);
 
     // Extract solution back to source and verify optimality
-    let source_solution = result.extract_solution(&source_best);
+    let source_solution = result.extract_solution(&source_best).unwrap();
     assert_eq!(source.evaluate(&source_solution), source_obj);
 }
 

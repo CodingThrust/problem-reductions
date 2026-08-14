@@ -13,6 +13,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
@@ -21,6 +22,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <TriangularSubgraph, i32> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
@@ -29,6 +31,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <UnitDiskGraph, i32> => <SimpleGraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
@@ -38,6 +41,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, One> => <UnitDiskGraph, One>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
@@ -46,6 +50,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <UnitDiskGraph, One> => <SimpleGraph, One>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
@@ -55,6 +60,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <SimpleGraph, One> => <SimpleGraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
 );
@@ -63,6 +69,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, One> => <KingsSubgraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
 );
@@ -71,6 +78,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <UnitDiskGraph, One> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| MaximumIndependentSet::new(
         src.graph().clone(), src.weights().iter().map(|w| w.cast_to_parent()).collect())
 );

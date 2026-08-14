@@ -4,7 +4,7 @@
 //! whether at most `K` adjacent swaps can transform the string so that every
 //! symbol appears in a single contiguous block.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Grouping by Swapping",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Group equal symbols into contiguous blocks using at most K adjacent swaps",
-        fields: &[
-            FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
-            FieldInfo { name: "string", type_name: "Vec<usize>", description: "Input string over {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "budget", type_name: "usize", description: "Maximum number of adjacent swaps allowed" },
-        ],
+        fields: GroupingBySwappingCreateSpec::FIELDS,
     }
 }
 
@@ -34,6 +31,54 @@ pub struct GroupingBySwapping {
     alphabet_size: usize,
     string: Vec<usize>,
     budget: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct GroupingBySwappingCreateSpec {
+    /// Optional alphabet size; omitted values are inferred from the string.
+    alphabet_size: Option<usize>,
+    /// Input string to group.
+    #[create(codec = "comma-separated")]
+    string: Vec<usize>,
+    /// Maximum number of adjacent swaps.
+    bound: usize,
+}
+
+impl TryFrom<GroupingBySwappingCreateSpec> for GroupingBySwapping {
+    type Error = String;
+
+    fn try_from(spec: GroupingBySwappingCreateSpec) -> Result<Self, Self::Error> {
+        let inferred_alphabet_size = spec
+            .string
+            .iter()
+            .copied()
+            .max()
+            .map(|symbol| {
+                symbol
+                    .checked_add(1)
+                    .ok_or_else(|| "inferred alphabet size overflows usize".to_string())
+            })
+            .transpose()?
+            .unwrap_or(0);
+        let alphabet_size = spec.alphabet_size.unwrap_or(inferred_alphabet_size);
+        if alphabet_size < inferred_alphabet_size {
+            return Err(format!(
+                "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
+            ));
+        }
+        if alphabet_size == 0 && !spec.string.is_empty() {
+            return Err("alphabet size must be positive for a non-empty string".to_string());
+        }
+        if spec.string.is_empty() && spec.bound != 0 {
+            return Err("bound must be zero when the string is empty".to_string());
+        }
+
+        Ok(Self {
+            alphabet_size,
+            string: spec.string,
+            budget: spec.bound,
+        })
+    }
 }
 
 impl GroupingBySwapping {
@@ -160,7 +205,7 @@ impl Problem for GroupingBySwapping {
 }
 
 crate::declare_variants! {
-    default GroupingBySwapping => "string_len ^ budget",
+    default GroupingBySwapping => "string_len ^ budget" create GroupingBySwappingCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

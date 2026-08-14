@@ -45,24 +45,30 @@ impl ReductionResult for ReductionDecisionMVCToComparativeContainment {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        if let Some(witness) = &self.trivial_yes {
-            return witness.clone();
-        }
-        let mut cover = vec![0; self.num_source_vertices];
-        for (vertex, &selected) in target_solution
-            .iter()
-            .take(self.num_source_vertices)
-            .enumerate()
-        {
-            cover[vertex] = selected;
-        }
-        cover
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            if let Some(witness) = &self.trivial_yes {
+                return Ok(witness.clone());
+            }
+            let mut cover = vec![0; self.num_source_vertices];
+            for (vertex, &selected) in target_solution[..self.num_source_vertices]
+                .iter()
+                .enumerate()
+            {
+                cover[vertex] = selected;
+            }
+            cover
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         universe_size = "num_vertices",
         num_r_sets = "num_vertices",
         num_s_sets = "num_edges + 1",
@@ -105,7 +111,8 @@ impl ReduceTo<ComparativeContainment<i32>> for Decision<MinimumVertexCover<Simpl
         // covers every edge), so the answer is YES regardless of the graph.
         // Emit an empty target instance (universe size 0, no R/S sets); its
         // unique configuration is trivially satisfying.
-        if raw_bound >= num_vertices as i32 {
+        if i128::from(raw_bound) >= i128::try_from(num_vertices).expect("usize always fits in i128")
+        {
             let target = ComparativeContainment::with_weights(
                 0,
                 Vec::new(),

@@ -53,7 +53,7 @@ fn test_solution_extraction() {
                 // y vars: index 6
     sol[6] = 1; // y_{0,1} = 1
 
-    let extracted = reduction.extract_solution(&sol);
+    let extracted = reduction.extract_solution(&sol).unwrap();
     assert_eq!(extracted, vec![0, 1]);
     // Each on separate processor: C(0)=1, C(1)=2, WCT = 1*3 + 2*1 = 5
     assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
@@ -73,7 +73,7 @@ fn test_ilp_matches_bruteforce_small() {
     let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(ilp_value, bf_value);
@@ -91,7 +91,7 @@ fn test_issue_example_closed_loop() {
     let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted), Min(Some(47)));
 }
@@ -103,7 +103,7 @@ fn test_single_task_single_processor() {
     let ilp = reduction.target_problem();
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Min(Some(15)));
 }
 
@@ -122,7 +122,7 @@ fn test_equal_tasks_multiple_processors() {
     let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(ilp_value, bf_value);

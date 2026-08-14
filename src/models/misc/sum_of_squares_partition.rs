@@ -16,6 +16,7 @@ inventory::submit! {
         display_name: "Sum of Squares Partition",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition positive integers into K groups minimizing the sum of squared group sums",
         fields: &[

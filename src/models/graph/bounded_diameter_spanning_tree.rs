@@ -4,7 +4,7 @@
 //! bound D, determine whether G has a spanning tree with total weight at most B
 //! and diameter (longest shortest path in edges) at most D.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -22,14 +22,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does G have a spanning tree with total weight <= B and diameter <= D?",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> ZZ_(> 0)" },
-            FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Upper bound B on total tree weight" },
-            FieldInfo { name: "diameter_bound", type_name: "usize", description: "Upper bound D on tree diameter (in edges)" },
-        ],
+        fields: BoundedDiameterSpanningTreeCreateSpec::FIELDS,
     }
 }
 
@@ -78,6 +74,78 @@ pub struct BoundedDiameterSpanningTree<G, W: WeightElement> {
     diameter_bound: usize,
     /// Ordered edge list (mirrors `graph.edges()` order).
     edge_list: Vec<(usize, usize)>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct BoundedDiameterSpanningTreeCreateSpec {
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+    #[create(codec = "comma-separated")]
+    edge_weights: Option<Vec<i32>>,
+    weight_bound: i64,
+    diameter_bound: usize,
+}
+
+impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
+    for BoundedDiameterSpanningTree<SimpleGraph, i32>
+{
+    type Error = String;
+
+    fn try_from(spec: BoundedDiameterSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
+        let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| vec![1; graph.num_edges()]);
+        if edge_weights.len() != graph.num_edges() {
+            return Err(format!(
+                "edge_weights has length {}, expected {}",
+                edge_weights.len(),
+                graph.num_edges()
+            ));
+        }
+        if edge_weights.iter().any(|&weight| weight <= 0) {
+            return Err("edge_weights must be positive".to_string());
+        }
+        if spec.weight_bound <= 0 {
+            return Err("weight_bound must be positive".to_string());
+        }
+        if spec.diameter_bound == 0 {
+            return Err("diameter_bound must be at least 1".to_string());
+        }
+        Ok(Self::new(
+            graph,
+            edge_weights,
+            spec.weight_bound,
+            spec.diameter_bound,
+        ))
+    }
+}
+
+fn simple_graph_from_create(
+    edges: Vec<(usize, usize)>,
+    num_vertices: Option<usize>,
+) -> Result<SimpleGraph, String> {
+    if edges.is_empty() && num_vertices.is_none() {
+        return Err("num_vertices is required for an empty graph".to_string());
+    }
+    for (index, &(u, v)) in edges.iter().enumerate() {
+        if u == v {
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+        }
+    }
+    let inferred = edges
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+        .transpose()?
+        .unwrap_or(0);
+    let num_vertices = num_vertices.unwrap_or(inferred);
+    if num_vertices < inferred {
+        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"));
+    }
+    Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl<G: Graph, W: WeightElement> BoundedDiameterSpanningTree<G, W> {
@@ -280,7 +348,7 @@ where
 }
 
 crate::declare_variants! {
-    default BoundedDiameterSpanningTree<SimpleGraph, i32> => "num_vertices ^ num_vertices",
+    default BoundedDiameterSpanningTree<SimpleGraph, i32> => "num_vertices ^ num_vertices" create BoundedDiameterSpanningTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

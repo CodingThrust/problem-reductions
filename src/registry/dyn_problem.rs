@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use crate::traits::Problem;
+use crate::types::Aggregate;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
@@ -38,12 +39,16 @@ pub trait DynProblem: Any {
     fn variant_map(&self) -> BTreeMap<String, String>;
     /// Return the number of variables.
     fn num_variables_dyn(&self) -> usize;
+    /// Whether the aggregate value admits representative witness configurations.
+    fn supports_witnesses_dyn(&self) -> bool;
+    /// Return the aggregate identity in the CLI-facing metric format.
+    fn aggregate_identity_dyn(&self) -> String;
 }
 
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
-    T::Value: fmt::Display + Serialize,
+    T::Value: Aggregate + fmt::Display + Serialize,
 {
     fn evaluate_dyn(&self, config: &[usize]) -> String {
         format_metric(&self.evaluate(config))
@@ -75,6 +80,14 @@ where
 
     fn num_variables_dyn(&self) -> usize {
         self.num_variables()
+    }
+
+    fn supports_witnesses_dyn(&self) -> bool {
+        T::Value::supports_witnesses()
+    }
+
+    fn aggregate_identity_dyn(&self) -> String {
+        format_metric(&T::Value::identity())
     }
 }
 

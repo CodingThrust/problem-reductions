@@ -121,66 +121,85 @@ impl ReductionResult for ReductionEMDCToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.layout.n;
-        let k = self.alphabet_size;
-        let empty = k; // empty marker
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build D-slots
-        let mut d_slots = vec![empty; n];
-        for j in 0..n {
-            if target_solution[self.layout.d_used_var(j)] == 1 {
-                for c in 0..k {
-                    if target_solution[self.layout.d_var(j, c)] == 1 {
-                        d_slots[j] = c;
-                        break;
+        Ok({
+            let n = self.layout.n;
+            let k = self.alphabet_size;
+            let empty = k; // empty marker
+
+            // Build D-slots
+            let mut d_slots = vec![empty; n];
+            for j in 0..n {
+                let symbols: Vec<_> = (0..k)
+                    .filter(|&c| target_solution[self.layout.d_var(j, c)] == 1)
+                    .collect();
+                if target_solution[self.layout.d_used_var(j)] == 1 {
+                    match symbols.as_slice() {
+                        [symbol] => d_slots[j] = *symbol,
+                        [] => {
+                            return Err(crate::rules::ExtractionError::invalid(format!(
+                                "dictionary slot {j} is active without a symbol"
+                            )))
+                        }
+                        _ => {
+                            return Err(crate::rules::ExtractionError::invalid(format!(
+                                "dictionary slot {j} selects multiple symbols"
+                            )))
+                        }
                     }
+                } else if !symbols.is_empty() {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "inactive dictionary slot {j} selects a symbol"
+                    )));
                 }
             }
-        }
 
-        // Walk through active segments to build C-slots
-        let mut c_slots = vec![empty; n];
-        let mut c_pos = 0;
-        let mut pos = 0;
-        while pos < n {
-            // Check if lit[pos] = 1
-            if target_solution[self.layout.lit_var(pos)] == 1 {
-                // Literal at position pos
-                c_slots[c_pos] = self.source_string[pos];
+            // Walk through active segments to build C-slots
+            let mut c_slots = vec![empty; n];
+            let mut c_pos = 0;
+            let mut pos = 0;
+            while pos < n {
+                let pointers: Vec<_> = (1..=(n - pos))
+                    .flat_map(|length| {
+                        (0..=(n - length)).filter_map(move |start| {
+                            (target_solution[self.layout.ptr_var(pos, length, start)] == 1)
+                                .then_some((start, length))
+                        })
+                    })
+                    .collect();
+                if target_solution[self.layout.lit_var(pos)] == 1 {
+                    if !pointers.is_empty() {
+                        return Err(crate::rules::ExtractionError::invalid(format!(
+                            "position {pos} selects both a literal and a pointer"
+                        )));
+                    }
+                    // Literal at position pos
+                    c_slots[c_pos] = self.source_string[pos];
+                    c_pos += 1;
+                    pos += 1;
+                    continue;
+                }
+                let [(d_start, length)] = pointers.as_slice() else {
+                    return Err(crate::rules::ExtractionError::invalid(format!(
+                        "position {pos} must select exactly one pointer"
+                    )));
+                };
+                let ptr_idx = encode_pointer(n, *d_start, *length);
+                c_slots[c_pos] = k + 1 + ptr_idx;
                 c_pos += 1;
-                pos += 1;
-                continue;
+                pos += length;
             }
-            // Check for an active pointer starting at pos
-            let mut found = false;
-            for l in 1..=(n - pos) {
-                for d_start in 0..=(n - l) {
-                    let var_idx = self.layout.ptr_var(pos, l, d_start);
-                    if target_solution[var_idx] == 1 {
-                        // Encode pointer (d_start, l) as EMDC pointer index
-                        let ptr_idx = encode_pointer(n, d_start, l);
-                        c_slots[c_pos] = k + 1 + ptr_idx;
-                        c_pos += 1;
-                        pos += l;
-                        found = true;
-                        break;
-                    }
-                }
-                if found {
-                    break;
-                }
-            }
-            if !found {
-                // Should not happen with a valid ILP solution
-                pos += 1;
-            }
-        }
 
-        // Combine D-slots and C-slots
-        let mut config = d_slots;
-        config.extend(c_slots);
-        config
+            // Combine D-slots and C-slots
+            let mut config = d_slots;
+            config.extend(c_slots);
+            config
+        })
     }
 }
 
@@ -195,9 +214,9 @@ fn encode_pointer(n: usize, start: usize, len: usize) -> usize {
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "string_length * alphabet_size + 2 * string_length + string_length ^ 3",
-        num_constraints = "string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
@@ -387,7 +406,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             target_config[layout.lit_var(1)] = 1;
 
             // Verify this is correct
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             debug_assert_eq!(source_config[..n], [k, k]); // D empty
             debug_assert_eq!(source_config[n..], [0, 1]); // C = "ab"
 

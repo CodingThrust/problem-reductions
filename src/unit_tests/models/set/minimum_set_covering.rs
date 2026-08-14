@@ -5,6 +5,19 @@ use crate::types::Min;
 include!("../../jl_helpers.rs");
 
 #[test]
+fn test_minimum_set_covering_create_spec_uses_subsets_input() {
+    assert_eq!(MinimumSetCoveringCreateSpec::FIELDS[1].name, "subsets");
+    let problem = MinimumSetCovering::try_from(MinimumSetCoveringCreateSpec {
+        universe_size: 2,
+        subsets: vec![vec![0], vec![1]],
+        weights: vec![2, 3],
+    })
+    .unwrap();
+    assert_eq!(problem.sets(), &[vec![0], vec![1]]);
+    assert_eq!(problem.weights_ref(), &[2, 3]);
+}
+
+#[test]
 fn test_set_covering_creation() {
     let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     assert_eq!(problem.universe_size(), 4);
@@ -85,7 +98,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,

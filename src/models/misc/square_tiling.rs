@@ -17,6 +17,7 @@ inventory::submit! {
         display_name: "Square Tiling",
         aliases: &["WangTiling"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Place colored square tiles on an N x N grid with matching edge colors",
         fields: &[

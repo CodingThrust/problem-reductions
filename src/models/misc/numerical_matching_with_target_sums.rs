@@ -18,6 +18,7 @@ inventory::submit! {
         display_name: "Numerical Matching with Target Sums",
         aliases: &["NMTS"],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Partition X∪Y into m pairs (one from X, one from Y) with pair sums matching targets",
         fields: &[

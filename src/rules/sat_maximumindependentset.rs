@@ -76,23 +76,30 @@ impl ReductionResult for ReductionSATToIS {
     /// For each selected vertex (representing a literal), we set the corresponding
     /// variable to make that literal true. Variables not covered by any selected
     /// literal default to false.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut assignment = vec![0usize; self.num_source_variables];
-        let mut covered = vec![false; self.num_source_variables];
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for (vertex_idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let literal = &self.literals[vertex_idx];
-                // If the literal is positive (neg=false), variable should be true (1)
-                // If the literal is negated (neg=true), variable should be false (0)
-                assignment[literal.name] = if literal.neg { 0 } else { 1 };
-                covered[literal.name] = true;
+        Ok({
+            let mut assignment = vec![0usize; self.num_source_variables];
+            let mut covered = vec![false; self.num_source_variables];
+
+            for (vertex_idx, &selected) in target_solution.iter().enumerate() {
+                if selected == 1 {
+                    let literal = &self.literals[vertex_idx];
+                    // If the literal is positive (neg=false), variable should be true (1)
+                    // If the literal is negated (neg=true), variable should be false (0)
+                    assignment[literal.name] = if literal.neg { 0 } else { 1 };
+                    covered[literal.name] = true;
+                }
             }
-        }
 
-        // Variables not covered can be assigned any value (we use 0)
-        // They are already initialized to 0
-        assignment
+            // Variables not covered can be assigned any value (we use 0)
+            // They are already initialized to 0
+            assignment
+        })
     }
 }
 
@@ -109,7 +116,7 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
-    overhead = {
+    size = upper_bound {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",
     }

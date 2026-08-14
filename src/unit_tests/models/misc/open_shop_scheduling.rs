@@ -10,6 +10,20 @@ fn two_by_two() -> OpenShopScheduling {
     OpenShopScheduling::new(2, vec![vec![1, 2], vec![2, 1]])
 }
 
+#[test]
+fn test_open_shop_create_spec_uses_num_processors_input() {
+    assert_eq!(
+        OpenShopSchedulingCreateSpec::FIELDS[0].name,
+        "num_processors"
+    );
+    let problem = OpenShopScheduling::try_from(OpenShopSchedulingCreateSpec {
+        num_processors: 2,
+        processing_times: vec![vec![1, 2]],
+    })
+    .unwrap();
+    assert_eq!(problem.num_machines(), 2);
+}
+
 /// 3 machines, 3 jobs: a small asymmetric instance.
 fn three_by_three() -> OpenShopScheduling {
     OpenShopScheduling::new(3, vec![vec![1, 2, 3], vec![3, 2, 1], vec![2, 1, 2]])

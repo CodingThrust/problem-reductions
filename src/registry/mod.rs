@@ -56,12 +56,32 @@ pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
 pub use schema::{
-    collect_schemas, declared_size_fields, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson,
-    ProblemSizeFieldEntry, VariantDimension,
+    collect_schemas, declared_size_fields, FieldInfoJson, ParseProblemCategoryError,
+    ProblemCategory, ProblemSchemaEntry, ProblemSchemaJson, ProblemSizeFieldEntry,
+    VariantDimension,
 };
 pub use variant::{
-    find_variant_by_alias, find_variant_entry, validate_variant_aliases, VariantEntry,
+    find_variant_by_alias, find_variant_entry, validate_create_inputs,
+    validate_direct_create_inputs, validate_variant_aliases, variant_entries, ConstructProblemFn,
+    ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec, RandomGenerate,
+    RandomRegistration, VariantEntry,
 };
+
+/// Construct a problem from normalized construction inputs using the exact
+/// registered problem name and variant.
+pub fn construct_dyn(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    data: serde_json::Value,
+) -> Result<Box<dyn DynProblem>, ConstructionError> {
+    let entry = find_variant_entry(name, variant).ok_or_else(|| {
+        ConstructionError::UnregisteredVariant {
+            name: name.to_string(),
+            variant: variant.clone(),
+        }
+    })?;
+    (entry.construct_fn)(data)
+}
 
 use std::any::Any;
 use std::collections::BTreeMap;

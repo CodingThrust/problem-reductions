@@ -65,7 +65,7 @@ fn test_exactcoverby3sets_to_minimumaxiomset_no_instance_gap() {
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&optimal), Min(Some(3)));
 
-    let extracted = reduction.extract_solution(&optimal);
+    let extracted = reduction.extract_solution(&optimal).unwrap();
     assert!(!source.evaluate(&extracted));
 }
 
@@ -74,6 +74,8 @@ fn test_extract_solution_reads_only_set_sentence_axioms() {
     let source = issue_yes_instance();
     let reduction = ReduceTo::<MinimumAxiomSet>::reduce_to(&source);
 
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1]);
+    let extracted = reduction
+        .extract_solution(&[1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1])
+        .unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1]);
 }

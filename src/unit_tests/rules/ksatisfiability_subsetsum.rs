@@ -30,7 +30,7 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
 
     // Every SubsetSum solution must map back to a satisfying 3-SAT assignment
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 3);
         assert!(ksat.evaluate(&extracted));
     }
@@ -73,7 +73,7 @@ fn test_ksatisfiability_to_subsetsum_single_clause() {
     // Each SubsetSum solution maps to a satisfying assignment
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
         sat_assignments.insert(extracted);
     }
@@ -122,7 +122,7 @@ fn test_ksatisfiability_to_subsetsum_all_negated() {
 
     let mut sat_assignments = std::collections::HashSet::new();
     for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         assert!(ksat.evaluate(&extracted));
         sat_assignments.insert(extracted);
     }
@@ -156,7 +156,7 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
     ];
     assert!(target.evaluate(&specific_config));
 
-    let extracted = reduction.extract_solution(&specific_config);
+    let extracted = reduction.extract_solution(&specific_config).unwrap();
     assert_eq!(extracted, vec![1, 1, 1]); // x1=T, x2=T, x3=T
     assert!(ksat.evaluate(&extracted));
 }

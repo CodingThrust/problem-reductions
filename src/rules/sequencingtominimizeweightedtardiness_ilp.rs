@@ -49,18 +49,29 @@ impl ReductionResult for ReductionSTMWTToILP {
     }
 
     /// Extract: sort jobs by completion time C_j, convert to Lehmer code.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let c_offset = self.num_order_vars;
-        let mut jobs: Vec<usize> = (0..n).collect();
-        jobs.sort_by_key(|&j| (target_solution.get(c_offset + j).copied().unwrap_or(0), j));
-        Self::encode_schedule_as_lehmer(&jobs)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_tasks;
+            let c_offset = self.num_order_vars;
+            let mut jobs: Vec<usize> = (0..n).collect();
+            jobs.sort_by_key(|&j| (target_solution[c_offset + j], j));
+            Self::encode_schedule_as_lehmer(&jobs)
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * (num_tasks - 1) / 2 + 2 * num_tasks",
-    num_constraints = "num_tasks * (num_tasks - 1) / 2 + num_tasks + num_tasks * (num_tasks - 1) + 2 * num_tasks + 1",
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * (num_tasks - 1) / 2 + 2 * num_tasks",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
 })]
 impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;

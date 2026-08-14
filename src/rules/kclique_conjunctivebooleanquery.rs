@@ -34,13 +34,21 @@ impl ReductionResult for ReductionKCliqueToCBQ {
     /// CBQ config: vec of length k, each value is a domain element (vertex index).
     /// KClique config: binary vec of length n; set config[v]=1 for each v in
     /// the CBQ assignment.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        KClique::<SimpleGraph>::config_from_vertices(self.num_vertices, target_solution)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(KClique::<SimpleGraph>::config_from_vertices(
+            self.num_vertices,
+            target_solution,
+        ))
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         domain_size = "num_vertices",
         num_relations = "1",
         num_variables = "k",

@@ -9,6 +9,7 @@
 
 use crate::models::formula::{CNFClause, NAESatisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing Satisfiability to NAE-Satisfiability.
@@ -28,35 +29,37 @@ impl ReductionResult for ReductionSATToNAESAT {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let n = self.source_num_vars;
-        if target_solution.len() <= n {
-            return vec![0; n];
-        }
-        // The sentinel variable is the last variable (index n).
-        let sentinel_value = target_solution[n];
-        if sentinel_value == 0 {
-            // Sentinel is false: return first n variables as-is.
-            target_solution[..n].to_vec()
-        } else {
-            // Sentinel is true: return complement of first n variables.
-            target_solution[..n].iter().map(|&v| 1 - v).collect()
-        }
+        let sentinel = target_solution[n];
+        Ok(target_solution[..n]
+            .iter()
+            .map(|&value| value ^ sentinel)
+            .collect())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_vars + 1",
-    num_clauses = "num_clauses",
-    num_literals = "num_literals + num_clauses",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_vars + 1",
+        num_clauses = "num_clauses",
+        num_literals = "num_literals + num_clauses",
+    })]
 impl ReduceTo<NAESatisfiability> for Satisfiability {
     type Result = ReductionSATToNAESAT;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars();
-        // Sentinel variable has 0-indexed position n, so its 1-indexed literal is n+1.
-        let sentinel_lit = (n + 1) as i32;
+        let mut variables = SatVariableAllocator::new("Satisfiability -> NAESatisfiability", n)
+            .unwrap_or_else(|message| panic!("{message}"));
+        let sentinel_lit = variables
+            .allocate()
+            .unwrap_or_else(|message| panic!("{message}"));
 
         let nae_clauses: Vec<CNFClause> = self
             .clauses()
@@ -74,7 +77,7 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
             })
             .collect();
 
-        let target = NAESatisfiability::new(n + 1, nae_clauses);
+        let target = NAESatisfiability::new(variables.num_vars(), nae_clauses);
 
         ReductionSATToNAESAT {
             source_num_vars: n,

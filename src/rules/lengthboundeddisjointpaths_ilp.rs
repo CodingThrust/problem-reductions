@@ -32,45 +32,55 @@ impl ReductionResult for ReductionLBDPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // For each path slot k, set the source vertex-indicator block to 1
-        // exactly on the vertices incident to the commodity-k path, including s and t.
-        let m = self.edges.len();
-        let n = self.num_vertices;
-        let j = self.num_paths;
-        let flow_vars_per_k = 2 * m;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let mut result = vec![0usize; j * n];
-        for k in 0..j {
-            // Find which vertices are on the path for commodity k
-            let mut on_path = vec![false; n];
-            for e in 0..m {
-                let (u, v) = self.edges[e];
-                let fwd = target_solution[k * flow_vars_per_k + 2 * e];
-                let rev = target_solution[k * flow_vars_per_k + 2 * e + 1];
-                if fwd == 1 {
-                    on_path[u] = true;
-                    on_path[v] = true;
+        Ok({
+            // For each path slot k, set the source vertex-indicator block to 1
+            // exactly on the vertices incident to the commodity-k path, including s and t.
+            let m = self.edges.len();
+            let n = self.num_vertices;
+            let j = self.num_paths;
+            let flow_vars_per_k = 2 * m;
+
+            let mut result = vec![0usize; j * n];
+            for k in 0..j {
+                // Find which vertices are on the path for commodity k
+                let mut on_path = vec![false; n];
+                for e in 0..m {
+                    let (u, v) = self.edges[e];
+                    let fwd = target_solution[k * flow_vars_per_k + 2 * e];
+                    let rev = target_solution[k * flow_vars_per_k + 2 * e + 1];
+                    if fwd == 1 {
+                        on_path[u] = true;
+                        on_path[v] = true;
+                    }
+                    if rev == 1 {
+                        on_path[u] = true;
+                        on_path[v] = true;
+                    }
                 }
-                if rev == 1 {
-                    on_path[u] = true;
-                    on_path[v] = true;
+                for v in 0..n {
+                    if on_path[v] {
+                        result[k * n + v] = 1;
+                    }
                 }
             }
-            for v in 0..n {
-                if on_path[v] {
-                    result[k * n + v] = 1;
-                }
-            }
-        }
-        result
+            result
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "max_paths * 2 * num_edges + max_paths",
-        num_constraints = "max_paths * num_vertices + max_paths * num_edges + max_paths + num_edges + num_vertices + max_paths",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {

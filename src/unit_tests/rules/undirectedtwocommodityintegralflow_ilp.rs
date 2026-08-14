@@ -65,9 +65,22 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
         })
         .expect("U2CIF -> ILP<i32> reduction should be registered");
 
-    let overhead = (entry.overhead_eval_fn)(&problem as &dyn std::any::Any);
-    assert_eq!(overhead.get("num_vars"), Some(ilp.num_vars));
-    assert_eq!(overhead.get("num_constraints"), Some(ilp.constraints.len()));
+    let source_size = (entry.source_size_measure_fn)(&problem as &dyn std::any::Any);
+    let predicted = entry
+        .size_contract()
+        .unwrap()
+        .transform()
+        .unwrap()
+        .evaluate(&crate::size::EvaluatedSize::from_problem_size(&source_size))
+        .unwrap();
+    assert_eq!(
+        predicted.values().get("num_vars"),
+        Some(&ilp.num_vars.into())
+    );
+    assert_eq!(
+        predicted.values().get("num_constraints"),
+        Some(&ilp.constraints.len().into())
+    );
 }
 
 #[test]
@@ -86,7 +99,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
         problem.evaluate(&extracted).0,
@@ -99,7 +112,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
     let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     assert!(
-        ILPSolver::new().solve(reduction.target_problem()).is_none(),
+        ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should yield infeasible ILP"
     );
 }
@@ -121,7 +134,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
         0, 1, // d1_1=0, d2_1=1
         1, 1, // d1_2=1, d2_2=1
     ];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     // extract_solution returns first 4*3=12 flow variables
     assert_eq!(extracted.len(), 12);
     assert!(

@@ -37,25 +37,25 @@ impl ReductionResult for ReductionPITToILP {
     }
 
     /// Extract solution: for each vertex v, find the unique group g where x_{v,g} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_groups = self.num_groups;
-        (0..self.num_vertices)
-            .map(|v| {
-                (0..num_groups)
-                    .find(|&g| {
-                        let idx = v * num_groups + g;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_vertices,
+            self.num_groups,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_vertices^2",
-        num_constraints = "num_vertices^2 * num_vertices",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {

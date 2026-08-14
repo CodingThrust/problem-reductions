@@ -40,30 +40,30 @@ impl ReductionResult for ReductionSWCPToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_edges)
-            .map(|edge_idx| {
-                usize::from(
-                    target_solution
-                        .get(Self::arc_var(edge_idx, 0))
-                        .copied()
-                        .unwrap_or(0)
-                        > 0
-                        || target_solution
-                            .get(Self::arc_var(edge_idx, 1))
-                            .copied()
-                            .unwrap_or(0)
-                            > 0,
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_edges)
+                .map(|edge_idx| {
+                    usize::from(
+                        target_solution[Self::arc_var(edge_idx, 0)] > 0
+                            || target_solution[Self::arc_var(edge_idx, 1)] > 0,
+                    )
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "2 * num_edges + num_vertices",
-    num_constraints = "5 * num_edges + 4 * num_vertices + 2",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "2 * num_edges + num_vertices",
+        num_constraints = "5 * num_edges + 4 * num_vertices + 2",
+    },)]
 impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
     type Result = ReductionSWCPToILP;
 

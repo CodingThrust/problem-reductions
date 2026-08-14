@@ -35,15 +35,20 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         one_hot_decode(target_solution, self.num_vertices, self.num_vertices, 0)
     }
 }
 
 #[reduction(
-    overhead = {
-        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
-        num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
+    size = unavailable {
+        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {

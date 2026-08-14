@@ -25,7 +25,7 @@ fn test_ksatisfiability_to_quadraticdiophantineequations_closed_loop() {
         Or(true)
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(source.evaluate(&extracted), Or(true));
 }
 
@@ -41,7 +41,7 @@ fn test_ksatisfiability_to_quadraticdiophantineequations_yes_vector_matches_refe
 
     assert_eq!(target.evaluate(&target_config), Or(true));
 
-    let extracted = reduction.extract_solution(&target_config);
+    let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![1, 0, 0]);
     assert_eq!(source.evaluate(&extracted), Or(true));
 }

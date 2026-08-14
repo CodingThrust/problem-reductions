@@ -33,16 +33,21 @@ impl ReductionResult for ReductionSteinerTreeToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_edges].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_edges].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_edges + 2 * num_edges * (num_terminals - 1)",
         num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i32> {
     type Result = ReductionSteinerTreeToILP;

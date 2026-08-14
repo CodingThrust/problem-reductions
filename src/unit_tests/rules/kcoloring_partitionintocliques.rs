@@ -39,7 +39,7 @@ fn test_kcoloring_to_partitionintocliques_extract_solution_identity() {
     let reduction = ReduceTo::<PartitionIntoCliques<SimpleGraph>>::reduce_to(&source);
     let config = vec![0, 1, 0];
 
-    assert_eq!(reduction.extract_solution(&config), config);
+    assert_eq!(reduction.extract_solution(&config).unwrap(), config);
 }
 
 #[test]

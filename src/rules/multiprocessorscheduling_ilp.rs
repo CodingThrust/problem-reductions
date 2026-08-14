@@ -33,23 +33,26 @@ impl ReductionResult for ReductionMSToILP {
     }
 
     /// Extract solution: for each task j, find the unique processor p where x_{j,p} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_processors = self.num_processors;
-        (0..self.num_tasks)
-            .map(|j| {
-                (0..num_processors)
-                    .find(|&p| target_solution[j * num_processors + p] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_tasks,
+            self.num_processors,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_tasks * num_processors",
         num_constraints = "num_tasks + num_processors",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;

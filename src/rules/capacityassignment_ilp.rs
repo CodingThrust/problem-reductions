@@ -34,23 +34,26 @@ impl ReductionResult for ReductionCAToILP {
     }
 
     /// Extract solution: for each link l, find the unique capacity c where x_{l,c} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_capacities = self.num_capacities;
-        (0..self.num_links)
-            .map(|l| {
-                (0..num_capacities)
-                    .find(|&c| target_solution[l * num_capacities + c] == 1)
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_links,
+            self.num_capacities,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_links * num_capacities",
         num_constraints = "num_links + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;

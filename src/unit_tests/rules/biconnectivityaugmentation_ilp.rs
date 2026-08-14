@@ -29,7 +29,7 @@ fn test_biconnectivityaugmentation_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
 
     assert!(
         source.evaluate(&extracted).0,
@@ -44,7 +44,7 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert_eq!(extracted.len(), 3);
     assert!(source.evaluate(&extracted).0);
 }
@@ -56,7 +56,7 @@ fn test_trivial_single_vertex() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("trivial ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 
@@ -74,7 +74,7 @@ fn test_already_biconnected() {
     let ilp_sol = solver
         .solve(ilp)
         .expect("already biconnected should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert!(source.evaluate(&extracted).0);
 }
 

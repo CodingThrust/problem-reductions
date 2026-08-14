@@ -17,10 +17,17 @@ impl ReductionResult for ReductionSubsetSumToIntegerExpressionMembership {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Union choice 0 = left = Atom(1) = exclude, choice 1 = right = Atom(s_i+1) = include.
-        // This maps directly to SubsetSum's 0/1 include/exclude encoding.
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Union choice 0 = left = Atom(1) = exclude, choice 1 = right = Atom(s_i+1) = include.
+            // This maps directly to SubsetSum's 0/1 include/exclude encoding.
+            target_solution.to_vec()
+        })
     }
 }
 
@@ -49,9 +56,10 @@ fn build_expression(sizes: &[u64]) -> IntExpr {
     expr
 }
 
-#[reduction(overhead = {
-    num_union_nodes = "num_elements",
-})]
+#[reduction(
+    size = exact {
+        num_union_nodes = "num_elements",
+    })]
 impl ReduceTo<IntegerExpressionMembership> for SubsetSum {
     type Result = ReductionSubsetSumToIntegerExpressionMembership;
 

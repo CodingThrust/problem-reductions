@@ -1,76 +1,72 @@
-//! CustomizedSolver: structure-exploiting exact witness solver.
-//!
-//! Uses direct downcast dispatch to call dedicated backends for
-//! supported problem types, returning `None` for unsupported problems.
+//! Exact native solvers and their exact-variant registrations.
 
 use super::fd_subset_search::{
     self, compute_closure, find_essential_attributes, find_essential_attributes_restricted,
     is_minimal_key, is_superkey, BranchDecision,
 };
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
-use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation};
+use crate::models::misc::{AdditionalKey, BoyceCoddNormalFormViolation, TimetableDesign};
 use crate::models::set::{MinimumCardinalityKey, PrimeAttributeName};
+use crate::solvers::registry::NativeSolverRegistration;
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use std::collections::HashSet;
 
-/// A solver that uses problem-specific backends for exact witness recovery.
-///
-/// Unlike `BruteForce`, which enumerates all configurations, `CustomizedSolver`
-/// exploits problem structure (functional-dependency closure, cycle hitting,
-/// tree arrangement) to prune search and find witnesses more efficiently.
-///
-/// Returns `None` for unsupported problem types.
-#[derive(Default)]
-pub struct CustomizedSolver;
-
-impl CustomizedSolver {
-    /// Create a new `CustomizedSolver`.
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Check whether a type-erased problem is supported by the customized solver.
-    pub fn supports_problem(any: &dyn std::any::Any) -> bool {
-        any.is::<MinimumCardinalityKey>()
-            || any.is::<AdditionalKey>()
-            || any.is::<PrimeAttributeName>()
-            || any.is::<BoyceCoddNormalFormViolation>()
-            || any.is::<PartialFeedbackEdgeSet<SimpleGraph>>()
-            || any.is::<RootedTreeArrangement<SimpleGraph>>()
-    }
-
-    /// Attempt to solve a type-erased problem using a dedicated backend.
-    ///
-    /// Returns `Some(config)` if a satisfying witness is found, `None` if
-    /// the problem type is unsupported or no witness exists.
-    pub fn solve_dyn(&self, any: &dyn std::any::Any) -> Option<Vec<usize>> {
-        if let Some(p) = any.downcast_ref::<MinimumCardinalityKey>() {
-            return solve_minimum_cardinality_key(p);
+macro_rules! register_native_solver {
+    ($problem:ty, $implementation:literal, $solve:path) => {
+        inventory::submit! {
+            NativeSolverRegistration {
+                source_name: <$problem as Problem>::NAME,
+                source_variant_fn: <$problem as Problem>::variant,
+                implementation: $implementation,
+                solve_fn: |any| {
+                    let problem = any.downcast_ref::<$problem>().expect(
+                        "native solver registration received the wrong concrete type",
+                    );
+                    $solve(problem)
+                },
+            }
         }
-        if let Some(p) = any.downcast_ref::<AdditionalKey>() {
-            return solve_additional_key(p);
-        }
-        if let Some(p) = any.downcast_ref::<PrimeAttributeName>() {
-            return solve_prime_attribute_name(p);
-        }
-        if let Some(p) = any.downcast_ref::<BoyceCoddNormalFormViolation>() {
-            return solve_bcnf_violation(p);
-        }
-        if let Some(p) = any.downcast_ref::<PartialFeedbackEdgeSet<SimpleGraph>>() {
-            return super::partial_feedback_edge_set::find_witness(p);
-        }
-        if let Some(p) = any.downcast_ref::<RootedTreeArrangement<SimpleGraph>>() {
-            return super::rooted_tree_arrangement::find_witness(p);
-        }
-        None
-    }
+    };
 }
+
+register_native_solver!(
+    MinimumCardinalityKey,
+    "fd-minimum-cardinality-key",
+    solve_minimum_cardinality_key
+);
+register_native_solver!(AdditionalKey, "fd-additional-key", solve_additional_key);
+register_native_solver!(
+    PrimeAttributeName,
+    "fd-prime-attribute-name",
+    solve_prime_attribute_name
+);
+register_native_solver!(
+    BoyceCoddNormalFormViolation,
+    "fd-bcnf-violation",
+    solve_bcnf_violation
+);
+register_native_solver!(
+    PartialFeedbackEdgeSet<SimpleGraph>,
+    "partial-feedback-edge-set",
+    super::partial_feedback_edge_set::find_witness
+);
+register_native_solver!(
+    RootedTreeArrangement<SimpleGraph>,
+    "rooted-tree-arrangement",
+    super::rooted_tree_arrangement::find_witness
+);
+register_native_solver!(
+    TimetableDesign,
+    "timetable-required-assignments",
+    TimetableDesign::solve_via_required_assignments
+);
 
 /// Solve MinimumCardinalityKey: find a minimal key with smallest cardinality.
 ///
 /// Uses iterative deepening by cardinality to guarantee the first solution
 /// found has the minimum number of attributes.
-fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
 
@@ -113,7 +109,7 @@ fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<
 }
 
 /// Solve AdditionalKey: find a candidate key not in the known set.
-fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let relation_attrs = problem.relation_attrs();
@@ -176,7 +172,7 @@ fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
 }
 
 /// Solve PrimeAttributeName: find a candidate key containing the query attribute.
-fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>> {
+pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let query = problem.query_attribute();
@@ -220,7 +216,7 @@ fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>
 
 /// Solve BoyceCoddNormalFormViolation: find a subset X of target_subset such that
 /// the closure of X contains some but not all of target_subset \ X.
-fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<usize>> {
+pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<usize>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.functional_deps().to_vec();
     let target = problem.target_subset();
@@ -263,5 +259,5 @@ fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<us
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/solvers/customized/solver.rs"]
+#[path = "../../unit_tests/solvers/native/solver.rs"]
 mod tests;

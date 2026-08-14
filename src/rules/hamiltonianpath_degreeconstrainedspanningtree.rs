@@ -21,13 +21,18 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         extract_hamiltonian_order(self.target.graph(), target_solution)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
     }
@@ -44,20 +49,16 @@ impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<Si
     }
 }
 
-fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> Vec<usize> {
+fn extract_hamiltonian_order(
+    graph: &SimpleGraph,
+    target_solution: &[usize],
+) -> crate::rules::ExtractionResult<Vec<usize>> {
     let num_vertices = graph.num_vertices();
-    if num_vertices == 0 {
-        return vec![];
-    }
-    if num_vertices == 1 {
-        return vec![0];
+    if num_vertices < 2 {
+        return Ok((0..num_vertices).collect());
     }
 
     let edges = graph.edges();
-    if target_solution.len() != edges.len() {
-        return vec![];
-    }
-
     let mut adjacency = vec![Vec::new(); num_vertices];
     for ((u, v), &selected) in edges.iter().copied().zip(target_solution.iter()) {
         if selected != 1 {
@@ -74,7 +75,9 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
         .collect();
     endpoints.sort_unstable();
     if endpoints.len() != 2 {
-        return vec![];
+        return Err(crate::rules::ExtractionError::invalid(
+            "selected edges do not form a Hamiltonian path",
+        ));
     }
 
     let mut order = Vec::with_capacity(num_vertices);
@@ -84,7 +87,9 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
 
     loop {
         if visited[current] {
-            return vec![];
+            return Err(crate::rules::ExtractionError::invalid(
+                "selected edges contain a cycle",
+            ));
         }
         visited[current] = true;
         order.push(current);
@@ -103,9 +108,11 @@ fn extract_hamiltonian_order(graph: &SimpleGraph, target_solution: &[usize]) -> 
     }
 
     if order.len() == num_vertices {
-        order
+        Ok(order)
     } else {
-        vec![]
+        Err(crate::rules::ExtractionError::invalid(
+            "selected edges do not span every source vertex",
+        ))
     }
 }
 

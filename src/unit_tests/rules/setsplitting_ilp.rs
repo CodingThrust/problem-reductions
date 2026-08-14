@@ -46,7 +46,7 @@ fn test_setsplitting_to_ilp_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(
         problem.evaluate(&extracted),
@@ -64,7 +64,7 @@ fn test_setsplitting_to_ilp_infeasible() {
 
     let ilp_solver = ILPSolver::new();
     assert!(
-        ilp_solver.solve(ilp).is_none(),
+        ilp_solver.solve(ilp).is_err(),
         "ILP should be infeasible for unsplittable instance"
     );
 }
@@ -83,7 +83,7 @@ fn test_setsplitting_bf_vs_ilp() {
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_result = problem.evaluate(&extracted);
 
     assert_eq!(bf_result, ilp_result, "BruteForce and ILP must agree");

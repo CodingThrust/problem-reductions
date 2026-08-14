@@ -36,16 +36,27 @@ impl ReductionResult for ReductionSWDSTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        // x_{j,p} occupies the first n*n variables: decode the permutation.
-        one_hot_decode(target_solution, n, n, 0)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_tasks;
+            // x_{j,p} occupies the first n*n variables: decode the permutation.
+            one_hot_decode(target_solution, n, n, 0)?
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks + (num_tasks - 1) + num_tasks * (num_tasks - 1)",
-    num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * num_tasks + (num_tasks - 1) + num_tasks * (num_tasks - 1)",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;

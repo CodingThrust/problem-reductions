@@ -47,32 +47,34 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         let direct: Vec<usize> = self
             .negation_edge_indices
             .iter()
-            .map(
-                |&edge_idx| match target_solution.get(edge_idx).copied().unwrap_or(1) {
-                    0 => 1,
-                    _ => 0,
-                },
-            )
+            .map(|&edge_idx| usize::from(target_solution[edge_idx] == 0))
             .collect();
         if self.source.evaluate(&direct).0 {
-            return direct;
+            return Ok(direct);
         }
 
         let complement: Vec<usize> = direct.iter().map(|&value| 1 - value).collect();
         if self.source.evaluate(&complement).0 {
-            return complement;
+            return Ok(complement);
         }
 
-        direct
+        Err(crate::rules::ExtractionError::invalid(
+            "target coloring does not map to a satisfying source assignment",
+        ))
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 9 * num_clauses",
     }
@@ -154,7 +156,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = BruteForce::new()
                 .find_witness(reduction.target_problem())
                 .expect("canonical MonochromaticTriangle example must be feasible");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),

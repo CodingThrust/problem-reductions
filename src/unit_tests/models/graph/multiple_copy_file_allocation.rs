@@ -1,4 +1,16 @@
 use super::*;
+
+#[test]
+fn create_spec_preserves_isolated_vertices() {
+    let problem = MultipleCopyFileAllocation::try_from(MultipleCopyFileAllocationCreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        usage: vec![1, 1, 1],
+        storage: vec![2, 2, 2],
+    })
+    .unwrap();
+    assert_eq!(problem.num_vertices(), 3);
+}
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;

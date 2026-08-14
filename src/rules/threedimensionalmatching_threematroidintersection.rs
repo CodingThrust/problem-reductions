@@ -20,16 +20,22 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreeMatroidIntersec
 
     /// Each target ground-set element is exactly one source triple, so the
     /// witness vector is preserved unchanged.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    ground_set_size = "num_triples",
-    num_groups = "3 * universe_size",
-    bound = "universe_size",
-})]
+#[reduction(
+    size = exact {
+        ground_set_size = "num_triples",
+        num_groups = "3 * universe_size",
+        bound = "universe_size",
+    })]
 impl ReduceTo<ThreeMatroidIntersection> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreeMatroidIntersection;
 

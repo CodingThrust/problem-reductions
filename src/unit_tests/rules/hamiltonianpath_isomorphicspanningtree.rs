@@ -83,7 +83,7 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
 
     let target_solution = solve_satisfaction_problem(result.target_problem())
         .expect("K4 should have an IST solution");
-    let extracted = result.extract_solution(&target_solution);
+    let extracted = result.extract_solution(&target_solution).unwrap();
     // Extracted solution should be a valid Hamiltonian path
     assert!(
         source.evaluate(&extracted).0,

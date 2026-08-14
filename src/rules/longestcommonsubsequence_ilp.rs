@@ -31,24 +31,26 @@ impl ReductionResult for ReductionLCSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_symbols = self.alphabet_size + 1;
-        let mut witness = Vec::with_capacity(self.max_length);
-        for position in 0..self.max_length {
-            let selected = (0..num_symbols)
-                .find(|&symbol| target_solution.get(position * num_symbols + symbol) == Some(&1))
-                .unwrap_or(self.alphabet_size);
-            witness.push(selected);
-        }
-        witness
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.max_length,
+            self.alphabet_size + 1,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "max_length * (alphabet_size + 1) + max_length * total_length",
         num_constraints = "max_length + num_transitions + max_length * num_strings + max_length * total_length + num_transitions * sum_triangular_lengths",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;

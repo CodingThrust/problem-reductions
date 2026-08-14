@@ -28,8 +28,13 @@ where
 
     /// Solution extraction: identity mapping.
     /// A clique in G is an independent set in the complement, so the configuration is the same.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -45,7 +50,7 @@ fn reduce_clique_to_is<W: WeightElement>(
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
@@ -59,7 +64,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumClique<SimpleG
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }

@@ -1,4 +1,14 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_arc_weights() {
+    let p = MinimumFeedbackArcSet::try_from(MinimumFeedbackArcSetCreateSpec {
+        graph: DirectedGraph::new(2, vec![(0, 1)]),
+        weights: None,
+    })
+    .unwrap();
+    assert_eq!(p.weights(), &[1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;

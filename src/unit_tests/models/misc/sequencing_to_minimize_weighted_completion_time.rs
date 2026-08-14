@@ -198,3 +198,16 @@ fn test_sequencing_to_minimize_weighted_completion_time_total_processing_time_ov
         SequencingToMinimizeWeightedCompletionTime::new(vec![u64::MAX, 1], vec![1, 1], vec![]);
     let _ = problem.total_processing_time();
 }
+#[test]
+fn create_spec_defaults_precedences_to_empty() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::try_from(
+        SequencingToMinimizeWeightedCompletionTimeCreateSpec {
+            lengths: vec![1, 2],
+            weights: vec![3, 4],
+            precedences: None,
+        },
+    )
+    .unwrap();
+    assert!(problem.precedences().is_empty());
+    assert!(!SequencingToMinimizeWeightedCompletionTimeCreateSpec::INPUTS[2].required);
+}

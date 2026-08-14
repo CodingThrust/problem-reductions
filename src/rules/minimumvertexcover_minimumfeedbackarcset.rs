@@ -31,13 +31,18 @@ impl ReductionResult for ReductionVCToFAS {
 
     /// Extract solution: internal arcs are at positions 0..n in the FAS config.
     /// If internal arc i is in the FAS (config[i] = 1), vertex i is in the cover.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_source_vertices].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_source_vertices].to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "2 * num_vertices",
         num_arcs = "num_vertices + 2 * num_edges",
     }
@@ -105,7 +110,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_witness = BruteForce::new()
                 .find_witness(target)
                 .expect("target should have an optimum");
-            let source_witness = reduction.extract_solution(&target_witness);
+            let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackArcSet<i32>>(
                 source,

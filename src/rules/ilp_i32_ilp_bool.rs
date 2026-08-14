@@ -247,26 +247,34 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.encodings
-            .iter()
-            .map(|enc| {
-                let val: i64 = enc
-                    .weights
-                    .iter()
-                    .enumerate()
-                    .map(|(j, &w)| w * target_solution[enc.start + j] as i64)
-                    .sum();
-                val as usize
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.encodings
+                .iter()
+                .map(|enc| {
+                    let val: i64 = enc
+                        .weights
+                        .iter()
+                        .enumerate()
+                        .map(|(j, &w)| w * target_solution[enc.start + j] as i64)
+                        .sum();
+                    val as usize
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "31 * num_variables",
-    num_constraints = "num_constraints",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "31 * num_vars",
+        num_constraints = "num_constraints",
+    },)]
 impl ReduceTo<ILP<bool>> for ILP<i32> {
     type Result = ReductionIntILPToBinaryILP;
 

@@ -18,14 +18,22 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_sets",
-})]
+#[reduction(
+    size = exact { num_variables = "num_sets" },
+    unavailable = {
+        num_equations = "the source size vector does not track per-element incidence degrees",
+    }
+)]
 impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
     type Result = ReductionX3CToAlgebraicEquationsOverGF2;
 

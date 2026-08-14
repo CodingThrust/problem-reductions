@@ -3,7 +3,7 @@
 //! The Minimum Hitting Set problem asks for a minimum-size subset of universe
 //! elements that intersects every set in a collection.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -14,12 +14,10 @@ inventory::submit! {
         display_name: "Minimum Hitting Set",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find a minimum-size subset of universe elements that hits every set",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },
-            FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of subsets of U that must each be hit" },
-        ],
+        fields: MinimumHittingSetCreateSpec::FIELDS,
     }
 }
 
@@ -38,6 +36,30 @@ inventory::submit! {
 pub struct MinimumHittingSet {
     universe_size: usize,
     sets: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumHittingSetCreateSpec {
+    /// Size of the universe U.
+    universe_size: usize,
+    /// Collection of subsets of U that must each be hit.
+    subsets: Vec<Vec<usize>>,
+}
+
+impl TryFrom<MinimumHittingSetCreateSpec> for MinimumHittingSet {
+    type Error = String;
+
+    fn try_from(spec: MinimumHittingSetCreateSpec) -> Result<Self, Self::Error> {
+        for (set_index, set) in spec.subsets.iter().enumerate() {
+            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
+                return Err(format!(
+                    "subsets[{set_index}] contains element {element} outside universe of size {}",
+                    spec.universe_size
+                ));
+            }
+        }
+        Ok(Self::new(spec.universe_size, spec.subsets))
+    }
 }
 
 impl MinimumHittingSet {
@@ -144,7 +166,7 @@ impl Problem for MinimumHittingSet {
 }
 
 crate::declare_variants! {
-    default MinimumHittingSet => "2^universe_size",
+    default MinimumHittingSet => "2^universe_size" create MinimumHittingSetCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

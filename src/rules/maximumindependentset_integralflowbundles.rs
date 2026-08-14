@@ -43,21 +43,22 @@ impl ReductionResult for ReductionMISToIFB {
 
     /// Extract solution: vertex i is selected iff arc_out_i (index 2i + 1)
     /// has nonzero flow.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_source_vertices)
-            .map(|i| {
-                if target_solution.get(2 * i + 1).copied().unwrap_or(0) > 0 {
-                    1
-                } else {
-                    0
-                }
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_source_vertices)
+                .map(|i| if target_solution[2 * i + 1] > 0 { 1 } else { 0 })
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices + 2",
         num_arcs = "2 * num_vertices",
         num_bundles = "num_edges + num_vertices",
@@ -141,7 +142,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_witness = BruteForce::new()
                 .find_witness(target)
                 .expect("target should have a feasible solution");
-            let source_witness = reduction.extract_solution(&target_witness);
+            let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowBundles>(
                 source,

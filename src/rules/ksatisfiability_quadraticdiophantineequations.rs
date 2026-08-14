@@ -28,21 +28,32 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let Some(x) = self.target.decode_witness(target_solution) else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let Some(congruence_config) = self
-            .congruence_reduction
-            .target_problem()
-            .encode_witness(&x)
-        else {
-            return self.congruence_reduction.extract_solution(&[]);
-        };
+        Ok({
+            let Some(x) = self.target.decode_witness(target_solution) else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "target configuration does not encode a Diophantine witness",
+                ));
+            };
 
-        self.congruence_reduction
-            .extract_solution(&congruence_config)
+            let Some(congruence_config) = self
+                .congruence_reduction
+                .target_problem()
+                .encode_witness(&x)
+            else {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "decoded Diophantine witness cannot be encoded for the source congruence",
+                ));
+            };
+
+            self.congruence_reduction
+                .extract_solution(&congruence_config)?
+        })
     }
 }
 
@@ -67,11 +78,15 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
     QuadraticDiophantineEquations::new(BigUint::one(), source.b().clone(), c)
 }
 
-#[reduction(overhead = {
-    bit_length_a = "1",
-    bit_length_b = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-    bit_length_c = "(num_vars + num_clauses)^2 * log(num_vars + num_clauses + 1)",
-})]
+#[reduction(
+    size = exact {
+        bit_length_a = "1",
+    },
+    unavailable = {
+        bit_length_b = "the exact coefficient bit length depends on constructed prime products and is not determined by clause and variable counts",
+        bit_length_c = "the exact coefficient bit length depends on constructed prime products and padding and is not determined by clause and variable counts",
+    }
+)]
 impl ReduceTo<QuadraticDiophantineEquations> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticDiophantineEquations;
 

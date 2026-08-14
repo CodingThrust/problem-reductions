@@ -23,15 +23,22 @@ impl ReductionResult for ReductionVCToAndOrGraph {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_source_vertices)
-            .map(|j| usize::from(target_solution.get(self.sink_arc_start + j) == Some(&1)))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_source_vertices)
+                .map(|j| usize::from(target_solution[self.sink_arc_start + j] == 1))
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "1 + num_edges + 2 * num_vertices",
         num_arcs = "3 * num_edges + num_vertices",
     }

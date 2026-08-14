@@ -44,57 +44,72 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_vertices;
-        if n < 3 {
-            return vec![0; n];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Collect selected edges (those with config value 1)
-        let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
-        for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
-            if i < target_solution.len() && target_solution[i] == 1 {
-                adj[u].push(v);
-                adj[v].push(u);
+        Ok({
+            let n = self.num_vertices;
+            if n < 3 {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "a Hamiltonian circuit requires at least three vertices",
+                ));
             }
-        }
 
-        // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
-        if adj.iter().any(|neighbors| neighbors.len() != 2) {
-            return vec![0; n];
-        }
+            // Collect selected edges (those with config value 1)
+            let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+            for (i, &(u, v)) in self.potential_edges.iter().enumerate() {
+                if target_solution[i] == 1 {
+                    adj[u].push(v);
+                    adj[v].push(u);
+                }
+            }
 
-        // Walk the cycle starting from vertex 0
-        let mut circuit = Vec::with_capacity(n);
-        circuit.push(0);
-        let mut prev = 0;
-        let mut current = adj[0][0];
-        while current != 0 {
-            circuit.push(current);
-            let next = if adj[current][0] == prev {
-                adj[current][1]
+            // Check that every vertex has exactly degree 2 (Hamiltonian cycle)
+            if adj.iter().any(|neighbors| neighbors.len() != 2) {
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not give every source vertex degree two",
+                ));
+            }
+
+            // Walk the cycle starting from vertex 0
+            let mut circuit = Vec::with_capacity(n);
+            circuit.push(0);
+            let mut prev = 0;
+            let mut current = adj[0][0];
+            while current != 0 {
+                circuit.push(current);
+                let next = if adj[current][0] == prev {
+                    adj[current][1]
+                } else {
+                    adj[current][0]
+                };
+                prev = current;
+                current = next;
+
+                // Safety: if we've visited more than n vertices, something is wrong
+                if circuit.len() > n {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected edges revisit a source vertex",
+                    ));
+                }
+            }
+
+            if circuit.len() == n {
+                circuit
             } else {
-                adj[current][0]
-            };
-            prev = current;
-            current = next;
-
-            // Safety: if we've visited more than n vertices, something is wrong
-            if circuit.len() > n {
-                return vec![0; n];
+                return Err(crate::rules::ExtractionError::invalid(
+                    "selected edges do not form a spanning circuit",
+                ));
             }
-        }
-
-        if circuit.len() == n {
-            circuit
-        } else {
-            vec![0; n]
-        }
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "0",
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",
@@ -122,7 +137,8 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircu
         }
 
         // Budget = n (exactly enough for n weight-1 edges)
-        let budget = n as i32;
+        let budget = i64::try_from(n)
+            .expect("HamiltonianCircuit -> BiconnectivityAugmentation budget must fit i64");
 
         let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget);
 

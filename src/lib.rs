@@ -20,17 +20,21 @@
 extern crate self as problemreductions;
 
 pub(crate) mod big_o;
-pub(crate) mod canonical;
 pub mod config;
 pub mod error;
 #[cfg(feature = "example-db")]
 pub mod example_db;
 pub mod export;
-pub(crate) mod expr;
+pub mod expr;
+// Growth is an explicit terminal projection for complexity display. Exact and certified
+// size propagation never re-enters this domain.
+pub mod growth;
 pub mod io;
 pub mod models;
+pub mod random;
 pub mod registry;
 pub mod rules;
+pub mod size;
 pub mod solvers;
 pub mod topology;
 pub mod traits;
@@ -110,9 +114,11 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use big_o::big_o_normal_form;
-pub use canonical::canonical_form;
 pub use error::{ProblemError, Result};
-pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
+pub use expr::{
+    evaluate_approximate, ApproximationError, AsymptoticAnalysisError, Expr, ParseError,
+};
+pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::Problem;
@@ -122,11 +128,14 @@ pub use types::{
 };
 
 // Re-export proc macros for reduction registration and variant declaration
-pub use problemreductions_macros::{declare_variants, reduction};
+pub use problemreductions_macros::{declare_variants, reduction, CreateSpec};
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;
 
+#[cfg(all(test, feature = "example-db"))]
+#[path = "unit_tests/symbolic_size_contracts.rs"]
+mod symbolic_size_contracts;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;

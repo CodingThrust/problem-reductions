@@ -16,7 +16,7 @@ fn test_integerknapsack_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 2]);
 }
 
@@ -58,7 +58,7 @@ fn test_integerknapsack_to_ilp_zero_capacity() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0]);
 }
 

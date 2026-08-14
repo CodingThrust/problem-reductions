@@ -126,7 +126,7 @@ fn test_one_hot_decode_permutation() {
     solution[2] = 1; // item 0 -> slot 2
     solution[3] = 1; // item 1 -> slot 0
     solution[7] = 1; // item 2 -> slot 1
-    let decoded = one_hot_decode(&solution, 3, 3, 0);
+    let decoded = one_hot_decode(&solution, 3, 3, 0).unwrap();
     assert_eq!(decoded, vec![1, 2, 0]); // slot 0 gets item 1, slot 1 gets item 2, slot 2 gets item 0
 }
 
@@ -137,8 +137,25 @@ fn test_one_hot_decode_with_offset() {
     solution[7] = 1; // 5 + 2
     solution[8] = 1; // 5 + 3
     solution[12] = 1; // 5 + 7
-    let decoded = one_hot_decode(&solution, 3, 3, 5);
+    let decoded = one_hot_decode(&solution, 3, 3, 5).unwrap();
     assert_eq!(decoded, vec![1, 2, 0]);
+}
+
+#[test]
+fn test_one_hot_decode_rejects_missing_and_duplicate_items() {
+    assert!(one_hot_decode(&[0, 0, 0, 0], 2, 2, 0).is_err());
+    assert!(one_hot_decode(&[1, 0, 1, 0], 2, 2, 0).is_err());
+    assert!(one_hot_decode(&[1, 1, 0, 0], 2, 2, 0).is_err());
+}
+
+#[test]
+fn test_one_hot_decode_rows_accepts_exactly_one_column_per_row() {
+    assert_eq!(
+        one_hot_decode_rows(&[0, 1, 0, 1, 0, 0], 2, 3, 0).unwrap(),
+        vec![1, 0]
+    );
+    assert!(one_hot_decode_rows(&[0, 0, 0, 1, 0, 0], 2, 3, 0).is_err());
+    assert!(one_hot_decode_rows(&[1, 1, 0, 1, 0, 0], 2, 3, 0).is_err());
 }
 
 #[test]

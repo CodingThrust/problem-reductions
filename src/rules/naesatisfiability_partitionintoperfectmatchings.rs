@@ -65,12 +65,19 @@ impl ReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.layout
-            .variables
-            .iter()
-            .map(|variable| usize::from(target_solution[variable.t] == 0))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.layout
+                .variables
+                .iter()
+                .map(|variable| usize::from(target_solution[variable.t] == 0))
+                .collect()
+        })
     }
 }
 
@@ -300,7 +307,7 @@ fn build_layout(problem: &NAESatisfiability) -> ReductionLayout {
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "4 * num_vars + 16 * num_clauses",
         num_edges = "3 * num_vars + 21 * num_clauses",
         num_matchings = "2",

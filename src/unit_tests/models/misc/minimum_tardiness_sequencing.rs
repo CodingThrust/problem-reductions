@@ -236,3 +236,21 @@ fn test_minimum_tardiness_sequencing_paper_example() {
     let problem = MinimumTardinessSequencing::<One>::new(4, vec![2, 3, 1, 4], vec![(0, 2)]);
     assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(Some(1)));
 }
+#[test]
+fn create_specs_default_precedences_to_empty() {
+    let unit = MinimumTardinessSequencing::try_from(MinimumTardinessSequencingOneCreateSpec {
+        lengths: vec![One, One],
+        deadlines: vec![1, 2],
+        precedences: None,
+    })
+    .unwrap();
+    let weighted = MinimumTardinessSequencing::try_from(MinimumTardinessSequencingI32CreateSpec {
+        lengths: vec![1, 2],
+        deadlines: vec![1, 3],
+        precedences: None,
+    })
+    .unwrap();
+    assert!(unit.precedences().is_empty());
+    assert!(weighted.precedences().is_empty());
+    assert!(!MinimumTardinessSequencingOneCreateSpec::INPUTS[2].required);
+}

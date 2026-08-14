@@ -24,13 +24,13 @@ fn test_ilp_to_qubo_closed_loop() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
         assert!(ilp.is_feasible(&values));
     }
 
     // Optimal should be [1, 0, 1]
-    let best = reduction.extract_solution(&qubo_solutions[0]);
+    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
     assert_eq!(best, vec![1, 0, 1]);
 }
 
@@ -52,12 +52,12 @@ fn test_ilp_to_qubo_minimize() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
         assert!(ilp.is_feasible(&values));
     }
 
-    let best = reduction.extract_solution(&qubo_solutions[0]);
+    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
     assert_eq!(best, vec![1, 0, 0]);
 }
 
@@ -85,7 +85,7 @@ fn test_ilp_to_qubo_equality() {
     assert_eq!(qubo_solutions.len(), 3);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
         assert!(ilp.is_feasible(&values));
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
@@ -116,13 +116,13 @@ fn test_ilp_to_qubo_ge_with_slack() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
         assert!(ilp.is_feasible(&values));
     }
 
     // Optimal: exactly one variable = 1
-    let best = reduction.extract_solution(&qubo_solutions[0]);
+    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
     assert_eq!(best.iter().sum::<usize>(), 1);
 }
 
@@ -150,13 +150,13 @@ fn test_ilp_to_qubo_le_with_slack() {
     let qubo_solutions = solver.find_all_witnesses(qubo);
 
     for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
+        let extracted = reduction.extract_solution(sol).unwrap();
         let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
         assert!(ilp.is_feasible(&values));
     }
 
     // Optimal: exactly 2 of 3 variables = 1 (3 solutions)
-    let best = reduction.extract_solution(&qubo_solutions[0]);
+    let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
     assert_eq!(best.iter().sum::<usize>(), 2);
 }
 

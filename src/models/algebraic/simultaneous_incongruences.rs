@@ -15,6 +15,7 @@ inventory::submit! {
         display_name: "Simultaneous Incongruences",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Decide whether there exists x with x ≢ aᵢ (mod bᵢ) for all i",
         fields: &[

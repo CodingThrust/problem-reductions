@@ -26,10 +26,17 @@ impl ReductionResult for ReductionMTSToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let schedule = one_hot_decode(target_solution, n, n, 0);
-        permutation_to_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_tasks;
+            let schedule = one_hot_decode(target_solution, n, n, 0)?;
+            permutation_to_lehmer(&schedule)
+        })
     }
 }
 
@@ -48,10 +55,17 @@ impl ReductionResult for ReductionMTSWeightedToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.num_tasks;
-        let schedule = one_hot_decode(target_solution, n, n, 0);
-        permutation_to_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let n = self.num_tasks;
+            let schedule = one_hot_decode(target_solution, n, n, 0)?;
+            permutation_to_lehmer(&schedule)
+        })
     }
 }
 
@@ -89,10 +103,11 @@ fn build_common_constraints(
 }
 
 // Unit-length variant
-#[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks + num_tasks",
-    num_constraints = "2 * num_tasks + num_precedences + num_tasks",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * num_tasks + num_tasks",
+        num_constraints = "2 * num_tasks + num_precedences + num_tasks",
+    },)]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     type Result = ReductionMTSToILP;
 
@@ -125,10 +140,11 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
 }
 
 // Arbitrary-length variant
-#[reduction(overhead = {
-    num_vars = "num_tasks * num_tasks + num_tasks",
-    num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks * num_tasks + num_tasks",
+        num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
+    },)]
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i32> {
     type Result = ReductionMTSWeightedToILP;
 

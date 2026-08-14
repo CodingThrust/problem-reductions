@@ -31,7 +31,7 @@ fn test_acyclicpartition_to_ilp_closed_loop() {
     // Solve ILP
     let ilp_solver = ILPSolver::new();
     let ilp_sol = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
 
     assert!(
         source.evaluate(&extracted).0,
@@ -55,7 +55,7 @@ fn test_extract_solution() {
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_sol);
+    let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert_eq!(extracted.len(), 4);
     assert!(source.evaluate(&extracted).0);
 }
@@ -76,7 +76,7 @@ fn test_infeasible_instance() {
     let reduction: ReductionAcyclicPartitionToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
-    assert!(solver.solve(ilp).is_none());
+    assert!(solver.solve(ilp).is_err());
 }
 
 #[test]

@@ -3,7 +3,7 @@
 //! The Steiner Tree problem asks for a minimum-weight subtree of a graph
 //! that connects all terminal vertices.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, One, WeightElement};
@@ -19,13 +19,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["One", "i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight subtree connecting all terminal vertices",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "terminals", type_name: "Vec<usize>", description: "Required terminal vertices R ⊆ V" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-        ],
+        fields: SteinerTreeInGraphsCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -75,6 +72,42 @@ pub struct SteinerTreeInGraphs<G, W> {
     terminals: Vec<usize>,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SteinerTreeInGraphsCreateSpec<W> {
+    /// The underlying graph.
+    graph: SimpleGraph,
+    /// Required terminal vertices.
+    terminals: Vec<usize>,
+    /// Edge weights; defaults to one per edge.
+    edge_weights: Option<Vec<W>>,
+}
+impl<W> TryFrom<SteinerTreeInGraphsCreateSpec<W>> for SteinerTreeInGraphs<SimpleGraph, W>
+where
+    W: Clone + Default + From<i32>,
+{
+    type Error = String;
+    fn try_from(spec: SteinerTreeInGraphsCreateSpec<W>) -> Result<Self, Self::Error> {
+        let count = spec.graph.num_edges();
+        let edge_weights = spec
+            .edge_weights
+            .unwrap_or_else(|| (0..count).map(|_| W::from(1)).collect());
+        if edge_weights.len() != count {
+            return Err(format!(
+                "edge_weights has {} entries, expected {count}",
+                edge_weights.len()
+            ));
+        }
+        if let Some(&terminal) = spec
+            .terminals
+            .iter()
+            .find(|&&t| t >= spec.graph.num_vertices())
+        {
+            return Err(format!("terminal {terminal} is outside the graph"));
+        }
+        Ok(Self::new(spec.graph, spec.terminals, edge_weights))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> SteinerTreeInGraphs<G, W> {
@@ -273,9 +306,19 @@ pub(crate) fn is_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], selected
     terminals.iter().all(|&t| visited[t])
 }
 
+crate::impl_random_generate!(SteinerTreeInGraphs<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    if spec.num_vertices < 2 {
+        return Err("num_vertices must be at least 2".to_string());
+    }
+    let graph = spec.graph()?;
+    let terminals = (0..std::cmp::max(2, spec.num_vertices / 2)).collect();
+    let weights = vec![1; graph.num_edges()];
+    Ok(SteinerTreeInGraphs::new(graph, terminals, weights))
+});
+
 crate::declare_variants! {
-    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3",
-    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3",
+    default SteinerTreeInGraphs<SimpleGraph, i32> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<i32> random,
+    SteinerTreeInGraphs<SimpleGraph, One> => "2^num_terminals * num_vertices^3" create SteinerTreeInGraphsCreateSpec<One>,
 }
 
 #[cfg(feature = "example-db")]

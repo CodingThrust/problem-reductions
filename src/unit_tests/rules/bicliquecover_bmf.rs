@@ -28,11 +28,18 @@ fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
     let entry = inventory::iter::<crate::rules::ReductionEntry>()
         .find(|entry| entry.source_name == "BicliqueCover" && entry.target_name == "BMF")
         .expect("BicliqueCover -> BMF reduction should be registered");
-    let overhead = (entry.overhead_eval_fn)(&problem as &dyn std::any::Any);
+    let source_size = (entry.source_size_measure_fn)(&problem as &dyn std::any::Any);
+    let predicted = entry
+        .size_contract()
+        .unwrap()
+        .transform()
+        .unwrap()
+        .evaluate(&crate::size::EvaluatedSize::from_problem_size(&source_size))
+        .unwrap();
 
-    assert_eq!(overhead.get("rows"), Some(target.rows()));
-    assert_eq!(overhead.get("cols"), Some(target.cols()));
-    assert_eq!(overhead.get("rank"), Some(target.rank()));
+    assert_eq!(predicted.values().get("rows"), Some(&target.rows().into()));
+    assert_eq!(predicted.values().get("cols"), Some(&target.cols().into()));
+    assert_eq!(predicted.values().get("rank"), Some(&target.rank().into()));
 }
 
 #[test]
@@ -49,7 +56,7 @@ fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target must be feasible");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_source);
 }
 
@@ -64,7 +71,7 @@ fn test_bicliquecover_to_bmf_closed_loop_identity_rank2() {
     let target_witness = BruteForce::new()
         .find_witness(target)
         .expect("target must be feasible");
-    let extracted = reduction.extract_solution(&target_witness);
+    let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted), bf_source);
 }
 

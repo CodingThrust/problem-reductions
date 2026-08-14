@@ -42,16 +42,23 @@ impl ReductionResult for ReductionMMMToAchromatic {
     /// size 2, i.e., a source edge. A source edge `(u, v)` belongs to the
     /// extracted matching iff `u` and `v` share a color, which we detect in a
     /// single pass over `source_edges`.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.source_edges
-            .iter()
-            .map(|&(u, v)| usize::from(target_solution[u] == target_solution[v]))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            self.source_edges
+                .iter()
+                .map(|&(u, v)| usize::from(target_solution[u] == target_solution[v]))
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }

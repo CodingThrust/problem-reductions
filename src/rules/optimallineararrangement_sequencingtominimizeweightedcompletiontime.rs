@@ -32,26 +32,39 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let schedule = crate::models::misc::decode_lehmer(target_solution, self.target.num_tasks())
-            .expect("target solution must be a valid Lehmer code");
-        let mut arrangement = vec![0usize; self.num_vertices];
-        let mut next_position = 0usize;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        for task in schedule {
-            if task < self.num_vertices {
-                arrangement[task] = next_position;
-                next_position += 1;
+        Ok({
+            let schedule =
+                crate::models::misc::decode_lehmer(target_solution, self.target.num_tasks())
+                    .ok_or_else(|| {
+                        crate::rules::ExtractionError::invalid(
+                            "target configuration is not a Lehmer code",
+                        )
+                    })?;
+            let mut arrangement = vec![0usize; self.num_vertices];
+            let mut next_position = 0usize;
+
+            for task in schedule {
+                if task < self.num_vertices {
+                    arrangement[task] = next_position;
+                    next_position += 1;
+                }
             }
-        }
 
-        arrangement
+            arrangement
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_tasks = "num_vertices + num_edges",
-})]
+#[reduction(
+    size = exact {
+        num_tasks = "num_vertices + num_edges",
+    })]
 impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
     for OptimalLinearArrangement<SimpleGraph>
 {
@@ -106,7 +119,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = BruteForce::new()
                 .find_witness(reduction.target_problem())
                 .expect("canonical example must be solvable");
-            let source_config = reduction.extract_solution(&target_config);
+            let source_config = reduction.extract_solution(&target_config).unwrap();
             assemble_rule_example(
                 &source,
                 reduction.target_problem(),

@@ -8,6 +8,7 @@
 
 use crate::models::formula::{CNFClause, KSatisfiability, Satisfiability};
 use crate::reduction;
+use crate::rules::sat_helpers::SatVariableAllocator;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::{KValue, K2, K3, KN};
 
@@ -31,9 +32,16 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Only return the original variables, discarding ancillas
-        target_solution[..self.source_num_vars].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Only return the original variables, discarding ancillas
+            target_solution[..self.source_num_vars].to_vec()
+        })
     }
 }
 
@@ -48,16 +56,12 @@ impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
 /// * `k` - Target number of literals per clause
 /// * `clause` - The clause to add
 /// * `result_clauses` - Output vector to append clauses to
-/// * `next_var` - Next available variable number (1-indexed)
-///
-/// # Returns
-/// Updated next_var after any ancilla variables are created
 fn add_clause_to_ksat(
     k: usize,
     clause: &CNFClause,
     result_clauses: &mut Vec<CNFClause>,
-    mut next_var: i32,
-) -> i32 {
+    variables: &mut SatVariableAllocator,
+) -> Result<(), String> {
     let len = clause.len();
 
     if len == k {
@@ -67,25 +71,23 @@ fn add_clause_to_ksat(
         // Too few literals: pad with ancilla variables
         // Create both positive and negative versions to maintain satisfiability
         // (a v b) with k=3 becomes (a v b v x) AND (a v b v -x)
-        let ancilla = next_var;
-        next_var += 1;
+        let ancilla = variables.allocate()?;
 
         // Add clause with positive ancilla
         let mut lits_pos = clause.literals.clone();
         lits_pos.push(ancilla);
-        next_var = add_clause_to_ksat(k, &CNFClause::new(lits_pos), result_clauses, next_var);
+        add_clause_to_ksat(k, &CNFClause::new(lits_pos), result_clauses, variables)?;
 
         // Add clause with negative ancilla
         let mut lits_neg = clause.literals.clone();
         lits_neg.push(-ancilla);
-        next_var = add_clause_to_ksat(k, &CNFClause::new(lits_neg), result_clauses, next_var);
+        add_clause_to_ksat(k, &CNFClause::new(lits_neg), result_clauses, variables)?;
     } else {
         // Too many literals: split using ancilla variable
         // (a v b v c v d) with k=3 becomes (a v b v x) AND (-x v c v d)
         assert!(k >= 3, "K must be at least 3 for splitting");
 
-        let ancilla = next_var;
-        next_var += 1;
+        let ancilla = variables.allocate()?;
 
         // First clause: first k-1 literals + positive ancilla
         let mut first_lits: Vec<i32> = clause.literals[..k - 1].to_vec();
@@ -98,10 +100,10 @@ fn add_clause_to_ksat(
         let remaining_clause = CNFClause::new(remaining_lits);
 
         // Recursively process the remaining clause
-        next_var = add_clause_to_ksat(k, &remaining_clause, result_clauses, next_var);
+        add_clause_to_ksat(k, &remaining_clause, result_clauses, variables)?;
     }
 
-    next_var
+    Ok(())
 }
 
 /// Implementation of SAT -> K-SAT reduction.
@@ -111,26 +113,29 @@ fn add_clause_to_ksat(
 macro_rules! impl_sat_to_ksat {
     ($ktype:ty, $k:expr) => {
         #[rustfmt::skip]
-        #[reduction(overhead = {
-            num_clauses = "4 * num_clauses + num_literals",
-            num_vars = "num_vars + 3 * num_clauses + num_literals",
-        })]
+        #[reduction(
+    size = upper_bound {
+        num_clauses = "4 * num_clauses + num_literals",
+        num_vars = "num_vars + 3 * num_clauses + num_literals",
+    }
+        )]
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;
 
             fn reduce_to(&self) -> Self::Result {
                 let source_num_vars = self.num_vars();
                 let mut result_clauses = Vec::new();
-                let mut next_var = (source_num_vars + 1) as i32; // 1-indexed
+                let mut variables = SatVariableAllocator::new(
+                    "Satisfiability -> KSatisfiability",
+                    source_num_vars,
+                ).unwrap_or_else(|message| panic!("{message}"));
 
                 for clause in self.clauses() {
-                    next_var = add_clause_to_ksat($k, clause, &mut result_clauses, next_var);
+                    add_clause_to_ksat($k, clause, &mut result_clauses, &mut variables)
+                        .unwrap_or_else(|message| panic!("{message}"));
                 }
 
-                // Calculate total number of variables (original + ancillas)
-                let total_vars = (next_var - 1) as usize;
-
-                let target = KSatisfiability::<$ktype>::new(total_vars, result_clauses);
+                let target = KSatisfiability::<$ktype>::new(variables.num_vars(), result_clauses);
 
                 ReductionSATToKSAT {
                     source_num_vars,
@@ -162,9 +167,16 @@ impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Direct mapping - no transformation needed
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Direct mapping - no transformation needed
+            target_solution.to_vec()
+        })
     }
 }
 
@@ -184,11 +196,12 @@ fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSA
 macro_rules! impl_ksat_to_sat {
     ($ktype:ty) => {
 #[rustfmt::skip]
-        #[reduction(overhead = {
-            num_clauses = "num_clauses",
-            num_vars = "num_vars",
-            num_literals = "num_literals",
-        })]
+        #[reduction(
+    size = exact {
+        num_clauses = "num_clauses",
+        num_vars = "num_vars",
+        num_literals = "num_literals",
+    })]
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
             type Result = ReductionKSATToSAT<$ktype>;
 

@@ -52,7 +52,7 @@ fn test_eulerianpath_to_ilp_empty_instance() {
     let solution = ILPSolver::new()
         .solve(ilp)
         .expect("Empty ILP should be feasible");
-    let extracted = reduction.extract_solution(&solution);
+    let extracted = reduction.extract_solution(&solution).unwrap();
     assert_eq!(extracted.len(), 0);
     assert_eq!(source.evaluate(&extracted), Or(true));
 }
@@ -66,7 +66,7 @@ fn test_eulerianpath_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for a YES instance");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted.len(), source.num_arcs());
     assert!(
@@ -88,7 +88,7 @@ fn test_eulerianpath_to_ilp_infeasible_no_instance() {
     // The ILP must report infeasibility for a NO instance.
     let solution = ILPSolver::new().solve(reduction.target_problem());
     assert!(
-        solution.is_none(),
+        solution.is_err(),
         "ILP must be infeasible for a degree-unbalanced NO instance, got {:?}",
         solution
     );
@@ -104,7 +104,7 @@ fn test_eulerianpath_to_ilp_closed_circuit_with_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible for a closed Eulerian circuit");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 3);
     assert!(
         source.is_valid_solution(&extracted),

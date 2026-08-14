@@ -1,4 +1,17 @@
 use super::*;
+
+#[test]
+fn create_spec_defaults_couplings_and_fields() {
+    let problem = SpinGlass::<SimpleGraph, i32>::try_from(SpinGlassI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        couplings: None,
+        fields: None,
+    })
+    .unwrap();
+    assert_eq!(problem.couplings(), &[1]);
+    assert_eq!(problem.fields(), &[0, 0, 0]);
+}
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");
@@ -114,7 +127,7 @@ fn test_jl_parity_evaluation() {
             let jl_config = jl_parse_config(&eval["config"]);
             let config = jl_flip_config(&jl_config);
             let result = problem.evaluate(&config);
-            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            let jl_size = eval["size"].as_i64().unwrap();
             assert!(result.is_valid(), "SpinGlass should always be valid");
             assert_eq!(
                 result.unwrap(),

@@ -30,12 +30,19 @@ impl ReductionResult for ReductionKnapsackToQUBO {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution[..self.num_items].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution[..self.num_items].to_vec())
     }
 }
 
-#[reduction(overhead = { num_vars = "num_items + num_slack_bits" })]
+#[reduction(size = exact {
+    num_vars = "num_items + num_slack_bits",
+})]
 impl ReduceTo<QUBO<f64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;
 

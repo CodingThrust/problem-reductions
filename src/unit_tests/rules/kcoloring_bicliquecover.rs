@@ -25,7 +25,7 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     let witness = BruteForce::new()
         .find_witness(target)
         .expect("trivial target must be feasible");
-    let coloring = reduction.extract_solution(&witness);
+    let coloring = reduction.extract_solution(&witness).unwrap();
     assert_eq!(coloring.len(), 1);
     assert!(source.is_valid_solution(&coloring));
     // The source brute force agrees.
@@ -97,7 +97,7 @@ fn test_kcoloring_to_bicliquecover_forward_witness_path_q2() {
     // Witness covers all edges with rank <= n + q.
     assert!(target.is_valid_cover(&witness));
     // Extraction recovers a proper coloring.
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -115,7 +115,7 @@ fn test_kcoloring_to_bicliquecover_forward_witness_cycle_q2() {
     let witness = forward_witness(&source, &coloring);
 
     assert!(target.is_valid_cover(&witness));
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
 }
 
@@ -180,7 +180,7 @@ fn test_kcoloring_to_bicliquecover_extract_solution_on_forward_witness() {
     let witness = forward_witness(&source, &coloring);
     assert!(target.is_valid_cover(&witness));
 
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert!(source.is_valid_solution(&extracted));
     // K_3 forces 3 distinct colors.
     let mut seen = std::collections::BTreeSet::new();
@@ -238,6 +238,6 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
     assert_eq!(cell(&witness, 0, 1, k), 1);
     assert_eq!(cell(&witness, 2, 1, k), 1);
 
-    let extracted = reduction.extract_solution(&witness);
+    let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted, vec![0]);
 }

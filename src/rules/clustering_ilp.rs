@@ -18,12 +18,6 @@ pub struct ReductionClusteringToILP {
     num_clusters: usize,
 }
 
-impl ReductionClusteringToILP {
-    fn var_index(&self, element: usize, cluster: usize) -> usize {
-        element * self.num_clusters + cluster
-    }
-}
-
 impl ReductionResult for ReductionClusteringToILP {
     type Source = Clustering;
     type Target = ILP<bool>;
@@ -32,24 +26,28 @@ impl ReductionResult for ReductionClusteringToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_elements)
-            .map(|element| {
-                (0..self.num_clusters)
-                    .find(|&cluster| {
-                        let idx = self.var_index(element, cluster);
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        crate::rules::ilp_helpers::one_hot_decode_rows(
+            target_solution,
+            self.num_elements,
+            self.num_clusters,
+            0,
+        )
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_elements * num_clusters",
-        num_constraints = "num_elements + num_elements * (num_elements - 1) / 2 * num_clusters",
+
+    },
+    unavailable = {
+        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for Clustering {

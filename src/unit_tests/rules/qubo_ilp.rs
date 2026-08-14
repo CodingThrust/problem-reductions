@@ -29,7 +29,7 @@ fn test_qubo_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = qubo.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -49,7 +49,7 @@ fn test_qubo_to_ilp_diagonal_only() {
 
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(ilp);
-    let extracted = reduction.extract_solution(&best[0]);
+    let extracted = reduction.extract_solution(&best[0]).unwrap();
     assert_eq!(extracted, vec![0, 1]);
 }
 
@@ -72,6 +72,6 @@ fn test_qubo_to_ilp_3var() {
 
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(ilp);
-    let extracted = reduction.extract_solution(&best[0]);
+    let extracted = reduction.extract_solution(&best[0]).unwrap();
     assert_eq!(extracted, vec![1, 0, 1]);
 }

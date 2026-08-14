@@ -30,7 +30,7 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
     let target_witnesses = solver.find_all_witnesses(target_no_even);
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
-        let extracted = reduction_no_even.extract_solution(witness);
+        let extracted = reduction_no_even.extract_solution(witness).unwrap();
         assert_eq!(extracted.len(), source_no_even.num_elements());
         assert!(
             !source_no_even.evaluate(&extracted).0,
@@ -47,7 +47,7 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
     let target_witnesses_odd = solver.find_all_witnesses(target_no_odd);
     assert!(!target_witnesses_odd.is_empty());
     for witness in &target_witnesses_odd {
-        let extracted = reduction_no_odd.extract_solution(witness);
+        let extracted = reduction_no_odd.extract_solution(witness).unwrap();
         assert!(
             !source_no_odd.evaluate(&extracted).0,
             "odd-sum NO Partition: extracted witness {extracted:?} should not satisfy source"
@@ -104,9 +104,9 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     assert!(!target_witnesses.is_empty());
 
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness);
+        let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        assert_eq!(extracted, vec![0]);
+        assert_eq!(extracted, witness[..source.num_elements()]);
         assert!(
             !source.evaluate(&extracted).0,
             "singleton Partition: extracted witness must yield Or(false)"
@@ -130,11 +130,13 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
         solver.find_all_witnesses(&source).into_iter().collect();
 
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness);
+        let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(extracted, *witness);
         assert!(
             source_witnesses.contains(&extracted),
             "extracted witness {extracted:?} must be a valid Partition solution"
         );
     }
+
+    assert!(reduction.extract_solution(&[0]).is_err());
 }

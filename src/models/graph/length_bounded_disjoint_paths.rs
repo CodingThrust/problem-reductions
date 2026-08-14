@@ -3,7 +3,7 @@
 //! The problem maximizes the number of internally vertex-disjoint `s-t` paths,
 //! each using at most `K` edges, over up to `max_paths` path slots.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Max;
@@ -18,15 +18,10 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Maximize the number of internally vertex-disjoint s-t paths of length at most K",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "source", type_name: "usize", description: "The shared source vertex s" },
-            FieldInfo { name: "sink", type_name: "usize", description: "The shared sink vertex t" },
-            FieldInfo { name: "max_paths", type_name: "usize", description: "Upper bound on the number of path slots" },
-            FieldInfo { name: "max_length", type_name: "usize", description: "Maximum path length K in edges" },
-        ],
+        fields: LengthBoundedDisjointPathsCreateSpec::FIELDS,
     }
 }
 
@@ -46,6 +41,88 @@ pub struct LengthBoundedDisjointPaths<G> {
     sink: usize,
     max_paths: usize,
     max_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct LengthBoundedDisjointPathsCreateSpec {
+    /// Undirected graph edges.
+    #[create(codec = "edge-list")]
+    graph: Vec<(usize, usize)>,
+    /// Vertex count, needed to preserve isolated vertices.
+    num_vertices: Option<usize>,
+    /// Shared source vertex.
+    source: usize,
+    /// Shared sink vertex.
+    sink: usize,
+    /// Maximum path length in edges.
+    max_length: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct LengthBoundedDisjointPathsRandomSpec {
+    /// Number of graph vertices.
+    num_vertices: usize,
+    /// Independent edge probability (default: 0.5).
+    edge_prob: Option<f64>,
+    /// Seed for reproducible generation.
+    seed: Option<u64>,
+    /// Source vertex (default: 0).
+    source: Option<usize>,
+    /// Sink vertex (default: the final vertex).
+    sink: Option<usize>,
+    /// Maximum path length (default: num_vertices - 1).
+    max_length: Option<usize>,
+}
+
+impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPaths<SimpleGraph> {
+    type Error = String;
+
+    fn try_from(spec: LengthBoundedDisjointPathsCreateSpec) -> Result<Self, Self::Error> {
+        if spec.graph.is_empty() && spec.num_vertices.is_none() {
+            return Err("num_vertices is required for an empty graph".to_string());
+        }
+        for (index, &(u, v)) in spec.graph.iter().enumerate() {
+            if u == v {
+                return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            }
+        }
+        let inferred = spec
+            .graph
+            .iter()
+            .flat_map(|&(u, v)| [u, v])
+            .max()
+            .map(|vertex| vertex.checked_add(1).ok_or("vertex count overflows usize"))
+            .transpose()?
+            .unwrap_or(0);
+        let num_vertices = spec.num_vertices.unwrap_or(inferred);
+        if num_vertices < inferred {
+            return Err(format!(
+                "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
+            ));
+        }
+        if spec.source >= num_vertices || spec.sink >= num_vertices {
+            return Err("source and sink must be valid graph vertices".to_string());
+        }
+        if spec.source == spec.sink {
+            return Err("source and sink must be distinct".to_string());
+        }
+        if spec.max_length == 0 {
+            return Err("max_length must be positive".to_string());
+        }
+
+        let graph = SimpleGraph::new(num_vertices, spec.graph);
+        let max_paths = graph
+            .neighbors(spec.source)
+            .len()
+            .min(graph.neighbors(spec.sink).len());
+        Ok(Self {
+            graph,
+            source: spec.source,
+            sink: spec.sink,
+            max_paths,
+            max_length: spec.max_length,
+        })
+    }
 }
 
 impl<G: Graph> LengthBoundedDisjointPaths<G> {
@@ -300,8 +377,33 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
+crate::impl_random_generate!(
+    LengthBoundedDisjointPaths<SimpleGraph>,
+    LengthBoundedDisjointPathsRandomSpec,
+    |spec| {
+        let endpoints = crate::random::EndpointRandomSpec {
+            num_vertices: spec.num_vertices,
+            edge_prob: spec.edge_prob,
+            seed: spec.seed,
+            source: spec.source,
+            sink: spec.sink,
+        };
+        let (source, sink) = endpoints.endpoints()?;
+        let max_length = spec.max_length.unwrap_or(spec.num_vertices - 1);
+        if max_length == 0 {
+            return Err("max_length must be positive".to_string());
+        }
+        Ok(LengthBoundedDisjointPaths::new(
+            endpoints.graph()?,
+            source,
+            sink,
+            max_length,
+        ))
+    }
+);
+
 crate::declare_variants! {
-    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_vertices)",
+    default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_vertices)" create LengthBoundedDisjointPathsCreateSpec random,
 }
 
 #[cfg(test)]

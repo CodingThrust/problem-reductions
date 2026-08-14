@@ -25,7 +25,16 @@ impl BruteForce {
         P: Problem,
         P::Value: Aggregate,
     {
-        self.find_all_witnesses(problem).into_iter().next()
+        let total = self.solve(problem);
+
+        if !P::Value::supports_witnesses() {
+            return None;
+        }
+
+        DimsIterator::new(problem.dims()).find(|config| {
+            let value = problem.evaluate(config);
+            P::Value::contributes_to_witnesses(&value, &total)
+        })
     }
 
     /// Find all witness configurations for witness-supporting aggregates.

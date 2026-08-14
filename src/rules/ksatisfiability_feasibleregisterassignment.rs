@@ -69,23 +69,31 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        (0..self.num_vars)
-            .map(|var| {
-                usize::from(
-                    target_solution[s_pos_idx(var)]
-                        < target_solution[s_neg_idx(self.num_vars, var)],
-                )
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            (0..self.num_vars)
+                .map(|var| {
+                    usize::from(
+                        target_solution[s_pos_idx(var)]
+                            < target_solution[s_neg_idx(self.num_vars, var)],
+                    )
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "2 * num_vars + 12 * num_clauses",
-    num_arcs = "15 * num_clauses",
-    num_registers = "num_vars + 9 * num_clauses",
-})]
+#[reduction(
+    size = exact {
+        num_vertices = "2 * num_vars + 12 * num_clauses",
+        num_arcs = "15 * num_clauses",
+        num_registers = "num_vars + 9 * num_clauses",
+    })]
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 
@@ -180,8 +188,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let ilp_solution = ILPSolver::new()
                 .solve(to_ilp.target_problem())
                 .expect("canonical FRA example must reduce to a feasible ILP");
-            let target_config = to_ilp.extract_solution(&ilp_solution);
-            let source_config = to_fra.extract_solution(&target_config);
+            let target_config = to_ilp.extract_solution(&ilp_solution).unwrap();
+            let source_config = to_fra.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 to_fra.target_problem(),

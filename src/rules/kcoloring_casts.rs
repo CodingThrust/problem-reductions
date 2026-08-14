@@ -9,5 +9,6 @@ impl_variant_reduction!(
     KColoring,
     <K3, SimpleGraph> => <KN, SimpleGraph>,
     fields: [num_vertices, num_edges],
+    aggregate: identity,
     |src| KColoring::with_k(src.graph().clone(), src.num_colors())
 );

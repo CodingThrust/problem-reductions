@@ -60,7 +60,7 @@ fn test_openshopscheduling_to_ilp_closed_loop_small() {
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(
         value.0.is_some(),
@@ -78,7 +78,7 @@ fn test_openshopscheduling_to_ilp_closed_loop_medium() {
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(
         value.0.is_some(),
@@ -103,7 +103,7 @@ fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
     // => M1: job 1 starts at 0, job 0 starts at 1 → order [1, 0]
     // => M2: job 0 starts at 0, job 1 starts at 2 → order [0, 1]
     let target_solution = vec![0, 1, 1, 0, 0, 2, 0, 1, 3];
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     // M1: J1 at t=0, J0 at t=1 → order [1, 0]
     // M2: J0 at t=0, J1 at t=2 → order [0, 1]
     assert_eq!(extracted[0..2], [1, 0], "M1 order should be [1, 0]");
@@ -122,7 +122,7 @@ fn test_openshopscheduling_to_ilp_single_job() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(7)));
@@ -136,7 +136,7 @@ fn test_openshopscheduling_to_ilp_single_machine() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = p.evaluate(&extracted);
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(6)));

@@ -33,7 +33,7 @@ fn verify_identity(source: &MaxCut<SimpleGraph, i32>) {
         let Max(Some(cut)) = source.evaluate(&config) else {
             panic!("MaxCut must yield a finite cut for every config");
         };
-        let cut64 = cut as i64;
+        let cut64 = cut;
 
         assert_eq!(
             qf,
@@ -182,7 +182,7 @@ fn test_extract_solution_is_identity() {
         MaxCut::<SimpleGraph, i32>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1]);
     let reduction = ReduceTo::<MinimumMatrixCover>::reduce_to(&source);
     let target_sol = vec![1, 0, 1];
-    assert_eq!(reduction.extract_solution(&target_sol), target_sol);
+    assert_eq!(reduction.extract_solution(&target_sol).unwrap(), target_sol);
 }
 
 #[test]
@@ -202,7 +202,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_overhead_num_rows_equals_num_vertices() {
-    // Spot-check the size overhead: target.num_rows == source.num_vertices.
+    // Spot-check the exact size relation: target.num_rows == source.num_vertices.
     for n in [1usize, 2, 5, 8] {
         let edges: Vec<(usize, usize)> = (0..n.saturating_sub(1)).map(|i| (i, i + 1)).collect();
         let weights: Vec<i32> = vec![1; edges.len()];

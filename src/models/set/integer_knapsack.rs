@@ -14,6 +14,7 @@ inventory::submit! {
         display_name: "Integer Knapsack",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Select items with integer multiplicities to maximize total value subject to capacity constraint",
         fields: &[

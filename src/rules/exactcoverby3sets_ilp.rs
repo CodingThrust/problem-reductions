@@ -21,16 +21,21 @@ impl ReductionResult for ReductionX3CToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_subsets",
         num_constraints = "universe_size + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToILP;

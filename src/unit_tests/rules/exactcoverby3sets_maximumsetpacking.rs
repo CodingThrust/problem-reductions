@@ -61,7 +61,7 @@ fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
     assert_eq!(target.evaluate(&best), Max(Some(1)));
 
     // q = 2, but packing value is 1 < 2, so no exact cover exists
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert!(!source.evaluate(&extracted));
 }
 
@@ -78,6 +78,6 @@ fn test_exactcoverby3sets_to_maximumsetpacking_optimal_value() {
     // Maximum packing: S0 + S1 = 2 disjoint sets = q
     assert_eq!(target.evaluate(&best), Max(Some(2)));
 
-    let extracted = reduction.extract_solution(&best);
+    let extracted = reduction.extract_solution(&best).unwrap();
     assert!(source.evaluate(&extracted));
 }

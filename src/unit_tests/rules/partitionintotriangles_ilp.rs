@@ -41,7 +41,7 @@ fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
     assert_eq!(problem.evaluate(&bf_witness), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
         problem.evaluate(&extracted),
         Or(true),
@@ -59,7 +59,7 @@ fn test_solution_extraction() {
     // x_{v,g}: v0g0=1,v0g1=0, v1g0=1,v1g1=0, v2g0=1,v2g1=0,
     //           v3g0=0,v3g1=1, v4g0=0,v4g1=1, v5g0=0,v5g1=1
     let ilp_solution = vec![1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1];
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }
@@ -74,6 +74,6 @@ fn test_partitionintotriangles_to_ilp_trivial() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted), Or(true));
 }

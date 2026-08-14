@@ -27,45 +27,55 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let n = self.n;
-        if n == 0 {
-            return vec![];
-        }
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // Build directed adjacency from selected arcs.
-        let candidate_arcs = self.target.candidate_arcs();
-        let mut successors = vec![Vec::new(); n];
-        for (idx, &selected) in target_solution.iter().enumerate() {
-            if selected == 1 {
-                let (u, v, _) = candidate_arcs[idx];
-                successors[u].push(v);
+        Ok({
+            let n = self.n;
+            if n == 0 {
+                return Ok(vec![]);
             }
-        }
 
-        // Walk the directed cycle starting from vertex 0.
-        let mut order = Vec::with_capacity(n);
-        let mut current = 0;
-        let mut visited = vec![false; n];
-        for _ in 0..n {
-            if visited[current] {
-                // Not a valid Hamiltonian cycle; return fallback.
-                return vec![0; n];
+            // Build directed adjacency from selected arcs.
+            let candidate_arcs = self.target.candidate_arcs();
+            let mut successors = vec![Vec::new(); n];
+            for (idx, &selected) in target_solution.iter().enumerate() {
+                if selected == 1 {
+                    let (u, v, _) = candidate_arcs[idx];
+                    successors[u].push(v);
+                }
             }
-            visited[current] = true;
-            order.push(current);
-            if successors[current].len() != 1 {
-                return vec![0; n];
-            }
-            current = successors[current][0];
-        }
 
-        order
+            // Walk the directed cycle starting from vertex 0.
+            let mut order = Vec::with_capacity(n);
+            let mut current = 0;
+            let mut visited = vec![false; n];
+            for _ in 0..n {
+                if visited[current] {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected arcs revisit a source vertex",
+                    ));
+                }
+                visited[current] = true;
+                order.push(current);
+                if successors[current].len() != 1 {
+                    return Err(crate::rules::ExtractionError::invalid(
+                        "selected arcs do not provide one successor for every source vertex",
+                    ));
+                }
+                current = successors[current][0];
+            }
+
+            order
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vertices = "num_vertices",
         num_arcs = "0",
         num_potential_arcs = "num_vertices * (num_vertices - 1)",
@@ -89,7 +99,8 @@ impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<Simple
             }
         }
 
-        let bound = n as i32;
+        let bound = i64::try_from(n)
+            .expect("HamiltonianCircuit -> StrongConnectivityAugmentation bound must fit i64");
         let target = StrongConnectivityAugmentation::new(graph, candidate_arcs, bound);
 
         ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n }

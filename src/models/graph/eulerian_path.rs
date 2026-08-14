@@ -28,6 +28,7 @@ inventory::submit! {
         dimensions: &[
             VariantDimension::new("graph", "DirectedGraph", &["DirectedGraph"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Does the directed multigraph admit a directed trail using every arc exactly once?",
         fields: &[

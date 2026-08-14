@@ -26,15 +26,22 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // QAP config is a permutation γ mapping positions to vertices,
-        // which is directly the Hamiltonian circuit visit order.
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // QAP config is a permutation γ mapping positions to vertices,
+            // which is directly the Hamiltonian circuit visit order.
+            target_solution.to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_facilities = "num_vertices",
         num_locations = "num_vertices",
     }

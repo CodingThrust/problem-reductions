@@ -36,34 +36,38 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
 
     /// Decode one-hot assignment: for each vertex find its terminal, then
     /// for each edge check if endpoints are in different terminals.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = self.num_terminals;
-        let n = self.num_vertices;
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        // For each vertex, find which terminal position it is assigned to
-        let assignments: Vec<usize> = (0..n)
-            .map(|u| {
-                (0..k)
-                    .find(|&t| target_solution[u * k + t] == 1)
-                    .unwrap_or(0)
-            })
-            .collect();
+        Ok({
+            let k = self.num_terminals;
+            let n = self.num_vertices;
 
-        // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
-        self.edges
-            .iter()
-            .map(|&(u, v)| {
-                if assignments[u] != assignments[v] {
-                    1
-                } else {
-                    0
-                }
-            })
-            .collect()
+            // For each vertex, find which terminal position it is assigned to
+            let assignments =
+                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, k, 0)?;
+
+            // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
+            self.edges
+                .iter()
+                .map(|&(u, v)| {
+                    if assignments[u] != assignments[v] {
+                        1
+                    } else {
+                        0
+                    }
+                })
+                .collect()
+        })
     }
 }
 
-#[reduction(overhead = { num_vars = "num_terminals * num_vertices" })]
+#[reduction(size = exact {
+    num_vars = "num_terminals * num_vertices",
+})]
 impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
     type Result = ReductionMinimumMultiwayCutToQUBO;
 

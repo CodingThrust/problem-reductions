@@ -9,7 +9,7 @@ use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    registry::{FieldInfo, ProblemSchemaEntry, VariantDimension},
+    registry::{CreateSpec, ProblemSchemaEntry, VariantDimension},
     topology::{Graph, SimpleGraph},
     traits::Problem,
     types::{Min, One, WeightElement},
@@ -24,13 +24,10 @@ inventory::submit! {
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
             VariantDimension::new("weight", "i32", &["One", "i32"]),
         ],
+        category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight tree connecting terminal vertices",
-        fields: &[
-            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
-            FieldInfo { name: "terminals", type_name: "Vec<usize>", description: "Terminal vertices T that must be connected" },
-        ],
+        fields: SteinerTreeCreateSpec::<i32>::FIELDS,
     }
 }
 
@@ -62,6 +59,49 @@ pub struct SteinerTree<G, W> {
     edge_weights: Vec<W>,
     /// Terminal vertices that must be connected.
     terminals: Vec<usize>,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SteinerTreeCreateSpec<W> {
+    /// The underlying graph G=(V,E).
+    graph: SimpleGraph,
+    /// Edge weights w: E -> R.
+    edge_weights: Vec<W>,
+    /// Terminal vertices T that must be connected.
+    terminals: Vec<usize>,
+}
+
+impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<SimpleGraph, W> {
+    type Error = String;
+    fn try_from(spec: SteinerTreeCreateSpec<W>) -> Result<Self, Self::Error> {
+        if spec.edge_weights.len() != spec.graph.num_edges() {
+            return Err(format!(
+                "edge_weights has {} entries, expected {}",
+                spec.edge_weights.len(),
+                spec.graph.num_edges()
+            ));
+        }
+        if spec.terminals.len() < 2 {
+            return Err("at least two terminals are required".to_string());
+        }
+        let mut distinct = spec.terminals.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != spec.terminals.len() {
+            return Err("terminals must be distinct".to_string());
+        }
+        if let Some(&terminal) = spec
+            .terminals
+            .iter()
+            .find(|&&t| t >= spec.graph.num_vertices())
+        {
+            return Err(format!(
+                "terminal {terminal} is outside graph with {} vertices",
+                spec.graph.num_vertices()
+            ));
+        }
+        Ok(Self::new(spec.graph, spec.edge_weights, spec.terminals))
+    }
 }
 
 impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
@@ -247,9 +287,25 @@ where
     }
 }
 
+crate::impl_random_generate!(SteinerTree<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+    if spec.num_vertices < 2 {
+        return Err("num_vertices must be at least 2".to_string());
+    }
+    let mut state = crate::random::lcg_init(spec.seed);
+    let graph = spec.graph()?;
+    for _ in 0..spec.num_vertices * spec.num_vertices {
+        crate::random::lcg_step(&mut state);
+    }
+    let weights = (0..graph.num_edges()).map(|_| (crate::random::lcg_step(&mut state) * 9.0) as i32 + 1).collect();
+    let count = std::cmp::max(2, spec.num_vertices * 2 / 5);
+    let terminals = crate::random::lcg_choose(&mut state, spec.num_vertices, count)
+        .map_err(|error| error.to_string())?;
+    Ok(SteinerTree::new(graph, weights, terminals))
+});
+
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
-    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2",
+    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i32> random,
+    SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
 }
 
 #[cfg(feature = "example-db")]

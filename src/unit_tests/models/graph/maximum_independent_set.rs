@@ -1,4 +1,14 @@
 use super::*;
+#[test]
+fn create_spec_defaults_simple_weights() {
+    let problem = MaximumIndependentSet::try_from(MaximumIndependentSetSimpleI32CreateSpec {
+        graph: vec![(0, 1)],
+        num_vertices: Some(3),
+        weights: None,
+    })
+    .unwrap();
+    assert_eq!(problem.weights(), &[1, 1, 1]);
+}
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -139,7 +149,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
             if jl_valid {
-                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                let jl_size = eval["size"].as_i64().unwrap();
                 assert_eq!(
                     result.unwrap(),
                     jl_size,

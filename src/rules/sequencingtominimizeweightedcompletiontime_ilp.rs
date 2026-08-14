@@ -51,17 +51,25 @@ impl ReductionResult for ReductionSTMWCTToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut schedule: Vec<usize> = (0..self.num_tasks).collect();
-        schedule.sort_by_key(|&task| (target_solution.get(task).copied().unwrap_or(0), task));
-        Self::encode_schedule_as_lehmer(&schedule)
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let mut schedule: Vec<usize> = (0..self.num_tasks).collect();
+            schedule.sort_by_key(|&task| (target_solution[task], task));
+            Self::encode_schedule_as_lehmer(&schedule)
+        })
     }
 }
 
-#[reduction(overhead = {
-    num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
-    num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
-})]
+#[reduction(
+    size = exact {
+        num_vars = "num_tasks + num_tasks * (num_tasks - 1) / 2",
+        num_constraints = "2 * num_tasks + 3 * num_tasks * (num_tasks - 1) / 2 + num_precedences",
+    },)]
 impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedCompletionTime {
     type Result = ReductionSTMWCTToILP;
 

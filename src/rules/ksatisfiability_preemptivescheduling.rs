@@ -335,20 +335,27 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let d_max = self.target.d_max();
-        self.positive_start_jobs
-            .iter()
-            .map(|&job| usize::from(task_slot(target_solution, job, d_max) == Some(0)))
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            let d_max = self.target.d_max();
+            self.positive_start_jobs
+                .iter()
+                .map(|&job| usize::from(task_slot(target_solution, job, d_max) == Some(0)))
+                .collect()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
-        num_tasks = "(((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2) * (num_vars + 3)",
-        num_processors = "((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2",
-        d_max = "(((2 * num_vars + 2) + 6 * num_clauses + sqrt(((2 * num_vars + 2) - 6 * num_clauses)^2)) / 2) * (num_vars + 3)",
+    size = unavailable {
+        num_tasks = "the exact count uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
+        num_processors = "the exact count uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
+        d_max = "the exact deadline uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
     }
 )]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {

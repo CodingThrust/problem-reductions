@@ -34,7 +34,7 @@ fn test_maximum2satisfiability_to_ilp_closed_loop() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     // Optimal: 6 satisfied clauses
     let value = problem.evaluate(&extracted);
     assert_eq!(value, crate::types::Max(Some(6)));
@@ -51,7 +51,7 @@ fn test_maximum2satisfiability_to_ilp_bf_vs_ilp() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let ilp_value = problem.evaluate(&extracted);
 
     assert_eq!(bf_value, ilp_value);
@@ -106,7 +106,7 @@ fn test_maximum2satisfiability_to_ilp_all_satisfiable() {
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
-    let extracted = reduction.extract_solution(&ilp_solution);
+    let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     let value = problem.evaluate(&extracted);
     // Both clauses should be satisfiable
     assert_eq!(value, crate::types::Max(Some(2)));

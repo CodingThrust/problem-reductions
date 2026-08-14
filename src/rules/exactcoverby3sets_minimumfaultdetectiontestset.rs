@@ -24,17 +24,23 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
-#[reduction(overhead = {
-    num_vertices = "num_subsets + universe_size + 1",
-    num_arcs = "3 * num_subsets + universe_size",
-    num_inputs = "num_subsets",
-    num_outputs = "1",
-})]
+#[reduction(
+    size = exact {
+        num_vertices = "num_subsets + universe_size + 1",
+        num_arcs = "3 * num_subsets + universe_size",
+        num_inputs = "num_subsets",
+        num_outputs = "1",
+    })]
 impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumFaultDetectionTestSet;
 

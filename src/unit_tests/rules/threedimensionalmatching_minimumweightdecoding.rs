@@ -111,7 +111,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_q_zero() {
     for witness in &target_witnesses {
         // Sentinel codeword is the all-zero vector of length 1.
         assert_eq!(witness, &vec![0]);
-        let extracted = reduction.extract_solution(witness);
+        let extracted = reduction.extract_solution(witness).unwrap();
         // Source has 0 triples → extracted vector has length 0.
         assert_eq!(extracted.len(), source.num_triples());
         assert_eq!(extracted, Vec::<usize>::new());
@@ -133,7 +133,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_no_triples() 
         let target_witnesses = solver.find_all_witnesses(target);
         assert!(!target_witnesses.is_empty());
         for witness in &target_witnesses {
-            let extracted = reduction.extract_solution(witness);
+            let extracted = reduction.extract_solution(witness).unwrap();
             assert_eq!(extracted.len(), source.num_triples());
             // Empty triple set cannot cover non-empty universe.
             assert!(
@@ -158,11 +158,13 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
 
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
-        let extracted = reduction.extract_solution(witness);
+        let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(extracted, *witness);
         assert!(
             source_witnesses.contains(&extracted),
             "extracted witness {extracted:?} must be a valid 3DM solution"
         );
     }
+
+    assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
 }

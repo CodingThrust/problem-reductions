@@ -28,30 +28,22 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        assert!(
-            target_solution.len() > self.pole,
-            "Betweenness solution has {} positions but pole index is {}",
-            target_solution.len(),
-            self.pole
-        );
-        assert!(
-            target_solution.len() >= self.source_universe_size,
-            "Betweenness solution has {} positions but source requires {} elements",
-            target_solution.len(),
-            self.source_universe_size
-        );
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let pole_position = target_solution[self.pole];
-        target_solution[..self.source_universe_size]
+        Ok(target_solution[..self.source_universe_size]
             .iter()
             .map(|&position| usize::from(position > pole_position))
-            .collect()
+            .collect())
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_elements = "normalized_universe_size + 1 + normalized_num_size3_subsets",
         num_triples = "normalized_num_size2_subsets + 2 * normalized_num_size3_subsets",
     }

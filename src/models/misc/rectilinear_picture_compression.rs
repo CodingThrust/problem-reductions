@@ -19,6 +19,7 @@ inventory::submit! {
         display_name: "Rectilinear Picture Compression",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Cover all 1-entries of a binary matrix with at most K axis-aligned all-1 rectangles",
         fields: &[

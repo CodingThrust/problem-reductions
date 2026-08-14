@@ -25,16 +25,21 @@ impl ReductionResult for ReductionCOMAToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
         one_hot_decode(target_solution, self.num_cols, self.num_cols, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_cols * num_cols + 5 * num_rows * num_cols",
         num_constraints = "num_cols + num_cols + num_rows * num_cols + 2 * num_rows + num_rows + 3 * num_rows * num_cols + 4 * num_rows * num_cols + 1",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
     type Result = ReductionCOMAToILP;
@@ -187,7 +192,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target_config = ilp_solver
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
-            let extracted = reduction.extract_solution(&target_config);
+            let extracted = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {

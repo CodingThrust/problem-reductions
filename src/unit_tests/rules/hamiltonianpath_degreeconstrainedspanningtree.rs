@@ -51,7 +51,7 @@ fn test_hamiltonianpath_to_degreeconstrainedspanningtree_extract_solution_recons
         &[(0, 1), (1, 2), (2, 3)],
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(source.evaluate(&extracted));

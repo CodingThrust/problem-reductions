@@ -17,6 +17,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ExpectedRetrievalCost;
 use crate::reduction;
+use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Compute the latency distance between sectors on a circular device.
@@ -65,26 +66,21 @@ impl ReductionResult for ReductionERCToILP {
     }
 
     /// Extract solution: for each record r, find the unique sector s where x_{r,s} = 1.
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let num_sectors = self.num_sectors;
-        (0..self.num_records)
-            .map(|r| {
-                (0..num_sectors)
-                    .find(|&s| {
-                        let idx = r * num_sectors + s;
-                        idx < target_solution.len() && target_solution[idx] == 1
-                    })
-                    .unwrap_or(0)
-            })
-            .collect()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        one_hot_decode_rows(target_solution, self.num_records, self.num_sectors, 0)
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "num_records * num_sectors + num_records^2 * num_sectors^2",
         num_constraints = "num_records + 3 * num_records^2 * num_sectors^2",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
     type Result = ReductionERCToILP;

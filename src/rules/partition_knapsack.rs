@@ -18,8 +18,13 @@ impl ReductionResult for ReductionPartitionToKnapsack {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        target_solution.to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok(target_solution.to_vec())
     }
 }
 
@@ -28,9 +33,9 @@ fn partition_size_to_i64(value: u64) -> i64 {
         .expect("Partition -> Knapsack requires all sizes and total_sum / 2 to fit in i64")
 }
 
-#[reduction(overhead = {
-    num_items = "num_elements",
-})]
+#[reduction(
+    size = exact { num_items = "num_elements" },
+)]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;
 

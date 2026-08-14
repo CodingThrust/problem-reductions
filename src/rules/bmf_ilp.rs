@@ -25,18 +25,25 @@ impl ReductionResult for ReductionBMFToILP {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Extract B (m x k) then C (k x n) — first m*k + k*n variables
-        let total = self.m * self.k + self.k * self.n;
-        target_solution[..total].to_vec()
+    fn extract_solution(
+        &self,
+        target_solution: &[usize],
+    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+
+        Ok({
+            // Extract B (m x k) then C (k x n) — first m*k + k*n variables
+            let total = self.m * self.k + self.k * self.n;
+            target_solution[..total].to_vec()
+        })
     }
 }
 
 #[reduction(
-    overhead = {
+    size = exact {
         num_vars = "rows * rank + rank * cols + rows * rank * cols + rows * cols",
         num_constraints = "3 * rows * rank * cols + rank * rows * cols + rows * cols + rows * cols",
-    }
+    },
 )]
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;

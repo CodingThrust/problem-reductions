@@ -41,7 +41,7 @@ fn test_partition_to_open_shop_scheduling_extract_solution() {
     let target_solution = BruteForce::new()
         .find_witness(target)
         .expect("target should have an optimal solution");
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     // The extracted solution should be a valid partition decision
     assert_eq!(extracted.len(), 3);
@@ -60,5 +60,5 @@ fn test_partition_to_open_shop_scheduling_odd_total_is_not_satisfying() {
         .expect("open-shop target should always have an optimal solution");
 
     assert_eq!(target.evaluate(&best), Min(Some(16)));
-    assert!(!source.evaluate(&reduction.extract_solution(&best)));
+    assert!(!source.evaluate(&reduction.extract_solution(&best).unwrap()));
 }

@@ -4,7 +4,7 @@
 //! that identifies each object with minimum total external path length
 //! (sum of depths of all leaves).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -15,13 +15,10 @@ inventory::submit! {
         display_name: "Minimum Decision Tree",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Find decision tree identifying objects with minimum total path length",
-        fields: &[
-            FieldInfo { name: "test_matrix", type_name: "Vec<Vec<bool>>", description: "Binary matrix: test_matrix[j][i] = object i passes test j" },
-            FieldInfo { name: "num_objects", type_name: "usize", description: "Number of objects to identify" },
-            FieldInfo { name: "num_tests", type_name: "usize", description: "Number of available binary tests" },
-        ],
+        fields: MinimumDecisionTreeCreateSpec::FIELDS,
     }
 }
 
@@ -60,6 +57,55 @@ pub struct MinimumDecisionTree {
     num_objects: usize,
     /// Number of tests.
     num_tests: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct MinimumDecisionTreeCreateSpec {
+    /// Binary test matrix as JSON.
+    #[create(codec = "json")]
+    test_matrix: Vec<Vec<bool>>,
+    /// Number of objects.
+    num_objects: usize,
+    /// Number of tests.
+    num_tests: usize,
+}
+
+impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
+    type Error = String;
+    fn try_from(spec: MinimumDecisionTreeCreateSpec) -> Result<Self, Self::Error> {
+        if spec.num_objects < 2 {
+            return Err("num_objects must be at least 2".into());
+        }
+        if spec.num_tests == 0 {
+            return Err("num_tests must be positive".into());
+        }
+        if spec.test_matrix.len() != spec.num_tests {
+            return Err("test_matrix row count must equal num_tests".into());
+        }
+        if spec
+            .test_matrix
+            .iter()
+            .any(|row| row.len() != spec.num_objects)
+        {
+            return Err("each test_matrix row must have num_objects columns".into());
+        }
+        for a in 0..spec.num_objects {
+            for b in a + 1..spec.num_objects {
+                if !(0..spec.num_tests)
+                    .any(|test| spec.test_matrix[test][a] != spec.test_matrix[test][b])
+                {
+                    return Err(format!(
+                        "objects {a} and {b} are not distinguished by any test"
+                    ));
+                }
+            }
+        }
+        Ok(Self {
+            test_matrix: spec.test_matrix,
+            num_objects: spec.num_objects,
+            num_tests: spec.num_tests,
+        })
+    }
 }
 
 impl MinimumDecisionTree {
@@ -187,7 +233,7 @@ impl Problem for MinimumDecisionTree {
 }
 
 crate::declare_variants! {
-    default MinimumDecisionTree => "num_tests^num_objects",
+    default MinimumDecisionTree => "num_tests^num_objects" create MinimumDecisionTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

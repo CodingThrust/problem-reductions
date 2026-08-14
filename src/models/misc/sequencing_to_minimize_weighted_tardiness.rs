@@ -5,7 +5,7 @@
 //! total weighted tardiness is at most a given bound.
 //! Corresponds to scheduling notation `1 || sum w_j T_j`.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -15,14 +15,10 @@ inventory::submit! {
         display_name: "Sequencing to Minimize Weighted Tardiness",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule jobs on one machine so total weighted tardiness is at most K",
-        fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing times l_j for each job" },
-            FieldInfo { name: "weights", type_name: "Vec<u64>", description: "Tardiness weights w_j for each job" },
-            FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadlines d_j for each job" },
-            FieldInfo { name: "bound", type_name: "u64", description: "Upper bound K on total weighted tardiness" },
-        ],
+        fields: SequencingToMinimizeWeightedTardinessCreateSpec::FIELDS,
     }
 }
 
@@ -61,6 +57,39 @@ pub struct SequencingToMinimizeWeightedTardiness {
     weights: Vec<u64>,
     deadlines: Vec<u64>,
     bound: u64,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SequencingToMinimizeWeightedTardinessCreateSpec {
+    /// Processing times for each job.
+    lengths: Vec<u64>,
+    /// Tardiness weights for each job.
+    weights: Vec<u64>,
+    /// Deadlines for each job.
+    deadlines: Vec<u64>,
+    /// Upper bound on total weighted tardiness.
+    bound: u64,
+}
+impl TryFrom<SequencingToMinimizeWeightedTardinessCreateSpec>
+    for SequencingToMinimizeWeightedTardiness
+{
+    type Error = String;
+    fn try_from(
+        spec: SequencingToMinimizeWeightedTardinessCreateSpec,
+    ) -> Result<Self, Self::Error> {
+        if spec.lengths.len() != spec.weights.len() {
+            return Err("weights length must equal lengths length".to_string());
+        }
+        if spec.lengths.len() != spec.deadlines.len() {
+            return Err("deadlines length must equal lengths length".to_string());
+        }
+        Ok(Self::new(
+            spec.lengths,
+            spec.weights,
+            spec.deadlines,
+            spec.bound,
+        ))
+    }
 }
 
 impl SequencingToMinimizeWeightedTardiness {
@@ -159,7 +188,7 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
 }
 
 crate::declare_variants! {
-    default SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)",
+    default SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)" create SequencingToMinimizeWeightedTardinessCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

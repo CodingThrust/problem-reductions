@@ -2,7 +2,6 @@ use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::formula::CNFClause;
 use crate::models::misc::{PrecedenceConstrainedScheduling, PreemptiveScheduling};
-#[cfg(feature = "ilp-solver")]
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -22,7 +21,6 @@ fn no_single_variable_instance() -> KSatisfiability<K3> {
     )
 }
 
-#[cfg(feature = "ilp-solver")]
 fn solve_threshold_schedule_via_ilp(
     target: &PreemptiveScheduling,
     deadline: usize,
@@ -34,8 +32,8 @@ fn solve_threshold_schedule_via_ilp(
         target.precedences().to_vec(),
     );
     let pcs_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(&pcs);
-    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem())?;
-    let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution);
+    let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
+    let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution).unwrap();
 
     let mut config = vec![0usize; target.num_tasks() * target.d_max()];
     for (task, &slot) in slot_assignment.iter().enumerate() {
@@ -68,7 +66,7 @@ fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructe
 
     assert_eq!(reduction.target_problem().evaluate(&schedule), Min(Some(4)));
 
-    let extracted = reduction.extract_solution(&schedule);
+    let extracted = reduction.extract_solution(&schedule).unwrap();
     assert_eq!(extracted, vec![1]);
     assert!(source.evaluate(&extracted).0);
 }
@@ -87,12 +85,11 @@ fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
     let schedule = construct_schedule_from_assignment(result.target_problem(), &[1, 1, 0], &source)
         .expect("satisfying assignment should yield a witness schedule");
 
-    let extracted = result.extract_solution(&schedule);
+    let extracted = result.extract_solution(&schedule).unwrap();
     assert_eq!(extracted, vec![1, 1, 0]);
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
     let source = yes_single_variable_instance();
@@ -107,12 +104,11 @@ fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
         Min(Some(reduction.threshold()))
     );
 
-    let extracted = reduction.extract_solution(&target_solution);
+    let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1]);
     assert!(source.evaluate(&extracted).0);
 }
 
-#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_ksatisfiability_to_preemptivescheduling_unsatisfiable_threshold_gap() {
     let source = no_single_variable_instance();

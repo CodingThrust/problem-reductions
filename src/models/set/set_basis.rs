@@ -4,7 +4,7 @@
 //! determine whether there exist `k` basis sets such that every target set
 //! can be reconstructed as a union of some subcollection of the basis.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -14,13 +14,10 @@ inventory::submit! {
         display_name: "Set Basis",
         aliases: &[],
         dimensions: &[],
+        category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Determine whether a collection of sets admits a basis of size k under union",
-        fields: &[
-            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the ground set S" },
-            FieldInfo { name: "collection", type_name: "Vec<Vec<usize>>", description: "Collection C of target subsets of S" },
-            FieldInfo { name: "k", type_name: "usize", description: "Required number of basis sets" },
-        ],
+        fields: SetBasisCreateSpec::FIELDS,
     }
 }
 
@@ -38,6 +35,32 @@ pub struct SetBasis {
     collection: Vec<Vec<usize>>,
     /// Number of basis sets to encode in a configuration.
     k: usize,
+}
+
+#[derive(Debug, Deserialize, crate::CreateSpec)]
+struct SetBasisCreateSpec {
+    /// Size of the ground set S.
+    universe_size: usize,
+    /// Collection C of target subsets of S.
+    subsets: Vec<Vec<usize>>,
+    /// Required number of basis sets.
+    k: usize,
+}
+
+impl TryFrom<SetBasisCreateSpec> for SetBasis {
+    type Error = String;
+
+    fn try_from(spec: SetBasisCreateSpec) -> Result<Self, Self::Error> {
+        for (set_index, set) in spec.subsets.iter().enumerate() {
+            if let Some(&element) = set.iter().find(|&&element| element >= spec.universe_size) {
+                return Err(format!(
+                    "subsets[{set_index}] contains element {element} outside universe of size {}",
+                    spec.universe_size
+                ));
+            }
+        }
+        Ok(Self::new(spec.universe_size, spec.subsets, spec.k))
+    }
 }
 
 impl SetBasis {
@@ -171,7 +194,7 @@ impl Problem for SetBasis {
 }
 
 crate::declare_variants! {
-    default SetBasis => "2^(basis_size * universe_size)",
+    default SetBasis => "2^(basis_size * universe_size)" create SetBasisCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
