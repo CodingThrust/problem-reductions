@@ -1,7 +1,10 @@
-use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
+use crate::dispatch::{
+    load_problem, read_input, solver_capabilities_view, ProblemJson, ReductionBundle,
+};
 use crate::output::OutputConfig;
 use anyhow::Result;
-use problemreductions::rules::ReductionGraph;
+use problemreductions::rules::{ReductionGraph, ReductionMode};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn inspect(input: &Path, out: &OutputConfig) -> Result<()> {
@@ -40,23 +43,24 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
-    let solvers = problem.available_solvers();
-    let solver_summary = solvers
-        .iter()
-        .map(|solver| {
-            if *solver == "ilp" {
-                "ilp (default)".to_string()
-            } else {
-                (*solver).to_string()
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(", ");
-    text.push_str(&format!("Solvers: {solver_summary}\n"));
+    let solver_view = solver_capabilities_view(&problem)?;
+    text.push_str(&format!("Default solver: {}\n", solver_view.default_solver));
+    text.push_str(&format!("Solvers: {}\n", solver_view.solvers.join(", ")));
+    if let Some(native) = solver_view.capabilities.native.as_ref() {
+        text.push_str(&format!(
+            "Native implementation: {}\n",
+            native.implementation
+        ));
+    }
+    if let Some(ilp) = solver_view.capabilities.ilp.as_ref() {
+        text.push_str(&format!(
+            "ILP pipeline: {}\n",
+            ilp.reduction_path.join(" -> ")
+        ));
+    }
 
     // Reductions
-    let outgoing = graph.outgoing_reductions(name);
-    let targets = targets_deduped(&outgoing);
+    let targets = executable_reduction_targets(&graph, name, &variant);
     if !targets.is_empty() {
         text.push_str(&format!("Reduces to: {}\n", targets.join(", ")));
     }
@@ -67,7 +71,9 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
         "variant": variant,
         "size_fields": size_fields,
         "num_variables": problem.num_variables_dyn(),
-        "solvers": solvers,
+        "solvers": solver_view.solvers,
+        "default_solver": solver_view.default_solver,
+        "solver_capabilities": solver_view.capabilities,
         "reduces_to": targets,
     });
 
@@ -94,8 +100,29 @@ fn inspect_bundle(bundle: &ReductionBundle, out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("", &text, &json_val)
 }
 
-fn targets_deduped(outgoing: &[problemreductions::rules::ReductionEdgeInfo]) -> Vec<String> {
-    let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
+pub(crate) fn executable_reduction_targets(
+    graph: &ReductionGraph,
+    name: &str,
+    variant: &BTreeMap<String, String>,
+) -> Vec<String> {
+    let mut targets: Vec<String> = graph
+        .outgoing_reductions_from(name, variant, ReductionMode::Witness)
+        .into_iter()
+        .map(|edge| {
+            let default_variant = graph
+                .default_variant_for(edge.target_name)
+                .unwrap_or_else(|| panic!("default variant not found for {}", edge.target_name));
+            if default_variant == edge.target_variant {
+                edge.target_name.to_string()
+            } else {
+                format!(
+                    "{}{}",
+                    edge.target_name,
+                    crate::commands::graph::variant_to_full_slash(&edge.target_variant)
+                )
+            }
+        })
+        .collect();
     targets.sort();
     targets.dedup();
     targets

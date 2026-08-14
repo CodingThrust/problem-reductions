@@ -1,7 +1,9 @@
 use crate::dispatch::{PathStep, ProblemJsonOutput, ReductionBundle};
 use problemreductions::models::algebraic::{ObjectiveSense, ILP};
-use problemreductions::registry::VariantEntry;
-use problemreductions::rules::registry::{EdgeCapabilities, ReductionEntry, ReductionOverhead};
+use problemreductions::registry::{
+    CreateInputCodec, CreateInputInfo, FieldInfo, ProblemSchemaEntry, VariantEntry,
+};
+use problemreductions::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
 use problemreductions::solvers::{BruteForce, Solver};
 use problemreductions::traits::Problem;
@@ -12,6 +14,14 @@ use std::collections::BTreeMap;
 
 pub(crate) const AGGREGATE_SOURCE_NAME: &str = "CliTestAggregateValueSource";
 pub(crate) const AGGREGATE_TARGET_NAME: &str = "CliTestAggregateValueTarget";
+
+const AGGREGATE_SOURCE_INPUTS: &[CreateInputInfo] = &[CreateInputInfo {
+    name: "values",
+    type_name: "Vec<u64>",
+    description: "Values included by selected configuration bits",
+    required: true,
+    codec: CreateInputCodec::CommaSeparated,
+}];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AggregateValueSource {
@@ -120,6 +130,40 @@ where
 }
 
 problemreductions::inventory::submit! {
+    ProblemSchemaEntry {
+        name: AggregateValueSource::NAME,
+        display_name: "CLI test aggregate value source",
+        aliases: &[],
+        dimensions: &[],
+        category: problemreductions::registry::ProblemCategory::Misc,
+        module_path: module_path!(),
+        description: "Test-only dynamically discovered construction model",
+        fields: &[FieldInfo {
+            name: "values",
+            type_name: "Vec<u64>",
+            description: "Values included by selected configuration bits",
+        }],
+    }
+}
+
+problemreductions::inventory::submit! {
+    ProblemSchemaEntry {
+        name: AggregateValueTarget::NAME,
+        display_name: "CLI test aggregate value target",
+        aliases: &[],
+        dimensions: &[],
+        category: problemreductions::registry::ProblemCategory::Misc,
+        module_path: module_path!(),
+        description: "Test-only aggregate reduction target",
+        fields: &[FieldInfo {
+            name: "base",
+            type_name: "u64",
+            description: "Base aggregate value",
+        }],
+    }
+}
+
+problemreductions::inventory::submit! {
     VariantEntry {
         name: AggregateValueSource::NAME,
         variant_fn: AggregateValueSource::variant,
@@ -127,6 +171,14 @@ problemreductions::inventory::submit! {
         complexity_eval_fn: |_| 1.0,
         is_default: true,
         aliases: &[],
+        create_inputs: Some(AGGREGATE_SOURCE_INPUTS),
+        construct_fn: |data| {
+            problemreductions::registry::validate_create_inputs(AGGREGATE_SOURCE_INPUTS, &data)?;
+            let problem: AggregateValueSource = serde_json::from_value(data)
+                .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
+            Ok(Box::new(problem))
+        },
+        random: None,
         factory: |data| {
             let problem: AggregateValueSource = serde_json::from_value(data)?;
             Ok(Box::new(problem))
@@ -148,6 +200,13 @@ problemreductions::inventory::submit! {
         complexity_eval_fn: |_| 1.0,
         is_default: true,
         aliases: &[],
+        create_inputs: None,
+        construct_fn: |data| {
+            let problem: AggregateValueTarget = serde_json::from_value(data)
+                .map_err(|error| problemreductions::registry::ConstructionError::InvalidInput(error.to_string()))?;
+            Ok(Box::new(problem))
+        },
+        random: None,
         factory: |data| {
             let problem: AggregateValueTarget = serde_json::from_value(data)?;
             Ok(Box::new(problem))
@@ -167,7 +226,14 @@ problemreductions::inventory::submit! {
         target_name: AggregateValueTarget::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: AggregateValueTarget::variant,
-        overhead_fn: || ReductionOverhead::default(),
+        size_declarations_fn: || ReductionSizeDeclarations {
+            relation: None,
+            fields: vec![],
+            unavailable: vec![problemreductions::rules::registry::UnavailableSizeField {
+                field: "size",
+                reason: "the synthetic aggregate target has no size model",
+            }],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
@@ -180,9 +246,9 @@ problemreductions::inventory::submit! {
                 },
             ))
         }),
-        capabilities: EdgeCapabilities::aggregate_only(),
-        overhead_eval_fn: |_| ProblemSize::new(vec![]),
-        source_size_fn: |_| ProblemSize::new(vec![]),
+        turing: false,
+        source_size_measure_fn: |_| ProblemSize::new(vec![]),
+        target_size_measure_fn: |_| ProblemSize::new(vec![]),
     }
 }
 
@@ -192,7 +258,14 @@ problemreductions::inventory::submit! {
         target_name: ILP::<bool>::NAME,
         source_variant_fn: AggregateValueSource::variant,
         target_variant_fn: ILP::<bool>::variant,
-        overhead_fn: || ReductionOverhead::default(),
+        size_declarations_fn: || ReductionSizeDeclarations {
+            relation: None,
+            fields: vec![],
+            unavailable: vec![problemreductions::rules::registry::UnavailableSizeField {
+                field: "size",
+                reason: "the synthetic aggregate target has no size model",
+            }],
+        },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: Some(|any: &dyn Any| {
@@ -203,9 +276,9 @@ problemreductions::inventory::submit! {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
             })
         }),
-        capabilities: EdgeCapabilities::aggregate_only(),
-        overhead_eval_fn: |_| ProblemSize::new(vec![]),
-        source_size_fn: |_| ProblemSize::new(vec![]),
+        turing: false,
+        source_size_measure_fn: |_| ProblemSize::new(vec![]),
+        target_size_measure_fn: |_| ProblemSize::new(vec![]),
     }
 }
 
