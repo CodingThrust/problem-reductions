@@ -3,6 +3,7 @@ use super::{
     SizeTransformError, SizeValues,
 };
 use crate::expr::Expr;
+use crate::growth::GrowthPrecision;
 use crate::types::ProblemSize;
 use num_bigint::BigUint;
 use num_traits::One;
@@ -18,7 +19,7 @@ fn pareto_order_minimizes_every_concrete_size_field() {
 }
 
 #[test]
-fn pareto_order_minimizes_every_symbolic_growth_field() {
+fn two_upper_bounds_cannot_eliminate_either_symbolic_path() {
     let linear = SizeTransform::new(
         "linear",
         SizeRelation::UpperBound,
@@ -37,11 +38,33 @@ fn pareto_order_minimizes_every_symbolic_growth_field() {
     .unwrap()
     .project_growth();
 
-    assert!(size_growth_dominates(&linear, &quadratic));
+    assert!(!size_growth_dominates(&linear, &quadratic));
+    assert!(!size_growth_dominates(&quadratic, &linear));
 }
 
 #[test]
-fn coarsened_growth_cannot_eliminate_a_symbolic_path() {
+fn an_upper_bound_can_eliminate_a_proven_tight_slower_path() {
+    let linear_bound = SizeTransform::new(
+        "linear bound",
+        SizeRelation::UpperBound,
+        [("vertices", Expr::parse("n"))],
+    )
+    .unwrap()
+    .project_growth();
+    let exact_quadratic = SizeTransform::new(
+        "exact quadratic",
+        SizeRelation::Exact,
+        [("vertices", Expr::parse("n^2"))],
+    )
+    .unwrap()
+    .project_growth();
+
+    assert!(size_growth_dominates(&linear_bound, &exact_quadratic));
+    assert!(!size_growth_dominates(&exact_quadratic, &linear_bound));
+}
+
+#[test]
+fn antichain_collapse_cannot_eliminate_a_symbolic_path() {
     let wide_expression = Expr::parse(
         &(0..33)
             .map(|index| format!("v{index}"))
@@ -50,20 +73,23 @@ fn coarsened_growth_cannot_eliminate_a_symbolic_path() {
     );
     let coarsened = SizeTransform::new(
         "coarsened",
-        SizeRelation::UpperBound,
+        SizeRelation::Exact,
         [("vertices", wide_expression)],
     )
     .unwrap()
     .project_growth();
     let exact = SizeTransform::new(
         "exact",
-        SizeRelation::UpperBound,
+        SizeRelation::Exact,
         [("vertices", Expr::parse("n^2"))],
     )
     .unwrap()
     .project_growth();
 
-    assert!(coarsened.get("vertices").unwrap().is_coarsened());
+    assert_eq!(
+        coarsened.get("vertices").unwrap().precision(),
+        Some(GrowthPrecision::UpperBound)
+    );
     assert!(!size_growth_dominates(&coarsened, &exact));
     assert!(!size_growth_dominates(&exact, &coarsened));
 }

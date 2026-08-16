@@ -1,7 +1,7 @@
 //! Symbolic size transformations carried by reduction rules.
 
 use crate::expr::{AlgebraicAnalysis, Expr, ExprNode, ExprNodeId, Symbol};
-use crate::growth::Growth;
+use crate::growth::{Growth, GrowthPrecision};
 use crate::types::ProblemSize;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_rational::BigRational;
@@ -130,10 +130,17 @@ pub fn problem_size_dominates(left: &ProblemSize, right: &ProblemSize) -> bool {
             .any(|(name, value)| right.get(name).is_some_and(|other| *value < other))
 }
 
-/// Return whether `left` has no faster growth in every symbolic size field and
-/// strictly slower growth in at least one field.
+/// Return whether the available bounds prove that `left` has no faster growth
+/// in every symbolic size field and strictly slower growth in at least one.
+///
+/// The right-hand path must be exact with tight growth projections because it
+/// is the path being removed. The left-hand path may itself be an upper bound:
+/// proving that upper bound smaller than the right-hand tight class is enough.
 pub fn size_growth_dominates(left: &SizeGrowth, right: &SizeGrowth) -> bool {
     if left.fields.len() != right.fields.len() {
+        return false;
+    }
+    if right.relation != SizeRelation::Exact {
         return false;
     }
     let mut strictly_smaller = false;
@@ -141,18 +148,14 @@ pub fn size_growth_dominates(left: &SizeGrowth, right: &SizeGrowth) -> bool {
         let Some(other) = right.get(name) else {
             return false;
         };
-        if growth.failures().is_some()
-            || other.failures().is_some()
-            || growth.is_coarsened()
-            || other.is_coarsened()
-        {
+        if growth.failures().is_some() || other.precision() != Some(GrowthPrecision::Tight) {
             return false;
         }
-        let left_at_most = other.dominates(growth);
+        let left_at_most = other.bound_dominates(growth);
         if !left_at_most {
             return false;
         }
-        strictly_smaller |= !growth.dominates(other);
+        strictly_smaller |= !growth.bound_dominates(other);
     }
     strictly_smaller
 }

@@ -16532,65 +16532,6 @@ The following reductions to Integer Linear Programming are straightforward formu
 ]
 
 #{
-  let mfas_mlr = load-example("MinimumFeedbackArcSet", "MaximumLikelihoodRanking")
-  let mfas_mlr_sol = mfas_mlr.solutions.at(0)
-  let source-arcs = mfas_mlr.source.instance.graph.arcs
-  let target-matrix = mfas_mlr.target.instance.matrix
-  let ranking = mfas_mlr_sol.target_config
-  let removed-indices = mfas_mlr_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => i)
-  let removed-arcs = removed-indices.map(i => source-arcs.at(i))
-  let target-cost = 0
-  for a in range(target-matrix.len()) {
-    for b in range(target-matrix.len()) {
-      if a != b and ranking.at(a) > ranking.at(b) {
-        target-cost += target-matrix.at(a).at(b)
-      }
-    }
-  }
-  let fmt-mat(m) = m.map(row => row.map(v => str(v)).join(", ")).join("; ")
-  [
-    #reduction-rule("MinimumFeedbackArcSet", "MaximumLikelihoodRanking",
-      example: true,
-      example-caption: [5-vertex digraph ($n = #mfas_mlr.source.instance.graph.num_vertices$, $|A| = #source-arcs.len()$, unit weights) mapped to a skew-symmetric ranking matrix],
-      extra: [
-        #pred-commands(
-          "pred create --example " + problem-spec(mfas_mlr.source) + " -o mfas.json",
-          "pred reduce mfas.json --via route.json -o bundle.json",
-          "pred solve bundle.json",
-          "pred evaluate mfas.json --config " + mfas_mlr_sol.source_config.map(str).join(","),
-        )
-
-        *Step 1 -- Source instance.* The source digraph has vertices ${#range(mfas_mlr.source.instance.graph.num_vertices).map(str).join(", ")}$ and arcs #{source-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(", ")}, all with unit weight. The extracted optimal feedback arc set removes #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")}, so $|F| = #removed-arcs.len()$.
-
-        *Step 2 -- Build the comparison matrix.* The reduction keeps the same item set and writes $M_(i j) = 1$ when only $i arrow j$ exists, $M_(i j) = -1$ when only $j arrow i$ exists, and $M_(i j) = 0$ otherwise. For this instance,
-        $ M = mat(#fmt-mat(target-matrix)). $
-        Every off-diagonal pair sums to $0$, so the target is a valid Maximum Likelihood Ranking instance with $c = 0$.
-
-        *Step 3 -- Verify a solution.* The stored ranking vector is $(#ranking.map(str).join(", "))$, interpreted as the map from items to ranks. The target disagreement cost is $#target-cost = 2 dot #removed-arcs.len() - #source-arcs.len()$, and the extracted source witness is exactly the backward-arc set #{removed-arcs.map(a => $(#(a.at(0)) arrow #(a.at(1)))$).join(" and ")} #sym.checkmark
-
-        *Multiplicity:* The fixture stores one canonical optimum. Other optimal rankings exist because the DAG obtained after removing the two backward arcs has multiple valid topological orders.
-      ],
-    )[
-      This $O(n^2)$ reduction @garey1979 keeps the same vertex set as ranking items and encodes nonnegative integer arc weights in a skew-symmetric matrix with comparison count $c = 0$. The classical unit-weight construction is the special case with entries in $\{-1, 0, 1\}$.
-    ][
-      _Construction._ Given a Minimum Feedback Arc Set instance $(G = (V, A), w)$ with $V = \{0, dots, n - 1\}$, let $w_(i j)$ be the weight of arc $i arrow j$ when it exists and $0$ otherwise. Construct the matrix $M in ZZ^(n times n)$ by setting $M_(i i) = 0$ and, for every distinct pair $i, j$,
-      $
-        M_(i j) = w_(i j) - w_(j i).
-      $
-      Then $M_(i j) + M_(j i) = 0$ for all $i != j$, so the target is a valid Maximum Likelihood Ranking instance with $n$ items.
-
-      _Correctness._ ($arrow.r.double$) Let $pi$ be any ranking and let $B(pi) = \{(u arrow v) in A : pi(u) > pi(v)\}$ be its backward arcs. Removing $B(pi)$ leaves only forward arcs, hence a DAG, so $B(pi)$ is a feedback arc set. For each unordered pair, the selected matrix entry is the backward-arc weight minus the forward-arc weight. Therefore
-      $
-        "cost"(pi) = 2 w(B(pi)) - sum_((u arrow v) in A) w_(u v).
-      $
-      The target objective is thus twice the source objective shifted by a constant independent of $pi$, so minimizing disagreement cost minimizes feedback arc weight. ($arrow.l.double$) Let $F subset.eq A$ be a minimum feedback arc set, and take a topological order $pi$ of the DAG $G - F$. Every arc in $A backslash F$ is forward in $pi$, hence every backward arc under $pi$ lies in $F$, so $B(pi) subset.eq F$. Since weights are nonnegative and $B(pi)$ is itself a feedback arc set, minimality of $F$ forces $w(B(pi)) = w(F)$. Therefore an optimal source solution yields an optimal target ranking.
-
-      _Solution extraction._ Given the target rank vector, output one source bit per source arc $(u arrow v)$ in source-arc order: set the bit to $1$ iff item $u$ is ranked after item $v$, and to $0$ otherwise.
-    ]
-  ]
-}
-
-#{
   let mlr_ilp = load-example("MaximumLikelihoodRanking", "ILP")
   let mlr_ilp_sol = mlr_ilp.solutions.at(0)
   let mlr_n = mlr_ilp.source.instance.matrix.len()
