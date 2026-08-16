@@ -30,8 +30,22 @@ pub enum SolverExecution {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeterministicSolveResult {
     pub solver: SolverExecution,
-    pub config: Option<Vec<usize>>,
-    pub evaluation: String,
+    pub outcome: SolveOutcome,
+}
+
+/// Semantic result of a completed exact solve.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum SolveOutcome {
+    /// The exact optimum was established. Aggregate-only problems do not
+    /// provide a witness configuration.
+    Optimal {
+        #[serde(rename = "solution", skip_serializing_if = "Option::is_none")]
+        config: Option<Vec<usize>>,
+        evaluation: String,
+    },
+    /// The solver proved that the instance has no feasible configuration.
+    Infeasible,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -42,8 +56,6 @@ pub enum DeterministicSolveError {
     MissingIlpCapability(String),
     #[error("No customized solver is registered for {0}")]
     MissingCustomizedCapability(String),
-    #[error("customized solver found no solution for {problem}")]
-    CustomizedNoSolution { problem: String },
     #[error("ILP solver failed for {problem}: {source}")]
     IlpSolve {
         problem: String,
@@ -60,18 +72,18 @@ fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
-    let config = (registration.solve_fn)(problem.as_any()).ok_or_else(|| {
-        DeterministicSolveError::CustomizedNoSolution {
-            problem: problem_key(problem).label(),
-        }
-    })?;
-    let evaluation = problem.evaluate_dyn(&config);
+    let outcome = match (registration.solve_fn)(problem.as_any()) {
+        Some(config) => SolveOutcome::Optimal {
+            evaluation: problem.evaluate_dyn(&config),
+            config: Some(config),
+        },
+        None => SolveOutcome::Infeasible,
+    };
     Ok(DeterministicSolveResult {
         solver: SolverExecution::Customized {
             implementation: registration.implementation,
         },
-        config: Some(config),
-        evaluation,
+        outcome,
     })
 }
 
@@ -79,34 +91,42 @@ fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
-    let config = pipeline
-        .solve(problem.as_any(), &super::ILPSolver::new())
-        .map_err(|source| DeterministicSolveError::IlpSolve {
-            problem: problem_key(problem).label(),
-            source,
-        })?;
-    let evaluation = problem.evaluate_dyn(&config);
+    let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
+        Ok(config) => SolveOutcome::Optimal {
+            evaluation: problem.evaluate_dyn(&config),
+            config: Some(config),
+        },
+        Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
+        Err(source) => {
+            return Err(DeterministicSolveError::IlpSolve {
+                problem: problem_key(problem).label(),
+                source,
+            });
+        }
+    };
     Ok(DeterministicSolveResult {
         solver: SolverExecution::Ilp {
             reduction_path: pipeline.path_labels(),
         },
-        config: Some(config),
-        evaluation,
+        outcome,
     })
 }
 
 fn solve_brute_force(problem: &LoadedDynProblem) -> DeterministicSolveResult {
-    match problem.solve_brute_force_witness() {
-        Some((config, evaluation)) => DeterministicSolveResult {
-            solver: SolverExecution::BruteForce,
+    let outcome = match problem.solve_brute_force_witness() {
+        Some((config, evaluation)) => SolveOutcome::Optimal {
             config: Some(config),
             evaluation,
         },
-        None => DeterministicSolveResult {
-            solver: SolverExecution::BruteForce,
+        None if problem.supports_witnesses_dyn() => SolveOutcome::Infeasible,
+        None => SolveOutcome::Optimal {
             config: None,
             evaluation: problem.solve_brute_force_value(),
         },
+    };
+    DeterministicSolveResult {
+        solver: SolverExecution::BruteForce,
+        outcome,
     }
 }
 

@@ -5,6 +5,7 @@ use anyhow::Result;
 use problemreductions::registry::collect_schemas;
 use problemreductions::registry::ProblemCategory;
 use problemreductions::rules::{ExecutedPath, ReductionGraph, ReductionPath, TraversalFlow};
+use problemreductions::size::{problem_size_dominates, size_growth_dominates};
 use problemreductions::{Expr, Growth};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -915,6 +916,7 @@ pub fn path(
     source: &str,
     target: &str,
     max_paths: usize,
+    selection: PathSelection,
     instance: Option<&Path>,
     out: &OutputConfig,
 ) -> Result<()> {
@@ -968,6 +970,7 @@ pub fn path(
             &dst_ref.name,
             &dst_ref.variant,
             max_paths,
+            selection,
             loaded.as_any(),
             out,
         )
@@ -979,11 +982,13 @@ pub fn path(
             &dst_ref.name,
             &dst_ref.variant,
             max_paths,
+            selection,
             out,
         )
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn path_symbolic(
     graph: &ReductionGraph,
     src_name: &str,
@@ -991,15 +996,17 @@ fn path_symbolic(
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
     max_paths: usize,
+    selection: PathSelection,
     out: &OutputConfig,
 ) -> Result<()> {
-    let batch = find_path_batch(
+    let mut batch = find_path_batch(
         graph,
         src_name,
         src_variant,
         dst_name,
         dst_variant,
         max_paths,
+        selection,
     );
 
     if batch.paths.is_empty() && !batch.truncated {
@@ -1016,6 +1023,11 @@ fn path_symbolic(
             dst_name,
         );
     }
+    if selection == PathSelection::Pareto {
+        let flags = symbolic_pareto_flags(graph, &batch.paths);
+        batch.paths = retain_selected(batch.paths, &flags);
+    }
+    cap_path_batch(&mut batch);
 
     let json_output = out.output.is_some() || out.json;
     let json = if json_output {
@@ -1044,6 +1056,26 @@ pub(crate) struct PathBatch {
     pub(crate) max_paths: usize,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
+pub(crate) enum PathSelection {
+    Pareto,
+    All,
+}
+
+impl std::str::FromStr for PathSelection {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "pareto" => Ok(Self::Pareto),
+            "all" => Ok(Self::All),
+            _ => Err(format!(
+                "unknown path selection '{value}'; expected 'pareto' or 'all'"
+            )),
+        }
+    }
+}
+
 pub(crate) fn find_path_batch(
     graph: &ReductionGraph,
     src_name: &str,
@@ -1051,21 +1083,35 @@ pub(crate) fn find_path_batch(
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
     max_paths: usize,
+    selection: PathSelection,
 ) -> PathBatch {
-    // Fetch one extra to detect truncation. The library already returns paths in a
-    // deterministic length-first, then name+variant-signature order (see
-    // `find_paths_up_to_mode_bounded`), so no frontend-side sort is needed.
-    let mut paths =
-        graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1);
-    let truncated = paths.len() > max_paths;
-    if truncated {
-        paths.truncate(max_paths);
-    }
+    let paths = match selection {
+        PathSelection::Pareto => {
+            let mut paths = graph.find_all_paths(src_name, src_variant, dst_name, dst_variant);
+            paths.sort_by(|left, right| {
+                left.steps.len().cmp(&right.steps.len()).then_with(|| {
+                    left.steps
+                        .iter()
+                        .map(|step| (&step.name, &step.variant))
+                        .cmp(right.steps.iter().map(|step| (&step.name, &step.variant)))
+                })
+            });
+            paths
+        }
+        PathSelection::All => {
+            graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1)
+        }
+    };
     PathBatch {
         paths,
-        truncated,
+        truncated: false,
         max_paths,
     }
+}
+
+pub(crate) fn cap_path_batch(batch: &mut PathBatch) {
+    batch.truncated = batch.paths.len() > batch.max_paths;
+    batch.paths.truncate(batch.max_paths);
 }
 
 pub(crate) fn path_batch_json(
@@ -1073,7 +1119,7 @@ pub(crate) fn path_batch_json(
     batch: &PathBatch,
     executed: Option<&[ExecutedPath]>,
 ) -> Result<serde_json::Value> {
-    let (analysis, paths) = match executed {
+    let paths = match executed {
         Some(executed) => {
             if executed.len() != batch.paths.len() {
                 anyhow::bail!(
@@ -1082,30 +1128,78 @@ pub(crate) fn path_batch_json(
                     batch.paths.len()
                 );
             }
-            (
-                "concrete",
-                executed
-                    .iter()
-                    .map(format_concrete_path_json)
-                    .collect::<Vec<_>>(),
-            )
-        }
-        None => (
-            "symbolic",
-            batch
-                .paths
+            executed
                 .iter()
-                .map(|path| format_path_json(graph, path))
-                .collect::<Vec<_>>(),
-        ),
+                .map(format_concrete_path_json)
+                .collect::<Vec<_>>()
+        }
+        None => batch
+            .paths
+            .iter()
+            .map(|path| format_path_json(graph, path))
+            .collect::<Vec<_>>(),
     };
     Ok(serde_json::json!({
-        "analysis": analysis,
         "paths": paths,
         "truncated": batch.truncated,
-        "returned": batch.paths.len(),
-        "max_paths": batch.max_paths,
     }))
+}
+
+fn pareto_flags_by<T, C>(
+    candidates: &[T],
+    cost: impl FnMut(&T) -> Option<C>,
+    dominates: impl Fn(&C, &C) -> bool,
+) -> Vec<bool> {
+    let costs = candidates.iter().map(cost).collect::<Vec<_>>();
+    costs
+        .iter()
+        .enumerate()
+        .map(|(index, cost)| {
+            !costs.iter().enumerate().any(|(other_index, other)| {
+                index != other_index
+                    && cost
+                        .as_ref()
+                        .zip(other.as_ref())
+                        .is_some_and(|(cost, other)| dominates(other, cost))
+            })
+        })
+        .collect()
+}
+
+pub(crate) fn retain_selected<T>(items: Vec<T>, selected: &[bool]) -> Vec<T> {
+    items
+        .into_iter()
+        .zip(selected)
+        .filter_map(|(item, selected)| selected.then_some(item))
+        .collect()
+}
+
+pub(crate) fn symbolic_pareto_flags(graph: &ReductionGraph, paths: &[ReductionPath]) -> Vec<bool> {
+    pareto_flags_by(
+        paths,
+        |path| {
+            let target = path.steps.last().expect("path has a target node");
+            let growth = graph
+                .compose_path_size_transform(path)
+                .ok()
+                .flatten()?
+                .project_growth();
+            graph
+                .size_field_names(&target.name)
+                .iter()
+                .all(|field| growth.get(field).is_some())
+                .then_some(growth)
+        },
+        size_growth_dominates,
+    )
+}
+
+pub(crate) fn concrete_pareto_flags(executed: &[ExecutedPath]) -> Vec<bool> {
+    pareto_flags_by(
+        executed,
+        |path| path.target_sizes().last().cloned(),
+        problem_size_dominates,
+    )
 }
 
 /// Render the symbolic path listing (header + per-path chains with normalized
@@ -1131,7 +1225,7 @@ fn render_paths_text(
     }
     if truncated {
         text.push_str(&format!(
-            "\n(showing {max_paths} of more paths; use --max-paths to increase)\n"
+            "\n(more selected paths exist; use --max-paths to increase the output limit above {max_paths})\n"
         ));
     }
     text
@@ -1202,21 +1296,33 @@ fn path_concrete(
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
     max_paths: usize,
+    selection: PathSelection,
     source: &dyn Any,
     out: &OutputConfig,
 ) -> Result<()> {
-    let batch = find_path_batch(
+    let mut batch = find_path_batch(
         graph,
         src_name,
         src_variant,
         dst_name,
         dst_variant,
         max_paths,
+        selection,
     );
     if batch.paths.is_empty() && !batch.truncated {
         anyhow::bail!("No reduction path from {src_name} to {dst_name}");
     }
-    let executed = graph.execute_paths(&batch.paths, source)?;
+    if selection == PathSelection::All {
+        cap_path_batch(&mut batch);
+    }
+    let mut executed = graph.execute_paths(&batch.paths, source)?;
+    if selection == PathSelection::Pareto {
+        let flags = concrete_pareto_flags(&executed);
+        batch.paths = retain_selected(batch.paths, &flags);
+        executed = retain_selected(executed, &flags);
+        cap_path_batch(&mut batch);
+        executed.truncate(batch.max_paths);
+    }
     let json_output = out.output.is_some() || out.json;
     let json = if json_output {
         path_batch_json(graph, &batch, Some(&executed))?
@@ -1236,7 +1342,7 @@ fn path_concrete(
         }
         if batch.truncated {
             text.push_str(&format!(
-                "\n(showing {} of more paths; use --max-paths to increase)\n",
+                "\n(more selected paths exist; use --max-paths to increase the output limit above {})\n",
                 batch.max_paths
             ));
         }
@@ -1364,7 +1470,10 @@ fn render_tree(graph: &ReductionGraph, nodes: &[NeighborTree], text: &mut String
 
 #[cfg(test)]
 mod tests {
-    use super::push_alias_part;
+    use super::{pareto_flags_by, push_alias_part};
+    use problemreductions::size::problem_size_dominates;
+    use problemreductions::ProblemSize;
+    use std::cell::Cell;
 
     #[test]
     fn push_alias_part_deduplicates_case_insensitively_in_order() {
@@ -1376,5 +1485,27 @@ mod tests {
         push_alias_part(&mut parts, "3sat");
 
         assert_eq!(parts, vec!["KSAT", "3SAT", "2SAT"]);
+    }
+
+    #[test]
+    fn nondominated_flags_keep_tradeoffs_and_remove_larger_vectors() {
+        let values = vec![
+            Some(ProblemSize::new(vec![("x", 2), ("y", 2)])),
+            Some(ProblemSize::new(vec![("x", 2), ("y", 3)])),
+            Some(ProblemSize::new(vec![("x", 1), ("y", 4)])),
+        ];
+
+        let calls = Cell::new(0);
+        let flags = pareto_flags_by(
+            &values,
+            |size| {
+                calls.set(calls.get() + 1);
+                size.clone()
+            },
+            problem_size_dominates,
+        );
+
+        assert_eq!(flags, vec![true, false, true]);
+        assert_eq!(calls.get(), values.len());
     }
 }

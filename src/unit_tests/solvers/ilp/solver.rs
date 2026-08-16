@@ -289,7 +289,7 @@ fn test_ilp_with_time_limit() {
 fn test_registered_ilp_pipeline_success() {
     use crate::models::graph::MaximumIndependentSet;
     use crate::registry::load_dyn;
-    use crate::solvers::{solve_deterministically, SolverExecution, SolverRequest};
+    use crate::solvers::{solve_deterministically, SolveOutcome, SolverExecution, SolverRequest};
     use crate::topology::SimpleGraph;
     use std::collections::BTreeMap;
 
@@ -306,7 +306,14 @@ fn test_registered_ilp_pipeline_success() {
     .unwrap();
     let result = solve_deterministically(&loaded, SolverRequest::Ilp).unwrap();
     assert!(matches!(result.solver, SolverExecution::Ilp { .. }));
-    let eval = problem.evaluate(result.config.as_ref().unwrap());
+    let SolveOutcome::Optimal {
+        config: Some(config),
+        ..
+    } = result.outcome
+    else {
+        panic!("registered ILP pipeline should return an optimal witness");
+    };
+    let eval = problem.evaluate(&config);
     assert!(eval.is_valid());
 }
 

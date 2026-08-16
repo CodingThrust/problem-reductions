@@ -41,8 +41,6 @@ pub trait DynProblem: Any {
     fn num_variables_dyn(&self) -> usize;
     /// Whether the aggregate value admits representative witness configurations.
     fn supports_witnesses_dyn(&self) -> bool;
-    /// Return the aggregate identity in the CLI-facing metric format.
-    fn aggregate_identity_dyn(&self) -> String;
 }
 
 impl<T> DynProblem for T
@@ -84,10 +82,6 @@ where
 
     fn supports_witnesses_dyn(&self) -> bool {
         T::Value::supports_witnesses()
-    }
-
-    fn aggregate_identity_dyn(&self) -> String {
-        format_metric(&T::Value::identity())
     }
 }
 

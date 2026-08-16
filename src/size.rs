@@ -116,6 +116,47 @@ impl SizeGrowth {
     }
 }
 
+/// Return whether `left` is no larger in every concrete size field and smaller
+/// in at least one field.
+pub fn problem_size_dominates(left: &ProblemSize, right: &ProblemSize) -> bool {
+    left.components.len() == right.components.len()
+        && left
+            .components
+            .iter()
+            .all(|(name, value)| right.get(name).is_some_and(|other| *value <= other))
+        && left
+            .components
+            .iter()
+            .any(|(name, value)| right.get(name).is_some_and(|other| *value < other))
+}
+
+/// Return whether `left` has no faster growth in every symbolic size field and
+/// strictly slower growth in at least one field.
+pub fn size_growth_dominates(left: &SizeGrowth, right: &SizeGrowth) -> bool {
+    if left.fields.len() != right.fields.len() {
+        return false;
+    }
+    let mut strictly_smaller = false;
+    for (name, growth) in left.fields() {
+        let Some(other) = right.get(name) else {
+            return false;
+        };
+        if growth.failures().is_some()
+            || other.failures().is_some()
+            || growth.is_coarsened()
+            || other.is_coarsened()
+        {
+            return false;
+        }
+        let left_at_most = other.dominates(growth);
+        if !left_at_most {
+            return false;
+        }
+        strictly_smaller |= !growth.dominates(other);
+    }
+    strictly_smaller
+}
+
 impl EvaluatedSize {
     pub fn exact(values: SizeValues) -> Self {
         Self {

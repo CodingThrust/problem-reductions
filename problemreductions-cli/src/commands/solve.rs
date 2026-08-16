@@ -4,7 +4,9 @@ use crate::dispatch::{
 };
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
-use problemreductions::solvers::{DeterministicSolveResult, SolverExecution, SolverRequest};
+use problemreductions::solvers::{
+    DeterministicSolveResult, SolveOutcome, SolverExecution, SolverRequest,
+};
 use std::path::Path;
 use std::time::Duration;
 
@@ -48,11 +50,21 @@ fn solve_result_text(problem: &str, result: &DeterministicSolveResult) -> String
         problem,
         solver_text(&result.solver)
     );
-    if let Some(config) = &result.config {
-        text.push_str(&format!("\nSolution: {:?}", config));
-    }
-    text.push_str(&format!("\nEvaluation: {}", result.evaluation));
+    append_outcome_text(&mut text, &result.outcome);
     text
+}
+
+fn append_outcome_text(text: &mut String, outcome: &SolveOutcome) {
+    match outcome {
+        SolveOutcome::Optimal { config, evaluation } => {
+            text.push_str("\nStatus: optimal");
+            if let Some(config) = config {
+                text.push_str(&format!("\nSolution: {:?}", config));
+            }
+            text.push_str(&format!("\nEvaluation: {evaluation}"));
+        }
+        SolveOutcome::Infeasible => text.push_str("\nStatus: infeasible"),
+    }
 }
 
 fn plain_problem_output(
@@ -133,10 +145,7 @@ fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputCon
         result.target_name
     );
     let mut text = format!("Problem: {}\nSolver: {}", result.source_name, solver_desc);
-    if let Some(config) = &result.source_config {
-        text.push_str(&format!("\nSolution: {:?}", config));
-    }
-    text.push_str(&format!("\nEvaluation: {}", result.source_evaluation));
+    append_outcome_text(&mut text, &result.source_outcome);
     let json = result.to_json();
 
     let result = out.emit_with_default_name("", &text, &json);
@@ -169,13 +178,16 @@ mod tests {
     fn test_solve_value_only_problem_omits_solution() {
         let result = DeterministicSolveResult {
             solver: SolverExecution::BruteForce,
-            config: None,
-            evaluation: "Sum(56)".to_string(),
+            outcome: SolveOutcome::Optimal {
+                config: None,
+                evaluation: "Sum(56)".to_string(),
+            },
         };
         let (text, json) = plain_problem_output("CliTestAggregateValueSource", &result);
         assert!(text.contains("Evaluation: Sum(56)"), "{text}");
         assert!(!text.contains("Solution:"), "{text}");
         assert!(json.get("solution").is_none(), "{json}");
+        assert_eq!(json["status"], "optimal");
     }
 
     #[test]

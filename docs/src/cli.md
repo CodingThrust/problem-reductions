@@ -155,15 +155,19 @@ Inspect reduction paths or save the path set for later route selection:
 ```bash
 pred path MIS QUBO                           # paths (up to 20)
 pred path MIS QUBO --max-paths 50            # increase the cap
+pred path MIS QUBO --selection all           # return every enumerated candidate
 pred path MIS MaximumClique mis.json         # execute paths on a complete instance
 pred path MIS QUBO -o paths.json             # save the path set
 ```
 
 Without an instance file, each route explains how problem size changes. With a
-problem JSON file, every returned path is executed on the complete source instance
-and the actual size of each constructed intermediate is reported. Discovery never
-ranks or discards routes based on size. Output is capped by `--max-paths` (default: 20);
-extract one route from the path-set envelope before passing it to
+problem JSON file, every candidate path is executed on the complete source instance
+and the actual size of each constructed intermediate is reported. By default,
+`--selection pareto` returns the paths whose target-size vectors are Pareto
+nondominated among the candidates. Use `--selection all` to return every candidate.
+`--max-paths` (default: 20) caps the selected output after comparison. Pareto
+selection considers every simple candidate path and never prunes graph search using
+size estimates. Extract one route from the path-set envelope before passing it to
 `pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
@@ -365,6 +369,11 @@ Solve a reduction bundle (from `pred reduce`):
 ```json
 {{#include generated/pred-solve-bundle.txt}}
 ```
+
+Successful exact solves report `"status": "optimal"`; aggregate-only problems omit
+`solution`. A proven infeasible instance is also a successful command result and reports
+`"status": "infeasible"` without `solution` or `evaluation`. Solver, timeout, registry,
+and extraction failures remain command errors.
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
 > Some problems do not currently have one. Examples include BoundedComponentSpanningForest,

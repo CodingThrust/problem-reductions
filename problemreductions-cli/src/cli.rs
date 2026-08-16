@@ -165,6 +165,7 @@ Examples:
   pred path MIS QUBO                              # inspect reduction paths
   pred path MIS Clique mis.json                   # execute paths on an instance
   pred path MIS QUBO --max-paths 50              # increase the output cap
+  pred path MIS QUBO --selection all             # return every enumerated candidate
   pred path MIS QUBO -o paths.json               # save the path set
 
 Use `pred list` to see available problems.")]
@@ -175,9 +176,12 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Maximum paths to return
+        /// Maximum selected paths to output
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
+        /// Which enumerated paths to return
+        #[arg(long, value_enum, default_value_t = crate::commands::graph::PathSelection::Pareto)]
+        selection: crate::commands::graph::PathSelection,
         /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
         instance: Option<std::path::PathBuf>,
     },

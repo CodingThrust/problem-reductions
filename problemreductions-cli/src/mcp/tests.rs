@@ -1,9 +1,10 @@
+use crate::commands::graph::PathSelection;
 use crate::mcp::tools::{FindPathParams, McpServer};
 use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
 fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
     let response = server
-        .find_path_inner(source, target, 2000, None)
+        .find_path_inner(source, target, 2000, PathSelection::All, None)
         .expect("path enumeration");
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
     let entry = json["paths"]
@@ -48,13 +49,13 @@ fn test_find_path_enumerates_without_a_mode_or_sizes() {
                 "MIS/SimpleGraph/i32",
                 "MaximumClique/SimpleGraph/i32",
                 20,
+                PathSelection::Pareto,
                 None,
             )
             .unwrap(),
     )
     .unwrap();
     assert!(!result["paths"].as_array().unwrap().is_empty());
-    assert_eq!(result["analysis"], "symbolic");
 }
 
 #[test]
@@ -71,6 +72,7 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
                 "MIS/SimpleGraph/i32",
                 "MaximumClique/SimpleGraph/i32",
                 20,
+                PathSelection::Pareto,
                 Some(problem_json),
             )
             .unwrap(),
@@ -84,7 +86,6 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
         .find(|field| field["field"] == "num_edges")
         .unwrap();
     assert_eq!(edges["value"], 6);
-    assert_eq!(result["analysis"], "concrete");
 }
 
 #[test]
@@ -104,13 +105,17 @@ fn test_find_path_schema_accepts_complete_problem_json() {
 #[test]
 fn test_find_path_is_capped_explicitly() {
     let server = McpServer::new();
-    let json: serde_json::Value =
-        serde_json::from_str(&server.find_path_inner("MIS", "QUBO", 1, None).unwrap()).unwrap();
+    let json: serde_json::Value = serde_json::from_str(
+        &server
+            .find_path_inner("MIS", "QUBO", 1, PathSelection::Pareto, None)
+            .unwrap(),
+    )
+    .unwrap();
     assert_eq!(json["paths"].as_array().unwrap().len(), 1);
-    assert_eq!(json["returned"], 1);
-    assert_eq!(json["max_paths"], 1);
+    assert!(json.get("returned").is_none());
+    assert!(json.get("max_paths").is_none());
+    assert!(json.get("analysis").is_none());
     assert_eq!(json["truncated"], true);
-    assert_eq!(json["analysis"], "symbolic");
 }
 
 #[test]
@@ -451,13 +456,17 @@ fn test_solve_bundle() {
 fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability() {
     let server = McpServer::new();
 
-    for (clauses, evaluation, has_solution) in [
+    for (clauses, status, evaluation) in [
         (
             serde_json::json!([{"literals": [1]}, {"literals": [-1]}]),
-            "Or(false)",
-            false,
+            "infeasible",
+            None,
         ),
-        (serde_json::json!([{"literals": [1]}]), "Or(true)", true),
+        (
+            serde_json::json!([{"literals": [1]}]),
+            "optimal",
+            Some("Or(true)"),
+        ),
     ] {
         let problem_json = server
             .create_problem_inner(
@@ -481,10 +490,20 @@ fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability
             .unwrap();
         let json: serde_json::Value = serde_json::from_str(&solved).unwrap();
 
-        assert_eq!(json["evaluation"], evaluation);
-        assert_eq!(json["solution"].is_array(), has_solution);
-        assert_eq!(json["intermediate"]["evaluation"], evaluation);
-        assert_eq!(json["intermediate"]["solution"].is_array(), has_solution);
+        assert_eq!(json["status"], status);
+        assert_eq!(json.get("evaluation").and_then(|v| v.as_str()), evaluation);
+        assert_eq!(json.get("solution").is_some(), evaluation.is_some());
+        assert_eq!(json["intermediate"]["status"], status);
+        assert_eq!(
+            json["intermediate"]
+                .get("evaluation")
+                .and_then(|v| v.as_str()),
+            evaluation
+        );
+        assert_eq!(
+            json["intermediate"].get("solution").is_some(),
+            evaluation.is_some()
+        );
     }
 }
 

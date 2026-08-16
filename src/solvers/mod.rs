@@ -15,8 +15,8 @@ pub use registry::{
     RegistryBuildError, SolverCapabilities,
 };
 pub use resolver::{
-    solve_deterministically, DeterministicSolveError, DeterministicSolveResult, SolverExecution,
-    SolverRequest,
+    solve_deterministically, DeterministicSolveError, DeterministicSolveResult, SolveOutcome,
+    SolverExecution, SolverRequest,
 };
 
 pub use ilp::{ILPSolveError, ILPSolver};

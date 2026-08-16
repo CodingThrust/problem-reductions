@@ -1,7 +1,8 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, make_growth, mul, ExpBase, ExpFactor, ExpProduct, Growth, GrowthFailure, GrowthTerm,
+    add, exact_growth, mul, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm,
+    VariableGrowth, ANTICHAIN_CAP,
 };
 use crate::expr::{
     evaluate_approximate, expression_from_approximation, AlgebraicAnalysis, Expr, ExprNode,
@@ -18,31 +19,35 @@ fn rat(value: f64) -> BigRational {
 
 /// Build a term from `(exp, poly, logs)` entry lists.
 fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> GrowthTerm {
-    GrowthTerm {
-        exp: exp
-            .iter()
-            .map(|(variable, rate)| {
-                (
-                    (*variable).into(),
-                    ExpProduct::single(ExpBase::Constant(Expr::integer(2)), rat(*rate)),
-                )
-            })
-            .collect(),
-        poly: poly
-            .iter()
-            .map(|(variable, degree)| ((*variable).into(), rat(*degree)))
-            .collect(),
-        logs: logs
-            .iter()
-            .map(|(variable, power)| ((*variable).into(), *power))
-            .collect(),
+    let mut result = GrowthTerm::one();
+    for (variable, rate) in exp {
+        result.insert(
+            (*variable).into(),
+            VariableGrowth::exponential(ExpBase::Rational(rat(2.0)), rat(*rate)),
+        );
     }
+    for (variable, degree) in poly {
+        let growth = result
+            .variables
+            .entry((*variable).into())
+            .or_insert_with(VariableGrowth::empty);
+        growth.poly = rat(*degree);
+    }
+    for (variable, power) in logs {
+        let growth = result
+            .variables
+            .entry((*variable).into())
+            .or_insert_with(VariableGrowth::empty);
+        growth.log = *power;
+    }
+    result
 }
 
 fn terms_of(g: &Growth) -> &[GrowthTerm] {
-    match g {
-        Growth::Terms(t) => t,
-        Growth::Unknown(failures) => panic!("expected Terms, got {failures:?}"),
+    match &g.0 {
+        GrowthState::Antichain(terms) => terms,
+        GrowthState::Coarsened(term) => std::slice::from_ref(term),
+        GrowthState::Unknown(failures) => panic!("expected known growth, got {failures:?}"),
     }
 }
 
@@ -97,16 +102,15 @@ fn test_growth_relations_against_sympy_limits() {
     }
 }
 
-fn exp_product(factors: &[(f64, f64)]) -> ExpProduct {
-    ExpProduct::new(
-        factors
+fn exponential_growth(factors: &[(f64, f64)]) -> VariableGrowth {
+    VariableGrowth {
+        exp: factors
             .iter()
-            .map(|(base, coefficient)| ExpFactor {
-                base: ExpBase::Constant(Expr::constant(rat(*base))),
-                coefficient: rat(*coefficient),
-            })
+            .map(|(base, coefficient)| (ExpBase::Rational(rat(*base)), rat(*coefficient)))
             .collect(),
-    )
+        poly: BigRational::zero(),
+        log: 0,
+    }
 }
 
 // --- Core verification cases ---
@@ -235,97 +239,79 @@ fn test_growth_unproved_multi_base_comparison_is_retained() {
 
 #[test]
 fn test_exponential_product_proof_rules() {
-    let empty = ExpProduct::empty();
-    let two = exp_product(&[(2.0, 1.0)]);
-    let two_squared = exp_product(&[(2.0, 2.0)]);
-    let three = exp_product(&[(3.0, 1.0)]);
+    let empty = VariableGrowth::empty();
+    let two = exponential_growth(&[(2.0, 1.0)]);
+    let two_squared = exponential_growth(&[(2.0, 2.0)]);
+    let three = exponential_growth(&[(3.0, 1.0)]);
 
-    assert_eq!(empty.cmp_proven(&empty), Some(Ordering::Equal));
-    assert_eq!(empty.cmp_proven(&two), Some(Ordering::Less));
-    assert_eq!(two.cmp_proven(&empty), Some(Ordering::Greater));
-    assert_eq!(two_squared.cmp_proven(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_proven(&two_squared), Some(Ordering::Less));
-    assert_eq!(three.cmp_proven(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_proven(&three), Some(Ordering::Less));
+    assert_eq!(empty.cmp_exp(&empty), Some(Ordering::Equal));
+    assert_eq!(empty.cmp_exp(&two), Some(Ordering::Less));
+    assert_eq!(two.cmp_exp(&empty), Some(Ordering::Greater));
+    assert_eq!(two_squared.cmp_exp(&two), Some(Ordering::Greater));
+    assert_eq!(two.cmp_exp(&two_squared), Some(Ordering::Less));
+    assert_eq!(three.cmp_exp(&two), Some(Ordering::Greater));
+    assert_eq!(two.cmp_exp(&three), Some(Ordering::Less));
 
     assert_eq!(
-        exp_product(&[(3.0, 2.0)]).cmp_proven(&exp_product(&[(2.0, 1.0)])),
+        exponential_growth(&[(3.0, 2.0)]).cmp_exp(&exponential_growth(&[(2.0, 1.0)])),
         Some(Ordering::Greater)
     );
     assert_eq!(
-        exp_product(&[(2.0, 1.0)]).cmp_proven(&exp_product(&[(3.0, 2.0)])),
+        exponential_growth(&[(2.0, 1.0)]).cmp_exp(&exponential_growth(&[(3.0, 2.0)])),
         Some(Ordering::Less)
     );
     assert_eq!(
-        exp_product(&[(2.0, 3.0)]).cmp_proven(&exp_product(&[(3.0, 1.0)])),
+        exponential_growth(&[(2.0, 3.0)]).cmp_exp(&exponential_growth(&[(3.0, 1.0)])),
         None
     );
 
     assert_eq!(
-        exp_product(&[(0.25, -1.0)]).cmp_proven(&exp_product(&[(0.5, -1.0)])),
+        exponential_growth(&[(0.25, -1.0)]).cmp_exp(&exponential_growth(&[(0.5, -1.0)])),
         Some(Ordering::Greater)
     );
     assert_eq!(
-        exp_product(&[(0.5, -1.0)]).cmp_proven(&exp_product(&[(0.25, -1.0)])),
+        exponential_growth(&[(0.5, -1.0)]).cmp_exp(&exponential_growth(&[(0.25, -1.0)])),
         Some(Ordering::Less)
     );
     assert_eq!(
-        exp_product(&[(0.25, -2.0)]).cmp_proven(&exp_product(&[(0.5, -1.0)])),
+        exponential_growth(&[(0.25, -2.0)]).cmp_exp(&exponential_growth(&[(0.5, -1.0)])),
         Some(Ordering::Greater)
     );
     assert_eq!(
-        exp_product(&[(0.5, -1.0)]).cmp_proven(&exp_product(&[(0.25, -2.0)])),
+        exponential_growth(&[(0.5, -1.0)]).cmp_exp(&exponential_growth(&[(0.25, -2.0)])),
         Some(Ordering::Less)
     );
     assert_eq!(
-        exp_product(&[(0.25, -1.0)]).cmp_proven(&exp_product(&[(0.5, -2.0)])),
+        exponential_growth(&[(0.25, -1.0)]).cmp_exp(&exponential_growth(&[(0.5, -2.0)])),
         None
     );
-    assert_eq!(two.cmp_proven(&exp_product(&[(0.5, -1.0)])), None);
+    assert_eq!(two.cmp_exp(&exponential_growth(&[(0.5, -1.0)])), None);
 
-    let natural = ExpProduct::single(ExpBase::Natural, BigRational::one());
-    assert_eq!(natural.cmp_proven(&two), Some(Ordering::Greater));
-    assert_eq!(two.cmp_proven(&natural), Some(Ordering::Less));
+    let natural = VariableGrowth::exponential(ExpBase::Natural, BigRational::one());
+    assert_eq!(natural.cmp_exp(&two), Some(Ordering::Greater));
+    assert_eq!(two.cmp_exp(&natural), Some(Ordering::Less));
 
     // Constant subtrees normalize before growth comparison.
-    let composite = ExpProduct::single(ExpBase::Constant(Expr::parse("1 + 2")), BigRational::one());
-    assert_eq!(composite.cmp_proven(&three), Some(Ordering::Equal));
+    assert_eq!(g("(1 + 2)^n"), g("3^n"));
 
     // Two residual products with no factorwise proof remain incomparable.
     assert_eq!(
-        exp_product(&[(2.0, 2.0), (3.0, 1.0)]).cmp_proven(&exp_product(&[(2.0, 1.0), (4.0, 1.0)])),
+        exponential_growth(&[(2.0, 2.0), (3.0, 1.0)])
+            .cmp_exp(&exponential_growth(&[(2.0, 1.0), (4.0, 1.0)])),
         None
     );
 }
 
 #[test]
 fn test_exponential_product_canonicalization() {
-    let combined = ExpProduct::new(vec![
-        ExpFactor {
-            base: ExpBase::Constant(Expr::integer(2)),
-            coefficient: BigRational::one(),
-        },
-        ExpFactor {
-            base: ExpBase::Constant(Expr::integer(2)),
-            coefficient: rat(2.0),
-        },
-        ExpFactor {
-            base: ExpBase::Constant(Expr::integer(3)),
-            coefficient: BigRational::zero(),
-        },
-    ]);
-    assert_eq!(combined, exp_product(&[(2.0, 3.0)]));
+    let combined = exponential_growth(&[(2.0, 1.0)])
+        .mul(&exponential_growth(&[(2.0, 2.0)]))
+        .unwrap();
+    assert_eq!(combined, exponential_growth(&[(2.0, 3.0)]));
 
-    let cancelled = ExpProduct::new(vec![
-        ExpFactor {
-            base: ExpBase::Constant(Expr::integer(2)),
-            coefficient: BigRational::one(),
-        },
-        ExpFactor {
-            base: ExpBase::Constant(Expr::integer(2)),
-            coefficient: -BigRational::one(),
-        },
-    ]);
+    let cancelled = exponential_growth(&[(2.0, 1.0)])
+        .mul(&exponential_growth(&[(2.0, -1.0)]))
+        .unwrap();
     assert!(cancelled.is_empty());
 }
 
@@ -334,10 +320,6 @@ fn test_growth_multi_base_product_is_deterministic() {
     let left = g("2^n * 3^n");
     let right = g("3^n * 2^n");
     assert_eq!(left, right);
-    assert_eq!(
-        serde_json::to_string(&left).unwrap(),
-        serde_json::to_string(&right).unwrap()
-    );
 }
 
 #[test]
@@ -436,26 +418,7 @@ fn test_growth_reports_nested_and_numeric_failures() {
     ));
 
     assert_eq!(Growth::from_expr(&Expr::variable("n")).failures(), None);
-    assert_eq!(Growth::Terms(Vec::new()).to_expr(), Some(Expr::integer(1)));
-}
-
-#[test]
-fn test_growth_rejects_invalid_internal_terms_explicitly() {
-    let mut invalid = GrowthTerm::one();
-    invalid.poly.insert("n".into(), -BigRational::one());
-    assert_eq!(
-        make_growth(vec![invalid]).failures(),
-        Some([GrowthFailure::InvalidGrowthTerm].as_slice())
-    );
-}
-
-#[test]
-fn test_exponential_base_deserialization_reports_invalid_constant_domain() {
-    let invalid = serde_json::json!({
-        "Constant": serde_json::to_value(Expr::log(Expr::integer(0))).unwrap()
-    });
-    let error = serde_json::from_value::<ExpBase>(invalid).unwrap_err();
-    assert!(error.to_string().contains("positive rational constant"));
+    assert_eq!(exact_growth(Vec::new()).to_expr(), Some(Expr::integer(1)));
 }
 
 // --- Additional coverage ---
@@ -571,10 +534,7 @@ fn test_growth_log_levels() {
     assert_eq!(g("log(3^n)"), g("n"));
     assert_eq!(g("log(exp(n))"), g("n"));
     // log(n) is a single log term.
-    assert_eq!(
-        g("log(n)"),
-        Growth::Terms(vec![term(&[], &[], &[("n", 1)])])
-    );
+    assert_eq!(g("log(n)"), exact_growth(vec![term(&[], &[], &[("n", 1)])]));
     // log(n*m) ≍ log n + log m (two summands, not a product).
     assert_eq!(terms_of(&g("log(n*m)")).len(), 2);
     // log of a constant is O(1).
@@ -583,7 +543,7 @@ fn test_growth_log_levels() {
     // A mixed monomial's log keeps *every* factor class: log(2^n * m) ≍ n + log m.
     // The exponential factor must not swallow the polynomial one.
     let mixed = g("log(2^n * m)");
-    let expected = make_growth(vec![
+    let expected = exact_growth(vec![
         term(&[], &[("n", 1.0)], &[]),
         term(&[], &[], &[("m", 1)]),
     ]);
@@ -607,87 +567,58 @@ fn test_growth_unknown_dominance() {
     assert!(unknown.dominates(&unknown));
 }
 
-/// Large antichains remain exact; growth analysis has no hidden size cap.
+/// Complete antichains are retained through the configured boundary, then
+/// replaced by one deterministic upper envelope.
 #[test]
-fn test_growth_preserves_large_antichain() {
-    // 40 distinct single-variable terms are pairwise incomparable.
-    let vars: Vec<String> = (0..40).map(|index| format!("v{index}")).collect();
-    let many: Vec<GrowthTerm> = vars
+fn test_growth_antichain_cap_coarsens_at_overflow() {
+    let vars: Vec<String> = (0..=ANTICHAIN_CAP)
+        .map(|index| format!("v{index}"))
+        .collect();
+    let terms: Vec<GrowthTerm> = vars
         .iter()
         .map(|variable| term(&[], &[(variable, 1.0)], &[]))
         .collect();
 
-    let growth = make_growth(many.clone());
-    assert_eq!(terms_of(&growth).len(), many.len());
-    assert!(many.iter().all(|term| terms_of(&growth).contains(term)));
+    let at_cap = exact_growth(terms[..ANTICHAIN_CAP].to_vec());
+    assert!(!at_cap.is_coarsened());
+    assert_eq!(terms_of(&at_cap).len(), ANTICHAIN_CAP);
+
+    let overflow = exact_growth(terms.clone());
+    assert!(overflow.is_coarsened());
+    assert_eq!(terms_of(&overflow).len(), 1);
+    for original in terms {
+        assert!(overflow.dominates(&exact_growth(vec![original])));
+    }
+
+    let reversed = exact_growth(
+        vars.iter()
+            .rev()
+            .map(|variable| term(&[], &[(variable, 1.0)], &[]))
+            .collect(),
+    );
+    assert_eq!(overflow, reversed);
 }
 
-/// Unproved exponential comparisons also remain as a complete antichain.
+/// The exponential envelope remains an upper bound when symbolic comparisons
+/// leave more than the configured number of terms incomparable.
 #[test]
-fn test_growth_preserves_large_unproved_exponential_antichain() {
-    let terms = (1..=33)
-        .map(|i| GrowthTerm {
-            exp: [(
+fn test_growth_coarsens_large_unproved_exponential_antichain() {
+    let terms = (1..=ANTICHAIN_CAP + 1)
+        .map(|i| {
+            let mut term = GrowthTerm::one();
+            term.insert(
                 "n".into(),
-                exp_product(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]),
-            )]
-            .into_iter()
-            .collect(),
-            poly: BTreeMap::new(),
-            logs: BTreeMap::new(),
+                exponential_growth(&[(2.0, i as f64), (3.0, 1.0 / i as f64)]),
+            );
+            term
         })
         .collect::<Vec<_>>();
 
-    assert_eq!(terms_of(&make_growth(terms.clone())).len(), terms.len());
-}
-
-/// Structured serde round-trips with owned variable names, and
-/// `Unknown` round-trips.
-#[test]
-fn test_growth_serde_roundtrip() {
-    let value = g("2^n * m^2 + n * log(k)");
-    let json = serde_json::to_string(&value).unwrap();
-    let back: Growth = serde_json::from_str(&json).unwrap();
-    assert_eq!(value, back);
-
-    let unknown = g("factorial(n)");
-    let unknown_json = serde_json::to_string(&unknown).unwrap();
-    assert_eq!(
-        serde_json::from_str::<Growth>(&unknown_json).unwrap(),
-        unknown
-    );
-
-    // Every constant Expr form admitted as a symbolic base remains lossless.
-    for source in [
-        "(1 + 1)^n",
-        "(2 * 2)^n",
-        "(2^2)^n",
-        "exp(1)^n",
-        "log(3)^n",
-        "sqrt(4)^n",
-        "factorial(3)^n",
-        "exp(n)",
-    ] {
-        let value = g(source);
-        let json = serde_json::to_string(&value).unwrap();
-        assert_eq!(serde_json::from_str::<Growth>(&json).unwrap(), value);
+    let growth = exact_growth(terms.clone());
+    assert!(growth.is_coarsened());
+    for original in terms {
+        assert!(growth.dominates(&exact_growth(vec![original])));
     }
-
-    let variable_base = serde_json::json!({
-        "Constant": serde_json::to_value(Expr::variable("n")).unwrap()
-    });
-    let error = serde_json::from_value::<ExpBase>(variable_base).unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("symbolic exponential base must be a positive rational constant"));
-
-    let invalid = Growth::Terms(vec![GrowthTerm {
-        exp: [("n".into(), ExpProduct::empty())].into_iter().collect(),
-        poly: BTreeMap::new(),
-        logs: BTreeMap::new(),
-    }]);
-    let invalid_json = serde_json::to_string(&invalid).unwrap();
-    assert!(serde_json::from_str::<Growth>(&invalid_json).is_err());
 }
 
 // --- Randomized property tests ---
@@ -720,7 +651,6 @@ fn test_growth_serde_roundtrip() {
 
 use super::{log_growth, pow_const};
 use crate::types::ProblemSize;
-use std::collections::BTreeMap;
 
 /// Fixed master seed. Every contract derives its own stream by offsetting this,
 /// so the whole suite is deterministic and reproducible on any platform.
@@ -1057,13 +987,14 @@ fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
 }
 
 fn growth_approx_eq(a: &Growth, b: &Growth) -> bool {
-    match (a, b) {
-        (Growth::Unknown(_), Growth::Unknown(_)) => true,
-        (Growth::Terms(ta), Growth::Terms(tb)) => {
+    match (&a.0, &b.0) {
+        (GrowthState::Unknown(_), GrowthState::Unknown(_)) => true,
+        (GrowthState::Antichain(ta), GrowthState::Antichain(tb)) => {
             ta.len() == tb.len()
                 && ta.iter().all(|t| tb.iter().any(|u| term_approx_eq(t, u)))
                 && tb.iter().all(|u| ta.iter().any(|t| term_approx_eq(t, u)))
         }
+        (GrowthState::Coarsened(a), GrowthState::Coarsened(b)) => term_approx_eq(a, b),
         _ => false,
     }
 }

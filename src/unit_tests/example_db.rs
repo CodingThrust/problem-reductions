@@ -500,7 +500,7 @@ fn model_specs_are_self_consistent() {
 #[test]
 fn model_specs_are_optimal() {
     use crate::registry::{find_variant_entry, load_dyn};
-    use crate::solvers::{solve_deterministically, SolverRequest};
+    use crate::solvers::{solve_deterministically, SolveOutcome, SolverRequest};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -517,9 +517,13 @@ fn model_specs_are_optimal() {
         let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
         let solve_registered_ilp = || {
             let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
-            solve_deterministically(&loaded, SolverRequest::Ilp)
+            match solve_deterministically(&loaded, SolverRequest::Ilp)
                 .ok()?
-                .config
+                .outcome
+            {
+                SolveOutcome::Optimal { config, .. } => config,
+                SolveOutcome::Infeasible => None,
+            }
         };
         let best_config = if log_space <= 20.0 {
             find_variant_entry(name, &variant)

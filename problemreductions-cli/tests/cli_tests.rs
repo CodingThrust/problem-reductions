@@ -413,7 +413,59 @@ fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target
     let value = |field: &str| &overall.iter().find(|item| item["field"] == field).unwrap()["value"];
     assert_eq!(value("num_vertices"), 5);
     assert_eq!(value("num_edges"), 6);
-    assert_eq!(json["analysis"], "concrete");
+    assert!(json.get("comparison").is_none());
+    assert!(json.get("pareto_frontier").is_none());
+    assert!(json["paths"][0].get("pareto_nondominated").is_none());
+}
+
+#[test]
+fn test_path_selection_defaults_to_pareto_and_all_returns_every_candidate() {
+    let instance = std::env::temp_dir().join("pred_path_selection_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+    )
+    .unwrap();
+    let run = |max_paths: &str, selection: Option<&str>| {
+        let mut args = vec![
+            "path",
+            "MIS/SimpleGraph/i32",
+            "QUBO",
+            instance.to_str().unwrap(),
+            "--max-paths",
+            max_paths,
+            "--json",
+        ];
+        if let Some(selection) = selection {
+            args.extend(["--selection", selection]);
+        }
+        let output = pred().args(args).output().unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
+
+    let pareto = run("3", None);
+    let pareto_capped = run("1", None);
+    let all = run("3", Some("all"));
+    std::fs::remove_file(instance).unwrap();
+
+    assert_eq!(pareto["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(pareto_capped["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(all["paths"].as_array().unwrap().len(), 3);
+    assert_eq!(pareto["truncated"], false);
+    assert_eq!(pareto_capped["truncated"], false);
+    assert_eq!(all["truncated"], true);
+    let pareto_size = &pareto["paths"][0]["actual_target_size"]["fields"];
+    assert!(pareto_size
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|field| field["field"] == "num_vars" && field["value"] == 5));
+    assert_eq!(pareto_capped["paths"], pareto["paths"]);
 }
 
 #[test]
@@ -445,15 +497,17 @@ fn test_path_save() {
 }
 
 #[test]
-fn test_path_max_paths_caps_without_ranking() {
+fn test_path_max_paths_caps_selected_output() {
     let output = pred()
         .args(["path", "MIS", "QUBO", "--max-paths", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(json["returned"], 1);
+    assert_eq!(json["paths"].as_array().unwrap().len(), 1);
     assert_eq!(json["truncated"], true);
+    assert!(json.get("returned").is_none());
+    assert!(json.get("max_paths").is_none());
 }
 
 #[test]
@@ -2707,9 +2761,11 @@ fn test_kth_largest_m_tuple_solve_uses_k_threshold() {
     let at_threshold = solve(14);
     let above_threshold = solve(15);
 
+    assert_eq!(at_threshold["status"], "optimal");
     assert_eq!(at_threshold["evaluation"], "Or(true)");
-    assert_eq!(above_threshold["evaluation"], "Or(false)");
-    assert_ne!(at_threshold["evaluation"], above_threshold["evaluation"]);
+    assert_eq!(above_threshold["status"], "infeasible");
+    assert!(above_threshold.get("evaluation").is_none());
+    assert!(above_threshold.get("solution").is_none());
 }
 
 #[test]
@@ -3293,14 +3349,18 @@ fn solve_sat_to_nae_bundle(case: &str, clauses: &str) -> serde_json::Value {
 #[test]
 fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability() {
     let infeasible = solve_sat_to_nae_bundle("infeasible", "1;-1");
-    assert_eq!(infeasible["evaluation"], "Or(false)");
-    assert!(infeasible["solution"].is_null());
-    assert_eq!(infeasible["intermediate"]["evaluation"], "Or(false)");
-    assert!(infeasible["intermediate"]["solution"].is_null());
+    assert_eq!(infeasible["status"], "infeasible");
+    assert!(infeasible.get("evaluation").is_none());
+    assert!(infeasible.get("solution").is_none());
+    assert_eq!(infeasible["intermediate"]["status"], "infeasible");
+    assert!(infeasible["intermediate"].get("evaluation").is_none());
+    assert!(infeasible["intermediate"].get("solution").is_none());
 
     let feasible = solve_sat_to_nae_bundle("feasible", "1");
+    assert_eq!(feasible["status"], "optimal");
     assert_eq!(feasible["evaluation"], "Or(true)");
     assert!(feasible["solution"].is_array());
+    assert_eq!(feasible["intermediate"]["status"], "optimal");
     assert_eq!(feasible["intermediate"]["evaluation"], "Or(true)");
     assert!(feasible["intermediate"]["solution"].is_array());
 }
@@ -5223,10 +5283,10 @@ fn test_path_set_has_explicit_strongest_size_information() {
         );
     }
     // Verify envelope metadata
-    assert!(envelope["returned"].is_number());
-    assert!(envelope["max_paths"].is_number());
+    assert!(envelope.get("returned").is_none());
+    assert!(envelope.get("max_paths").is_none());
+    assert!(envelope.get("analysis").is_none());
     assert!(envelope["truncated"].is_boolean());
-    assert_eq!(envelope["analysis"], "symbolic");
 }
 
 #[test]
@@ -8141,7 +8201,6 @@ fn test_path_max_paths_truncates() {
         "should return at most 3 paths, got {}",
         paths.len()
     );
-    assert_eq!(envelope["max_paths"], 3);
     // KSat -> QUBO has many paths, so truncation is expected
     assert_eq!(
         envelope["truncated"], true,

@@ -37,8 +37,10 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Maximum paths to return (default: 20)")]
+    #[schemars(description = "Maximum selected paths to output (default: 20)")]
     pub max_paths: Option<usize>,
+    #[schemars(description = "Path selection: pareto (default) or all")]
+    pub selection: Option<String>,
     #[schemars(
         description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."
     )]
@@ -228,6 +230,7 @@ impl McpServer {
         source: &str,
         target: &str,
         max_paths: usize,
+        selection: crate::commands::graph::PathSelection,
         problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
@@ -251,13 +254,14 @@ impl McpServer {
             }
         }
 
-        let batch = crate::commands::graph::find_path_batch(
+        let mut batch = crate::commands::graph::find_path_batch(
             &graph,
             &src_ref.name,
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
             max_paths,
+            selection,
         );
         if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
@@ -266,11 +270,27 @@ impl McpServer {
                 dst_ref.name
             );
         }
+        if selection == crate::commands::graph::PathSelection::All {
+            crate::commands::graph::cap_path_batch(&mut batch);
+        }
 
-        let executed = loaded
+        let mut executed = loaded
             .as_ref()
             .map(|source| graph.execute_paths(&batch.paths, source.as_any()))
             .transpose()?;
+        if selection == crate::commands::graph::PathSelection::Pareto {
+            let flags = match &executed {
+                Some(executed) => crate::commands::graph::concrete_pareto_flags(executed),
+                None => crate::commands::graph::symbolic_pareto_flags(&graph, &batch.paths),
+            };
+            batch.paths = crate::commands::graph::retain_selected(batch.paths, &flags);
+            executed =
+                executed.map(|executed| crate::commands::graph::retain_selected(executed, &flags));
+            crate::commands::graph::cap_path_batch(&mut batch);
+            if let Some(executed) = &mut executed {
+                executed.truncate(batch.max_paths);
+            }
+        }
         let json = crate::commands::graph::path_batch_json(&graph, &batch, executed.as_deref())?;
         Ok(serde_json::to_string_pretty(&json)?)
     }
@@ -517,10 +537,17 @@ impl McpServer {
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
         let max_paths = params.max_paths.unwrap_or(20);
+        let selection = params
+            .selection
+            .as_deref()
+            .unwrap_or("pareto")
+            .parse()
+            .map_err(|error: String| error)?;
         self.find_path_inner(
             &params.source,
             &params.target,
             max_paths,
+            selection,
             params.problem_json.as_deref(),
         )
         .map_err(|e| e.to_string())

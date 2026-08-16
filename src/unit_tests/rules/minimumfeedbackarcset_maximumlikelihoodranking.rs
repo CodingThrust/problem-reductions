@@ -110,12 +110,19 @@ fn test_solution_extraction_marks_backward_arcs() {
 }
 
 #[test]
-#[should_panic(
-    expected = "MinimumFeedbackArcSet -> MaximumLikelihoodRanking requires unit arc weights"
-)]
-fn test_weighted_instances_are_rejected() {
+fn test_weighted_instances_preserve_the_optimum() {
     let source = weighted_cycle_source();
-    let _ = ReduceTo::<MaximumLikelihoodRanking>::reduce_to(&source);
+    let reduction: ReductionFASToMLR = ReduceTo::<MaximumLikelihoodRanking>::reduce_to(&source);
+
+    assert_eq!(
+        reduction.target_problem().matrix(),
+        &vec![vec![0, 10, -1], vec![-10, 0, 1], vec![1, -1, 0]]
+    );
+    assert_optimization_round_trip_from_optimization_target(
+        &source,
+        &reduction,
+        "weighted MinimumFeedbackArcSet -> MaximumLikelihoodRanking closed loop",
+    );
 }
 
 #[cfg(feature = "example-db")]

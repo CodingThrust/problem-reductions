@@ -1,6 +1,6 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::registry::load_dyn;
-use crate::solvers::{solve_deterministically, SolverExecution, SolverRequest};
+use crate::solvers::{solve_deterministically, SolveOutcome, SolverExecution, SolverRequest};
 use crate::traits::Problem;
 use std::collections::BTreeMap;
 
@@ -81,7 +81,7 @@ fn deterministic_solver_dispatch_unregistered_ilp_override_is_a_capability_error
 }
 
 #[test]
-fn deterministic_solver_dispatch_customized_failure_does_not_fall_back() {
+fn deterministic_solver_dispatch_customized_infeasibility_does_not_fall_back() {
     use crate::models::misc::AdditionalKey;
 
     // {0} is the only candidate key and it is already known, so the registered
@@ -95,14 +95,11 @@ fn deterministic_solver_dispatch_customized_failure_does_not_fall_back() {
     )
     .unwrap();
 
-    let error = solve_deterministically(&loaded, SolverRequest::Default).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::solvers::DeterministicSolveError::CustomizedNoSolution { .. }
-    ));
+    let result = solve_deterministically(&loaded, SolverRequest::Default).unwrap();
+    assert_eq!(result.outcome, SolveOutcome::Infeasible);
     let brute_force = solve_deterministically(&loaded, SolverRequest::BruteForce).unwrap();
     assert_eq!(brute_force.solver, SolverExecution::BruteForce);
-    assert!(brute_force.config.is_none());
+    assert_eq!(brute_force.outcome, SolveOutcome::Infeasible);
 }
 
 #[test]
@@ -122,11 +119,17 @@ fn deterministic_solver_dispatch_direct_ilp_uses_registered_one_node_pipeline() 
             reduction_path: vec!["ILP<bool>".to_string()]
         }
     );
-    assert_eq!(result.config, Some(vec![]));
+    assert!(matches!(
+        result.outcome,
+        SolveOutcome::Optimal {
+            config: Some(ref config),
+            ..
+        } if config.is_empty()
+    ));
 }
 
 #[test]
-fn deterministic_solver_dispatch_ilp_failure_does_not_fall_back() {
+fn deterministic_solver_dispatch_ilp_infeasibility_does_not_fall_back() {
     let problem = ILP::<bool>::new(
         0,
         vec![LinearConstraint::le(vec![], -1.0)],
@@ -140,17 +143,11 @@ fn deterministic_solver_dispatch_ilp_failure_does_not_fall_back() {
     )
     .unwrap();
 
-    let error = solve_deterministically(&loaded, SolverRequest::Default).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::solvers::DeterministicSolveError::IlpSolve {
-            source: crate::solvers::ILPSolveError::Infeasible,
-            ..
-        }
-    ));
+    let result = solve_deterministically(&loaded, SolverRequest::Default).unwrap();
+    assert_eq!(result.outcome, SolveOutcome::Infeasible);
     let brute_force = solve_deterministically(&loaded, SolverRequest::BruteForce).unwrap();
     assert_eq!(brute_force.solver, SolverExecution::BruteForce);
-    assert!(brute_force.config.is_none());
+    assert_eq!(brute_force.outcome, SolveOutcome::Infeasible);
 }
 
 #[test]
@@ -175,6 +172,34 @@ fn deterministic_solver_execution_has_stable_tagged_json_contract() {
     assert_eq!(
         serde_json::to_value(SolverExecution::BruteForce).unwrap(),
         serde_json::json!({"kind": "brute-force"})
+    );
+}
+
+#[test]
+fn solve_outcome_has_disjoint_json_states() {
+    assert_eq!(
+        serde_json::to_value(SolveOutcome::Optimal {
+            config: Some(vec![1, 0]),
+            evaluation: "Max(1)".to_string(),
+        })
+        .unwrap(),
+        serde_json::json!({
+            "status": "optimal",
+            "solution": [1, 0],
+            "evaluation": "Max(1)"
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(SolveOutcome::Optimal {
+            config: None,
+            evaluation: "Sum(56)".to_string(),
+        })
+        .unwrap(),
+        serde_json::json!({"status": "optimal", "evaluation": "Sum(56)"})
+    );
+    assert_eq!(
+        serde_json::to_value(SolveOutcome::Infeasible).unwrap(),
+        serde_json::json!({"status": "infeasible"})
     );
 }
 
@@ -233,7 +258,21 @@ fn deterministic_solver_dispatch_customized_default_allows_explicit_ilp_override
 
     let explicit_ilp = solve_deterministically(&loaded, SolverRequest::Ilp).unwrap();
     assert!(matches!(explicit_ilp.solver, SolverExecution::Ilp { .. }));
-    assert_eq!(default.evaluation, explicit_ilp.evaluation);
+    let SolveOutcome::Optimal {
+        evaluation: default_evaluation,
+        ..
+    } = default.outcome
+    else {
+        panic!("customized solver should find an optimum");
+    };
+    let SolveOutcome::Optimal {
+        evaluation: ilp_evaluation,
+        ..
+    } = explicit_ilp.outcome
+    else {
+        panic!("ILP solver should find an optimum");
+    };
+    assert_eq!(default_evaluation, ilp_evaluation);
 }
 
 #[test]
@@ -259,7 +298,10 @@ fn deterministic_solver_dispatch_repeats_each_available_solver_class() {
         let first = solve_deterministically(&loaded, request).unwrap();
         let second = solve_deterministically(&loaded, request).unwrap();
         assert_eq!(first, second, "{request:?} changed its witness");
-        evaluations.push(first.evaluation);
+        let SolveOutcome::Optimal { evaluation, .. } = first.outcome else {
+            panic!("{request:?} should find an optimum");
+        };
+        evaluations.push(evaluation);
     }
     assert!(evaluations.windows(2).all(|pair| pair[0] == pair[1]));
 }

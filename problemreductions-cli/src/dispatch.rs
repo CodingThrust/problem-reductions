@@ -3,7 +3,7 @@ use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::{
     solve_deterministically, solver_capabilities, DeterministicSolveResult, ExactProblemKey,
-    SolverRequest,
+    SolveOutcome, SolverRequest,
 };
 use serde_json::Value;
 use std::any::Any;
@@ -125,40 +125,58 @@ pub fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
 }
 
 pub fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> serde_json::Value {
-    let mut json = serde_json::json!({
-        "problem": problem,
-        "solver": &result.solver,
-        "evaluation": result.evaluation,
-    });
-    if let Some(config) = &result.config {
-        json["solution"] = serde_json::json!(config);
+    #[derive(serde::Serialize)]
+    struct SolveOutput<'a> {
+        problem: &'a str,
+        solver: &'a problemreductions::solvers::SolverExecution,
+        #[serde(flatten)]
+        outcome: &'a SolveOutcome,
     }
-    json
+
+    serde_json::to_value(SolveOutput {
+        problem,
+        solver: &result.solver,
+        outcome: &result.outcome,
+    })
+    .expect("solve output is serializable")
 }
 
 pub(crate) struct BundleSolveResult {
     pub(crate) source_name: String,
     pub(crate) target_name: String,
     pub(crate) solver: problemreductions::solvers::SolverExecution,
-    pub(crate) source_config: Option<Vec<usize>>,
-    pub(crate) source_evaluation: String,
-    pub(crate) target_config: Option<Vec<usize>>,
-    pub(crate) target_evaluation: String,
+    pub(crate) source_outcome: SolveOutcome,
+    pub(crate) target_outcome: SolveOutcome,
 }
 
 impl BundleSolveResult {
     pub(crate) fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
-            "problem": self.source_name,
-            "solver": self.solver,
-            "solution": self.source_config,
-            "evaluation": self.source_evaluation,
-            "intermediate": {
-                "problem": self.target_name,
-                "solution": self.target_config,
-                "evaluation": self.target_evaluation,
+        #[derive(serde::Serialize)]
+        struct Intermediate<'a> {
+            problem: &'a str,
+            #[serde(flatten)]
+            outcome: &'a SolveOutcome,
+        }
+
+        #[derive(serde::Serialize)]
+        struct BundleOutput<'a> {
+            problem: &'a str,
+            solver: &'a problemreductions::solvers::SolverExecution,
+            #[serde(flatten)]
+            outcome: &'a SolveOutcome,
+            intermediate: Intermediate<'a>,
+        }
+
+        serde_json::to_value(BundleOutput {
+            problem: &self.source_name,
+            solver: &self.solver,
+            outcome: &self.source_outcome,
+            intermediate: Intermediate {
+                problem: &self.target_name,
+                outcome: &self.target_outcome,
             },
         })
+        .expect("bundle solve output is serializable")
     }
 }
 
@@ -275,34 +293,39 @@ impl BundleReplay {
 
     /// Solve the target and map the result back to the source problem.
     ///
-    /// A witness-capable aggregate returns its identity when an instance has no
-    /// witness. Witness preservation therefore makes the source aggregate
-    /// identity the corresponding result without requiring a configuration.
     pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
         let target_result = self.target.solve_deterministically(request)?;
-
-        let (source_config, source_evaluation) = match target_result.config.as_deref() {
-            Some(target_config) => {
-                let (source_config, source_evaluation) = self.extract(target_config)?;
-                (Some(source_config), source_evaluation)
+        let solver = target_result.solver;
+        let (source_outcome, target_outcome) = match target_result.outcome {
+            SolveOutcome::Optimal {
+                config: Some(target_config),
+                evaluation: target_evaluation,
+            } => {
+                let (source_config, source_evaluation) = self.extract(&target_config)?;
+                (
+                    SolveOutcome::Optimal {
+                        config: Some(source_config),
+                        evaluation: source_evaluation,
+                    },
+                    SolveOutcome::Optimal {
+                        config: Some(target_config),
+                        evaluation: target_evaluation,
+                    },
+                )
             }
-            None if self.target.supports_witnesses_dyn() => {
-                (None, self.source.aggregate_identity_dyn())
-            }
-            None => anyhow::bail!(
+            SolveOutcome::Optimal { config: None, .. } => anyhow::bail!(
                 "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
                 self.target_name
             ),
+            SolveOutcome::Infeasible => (SolveOutcome::Infeasible, SolveOutcome::Infeasible),
         };
 
         Ok(BundleSolveResult {
             source_name: self.source_name.clone(),
             target_name: self.target_name.clone(),
-            solver: target_result.solver,
-            source_config,
-            source_evaluation,
-            target_config: target_result.config,
-            target_evaluation: target_result.evaluation,
+            solver,
+            source_outcome,
+            target_outcome,
         })
     }
 }
@@ -472,8 +495,13 @@ mod tests {
         let result = loaded
             .solve_deterministically(SolverRequest::BruteForce)
             .unwrap();
-        assert_eq!(result.config, None);
-        assert_eq!(result.evaluation, "Sum(56)");
+        assert_eq!(
+            result.outcome,
+            SolveOutcome::Optimal {
+                config: None,
+                evaluation: "Sum(56)".to_string(),
+            }
+        );
     }
 
     #[test]
@@ -536,13 +564,16 @@ mod tests {
             solver: problemreductions::solvers::SolverExecution::Ilp {
                 reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()],
             },
-            config: Some(vec![1, 0]),
-            evaluation: "Max(1)".to_string(),
+            outcome: SolveOutcome::Optimal {
+                config: Some(vec![1, 0]),
+                evaluation: "Max(1)".to_string(),
+            },
         };
         let json = solve_result_json("Source", &result);
 
         assert_eq!(json["problem"], "Source");
         assert_eq!(json["solver"]["kind"], "ilp");
+        assert_eq!(json["status"], "optimal");
         assert_eq!(
             json["solver"]["reduction_path"],
             serde_json::json!(["Source", "ILP<bool>"])

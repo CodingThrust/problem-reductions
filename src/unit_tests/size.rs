@@ -1,7 +1,72 @@
-use super::{EvaluatedSize, SizeRelation, SizeTransform, SizeTransformError, SizeValues};
+use super::{
+    problem_size_dominates, size_growth_dominates, EvaluatedSize, SizeRelation, SizeTransform,
+    SizeTransformError, SizeValues,
+};
 use crate::expr::Expr;
+use crate::types::ProblemSize;
 use num_bigint::BigUint;
 use num_traits::One;
+
+#[test]
+fn pareto_order_minimizes_every_concrete_size_field() {
+    let small = ProblemSize::new(vec![("vertices", 4), ("edges", 6)]);
+    let large = ProblemSize::new(vec![("edges", 8), ("vertices", 4)]);
+    let tradeoff = ProblemSize::new(vec![("vertices", 3), ("edges", 9)]);
+
+    assert!(problem_size_dominates(&small, &large));
+    assert!(!problem_size_dominates(&small, &tradeoff));
+}
+
+#[test]
+fn pareto_order_minimizes_every_symbolic_growth_field() {
+    let linear = SizeTransform::new(
+        "linear",
+        SizeRelation::UpperBound,
+        [("vertices", Expr::parse("n")), ("edges", Expr::parse("n"))],
+    )
+    .unwrap()
+    .project_growth();
+    let quadratic = SizeTransform::new(
+        "quadratic",
+        SizeRelation::UpperBound,
+        [
+            ("vertices", Expr::parse("n")),
+            ("edges", Expr::parse("n^2")),
+        ],
+    )
+    .unwrap()
+    .project_growth();
+
+    assert!(size_growth_dominates(&linear, &quadratic));
+}
+
+#[test]
+fn coarsened_growth_cannot_eliminate_a_symbolic_path() {
+    let wide_expression = Expr::parse(
+        &(0..33)
+            .map(|index| format!("v{index}"))
+            .collect::<Vec<_>>()
+            .join(" + "),
+    );
+    let coarsened = SizeTransform::new(
+        "coarsened",
+        SizeRelation::UpperBound,
+        [("vertices", wide_expression)],
+    )
+    .unwrap()
+    .project_growth();
+    let exact = SizeTransform::new(
+        "exact",
+        SizeRelation::UpperBound,
+        [("vertices", Expr::parse("n^2"))],
+    )
+    .unwrap()
+    .project_growth();
+
+    assert!(coarsened.get("vertices").unwrap().is_coarsened());
+    assert!(!size_growth_dominates(&coarsened, &exact));
+    assert!(!size_growth_dominates(&exact, &coarsened));
+}
 
 #[test]
 fn exact_transform_evaluates_exactly() {

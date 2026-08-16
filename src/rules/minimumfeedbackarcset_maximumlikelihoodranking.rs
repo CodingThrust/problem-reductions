@@ -1,9 +1,7 @@
 //! Reduction from MinimumFeedbackArcSet to MaximumLikelihoodRanking.
 //!
-//! On unit-weight instances, a ranking induces exactly the feedback arc set of
-//! backward arcs. The target matrix uses the skew-symmetric `c = 0` encoding:
-//! one-way arcs become `+/-1`, while bidirectional pairs and missing pairs map
-//! to `0`.
+//! A ranking induces the feedback arc set of backward arcs. The target matrix
+//! uses the skew-symmetric `c = 0` encoding `a_ij = w_ij - w_ji`.
 
 use crate::models::graph::MinimumFeedbackArcSet;
 use crate::models::misc::MaximumLikelihoodRanking;
@@ -15,18 +13,23 @@ fn build_skew_symmetric_matrix(problem: &MinimumFeedbackArcSet<i32>) -> Vec<Vec<
     let n = problem.num_vertices();
     let graph = problem.graph();
     let mut matrix = vec![vec![0i32; n]; n];
+    let arc_weights = graph
+        .arcs()
+        .into_iter()
+        .zip(problem.weights().iter().copied())
+        .collect::<std::collections::BTreeMap<_, _>>();
 
     for i in 0..n {
         for j in (i + 1)..n {
-            let ij = graph.has_arc(i, j);
-            let ji = graph.has_arc(j, i);
-            if ij && !ji {
-                matrix[i][j] = 1;
-                matrix[j][i] = -1;
-            } else if ji && !ij {
-                matrix[i][j] = -1;
-                matrix[j][i] = 1;
-            }
+            let ij = arc_weights.get(&(i, j)).copied().unwrap_or(0);
+            let ji = arc_weights.get(&(j, i)).copied().unwrap_or(0);
+            let difference = ij.checked_sub(ji).expect(
+                "MinimumFeedbackArcSet -> MaximumLikelihoodRanking weight difference overflow",
+            );
+            matrix[i][j] = difference;
+            matrix[j][i] = difference.checked_neg().expect(
+                "MinimumFeedbackArcSet -> MaximumLikelihoodRanking negated weight difference overflow",
+            );
         }
     }
 
@@ -72,11 +75,6 @@ impl ReduceTo<MaximumLikelihoodRanking> for MinimumFeedbackArcSet<i32> {
     type Result = ReductionFASToMLR;
 
     fn reduce_to(&self) -> Self::Result {
-        assert!(
-            self.weights().iter().all(|&weight| weight == 1),
-            "MinimumFeedbackArcSet -> MaximumLikelihoodRanking requires unit arc weights"
-        );
-
         ReductionFASToMLR {
             target: MaximumLikelihoodRanking::new(build_skew_symmetric_matrix(self)),
             source_arcs: self.graph().arcs(),

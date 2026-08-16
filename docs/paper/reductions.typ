@@ -16571,23 +16571,19 @@ The following reductions to Integer Linear Programming are straightforward formu
         *Multiplicity:* The fixture stores one canonical optimum. Other optimal rankings exist because the DAG obtained after removing the two backward arcs has multiple valid topological orders.
       ],
     )[
-      This $O(n^2)$ reduction @garey1979 applies to unit-weight feedback arc set instances. It keeps the same vertex set as ranking items and encodes each unordered pair by a skew-symmetric entry in $\{-1, 0, 1\}$ with comparison count $c = 0$.
+      This $O(n^2)$ reduction @garey1979 keeps the same vertex set as ranking items and encodes nonnegative integer arc weights in a skew-symmetric matrix with comparison count $c = 0$. The classical unit-weight construction is the special case with entries in $\{-1, 0, 1\}$.
     ][
-      _Construction._ Given a unit-weight Minimum Feedback Arc Set instance $(G = (V, A), bold(1))$ with $V = \{0, dots, n - 1\}$, construct the matrix $M in ZZ^(n times n)$ by setting $M_(i i) = 0$ and, for every distinct pair $i, j$,
+      _Construction._ Given a Minimum Feedback Arc Set instance $(G = (V, A), w)$ with $V = \{0, dots, n - 1\}$, let $w_(i j)$ be the weight of arc $i arrow j$ when it exists and $0$ otherwise. Construct the matrix $M in ZZ^(n times n)$ by setting $M_(i i) = 0$ and, for every distinct pair $i, j$,
       $
-        M_(i j) = cases(
-          1 & "if" (i arrow j) in A and (j arrow i) not in A,
-          -1 & "if" (j arrow i) in A and (i arrow j) not in A,
-          0 & "otherwise"
-        ).
+        M_(i j) = w_(i j) - w_(j i).
       $
       Then $M_(i j) + M_(j i) = 0$ for all $i != j$, so the target is a valid Maximum Likelihood Ranking instance with $n$ items.
 
-      _Correctness._ ($arrow.r.double$) Let $pi$ be any ranking and let $B(pi) = \{(u arrow v) in A : pi(u) > pi(v)\}$ be its backward arcs. Removing $B(pi)$ leaves only forward arcs, hence a DAG, so $B(pi)$ is a feedback arc set. Partition unordered vertex pairs into one-directional pairs $A_1$ and bidirectional pairs $A_2$. Every one-directional backward arc contributes $+1$ to the MLR objective, every one-directional forward arc contributes $-1$, and bidirectional or absent pairs contribute $0$. Therefore
+      _Correctness._ ($arrow.r.double$) Let $pi$ be any ranking and let $B(pi) = \{(u arrow v) in A : pi(u) > pi(v)\}$ be its backward arcs. Removing $B(pi)$ leaves only forward arcs, hence a DAG, so $B(pi)$ is a feedback arc set. For each unordered pair, the selected matrix entry is the backward-arc weight minus the forward-arc weight. Therefore
       $
-        "cost"(pi) = 2 |B(pi)| - (|A_1| + 2|A_2|) = 2 |B(pi)| - |A|.
+        "cost"(pi) = 2 w(B(pi)) - sum_((u arrow v) in A) w_(u v).
       $
-      The target objective is thus the source objective shifted by the constant $-|A|$, so minimizing disagreement cost minimizes feedback arc set size. ($arrow.l.double$) Let $F subset.eq A$ be a minimum feedback arc set, and take a topological order $pi$ of the DAG $G - F$. Every arc in $A backslash F$ is forward in $pi$, hence every backward arc under $pi$ lies in $F$, so $B(pi) subset.eq F$. Since $B(pi)$ is itself a feedback arc set by the previous argument, minimality of $F$ forces $|B(pi)| = |F|$. Therefore an optimal source solution yields an optimal target ranking.
+      The target objective is thus twice the source objective shifted by a constant independent of $pi$, so minimizing disagreement cost minimizes feedback arc weight. ($arrow.l.double$) Let $F subset.eq A$ be a minimum feedback arc set, and take a topological order $pi$ of the DAG $G - F$. Every arc in $A backslash F$ is forward in $pi$, hence every backward arc under $pi$ lies in $F$, so $B(pi) subset.eq F$. Since weights are nonnegative and $B(pi)$ is itself a feedback arc set, minimality of $F$ forces $w(B(pi)) = w(F)$. Therefore an optimal source solution yields an optimal target ranking.
 
       _Solution extraction._ Given the target rank vector, output one source bit per source arc $(u arrow v)$ in source-arc order: set the bit to $1$ iff item $u$ is ranked after item $v$, and to $0$ otherwise.
     ]

@@ -79,7 +79,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `problem_json` (optional string) | Find reduction paths and explain how size changes. With a complete source instance, execute each returned path and report the actual constructed sizes. |
+| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `selection` (`pareto` default or `all`), `problem_json` (optional string) | Find reduction paths and explain how size changes. Selection runs before the output limit; with a complete source instance, execute candidate paths and report actual constructed sizes. |
 | `export_graph` | *(none)* | Export the full reduction graph as JSON |
 
 ### Instance Tools
@@ -90,7 +90,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
 | `evaluate` | `problem_json` (string), `config` (array of int) | Evaluate a configuration against a problem instance and return the objective value or feasibility |
 | `reduce` | `problem_json` (string), `path_json` (string) | Reduce a problem instance along an explicitly supplied route, returning a bundle with the transformed instance and path metadata |
-| `solve` | `problem_json` (string), optional `solver` ("customized"\|"ilp"\|"brute-force"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using deterministic customized → ILP → brute-force dispatch, with optional override and timeout |
+| `solve` | `problem_json` (string), optional `solver` ("customized"\|"ilp"\|"brute-force"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using deterministic customized → ILP → brute-force dispatch. Returns `optimal` or `infeasible`; execution failures are tool errors. |
 
 ## Available Prompts
 
