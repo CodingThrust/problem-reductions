@@ -132,7 +132,7 @@ fn upper_bound_relation_survives_evaluation_and_composition() {
 }
 
 #[test]
-fn upper_bound_cannot_cross_a_non_monotone_exact_transform() {
+fn upper_bound_crosses_subtraction_via_positive_polynomial_hull() {
     let first = SizeTransform::new(
         "A -> B",
         SizeRelation::UpperBound,
@@ -145,8 +145,67 @@ fn upper_bound_cannot_cross_a_non_monotone_exact_transform() {
         [("k", Expr::parse("10 - m"))],
     )
     .unwrap();
+    let exact_result = second
+        .evaluate(&EvaluatedSize::exact(SizeValues::new([("m", 4u8)])))
+        .unwrap();
+    assert_eq!(exact_result.relation(), SizeRelation::Exact);
+    assert_eq!(exact_result.values().get("k"), Some(&BigUint::from(6u8)));
+
+    let composed = first.compose(&second, "A -> C").unwrap();
+    assert_eq!(composed.get("k").unwrap().to_string(), "10");
+
+    let intermediate = first
+        .evaluate(&EvaluatedSize::exact(SizeValues::new([("n", 4u8)])))
+        .unwrap();
+    let result = second.evaluate(&intermediate).unwrap();
+    assert_eq!(result.relation(), SizeRelation::UpperBound);
+    assert_eq!(result.values().get("k"), Some(&BigUint::from(10u8)));
+}
+
+#[test]
+fn polynomial_hull_expands_and_combines_terms_before_dropping_negative_coefficients() {
+    let first = SizeTransform::new(
+        "A -> B",
+        SizeRelation::UpperBound,
+        [
+            ("vertices", Expr::parse("q")),
+            ("edges", Expr::parse("q^2")),
+        ],
+    )
+    .unwrap();
+    let complement = SizeTransform::new(
+        "B -> C",
+        SizeRelation::Exact,
+        [(
+            "edges",
+            Expr::parse("vertices * (vertices - 1) / 2 - edges"),
+        )],
+    )
+    .unwrap();
+
+    let composed = first.compose(&complement, "A -> C").unwrap();
+    assert_eq!(composed.get("edges").unwrap().to_string(), "0.5 * q^2");
+    let result = composed
+        .evaluate(&EvaluatedSize::exact(SizeValues::new([("q", 5u8)])))
+        .unwrap();
+    assert_eq!(result.values().get("edges"), Some(&BigUint::from(13u8)));
+}
+
+#[test]
+fn upper_bound_propagation_rejects_non_polynomial_formulas() {
+    let reciprocal =
+        SizeTransform::new("B -> C", SizeRelation::Exact, [("k", Expr::parse("1 / m"))]).unwrap();
+    let bounded_input = SizeTransform::new(
+        "A -> B",
+        SizeRelation::UpperBound,
+        [("m", Expr::parse("n"))],
+    )
+    .unwrap()
+    .evaluate(&EvaluatedSize::exact(SizeValues::new([("n", 4u8)])))
+    .unwrap();
+
     assert!(matches!(
-        first.compose(&second, "A -> C"),
+        reciprocal.evaluate(&bounded_input),
         Err(SizeTransformError::CannotPropagateUpperBound { .. })
     ));
 }

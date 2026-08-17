@@ -366,9 +366,8 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
 | `compose_path_size_transform(path)` | Symbolic composition | Compose each rule's exact or upper-bound size relation while preserving its promise |
 
-Symbolic path discovery does not rank or prune routes. A rule has one relation for all of
-its formulas: either an exact equality or an upper bound. Composition performs only
-substitution and relation propagation: exact composed with exact stays exact; every other
+A rule has one relation for all of its formulas: either an exact equality or an upper
+bound. Composition keeps exact formulas exact only when every step is exact; every other
 combination is an upper bound. Concrete-instance measurement remains a separate execution
 API.
 
@@ -425,10 +424,9 @@ impl ReduceTo<Target> for Source { ... }
 ```
 
 `SizeTransform` uses exact rational and arbitrary-precision integer arithmetic. Exact
-relations must evaluate to non-negative integers. Upper-bound relations accept only
-non-negative monotone formulas and round rational results upward. Missing fields, negative
-or non-integral exact results, division by zero, and explicit conversion outside `usize`
-are errors.
+relations must evaluate to non-negative integers, while upper-bound results round rational
+values upward. Missing fields, negative or non-integral exact results, division by zero,
+and explicit conversion outside `usize` are errors.
 
 Transforms can be evaluated with an explicit source size:
 
@@ -437,10 +435,14 @@ Input:  ProblemSize { num_vertices: 10, num_edges: 15 }
 Output: ProblemSize { num_vars: 25 }
 ```
 
-For multi-step paths, `compose_path_size_transform` substitutes each step into the next
-without expanding the shared expression DAG. An upper bound cannot pass through a
-non-monotone downstream formula. Projection to `Growth` is an explicit terminal operation,
-and its exact/upper-bound relation is preserved in the result.
+For multi-step paths, `compose_path_size_transform` substitutes each step into the next.
+When only upper bounds are known for the intermediate fields, a downstream polynomial is
+first fully expanded and like monomials are combined; terms with non-positive coefficients
+are then removed before substitution. For example, `m <= n^2` followed by `k = 10 - m`
+produces the sound bound `k <= 10`, while
+`e' = v(v - 1)/2 - e` produces `e' <= v^2/2`. A non-polynomial downstream formula cannot
+propagate symbolic upper bounds and reports an error. Projection to `Growth` is a separate
+terminal operation used for Big-O path comparison.
 
 </details>
 

@@ -6,7 +6,7 @@ use crate::types::ProblemSize;
 use num_bigint::{BigInt, BigUint, Sign};
 use num_rational::BigRational;
 use num_traits::{One, Signed, Zero};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 /// What one reduction rule promises about all of its declared size formulas.
@@ -180,7 +180,6 @@ struct SizeField {
     name: Box<str>,
     expression: Expr,
     plan: Plan,
-    monotone: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -241,19 +240,10 @@ impl SizeTransform {
                 let plan = compile(&expression, &analysis, &mut plans).map_err(|failure| {
                     validation_error(edge.clone(), name.clone(), expression.to_string(), failure)
                 })?;
-                let monotone = is_nonnegative_monotone(&expression, &analysis);
-                if relation == SizeRelation::UpperBound && !monotone {
-                    return Err(SizeTransformError::NonMonotoneUpperBound {
-                        edge: edge.clone(),
-                        field: name,
-                        expression: expression.to_string().into(),
-                    });
-                }
                 Ok(SizeField {
                     name,
                     expression,
                     plan,
-                    monotone,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;
@@ -288,24 +278,44 @@ impl SizeTransform {
     }
 
     pub fn evaluate(&self, input: &EvaluatedSize) -> Result<EvaluatedSize, SizeTransformError> {
-        if input.relation == SizeRelation::UpperBound {
-            if let Some(field) = self.fields.iter().find(|field| !field.monotone) {
-                return Err(SizeTransformError::CannotPropagateUpperBound {
-                    edge: self.edge.clone(),
-                    field: field.name.clone(),
-                    expression: field.expression.to_string().into(),
-                });
-            }
-        }
-
         let relation = input.relation.compose(self.relation);
+        let upper_plans = if input.relation == SizeRelation::UpperBound {
+            Some(
+                self.fields
+                    .iter()
+                    .map(|field| {
+                        let expression =
+                            positive_polynomial_hull(&field.expression).ok_or_else(|| {
+                                SizeTransformError::CannotPropagateUpperBound {
+                                    edge: self.edge.clone(),
+                                    field: field.name.clone(),
+                                    expression: field.expression.to_string().into(),
+                                }
+                            })?;
+                        let analysis = AlgebraicAnalysis::new(&[&expression]);
+                        compile(&expression, &analysis, &mut HashMap::new()).map_err(|failure| {
+                            validation_error(
+                                self.edge.clone(),
+                                field.name.clone(),
+                                expression.to_string(),
+                                failure,
+                            )
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        } else {
+            None
+        };
         let mut memo = HashMap::new();
         let mut output = Vec::with_capacity(self.fields.len());
-        for field in &self.fields {
-            let value =
-                evaluate_plan(&field.plan, &input.values, &mut memo).map_err(|failure| {
-                    evaluation_error(self.edge.clone(), field.name.clone(), failure)
-                })?;
+        for (index, field) in self.fields.iter().enumerate() {
+            let plan = upper_plans
+                .as_ref()
+                .map_or(&field.plan, |plans| &plans[index]);
+            let value = evaluate_plan(plan, &input.values, &mut memo).map_err(|failure| {
+                evaluation_error(self.edge.clone(), field.name.clone(), failure)
+            })?;
             if value.is_negative() {
                 return Err(SizeTransformError::NegativeResult {
                     edge: self.edge.clone(),
@@ -338,29 +348,31 @@ impl SizeTransform {
         next: &SizeTransform,
         edge: impl Into<Box<str>>,
     ) -> Result<SizeTransform, SizeTransformError> {
-        if self.relation == SizeRelation::UpperBound {
-            if let Some(field) = next.fields.iter().find(|field| !field.monotone) {
-                return Err(SizeTransformError::CannotPropagateUpperBound {
-                    edge: next.edge.clone(),
-                    field: field.name.clone(),
-                    expression: field.expression.to_string().into(),
-                });
-            }
-        }
         let edge = edge.into();
         let replacements: HashMap<&str, &Expr> = self.expressions().collect();
         let fields = next
             .fields
             .iter()
             .map(|field| {
-                let expression = field
-                    .expression
-                    .substitute_complete(&replacements)
-                    .map_err(|error| SizeTransformError::MissingCompositionInput {
-                        edge: edge.clone(),
-                        field: field.name.clone(),
-                        input_fields: error.missing_variables().map(Box::<str>::from).collect(),
-                    })?;
+                let expression = if self.relation == SizeRelation::UpperBound {
+                    positive_polynomial_hull(&field.expression).ok_or_else(|| {
+                        SizeTransformError::CannotPropagateUpperBound {
+                            edge: next.edge.clone(),
+                            field: field.name.clone(),
+                            expression: field.expression.to_string().into(),
+                        }
+                    })?
+                } else {
+                    field.expression.clone()
+                };
+                let expression =
+                    expression
+                        .substitute_complete(&replacements)
+                        .map_err(|error| SizeTransformError::MissingCompositionInput {
+                            edge: edge.clone(),
+                            field: field.name.clone(),
+                            input_fields: error.missing_variables().map(Box::<str>::from).collect(),
+                        })?;
                 Ok((field.name.clone(), expression))
             })
             .collect::<Result<Vec<_>, SizeTransformError>>()?;
@@ -380,6 +392,102 @@ impl SizeTransform {
             .collect();
         SizeGrowth { fields }
     }
+}
+
+type Monomial = BTreeMap<Symbol, BigUint>;
+type Polynomial = BTreeMap<Monomial, BigRational>;
+
+fn positive_polynomial_hull(expression: &Expr) -> Option<Expr> {
+    let polynomial = polynomial(expression)?;
+    let terms = polynomial
+        .into_iter()
+        .filter(|(_, coefficient)| coefficient.is_positive())
+        .map(|(monomial, coefficient)| {
+            monomial
+                .into_iter()
+                .fold(Expr::constant(coefficient), |term, (variable, exponent)| {
+                    term * Expr::pow(
+                        Expr::variable(variable.as_str()),
+                        Expr::integer(BigInt::from(exponent)),
+                    )
+                })
+        });
+    Some(terms.fold(Expr::integer(0), |sum, term| sum + term))
+}
+
+fn polynomial(expression: &Expr) -> Option<Polynomial> {
+    match expression.node() {
+        ExprNode::Const(value) => Some(BTreeMap::from([(BTreeMap::new(), value.clone())])),
+        ExprNode::Var(variable) => Some(BTreeMap::from([(
+            BTreeMap::from([(variable.clone(), BigUint::one())]),
+            BigRational::one(),
+        )])),
+        ExprNode::Add(values) => values.iter().try_fold(BTreeMap::new(), |sum, value| {
+            Some(add_polynomials(sum, polynomial(value)?))
+        }),
+        ExprNode::Mul(values) => values.iter().try_fold(
+            BTreeMap::from([(BTreeMap::new(), BigRational::one())]),
+            |product, value| Some(multiply_polynomials(product, polynomial(value)?)),
+        ),
+        ExprNode::Pow(base, exponent) => {
+            let ExprNode::Const(exponent) = exponent.node() else {
+                return None;
+            };
+            if !exponent.is_integer() {
+                return None;
+            }
+            if exponent.is_negative() {
+                let ExprNode::Const(base) = base.node() else {
+                    return None;
+                };
+                if base.is_zero() {
+                    return None;
+                }
+                return Some(BTreeMap::from([(
+                    BTreeMap::new(),
+                    pow_rational(base.clone(), &exponent.to_integer()),
+                )]));
+            }
+            let mut exponent = exponent.to_integer().magnitude().clone();
+            let mut base = polynomial(base)?;
+            let mut result = BTreeMap::from([(BTreeMap::new(), BigRational::one())]);
+            while !exponent.is_zero() {
+                if exponent.bit(0) {
+                    result = multiply_polynomials(result, base.clone());
+                }
+                exponent >>= 1usize;
+                if !exponent.is_zero() {
+                    base = multiply_polynomials(base.clone(), base);
+                }
+            }
+            Some(result)
+        }
+        ExprNode::Exp(_) | ExprNode::Log(_) | ExprNode::Factorial(_) => None,
+    }
+}
+
+fn add_polynomials(mut left: Polynomial, right: Polynomial) -> Polynomial {
+    for (monomial, right_coefficient) in right {
+        *left.entry(monomial).or_insert_with(BigRational::zero) += right_coefficient;
+    }
+    left.retain(|_, coefficient| !coefficient.is_zero());
+    left
+}
+
+fn multiply_polynomials(left: Polynomial, right: Polynomial) -> Polynomial {
+    let mut product = Polynomial::new();
+    for (left_monomial, left_coefficient) in left {
+        for (right_monomial, right_coefficient) in &right {
+            let mut monomial = left_monomial.clone();
+            for (variable, exponent) in right_monomial {
+                *monomial.entry(variable.clone()).or_default() += exponent;
+            }
+            *product.entry(monomial).or_insert_with(BigRational::zero) +=
+                &left_coefficient * right_coefficient;
+        }
+    }
+    product.retain(|_, coefficient| !coefficient.is_zero());
+    product
 }
 
 fn compile(
@@ -429,33 +537,6 @@ fn compile(
     let plan = Plan(Arc::new(node));
     memo.insert(expression.node_identity(), plan.clone());
     Ok(plan)
-}
-
-fn is_nonnegative_monotone(expression: &Expr, analysis: &AlgebraicAnalysis) -> bool {
-    if analysis
-        .facts(expression)
-        .exact_rational
-        .as_ref()
-        .is_some_and(|value| !value.is_negative())
-    {
-        return true;
-    }
-    match expression.node() {
-        ExprNode::Const(value) => !value.is_negative(),
-        ExprNode::Var(_) => true,
-        ExprNode::Add(values) | ExprNode::Mul(values) => values
-            .iter()
-            .all(|value| is_nonnegative_monotone(value, analysis)),
-        ExprNode::Pow(base, exponent) => {
-            analysis
-                .facts(exponent)
-                .exact_rational
-                .as_ref()
-                .is_some_and(|exponent| exponent.is_integer() && !exponent.is_negative())
-                && is_nonnegative_monotone(base, analysis)
-        }
-        ExprNode::Exp(_) | ExprNode::Log(_) | ExprNode::Factorial(_) => false,
-    }
 }
 
 fn evaluate_plan(
@@ -599,12 +680,6 @@ pub enum SizeTransformError {
         field: Box<str>,
         expression: Box<str>,
         operator: &'static str,
-    },
-    #[error("reduction `{edge}` target field `{field}` has a non-monotone upper-bound formula `{expression}`")]
-    NonMonotoneUpperBound {
-        edge: Box<str>,
-        field: Box<str>,
-        expression: Box<str>,
     },
     #[error("reduction `{edge}` target field `{field}` cannot propagate an upper bound through `{expression}`")]
     CannotPropagateUpperBound {

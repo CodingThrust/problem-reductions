@@ -15,7 +15,7 @@ use std::fmt;
 use crate::types::ProblemSize;
 
 /// Algebraic facts computed once from the shared expression DAG and consumed by
-/// exact-size, monotone-bound, and asymptotic-growth projections.
+/// exact-size evaluation and asymptotic-growth projection.
 #[derive(Clone, Debug)]
 pub(crate) struct AlgebraicAnalysis {
     facts: HashMap<ExprNodeId, AlgebraicFacts>,
