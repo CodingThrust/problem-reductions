@@ -37,7 +37,7 @@ pub struct FindPathParams {
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Maximum selected paths to output (default: 20)")]
+    #[schemars(description = "Maximum selected paths to output (default: 20, maximum: 999)")]
     pub max_paths: Option<usize>,
     #[schemars(description = "Path selection: pareto (default) or all")]
     pub selection: Option<String>,
@@ -262,7 +262,7 @@ impl McpServer {
             &dst_ref.variant,
             max_paths,
             selection,
-        );
+        )?;
         if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
                 "No reduction path from {} to {}",

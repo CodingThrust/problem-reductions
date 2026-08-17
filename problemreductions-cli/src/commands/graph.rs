@@ -1007,7 +1007,7 @@ fn path_symbolic(
         dst_variant,
         max_paths,
         selection,
-    );
+    )?;
 
     if batch.paths.is_empty() && !batch.truncated {
         let variant_hint = variant_hint_for(graph, dst_name);
@@ -1084,7 +1084,8 @@ pub(crate) fn find_path_batch(
     dst_variant: &BTreeMap<String, String>,
     max_paths: usize,
     selection: PathSelection,
-) -> PathBatch {
+) -> Result<PathBatch> {
+    anyhow::ensure!(max_paths <= 999, "max_paths must not exceed 999");
     let paths = match selection {
         PathSelection::Pareto => {
             let mut paths = graph.find_all_paths(src_name, src_variant, dst_name, dst_variant);
@@ -1102,11 +1103,11 @@ pub(crate) fn find_path_batch(
             graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1)
         }
     };
-    PathBatch {
+    Ok(PathBatch {
         paths,
         truncated: false,
         max_paths,
-    }
+    })
 }
 
 pub(crate) fn cap_path_batch(batch: &mut PathBatch) {
@@ -1308,7 +1309,7 @@ fn path_concrete(
         dst_variant,
         max_paths,
         selection,
-    );
+    )?;
     if batch.paths.is_empty() && !batch.truncated {
         anyhow::bail!("No reduction path from {src_name} to {dst_name}");
     }

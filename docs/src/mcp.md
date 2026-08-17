@@ -79,7 +79,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 | `list_problems` | *(none)* | List all registered problem types with aliases, variant counts, and reduction counts |
 | `show_problem` | `problem` (string) | Show details for a problem type: variants, size fields, schema, and incoming/outgoing reductions |
 | `neighbors` | `problem` (string), `hops` (int, default: 1), `direction` ("out"\|"in"\|"both", default: "out") | Find neighboring problems reachable via reduction edges within a given hop distance |
-| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20), `selection` (`pareto` default or `all`), `problem_json` (optional string) | Find reduction paths and explain how size changes. Selection runs before the output limit; with a complete source instance, execute candidate paths and report actual constructed sizes. |
+| `find_path` | `source` (string), `target` (string), `max_paths` (int, default: 20, maximum: 999), `selection` (`pareto` default or `all`), `problem_json` (optional string) | Find reduction paths and explain how size changes. Selection runs before the output limit; with a complete source instance, execute candidate paths and report actual constructed sizes. |
 | `export_graph` | *(none)* | Export the full reduction graph as JSON |
 
 ### Instance Tools

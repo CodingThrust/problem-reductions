@@ -6,7 +6,7 @@ fn pred() -> Command {
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--max-paths", "2000", "--json"])
+        .args(["path", source, target, "--max-paths", "999", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -59,7 +59,7 @@ fn reduce_named_to_file(
 
 fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--max-paths", "2000", "--json"])
+        .args(["path", source, target, "--max-paths", "999", "--json"])
         .output()
         .unwrap();
     assert!(command.status.success());
@@ -508,6 +508,24 @@ fn test_path_max_paths_caps_selected_output() {
     assert_eq!(json["truncated"], true);
     assert!(json.get("returned").is_none());
     assert!(json.get("max_paths").is_none());
+}
+
+#[test]
+fn test_path_rejects_max_paths_above_output_limit() {
+    let output = pred()
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "--selection",
+            "all",
+            "--max-paths",
+            "1000",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("max_paths must not exceed 999"));
 }
 
 #[test]

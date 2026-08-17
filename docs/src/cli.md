@@ -165,7 +165,7 @@ problem JSON file, every candidate path is executed on the complete source insta
 and the actual size of each constructed intermediate is reported. By default,
 `--selection pareto` returns the paths whose target-size vectors are Pareto
 nondominated among the candidates. Use `--selection all` to return every candidate.
-`--max-paths` (default: 20) caps the selected output after comparison. Pareto
+`--max-paths` (default: 20, maximum: 999) caps the selected output after comparison. Pareto
 selection considers every simple candidate path and never prunes graph search using
 size estimates. Extract one route from the path-set envelope before passing it to
 `pred reduce --via`.

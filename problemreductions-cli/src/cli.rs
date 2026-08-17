@@ -176,7 +176,7 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Maximum selected paths to output
+        /// Maximum selected paths to output (at most 999)
         #[arg(long, default_value_t = 20)]
         max_paths: usize,
         /// Which enumerated paths to return

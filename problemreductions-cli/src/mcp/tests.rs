@@ -4,7 +4,7 @@ use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
 fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
     let response = server
-        .find_path_inner(source, target, 2000, PathSelection::All, None)
+        .find_path_inner(source, target, 999, PathSelection::All, None)
         .expect("path enumeration");
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
     let entry = json["paths"]
@@ -116,6 +116,14 @@ fn test_find_path_is_capped_explicitly() {
     assert!(json.get("max_paths").is_none());
     assert!(json.get("analysis").is_none());
     assert_eq!(json["truncated"], true);
+}
+
+#[test]
+fn test_find_path_rejects_max_paths_above_output_limit() {
+    let error = McpServer::new()
+        .find_path_inner("MIS", "QUBO", 1000, PathSelection::All, None)
+        .unwrap_err();
+    assert_eq!(error.to_string(), "max_paths must not exceed 999");
 }
 
 #[test]
