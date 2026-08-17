@@ -3,7 +3,6 @@ use super::{
     SizeTransformError, SizeValues,
 };
 use crate::expr::Expr;
-use crate::growth::GrowthPrecision;
 use crate::types::ProblemSize;
 use num_bigint::BigUint;
 use num_traits::One;
@@ -19,7 +18,7 @@ fn pareto_order_minimizes_every_concrete_size_field() {
 }
 
 #[test]
-fn two_upper_bounds_cannot_eliminate_either_symbolic_path() {
+fn symbolic_pareto_compares_big_o_regardless_of_size_relation() {
     let linear = SizeTransform::new(
         "linear",
         SizeRelation::UpperBound,
@@ -38,12 +37,12 @@ fn two_upper_bounds_cannot_eliminate_either_symbolic_path() {
     .unwrap()
     .project_growth();
 
-    assert!(!size_growth_dominates(&linear, &quadratic));
+    assert!(size_growth_dominates(&linear, &quadratic));
     assert!(!size_growth_dominates(&quadratic, &linear));
 }
 
 #[test]
-fn an_upper_bound_can_eliminate_a_proven_tight_slower_path() {
+fn rule_relation_does_not_change_symbolic_big_o_order() {
     let linear_bound = SizeTransform::new(
         "linear bound",
         SizeRelation::UpperBound,
@@ -64,15 +63,15 @@ fn an_upper_bound_can_eliminate_a_proven_tight_slower_path() {
 }
 
 #[test]
-fn antichain_collapse_cannot_eliminate_a_symbolic_path() {
+fn antichain_overflow_cannot_eliminate_a_symbolic_path() {
     let wide_expression = Expr::parse(
         &(0..33)
             .map(|index| format!("v{index}"))
             .collect::<Vec<_>>()
             .join(" + "),
     );
-    let coarsened = SizeTransform::new(
-        "coarsened",
+    let overflow = SizeTransform::new(
+        "overflow",
         SizeRelation::Exact,
         [("vertices", wide_expression)],
     )
@@ -86,12 +85,12 @@ fn antichain_collapse_cannot_eliminate_a_symbolic_path() {
     .unwrap()
     .project_growth();
 
-    assert_eq!(
-        coarsened.get("vertices").unwrap().precision(),
-        Some(GrowthPrecision::UpperBound)
-    );
-    assert!(!size_growth_dominates(&coarsened, &exact));
-    assert!(!size_growth_dominates(&exact, &coarsened));
+    assert!(matches!(
+        overflow.get("vertices").unwrap().failures(),
+        Some([crate::growth::GrowthFailure::AntichainLimitExceeded { .. }])
+    ));
+    assert!(!size_growth_dominates(&overflow, &exact));
+    assert!(!size_growth_dominates(&exact, &overflow));
 }
 
 #[test]
@@ -182,14 +181,13 @@ fn evaluation_stays_exact_beyond_machine_integer_range() {
 }
 
 #[test]
-fn growth_projection_keeps_the_rule_relation() {
-    let transform = SizeTransform::new(
-        "A -> B",
-        SizeRelation::UpperBound,
-        [("m", Expr::parse("3*n^2"))],
-    )
-    .unwrap();
-    let growth = transform.project_growth();
-    assert_eq!(growth.relation(), SizeRelation::UpperBound);
-    assert_eq!(growth.get("m").unwrap().to_big_o(), "O(n^2)");
+fn growth_projection_discards_the_rule_relation() {
+    for relation in [SizeRelation::Exact, SizeRelation::UpperBound] {
+        let transform =
+            SizeTransform::new("A -> B", relation, [("m", Expr::parse("3*n^2"))]).unwrap();
+        assert_eq!(
+            transform.project_growth().get("m").unwrap().to_big_o(),
+            "O(n^2)"
+        );
+    }
 }

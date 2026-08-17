@@ -3,10 +3,10 @@
 //!
 //! Where full monomial canonicalization answers Big-O questions by expanding an
 //! [`Expr`] to monomial normal form, with exponential cost in nesting depth, the
-//! growth domain computes an asymptotic upper bound bottom-up without rewriting
+//! growth domain computes a Big-O normal form bottom-up without rewriting
 //! the source AST into a fully distributed polynomial. Work is output-sensitive:
-//! antichains are retained up to 32 terms; larger fronts are replaced
-//! by one sound componentwise upper bound.
+//! antichains are retained up to 32 terms; larger fronts are reported as
+//! unsupported instead of silently approximated.
 //!
 //! # Representation
 //!
@@ -18,9 +18,8 @@
 //! ```
 //!
 //! and a [`Growth`] is either a known antichain of pairwise-incomparable dominant
-//! terms (each summand of an asymptotic sum), together with whether that
-//! antichain is tight or only an upper bound, or an unknown result with explicit
-//! reasons for content we cannot bound symbolically.
+//! terms (each summand of an asymptotic sum), or an unknown result with explicit
+//! reasons for content we cannot represent symbolically.
 //!
 //! # Semantic foundation (the trust contract)
 //!
@@ -61,8 +60,7 @@ use num_traits::{One, Signed, ToPrimitive, Zero};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 
-/// Maximum number of incomparable terms retained before replacing the complete
-/// antichain with one sound componentwise upper bound.
+/// Maximum number of incomparable terms retained in one Big-O normal form.
 const ANTICHAIN_CAP: usize = 32;
 
 /// An exact fixed exponential base.
@@ -302,24 +300,6 @@ impl VariableGrowth {
             None
         }
     }
-
-    fn upper_envelope(&mut self, other: &Self) {
-        for (base, coefficient) in &other.exp {
-            match self.exp.get_mut(base) {
-                Some(current)
-                    if base.coefficient_cmp(coefficient, current) == Ordering::Greater =>
-                {
-                    *current = coefficient.clone();
-                }
-                Some(_) => {}
-                None => {
-                    self.exp.insert(base.clone(), coefficient.clone());
-                }
-            }
-        }
-        self.poly = self.poly.clone().max(other.poly.clone());
-        self.log = self.log.max(other.log);
-    }
 }
 
 /// One growth monomial, e.g. `2^(3k) · n^2 · m · log(n)`.
@@ -336,31 +316,10 @@ pub struct Growth(GrowthState);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum GrowthState {
-    Known {
-        terms: Vec<GrowthTerm>,
-        precision: GrowthPrecision,
-    },
+    Known(Vec<GrowthTerm>),
     /// Content outside the represented growth domain, with every reason that
     /// contributed to the result.
     Unknown(Vec<GrowthFailure>),
-}
-
-/// Whether a represented asymptotic class is certified tight or is only a
-/// sound upper bound.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum GrowthPrecision {
-    Tight,
-    UpperBound,
-}
-
-impl GrowthPrecision {
-    fn combine(self, other: Self) -> Self {
-        if self == Self::Tight && other == Self::Tight {
-            Self::Tight
-        } else {
-            Self::UpperBound
-        }
-    }
 }
 
 /// A precise reason why an expression has no represented [`Growth`] value.
@@ -390,6 +349,8 @@ pub enum GrowthFailure {
     },
     #[error("missing substitution for {0}")]
     MissingSubstitution(String),
+    #[error("Big-O antichain has {terms} terms, exceeding the limit of {limit}")]
+    AntichainLimitExceeded { limit: usize, terms: usize },
 }
 
 impl GrowthTerm {
@@ -415,17 +376,6 @@ impl GrowthTerm {
             r.insert(variable.clone(), growth.pow(k)?);
         }
         Ok(r)
-    }
-
-    fn log_power_rounds_up(&self, power: &BigRational) -> bool {
-        self.variables.values().any(|growth| {
-            let scaled = BigRational::from_integer(BigInt::from(growth.log)) * power;
-            !scaled.is_integer()
-        })
-    }
-
-    fn contains_log_factor(&self) -> bool {
-        self.variables.values().any(|growth| growth.log != 0)
     }
 
     /// Multiply two monomials (add matching exponents).
@@ -497,20 +447,6 @@ impl GrowthTerm {
             Some(Ordering::Greater) | Some(Ordering::Equal)
         )
     }
-
-    fn upper_envelope(terms: &[GrowthTerm]) -> GrowthTerm {
-        let mut result = GrowthTerm::one();
-        for term in terms {
-            for (variable, growth) in &term.variables {
-                result
-                    .variables
-                    .entry(variable.clone())
-                    .or_insert_with(VariableGrowth::empty)
-                    .upper_envelope(growth);
-            }
-        }
-        result
-    }
 }
 
 impl Growth {
@@ -520,17 +456,8 @@ impl Growth {
 
     pub fn failures(&self) -> Option<&[GrowthFailure]> {
         match &self.0 {
-            GrowthState::Known { .. } => None,
+            GrowthState::Known(_) => None,
             GrowthState::Unknown(failures) => Some(failures),
-        }
-    }
-
-    /// Precision of a represented growth class, or `None` when the expression
-    /// is outside the represented domain.
-    pub fn precision(&self) -> Option<GrowthPrecision> {
-        match self.0 {
-            GrowthState::Known { precision, .. } => Some(precision),
-            GrowthState::Unknown(_) => None,
         }
     }
 
@@ -544,23 +471,17 @@ impl Growth {
         growth_from_analysis(expr, analysis, &mut HashMap::new())
     }
 
-    /// Compare the represented bounds, ignoring how tightly they approximate
-    /// their source expressions.
+    /// Partial order on represented Big-O normal forms.
     ///
-    /// Per the growth-rate reading, unknown growth is the top element (it
-    /// may be arbitrarily large, e.g. a factorial), so it dominates everything
-    /// and nothing known dominates it. For two term antichains, `self`
+    /// Unknown values are incomparable. For two known term antichains, `self`
     /// dominates `other` iff every term of `other` is dominated-or-equal by
     /// some term of `self` — the standard antichain (Pareto) comparison.
-    /// Callers deciding whether one source expression can eliminate another
-    /// must additionally account for [`GrowthPrecision`].
-    pub(crate) fn bound_dominates(&self, other: &Growth) -> bool {
+    pub fn dominates(&self, other: &Growth) -> bool {
         match (&self.0, &other.0) {
-            (GrowthState::Unknown(_), _) => true,
-            (_, GrowthState::Unknown(_)) => false,
-            (GrowthState::Known { terms: a, .. }, GrowthState::Known { terms: b, .. }) => {
+            (GrowthState::Known(a), GrowthState::Known(b)) => {
                 b.iter().all(|tb| a.iter().any(|ta| ta.dominates_or_eq(tb)))
             }
+            _ => false,
         }
     }
 
@@ -573,7 +494,7 @@ impl Growth {
     pub fn to_expr(&self) -> Option<Expr> {
         match &self.0 {
             GrowthState::Unknown(_) => None,
-            GrowthState::Known { terms, .. } => {
+            GrowthState::Known(terms) => {
                 if terms.is_empty() {
                     return Some(Expr::integer(1));
                 }
@@ -612,16 +533,7 @@ fn growth_from_analysis(
     let facts = analysis.facts(expression);
     if facts.is_constant {
         let growth = if facts.constant_domain == Some(true) {
-            let growth = constant_growth();
-            if facts
-                .exact_rational
-                .as_ref()
-                .is_some_and(|value| value.is_negative())
-            {
-                growth.into_upper_bound()
-            } else {
-                growth
-            }
+            constant_growth()
         } else {
             unknown(GrowthFailure::InvalidConstantDomain {
                 expression: expression.to_string(),
@@ -646,24 +558,11 @@ fn growth_from_analysis(
             .map(|value| growth_from_analysis(value, analysis, memo))
             .reduce(add)
             .expect("normalized sum has at least two terms"),
-        ExprNode::Mul(values) => {
-            let growth = values
-                .iter()
-                .map(|value| growth_from_analysis(value, analysis, memo))
-                .reduce(mul)
-                .expect("normalized product has at least two factors");
-            if values.iter().any(|value| {
-                analysis
-                    .facts(value)
-                    .exact_rational
-                    .as_ref()
-                    .is_some_and(|constant| constant.is_negative())
-            }) {
-                growth.into_upper_bound()
-            } else {
-                growth
-            }
-        }
+        ExprNode::Mul(values) => values
+            .iter()
+            .map(|value| growth_from_analysis(value, analysis, memo))
+            .reduce(mul)
+            .expect("normalized product has at least two factors"),
         ExprNode::Pow(base, exponent) => {
             let base_facts = analysis.facts(base);
             let exponent_facts = analysis.facts(exponent);
@@ -848,27 +747,18 @@ fn prune(mut terms: Vec<GrowthTerm>) -> Vec<GrowthTerm> {
 }
 
 fn exact_growth(terms: Vec<GrowthTerm>) -> Growth {
-    finish_growth(terms, GrowthPrecision::Tight)
+    finish_growth(terms)
 }
 
-fn finish_growth(terms: Vec<GrowthTerm>, mut precision: GrowthPrecision) -> Growth {
+fn finish_growth(terms: Vec<GrowthTerm>) -> Growth {
     let terms = prune(terms);
-    let terms = if terms.len() > ANTICHAIN_CAP {
-        precision = GrowthPrecision::UpperBound;
-        vec![GrowthTerm::upper_envelope(&terms)]
-    } else {
-        terms
-    };
-    Growth(GrowthState::Known { terms, precision })
-}
-
-impl Growth {
-    fn into_upper_bound(mut self) -> Self {
-        if let GrowthState::Known { precision, .. } = &mut self.0 {
-            *precision = GrowthPrecision::UpperBound;
-        }
-        self
+    if terms.len() > ANTICHAIN_CAP {
+        return unknown(GrowthFailure::AntichainLimitExceeded {
+            limit: ANTICHAIN_CAP,
+            terms: terms.len(),
+        });
     }
+    Growth(GrowthState::Known(terms))
 }
 
 /// Antichain union (asymptotic `+ ≍ max`).
@@ -876,10 +766,9 @@ fn add(a: Growth, b: Growth) -> Growth {
     if a.failures().is_some() || b.failures().is_some() {
         return merge_unknown(a, b);
     }
-    let precision = known_precision(&a).combine(known_precision(&b));
     let mut terms = into_terms(a);
     terms.extend(into_terms(b));
-    finish_growth(terms, precision)
+    finish_growth(terms)
 }
 
 /// Pairwise product of two antichains.
@@ -887,7 +776,6 @@ fn mul(a: Growth, b: Growth) -> Growth {
     if a.failures().is_some() || b.failures().is_some() {
         return merge_unknown(a, b);
     }
-    let precision = known_precision(&a).combine(known_precision(&b));
     let x = into_terms(a);
     let y = into_terms(b);
     let mut product = Vec::with_capacity(x.len() * y.len());
@@ -899,41 +787,24 @@ fn mul(a: Growth, b: Growth) -> Growth {
             }
         }
     }
-    finish_growth(product, precision)
+    finish_growth(product)
 }
 
 /// Raise a whole antichain to a nonnegative real power `k` (raise each term).
 fn pow_const(g: Growth, k: &BigRational) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known {
-            terms,
-            mut precision,
-        } => {
-            if terms.iter().any(|term| term.log_power_rounds_up(k)) {
-                precision = GrowthPrecision::UpperBound;
-            }
-            match terms.iter().map(|term| term.pow(k)).collect() {
-                Ok(terms) => finish_growth(terms, precision),
-                Err(failure) => unknown(failure),
-            }
-        }
+        GrowthState::Known(terms) => match terms.iter().map(|term| term.pow(k)).collect() {
+            Ok(terms) => finish_growth(terms),
+            Err(failure) => unknown(failure),
+        },
     }
 }
 
 fn into_terms(growth: Growth) -> Vec<GrowthTerm> {
     match growth.0 {
-        GrowthState::Known { terms, .. } => terms,
+        GrowthState::Known(terms) => terms,
         GrowthState::Unknown(_) => unreachable!("unknown growth is handled before term access"),
-    }
-}
-
-fn known_precision(growth: &Growth) -> GrowthPrecision {
-    match growth.0 {
-        GrowthState::Known { precision, .. } => precision,
-        GrowthState::Unknown(_) => {
-            unreachable!("unknown growth is handled before precision access")
-        }
     }
 }
 
@@ -979,21 +850,15 @@ fn exponential(
 fn log_growth(g: Growth) -> Growth {
     match g.0 {
         GrowthState::Unknown(failures) => Growth(GrowthState::Unknown(failures)),
-        GrowthState::Known {
-            terms,
-            mut precision,
-        } => {
+        GrowthState::Known(terms) => {
             let mut out = Vec::new();
             for t in &terms {
-                if t.contains_log_factor() {
-                    precision = GrowthPrecision::UpperBound;
-                }
                 out.extend(log_term(t));
             }
             if out.is_empty() {
                 out.push(GrowthTerm::one()); // log(O(1)) = O(1)
             }
-            finish_growth(out, precision)
+            finish_growth(out)
         }
     }
 }

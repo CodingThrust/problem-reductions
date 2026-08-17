@@ -1,8 +1,8 @@
 //! Unit tests for the symbolic growth domain (`src/growth.rs`).
 
 use super::{
-    add, exact_growth, mul, ExpBase, Growth, GrowthFailure, GrowthPrecision, GrowthState,
-    GrowthTerm, VariableGrowth, ANTICHAIN_CAP,
+    add, exact_growth, mul, ExpBase, Growth, GrowthFailure, GrowthState, GrowthTerm,
+    VariableGrowth, ANTICHAIN_CAP,
 };
 use crate::expr::{
     evaluate_approximate, expression_from_approximation, AlgebraicAnalysis, Expr, ExprNode,
@@ -45,7 +45,7 @@ fn term(exp: &[(&str, f64)], poly: &[(&str, f64)], logs: &[(&str, u32)]) -> Grow
 
 fn terms_of(g: &Growth) -> &[GrowthTerm] {
     match &g.0 {
-        GrowthState::Known { terms, .. } => terms,
+        GrowthState::Known(terms) => terms,
         GrowthState::Unknown(failures) => panic!("expected known growth, got {failures:?}"),
     }
 }
@@ -87,7 +87,7 @@ fn test_growth_relations_against_sympy_limits() {
     for case in fixture.growth_cases {
         let left = g(&case.left);
         let right = g(&case.right);
-        let actual = (left.bound_dominates(&right), right.bound_dominates(&left));
+        let actual = (left.dominates(&right), right.dominates(&left));
         let expected = match case.relation {
             SympyGrowthRelation::Equivalent => (true, true),
             SympyGrowthRelation::LeftDominates => (true, false),
@@ -142,8 +142,8 @@ fn test_growth_no_expansion_regression() {
 fn test_growth_exponential_dominates_polynomial() {
     let exp = g("1.001^n");
     let poly = g("n^100");
-    assert!(exp.bound_dominates(&poly));
-    assert!(!poly.bound_dominates(&exp));
+    assert!(exp.dominates(&poly));
+    assert!(!poly.dominates(&exp));
 }
 
 /// 3. Incomparability is honest: neither `n^2` nor `n*m` dominates the other,
@@ -152,8 +152,8 @@ fn test_growth_exponential_dominates_polynomial() {
 fn test_growth_incomparable_terms_both_kept() {
     let n2 = g("n^2");
     let nm = g("n*m");
-    assert!(!n2.bound_dominates(&nm));
-    assert!(!nm.bound_dominates(&n2));
+    assert!(!n2.dominates(&nm));
+    assert!(!nm.dominates(&n2));
 
     let sum = g("n^2 + n*m");
     assert_eq!(terms_of(&sum).len(), 2);
@@ -165,32 +165,32 @@ fn test_growth_incomparable_terms_both_kept() {
 fn test_growth_exponent_rates_exact() {
     let two_2n = g("2^(2*n)");
     let two_n = g("2^n");
-    assert!(two_2n.bound_dominates(&two_n));
-    assert!(!two_n.bound_dominates(&two_2n));
+    assert!(two_2n.dominates(&two_n));
+    assert!(!two_n.dominates(&two_2n));
 
     let three_n = g("3^n");
-    assert!(three_n.bound_dominates(&two_n));
-    assert!(!two_n.bound_dominates(&three_n));
+    assert!(three_n.dominates(&two_n));
+    assert!(!two_n.dominates(&three_n));
 
     let exp_2n = g("exp(2*n)");
     let exp_n = g("exp(n)");
-    assert!(exp_2n.bound_dominates(&exp_n));
-    assert!(!exp_n.bound_dominates(&exp_2n));
+    assert!(exp_2n.dominates(&exp_n));
+    assert!(!exp_n.dominates(&exp_2n));
 
-    assert!(g("0.5^(-2*n)").bound_dominates(&g("0.5^(-n)")));
-    assert!(g("0.25^(-n)").bound_dominates(&g("0.5^(-n)")));
+    assert!(g("0.5^(-2*n)").dominates(&g("0.5^(-n)")));
+    assert!(g("0.25^(-n)").dominates(&g("0.5^(-n)")));
 }
 
 #[test]
 fn test_growth_exact_coefficients_do_not_cross_boundaries() {
     let polynomial = g("n^1000");
-    assert!(g("2^(n/9007199254740992)").bound_dominates(&polynomial));
-    assert!(g("(9007199254740993/9007199254740992)^n").bound_dominates(&polynomial));
+    assert!(g("2^(n/9007199254740992)").dominates(&polynomial));
+    assert!(g("(9007199254740993/9007199254740992)^n").dominates(&polynomial));
 
     let unit_rate = g("2^n");
     let larger_rate = g("2^(9007199254740993*n/9007199254740992)");
-    assert!(larger_rate.bound_dominates(&unit_rate));
-    assert!(!unit_rate.bound_dominates(&larger_rate));
+    assert!(larger_rate.dominates(&unit_rate));
+    assert!(!unit_rate.dominates(&larger_rate));
 }
 
 #[test]
@@ -231,8 +231,8 @@ fn test_every_registered_complexity_uses_the_shared_analysis() {
 fn test_growth_unproved_multi_base_comparison_is_retained() {
     let left = g("2^(2*n) * 3^n");
     let right = g("2^n * 4^n");
-    assert!(!left.bound_dominates(&right));
-    assert!(!right.bound_dominates(&left));
+    assert!(!left.dominates(&right));
+    assert!(!right.dominates(&left));
     assert_eq!(terms_of(&g("2^(2*n) * 3^n + 2^n * 4^n")).len(), 2);
 }
 
@@ -333,25 +333,8 @@ fn test_proven_equal_exponential_spelling_is_deterministic() {
 ///    absolute-value idiom.
 #[test]
 fn test_growth_widening() {
-    let sum = g("n + m");
-    for widened in [g("n - m"), g("sqrt((n - m)^2)")] {
-        assert_eq!(widened.to_expr(), sum.to_expr());
-        assert_eq!(widened.precision(), Some(GrowthPrecision::UpperBound));
-    }
-    assert_eq!(sum.precision(), Some(GrowthPrecision::Tight));
-}
-
-#[test]
-fn approximation_operations_record_upper_bound_precision() {
-    assert_eq!(
-        g("log(log(n))").precision(),
-        Some(GrowthPrecision::UpperBound)
-    );
-    assert_eq!(
-        g("sqrt(log(n))").precision(),
-        Some(GrowthPrecision::UpperBound)
-    );
-    assert_eq!(g("log(n)").precision(), Some(GrowthPrecision::Tight));
+    assert_eq!(g("n - m"), g("n + m"));
+    assert_eq!(g("sqrt((n - m)^2)"), g("n + m"));
 }
 
 /// 6. Determinism: the antichain is canonically sorted, so structurally
@@ -520,7 +503,7 @@ fn test_growth_exponential_roundtrip_is_exact() {
 fn test_growth_exponential_variants() {
     // exp(n) is represented directly as e^n: exponential, dominates any polynomial.
     let en = g("exp(n)");
-    assert!(en.bound_dominates(&g("n^5")));
+    assert!(en.dominates(&g("n^5")));
     assert!(matches!(
         g("2^(n - m)").failures(),
         Some([GrowthFailure::DecayingExponential { variable, .. }]) if variable == "m"
@@ -538,7 +521,7 @@ fn test_growth_exponential_variants() {
     // A fractional base with a negative exponent grows and retains that exact
     // symbolic base instead of being translated through a common logarithm.
     assert_eq!(g("0.5^(-n)").to_big_o(), "O(0.5^(-1 * n))");
-    assert!(g("0.5^(-n)").bound_dominates(&g("n^100")));
+    assert!(g("0.5^(-n)").dominates(&g("n^100")));
 }
 
 /// `log` lowers each level: log of an exponential is linear, log of a
@@ -578,15 +561,15 @@ fn test_growth_log_levels() {
 fn test_growth_unknown_dominance() {
     let n2 = g("n^2");
     let unknown = g("factorial(n)");
-    assert!(unknown.bound_dominates(&n2));
-    assert!(!n2.bound_dominates(&unknown));
-    assert!(unknown.bound_dominates(&unknown));
+    assert!(!unknown.dominates(&n2));
+    assert!(!n2.dominates(&unknown));
+    assert!(!unknown.dominates(&unknown));
 }
 
-/// Complete antichains are retained through the configured boundary, then
-/// replaced by one deterministic upper envelope.
+/// Complete antichains are retained through the configured boundary; larger
+/// results fail explicitly instead of changing the represented Big-O class.
 #[test]
-fn test_growth_antichain_cap_coarsens_at_overflow() {
+fn test_growth_antichain_cap_reports_overflow() {
     let vars: Vec<String> = (0..=ANTICHAIN_CAP)
         .map(|index| format!("v{index}"))
         .collect();
@@ -596,15 +579,14 @@ fn test_growth_antichain_cap_coarsens_at_overflow() {
         .collect();
 
     let at_cap = exact_growth(terms[..ANTICHAIN_CAP].to_vec());
-    assert_eq!(at_cap.precision(), Some(GrowthPrecision::Tight));
     assert_eq!(terms_of(&at_cap).len(), ANTICHAIN_CAP);
 
     let overflow = exact_growth(terms.clone());
-    assert_eq!(overflow.precision(), Some(GrowthPrecision::UpperBound));
-    assert_eq!(terms_of(&overflow).len(), 1);
-    for original in terms {
-        assert!(overflow.bound_dominates(&exact_growth(vec![original])));
-    }
+    assert!(matches!(
+        overflow.failures(),
+        Some([GrowthFailure::AntichainLimitExceeded { limit, terms }])
+            if *limit == ANTICHAIN_CAP && *terms == ANTICHAIN_CAP + 1
+    ));
 
     let reversed = exact_growth(
         vars.iter()
@@ -615,10 +597,9 @@ fn test_growth_antichain_cap_coarsens_at_overflow() {
     assert_eq!(overflow, reversed);
 }
 
-/// The exponential envelope remains an upper bound when symbolic comparisons
-/// leave more than the configured number of terms incomparable.
+/// Unproved exponential comparisons obey the same explicit resource limit.
 #[test]
-fn test_growth_coarsens_large_unproved_exponential_antichain() {
+fn test_growth_rejects_large_unproved_exponential_antichain() {
     let terms = (1..=ANTICHAIN_CAP + 1)
         .map(|i| {
             let mut term = GrowthTerm::one();
@@ -631,10 +612,11 @@ fn test_growth_coarsens_large_unproved_exponential_antichain() {
         .collect::<Vec<_>>();
 
     let growth = exact_growth(terms.clone());
-    assert_eq!(growth.precision(), Some(GrowthPrecision::UpperBound));
-    for original in terms {
-        assert!(growth.bound_dominates(&exact_growth(vec![original])));
-    }
+    assert!(matches!(
+        growth.failures(),
+        Some([GrowthFailure::AntichainLimitExceeded { limit, terms }])
+            if *limit == ANTICHAIN_CAP && *terms == ANTICHAIN_CAP + 1
+    ));
 }
 
 // --- Randomized property tests ---
@@ -1005,16 +987,7 @@ fn term_approx_eq(x: &GrowthTerm, y: &GrowthTerm) -> bool {
 fn growth_approx_eq(a: &Growth, b: &Growth) -> bool {
     match (&a.0, &b.0) {
         (GrowthState::Unknown(_), GrowthState::Unknown(_)) => true,
-        (
-            GrowthState::Known {
-                terms: ta,
-                precision: _,
-            },
-            GrowthState::Known {
-                terms: tb,
-                precision: _,
-            },
-        ) => {
+        (GrowthState::Known(ta), GrowthState::Known(tb)) => {
             ta.len() == tb.len()
                 && ta.iter().all(|t| tb.iter().any(|u| term_approx_eq(t, u)))
                 && tb.iter().all(|u| ta.iter().any(|t| term_approx_eq(t, u)))
@@ -1069,8 +1042,8 @@ fn test_growth_property_dominance_sound() {
         let higher_expression = lower_expression.clone() * ratio_expression.clone();
         let lower = Growth::from_expr(&lower_expression);
         let higher = Growth::from_expr(&higher_expression);
-        assert!(higher.bound_dominates(&lower));
-        assert!(!lower.bound_dominates(&higher));
+        assert!(higher.dominates(&lower));
+        assert!(!lower.dominates(&higher));
 
         let r1 = evaluate_approximate(&ratio_expression, &joint_size(16)).unwrap();
         let r2 = evaluate_approximate(&ratio_expression, &joint_size(64)).unwrap();
