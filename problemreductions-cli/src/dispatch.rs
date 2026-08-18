@@ -552,7 +552,7 @@ mod tests {
             solver_request(Some("brute-force")).unwrap(),
             SolverRequest::BruteForce
         );
-        for rejected in ["auto", "native", "implementation-id"] {
+        for rejected in ["auto", "implementation-id"] {
             let error = solver_request(Some(rejected)).unwrap_err();
             assert!(error.to_string().contains(rejected), "{error}");
         }

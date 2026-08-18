@@ -107,7 +107,7 @@ make papers-pull   # Pull PDFs from shared remote
   - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/models/decision.rs` - Generic `Decision<P>` wrapper converting optimization problems to decision problems
-- `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only), decision search (binary search via Decision queries). To check if a problem supports ILP solving via a witness-capable reduction path, run `pred path <ProblemName> ILP`
+- `src/solvers/` - BruteForce solver for aggregate values plus witness recovery when supported, ILP solver (feature-gated, witness-only), decision search (binary search via Decision queries), and the exact-variant solver capability registry. Solver dispatch uses only registered customized implementations and fixed ILP pipelines; reduction-graph reachability does not imply solver availability. Run `pred inspect <instance>` to see the registered capabilities for that instance.
 - `src/traits.rs` - `Problem` trait
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReduceToAggregate<T>`, `ReductionResult`, `AggregateReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection

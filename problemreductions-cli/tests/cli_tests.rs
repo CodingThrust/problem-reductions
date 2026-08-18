@@ -3465,7 +3465,7 @@ fn test_solve_bundle_distinguishes_infeasibility_from_missing_witness_capability
 #[test]
 fn test_solve_bundle_ilp() {
     // Create → Reduce → Solve bundle with ILP
-    // Use MVC as target since it has an ILP reduction path (QUBO does not)
+    // Use MVC as the bundle target to exercise its registered fixed ILP pipeline.
     let problem_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp.json");
 
@@ -9149,7 +9149,7 @@ fn deterministic_solver_dispatch_rejects_non_override_solver_names() {
         .unwrap();
     assert!(create_out.status.success());
 
-    for rejected in ["auto", "native", "fd-minimum-cardinality-key"] {
+    for rejected in ["auto", "fd-minimum-cardinality-key"] {
         let output = pred()
             .args([
                 "solve",

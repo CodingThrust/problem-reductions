@@ -418,7 +418,7 @@ fn deterministic_solver_dispatch_defaults_supported_problem_to_customized() {
 fn test_solve_unknown_solver() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    for rejected in ["auto", "native", "fd-minimum-cardinality-key"] {
+    for rejected in ["auto", "fd-minimum-cardinality-key"] {
         let error = server
             .solve_inner(&problem_json, Some(rejected), None)
             .unwrap_err();

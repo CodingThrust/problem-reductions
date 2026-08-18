@@ -176,8 +176,6 @@ Add a `pred-commands()` block after the `*Example.*` paragraph and before the `#
 
 If `docs/paper/reductions.typ` already defines a shared `problem-spec()` helper, reuse it instead of reintroducing it locally. Do **not** guess whether the default variant matches the canonical example; canonical fixtures may live on non-default variants, and handwritten bare aliases can silently produce broken commands.
 
-For satisfaction problems, replace `pred solve` with `pred solve <name>.json --solver brute-force` if the problem has no ILP reduction path.
-
 **For graph problems**, use the paper's existing graph helpers:
 - `petersen-graph()`, `house-graph()` or define custom vertex/edge lists
 - `canvas(length: ..., { ... })` with `g-node()` and `g-edge()`

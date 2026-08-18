@@ -143,17 +143,17 @@ fn test_timetable_design_bruteforce_solver_finds_solution() {
 }
 
 #[test]
-fn test_timetable_design_native_backend_solves_feasible_example() {
+fn test_timetable_design_customized_solver_finds_feasible_solution() {
     let problem = super::issue_example_problem();
     let solution = problem
         .solve_via_required_assignments()
-        .expect("expected native backend to find a satisfying timetable");
+        .expect("expected customized solver to find a satisfying timetable");
 
     assert!(problem.evaluate(&solution));
 }
 
 #[test]
-fn test_timetable_design_unsat_instance_returns_none_via_native_backend() {
+fn test_timetable_design_customized_solver_returns_none_for_infeasible_instance() {
     let problem = TimetableDesign::new(
         1,
         2,

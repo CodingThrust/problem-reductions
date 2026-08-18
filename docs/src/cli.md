@@ -53,8 +53,8 @@ pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 -
 # Create a Consecutive Block Minimization instance (alias: CBM)
 pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cbm.json
 
-# CBM currently needs the brute-force solver
-pred solve cbm.json --solver brute-force
+# Solve CBM through its registered fixed ILP pipeline
+pred solve cbm.json
 
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
@@ -68,14 +68,14 @@ pred inspect problem.json
 # Inspect the new path problem
 pred inspect lbdp.json
 
-# Solve it (auto-reduces to ILP)
+# Solve it through the exact variant's registered fixed ILP pipeline
 pred solve problem.json
 
 # Or solve with brute-force
 pred solve problem.json --solver brute-force
 
-# LengthBoundedDisjointPaths currently needs brute-force
-pred solve lbdp.json --solver brute-force
+# LengthBoundedDisjointPaths also has a registered fixed ILP pipeline
+pred solve lbdp.json
 
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
 pred evaluate problem.json --config 1,0,1,0
@@ -85,7 +85,7 @@ pred reduce problem.json --via route.json -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json | pred solve -
 ```
@@ -221,8 +221,8 @@ For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
 
 For `ConsecutiveBlockMinimization`, the `--matrix` flag expects a JSON 2D bool array such as
-`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape, and solving
-CBM instances currently requires `--solver brute-force`.
+`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape. Its exact
+default variant has a registered fixed ILP pipeline, so the default solver dispatch selects ILP.
 
 For problem-specific create help, run `pred create <PROBLEM>` with no additional flags.
 The generic `pred create --help` output lists all flags across all problem types.
@@ -244,7 +244,7 @@ pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
 Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred solve -   # when an ILP reduction path exists
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create StringToStringCorrection --source-string "0,1,2,3,1,0" --target-string "0,1,3,2,1" --bound 2 | pred solve - --solver brute-force
 pred create MIS --random --num-vertices 10 | pred inspect -
 ```
@@ -274,11 +274,11 @@ pred create BoundedComponentSpanningForest \
   -o bcsf.json
 
 pred evaluate bcsf.json --config 0,0,1,1,1,2,2,0
-pred solve bcsf.json --solver brute-force
+pred solve bcsf.json
 ```
 
-The brute-force solver is required here because this model does not yet have an
-ILP reduction path.
+This exact variant has a registered fixed ILP pipeline, so the default dispatch
+selects ILP. Use `pred inspect bcsf.json` to view that capability before solving.
 
 ### `pred evaluate` — Evaluate a configuration
 
@@ -359,7 +359,9 @@ pred create MinMaxMulticenter --graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weigh
 pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets "0,1,2;3,4,5;1,3;2,4;0,5" | pred solve - --solver brute-force
 ```
 
-Output is JSON. When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back:
+Output is JSON. When the exact problem variant has a fixed ILP pipeline in the
+solver capability registry, the ILP backend follows that registered pipeline and
+maps the solution back:
 
 ```json
 {{#include generated/pred-solve-ilp.txt}}
@@ -376,17 +378,19 @@ Successful exact solves report `"status": "optimal"`; aggregate-only problems om
 `"status": "infeasible"` without `solution` or `evaluation`. Solver, timeout, registry,
 and extraction failures remain command errors.
 
-> **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems do not currently have one. Examples include BoundedComponentSpanningForest,
-> LengthBoundedDisjointPaths, MinimumCardinalityKey, QUBO, SpinGlass, MaxCut, CircuitSAT, MinMaxMulticenter, and MultiprocessorScheduling.
-> Use `pred solve <file> --solver brute-force` for these, or reduce to a problem that supports ILP first.
-> For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
+> **Note:** Solver availability is determined by the exact problem variant's
+> registered capabilities. `pred path <PROBLEM> ILP` reports reduction-graph
+> reachability; it does not register a solver pipeline and therefore does not
+> establish that `--solver ilp` is available. Use `pred inspect <file>` to see the
+> instance's default solver, available overrides, customized implementation, and
+> fixed ILP pipeline.
 
 For example, the canonical Minimum Cardinality Key instance can be created and solved with:
 
 ```bash
 pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" -o mck.json
-pred solve mck.json --solver brute-force
+pred inspect mck.json
+pred solve mck.json                    # uses its registered customized solver
 ```
 
 ## Shell Completions

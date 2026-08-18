@@ -17,7 +17,7 @@ Typical workflow:
   pred evaluate problem.json --config 1,0,1,0
 
 Piping (use - to read from stdin):
-  pred create MIS --graph 0-1,1-2 | pred solve -                    # when an ILP reduction path exists
+  pred create MIS --graph 0-1,1-2 | pred solve -
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
   pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
   pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json
