@@ -154,21 +154,22 @@ Inspect reduction paths or save the path set for later route selection:
 
 ```bash
 pred path MIS QUBO                           # paths (up to 20)
-pred path MIS QUBO --max-paths 50            # increase the cap
-pred path MIS QUBO --selection all           # return every enumerated candidate
+pred path MIS QUBO --limit 50                # inspect the first 50 paths
+pred path MIS QUBO --unfiltered              # skip Pareto filtering
+pred path MIS QUBO --limit all               # inspect up to 999 paths
 pred path MIS MaximumClique mis.json         # execute paths on a complete instance
 pred path MIS QUBO -o paths.json             # save the path set
 ```
 
 Without an instance file, each route explains how problem size changes. With a
 problem JSON file, every candidate path is executed on the complete source instance
-and the actual size of each constructed intermediate is reported. By default,
-`--selection pareto` returns the paths whose target-size vectors are Pareto
-nondominated among the candidates. Use `--selection all` to return every candidate.
-`--max-paths` (default: 20, maximum: 999) caps the selected output after comparison. Pareto
-selection considers every simple candidate path and never prunes graph search using
-size estimates. Extract one route from the path-set envelope before passing it to
-`pred reduce --via`.
+and the actual size of each constructed intermediate is reported. By default, the
+command enumerates the first 20 witness-capable paths and returns those whose
+target-size vectors are Pareto nondominated within that set. `--limit` accepts
+1 through 999; `all` is an alias for 999. Use `--unfiltered` to return the
+enumerated paths without Pareto filtering. The JSON envelope remains
+`{"paths": [...], "truncated": bool}`. Extract one route from the path-set
+envelope before passing it to `pred reduce --via`.
 
 ### `pred export-graph` — Export the reduction graph
 

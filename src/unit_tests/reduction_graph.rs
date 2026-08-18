@@ -601,6 +601,35 @@ fn find_paths_up_to_stops_after_limit() {
 }
 
 #[test]
+fn find_paths_up_to_matches_sorted_exhaustive_prefixes() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let mut all = graph.find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst);
+    all.sort_by(|left, right| {
+        left.len().cmp(&right.len()).then_with(|| {
+            left.steps
+                .iter()
+                .map(|step| (&step.name, &step.variant))
+                .cmp(right.steps.iter().map(|step| (&step.name, &step.variant)))
+        })
+    });
+
+    for limit in 1..=all.len() {
+        let limited = graph.find_paths_up_to("MaximumIndependentSet", &src, "QUBO", &dst, limit);
+        let actual = limited
+            .iter()
+            .map(|path| path.steps.clone())
+            .collect::<Vec<_>>();
+        let expected = all[..limit]
+            .iter()
+            .map(|path| path.steps.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(actual, expected, "wrong prefix for limit {limit}");
+    }
+}
+
+#[test]
 fn find_paths_up_to_returns_all_when_limit_exceeds_total() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
@@ -629,6 +658,23 @@ fn find_paths_up_to_no_path() {
 
     let limited = graph.find_paths_up_to("QUBO", &src, "MaximumSetPacking", &dst, 10);
     assert!(limited.is_empty());
+}
+
+#[test]
+fn find_paths_up_to_same_source_has_no_zero_edge_path() {
+    let graph = ReductionGraph::new();
+    let variant =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+
+    let paths = graph.find_paths_up_to(
+        "MaximumIndependentSet",
+        &variant,
+        "MaximumIndependentSet",
+        &variant,
+        10,
+    );
+
+    assert!(paths.is_empty());
 }
 
 // ---- Exact source+target variant matching ----

@@ -6,7 +6,15 @@ fn pred() -> Command {
 
 fn write_named_route(source: &str, target: &str, names: &[&str], output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--max-paths", "999", "--json"])
+        .args([
+            "path",
+            source,
+            target,
+            "--limit",
+            "all",
+            "--unfiltered",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -59,7 +67,15 @@ fn reduce_named_to_file(
 
 fn write_direct_route(source: &str, target: &str, output: &std::path::Path) {
     let command = pred()
-        .args(["path", source, target, "--max-paths", "999", "--json"])
+        .args([
+            "path",
+            source,
+            target,
+            "--limit",
+            "all",
+            "--unfiltered",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(command.status.success());
@@ -377,6 +393,36 @@ fn test_path_enumerates_without_mode_or_sizes() {
 }
 
 #[test]
+fn test_path_rejects_zero_edge_route_for_symbolic_and_concrete_queries() {
+    let symbolic = pred()
+        .args(["path", "MIS", "MIS", "--json"])
+        .output()
+        .unwrap();
+    assert!(!symbolic.status.success());
+    assert!(String::from_utf8_lossy(&symbolic.stderr).contains("No reduction path"));
+
+    let instance = std::env::temp_dir().join("pred_path_same_source_mis.json");
+    std::fs::write(
+        &instance,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":2,"edges":[[0,1]]},"weights":[1,1]}}"#,
+    )
+    .unwrap();
+    let concrete = pred()
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i32",
+            instance.to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    std::fs::remove_file(instance).ok();
+    assert!(!concrete.status.success());
+    assert!(String::from_utf8_lossy(&concrete.stderr).contains("No reduction path"));
+}
+
+#[test]
 fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target() {
     let instance = std::env::temp_dir().join("pred_path_concrete_mis.json");
     std::fs::write(
@@ -419,25 +465,25 @@ fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target
 }
 
 #[test]
-fn test_path_selection_defaults_to_pareto_and_all_returns_every_candidate() {
+fn test_path_defaults_to_pareto_and_unfiltered_returns_every_candidate() {
     let instance = std::env::temp_dir().join("pred_path_selection_mis.json");
     std::fs::write(
         &instance,
         r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
     )
     .unwrap();
-    let run = |max_paths: &str, selection: Option<&str>| {
+    let run = |limit: &str, unfiltered: bool| {
         let mut args = vec![
             "path",
             "MIS/SimpleGraph/i32",
             "QUBO",
             instance.to_str().unwrap(),
-            "--max-paths",
-            max_paths,
+            "--limit",
+            limit,
             "--json",
         ];
-        if let Some(selection) = selection {
-            args.extend(["--selection", selection]);
+        if unfiltered {
+            args.push("--unfiltered");
         }
         let output = pred().args(args).output().unwrap();
         assert!(
@@ -448,24 +494,27 @@ fn test_path_selection_defaults_to_pareto_and_all_returns_every_candidate() {
         serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
     };
 
-    let pareto = run("3", None);
-    let pareto_capped = run("1", None);
-    let all = run("3", Some("all"));
+    let pareto = run("3", false);
+    let pareto_limited = run("1", false);
+    let unfiltered = run("3", true);
     std::fs::remove_file(instance).unwrap();
 
     assert_eq!(pareto["paths"].as_array().unwrap().len(), 1);
-    assert_eq!(pareto_capped["paths"].as_array().unwrap().len(), 1);
-    assert_eq!(all["paths"].as_array().unwrap().len(), 3);
-    assert_eq!(pareto["truncated"], false);
-    assert_eq!(pareto_capped["truncated"], false);
-    assert_eq!(all["truncated"], true);
+    assert_eq!(pareto_limited["paths"].as_array().unwrap().len(), 1);
+    assert_eq!(unfiltered["paths"].as_array().unwrap().len(), 3);
+    assert_eq!(pareto["truncated"], true);
+    assert_eq!(pareto_limited["truncated"], true);
+    assert_eq!(unfiltered["truncated"], true);
     let pareto_size = &pareto["paths"][0]["actual_target_size"]["fields"];
     assert!(pareto_size
         .as_array()
         .unwrap()
         .iter()
         .any(|field| field["field"] == "num_vars" && field["value"] == 5));
-    assert_eq!(pareto_capped["paths"], pareto["paths"]);
+    assert_ne!(
+        pareto_limited["paths"], pareto["paths"],
+        "a larger candidate set may expose a path that dominates the first candidate"
+    );
 }
 
 #[test]
@@ -497,9 +546,9 @@ fn test_path_save() {
 }
 
 #[test]
-fn test_path_max_paths_caps_selected_output() {
+fn test_path_limit_bounds_enumeration() {
     let output = pred()
-        .args(["path", "MIS", "QUBO", "--max-paths", "1", "--json"])
+        .args(["path", "MIS", "QUBO", "--limit", "1", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -511,21 +560,51 @@ fn test_path_max_paths_caps_selected_output() {
 }
 
 #[test]
-fn test_path_rejects_max_paths_above_output_limit() {
+fn test_path_rejects_limit_above_maximum() {
     let output = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "--selection",
-            "all",
-            "--max-paths",
-            "1000",
-        ])
+        .args(["path", "MIS", "QUBO", "--limit", "1000"])
         .output()
         .unwrap();
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("max_paths must not exceed 999"));
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("limit must be an integer from 1 to 999 or 'all'"));
+}
+
+#[test]
+fn test_path_limit_all_is_alias_for_999() {
+    let run = |limit: &str| {
+        let output = pred()
+            .args([
+                "path",
+                "MIS",
+                "QUBO",
+                "--limit",
+                limit,
+                "--unfiltered",
+                "--json",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output.stdout
+    };
+
+    assert_eq!(run("all"), run("999"));
+}
+
+#[test]
+fn test_path_rejects_zero_limit() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--limit", "0"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr)
+        .contains("limit must be an integer from 1 to 999 or 'all'"));
 }
 
 #[test]
@@ -5334,7 +5413,7 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             "path",
             "MaximumClique/SimpleGraph/i32",
             "ILP/bool",
-            "--max-paths",
+            "--limit",
             "1",
             "--json",
         ])
@@ -5361,14 +5440,7 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
 #[test]
 fn test_path_overall_unavailable_reason_matches_each_target_field() {
     let output = pred()
-        .args([
-            "path",
-            "Factoring",
-            "ILP/bool",
-            "--max-paths",
-            "7",
-            "--json",
-        ])
+        .args(["path", "Factoring", "ILP/bool", "--limit", "7", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -8199,9 +8271,9 @@ fn test_show_ksat_works() {
 // ---- Capped multi-path ----
 
 #[test]
-fn test_path_max_paths_truncates() {
+fn test_path_limit_truncates() {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--max-paths", "3", "--json"])
+        .args(["path", "KSat", "QUBO", "--limit", "3", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -8226,11 +8298,19 @@ fn test_path_max_paths_truncates() {
     );
 }
 
-// Helper: run `pred path S T --max-paths N --json` and return the ordered
+// Helper: run `pred path S T --limit N --unfiltered --json` and return the ordered
 // list of per-path step counts.
-fn path_step_counts(max_paths: &str) -> Vec<u64> {
+fn path_step_counts(limit: &str) -> Vec<u64> {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--max-paths", max_paths, "--json"])
+        .args([
+            "path",
+            "KSat",
+            "QUBO",
+            "--limit",
+            limit,
+            "--unfiltered",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -8251,7 +8331,7 @@ fn path_step_counts(max_paths: &str) -> Vec<u64> {
 #[test]
 fn test_path_truncates_after_sorting_not_before() {
     // Path enumeration must order length-first and truncate only after
-    // ordering, so a small --max-paths returns the SHORTEST routes, not whichever
+    // ordering, so a small --limit returns the SHORTEST routes, not whichever
     // routes DFS discovered first. Compare a tightly-truncated run against a run
     // with a generous budget.
     let full = path_step_counts("500");
@@ -8282,16 +8362,16 @@ fn test_path_truncates_after_sorting_not_before() {
 }
 
 #[test]
-fn test_path_max_paths_text_truncation_note() {
+fn test_path_limit_text_truncation_note() {
     let output = pred()
-        .args(["path", "KSat", "QUBO", "--max-paths", "2"])
+        .args(["path", "KSat", "QUBO", "--limit", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("--max-paths"),
-        "truncation note should mention --max-paths: {stdout}"
+        stdout.contains("--limit"),
+        "truncation note should mention --limit: {stdout}"
     );
 }
 

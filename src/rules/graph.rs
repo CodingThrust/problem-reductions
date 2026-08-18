@@ -21,8 +21,10 @@ use petgraph::graph::{DiGraph, EdgeIndex, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::Any;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 use std::rc::Rc;
+
+type NodePathOrderKey<'a> = (usize, Vec<(&'static str, &'a BTreeMap<String, String>)>);
 
 /// A source/target pair from the reduction graph, returned by
 /// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
@@ -527,6 +529,141 @@ impl ReductionGraph {
         ReductionPath { steps }
     }
 
+    fn node_path_order_key(&self, node_path: &[NodeIndex]) -> NodePathOrderKey<'_> {
+        (
+            node_path.len().saturating_sub(1),
+            node_path
+                .iter()
+                .map(|&idx| {
+                    let node = &self.nodes[self.graph[idx]];
+                    (node.name, &node.variant)
+                })
+                .collect(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn shortest_node_path(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        adjacency: &[Vec<NodeIndex>],
+        excluded_nodes: &HashSet<NodeIndex>,
+        excluded_edges: &HashSet<(NodeIndex, NodeIndex)>,
+        max_nodes: usize,
+    ) -> Option<Vec<NodeIndex>> {
+        if excluded_nodes.contains(&source) || max_nodes == 0 {
+            return None;
+        }
+        if source == target {
+            return Some(vec![source]);
+        }
+
+        let mut queue = VecDeque::from([(source, 1usize)]);
+        let mut parents = HashMap::new();
+        let mut visited = HashSet::from([source]);
+
+        while let Some((current, path_nodes)) = queue.pop_front() {
+            if path_nodes == max_nodes {
+                continue;
+            }
+            for &next in &adjacency[current.index()] {
+                if excluded_nodes.contains(&next)
+                    || excluded_edges.contains(&(current, next))
+                    || !visited.insert(next)
+                {
+                    continue;
+                }
+                parents.insert(next, current);
+                if next == target {
+                    let mut path = vec![target];
+                    let mut node = target;
+                    while node != source {
+                        node = parents[&node];
+                        path.push(node);
+                    }
+                    path.reverse();
+                    return Some(path);
+                }
+                queue.push_back((next, path_nodes + 1));
+            }
+        }
+        None
+    }
+
+    fn find_k_shortest_node_paths(
+        &self,
+        source: NodeIndex,
+        target: NodeIndex,
+        mode: ReductionMode,
+        limit: usize,
+        max_nodes: usize,
+    ) -> Vec<Vec<NodeIndex>> {
+        if source == target || limit == 0 {
+            return Vec::new();
+        }
+
+        let mut adjacency = vec![Vec::new(); self.graph.node_count()];
+        for node in self.graph.node_indices() {
+            adjacency[node.index()] = self
+                .ordered_outgoing_edges(node, mode)
+                .into_iter()
+                .map(|(target, _)| target)
+                .collect();
+        }
+
+        let Some(first) = self.shortest_node_path(
+            source,
+            target,
+            &adjacency,
+            &HashSet::new(),
+            &HashSet::new(),
+            max_nodes,
+        ) else {
+            return Vec::new();
+        };
+
+        let mut accepted = vec![first];
+        let mut candidates = BTreeSet::new();
+
+        while accepted.len() < limit {
+            let previous = accepted.last().expect("accepted path exists");
+            for spur_index in 0..previous.len().saturating_sub(1) {
+                let root = &previous[..=spur_index];
+                let excluded_edges = accepted
+                    .iter()
+                    .filter(|path| path.len() > spur_index + 1 && path[..=spur_index] == *root)
+                    .map(|path| (path[spur_index], path[spur_index + 1]))
+                    .collect::<HashSet<_>>();
+                let excluded_nodes = root[..spur_index].iter().copied().collect();
+                let max_spur_nodes = max_nodes.saturating_sub(spur_index);
+                let Some(spur) = self.shortest_node_path(
+                    previous[spur_index],
+                    target,
+                    &adjacency,
+                    &excluded_nodes,
+                    &excluded_edges,
+                    max_spur_nodes,
+                ) else {
+                    continue;
+                };
+                let mut candidate = root[..spur_index].to_vec();
+                candidate.extend(spur);
+                if !accepted.contains(&candidate) {
+                    let key = self.node_path_order_key(&candidate);
+                    candidates.insert((key, candidate));
+                }
+            }
+
+            let Some((_, next)) = candidates.pop_first() else {
+                break;
+            };
+            accepted.push(next);
+        }
+
+        accepted
+    }
+
     /// Find all simple paths between two specific problem variants.
     ///
     /// Uses `all_simple_paths` on the variant-level graph from the exact
@@ -582,8 +719,9 @@ impl ReductionGraph {
 
     /// Find up to `limit` simple paths between two specific problem variants.
     ///
-    /// Like [`find_all_paths`](Self::find_all_paths) but stops enumeration after
-    /// collecting `limit` paths. This avoids combinatorial explosion on dense graphs.
+    /// Returns witness-capable paths in deterministic order: fewest edges first,
+    /// then canonical problem name and variant order. Enumeration stops after
+    /// collecting `limit` paths.
     pub fn find_paths_up_to(
         &self,
         source: &str,
@@ -603,8 +741,8 @@ impl ReductionGraph {
         )
     }
 
-    /// Like [`find_all_paths_mode`](Self::find_all_paths_mode) but stops
-    /// enumeration after collecting `limit` paths.
+    /// Returns paths whose edges support `mode`, ordered by fewest edges first
+    /// and canonical problem name and variant order, stopping after `limit` paths.
     pub fn find_paths_up_to_mode(
         &self,
         source: &str,
@@ -625,8 +763,8 @@ impl ReductionGraph {
         )
     }
 
-    /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode) but also
-    /// bounds the number of intermediate nodes in each enumerated path.
+    /// Like [`find_paths_up_to_mode`](Self::find_paths_up_to_mode), with at most
+    /// `max_intermediate_nodes` nodes strictly between the source and target.
     #[allow(clippy::too_many_arguments)]
     pub fn find_paths_up_to_mode_bounded(
         &self,
@@ -651,40 +789,13 @@ impl ReductionGraph {
             return Vec::new();
         }
 
-        // Enumerate simple paths breadth-first. Each level is already lexicographic
-        // because both the preceding level and every outgoing edge list are ordered
-        // by canonical node identity. Completed paths therefore arrive in the exact
-        // public order: fewest nodes first, then canonical node identity. Stop immediately
-        // after `limit` results instead of traversing every simple path.
         let max_intermediate =
             max_intermediate_nodes.unwrap_or_else(|| self.graph.node_count().saturating_sub(2));
         let max_nodes = max_intermediate.saturating_add(2);
-        let mut frontier = vec![vec![src]];
-        let mut paths = Vec::with_capacity(limit);
-
-        while !frontier.is_empty() && frontier[0].len() < max_nodes {
-            let mut next_frontier = Vec::new();
-            for path in frontier {
-                let current = path[path.len() - 1];
-                for (next, _) in self.ordered_outgoing_edges(current, mode) {
-                    if path.contains(&next) {
-                        continue;
-                    }
-                    let mut extended = path.clone();
-                    extended.push(next);
-                    if next == dst {
-                        paths.push(self.node_path_to_reduction_path(&extended));
-                        if paths.len() == limit {
-                            return paths;
-                        }
-                    } else {
-                        next_frontier.push(extended);
-                    }
-                }
-            }
-            frontier = next_frontier;
-        }
-        paths
+        self.find_k_shortest_node_paths(src, dst, mode, limit, max_nodes)
+            .iter()
+            .map(|path| self.node_path_to_reduction_path(path))
+            .collect()
     }
 
     /// Check if a direct reduction exists from S to T.

@@ -69,14 +69,14 @@ fn main() -> anyhow::Result<()> {
         Commands::Path {
             source,
             target,
-            max_paths,
-            selection,
+            limit,
+            unfiltered,
             instance,
         } => commands::graph::path(
             &source,
             &target,
-            max_paths,
-            selection,
+            limit,
+            unfiltered,
             instance.as_deref(),
             &out,
         ),

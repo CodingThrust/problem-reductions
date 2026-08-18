@@ -32,15 +32,32 @@ pub struct NeighborsParams {
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
+pub enum PathLimitParam {
+    Number(usize),
+    Name(String),
+}
+
+impl PathLimitParam {
+    pub(crate) fn resolve(&self) -> Result<usize, String> {
+        match self {
+            Self::Number(limit) => crate::commands::graph::validate_path_limit(*limit),
+            Self::Name(limit) if limit == "all" => crate::commands::graph::parse_path_limit(limit),
+            Self::Name(_) => Err(crate::commands::graph::PATH_LIMIT_ERROR.to_string()),
+        }
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 pub struct FindPathParams {
     #[schemars(description = "Source problem name or alias")]
     pub source: String,
     #[schemars(description = "Target problem name or alias")]
     pub target: String,
-    #[schemars(description = "Maximum selected paths to output (default: 20, maximum: 999)")]
-    pub max_paths: Option<usize>,
-    #[schemars(description = "Path selection: pareto (default) or all")]
-    pub selection: Option<String>,
+    #[schemars(description = "Number of paths to inspect: 1-999, or 'all' for 999 (default: 20)")]
+    pub limit: Option<PathLimitParam>,
+    #[schemars(description = "Return enumerated paths without Pareto filtering (default: false)")]
+    pub unfiltered: Option<bool>,
     #[schemars(
         description = "Optional complete source problem JSON. When present, execute every returned path and report actual constructed sizes."
     )]
@@ -229,8 +246,8 @@ impl McpServer {
         &self,
         source: &str,
         target: &str,
-        max_paths: usize,
-        selection: crate::commands::graph::PathSelection,
+        limit: usize,
+        unfiltered: bool,
         problem_json: Option<&str>,
     ) -> anyhow::Result<String> {
         let graph = ReductionGraph::new();
@@ -260,8 +277,7 @@ impl McpServer {
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
-            max_paths,
-            selection,
+            limit,
         )?;
         if batch.paths.is_empty() && !batch.truncated {
             anyhow::bail!(
@@ -270,15 +286,11 @@ impl McpServer {
                 dst_ref.name
             );
         }
-        if selection == crate::commands::graph::PathSelection::All {
-            crate::commands::graph::cap_path_batch(&mut batch);
-        }
-
         let mut executed = loaded
             .as_ref()
             .map(|source| graph.execute_paths(&batch.paths, source.as_any()))
             .transpose()?;
-        if selection == crate::commands::graph::PathSelection::Pareto {
+        if !unfiltered {
             let flags = match &executed {
                 Some(executed) => crate::commands::graph::concrete_pareto_flags(executed),
                 None => crate::commands::graph::symbolic_pareto_flags(&graph, &batch.paths),
@@ -286,10 +298,6 @@ impl McpServer {
             batch.paths = crate::commands::graph::retain_selected(batch.paths, &flags);
             executed =
                 executed.map(|executed| crate::commands::graph::retain_selected(executed, &flags));
-            crate::commands::graph::cap_path_batch(&mut batch);
-            if let Some(executed) = &mut executed {
-                executed.truncate(batch.max_paths);
-            }
         }
         let json = crate::commands::graph::path_batch_json(&graph, &batch, executed.as_deref())?;
         Ok(serde_json::to_string_pretty(&json)?)
@@ -536,18 +544,15 @@ impl McpServer {
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
-        let max_paths = params.max_paths.unwrap_or(20);
-        let selection = params
-            .selection
-            .as_deref()
-            .unwrap_or("pareto")
-            .parse()
-            .map_err(|error: String| error)?;
+        let limit = params
+            .limit
+            .as_ref()
+            .map_or(Ok(20), PathLimitParam::resolve)?;
         self.find_path_inner(
             &params.source,
             &params.target,
-            max_paths,
-            selection,
+            limit,
+            params.unfiltered.unwrap_or(false),
             params.problem_json.as_deref(),
         )
         .map_err(|e| e.to_string())

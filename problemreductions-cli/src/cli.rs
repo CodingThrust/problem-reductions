@@ -164,8 +164,9 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
 Examples:
   pred path MIS QUBO                              # inspect reduction paths
   pred path MIS Clique mis.json                   # execute paths on an instance
-  pred path MIS QUBO --max-paths 50              # increase the output cap
-  pred path MIS QUBO --selection all             # return every enumerated candidate
+  pred path MIS QUBO --limit 50                  # inspect the first 50 paths
+  pred path MIS QUBO --unfiltered                # skip Pareto filtering
+  pred path MIS QUBO --limit all                 # inspect up to 999 paths
   pred path MIS QUBO -o paths.json               # save the path set
 
 Use `pred list` to see available problems.")]
@@ -176,12 +177,16 @@ Use `pred list` to see available problems.")]
         /// Target problem (e.g., QUBO)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
-        /// Maximum selected paths to output (at most 999)
-        #[arg(long, default_value_t = 20)]
-        max_paths: usize,
-        /// Which enumerated paths to return
-        #[arg(long, value_enum, default_value_t = crate::commands::graph::PathSelection::Pareto)]
-        selection: crate::commands::graph::PathSelection,
+        /// Number of paths to inspect (1-999, or "all" as an alias for 999)
+        #[arg(
+            long,
+            default_value = "20",
+            value_parser = crate::commands::graph::parse_path_limit
+        )]
+        limit: usize,
+        /// Return enumerated paths without Pareto filtering
+        #[arg(long)]
+        unfiltered: bool,
         /// Source problem instance JSON. When present, execute every returned path and measure each constructed problem.
         instance: Option<std::path::PathBuf>,
     },

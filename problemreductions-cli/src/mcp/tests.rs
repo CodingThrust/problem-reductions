@@ -1,10 +1,9 @@
-use crate::commands::graph::PathSelection;
-use crate::mcp::tools::{FindPathParams, McpServer};
+use crate::mcp::tools::{FindPathParams, McpServer, PathLimitParam};
 use crate::test_support::{aggregate_bundle, aggregate_problem_json};
 
 fn explicit_route(server: &McpServer, source: &str, target: &str, names: &[&str]) -> String {
     let response = server
-        .find_path_inner(source, target, 999, PathSelection::All, None)
+        .find_path_inner(source, target, 999, true, None)
         .expect("path enumeration");
     let json: serde_json::Value = serde_json::from_str(&response).unwrap();
     let entry = json["paths"]
@@ -49,7 +48,7 @@ fn test_find_path_enumerates_without_a_mode_or_sizes() {
                 "MIS/SimpleGraph/i32",
                 "MaximumClique/SimpleGraph/i32",
                 20,
-                PathSelection::Pareto,
+                false,
                 None,
             )
             .unwrap(),
@@ -72,7 +71,7 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
                 "MIS/SimpleGraph/i32",
                 "MaximumClique/SimpleGraph/i32",
                 20,
-                PathSelection::Pareto,
+                false,
                 Some(problem_json),
             )
             .unwrap(),
@@ -103,11 +102,28 @@ fn test_find_path_schema_accepts_complete_problem_json() {
 }
 
 #[test]
+fn test_find_path_limit_all_resolves_to_999() {
+    let params: FindPathParams = serde_json::from_value(serde_json::json!({
+        "source": "MIS",
+        "target": "QUBO",
+        "limit": "all"
+    }))
+    .unwrap();
+    assert_eq!(params.limit.as_ref().unwrap().resolve().unwrap(), 999);
+
+    let numeric: PathLimitParam = serde_json::from_value(serde_json::json!(999)).unwrap();
+    assert_eq!(numeric.resolve().unwrap(), 999);
+
+    let numeric_string: PathLimitParam = serde_json::from_value(serde_json::json!("20")).unwrap();
+    assert!(numeric_string.resolve().is_err());
+}
+
+#[test]
 fn test_find_path_is_capped_explicitly() {
     let server = McpServer::new();
     let json: serde_json::Value = serde_json::from_str(
         &server
-            .find_path_inner("MIS", "QUBO", 1, PathSelection::Pareto, None)
+            .find_path_inner("MIS", "QUBO", 1, false, None)
             .unwrap(),
     )
     .unwrap();
@@ -119,11 +135,14 @@ fn test_find_path_is_capped_explicitly() {
 }
 
 #[test]
-fn test_find_path_rejects_max_paths_above_output_limit() {
+fn test_find_path_rejects_limit_above_maximum() {
     let error = McpServer::new()
-        .find_path_inner("MIS", "QUBO", 1000, PathSelection::All, None)
+        .find_path_inner("MIS", "QUBO", 1000, true, None)
         .unwrap_err();
-    assert_eq!(error.to_string(), "max_paths must not exceed 999");
+    assert_eq!(
+        error.to_string(),
+        "limit must be an integer from 1 to 999 or 'all'"
+    );
 }
 
 #[test]

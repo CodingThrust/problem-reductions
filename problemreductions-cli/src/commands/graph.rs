@@ -915,8 +915,8 @@ pub(crate) fn format_path_json(
 pub fn path(
     source: &str,
     target: &str,
-    max_paths: usize,
-    selection: PathSelection,
+    limit: usize,
+    unfiltered: bool,
     instance: Option<&Path>,
     out: &OutputConfig,
 ) -> Result<()> {
@@ -969,8 +969,8 @@ pub fn path(
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
-            max_paths,
-            selection,
+            limit,
+            unfiltered,
             loaded.as_any(),
             out,
         )
@@ -981,8 +981,8 @@ pub fn path(
             &src_ref.variant,
             &dst_ref.name,
             &dst_ref.variant,
-            max_paths,
-            selection,
+            limit,
+            unfiltered,
             out,
         )
     }
@@ -995,19 +995,11 @@ fn path_symbolic(
     src_variant: &BTreeMap<String, String>,
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
-    max_paths: usize,
-    selection: PathSelection,
+    limit: usize,
+    unfiltered: bool,
     out: &OutputConfig,
 ) -> Result<()> {
-    let mut batch = find_path_batch(
-        graph,
-        src_name,
-        src_variant,
-        dst_name,
-        dst_variant,
-        max_paths,
-        selection,
-    )?;
+    let mut batch = find_path_batch(graph, src_name, src_variant, dst_name, dst_variant, limit)?;
 
     if batch.paths.is_empty() && !batch.truncated {
         let variant_hint = variant_hint_for(graph, dst_name);
@@ -1023,11 +1015,10 @@ fn path_symbolic(
             dst_name,
         );
     }
-    if selection == PathSelection::Pareto {
+    if !unfiltered {
         let flags = symbolic_pareto_flags(graph, &batch.paths);
         batch.paths = retain_selected(batch.paths, &flags);
     }
-    cap_path_batch(&mut batch);
 
     let json_output = out.output.is_some() || out.json;
     let json = if json_output {
@@ -1044,7 +1035,7 @@ fn path_symbolic(
             src_name,
             dst_name,
             batch.truncated,
-            batch.max_paths,
+            limit,
         )
     };
     out.emit_with_default_name("", &text, &json)
@@ -1053,27 +1044,26 @@ fn path_symbolic(
 pub(crate) struct PathBatch {
     pub(crate) paths: Vec<ReductionPath>,
     pub(crate) truncated: bool,
-    pub(crate) max_paths: usize,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, clap::ValueEnum)]
-pub(crate) enum PathSelection {
-    Pareto,
-    All,
+pub(crate) const MAX_PATHS: usize = 999;
+pub(crate) const PATH_LIMIT_ERROR: &str = "limit must be an integer from 1 to 999 or 'all'";
+
+pub(crate) fn validate_path_limit(limit: usize) -> std::result::Result<usize, String> {
+    (1..=MAX_PATHS)
+        .contains(&limit)
+        .then_some(limit)
+        .ok_or_else(|| PATH_LIMIT_ERROR.to_string())
 }
 
-impl std::str::FromStr for PathSelection {
-    type Err = String;
-
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "pareto" => Ok(Self::Pareto),
-            "all" => Ok(Self::All),
-            _ => Err(format!(
-                "unknown path selection '{value}'; expected 'pareto' or 'all'"
-            )),
-        }
+pub(crate) fn parse_path_limit(value: &str) -> std::result::Result<usize, String> {
+    if value == "all" {
+        return Ok(MAX_PATHS);
     }
+    let limit = value
+        .parse::<usize>()
+        .map_err(|_| PATH_LIMIT_ERROR.to_string())?;
+    validate_path_limit(limit)
 }
 
 pub(crate) fn find_path_batch(
@@ -1082,37 +1072,13 @@ pub(crate) fn find_path_batch(
     src_variant: &BTreeMap<String, String>,
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
-    max_paths: usize,
-    selection: PathSelection,
+    limit: usize,
 ) -> Result<PathBatch> {
-    anyhow::ensure!(max_paths <= 999, "max_paths must not exceed 999");
-    let paths = match selection {
-        PathSelection::Pareto => {
-            let mut paths = graph.find_all_paths(src_name, src_variant, dst_name, dst_variant);
-            paths.sort_by(|left, right| {
-                left.steps.len().cmp(&right.steps.len()).then_with(|| {
-                    left.steps
-                        .iter()
-                        .map(|step| (&step.name, &step.variant))
-                        .cmp(right.steps.iter().map(|step| (&step.name, &step.variant)))
-                })
-            });
-            paths
-        }
-        PathSelection::All => {
-            graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, max_paths + 1)
-        }
-    };
-    Ok(PathBatch {
-        paths,
-        truncated: false,
-        max_paths,
-    })
-}
-
-pub(crate) fn cap_path_batch(batch: &mut PathBatch) {
-    batch.truncated = batch.paths.len() > batch.max_paths;
-    batch.paths.truncate(batch.max_paths);
+    validate_path_limit(limit).map_err(anyhow::Error::msg)?;
+    let mut paths = graph.find_paths_up_to(src_name, src_variant, dst_name, dst_variant, limit + 1);
+    let truncated = paths.len() > limit;
+    paths.truncate(limit);
+    Ok(PathBatch { paths, truncated })
 }
 
 pub(crate) fn path_batch_json(
@@ -1176,17 +1142,20 @@ pub(crate) fn retain_selected<T>(items: Vec<T>, selected: &[bool]) -> Vec<T> {
 }
 
 pub(crate) fn symbolic_pareto_flags(graph: &ReductionGraph, paths: &[ReductionPath]) -> Vec<bool> {
+    let target_fields = paths
+        .first()
+        .and_then(|path| path.steps.last())
+        .map(|target| graph.size_field_names(&target.name))
+        .unwrap_or_default();
     pareto_flags_by(
         paths,
         |path| {
-            let target = path.steps.last().expect("path has a target node");
             let growth = graph
                 .compose_path_size_transform(path)
                 .ok()
                 .flatten()?
                 .project_growth();
-            graph
-                .size_field_names(&target.name)
+            target_fields
                 .iter()
                 .all(|field| growth.get(field).is_some())
                 .then_some(growth)
@@ -1198,9 +1167,24 @@ pub(crate) fn symbolic_pareto_flags(graph: &ReductionGraph, paths: &[ReductionPa
 pub(crate) fn concrete_pareto_flags(executed: &[ExecutedPath]) -> Vec<bool> {
     pareto_flags_by(
         executed,
-        |path| path.target_sizes().last().cloned(),
+        |path| {
+            let target = path.path.steps.last().expect("path has a target node");
+            Some(ReductionGraph::compute_problem_size(
+                &target.name,
+                &target.variant,
+                path.target_problem_any(),
+            ))
+        },
         problem_size_dominates,
     )
+}
+
+fn path_truncation_note(limit: usize) -> &'static str {
+    if limit == MAX_PATHS {
+        "\n(more paths exist; path search is capped at 999)\n"
+    } else {
+        "\n(more paths exist; increase --limit, maximum: 999)\n"
+    }
 }
 
 /// Render the symbolic path listing (header + per-path chains with normalized
@@ -1212,7 +1196,7 @@ fn render_paths_text(
     src_name: &str,
     dst_name: &str,
     truncated: bool,
-    max_paths: usize,
+    limit: usize,
 ) -> String {
     let mut text = format!(
         "Found {} paths from {} to {}:\n",
@@ -1225,9 +1209,7 @@ fn render_paths_text(
         text.push_str(&format_path_text(graph, p));
     }
     if truncated {
-        text.push_str(&format!(
-            "\n(more selected paths exist; use --max-paths to increase the output limit above {max_paths})\n"
-        ));
+        text.push_str(path_truncation_note(limit));
     }
     text
 }
@@ -1296,33 +1278,20 @@ fn path_concrete(
     src_variant: &BTreeMap<String, String>,
     dst_name: &str,
     dst_variant: &BTreeMap<String, String>,
-    max_paths: usize,
-    selection: PathSelection,
+    limit: usize,
+    unfiltered: bool,
     source: &dyn Any,
     out: &OutputConfig,
 ) -> Result<()> {
-    let mut batch = find_path_batch(
-        graph,
-        src_name,
-        src_variant,
-        dst_name,
-        dst_variant,
-        max_paths,
-        selection,
-    )?;
+    let mut batch = find_path_batch(graph, src_name, src_variant, dst_name, dst_variant, limit)?;
     if batch.paths.is_empty() && !batch.truncated {
         anyhow::bail!("No reduction path from {src_name} to {dst_name}");
     }
-    if selection == PathSelection::All {
-        cap_path_batch(&mut batch);
-    }
     let mut executed = graph.execute_paths(&batch.paths, source)?;
-    if selection == PathSelection::Pareto {
+    if !unfiltered {
         let flags = concrete_pareto_flags(&executed);
         batch.paths = retain_selected(batch.paths, &flags);
         executed = retain_selected(executed, &flags);
-        cap_path_batch(&mut batch);
-        executed.truncate(batch.max_paths);
     }
     let json_output = out.output.is_some() || out.json;
     let json = if json_output {
@@ -1342,10 +1311,7 @@ fn path_concrete(
             text.push_str(&format_concrete_path_text(graph, path));
         }
         if batch.truncated {
-            text.push_str(&format!(
-                "\n(more selected paths exist; use --max-paths to increase the output limit above {})\n",
-                batch.max_paths
-            ));
+            text.push_str(path_truncation_note(limit));
         }
         text
     };
