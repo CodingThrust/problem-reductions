@@ -123,6 +123,24 @@ fn test_backend_errors_are_classified_without_losing_the_cause() {
 }
 
 #[test]
+fn test_ilp_rejects_solution_that_is_infeasible_after_rounding() {
+    let ilp = ILP::<bool>::new(
+        1,
+        vec![LinearConstraint::le(vec![(0, 1.0)], 0.999_999_9)],
+        vec![(0, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+
+    let solution = ILPSolver::new().solve(&ilp);
+
+    assert!(matches!(
+        solution,
+        Err(ILPSolveError::InvalidSolution(message))
+            if message.contains("constraint 0 is violated after rounding")
+    ));
+}
+
+#[test]
 fn test_ilp_equality_constraint() {
     // Minimize x0 subject to x0 + x1 == 1, binary vars
     let ilp = ILP::<bool>::new(

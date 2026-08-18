@@ -26,6 +26,9 @@ pub enum ILPSolveError {
     /// Type-erased dispatch received a value other than a supported ILP variant.
     #[error("the ILP backend supports only ILP<bool> and ILP<i32>")]
     UnsupportedProblemType,
+    /// HiGHS reported an optimal solution that is invalid after integer rounding.
+    #[error("the ILP backend returned an invalid rounded solution: {0}")]
+    InvalidSolution(String),
     /// A target witness could not be mapped back to the source problem.
     #[error(transparent)]
     Extraction(#[from] crate::rules::ExtractionError),
@@ -193,11 +196,31 @@ impl ILPSolver {
         // Extract solution: config index = value (no lower bound offset)
         let result: Vec<usize> = vars
             .iter()
-            .map(|v| {
-                let val = solution.value(*v);
-                val.round().max(0.0) as usize
+            .enumerate()
+            .map(|(index, v)| {
+                let value = solution.value(*v).round();
+                if !value.is_finite() || value < 0.0 || value >= V::DIMS_PER_VAR as f64 {
+                    return Err(ILPSolveError::InvalidSolution(format!(
+                        "variable {index} rounded to {value}, outside the {} domain",
+                        V::NAME
+                    )));
+                }
+                Ok(value as usize)
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
+
+        let values = result.iter().map(|&value| value as i64).collect::<Vec<_>>();
+        if let Some((index, constraint)) = problem
+            .constraints
+            .iter()
+            .enumerate()
+            .find(|(_, constraint)| !constraint.is_satisfied(&values))
+        {
+            return Err(ILPSolveError::InvalidSolution(format!(
+                "constraint {index} is violated after rounding: left-hand side {} {:?} right-hand side {}",
+                constraint.evaluate_lhs(&values), constraint.cmp, constraint.rhs
+            )));
+        }
 
         Ok(result)
     }
