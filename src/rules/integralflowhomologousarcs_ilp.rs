@@ -33,12 +33,9 @@ impl ReductionResult for ReductionIFHAToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_arcs",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_arcs^2 + num_arcs + num_vertices + 1",
     }
 )]
 impl ReduceTo<ILP<i32>> for IntegralFlowHomologousArcs {

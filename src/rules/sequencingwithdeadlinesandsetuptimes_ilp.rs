@@ -50,13 +50,9 @@ impl ReductionResult for ReductionSWDSTToILP {
     }
 }
 
-#[reduction(
-    size = exact {
-        num_vars = "num_tasks * num_tasks + (num_tasks - 1) + num_tasks * (num_tasks - 1)",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+#[reduction(size = upper_bound {
+    num_vars = "2 * num_tasks^2 + num_tasks",
+    num_constraints = "2 * num_tasks + num_tasks^2 * (num_tasks - 1) + 3 * num_tasks * (num_tasks - 1) + num_tasks * num_tasks",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;

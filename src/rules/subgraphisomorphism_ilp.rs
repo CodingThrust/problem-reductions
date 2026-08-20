@@ -50,12 +50,9 @@ impl ReductionResult for ReductionSubIsoToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_pattern_vertices * num_host_vertices",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_pattern_vertices + num_host_vertices + num_pattern_edges * num_host_vertices^2",
     }
 )]
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {

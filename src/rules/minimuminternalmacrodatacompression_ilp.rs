@@ -160,12 +160,9 @@ impl ReductionResult for ReductionIMDCToILP {
 }
 
 #[reduction(
-    size = exact {
-
+    size = upper_bound {
+        num_vars = "string_len + string_len ^ 3",
         num_constraints = "string_len + 1",
-    },
-    unavailable = {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {

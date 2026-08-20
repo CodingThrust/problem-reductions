@@ -140,9 +140,9 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "3 * num_arcs + num_arcs * num_arcs",
+        num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
     }
 )]
 impl ReduceTo<ILP<i32>> for EulerianPath {

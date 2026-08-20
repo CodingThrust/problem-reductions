@@ -67,13 +67,9 @@ impl ReductionResult for ReductionSWRTDToILP {
     }
 }
 
-#[reduction(
-    size = exact {
-        num_vars = "num_tasks * time_horizon",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+#[reduction(size = upper_bound {
+    num_vars = "num_tasks * time_horizon",
+    num_constraints = "num_tasks * time_horizon + num_tasks + time_horizon",
 })]
 impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSWRTDToILP;

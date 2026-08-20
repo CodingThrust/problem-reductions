@@ -145,6 +145,21 @@ impl SequencingWithinIntervals {
     pub fn num_tasks(&self) -> usize {
         self.release_times.len()
     }
+
+    /// Return the total number of feasible start slots across all tasks.
+    pub fn num_start_slots(&self) -> usize {
+        self.release_times
+            .iter()
+            .zip(&self.deadlines)
+            .zip(&self.lengths)
+            .map(|((&release, &deadline), &length)| deadline - release - length + 1)
+            .fold(0usize, |total, slots| {
+                let slots = usize::try_from(slots).expect("start-slot count does not fit usize");
+                total
+                    .checked_add(slots)
+                    .expect("total start-slot count overflow")
+            })
+    }
 }
 
 impl Problem for SequencingWithinIntervals {

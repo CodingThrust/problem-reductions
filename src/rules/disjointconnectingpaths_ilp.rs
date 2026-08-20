@@ -59,12 +59,9 @@ impl ReductionResult for ReductionDCPToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_pairs * 2 * num_edges",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_pairs * num_vertices + num_pairs * num_edges + num_edges + num_vertices",
     }
 )]
 impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {

@@ -35,12 +35,9 @@ impl ReductionResult for ReductionISTToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_vertices * num_vertices",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "2 * num_vertices + 2 * (num_vertices - 1) * num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {

@@ -80,3 +80,68 @@ fn every_registered_rule_has_one_valid_size_contract() {
         assert!(contract.transform().is_some() || !contract.unavailable().is_empty());
     }
 }
+
+#[cfg(feature = "example-db")]
+#[test]
+fn canonical_examples_satisfy_upper_bound_size_contracts() {
+    use crate::size::EvaluatedSize;
+
+    for spec in crate::rules::canonical_rule_example_specs() {
+        let example = (spec.build)();
+        let source = crate::registry::load_dyn(
+            &example.source.problem,
+            &example.source.variant,
+            example.source.instance.clone(),
+        )
+        .unwrap();
+        let target = crate::registry::load_dyn(
+            &example.target.problem,
+            &example.target.variant,
+            example.target.instance.clone(),
+        )
+        .unwrap();
+        let graph = ReductionGraph::new();
+        let entry = graph
+            .find_entry(
+                &example.source.problem,
+                &example.source.variant,
+                &example.target.problem,
+                &example.target.variant,
+            )
+            .unwrap_or_else(|| panic!("{} has no registered direct edge", spec.id));
+        let Ok(contract) = entry.size_contract else {
+            continue;
+        };
+        let Some(transform) = contract.transform() else {
+            continue;
+        };
+        if transform.relation() != SizeRelation::UpperBound {
+            continue;
+        }
+        let source_size = ReductionGraph::compute_problem_size(
+            &example.source.problem,
+            &example.source.variant,
+            source.as_any(),
+        );
+        let target_size = ReductionGraph::compute_problem_size(
+            &example.target.problem,
+            &example.target.variant,
+            target.as_any(),
+        );
+        let predicted = transform
+            .evaluate(&EvaluatedSize::from_problem_size(&source_size))
+            .unwrap_or_else(|error| panic!("{}: {error}", spec.id));
+
+        for (field, actual) in target_size.components {
+            let Some(predicted_value) = predicted.values().get(&field) else {
+                continue;
+            };
+            let actual = BigUint::from(actual);
+            assert!(
+                predicted_value >= &actual,
+                "{}: target field {field}: predicted {predicted_value}, actual {actual}",
+                spec.id
+            );
+        }
+    }
+}

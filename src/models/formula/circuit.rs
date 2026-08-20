@@ -112,6 +112,17 @@ impl BooleanExpr {
         }
     }
 
+    /// Return the number of nodes in this expression tree.
+    pub fn num_nodes(&self) -> usize {
+        match &self.op {
+            BooleanOp::Var(_) | BooleanOp::Const(_) => 1,
+            BooleanOp::Not(inner) => 1 + inner.num_nodes(),
+            BooleanOp::And(args) | BooleanOp::Or(args) | BooleanOp::Xor(args) => {
+                1 + args.iter().map(BooleanExpr::num_nodes).sum::<usize>()
+            }
+        }
+    }
+
     /// Evaluate the expression given variable assignments.
     pub fn evaluate(&self, assignments: &HashMap<String, bool>) -> bool {
         match &self.op {
@@ -188,6 +199,22 @@ impl Circuit {
     pub fn num_assignments(&self) -> usize {
         self.assignments.len()
     }
+
+    /// Return the total number of Boolean expression nodes.
+    pub fn num_expression_nodes(&self) -> usize {
+        self.assignments
+            .iter()
+            .map(|assignment| assignment.expr.num_nodes())
+            .sum()
+    }
+
+    /// Return the total number of assignment outputs.
+    pub fn num_assignment_outputs(&self) -> usize {
+        self.assignments
+            .iter()
+            .map(|assignment| assignment.outputs.len())
+            .sum()
+    }
 }
 
 /// The Circuit SAT problem.
@@ -249,6 +276,16 @@ impl CircuitSAT {
     /// Get the number of assignments (constraints) in the circuit.
     pub fn num_assignments(&self) -> usize {
         self.circuit.num_assignments()
+    }
+
+    /// Return the total number of Boolean expression nodes.
+    pub fn num_expression_nodes(&self) -> usize {
+        self.circuit.num_expression_nodes()
+    }
+
+    /// Return the total number of assignment outputs.
+    pub fn num_assignment_outputs(&self) -> usize {
+        self.circuit.num_assignment_outputs()
     }
 
     /// Check if a configuration is a valid satisfying assignment.

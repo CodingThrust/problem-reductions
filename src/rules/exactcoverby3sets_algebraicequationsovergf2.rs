@@ -28,12 +28,10 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
     }
 }
 
-#[reduction(
-    size = exact { num_variables = "num_sets" },
-    unavailable = {
-        num_equations = "the source size vector does not track per-element incidence degrees",
-    }
-)]
+#[reduction(size = upper_bound {
+    num_variables = "num_sets",
+    num_equations = "universe_size + 9 * num_sets^2",
+})]
 impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
     type Result = ReductionX3CToAlgebraicEquationsOverGF2;
 

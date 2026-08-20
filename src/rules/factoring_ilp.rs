@@ -100,9 +100,9 @@ impl ReductionResult for ReductionFactoringToILP {
     }
 }
 
-#[reduction(size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+#[reduction(size = upper_bound {
+    num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + 64",
+    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 193",
 })]
 impl ReduceTo<ILP<i32>> for Factoring {
     type Result = ReductionFactoringToILP;

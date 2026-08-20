@@ -214,9 +214,9 @@ fn encode_pointer(n: usize, start: usize, len: usize) -> usize {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "string_length * alphabet_size + 2 * string_length + string_length ^ 3",
+        num_constraints = "string_length + string_length * alphabet_size + string_length + string_length + 1 + string_length ^ 3 * string_length",
     }
 )]
 impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {

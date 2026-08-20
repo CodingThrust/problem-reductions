@@ -352,10 +352,10 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
 }
 
 #[reduction(
-    size = unavailable {
-        num_tasks = "the exact count uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
-        num_processors = "the exact count uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
-        d_max = "the exact deadline uses the maximum of literal and clause gadget counts, which is not representable by the size expression language",
+    size = upper_bound {
+        num_tasks = "(2 * num_vars + 2 + 6 * num_clauses) * (num_vars + 3)",
+        num_processors = "2 * num_vars + 2 + 6 * num_clauses",
+        d_max = "(2 * num_vars + 2 + 6 * num_clauses) * (num_vars + 3)",
     }
 )]
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {

@@ -178,12 +178,9 @@ impl ILPBuilder {
 }
 
 #[reduction(
-    size = exact {
-        num_vars = "num_variables + num_assignments",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "num_variables + num_expression_nodes",
+        num_constraints = "5 * num_expression_nodes + num_assignment_outputs",
     }
 )]
 impl ReduceTo<ILP<bool>> for CircuitSAT {

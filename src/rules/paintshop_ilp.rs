@@ -35,12 +35,9 @@ impl ReductionResult for ReductionPaintShopToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_cars + 2 * num_sequence",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_sequence + 2 * num_sequence",
     }
 )]
 impl ReduceTo<ILP<bool>> for PaintShop {

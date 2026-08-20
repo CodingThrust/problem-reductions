@@ -108,12 +108,9 @@ impl ReductionResult for ReductionSTSCToILP {
 }
 
 #[reduction(
-    size = exact {
-        num_vars = "(bound + 1) * source_length * source_length + (bound + 1) * source_length + 2 * bound * source_length",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "(bound + 1) * source_length^2 + (bound + 1) * source_length + 2 * bound * source_length + bound",
+        num_constraints = "4 * bound * source_length^3 + 2 * bound * source_length^2 + source_length^2 + 6 * bound * source_length + 5 * source_length + bound",
     }
 )]
 impl ReduceTo<ILP<bool>> for StringToStringCorrection {

@@ -5304,9 +5304,7 @@ fn test_path_overall_exact_map_json() {
 }
 
 #[test]
-fn test_path_overall_exact_map_composition() {
-    // The One → i32 cast and graph complement are both exact. Their composition
-    // must remain in source fields rather than consulting a bound or Growth.
+fn test_path_overall_upper_bound_map_composition() {
     let output = pred()
         .args([
             "path",
@@ -5353,8 +5351,9 @@ fn test_path_overall_exact_map_composition() {
         overall["num_vertices"]
     );
     assert!(
-        overall["num_edges"].contains("num_vertices") && overall["num_edges"].contains("num_edges"),
-        "complement edges should be in terms of source vars, got: {}",
+        overall["num_edges"].contains("num_vertices")
+            && !overall["num_edges"].contains("num_edges"),
+        "composed edge bound should be in terms of source vertices, got: {}",
         overall["num_edges"]
     );
 }
@@ -5411,7 +5410,7 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
     let output = pred()
         .args([
             "path",
-            "MaximumClique/SimpleGraph/i32",
+            "HighlyConnectedDeletion",
             "ILP/bool",
             "--limit",
             "1",
@@ -5433,45 +5432,30 @@ fn test_path_overall_preserves_unavailable_fields_alongside_exact_fields() {
             )
         })
         .collect::<std::collections::BTreeMap<_, _>>();
-    assert_eq!(relations["num_vars"], "exact");
-    assert_eq!(relations["num_constraints"], "unavailable");
+    assert_eq!(relations["num_constraints"], "exact");
+    assert_eq!(relations["num_vars"], "unavailable");
 }
 
 #[test]
-fn test_path_overall_unavailable_reason_matches_each_target_field() {
+fn test_path_overall_unavailable_reason_explains_unsupported_bound() {
     let output = pred()
-        .args(["path", "Factoring", "ILP/bool", "--limit", "7", "--json"])
+        .args(["path", "HighlyConnectedDeletion", "ILP/bool", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
     let envelope: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    let path = envelope["paths"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|path| {
-            path["path"].as_array().is_some_and(|steps| {
-                steps
-                    .iter()
-                    .any(|step| step["from"]["name"] == "Clustering")
-            })
-        })
-        .expect("Factoring -> ... -> Clustering -> ILP path");
-    let fields = path["overall_size"]["fields"]
+    let fields = envelope["paths"][0]["overall_size"]["fields"]
         .as_array()
         .unwrap()
         .iter()
         .map(|field| (field["field"].as_str().unwrap(), field))
         .collect::<std::collections::BTreeMap<_, _>>();
 
-    assert!(fields["num_constraints"]["reason"]
-        .as_str()
-        .unwrap()
-        .contains("constraint count depends"));
+    assert_eq!(fields["num_vars"]["relation"], "unavailable");
     assert!(fields["num_vars"]["reason"]
         .as_str()
         .unwrap()
-        .contains("has no symbolic size transform"));
+        .contains("variable exponent unsupported"));
 }
 
 #[test]

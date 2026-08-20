@@ -35,12 +35,9 @@ impl ReductionResult for ReductionBiconnAugToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_potential_edges + 2 * num_vertices * num_vertices * (num_edges + num_potential_edges)",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_potential_edges + 1 + 4 * num_vertices * (num_edges + num_potential_edges) + num_vertices^2 * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
     }
 )]
 impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {

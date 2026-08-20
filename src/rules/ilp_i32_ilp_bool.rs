@@ -271,7 +271,7 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "31 * num_vars",
         num_constraints = "num_constraints",
     },)]

@@ -38,12 +38,9 @@ impl ReductionResult for ReductionSMCToILP {
 }
 
 #[reduction(
-    size = exact {
+    size = upper_bound {
         num_vars = "num_rows * bound_k",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_rows + num_rows * num_rows * bound_k * bound_k",
     }
 )]
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {

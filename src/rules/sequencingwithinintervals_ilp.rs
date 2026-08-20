@@ -69,12 +69,9 @@ impl ReductionResult for ReductionSWIToILP {
 }
 
 #[reduction(
-    size = exact {
-        num_vars = "num_tasks^2",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "num_start_slots",
+        num_constraints = "num_start_slots^2 + num_tasks",
     }
 )]
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {

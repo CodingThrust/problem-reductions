@@ -67,9 +67,9 @@ impl ReductionResult for ReductionMCESToILP {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "num_vertices_1 * num_vertices_2 + num_arcs_1 * num_arcs_2",
+        num_constraints = "num_vertices_1 + num_vertices_2 + 3 * num_arcs_1 * num_arcs_2",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {

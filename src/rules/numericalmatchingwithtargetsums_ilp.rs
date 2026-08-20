@@ -63,12 +63,9 @@ impl ReductionResult for ReductionNMTSToILP {
 }
 
 #[reduction(
-    size = exact {
-
+    size = upper_bound {
+        num_vars = "num_pairs * num_pairs * num_pairs",
         num_constraints = "3 * num_pairs",
-    },
-    unavailable = {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {

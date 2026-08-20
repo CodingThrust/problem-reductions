@@ -111,6 +111,7 @@ fn test_precedence_constrained_scheduling_serialization() {
     assert_eq!(restored.num_processors(), problem.num_processors());
     assert_eq!(restored.deadline(), problem.deadline());
     assert_eq!(restored.precedences(), problem.precedences());
+    assert_eq!(restored.num_precedences(), problem.num_precedences());
 }
 
 #[test]

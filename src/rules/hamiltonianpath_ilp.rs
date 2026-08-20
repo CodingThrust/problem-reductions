@@ -46,9 +46,9 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "num_vertices^2 + 2 * num_edges * num_vertices",
+        num_constraints = "2 * num_vertices + 6 * num_edges * num_vertices + num_vertices",
     }
 )]
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {

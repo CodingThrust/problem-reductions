@@ -147,6 +147,11 @@ impl PrecedenceConstrainedScheduling {
     pub fn precedences(&self) -> &[(usize, usize)] {
         &self.precedences
     }
+
+    /// Return the number of precedence relations.
+    pub fn num_precedences(&self) -> usize {
+        self.precedences.len()
+    }
 }
 
 impl Problem for PrecedenceConstrainedScheduling {

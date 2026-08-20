@@ -260,6 +260,8 @@ fn test_size_getters() {
     )]);
     let problem = CircuitSAT::new(circuit);
     assert_eq!(problem.num_variables(), 3);
+    assert_eq!(problem.num_expression_nodes(), 3);
+    assert_eq!(problem.num_assignment_outputs(), 1);
 }
 
 #[test]

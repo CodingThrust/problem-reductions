@@ -40,10 +40,7 @@ impl ReductionResult for ReductionBCSFToILP {
 #[reduction(
     size = exact {
         num_vars = "3 * num_vertices * max_components + 2 * max_components + 2 * num_edges * max_components",
-
-    },
-    unavailable = {
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+        num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",
     }
 )]
 impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {

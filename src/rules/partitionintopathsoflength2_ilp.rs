@@ -59,9 +59,9 @@ impl ReductionResult for ReductionPIPL2ToILP {
 }
 
 #[reduction(
-    size = unavailable {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
-        num_constraints = "the exact constraint count depends on generated constraint families or incidence statistics absent from the registered source size vector",
+    size = upper_bound {
+        num_vars = "num_vertices^2 + num_edges * num_vertices",
+        num_constraints = "num_vertices^2 + num_edges * num_vertices + num_vertices",
     }
 )]
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {

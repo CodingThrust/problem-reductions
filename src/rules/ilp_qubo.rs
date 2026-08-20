@@ -41,7 +41,7 @@ impl ReductionResult for ReductionILPToQUBO {
 
 #[reduction(
     size = unavailable {
-        num_vars = "the exact count depends on source incidence structure or construction branches not represented by registered source fields",
+        num_vars = "the slack-bit count depends on coefficient magnitudes and right-hand sides absent from the registered source size vector",
     }
 )]
 impl ReduceTo<QUBO<f64>> for ILP<bool> {

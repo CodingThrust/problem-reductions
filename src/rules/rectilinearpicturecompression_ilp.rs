@@ -32,12 +32,9 @@ impl ReductionResult for ReductionRPCToILP {
 }
 
 #[reduction(
-    size = exact {
-
+    size = upper_bound {
+        num_vars = "num_rows^2 * num_cols^2",
         num_constraints = "num_rows * num_cols + 1",
-    },
-    unavailable = {
-        num_vars = "the exact variable count depends on auxiliary, slack, or feasible-structure counts absent from the registered source size vector",
     }
 )]
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {

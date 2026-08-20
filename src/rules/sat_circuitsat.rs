@@ -42,9 +42,9 @@ impl ReductionResult for ReductionSATToCircuit {
 }
 
 #[reduction(
-    size = unavailable {
-        num_variables = "the exact circuit variable count depends on used-variable and clause-expression incidence absent from the source size vector",
-        num_assignments = "the exact assignment count depends on the number of source variables unused by every clause",
+    size = upper_bound {
+        num_variables = "2 * num_vars + num_clauses + 1",
+        num_assignments = "num_vars + num_clauses + 2",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {

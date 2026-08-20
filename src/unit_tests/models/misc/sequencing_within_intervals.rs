@@ -124,6 +124,7 @@ fn test_sequencing_within_intervals_no_solution() {
 #[test]
 fn test_sequencing_within_intervals_serialization() {
     let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
+    assert_eq!(problem.num_start_slots(), 6);
     let json = serde_json::to_value(&problem).unwrap();
     let restored: SequencingWithinIntervals = serde_json::from_value(json).unwrap();
     assert_eq!(restored.release_times(), problem.release_times());
@@ -135,6 +136,7 @@ fn test_sequencing_within_intervals_serialization() {
 fn test_sequencing_within_intervals_empty() {
     let problem = SequencingWithinIntervals::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
+    assert_eq!(problem.num_start_slots(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
     assert!(problem.evaluate(&[]));
 }
