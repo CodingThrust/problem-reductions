@@ -38,10 +38,10 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IntegralFlowHomologousArcs {
     graph: DirectedGraph,
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     source: usize,
     sink: usize,
-    requirement: u64,
+    requirement: i64,
     homologous_pairs: Vec<(usize, usize)>,
 }
 
@@ -51,17 +51,19 @@ struct IntegralFlowHomologousArcsCreateSpec {
     arcs: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    capacities: Option<Vec<u64>>,
+    capacities: Option<Vec<i64>>,
     source: usize,
     sink: usize,
-    requirement: u64,
+    requirement: i64,
     #[create(codec = "equality-pair-list")]
     homologous_pairs: Vec<(usize, usize)>,
 }
 
 impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArcs {
-    type Error = String;
-    fn try_from(spec: IntegralFlowHomologousArcsCreateSpec) -> Result<Self, String> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(
+        spec: IntegralFlowHomologousArcsCreateSpec,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if spec.arcs.is_empty() {
             return Err("arcs must be non-empty".into());
         }
@@ -112,10 +114,10 @@ impl TryFrom<IntegralFlowHomologousArcsCreateSpec> for IntegralFlowHomologousArc
 impl IntegralFlowHomologousArcs {
     pub fn new(
         graph: DirectedGraph,
-        capacities: Vec<u64>,
+        capacities: Vec<i64>,
         source: usize,
         sink: usize,
-        requirement: u64,
+        requirement: i64,
         homologous_pairs: Vec<(usize, usize)>,
     ) -> Self {
         let num_vertices = graph.num_vertices();
@@ -164,7 +166,7 @@ impl IntegralFlowHomologousArcs {
         &self.graph
     }
 
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
@@ -176,7 +178,7 @@ impl IntegralFlowHomologousArcs {
         self.sink
     }
 
-    pub fn requirement(&self) -> u64 {
+    pub fn requirement(&self) -> i64 {
         self.requirement
     }
 
@@ -192,15 +194,18 @@ impl IntegralFlowHomologousArcs {
         self.graph.num_arcs()
     }
 
-    pub fn max_capacity(&self) -> u64 {
+    pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 
-    fn domain_size(capacity: u64) -> usize {
+    fn domain_size(capacity: i64) -> usize {
         usize::try_from(capacity)
             .ok()
             .and_then(|value| value.checked_add(1))
@@ -223,44 +228,56 @@ impl Problem for IntegralFlowHomologousArcs {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_arcs() {
-                return crate::types::Or(false);
-            }
-
-            for &(a, b) in &self.homologous_pairs {
-                if config[a] != config[b] {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_arcs() {
+                    return Ok(crate::types::Or(false));
                 }
-            }
 
-            let mut balances = vec![0_i128; self.num_vertices()];
-            for (arc_index, ((u, v), &capacity)) in self
-                .graph
-                .arcs()
-                .into_iter()
-                .zip(self.capacities.iter())
-                .enumerate()
-            {
-                let Ok(flow) = u64::try_from(config[arc_index]) else {
-                    return crate::types::Or(false);
-                };
-                if flow > capacity {
-                    return crate::types::Or(false);
+                for &(a, b) in &self.homologous_pairs {
+                    if config[a] != config[b] {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-                let flow = i128::from(flow);
-                balances[u] -= flow;
-                balances[v] += flow;
-            }
 
-            for (vertex, &balance) in balances.iter().enumerate() {
-                if vertex != self.source && vertex != self.sink && balance != 0 {
-                    return crate::types::Or(false);
+                let mut balances = vec![0_i64; self.num_vertices()];
+                for (arc_index, ((u, v), &capacity)) in self
+                    .graph
+                    .arcs()
+                    .into_iter()
+                    .zip(self.capacities.iter())
+                    .enumerate()
+                {
+                    let Ok(flow) = i64::try_from(config[arc_index]) else {
+                        return Ok(crate::types::Or(false));
+                    };
+                    if flow > capacity {
+                        return Ok(crate::types::Or(false));
+                    }
+                    balances[u] = balances[u].checked_sub(flow).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "subtracting outgoing homologous-arc flow".into(),
+                        )
+                    })?;
+                    balances[v] = balances[v].checked_add(flow).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding incoming homologous-arc flow".into(),
+                        )
+                    })?;
                 }
-            }
 
-            balances[self.sink] >= i128::from(self.requirement)
+                for (vertex, &balance) in balances.iter().enumerate() {
+                    if vertex != self.source && vertex != self.sink && balance != 0 {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                balances[self.sink] >= self.requirement
+            })
         })
     }
 }

@@ -8,20 +8,22 @@ use crate::types::Min;
 /// Canonical issue-#1027 instance: path 0 - 1 - 2 with c=(10,10), p=(5,1,5),
 /// beta = 1, omega = 1. The PCSF optimum drops vertex 1 because paying
 /// `beta * p(1) = 1` is cheaper than paying any incident edge (cost 10).
-fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i32> {
-    PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+fn canonical_problem() -> PrizeCollectingSteinerForest<SimpleGraph, i64> {
+    PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         vec![5, 1, 5],
         vec![10, 10],
         1,
         1,
     )
+    .unwrap()
 }
 
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_canonical_closed_loop() {
     let source = canonical_problem();
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Round-trip the target optimum and confirm the extracted source
     // configuration is itself an optimal PCSF witness.
@@ -33,8 +35,8 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_closed_loop() {
 
     // Numeric sanity: both optima must agree, and equal 3 on this instance.
     let target = reduction.target_problem();
-    let source_opt = BruteForce::new().solve(&source);
-    let target_opt = BruteForce::new().solve(target);
+    let source_opt = BruteForce::new().solve(&source).unwrap();
+    let target_opt = BruteForce::new().solve(target).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
     assert_eq!(target_opt, Min(Some(3)));
 }
@@ -42,7 +44,8 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_closed_loop() {
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_canonical_target_structure() {
     let source = canonical_problem();
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Exact size relation: V_H = n + k + 1, E_H = m + n + 2k, T_H = k + 1.
@@ -59,11 +62,13 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_target_structure()
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() {
     let source = canonical_problem();
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let target_witness = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("target SteinerTree must be feasible");
     let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
@@ -73,7 +78,7 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
     // Extracted witness must be a feasible PCSF forest with the optimal
     // objective value (3 on this instance).
     assert!(source.is_valid_solution(&source_witness));
-    assert_eq!(source.evaluate(&source_witness), Min(Some(3)));
+    assert_eq!(source.evaluate(&source_witness).unwrap(), Min(Some(3)));
 
     // V_F = {0, 2}, E_F = {} on this instance.
     assert_eq!(source_witness[0], 1, "vertex 0 should be in V_F");
@@ -91,15 +96,17 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
 /// penalty. The optimum keeps every vertex and uses both edges.
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
-    let source = PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+    let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         // Large prizes so all three vertices are worth including.
         vec![100, 100, 100],
         vec![1, 1],
         1,
         1,
-    );
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // k = 3 prized vertices.
@@ -115,8 +122,8 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
 
     // Direct sanity: optimum is "select everything"
     // V_F = {0,1,2}, E_F = {(0,1),(1,2)}, one component, cost = 0 + 2 + 1 = 3.
-    let source_opt = BruteForce::new().solve(&source);
-    let target_opt = BruteForce::new().solve(target);
+    let source_opt = BruteForce::new().solve(&source).unwrap();
+    let target_opt = BruteForce::new().solve(target).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
     assert_eq!(target_opt, Min(Some(3)));
 }
@@ -132,14 +139,16 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
 #[test]
 fn test_prizecollectingsteinerforest_to_steinertree_mixed_zero_prize() {
     // Two-vertex path with one prize-zero vertex.
-    let source = PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+    let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
         SimpleGraph::new(2, vec![(0, 1)]),
         vec![0, 5],
         vec![1],
         1,
         1,
-    );
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // k = 1, so V_H = 2 + 1 + 1 = 4, E_H = 1 + 2 + 2*1 = 5, T_H = 1 + 1 = 2.
@@ -161,14 +170,16 @@ fn test_prizecollectingsteinerforest_to_steinertree_path_with_omission() {
     // Path 0 - 1 - 2 - 3 with edge cost 5 everywhere, prizes p = (4, 1, 1, 4).
     // beta = 1, omega = 1. Vertices 1 and 2 are expected to drop because
     // each edge costs 5 but their prize is only 1.
-    let source = PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+    let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![4, 1, 1, 4],
         vec![5, 5, 5],
         1,
         1,
-    );
-    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i32>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<SteinerTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,

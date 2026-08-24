@@ -68,9 +68,9 @@ fn test_integral_flow_bundles_evaluate_yes_and_no_examples() {
     let yes = yes_instance();
     let no = no_instance();
     let config = satisfying_config();
-    assert!(yes.evaluate(&config));
-    assert!(!no.evaluate(&config));
-    assert!(yes.is_valid_solution(&config));
+    assert!(yes.evaluate(&config).unwrap());
+    assert!(!no.evaluate(&config).unwrap());
+    assert!(yes.is_valid_solution(&config).unwrap());
 }
 
 #[test]
@@ -79,20 +79,20 @@ fn test_integral_flow_bundles_rejects_bad_bundle_sum_or_conservation() {
 
     let mut bundle_violation = satisfying_config();
     bundle_violation[1] = 1;
-    assert!(!problem.evaluate(&bundle_violation));
+    assert!(!problem.evaluate(&bundle_violation).unwrap());
 
     let conservation_violation = vec![1, 0, 0, 0, 0, 0];
-    assert!(!problem.evaluate(&conservation_violation));
+    assert!(!problem.evaluate(&conservation_violation).unwrap());
 }
 
 #[test]
 fn test_integral_flow_bundles_solver_and_paper_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());
     assert!(all.contains(&satisfying_config()));
-    assert!(problem.evaluate(&satisfying_config()));
+    assert!(problem.evaluate(&satisfying_config()).unwrap());
 }
 
 #[test]

@@ -37,8 +37,8 @@ pub struct StackerCrane {
     num_vertices: usize,
     arcs: Vec<(usize, usize)>,
     edges: Vec<(usize, usize)>,
-    arc_lengths: Vec<i32>,
-    edge_lengths: Vec<i32>,
+    arc_lengths: Vec<i64>,
+    edge_lengths: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -53,25 +53,27 @@ struct StackerCraneCreateSpec {
     num_vertices: Option<usize>,
     /// Required-arc lengths; defaults to one per arc.
     #[create(codec = "comma-separated")]
-    arc_lengths: Option<Vec<i32>>,
+    arc_lengths: Option<Vec<i64>>,
     /// Connector-edge lengths; defaults to one per edge.
     #[create(codec = "comma-separated")]
-    edge_lengths: Option<Vec<i32>>,
+    edge_lengths: Option<Vec<i64>>,
 }
 
 impl TryFrom<StackerCraneCreateSpec> for StackerCrane {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: StackerCraneCreateSpec) -> Result<Self, Self::Error> {
         if spec.arcs.is_empty() {
-            return Err("arcs must be non-empty".to_string());
+            return Err("arcs must be non-empty".to_string().into());
         }
         if spec.edges.is_empty() && spec.num_vertices.is_none() {
-            return Err("num_vertices is required for an empty graph".to_string());
+            return Err("num_vertices is required for an empty graph"
+                .to_string()
+                .into());
         }
         for (index, &(u, v)) in spec.edges.iter().enumerate() {
             if u == v {
-                return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+                return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
             }
         }
         let inferred_arcs = inferred_vertex_count(&spec.arcs)?;
@@ -82,13 +84,14 @@ impl TryFrom<StackerCraneCreateSpec> for StackerCrane {
             None => {
                 return Err(format!(
                     "directed and undirected inputs infer different vertex counts ({inferred_arcs} and {inferred_edges}); provide num_vertices"
-                ))
+                ).into())
             }
         };
         if num_vertices < inferred_arcs || num_vertices < inferred_edges {
             return Err(format!(
                 "num_vertices {num_vertices} is too small for the provided endpoints"
-            ));
+            )
+            .into());
         }
         let arc_lengths = spec.arc_lengths.unwrap_or_else(|| vec![1; spec.arcs.len()]);
         let edge_lengths = spec
@@ -104,8 +107,10 @@ impl TryFrom<StackerCraneCreateSpec> for StackerCrane {
     }
 }
 
-fn inferred_vertex_count(pairs: &[(usize, usize)]) -> Result<usize, String> {
-    pairs
+fn inferred_vertex_count(
+    pairs: &[(usize, usize)],
+) -> Result<usize, crate::registry::ConstructionError> {
+    Ok(pairs
         .iter()
         .flat_map(|&(u, v)| [u, v])
         .max()
@@ -115,7 +120,7 @@ fn inferred_vertex_count(pairs: &[(usize, usize)]) -> Result<usize, String> {
                 .ok_or("vertex count overflows usize".to_string())
         })
         .transpose()
-        .map(|count| count.unwrap_or(0))
+        .map(|count| count.unwrap_or(0))?)
 }
 
 impl StackerCrane {
@@ -129,8 +134,8 @@ impl StackerCrane {
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         edges: Vec<(usize, usize)>,
-        arc_lengths: Vec<i32>,
-        edge_lengths: Vec<i32>,
+        arc_lengths: Vec<i64>,
+        edge_lengths: Vec<i64>,
     ) -> Self {
         Self::try_new(num_vertices, arcs, edges, arc_lengths, edge_lengths)
             .unwrap_or_else(|message| panic!("{message}"))
@@ -141,37 +146,43 @@ impl StackerCrane {
         num_vertices: usize,
         arcs: Vec<(usize, usize)>,
         edges: Vec<(usize, usize)>,
-        arc_lengths: Vec<i32>,
-        edge_lengths: Vec<i32>,
-    ) -> Result<Self, String> {
+        arc_lengths: Vec<i64>,
+        edge_lengths: Vec<i64>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if arc_lengths.len() != arcs.len() {
-            return Err("arc_lengths length must match arcs length".to_string());
+            return Err("arc_lengths length must match arcs length"
+                .to_string()
+                .into());
         }
         if edge_lengths.len() != edges.len() {
-            return Err("edge_lengths length must match edges length".to_string());
+            return Err("edge_lengths length must match edges length"
+                .to_string()
+                .into());
         }
         for (arc_index, &(tail, head)) in arcs.iter().enumerate() {
             if tail >= num_vertices || head >= num_vertices {
                 return Err(format!(
                     "arc {arc_index} endpoint out of range for {num_vertices} vertices"
-                ));
+                )
+                .into());
             }
         }
         for (edge_index, &(u, v)) in edges.iter().enumerate() {
             if u >= num_vertices || v >= num_vertices {
                 return Err(format!(
                     "edge {edge_index} endpoint out of range for {num_vertices} vertices"
-                ));
+                )
+                .into());
             }
         }
         for (arc_index, &length) in arc_lengths.iter().enumerate() {
             if length < 0 {
-                return Err(format!("arc length {arc_index} must be nonnegative"));
+                return Err(format!("arc length {arc_index} must be nonnegative").into());
             }
         }
         for (edge_index, &length) in edge_lengths.iter().enumerate() {
             if length < 0 {
-                return Err(format!("edge length {edge_index} must be nonnegative"));
+                return Err(format!("edge length {edge_index} must be nonnegative").into());
             }
         }
 
@@ -200,12 +211,12 @@ impl StackerCrane {
     }
 
     /// Get the required arc lengths.
-    pub fn arc_lengths(&self) -> &[i32] {
+    pub fn arc_lengths(&self) -> &[i64] {
         &self.arc_lengths
     }
 
     /// Get the undirected edge lengths.
-    pub fn edge_lengths(&self) -> &[i32] {
+    pub fn edge_lengths(&self) -> &[i64] {
         &self.edge_lengths
     }
 
@@ -235,7 +246,7 @@ impl StackerCrane {
         true
     }
 
-    fn mixed_graph_adjacency(&self) -> Vec<Vec<(usize, i32)>> {
+    fn mixed_graph_adjacency(&self) -> Vec<Vec<(usize, i64)>> {
         let mut adjacency = vec![Vec::new(); self.num_vertices];
 
         for (&(tail, head), &length) in self.arcs.iter().zip(&self.arc_lengths) {
@@ -252,7 +263,7 @@ impl StackerCrane {
 
     fn shortest_path_length(
         &self,
-        adjacency: &[Vec<(usize, i32)>],
+        adjacency: &[Vec<(usize, i64)>],
         source: usize,
         target: usize,
     ) -> Option<i64> {
@@ -274,7 +285,7 @@ impl StackerCrane {
             }
 
             for &(next, length) in &adjacency[node] {
-                let next_cost = cost.checked_add(i64::from(length))?;
+                let next_cost = cost.checked_add(length)?;
                 if next_cost < dist[next] {
                     dist[next] = next_cost;
                     heap.push((Reverse(next_cost), next));
@@ -289,7 +300,7 @@ impl StackerCrane {
     ///
     /// Returns `None` for invalid permutations, unreachable connector paths,
     /// or arithmetic overflow.
-    pub fn closed_walk_length(&self, config: &[usize]) -> Option<i32> {
+    pub fn closed_walk_length(&self, config: &[usize]) -> Option<i64> {
         if !self.is_arc_permutation(config) {
             return None;
         }
@@ -306,7 +317,7 @@ impl StackerCrane {
             let (_, arc_head) = self.arcs[arc_index];
             let (next_arc_tail, _) = self.arcs[next_arc_index];
 
-            total = total.checked_add(i64::from(self.arc_lengths[arc_index]))?;
+            total = total.checked_add(self.arc_lengths[arc_index])?;
             total = total.checked_add(self.shortest_path_length(
                 &adjacency,
                 arc_head,
@@ -314,13 +325,13 @@ impl StackerCrane {
             )?)?;
         }
 
-        i32::try_from(total).ok()
+        Some(total)
     }
 }
 
 impl Problem for StackerCrane {
     const NAME: &'static str = "StackerCrane";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -330,11 +341,13 @@ impl Problem for StackerCrane {
         vec![self.num_arcs(); self.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        match self.closed_walk_length(config) {
-            Some(total) => Min(Some(total)),
-            None => Min(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.closed_walk_length(config) {
+                Some(total) => Min(Some(total)),
+                None => Min(None),
+            }
+        })
     }
 }
 
@@ -347,12 +360,12 @@ struct StackerCraneDef {
     num_vertices: usize,
     arcs: Vec<(usize, usize)>,
     edges: Vec<(usize, usize)>,
-    arc_lengths: Vec<i32>,
-    edge_lengths: Vec<i32>,
+    arc_lengths: Vec<i64>,
+    edge_lengths: Vec<i64>,
 }
 
 impl TryFrom<StackerCraneDef> for StackerCrane {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: StackerCraneDef) -> Result<Self, Self::Error> {
         Self::try_new(

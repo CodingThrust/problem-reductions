@@ -11,7 +11,7 @@ use crate::models::graph::SteinerTreeInGraphs;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{i64_to_exact_f64, WeightElement};
 
 /// Result of reducing SteinerTreeInGraphs to ILP.
 ///
@@ -26,7 +26,7 @@ pub struct ReductionSTIGToILP {
 }
 
 impl ReductionResult for ReductionSTIGToILP {
-    type Source = SteinerTreeInGraphs<SimpleGraph, i32>;
+    type Source = SteinerTreeInGraphs<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -49,18 +49,27 @@ impl ReductionResult for ReductionSTIGToILP {
         num_constraints = "num_vertices * (num_terminals - 1) + 2 * num_edges * (num_terminals - 1)",
     },
 )]
-impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i64> {
     type Result = ReductionSTIGToILP;
 
-    fn reduce_to(&self) -> Self::Result {
-        assert!(
-            self.weights().iter().all(|&w| w > 0),
-            "SteinerTreeInGraphs -> ILP requires strictly positive edge weights"
-        );
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        if self.weights().iter().any(|&weight| weight <= 0) {
+            return Err(crate::rules::ReductionError::invalid_target::<
+                SteinerTreeInGraphs<SimpleGraph, i64>,
+                ILP<bool>,
+            >(
+                "ILP construction requires strictly positive edge weights"
+            ));
+        }
 
         let n = self.num_vertices();
         let m = self.num_edges();
-        let root = self.terminals()[0];
+        let root = *self.terminals().first().ok_or_else(|| {
+            crate::rules::ReductionError::invalid_target::<
+                SteinerTreeInGraphs<SimpleGraph, i64>,
+                ILP<bool>,
+            >("source must contain at least one terminal")
+        })?;
         let non_root_terminals = &self.terminals()[1..];
         let edges = self.graph().edges();
         let num_vars = m + 2 * m * non_root_terminals.len();
@@ -117,15 +126,24 @@ impl ReduceTo<ILP<bool>> for SteinerTreeInGraphs<SimpleGraph, i32> {
         let objective: Vec<(usize, f64)> = edge_weights
             .iter()
             .enumerate()
-            .map(|(edge_idx, w)| (edge_var(edge_idx), w.to_sum() as f64))
-            .collect();
+            .map(|(edge_idx, w)| {
+                i64_to_exact_f64(w.to_sum())
+                    .map(|weight| (edge_var(edge_idx), weight))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            SteinerTreeInGraphs<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionSTIGToILP {
+        Ok(ReductionSTIGToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 

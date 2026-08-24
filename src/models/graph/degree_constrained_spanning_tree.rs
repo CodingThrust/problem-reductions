@@ -52,7 +52,7 @@ inventory::submit! {
 /// let problem = DegreeConstrainedSpanningTree::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,61 +122,66 @@ where
         vec![2; self.edge_list.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.graph.num_vertices();
-            if config.len() != self.edge_list.len() {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let n = self.graph.num_vertices();
+                if config.len() != self.edge_list.len() {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Collect selected edges
-            let selected: Vec<(usize, usize)> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v == 1)
-                .map(|(i, _)| self.edge_list[i])
-                .collect();
+                // Collect selected edges
+                let selected: Vec<(usize, usize)> = config
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &v)| v == 1)
+                    .map(|(i, _)| self.edge_list[i])
+                    .collect();
 
-            // A spanning tree on n vertices must have exactly n-1 edges
-            if n == 0 {
-                return crate::types::Or(selected.is_empty());
-            }
-            if selected.len() != n - 1 {
-                return crate::types::Or(false);
-            }
+                // A spanning tree on n vertices must have exactly n-1 edges
+                if n == 0 {
+                    return Ok(crate::types::Or(selected.is_empty()));
+                }
+                if selected.len() != n - 1 {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check connectivity using BFS on selected edges
-            let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-            let mut degree = vec![0usize; n];
-            for &(u, v) in &selected {
-                adj[u].push(v);
-                adj[v].push(u);
-                degree[u] += 1;
-                degree[v] += 1;
-            }
+                // Check connectivity using BFS on selected edges
+                let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+                let mut degree = vec![0usize; n];
+                for &(u, v) in &selected {
+                    adj[u].push(v);
+                    adj[v].push(u);
+                    degree[u] += 1;
+                    degree[v] += 1;
+                }
 
-            // Check max degree constraint
-            if degree.iter().any(|&d| d > self.max_degree) {
-                return crate::types::Or(false);
-            }
+                // Check max degree constraint
+                if degree.iter().any(|&d| d > self.max_degree) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // BFS to check connectivity
-            let mut visited = vec![false; n];
-            let mut queue = VecDeque::new();
-            visited[0] = true;
-            queue.push_back(0);
-            let mut count = 1;
-            while let Some(v) = queue.pop_front() {
-                for &u in &adj[v] {
-                    if !visited[u] {
-                        visited[u] = true;
-                        count += 1;
-                        queue.push_back(u);
+                // BFS to check connectivity
+                let mut visited = vec![false; n];
+                let mut queue = VecDeque::new();
+                visited[0] = true;
+                queue.push_back(0);
+                let mut count = 1;
+                while let Some(v) = queue.pop_front() {
+                    for &u in &adj[v] {
+                        if !visited[u] {
+                            visited[u] = true;
+                            count += 1;
+                            queue.push_back(u);
+                        }
                     }
                 }
-            }
 
-            count == n
+                count == n
+            })
         })
     }
 }

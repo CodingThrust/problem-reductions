@@ -21,7 +21,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Find a ranking minimizing total pairwise disagreement cost",
         fields: &[
-            FieldInfo { name: "matrix", type_name: "Vec<Vec<i32>>", description: "Antisymmetric comparison matrix A (a_ij + a_ji = c, a_ii = 0)" },
+            FieldInfo { name: "matrix", type_name: "Vec<Vec<i64>>", description: "Antisymmetric comparison matrix A (a_ij + a_ji = c, a_ii = 0)" },
         ],
     }
 }
@@ -51,12 +51,12 @@ inventory::submit! {
 /// ];
 /// let problem = MaximumLikelihoodRanking::new(matrix);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaximumLikelihoodRanking {
-    matrix: Vec<Vec<i32>>,
+    matrix: Vec<Vec<i64>>,
 }
 
 impl MaximumLikelihoodRanking {
@@ -66,7 +66,7 @@ impl MaximumLikelihoodRanking {
     /// Panics if the matrix is not square, if any diagonal element is nonzero,
     /// or if the pairwise sums `a_ij + a_ji` are not the same constant for
     /// all `i != j`.
-    pub fn new(matrix: Vec<Vec<i32>>) -> Self {
+    pub fn new(matrix: Vec<Vec<i64>>) -> Self {
         let n = matrix.len();
         for (i, row) in matrix.iter().enumerate() {
             assert_eq!(
@@ -101,7 +101,7 @@ impl MaximumLikelihoodRanking {
     }
 
     /// Returns the comparison matrix.
-    pub fn matrix(&self) -> &Vec<Vec<i32>> {
+    pub fn matrix(&self) -> &Vec<Vec<i64>> {
         &self.matrix
     }
 
@@ -111,7 +111,7 @@ impl MaximumLikelihoodRanking {
     }
 
     /// Returns the constant pairwise comparison count `c`.
-    pub fn comparison_count(&self) -> i32 {
+    pub fn comparison_count(&self) -> i64 {
         if self.matrix.len() < 2 {
             0
         } else {
@@ -133,36 +133,42 @@ impl Problem for MaximumLikelihoodRanking {
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let n = self.num_items();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_items();
 
-        // Validate config length
-        if config.len() != n {
-            return Min(None);
-        }
-
-        // Validate permutation: all values must be distinct and in 0..n
-        let mut seen = vec![false; n];
-        for &rank in config {
-            if rank >= n || seen[rank] {
-                return Min(None);
+            // Validate config length
+            if config.len() != n {
+                return Ok(Min(None));
             }
-            seen[rank] = true;
-        }
 
-        // config[item] = rank position of item
-        // Disagreement cost: for all pairs of items (a, b) where a is
-        // ranked AFTER b (config[a] > config[b]), add matrix[a][b].
-        let mut cost: i64 = 0;
-        for a in 0..n {
-            for b in 0..n {
-                if a != b && config[a] > config[b] {
-                    cost += self.matrix[a][b] as i64;
+            // Validate permutation: all values must be distinct and in 0..n
+            let mut seen = vec![false; n];
+            for &rank in config {
+                if rank >= n || seen[rank] {
+                    return Ok(Min(None));
+                }
+                seen[rank] = true;
+            }
+
+            // config[item] = rank position of item
+            // Disagreement cost: for all pairs of items (a, b) where a is
+            // ranked AFTER b (config[a] > config[b]), add matrix[a][b].
+            let mut cost: i64 = 0;
+            for a in 0..n {
+                for b in 0..n {
+                    if a != b && config[a] > config[b] {
+                        cost = cost.checked_add(self.matrix[a][b]).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing ranking disagreement costs".into(),
+                            )
+                        })?;
+                    }
                 }
             }
-        }
 
-        Min(Some(cost))
+            Min(Some(cost))
+        })
     }
 }
 

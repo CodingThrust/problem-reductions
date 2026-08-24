@@ -37,7 +37,7 @@ inventory::submit! {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CNFClause {
     /// Literals in this clause (signed integers, 1-indexed).
-    pub literals: Vec<i32>,
+    pub literals: Vec<i64>,
 }
 
 impl CNFClause {
@@ -45,7 +45,7 @@ impl CNFClause {
     ///
     /// Literals are signed integers where positive means the variable
     /// and negative means its negation. Variables are 1-indexed.
-    pub fn new(literals: Vec<i32>) -> Self {
+    pub fn new(literals: Vec<i64>) -> Self {
         Self { literals }
     }
 
@@ -56,7 +56,7 @@ impl CNFClause {
     pub fn is_satisfied(&self, assignment: &[bool]) -> bool {
         self.literals.iter().any(|&lit| {
             let var = usize::try_from(lit.unsigned_abs())
-                .expect("u32 literal magnitude must fit usize")
+                .expect("i64 literal magnitude must fit usize")
                 .checked_sub(1)
                 .expect("CNF literal 0 is invalid");
             let value = assignment.get(var).copied().unwrap_or(false);
@@ -74,7 +74,7 @@ impl CNFClause {
             .iter()
             .map(|&lit| {
                 usize::try_from(lit.unsigned_abs())
-                    .expect("u32 literal magnitude must fit usize")
+                    .expect("i64 literal magnitude must fit usize")
                     .checked_sub(1)
                     .expect("CNF literal 0 is invalid")
             })
@@ -115,11 +115,11 @@ impl CNFClause {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify solutions satisfy all clauses
 /// for sol in solutions {
-///     assert!(problem.evaluate(&sol));
+///     assert!(problem.evaluate(&sol).unwrap());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,7 +138,10 @@ impl Satisfiability {
     }
 
     /// Create a new SAT problem after validating its literal encoding.
-    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         Ok(Self { num_vars, clauses })
     }
@@ -169,11 +172,20 @@ impl Satisfiability {
     }
 
     /// Count satisfied clauses for an assignment.
-    pub fn count_satisfied(&self, assignment: &[bool]) -> usize {
-        self.clauses
+    pub fn count_satisfied(
+        &self,
+        assignment: &[bool],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let count = self
+            .clauses
             .iter()
             .filter(|c| c.is_satisfied(assignment))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting satisfied-clause count to i64".into(),
+            )
+        })
     }
 
     /// Check if an assignment satisfies all clauses.
@@ -184,8 +196,11 @@ impl Satisfiability {
     /// Check if a solution (config) is valid.
     ///
     /// For SAT, a valid solution is one that satisfies all clauses.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 }
 
@@ -197,10 +212,15 @@ impl Problem for Satisfiability {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_satisfying(&assignment)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let assignment = super::config_to_assignment(config);
+                self.is_satisfying(&assignment)
+            })
         })
     }
 
@@ -220,35 +240,39 @@ struct SatisfiabilityDef {
 }
 
 impl TryFrom<SatisfiabilityDef> for Satisfiability {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: SatisfiabilityDef) -> Result<Self, Self::Error> {
         Self::try_new(value.num_vars, value.clauses)
     }
 }
 
-pub(super) fn validate_cnf_literals(num_vars: usize, clauses: &[CNFClause]) -> Result<(), String> {
-    if num_vars > i32::MAX as usize {
+pub(super) fn validate_cnf_literals(
+    num_vars: usize,
+    clauses: &[CNFClause],
+) -> Result<(), crate::registry::ConstructionError> {
+    if num_vars > i64::MAX as usize {
         return Err(format!(
             "num_vars {num_vars} exceeds the SAT literal limit {}",
-            i32::MAX
-        ));
+            i64::MAX
+        )
+        .into());
     }
 
     for (clause_index, clause) in clauses.iter().enumerate() {
         for &literal in &clause.literals {
-            if literal == 0 || literal == i32::MIN {
+            if literal == 0 || literal == i64::MIN {
                 return Err(format!(
                     "clause {clause_index} contains invalid literal {literal}; allowed variable numbers are 1..={num_vars} with either sign"
-                ));
+                ).into());
             }
-            if usize::try_from(literal.unsigned_abs())
-                .expect("SAT literal magnitude must fit usize")
-                > num_vars
-            {
+            let magnitude = usize::try_from(literal.unsigned_abs()).map_err(|_| {
+                format!("clause {clause_index} literal {literal} magnitude does not fit usize")
+            })?;
+            if magnitude > num_vars {
                 return Err(format!(
                     "clause {clause_index} contains invalid literal {literal}; allowed variable numbers are 1..={num_vars} with either sign"
-                ));
+                ).into());
             }
         }
     }
@@ -265,7 +289,7 @@ pub(super) fn validate_cnf_literals(num_vars: usize, clauses: &[CNFClause]) -> R
 #[cfg(test)]
 pub(crate) fn is_satisfying_assignment(
     _num_vars: usize,
-    clauses: &[Vec<i32>],
+    clauses: &[Vec<i64>],
     assignment: &[bool],
 ) -> bool {
     clauses.iter().all(|clause| {

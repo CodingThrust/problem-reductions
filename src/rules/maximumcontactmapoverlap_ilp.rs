@@ -78,7 +78,7 @@ impl ReductionResult for ReductionCMOToILP {
 impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
     type Result = ReductionCMOToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.num_vertices_1();
         let n2 = self.num_vertices_2();
         let contacts_1 = self.contacts_1();
@@ -148,11 +148,11 @@ impl ReduceTo<ILP<bool>> for MaximumContactMapOverlap {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionCMOToILP {
+        Ok(ReductionCMOToILP {
             target,
             num_vertices_1: n1,
             num_vertices_2: n2,
-        }
+        })
     }
 }
 

@@ -17,7 +17,7 @@ pub(crate) const AGGREGATE_TARGET_NAME: &str = "CliTestAggregateValueTarget";
 
 const AGGREGATE_SOURCE_INPUTS: &[CreateInputInfo] = &[CreateInputInfo {
     name: "values",
-    type_name: "Vec<u64>",
+    type_name: "Vec<i64>",
     description: "Values included by selected configuration bits",
     required: true,
     codec: CreateInputCodec::CommaSeparated,
@@ -25,7 +25,7 @@ const AGGREGATE_SOURCE_INPUTS: &[CreateInputInfo] = &[CreateInputInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AggregateValueSource {
-    values: Vec<u64>,
+    values: Vec<i64>,
 }
 
 impl AggregateValueSource {
@@ -38,20 +38,25 @@ impl AggregateValueSource {
 
 impl Problem for AggregateValueSource {
     const NAME: &'static str = AGGREGATE_SOURCE_NAME;
-    type Value = Sum<u64>;
+    type Value = Sum<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.values.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        let total = self
-            .values
-            .iter()
-            .zip(config.iter().copied())
-            .filter_map(|(value, bit)| (bit == 1).then_some(*value))
-            .sum();
-        Sum(total)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<Self::Value, problemreductions::traits::EvaluationError> {
+        Ok({
+            let total = self
+                .values
+                .iter()
+                .zip(config.iter().copied())
+                .filter_map(|(value, bit)| (bit == 1).then_some(*value))
+                .sum();
+            Sum(total)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -61,7 +66,7 @@ impl Problem for AggregateValueSource {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct AggregateValueTarget {
-    base: u64,
+    base: i64,
 }
 
 impl AggregateValueTarget {
@@ -72,14 +77,17 @@ impl AggregateValueTarget {
 
 impl Problem for AggregateValueTarget {
     const NAME: &'static str = AGGREGATE_TARGET_NAME;
-    type Value = Sum<u64>;
+    type Value = Sum<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(self.base + config.iter().sum::<usize>() as u64)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<Self::Value, problemreductions::traits::EvaluationError> {
+        Ok(Sum(self.base + config.iter().sum::<usize>() as i64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -100,12 +108,12 @@ impl AggregateReductionResult for AggregateValueToIlpReduction {
         &self.target
     }
 
-    fn extract_value(&self, _target_value: Extremum<f64>) -> Sum<u64> {
+    fn extract_value(&self, _target_value: Extremum<f64>) -> Sum<i64> {
         Sum(0)
     }
 }
 
-fn solve_value<P>(any: &dyn Any) -> String
+fn solve_value<P>(any: &dyn Any) -> Result<String, problemreductions::solvers::SolveError>
 where
     P: Problem + Serialize + 'static,
     P::Value: problemreductions::types::Aggregate + std::fmt::Display,
@@ -114,19 +122,27 @@ where
         .downcast_ref::<P>()
         .expect("test solve_value downcast failed");
     let solver = BruteForce::new();
-    problemreductions::registry::format_metric(&solver.solve(problem))
+    Ok(problemreductions::registry::format_metric(
+        &solver.solve(problem)?,
+    ))
 }
 
-fn solve_witness<P>(any: &dyn Any) -> Option<(Vec<usize>, String)>
+fn solve_witness<P>(
+    any: &dyn Any,
+) -> Result<Option<(Vec<usize>, String)>, problemreductions::solvers::SolveError>
 where
     P: Problem + Serialize + 'static,
     P::Value: problemreductions::types::Aggregate + std::fmt::Display,
 {
-    let problem = any.downcast_ref::<P>()?;
+    let problem = any
+        .downcast_ref::<P>()
+        .expect("test solve_witness downcast failed");
     let solver = BruteForce::new();
-    let config = solver.find_witness(problem)?;
-    let evaluation = problemreductions::registry::format_metric(&problem.evaluate(&config));
-    Some((config, evaluation))
+    let Some(config) = solver.find_witness(problem)? else {
+        return Ok(None);
+    };
+    let evaluation = problemreductions::registry::format_metric(&problem.evaluate(&config)?);
+    Ok(Some((config, evaluation)))
 }
 
 problemreductions::inventory::submit! {
@@ -140,7 +156,7 @@ problemreductions::inventory::submit! {
         description: "Test-only dynamically discovered construction model",
         fields: &[FieldInfo {
             name: "values",
-            type_name: "Vec<u64>",
+            type_name: "Vec<i64>",
             description: "Values included by selected configuration bits",
         }],
     }
@@ -157,7 +173,7 @@ problemreductions::inventory::submit! {
         description: "Test-only aggregate reduction target",
         fields: &[FieldInfo {
             name: "base",
-            type_name: "u64",
+            type_name: "i64",
             description: "Base aggregate value",
         }],
     }
@@ -240,11 +256,11 @@ problemreductions::inventory::submit! {
             let source = any
                 .downcast_ref::<AggregateValueSource>()
                 .expect("aggregate reduction downcast failed");
-            Box::new(ReductionAutoCast::<AggregateValueSource, AggregateValueTarget>::new(
+            Ok(Box::new(ReductionAutoCast::<AggregateValueSource, AggregateValueTarget>::new(
                 AggregateValueTarget {
                     base: source.values.iter().sum(),
                 },
-            ))
+            )))
         }),
         turing: false,
         source_size_measure_fn: |_| ProblemSize::new(vec![]),
@@ -272,9 +288,9 @@ problemreductions::inventory::submit! {
             let _source = any
                 .downcast_ref::<AggregateValueSource>()
                 .expect("aggregate ILP reduction downcast failed");
-            Box::new(AggregateValueToIlpReduction {
+            Ok(Box::new(AggregateValueToIlpReduction {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
-            })
+            }))
         }),
         turing: false,
         source_size_measure_fn: |_| ProblemSize::new(vec![]),

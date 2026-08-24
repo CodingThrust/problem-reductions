@@ -76,16 +76,16 @@ fn test_undirected_two_commodity_integral_flow_creation() {
 #[test]
 fn test_undirected_two_commodity_integral_flow_evaluation_yes() {
     let problem = canonical_instance();
-    assert!(problem.evaluate(&example_config()));
-    assert!(problem.is_valid_solution(&example_config()));
+    assert!(problem.evaluate(&example_config()).unwrap());
+    assert!(problem.is_valid_solution(&example_config()).unwrap());
 }
 
 #[test]
 fn test_undirected_two_commodity_integral_flow_evaluation_no_shared_bottleneck() {
     let problem = shared_bottleneck_instance();
-    assert!(!problem.evaluate(&example_config()));
-    assert!(!problem.is_valid_solution(&example_config()));
-    assert!(BruteForce::new().find_witness(&problem).is_none());
+    assert!(!problem.evaluate(&example_config()).unwrap());
+    assert!(!problem.is_valid_solution(&example_config()).unwrap());
+    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_wrong_config_length() {
     let mut config = example_config();
     config.pop();
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_value_above_capacity_doma
     let mut config = example_config();
     config[8] = 3;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn test_undirected_two_commodity_integral_flow_rejects_antisymmetry_violation() 
     config[0] = 1;
     config[1] = 1;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -135,9 +135,9 @@ fn test_undirected_two_commodity_integral_flow_serialization() {
 fn test_undirected_two_commodity_integral_flow_paper_example() {
     let problem = canonical_instance();
     let config = example_config();
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let all = BruteForce::new().find_all_witnesses(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }
@@ -145,7 +145,7 @@ fn test_undirected_two_commodity_integral_flow_paper_example() {
 #[test]
 fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
     // Use a moderately large capacity that fits in usize on all platforms.
-    let large: u64 = 1_000_000;
+    let large: i64 = 1_000_000;
     let large_usize = large as usize;
     let problem = UndirectedTwoCommodityIntegralFlow::new(
         SimpleGraph::new(2, vec![(0, 1)]),
@@ -158,7 +158,7 @@ fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
         0,
     );
 
-    assert!(problem.evaluate(&[large_usize, 0, 0, 0]));
+    assert!(problem.evaluate(&[large_usize, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
     );
 
     // f1(0->1)=2, f1(1->0)=0, f2(0->1)=2, f2(1->0)=0 => shared = 4 > 3
-    assert!(!problem.evaluate(&[2, 0, 2, 0]));
+    assert!(!problem.evaluate(&[2, 0, 2, 0]).unwrap());
 }
 
 #[test]
@@ -227,5 +227,5 @@ fn test_undirected_two_commodity_integral_flow_flow_conservation_violated() {
     // Edge (0,1): f1(0->1)=1, f1(1->0)=0, f2=0,0
     // Edge (1,2): f1(1->2)=0, f1(2->1)=0, f2=0,0
     // Vertex 1 gets +1 for commodity 1 from edge (0,1) but no outflow on edge (1,2)
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]).unwrap());
 }

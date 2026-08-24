@@ -1,4 +1,4 @@
-//! Reduction from BoundedComponentSpanningForest to ILP<i32>.
+//! Reduction from BoundedComponentSpanningForest to `ILP<i64>`.
 //!
 //! Assign every vertex to one of K components, bound weight, certify
 //! connectivity inside each used component via flow.
@@ -10,19 +10,20 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionBCSFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     n: usize,
     k: usize,
 }
 
 impl ReductionResult for ReductionBCSFToILP {
-    type Source = BoundedComponentSpanningForest<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = BoundedComponentSpanningForest<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -43,10 +44,10 @@ impl ReductionResult for ReductionBCSFToILP {
         num_constraints = "num_vertices + 5 * max_components + 6 * num_vertices * max_components + 6 * num_edges * max_components",
     }
 )]
-impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
     type Result = ReductionBCSFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let m = edges.len();
@@ -63,6 +64,24 @@ impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {
         let num_vars = 3 * n * k + 2 * k + 2 * m * k;
         let n_f64 = n as f64;
         let mut constraints = Vec::new();
+        let weights = self
+            .weights()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    BoundedComponentSpanningForest<SimpleGraph, i64>,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let max_weight = i64_to_exact_f64(*self.max_weight()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                BoundedComponentSpanningForest<SimpleGraph, i64>,
+                ILP<i64>,
+            >(error)
+        })?;
 
         // 1) Assignment: sum_c x_{v,c} = 1 for each vertex v
         for v in 0..n {
@@ -72,13 +91,12 @@ impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {
 
         // 2) Weight bound: sum_v w_v * x_{v,c} <= B for each component c
         for c in 0..k {
-            let terms: Vec<(usize, f64)> = self
-                .weights()
+            let terms: Vec<(usize, f64)> = weights
                 .iter()
                 .enumerate()
-                .map(|(v, &w)| (x_idx(v, c), w as f64))
+                .map(|(vertex, &weight)| (x_idx(vertex, c), weight))
                 .collect();
-            constraints.push(LinearConstraint::le(terms, *self.max_weight() as f64));
+            constraints.push(LinearConstraint::le(terms, max_weight));
         }
 
         // 3) Size: s_c = sum_v x_{v,c}
@@ -180,7 +198,7 @@ impl ReduceTo<ILP<i32>> for BoundedComponentSpanningForest<SimpleGraph, i32> {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionBCSFToILP { target, n, k }
+        Ok(ReductionBCSFToILP { target, n, k })
     }
 }
 
@@ -197,12 +215,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
             );
             let reduction: ReductionBCSFToILP =
-                crate::rules::ReduceTo::<ILP<i32>>::reduce_to(&source);
+                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config: extracted,

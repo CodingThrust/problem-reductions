@@ -8,7 +8,7 @@ use crate::Solver;
 
 #[test]
 fn create_spec_uses_k_input() {
-    assert_eq!(MaximumCoKPlexCreateSpec::<i32>::FIELDS[2].name, "k");
+    assert_eq!(MaximumCoKPlexCreateSpec::<i64>::FIELDS[2].name, "k");
     let problem = MaximumCoKPlex::try_from(MaximumCoKPlexCreateSpec {
         graph: SimpleGraph::new(2, vec![(0, 1)]),
         weights: vec![2, 3],
@@ -23,8 +23,8 @@ fn c5() -> SimpleGraph {
     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
 }
 
-fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i32, KN> {
-    MaximumCoKPlex::<_, i32, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
+fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i64, KN> {
+    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
 }
 
 #[test]
@@ -46,13 +46,19 @@ fn test_maximum_co_k_plex_evaluate_feasible() {
 
     // Optimum from the issue: x = (1,0,1,0,1), S = {0,2,4}.
     // Induced subgraph has only the edge (4,0); induced degrees (1,0,1) all <= 1.
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 1]), Max(Some(5 + 4 + 3)));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 1, 0, 1]).unwrap(),
+        Max(Some(5 + 4 + 3))
+    );
 
     // S = {0,1}: induced edge (0,1), induced degrees (1,1) -- still feasible at k=2.
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 0]), Max(Some(5 + 1)));
+    assert_eq!(
+        problem.evaluate(&[1, 1, 0, 0, 0]).unwrap(),
+        Max(Some(5 + 1))
+    );
 
     // Empty set: always feasible.
-    assert_eq!(problem.evaluate(&[0; 5]), Max(Some(0)));
+    assert_eq!(problem.evaluate(&[0; 5]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -60,23 +66,26 @@ fn test_maximum_co_k_plex_evaluate_infeasible() {
     let problem = issue_instance();
 
     // S = {0,1,2}: vertex 1 has induced degree 2 > k-1 = 1.
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0]).unwrap(), Max(None));
     assert!(!problem.is_valid_solution(&[1, 1, 1, 0, 0]));
 
     // Whole 5-cycle: every vertex has induced degree 2 > 1.
-    assert_eq!(problem.evaluate(&[1; 5]), Max(None));
+    assert_eq!(problem.evaluate(&[1; 5]).unwrap(), Max(None));
 }
 
 #[test]
 fn test_maximum_co_k_plex_brute_force() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let aggregate = solver.solve(&problem);
+    let aggregate = solver.solve(&problem).unwrap();
     assert_eq!(aggregate, Max(Some(12)));
 
-    let witness = solver.find_witness(&problem).expect("witness exists");
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("witness exists");
     assert!(problem.is_valid_solution(&witness));
-    assert_eq!(problem.evaluate(&witness), Max(Some(12)));
+    assert_eq!(problem.evaluate(&witness).unwrap(), Max(Some(12)));
 }
 
 #[test]
@@ -85,24 +94,24 @@ fn test_maximum_co_k_plex_k_equals_1_is_independent_set() {
     // 5-cycle MIS has size 2, so unit-weight optimum is 2.
     let problem = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Max(Some(2)));
+    assert_eq!(solver.solve(&problem).unwrap(), Max(Some(2)));
 
     // Picking adjacent vertices violates the k=1 constraint.
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 0]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 0]).unwrap(), Max(None));
     // Any two non-adjacent vertices is feasible.
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 0]), Max(Some(2)));
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 0]).unwrap(), Max(Some(2)));
 }
 
 #[test]
 fn test_maximum_co_k_plex_serialization_roundtrip() {
     let problem = issue_instance();
     let json = serde_json::to_value(&problem).expect("serialize");
-    let restored: MaximumCoKPlex<SimpleGraph, i32, KN> =
+    let restored: MaximumCoKPlex<SimpleGraph, i64, KN> =
         serde_json::from_value(json).expect("deserialize");
     assert_eq!(restored.graph().num_vertices(), 5);
     assert_eq!(restored.weights(), &[5, 1, 4, 1, 3]);
     assert_eq!(restored.bound_k(), 2);
-    assert_eq!(restored.evaluate(&[1, 0, 1, 0, 1]), Max(Some(12)));
+    assert_eq!(restored.evaluate(&[1, 0, 1, 0, 1]).unwrap(), Max(Some(12)));
 }
 
 #[test]
@@ -143,7 +152,7 @@ fn test_maximum_co_k_plex_rejects_missing_bound_k_on_load() {
         "weights": [5, 1, 4, 1, 3]
         // bound_k intentionally omitted
     });
-    let err = serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i32, KN>>(bad_json)
+    let err = serde_json::from_value::<MaximumCoKPlex<SimpleGraph, i64, KN>>(bad_json)
         .expect_err("missing bound_k must fail to deserialize");
     let msg = err.to_string();
     assert!(

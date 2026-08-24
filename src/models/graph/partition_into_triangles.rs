@@ -47,7 +47,7 @@ inventory::submit! {
 /// let problem = PartitionIntoTriangles::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,56 +103,61 @@ where
         vec![q; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.graph.num_vertices();
-            let q = n / 3;
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let n = self.graph.num_vertices();
+                let q = n / 3;
 
-            // Check config length
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
-
-            // Check all values are in range [0, q)
-            if config.iter().any(|&c| c >= q) {
-                return crate::types::Or(false);
-            }
-
-            // Count vertices per group
-            let mut counts = vec![0usize; q];
-            for &c in config {
-                counts[c] += 1;
-            }
-
-            // Each group must have exactly 3 vertices
-            if counts.iter().any(|&c| c != 3) {
-                return crate::types::Or(false);
-            }
-
-            // Build per-group vertex lists in a single pass over config.
-            let mut group_verts = vec![[0usize; 3]; q];
-            let mut group_pos = vec![0usize; q];
-
-            for (v, &g) in config.iter().enumerate() {
-                let pos = group_pos[g];
-                group_verts[g][pos] = v;
-                group_pos[g] = pos + 1;
-            }
-
-            // Check each group forms a triangle
-            for verts in &group_verts {
-                if !self.graph.has_edge(verts[0], verts[1]) {
-                    return crate::types::Or(false);
+                // Check config length
+                if config.len() != n {
+                    return Ok(crate::types::Or(false));
                 }
-                if !self.graph.has_edge(verts[0], verts[2]) {
-                    return crate::types::Or(false);
-                }
-                if !self.graph.has_edge(verts[1], verts[2]) {
-                    return crate::types::Or(false);
-                }
-            }
 
-            true
+                // Check all values are in range [0, q)
+                if config.iter().any(|&c| c >= q) {
+                    return Ok(crate::types::Or(false));
+                }
+
+                // Count vertices per group
+                let mut counts = vec![0usize; q];
+                for &c in config {
+                    counts[c] += 1;
+                }
+
+                // Each group must have exactly 3 vertices
+                if counts.iter().any(|&c| c != 3) {
+                    return Ok(crate::types::Or(false));
+                }
+
+                // Build per-group vertex lists in a single pass over config.
+                let mut group_verts = vec![[0usize; 3]; q];
+                let mut group_pos = vec![0usize; q];
+
+                for (v, &g) in config.iter().enumerate() {
+                    let pos = group_pos[g];
+                    group_verts[g][pos] = v;
+                    group_pos[g] = pos + 1;
+                }
+
+                // Check each group forms a triangle
+                for verts in &group_verts {
+                    if !self.graph.has_edge(verts[0], verts[1]) {
+                        return Ok(crate::types::Or(false));
+                    }
+                    if !self.graph.has_edge(verts[0], verts[2]) {
+                        return Ok(crate::types::Or(false));
+                    }
+                    if !self.graph.has_edge(verts[1], verts[2]) {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 }

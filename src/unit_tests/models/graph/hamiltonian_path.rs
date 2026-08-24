@@ -13,13 +13,13 @@ fn test_hamiltonian_path_basic() {
     assert_eq!(problem.dims(), vec![4, 4, 4, 4]);
 
     // Valid path: 0->1->2->3
-    assert!(problem.evaluate(&[0, 1, 2, 3]));
+    assert!(problem.evaluate(&[0, 1, 2, 3]).unwrap());
     // Valid path: 3->2->1->0 (reversed)
-    assert!(problem.evaluate(&[3, 2, 1, 0]));
+    assert!(problem.evaluate(&[3, 2, 1, 0]).unwrap());
     // Invalid: 0->1->3->2 (no edge 1-3)
-    assert!(!problem.evaluate(&[0, 1, 3, 2]));
+    assert!(!problem.evaluate(&[0, 1, 3, 2]).unwrap());
     // Invalid: not a permutation (repeated vertex)
-    assert!(!problem.evaluate(&[0, 1, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 1, 2]).unwrap());
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn test_hamiltonian_path_no_solution() {
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(
         solution.is_none(),
         "Graph with isolated vertices has no Hamiltonian path"
@@ -45,15 +45,15 @@ fn test_hamiltonian_path_brute_force() {
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let solver = BruteForce::new();
 
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     // Path graph P4 has exactly 2 Hamiltonian paths: 0-1-2-3 and 3-2-1-0
     assert_eq!(all.len(), 2);
     for sol in &all {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -76,7 +76,7 @@ fn test_hamiltonian_path_nontrivial() {
         ],
     ));
     // Hamiltonian path: 0->2->4->3->1->5
-    assert!(problem.evaluate(&[0, 2, 4, 3, 1, 5]));
+    assert!(problem.evaluate(&[0, 2, 4, 3, 1, 5]).unwrap());
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_hamiltonian_path_complete_graph() {
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     // K4 has 4! = 24 Hamiltonian paths (all permutations)
     assert_eq!(all.len(), 24);
 }
@@ -147,14 +147,14 @@ fn test_hamiltonianpath_paper_example() {
     ));
 
     // Hamiltonian path: 0→2→4→3→1→5
-    assert!(problem.evaluate(&[0, 2, 4, 3, 1, 5]));
+    assert!(problem.evaluate(&[0, 2, 4, 3, 1, 5]).unwrap());
 
     // Verify with brute force
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());
     for sol in &all {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -164,8 +164,8 @@ fn test_single_vertex() {
 
     // Single vertex graph: trivially has a Hamiltonian "path" (just the vertex)
     let problem = HamiltonianPath::new(SimpleGraph::new(1, vec![]));
-    assert!(problem.evaluate(&[0]));
+    assert!(problem.evaluate(&[0]).unwrap());
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 1);
 }

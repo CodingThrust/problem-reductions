@@ -26,33 +26,33 @@ fn test_subsetsum_basic() {
 fn test_subsetsum_evaluate_satisfying() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     // {3, 8} = 11
-    assert!(problem.evaluate(&[1, 0, 0, 1, 0, 0]));
+    assert!(problem.evaluate(&[1, 0, 0, 1, 0, 0]).unwrap());
     // {7, 4} = 11
-    assert!(problem.evaluate(&[0, 1, 0, 0, 0, 1]));
+    assert!(problem.evaluate(&[0, 1, 0, 0, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_subsetsum_evaluate_unsatisfying() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     // {3, 7} = 10 ≠ 11
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]).unwrap());
     // empty = 0 ≠ 11
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap());
     // all = 25 ≠ 11
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]));
+    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_subsetsum_evaluate_wrong_config_length() {
     let problem = SubsetSum::new(vec![3u32, 7, 1], 10u32);
-    assert!(!problem.evaluate(&[1, 0]));
-    assert!(!problem.evaluate(&[1, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_subsetsum_evaluate_invalid_variable_value() {
     let problem = SubsetSum::new(vec![3u32, 7], 10u32);
-    assert!(!problem.evaluate(&[2, 0]));
+    assert!(!problem.evaluate(&[2, 0]).unwrap());
 }
 
 #[test]
@@ -61,14 +61,14 @@ fn test_subsetsum_empty_instance() {
     let problem = SubsetSum::new_unchecked(vec![], bu(0));
     assert_eq!(problem.num_elements(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
 fn test_subsetsum_empty_instance_nonzero_target() {
     // Empty set, target 5: impossible
     let problem = SubsetSum::new_unchecked(vec![], bu(5));
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -77,18 +77,19 @@ fn test_subsetsum_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_subsetsum_brute_force_all() {
     let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -97,7 +98,7 @@ fn test_subsetsum_unsatisfiable() {
     // Target 100 is unreachable
     let problem = SubsetSum::new(vec![1u32, 2, 3], 100u32);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -118,36 +119,34 @@ fn test_subsetsum_serialization() {
 }
 
 #[test]
-fn test_subsetsum_deserialization_legacy_numeric_json() {
-    let restored: SubsetSum = serde_json::from_value(serde_json::json!({
+fn test_subsetsum_deserialization_rejects_numeric_json() {
+    let result = serde_json::from_value::<SubsetSum>(serde_json::json!({
         "sizes": [3, 7, 1, 8, 2, 4],
         "target": 11,
-    }))
-    .unwrap();
-    assert_eq!(restored.sizes(), buv(&[3, 7, 1, 8, 2, 4]).as_slice());
-    assert_eq!(restored.target(), &bu(11));
+    }));
+    assert!(result.is_err());
 }
 
 #[test]
 fn test_subsetsum_single_element() {
     let problem = SubsetSum::new(vec![5u32], 5u32);
-    assert!(problem.evaluate(&[1]));
-    assert!(!problem.evaluate(&[0]));
+    assert!(problem.evaluate(&[1]).unwrap());
+    assert!(!problem.evaluate(&[0]).unwrap());
 }
 
 #[test]
 fn test_subsetsum_all_selected() {
     // Target equals sum of all elements
     let problem = SubsetSum::new(vec![1u32, 2, 3, 4], 10u32);
-    assert!(problem.evaluate(&[1, 1, 1, 1])); // 1+2+3+4 = 10
+    assert!(problem.evaluate(&[1, 1, 1, 1]).unwrap()); // 1+2+3+4 = 10
 }
 
 #[test]
 fn test_subsetsum_target_zero() {
     // Target 0 with non-empty set: only empty subset works
     let problem = SubsetSum::new_unchecked(buv(&[1, 2, 3]), bu(0));
-    assert!(problem.evaluate(&[0, 0, 0])); // empty subset sums to 0
-    assert!(!problem.evaluate(&[1, 0, 0])); // 1 != 0
+    assert!(problem.evaluate(&[0, 0, 0]).unwrap()); // empty subset sums to 0
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap()); // 1 != 0
 }
 
 #[test]
@@ -165,6 +164,6 @@ fn test_subsetsum_zero_size_panic() {
 #[test]
 fn test_subsetsum_large_integer_input() {
     let problem = SubsetSum::new(vec![3i128, 7, 1, 8, 2, 4], 11i128);
-    assert!(problem.evaluate(&[1, 0, 0, 1, 0, 0])); // 3 + 8 = 11
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0])); // 3 + 7 = 10
+    assert!(problem.evaluate(&[1, 0, 0, 1, 0, 0]).unwrap()); // 3 + 8 = 11
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]).unwrap()); // 3 + 7 = 10
 }

@@ -117,7 +117,7 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
     type Result = ReductionSTSCToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.source_length();
         let m = self.target_length();
         let k = self.bound();
@@ -126,7 +126,7 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
 
         // If infeasible by length check, return trivially infeasible ILP
         if m > n || m < n.saturating_sub(k) {
-            return ReductionSTSCToILP {
+            return Ok(ReductionSTSCToILP {
                 target: ILP::new(
                     0,
                     vec![LinearConstraint::le(vec![], -1.0)],
@@ -135,7 +135,7 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
                 ),
                 n,
                 bound: k,
-            };
+            });
         }
 
         // n == 0 edge case: source and target both empty, all no-ops
@@ -145,11 +145,11 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
             for t in 1..=k {
                 constraints.push(LinearConstraint::eq(vec![(t - 1, 1.0)], 1.0));
             }
-            return ReductionSTSCToILP {
+            return Ok(ReductionSTSCToILP {
                 target: ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize),
                 n,
                 bound: k,
-            };
+            });
         }
 
         let nm1 = n.saturating_sub(1);
@@ -374,11 +374,11 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
         }
 
         let target_ilp = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionSTSCToILP {
+        Ok(ReductionSTSCToILP {
             target: target_ilp,
             n,
             bound: k,
-        }
+        })
     }
 }
 
@@ -390,7 +390,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // source=[0,1,0], target=[1,0], bound=1 (delete position 0)
             let source = StringToStringCorrection::new(2, vec![0, 1, 0], vec![1, 0], 1);
-            let reduction: ReductionSTSCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionSTSCToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver

@@ -10,6 +10,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MultiprocessorScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MultiprocessorScheduling to ILP.
 ///
@@ -57,10 +58,28 @@ impl ReductionResult for ReductionMSToILP {
 impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
     type Result = ReductionMSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_tasks = self.num_tasks();
         let num_processors = self.num_processors();
         let num_vars = num_tasks * num_processors;
+        let lengths = self
+            .lengths()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MultiprocessorScheduling,
+                    ILP<bool>,
+                >(error)
+            })?;
+        let deadline = i64_to_exact_f64(self.deadline()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                MultiprocessorScheduling,
+                ILP<bool>,
+            >(error)
+        })?;
 
         let mut constraints = Vec::with_capacity(num_tasks + num_processors);
 
@@ -73,21 +92,20 @@ impl ReduceTo<ILP<bool>> for MultiprocessorScheduling {
         }
 
         // Load constraints: for each processor p, Σ_j len_j * x_{j,p} ≤ deadline
-        let deadline = self.deadline() as f64;
         for p in 0..num_processors {
             let terms: Vec<(usize, f64)> = (0..num_tasks)
-                .map(|j| (j * num_processors + p, self.lengths()[j] as f64))
+                .map(|j| (j * num_processors + p, lengths[j]))
                 .collect();
             constraints.push(LinearConstraint::le(terms, deadline));
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionMSToILP {
+        Ok(ReductionMSToILP {
             target,
             num_tasks,
             num_processors,
-        }
+        })
     }
 }
 

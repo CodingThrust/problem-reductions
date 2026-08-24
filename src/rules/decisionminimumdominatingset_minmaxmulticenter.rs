@@ -45,7 +45,7 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
 {
     type Result = ReductionDecisionMinimumDominatingSetToMinMaxMulticenter;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_graph = self.inner().graph();
         let target = MinMaxMulticenter::new(
             SimpleGraph::new(source_graph.num_vertices(), source_graph.edges()),
@@ -53,7 +53,7 @@ impl ReduceTo<MinMaxMulticenter<SimpleGraph, One>>
             vec![One; source_graph.num_edges()],
             self.k(),
         );
-        ReductionDecisionMinimumDominatingSetToMinMaxMulticenter { target }
+        Ok(ReductionDecisionMinimumDominatingSetToMinMaxMulticenter { target })
     }
 }
 

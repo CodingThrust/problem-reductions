@@ -49,7 +49,7 @@ inventory::submit! {
 /// // 6 elements with sizes [5, 3, 8, 2, 7, 1], K=3 groups
 /// let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -61,21 +61,29 @@ pub struct SumOfSquaresPartition {
 }
 
 impl SumOfSquaresPartition {
-    fn validate_inputs(sizes: &[i64], num_groups: usize) -> Result<(), String> {
+    fn validate_inputs(
+        sizes: &[i64],
+        num_groups: usize,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if sizes.iter().any(|&size| size <= 0) {
-            return Err("All sizes must be positive (> 0)".to_string());
+            return Err("All sizes must be positive (> 0)".to_string().into());
         }
         if num_groups == 0 {
-            return Err("Number of groups must be positive".to_string());
+            return Err("Number of groups must be positive".to_string().into());
         }
         if num_groups > sizes.len() {
-            return Err("Number of groups must not exceed number of elements".to_string());
+            return Err("Number of groups must not exceed number of elements"
+                .to_string()
+                .into());
         }
         Ok(())
     }
 
     /// Create a new SumOfSquaresPartition instance, returning validation errors.
-    pub fn try_new(sizes: Vec<i64>, num_groups: usize) -> Result<Self, String> {
+    pub fn try_new(
+        sizes: Vec<i64>,
+        num_groups: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes, num_groups)?;
         Ok(Self { sizes, num_groups })
     }
@@ -109,24 +117,37 @@ impl SumOfSquaresPartition {
     ///
     /// Returns `None` if the configuration is invalid (wrong length or
     /// out-of-range group index), or if arithmetic overflows `i64`.
-    pub fn sum_of_squares(&self, config: &[usize]) -> Option<i64> {
+    pub fn sum_of_squares(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if config.len() != self.sizes.len() {
-            return None;
+            return Ok(None);
         }
-        let mut group_sums = vec![0i128; self.num_groups];
+        let mut group_sums = vec![0_i64; self.num_groups];
         for (i, &g) in config.iter().enumerate() {
             if g >= self.num_groups {
-                return None;
+                return Ok(None);
             }
-            group_sums[g] = group_sums[g].checked_add(i128::from(self.sizes[i]))?;
+            group_sums[g] = group_sums[g].checked_add(self.sizes[i]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing a sum-of-squares partition group".into(),
+                )
+            })?;
         }
-        group_sums
-            .into_iter()
-            .try_fold(0i128, |total, group_sum| {
-                let square = group_sum.checked_mul(group_sum)?;
-                total.checked_add(square)
+        let total = group_sums.into_iter().try_fold(0_i64, |total, group_sum| {
+            let square = group_sum.checked_mul(group_sum).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "squaring a partition group sum".into(),
+                )
+            })?;
+            total.checked_add(square).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing squared partition group sums".into(),
+                )
             })
-            .and_then(|total| i64::try_from(total).ok())
+        })?;
+        Ok(Some(total))
     }
 }
 
@@ -158,8 +179,8 @@ impl Problem for SumOfSquaresPartition {
         vec![self.num_groups; self.sizes.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        Min(self.sum_of_squares(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok(Min(self.sum_of_squares(config)?))
     }
 }
 

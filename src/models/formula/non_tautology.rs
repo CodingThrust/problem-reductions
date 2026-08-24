@@ -4,7 +4,7 @@
 //! there exists a truth assignment that makes the formula false — i.e., the
 //! formula is not a tautology.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ inventory::submit! {
         description: "Find a falsifying assignment for a DNF formula (proving it is not a tautology)",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
-            FieldInfo { name: "disjuncts", type_name: "Vec<Vec<i32>>", description: "Disjuncts (each a conjunction of literals) in disjunctive normal form" },
+            FieldInfo { name: "disjuncts", type_name: "Vec<Vec<i64>>", description: "Disjuncts (each a conjunction of literals) in disjunctive normal form" },
         ],
     }
 }
@@ -45,44 +45,54 @@ inventory::submit! {
 /// let problem = NonTautology::new(
 ///     3,
 ///     vec![vec![1, 2, 3], vec![-1, -2, -3]],
-/// );
+/// ).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NonTautology {
     /// Number of variables.
     num_vars: usize,
     /// Disjuncts in DNF. Each disjunct is a conjunction of literals
     /// represented as signed integers (positive = variable, negative = negation).
-    disjuncts: Vec<Vec<i32>>,
+    disjuncts: Vec<Vec<i64>>,
 }
 
 impl NonTautology {
     /// Create a new Non-Tautology problem.
     ///
-    /// # Panics
-    /// Panics if any literal references a variable outside the range [1, num_vars].
-    pub fn new(num_vars: usize, disjuncts: Vec<Vec<i32>>) -> Self {
+    pub fn new(num_vars: usize, disjuncts: Vec<Vec<i64>>) -> Result<Self, ConstructionError> {
+        if num_vars > i64::MAX as usize {
+            return Err(ConstructionError::IntegerOverflow(format!(
+                "num_vars {num_vars} exceeds the SAT literal limit {}",
+                i64::MAX
+            )));
+        }
         for (i, disjunct) in disjuncts.iter().enumerate() {
             for &lit in disjunct {
-                let var = lit.unsigned_abs() as usize;
-                assert!(
-                    var >= 1 && var <= num_vars,
-                    "Disjunct {} contains literal {} referencing variable {} outside range [1, {}]",
-                    i,
-                    lit,
-                    var,
-                    num_vars
-                );
+                if lit == 0 || lit == i64::MIN {
+                    return Err(ConstructionError::Conversion(format!(
+                        "disjunct {i} contains invalid literal {lit}; allowed variable numbers are 1..={num_vars} with either sign"
+                    )));
+                }
+                let var = usize::try_from(lit.unsigned_abs()).map_err(|_| {
+                    ConstructionError::IntegerOverflow(format!(
+                        "literal {lit} magnitude does not fit usize"
+                    ))
+                })?;
+                if var > num_vars {
+                    return Err(ConstructionError::Conversion(format!(
+                        "disjunct {i} contains literal {lit} referencing variable {var} outside range [1, {num_vars}]"
+                    )));
+                }
             }
         }
-        Self {
+        Ok(Self {
             num_vars,
             disjuncts,
-        }
+        })
     }
 
     /// Get the number of variables.
@@ -96,12 +106,12 @@ impl NonTautology {
     }
 
     /// Get the disjuncts.
-    pub fn disjuncts(&self) -> &[Vec<i32>] {
+    pub fn disjuncts(&self) -> &[Vec<i64>] {
         &self.disjuncts
     }
 
     /// Check if a literal is true under the given assignment.
-    fn literal_is_true(lit: i32, assignment: &[bool]) -> bool {
+    fn literal_is_true(lit: i64, assignment: &[bool]) -> bool {
         let var = lit.unsigned_abs() as usize - 1;
         let value = assignment.get(var).copied().unwrap_or(false);
         if lit > 0 {
@@ -126,6 +136,22 @@ impl NonTautology {
     }
 }
 
+impl<'de> Deserialize<'de> for NonTautology {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            num_vars: usize,
+            disjuncts: Vec<Vec<i64>>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Self::new(raw.num_vars, raw.disjuncts).map_err(serde::de::Error::custom)
+    }
+}
+
 impl Problem for NonTautology {
     const NAME: &'static str = "NonTautology";
     type Value = crate::types::Or;
@@ -134,10 +160,15 @@ impl Problem for NonTautology {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_falsifying(&assignment)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let assignment = super::config_to_assignment(config);
+                self.is_falsifying(&assignment)
+            })
         })
     }
 
@@ -154,7 +185,10 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "non_tautology",
-        instance: Box::new(NonTautology::new(3, vec![vec![1, 2, 3], vec![-1, -2, -3]])),
+        instance: Box::new(
+            NonTautology::new(3, vec![vec![1, 2, 3], vec![-1, -2, -3]])
+                .expect("canonical non-tautology instance must be valid"),
+        ),
         optimal_config: vec![1, 0, 0],
         optimal_value: serde_json::json!(true),
     }]

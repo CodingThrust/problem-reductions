@@ -29,13 +29,13 @@ fn test_partitionintotriangles_basic() {
     assert_eq!(problem.dims(), vec![3; 9]);
 
     // Valid partition: vertices 0,1,2 in group 0; 3,4,5 in group 1; 6,7,8 in group 2
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1, 2, 2, 2]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1, 2, 2, 2]).unwrap());
 
     // Invalid: wrong grouping (vertices 0,1,3 are not a triangle)
-    assert!(!problem.evaluate(&[0, 0, 1, 0, 1, 1, 2, 2, 2]));
+    assert!(!problem.evaluate(&[0, 0, 1, 0, 1, 1, 2, 2, 2]).unwrap());
 
     // Invalid: group sizes wrong (4 in group 0, 2 in group 1)
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 1, 1, 2, 2, 2]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 1, 1, 2, 2, 2]).unwrap());
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn test_partitionintotriangles_no_solution() {
 
     // No valid partition exists since there are no triangles
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -64,16 +64,16 @@ fn test_partitionintotriangles_solver() {
     let problem = PartitionIntoTriangles::new(graph);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
     let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert!(problem.evaluate(&sol).unwrap());
 
     // All solutions should be valid
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());
     for s in &all {
-        assert!(problem.evaluate(s));
+        assert!(problem.evaluate(s).unwrap());
     }
 }
 
@@ -104,7 +104,7 @@ fn test_partitionintotriangles_config_out_of_range() {
     let problem = PartitionIntoTriangles::new(graph);
 
     // q = 1, so only group 0 is valid; group 1 is out of range
-    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -114,8 +114,8 @@ fn test_partitionintotriangles_wrong_config_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = PartitionIntoTriangles::new(graph);
 
-    assert!(!problem.evaluate(&[0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -136,9 +136,9 @@ fn test_partitionintotriangles_paper_example() {
     );
     let problem = PartitionIntoTriangles::new(graph);
     // Valid partition: {0,1,2} in group 0, {3,4,5} in group 1
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]).unwrap());
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
 }

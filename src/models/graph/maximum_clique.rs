@@ -17,7 +17,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "One", &["One", "i32"]),
+            VariantDimension::new("weight", "One", &["One", "i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -36,7 +36,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`, `UnitDiskGraph`)
-/// * `W` - The weight type (e.g., `i32`, `f64`, `One`)
+/// * `W` - The weight type (e.g., `i64`, `f64`, `One`)
 ///
 /// # Example
 ///
@@ -51,7 +51,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum clique in a triangle (K3) is size 3
 /// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 3));
@@ -73,14 +73,15 @@ struct MaximumCliqueCreateSpec<W> {
 }
 
 impl<W: Clone + Default> TryFrom<MaximumCliqueCreateSpec<W>> for MaximumClique<SimpleGraph, W> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximumCliqueCreateSpec<W>) -> Result<Self, Self::Error> {
         if spec.weights.len() != spec.graph.num_vertices() {
             return Err(format!(
                 "weights has {} entries, expected {}",
                 spec.weights.len(),
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(spec.graph, spec.weights))
     }
@@ -149,17 +150,23 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_clique_config(&self.graph, config) {
-            return Max(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_clique_config(&self.graph, config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected clique weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
     }
 }
 
@@ -184,7 +191,7 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     true
 }
 
-crate::impl_random_generate!(MaximumClique<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+crate::impl_random_generate!(MaximumClique<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     Ok(MaximumClique::new(spec.graph()?, vec![1; spec.num_vertices]))
 });
 crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::SimpleGraphRandomSpec, |spec| {
@@ -192,17 +199,17 @@ crate::impl_random_generate!(MaximumClique<SimpleGraph, One>, crate::random::Sim
 });
 
 crate::declare_variants! {
-    MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i32> random,
+    MaximumClique<SimpleGraph, i64> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<i64> random,
     default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One> random,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_clique_simplegraph_i32",
+        id: "maximum_clique_simplegraph_i64",
         instance: Box::new(MaximumClique::new(
             SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
-            vec![1i32; 5],
+            vec![1i64; 5],
         )),
         optimal_config: vec![0, 0, 1, 1, 1],
         optimal_value: serde_json::json!(3),

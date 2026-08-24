@@ -13,25 +13,26 @@ use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing BottleneckTravelingSalesman to ILP.
 ///
-/// Variable layout (ILP<i32>, all non-negative):
+/// Variable layout (`ILP<i64>`, all non-negative):
 /// - `x_{v,p}` at index `v * n + p`, bounded to {0,1}
 /// - `z_{e,p,dir}` at index `n^2 + 2*(e*n + p) + dir`, bounded to {0,1}
 /// - `b` (bottleneck) at index `n^2 + 2*m*n`
 #[derive(Debug, Clone)]
 pub struct ReductionBTSPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_vertices: usize,
     source_edges: Vec<(usize, usize)>,
 }
 
 impl ReductionResult for ReductionBTSPToILP {
     type Source = BottleneckTravelingSalesman;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -75,10 +76,10 @@ impl ReductionResult for ReductionBTSPToILP {
         num_constraints = "2 * num_vertices + num_vertices^2 + 2 * num_edges * num_vertices + 6 * num_edges * num_vertices + num_vertices + 2 * num_edges * num_vertices",
     },
 )]
-impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
+impl ReduceTo<ILP<i64>> for BottleneckTravelingSalesman {
     type Result = ReductionBTSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges = graph.edges();
@@ -108,7 +109,7 @@ impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
-        // Binary bounds for x variables (ILP<i32> is non-negative integer)
+        // Binary bounds for x variables (`ILP<i64>` is non-negative integer)
         for idx in 0..num_x {
             constraints.push(LinearConstraint::le(vec![(idx, 1.0)], 1.0));
         }
@@ -149,7 +150,12 @@ impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
 
         // Bottleneck: b >= w_e * z_{e,p,dir} for all e, p, dir
         for (e, &w) in weights.iter().enumerate() {
-            let w_f64 = w as f64;
+            let w_f64 = i64_to_exact_f64(w).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    BottleneckTravelingSalesman,
+                    ILP<i64>,
+                >(error)
+            })?;
             for p in 0..n {
                 constraints.push(LinearConstraint::ge(
                     vec![(b_idx, 1.0), (z_fwd_idx(e, p), -w_f64)],
@@ -167,11 +173,11 @@ impl ReduceTo<ILP<i32>> for BottleneckTravelingSalesman {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionBTSPToILP {
+        Ok(ReductionBTSPToILP {
             target,
             num_vertices: n,
             source_edges: edges,
-        }
+        })
     }
 }
 
@@ -185,7 +191,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 crate::topology::SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]),
                 vec![1, 2, 3, 4],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

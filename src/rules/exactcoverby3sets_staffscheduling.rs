@@ -58,7 +58,7 @@ impl ReductionResult for ReductionXC3SToStaffScheduling {
 impl ReduceTo<StaffScheduling> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToStaffScheduling;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let q = universe_size / 3;
 
@@ -76,16 +76,21 @@ impl ReduceTo<StaffScheduling> for ExactCoverBy3Sets {
             .collect();
 
         // Each period requires exactly 1 worker
-        let requirements = vec![1u64; universe_size];
+        let requirements = vec![1i64; universe_size];
+        let num_workers = i64::try_from(q).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<ExactCoverBy3Sets, StaffScheduling>(
+                "converting the exact-cover set count to an i64 worker count",
+            )
+        })?;
 
         let target = StaffScheduling::new(
             3, // shifts_per_schedule
             schedules,
             requirements,
-            q as u64, // num_workers = q
+            num_workers,
         );
 
-        ReductionXC3SToStaffScheduling { target }
+        Ok(ReductionXC3SToStaffScheduling { target })
     }
 }
 

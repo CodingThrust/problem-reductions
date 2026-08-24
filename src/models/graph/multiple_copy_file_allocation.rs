@@ -62,14 +62,14 @@ struct MultipleCopyFileAllocationCreateSpec {
 }
 
 impl TryFrom<MultipleCopyFileAllocationCreateSpec> for MultipleCopyFileAllocation {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MultipleCopyFileAllocationCreateSpec) -> Result<Self, Self::Error> {
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
         for &(u, v) in &spec.graph {
             if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed"));
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
             }
         }
         let inferred = spec
@@ -195,26 +195,62 @@ impl MultipleCopyFileAllocation {
     ///
     /// Returns `None` if the configuration is not binary, has the wrong length,
     /// selects no copy vertices, or leaves some vertex unreachable from every copy.
-    pub fn total_cost(&self, config: &[usize]) -> Option<i64> {
-        let selected = self.selected_vertices(config)?;
-        let distances = self.shortest_distances(&selected)?;
+    pub fn total_cost(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
+        let Some(selected) = self.selected_vertices(config) else {
+            return Ok(None);
+        };
+        let Some(distances) = self.shortest_distances(&selected) else {
+            return Ok(None);
+        };
 
-        let storage_cost = selected
-            .into_iter()
-            .map(|vertex| self.storage[vertex])
-            .sum::<i64>();
-        let access_cost = distances
-            .into_iter()
-            .enumerate()
-            .map(|(vertex, distance)| self.usage[vertex] * distance as i64)
-            .sum::<i64>();
+        let mut storage_cost = 0_i64;
+        for vertex in selected {
+            storage_cost = storage_cost
+                .checked_add(self.storage[vertex])
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing file-copy storage costs".to_string(),
+                    )
+                })?;
+        }
 
-        Some(storage_cost + access_cost)
+        let mut access_cost = 0_i64;
+        for (vertex, distance) in distances.into_iter().enumerate() {
+            let distance = i64::try_from(distance).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting file-copy access distance".to_string(),
+                )
+            })?;
+            let term = self.usage[vertex].checked_mul(distance).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying file usage by access distance".to_string(),
+                )
+            })?;
+            access_cost = access_cost.checked_add(term).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing file-copy access costs".to_string(),
+                )
+            })?;
+        }
+
+        Ok(Some(storage_cost.checked_add(access_cost).ok_or_else(
+            || {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing file-copy allocation costs".to_string(),
+                )
+            },
+        )?))
     }
 
     /// Check whether a configuration is a valid placement (at least one copy, all reachable).
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.total_cost(config).is_some()
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.total_cost(config)?.is_some())
     }
 }
 
@@ -230,8 +266,8 @@ impl Problem for MultipleCopyFileAllocation {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        Min(self.total_cost(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok(Min(self.total_cost(config)?))
     }
 }
 

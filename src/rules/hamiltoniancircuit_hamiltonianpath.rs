@@ -87,17 +87,17 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToHamiltonianPath;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
 
         // HC is unsatisfiable for n < 3; return a trivially unsatisfiable HP instance.
         if n < 3 {
             let target_graph = SimpleGraph::empty(n + 3);
             let target = HamiltonianPath::new(target_graph);
-            return ReductionHamiltonianCircuitToHamiltonianPath {
+            return Ok(ReductionHamiltonianCircuitToHamiltonianPath {
                 target,
                 num_original_vertices: n,
-            };
+            });
         }
 
         let source_graph = self.graph();
@@ -132,10 +132,10 @@ impl ReduceTo<HamiltonianPath<SimpleGraph>> for HamiltonianCircuit<SimpleGraph> 
         let target_graph = SimpleGraph::new(n + 3, edges);
         let target = HamiltonianPath::new(target_graph);
 
-        ReductionHamiltonianCircuitToHamiltonianPath {
+        Ok(ReductionHamiltonianCircuitToHamiltonianPath {
             target,
             num_original_vertices: n,
-        }
+        })
     }
 }
 

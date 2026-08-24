@@ -107,9 +107,7 @@ pub mod prelude {
 
     // Types
     pub use crate::error::{ProblemError, Result};
-    pub use crate::types::{
-        And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum, Unweighted,
-    };
+    pub use crate::types::{And, Extremum, ExtremumSense, Max, Min, One, Or, ProblemSize, Sum};
 }
 
 // Re-export commonly used items at crate root
@@ -123,8 +121,7 @@ pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::Problem;
 pub use types::{
-    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, Unweighted,
-    WeightElement,
+    And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration

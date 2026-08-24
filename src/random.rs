@@ -12,7 +12,7 @@ pub struct SimpleGraphRandomSpec {
     /// Independent probability of including each possible edge (default: 0.5).
     pub edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
 }
 
 /// Inputs shared by integer-lattice graph generators.
@@ -21,7 +21,7 @@ pub struct IntegerGeometryRandomSpec {
     /// Number of graph vertices.
     pub num_vertices: usize,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
 }
 
 /// Inputs shared by unit-disk graph generators.
@@ -32,7 +32,7 @@ pub struct UnitDiskRandomSpec {
     /// Disk radius used to derive edges (default: 1.0).
     pub radius: Option<f64>,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
 }
 
 /// Random simple-graph inputs with a required clique size.
@@ -43,14 +43,14 @@ pub struct CliqueRandomSpec {
     /// Independent edge probability (default: 0.5).
     pub edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
     /// Required clique size.
     pub k: usize,
 }
 
 impl CliqueRandomSpec {
     /// Generate the graph using the common graph inputs.
-    pub fn graph(&self) -> Result<SimpleGraph, String> {
+    pub fn graph(&self) -> Result<SimpleGraph, ConstructionError> {
         SimpleGraphRandomSpec {
             num_vertices: self.num_vertices,
             edge_prob: self.edge_prob,
@@ -68,7 +68,7 @@ pub struct EndpointRandomSpec {
     /// Independent edge probability (default: 0.5).
     pub edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
     /// Source vertex (default: 0).
     pub source: Option<usize>,
     /// Sink vertex (default: the final vertex).
@@ -83,14 +83,14 @@ pub struct ColoringRandomSpec {
     /// Independent edge probability (default: 0.5).
     pub edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    pub seed: Option<u64>,
+    pub seed: Option<i64>,
     /// Runtime color count (default: 3).
     pub k: Option<usize>,
 }
 
 impl ColoringRandomSpec {
     /// Generate the graph using the common graph inputs.
-    pub fn graph(&self) -> Result<SimpleGraph, String> {
+    pub fn graph(&self) -> Result<SimpleGraph, ConstructionError> {
         SimpleGraphRandomSpec {
             num_vertices: self.num_vertices,
             edge_prob: self.edge_prob,
@@ -102,7 +102,7 @@ impl ColoringRandomSpec {
 
 impl EndpointRandomSpec {
     /// Generate the graph using the common graph inputs.
-    pub fn graph(&self) -> Result<SimpleGraph, String> {
+    pub fn graph(&self) -> Result<SimpleGraph, ConstructionError> {
         SimpleGraphRandomSpec {
             num_vertices: self.num_vertices,
             edge_prob: self.edge_prob,
@@ -112,9 +112,9 @@ impl EndpointRandomSpec {
     }
 
     /// Validate and return distinct source and sink vertices.
-    pub fn endpoints(&self) -> Result<(usize, usize), String> {
+    pub fn endpoints(&self) -> Result<(usize, usize), ConstructionError> {
         if self.num_vertices < 2 {
-            return Err("num_vertices must be at least 2".to_string());
+            return Err("num_vertices must be at least 2".into());
         }
         let source = self.source.unwrap_or(0);
         let sink = self.sink.unwrap_or(self.num_vertices - 1);
@@ -122,10 +122,11 @@ impl EndpointRandomSpec {
             return Err(format!(
                 "source and sink must be below num_vertices ({})",
                 self.num_vertices
-            ));
+            )
+            .into());
         }
         if source == sink {
-            return Err("source and sink must be distinct".to_string());
+            return Err("source and sink must be distinct".into());
         }
         Ok((source, sink))
     }
@@ -133,14 +134,16 @@ impl EndpointRandomSpec {
 
 impl SimpleGraphRandomSpec {
     /// Generate the requested graph after validating its probability.
-    pub fn graph(&self) -> Result<SimpleGraph, String> {
+    pub fn graph(&self) -> Result<SimpleGraph, ConstructionError> {
         let edge_prob = self.edge_prob.unwrap_or(0.5);
         if !(0.0..=1.0).contains(&edge_prob) {
-            return Err(format!(
-                "edge_prob must be between 0 and 1, got {edge_prob}"
-            ));
+            return Err(format!("edge_prob must be between 0 and 1, got {edge_prob}").into());
         }
-        Ok(create_random_graph(self.num_vertices, edge_prob, self.seed))
+        Ok(create_random_graph(
+            self.num_vertices,
+            edge_prob,
+            seed_to_u64(self.seed)?,
+        ))
     }
 }
 
@@ -162,16 +165,15 @@ macro_rules! impl_random_generate {
                 .map_err(|error| {
                     $crate::registry::ConstructionError::InvalidInput(error.to_string())
                 })?;
-                let generate = || -> Result<Self, String> { $body };
-                let result = generate();
-                result.map_err($crate::registry::ConstructionError::Conversion)
+                let generate = || -> Result<Self, $crate::registry::ConstructionError> { $body };
+                generate()
             }
         }
     };
 }
 
 /// LCG PRNG step returning a uniform value in `[0, 1)`.
-pub fn lcg_step(state: &mut u64) -> f64 {
+pub(crate) fn lcg_step(state: &mut u64) -> f64 {
     *state = state
         .wrapping_mul(6364136223846793005)
         .wrapping_add(1442695040888963407);
@@ -179,17 +181,21 @@ pub fn lcg_step(state: &mut u64) -> f64 {
 }
 
 /// Initialize LCG state from a seed or the current time.
-pub fn lcg_init(seed: Option<u64>) -> u64 {
+pub(crate) fn lcg_init(seed: Option<u64>) -> u64 {
     seed.unwrap_or_else(|| {
-        std::time::SystemTime::now()
+        let duration = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock must be after the Unix epoch")
-            .as_nanos() as u64
+            .expect("system clock must be after the Unix epoch");
+        duration.as_secs() ^ u64::from(duration.subsec_nanos())
     })
 }
 
 /// Generate an Erdős–Rényi simple graph.
-pub fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -> SimpleGraph {
+pub(crate) fn create_random_graph(
+    num_vertices: usize,
+    edge_prob: f64,
+    seed: Option<u64>,
+) -> SimpleGraph {
     let mut state = lcg_init(seed);
     let edges = (0..num_vertices)
         .flat_map(|u| ((u + 1)..num_vertices).map(move |v| (u, v)))
@@ -199,19 +205,28 @@ pub fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64
 }
 
 /// Generate unique integer positions on a square grid.
-pub fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
+pub(crate) fn create_random_int_positions(
+    num_vertices: usize,
+    seed: Option<u64>,
+) -> Vec<(i64, i64)> {
     let mut state = lcg_init(seed);
-    let grid_size = (num_vertices as f64).sqrt().ceil() as i32 + 1;
+    let grid_size = (num_vertices as f64).sqrt().ceil() as i64 + 1;
     let capacity = (grid_size * grid_size) as usize;
     lcg_choose(&mut state, capacity, num_vertices)
         .expect("grid capacity exceeds the requested position count")
         .into_iter()
-        .map(|index| (index as i32 / grid_size, index as i32 % grid_size))
+        .map(|index| {
+            let index = i64::try_from(index).expect("random position index exceeds i64");
+            (index / grid_size, index % grid_size)
+        })
         .collect()
 }
 
 /// Generate float positions in `[0, sqrt(N)]²`.
-pub fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(f64, f64)> {
+pub(crate) fn create_random_float_positions(
+    num_vertices: usize,
+    seed: Option<u64>,
+) -> Vec<(f64, f64)> {
     let mut state = lcg_init(seed);
     let side = (num_vertices as f64).sqrt();
     (0..num_vertices)
@@ -220,7 +235,11 @@ pub fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> 
 }
 
 /// Choose `k` distinct sorted indices from `0..n`.
-pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Result<Vec<usize>, ConstructionError> {
+pub(crate) fn lcg_choose(
+    state: &mut u64,
+    n: usize,
+    k: usize,
+) -> Result<Vec<usize>, ConstructionError> {
     if k > n {
         return Err(ConstructionError::Conversion(format!(
             "cannot choose {k} elements from {n}"
@@ -234,4 +253,9 @@ pub fn lcg_choose(state: &mut u64, n: usize, k: usize) -> Result<Vec<usize>, Con
     let mut chosen = indices[..k].to_vec();
     chosen.sort_unstable();
     Ok(chosen)
+}
+
+pub(crate) fn seed_to_u64(seed: Option<i64>) -> Result<Option<u64>, ConstructionError> {
+    seed.map(|value| u64::try_from(value).map_err(|_| "seed must be a nonnegative i64".into()))
+        .transpose()
 }

@@ -45,10 +45,10 @@ where
         universe_size = "num_edges",
     }
 )]
-impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> {
-    type Result = ReductionVCToSC<i32>;
+impl ReduceTo<MinimumSetCovering<i64>> for MinimumVertexCover<SimpleGraph, i64> {
+    type Result = ReductionVCToSC<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_edges = edges.len();
         let num_vertices = self.graph().num_vertices();
@@ -68,7 +68,7 @@ impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> 
 
         let target = MinimumSetCovering::with_weights(num_edges, sets, self.weights().to_vec());
 
-        ReductionVCToSC { target }
+        Ok(ReductionVCToSC { target })
     }
 }
 
@@ -80,8 +80,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumvertexcover_to_minimumsetcovering",
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
-            let source = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
-            crate::example_db::specs::rule_example_with_witness::<_, MinimumSetCovering<i32>>(
+            let source = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
+            crate::example_db::specs::rule_example_with_witness::<_, MinimumSetCovering<i64>>(
                 source,
                 SolutionPair {
                     source_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],

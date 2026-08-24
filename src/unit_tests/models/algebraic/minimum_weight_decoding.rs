@@ -45,7 +45,7 @@ fn test_minimum_weight_decoding_evaluate_feasible() {
     // Row 1: H[1][2]=1, x[2]=1 → dot=1 mod 2 = 1 = s[1]=true ✓
     // Row 2: H[2][2]=0 → dot=0 mod 2 = 0 = s[2]=false ✓
     let config = vec![0, 0, 1, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(1)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -53,7 +53,7 @@ fn test_minimum_weight_decoding_evaluate_infeasible() {
     let problem = example_instance();
     // Config [0,0,0,0] → all zeros, Hx = [0,0,0] but s = [1,1,0] → infeasible
     let config = vec![0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -62,36 +62,39 @@ fn test_minimum_weight_decoding_evaluate_heavier_feasible() {
     // Config [1,0,0,1] → weight 2
     // Row 0: H[0][0]=1, H[0][3]=1 → dot=2 mod 2=0, s[0]=true → 0≠1 infeasible
     let config = vec![1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 
     // Config [1,1,0,0] → weight 2
     // Row 0: H[0][0]=1 → dot=1, mod 2=1, s[0]=true ✓
     // Row 1: H[1][1]=1 → dot=1, mod 2=1, s[1]=true ✓
     // Row 2: H[2][0]=1,H[2][1]=1 → dot=2, mod 2=0, s[2]=false ✓
     let config2 = vec![1, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config2), Min(Some(2)));
+    assert_eq!(problem.evaluate(&config2).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_minimum_weight_decoding_evaluate_wrong_length() {
     let problem = example_instance();
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[1; 5]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[1; 5]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_decoding_evaluate_invalid_variable() {
     let problem = example_instance();
     let config = vec![2, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_decoding_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    let val = problem.evaluate(&witness);
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    let val = problem.evaluate(&witness).unwrap();
     // Optimal is weight 1 with config [0,0,1,0]
     assert_eq!(val, Min(Some(1)));
 }
@@ -100,11 +103,11 @@ fn test_minimum_weight_decoding_brute_force() {
 fn test_minimum_weight_decoding_all_witnesses() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(&problem);
+    let witnesses = solver.find_all_witnesses(&problem).unwrap();
     // All witnesses should be feasible and have weight 1
     assert!(!witnesses.is_empty());
     for w in &witnesses {
-        assert_eq!(problem.evaluate(w), Min(Some(1)));
+        assert_eq!(problem.evaluate(w).unwrap(), Min(Some(1)));
     }
 }
 
@@ -131,7 +134,7 @@ fn test_minimum_weight_decoding_zero_syndrome() {
     let target = vec![false, false];
     let problem = MinimumWeightDecoding::new(matrix, target);
     let config = vec![0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(0)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
 
 #[test]

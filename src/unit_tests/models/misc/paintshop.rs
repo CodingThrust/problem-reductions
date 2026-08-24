@@ -37,13 +37,13 @@ fn test_count_switches() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
 
     // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(problem.count_switches(&[0, 1]), 2);
+    assert_eq!(problem.count_switches(&[0, 1]).unwrap(), 2);
 
     // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(problem.count_switches(&[0, 0]), 1);
+    assert_eq!(problem.count_switches(&[0, 0]).unwrap(), 1);
 
     // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
-    assert_eq!(problem.count_switches(&[1, 1]), 1);
+    assert_eq!(problem.count_switches(&[1, 1]).unwrap(), 1);
 }
 
 #[test]
@@ -59,11 +59,11 @@ fn test_single_car() {
     let problem = PaintShop::new(vec!["a", "a"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Both configs give 1 switch: a(0)->a(1) or a(1)->a(0)
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert_eq!(problem.count_switches(sol), 1);
+        assert_eq!(problem.count_switches(sol).unwrap(), 1);
     }
 }
 
@@ -73,11 +73,11 @@ fn test_adjacent_same_car() {
     let problem = PaintShop::new(vec!["a", "a", "b", "b"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Best case: [0,0] -> [0,1,0,1] = 3 switches, or [0,1] -> [0,1,1,0] = 2 switches
     // Actually: [0,0] -> a=0,a=1,b=0,b=1 = [0,1,0,1] = 3 switches
     // [0,1] -> a=0,a=1,b=1,b=0 = [0,1,1,0] = 2 switches
-    let min_switches = problem.count_switches(&solutions[0]);
+    let min_switches = problem.count_switches(&solutions[0]).unwrap();
     assert!(min_switches <= 3);
 }
 
@@ -108,8 +108,8 @@ fn test_jl_parity_evaluation() {
         let problem = PaintShop::new(sequence);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
-            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            let result = problem.evaluate(&config).unwrap();
+            let jl_size = eval["size"].as_i64().unwrap();
             assert_eq!(
                 result.unwrap(),
                 jl_size,
@@ -117,7 +117,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_witnesses(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "PaintShop best solutions mismatch");
@@ -141,6 +141,6 @@ fn test_paintshop_paper_example() {
     // Config [0, 0, 1]: A first=0, B first=0, C first=1
     // Coloring: A(0), B(0), A(1), C(1), B(1), C(0) -> [0,0,1,1,1,0] -> 2 switches
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best).unwrap(), 2);
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }

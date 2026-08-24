@@ -8,32 +8,33 @@ use crate::types::Or;
 fn test_sequencingtominimizeweightedtardiness_to_ilp_closed_loop() {
     let problem =
         SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
-    // Use ILPSolver directly (BruteForce cannot enumerate ILP<i32>)
+    // Use ILPSolver directly (BruteForce cannot enumerate `ILP<i64>`)
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_sequencingtominimizeweightedtardiness_to_ilp_bf_vs_ilp() {
     let problem =
         SequencingToMinimizeWeightedTardiness::new(vec![3, 4, 2], vec![2, 3, 1], vec![5, 8, 4], 10);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
         .find_witness(&problem)
+        .unwrap()
         .expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -41,7 +42,7 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_infeasible() {
     // All jobs have length 10, deadline 1, weight 1, bound 0: impossible
     let problem =
         SequencingToMinimizeWeightedTardiness::new(vec![10, 10], vec![1, 1], vec![1, 1], 0);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible STMWT should produce infeasible ILP"
@@ -57,10 +58,10 @@ fn test_sequencingtominimizeweightedtardiness_to_ilp_no_tardiness() {
         vec![10, 10, 10],
         0,
     );
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

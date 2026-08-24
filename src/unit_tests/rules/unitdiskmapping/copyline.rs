@@ -1,11 +1,12 @@
 use super::*;
+use crate::rules::ReductionError;
 
 #[test]
 fn test_create_copylines_path() {
     // Path graph: 0-1-2
     let edges = vec![(0, 1), (1, 2)];
     let order = vec![0, 1, 2];
-    let lines = create_copylines(3, &edges, &order);
+    let lines = create_copylines(3, &edges, &order).unwrap();
 
     assert_eq!(lines.len(), 3);
     // Each vertex gets a copy line
@@ -32,15 +33,35 @@ fn test_copyline_locations() {
 fn test_create_copylines_empty() {
     let edges: Vec<(usize, usize)> = vec![];
     let order: Vec<usize> = vec![];
-    let lines = create_copylines(0, &edges, &order);
+    let lines = create_copylines(0, &edges, &order).unwrap();
     assert!(lines.is_empty());
+}
+
+#[test]
+fn test_create_copylines_rejects_invalid_vertex_order() {
+    let error = create_copylines(2, &[(0, 1)], &[0, 0]).unwrap_err();
+    assert!(matches!(
+        error,
+        ReductionError::InvalidTarget { message, .. }
+            if message == "vertex_order must contain every vertex exactly once"
+    ));
+}
+
+#[test]
+fn test_create_copylines_rejects_invalid_edge_endpoint() {
+    let error = create_copylines(2, &[(0, 2)], &[0, 1]).unwrap_err();
+    assert!(matches!(
+        error,
+        ReductionError::InvalidTarget { message, .. }
+            if message == "edge endpoints must be valid vertices"
+    ));
 }
 
 #[test]
 fn test_create_copylines_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
     let order = vec![0];
-    let lines = create_copylines(1, &edges, &order);
+    let lines = create_copylines(1, &edges, &order).unwrap();
 
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].vertex, 0);
@@ -52,7 +73,7 @@ fn test_create_copylines_triangle() {
     // Triangle: 0-1, 1-2, 0-2
     let edges = vec![(0, 1), (1, 2), (0, 2)];
     let order = vec![0, 1, 2];
-    let lines = create_copylines(3, &edges, &order);
+    let lines = create_copylines(3, &edges, &order).unwrap();
 
     assert_eq!(lines.len(), 3);
     // Vertex 0 should have hstop reaching to vertex 2's slot
@@ -88,9 +109,19 @@ fn test_mis_overhead_copyline() {
     let spacing = 4;
     let padding = 2;
     let locs = line.copyline_locations(padding, spacing);
-    let overhead = mis_overhead_copyline(&line, spacing, padding);
+    let overhead = mis_overhead_copyline(&line, spacing, padding).unwrap();
     // Julia formula for UnWeighted mode: length(locs) / 2
-    assert_eq!(overhead, locs.len() / 2);
+    assert_eq!(overhead, i64::try_from(locs.len() / 2).unwrap());
+}
+
+#[test]
+fn test_triangular_mis_overhead_reports_overflow() {
+    let line = CopyLine::new(0, 0, usize::MAX, 0, usize::MAX, usize::MAX);
+
+    assert!(matches!(
+        mis_overhead_copyline_triangular(&line, usize::MAX),
+        Err(ReductionError::IntegerOverflow { .. })
+    ));
 }
 
 #[test]
@@ -106,7 +137,7 @@ fn test_create_copylines_star() {
     // Star graph: 0 connected to 1, 2, 3
     let edges = vec![(0, 1), (0, 2), (0, 3)];
     let order = vec![0, 1, 2, 3];
-    let lines = create_copylines(4, &edges, &order);
+    let lines = create_copylines(4, &edges, &order).unwrap();
 
     assert_eq!(lines.len(), 4);
     // Vertex 0 (center) should have hstop reaching the last neighbor
@@ -204,10 +235,10 @@ fn test_mis_overhead_julia_cases() {
     for (vstart, vstop, hstop) in test_cases {
         let line = CopyLine::new(1, 5, 5, vstart, vstop, hstop);
         let locs = line.copyline_locations(padding, spacing);
-        let overhead = mis_overhead_copyline(&line, spacing, padding);
+        let overhead = mis_overhead_copyline(&line, spacing, padding).unwrap();
 
         // UnWeighted formula: length(locs) / 2
-        let expected = locs.len() / 2;
+        let expected = i64::try_from(locs.len() / 2).unwrap();
 
         assert_eq!(
             overhead, expected,
@@ -239,7 +270,7 @@ fn test_create_copylines_petersen() {
     ];
     let order: Vec<usize> = (0..10).collect();
 
-    let lines = create_copylines(10, &edges, &order);
+    let lines = create_copylines(10, &edges, &order).unwrap();
 
     // Verify all lines are created
     assert_eq!(lines.len(), 10);

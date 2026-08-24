@@ -35,7 +35,7 @@ impl ReductionResult for ReductionNAESATToSetSplitting {
     }
 }
 
-fn literal_element_index(lit: i32, num_vars: usize) -> usize {
+fn literal_element_index(lit: i64, num_vars: usize) -> usize {
     let var_index = lit.unsigned_abs() as usize - 1;
     if lit > 0 {
         var_index
@@ -53,7 +53,7 @@ fn literal_element_index(lit: i32, num_vars: usize) -> usize {
 impl ReduceTo<SetSplitting> for NAESatisfiability {
     type Result = ReductionNAESATToSetSplitting;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let mut subsets = Vec::with_capacity(num_vars + self.num_clauses());
 
@@ -71,10 +71,10 @@ impl ReduceTo<SetSplitting> for NAESatisfiability {
             );
         }
 
-        ReductionNAESATToSetSplitting {
+        Ok(ReductionNAESATToSetSplitting {
             target: SetSplitting::new(2 * num_vars, subsets),
             num_source_variables: num_vars,
-        }
+        })
     }
 }
 

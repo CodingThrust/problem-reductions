@@ -1,4 +1,4 @@
-//! Reduction from ILP<i32> to ILP<bool> via truncated binary encoding with FBBT.
+//! Reduction from `ILP<i64>` to `ILP<bool>` via truncated binary encoding with FBBT.
 //!
 //! Uses Feasibility-Based Bound Tightening (Savelsbergh 1994, Achterberg et al. 2020)
 //! to infer per-variable upper bounds, then encodes each integer variable into
@@ -7,6 +7,7 @@
 use crate::models::algebraic::{Comparison, LinearConstraint, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 
 /// Error type for FBBT failures.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,6 +16,35 @@ pub enum FbbtError {
     Unbounded,
     /// The constraint system is provably infeasible.
     Infeasible,
+    /// Integer arithmetic or an integer-valued coefficient is outside the i64 domain.
+    Arithmetic(String),
+    /// A coefficient required by this integer encoding is not a finite i64-valued integer.
+    InvalidInteger(String),
+}
+
+fn integer_coefficient(value: f64, context: &str) -> Result<i64, FbbtError> {
+    let exact_limit = MAX_EXACT_F64_INTEGER as f64;
+    if !value.is_finite() || value.fract() != 0.0 || value < -exact_limit || value > exact_limit {
+        return Err(FbbtError::InvalidInteger(format!(
+            "{context} must be a finite integer representable as i64"
+        )));
+    }
+    Ok(value as i64)
+}
+
+fn checked_mul(left: i64, right: i64, context: &str) -> Result<i64, FbbtError> {
+    left.checked_mul(right)
+        .ok_or_else(|| FbbtError::Arithmetic(context.to_string()))
+}
+
+fn checked_add(left: i64, right: i64, context: &str) -> Result<i64, FbbtError> {
+    left.checked_add(right)
+        .ok_or_else(|| FbbtError::Arithmetic(context.to_string()))
+}
+
+fn checked_sub(left: i64, right: i64, context: &str) -> Result<i64, FbbtError> {
+    left.checked_sub(right)
+        .ok_or_else(|| FbbtError::Arithmetic(context.to_string()))
 }
 
 /// Per-variable encoding info: start index in binary variables, weights.
@@ -49,25 +79,41 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
             let mut act_max_finite = true;
 
             for &(var, coef) in &c.terms {
-                let coef_i = coef as i64; // coefficients are integer-valued in practice
+                let coef_i = integer_coefficient(coef, "FBBT coefficient")?;
                 if coef_i > 0 {
-                    act_min = act_min.saturating_add(coef_i.saturating_mul(lower[var]));
+                    act_min = checked_add(
+                        act_min,
+                        checked_mul(coef_i, lower[var], "multiplying FBBT lower activity")?,
+                        "summing FBBT lower activity",
+                    )?;
                     if upper[var] >= INF {
                         act_max_finite = false;
                     } else {
-                        act_max = act_max.saturating_add(coef_i.saturating_mul(upper[var]));
+                        act_max = checked_add(
+                            act_max,
+                            checked_mul(coef_i, upper[var], "multiplying FBBT upper activity")?,
+                            "summing FBBT upper activity",
+                        )?;
                     }
                 } else if coef_i < 0 {
                     if upper[var] >= INF {
                         act_min_finite = false;
                     } else {
-                        act_min = act_min.saturating_add(coef_i.saturating_mul(upper[var]));
+                        act_min = checked_add(
+                            act_min,
+                            checked_mul(coef_i, upper[var], "multiplying FBBT lower activity")?,
+                            "summing FBBT lower activity",
+                        )?;
                     }
-                    act_max = act_max.saturating_add(coef_i.saturating_mul(lower[var]));
+                    act_max = checked_add(
+                        act_max,
+                        checked_mul(coef_i, lower[var], "multiplying FBBT upper activity")?,
+                        "summing FBBT upper activity",
+                    )?;
                 }
             }
 
-            let rhs = c.rhs as i64;
+            let rhs = integer_coefficient(c.rhs, "FBBT right-hand side")?;
 
             // Infeasibility checks
             if matches!(c.cmp, Comparison::Le | Comparison::Eq) && act_min_finite && act_min > rhs {
@@ -79,7 +125,7 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
 
             // Tighten each variable
             for &(var, coef) in &c.terms {
-                let coef_i = coef as i64;
+                let coef_i = integer_coefficient(coef, "FBBT coefficient")?;
                 if coef_i == 0 {
                     continue;
                 }
@@ -88,19 +134,19 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
                 if matches!(c.cmp, Comparison::Le | Comparison::Eq) {
                     // Compute residual min = act_min - this variable's min contribution
                     let my_min = if coef_i > 0 {
-                        coef_i.saturating_mul(lower[var])
+                        checked_mul(coef_i, lower[var], "multiplying FBBT minimum contribution")?
                     } else {
                         if upper[var] >= INF {
                             continue; // can't compute residual
                         }
-                        coef_i.saturating_mul(upper[var])
+                        checked_mul(coef_i, upper[var], "multiplying FBBT minimum contribution")?
                     };
                     if !(act_min_finite || coef_i < 0 && upper[var] >= INF) {
                         // act_min is -inf, residual is -inf, no useful bound
                         continue;
                     }
                     let res_min = if act_min_finite {
-                        act_min - my_min
+                        checked_sub(act_min, my_min, "computing FBBT minimum residual")?
                     } else {
                         // act_min was -inf because of this var's contribution
                         // but my_min was the infinite part, so residual is finite
@@ -110,14 +156,20 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
 
                     if coef_i > 0 {
                         // a_i * x_i <= rhs - res_min => x_i <= floor((rhs - res_min) / a_i)
-                        let new_u = floor_div(rhs - res_min, coef_i);
+                        let new_u = floor_div(
+                            checked_sub(rhs, res_min, "computing FBBT upper-bound numerator")?,
+                            coef_i,
+                        )?;
                         if new_u < upper[var] {
                             upper[var] = new_u;
                             changed = true;
                         }
                     } else {
                         // a_i * x_i <= rhs - res_min, a_i < 0 => x_i >= ceil((rhs - res_min) / a_i)
-                        let new_l = ceil_div(rhs - res_min, coef_i);
+                        let new_l = ceil_div(
+                            checked_sub(rhs, res_min, "computing FBBT lower-bound numerator")?,
+                            coef_i,
+                        )?;
                         if new_l > lower[var] {
                             lower[var] = new_l;
                             changed = true;
@@ -131,29 +183,35 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
                         if upper[var] >= INF {
                             continue;
                         }
-                        coef_i.saturating_mul(upper[var])
+                        checked_mul(coef_i, upper[var], "multiplying FBBT maximum contribution")?
                     } else {
-                        coef_i.saturating_mul(lower[var])
+                        checked_mul(coef_i, lower[var], "multiplying FBBT maximum contribution")?
                     };
                     if !(act_max_finite || coef_i > 0 && upper[var] >= INF) {
                         continue;
                     }
                     let res_max = if act_max_finite {
-                        act_max - my_max
+                        checked_sub(act_max, my_max, "computing FBBT maximum residual")?
                     } else {
                         continue;
                     };
 
                     if coef_i > 0 {
                         // a_i * x_i >= rhs - res_max => x_i >= ceil((rhs - res_max) / a_i)
-                        let new_l = ceil_div(rhs - res_max, coef_i);
+                        let new_l = ceil_div(
+                            checked_sub(rhs, res_max, "computing FBBT lower-bound numerator")?,
+                            coef_i,
+                        )?;
                         if new_l > lower[var] {
                             lower[var] = new_l;
                             changed = true;
                         }
                     } else {
                         // a_i * x_i >= rhs - res_max, a_i < 0 => x_i <= floor((rhs - res_max) / a_i)
-                        let new_u = floor_div(rhs - res_max, coef_i);
+                        let new_u = floor_div(
+                            checked_sub(rhs, res_max, "computing FBBT upper-bound numerator")?,
+                            coef_i,
+                        )?;
                         if new_u < upper[var] {
                             upper[var] = new_u;
                             changed = true;
@@ -183,24 +241,34 @@ fn fbbt(num_vars: usize, constraints: &[LinearConstraint]) -> Result<Vec<i64>, F
 }
 
 /// Floor division that rounds toward negative infinity.
-fn floor_div(a: i64, b: i64) -> i64 {
-    let d = a / b;
-    let r = a % b;
+fn floor_div(a: i64, b: i64) -> Result<i64, FbbtError> {
+    let d = a
+        .checked_div(b)
+        .ok_or_else(|| FbbtError::Arithmetic("dividing an FBBT upper-bound numerator".into()))?;
+    let r = a
+        .checked_rem(b)
+        .ok_or_else(|| FbbtError::Arithmetic("taking an FBBT upper-bound remainder".into()))?;
     if (r != 0) && ((r ^ b) < 0) {
-        d - 1
+        d.checked_sub(1)
+            .ok_or_else(|| FbbtError::Arithmetic("rounding an FBBT upper bound".into()))
     } else {
-        d
+        Ok(d)
     }
 }
 
 /// Ceiling division that rounds toward positive infinity.
-fn ceil_div(a: i64, b: i64) -> i64 {
-    let d = a / b;
-    let r = a % b;
+fn ceil_div(a: i64, b: i64) -> Result<i64, FbbtError> {
+    let d = a
+        .checked_div(b)
+        .ok_or_else(|| FbbtError::Arithmetic("dividing an FBBT lower-bound numerator".into()))?;
+    let r = a
+        .checked_rem(b)
+        .ok_or_else(|| FbbtError::Arithmetic("taking an FBBT lower-bound remainder".into()))?;
     if (r != 0) && ((r ^ b) >= 0) {
-        d + 1
+        d.checked_add(1)
+            .ok_or_else(|| FbbtError::Arithmetic("rounding an FBBT lower bound".into()))
     } else {
-        d
+        Ok(d)
     }
 }
 
@@ -231,7 +299,7 @@ fn num_bits(upper_bound: i64) -> usize {
     64 - (upper_bound as u64).leading_zeros() as usize
 }
 
-/// Reduction result for ILP<i32> -> ILP<bool>.
+/// Reduction result for `ILP<i64>` -> `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionIntILPToBinaryILP {
     target: ILP<bool>,
@@ -240,7 +308,7 @@ pub struct ReductionIntILPToBinaryILP {
 }
 
 impl ReductionResult for ReductionIntILPToBinaryILP {
-    type Source = ILP<i32>;
+    type Source = ILP<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -257,15 +325,36 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
             self.encodings
                 .iter()
                 .map(|enc| {
-                    let val: i64 = enc
-                        .weights
-                        .iter()
-                        .enumerate()
-                        .map(|(j, &w)| w * target_solution[enc.start + j] as i64)
-                        .sum();
-                    val as usize
+                    let val =
+                        enc.weights
+                            .iter()
+                            .enumerate()
+                            .try_fold(0_i64, |total, (j, &weight)| {
+                                let bit = i64::try_from(target_solution[enc.start + j]).map_err(
+                                    |_| {
+                                        crate::rules::ExtractionError::invalid(
+                                            "binary ILP value cannot be represented as i64",
+                                        )
+                                    },
+                                )?;
+                                let term = weight.checked_mul(bit).ok_or_else(|| {
+                                    crate::rules::ExtractionError::invalid(
+                                        "binary ILP decoding multiplication overflowed i64",
+                                    )
+                                })?;
+                                total.checked_add(term).ok_or_else(|| {
+                                    crate::rules::ExtractionError::invalid(
+                                        "binary ILP decoding sum overflowed i64",
+                                    )
+                                })
+                            })?;
+                    usize::try_from(val).map_err(|_| {
+                        crate::rules::ExtractionError::invalid(
+                            "decoded ILP value cannot be represented as usize",
+                        )
+                    })
                 })
-                .collect()
+                .collect::<Result<Vec<_>, _>>()?
         })
     }
 }
@@ -275,23 +364,23 @@ impl ReductionResult for ReductionIntILPToBinaryILP {
         num_vars = "31 * num_vars",
         num_constraints = "num_constraints",
     },)]
-impl ReduceTo<ILP<bool>> for ILP<i32> {
+impl ReduceTo<ILP<bool>> for ILP<i64> {
     type Result = ReductionIntILPToBinaryILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         if self.num_vars == 0 {
-            return ReductionIntILPToBinaryILP {
+            return Ok(ReductionIntILPToBinaryILP {
                 target: ILP::<bool>::new(0, vec![], vec![], self.sense),
                 encodings: vec![],
-            };
+            });
         }
 
         // Step 1: FBBT to infer upper bounds
         let upper_bounds = match fbbt(self.num_vars, &self.constraints) {
             Ok(bounds) => bounds,
             Err(FbbtError::Infeasible) => {
-                // Return an infeasible ILP<bool>: 1 variable, constraint y0 >= 1 AND y0 <= 0
-                return ReductionIntILPToBinaryILP {
+                // Return an infeasible `ILP<bool>`: 1 variable, constraint y0 >= 1 AND y0 <= 0
+                return Ok(ReductionIntILPToBinaryILP {
                     target: ILP::<bool>::new(
                         1,
                         vec![
@@ -307,11 +396,27 @@ impl ReduceTo<ILP<bool>> for ILP<i32> {
                             weights: vec![],
                         })
                         .collect(),
-                };
+                });
             }
             Err(FbbtError::Unbounded) => {
-                // Fallback: use 31 bits per variable (full i32 range)
-                vec![(1i64 << 31) - 1; self.num_vars]
+                return Err(crate::rules::ReductionError::invalid_target::<
+                    ILP<i64>,
+                    ILP<bool>,
+                >(
+                    "binary encoding requires finite upper bounds for every integer variable",
+                ));
+            }
+            Err(FbbtError::Arithmetic(context)) => {
+                return Err(crate::rules::ReductionError::integer_overflow::<
+                    ILP<i64>,
+                    ILP<bool>,
+                >(context));
+            }
+            Err(FbbtError::InvalidInteger(message)) => {
+                return Err(crate::rules::ReductionError::invalid_target::<
+                    ILP<i64>,
+                    ILP<bool>,
+                >(message));
             }
         };
 
@@ -328,37 +433,68 @@ impl ReduceTo<ILP<bool>> for ILP<i32> {
         }
 
         // Step 3: Transform constraints
-        let constraints = self
-            .constraints
-            .iter()
-            .map(|c| {
-                let mut new_terms = Vec::new();
-                for &(var, coef) in &c.terms {
-                    let enc = &encodings[var];
-                    for (j, &w) in enc.weights.iter().enumerate() {
-                        new_terms.push((enc.start + j, coef * w as f64));
+        let mut constraints = Vec::with_capacity(self.constraints.len());
+        for constraint in &self.constraints {
+            let mut new_terms = Vec::new();
+            for &(var, coefficient) in &constraint.terms {
+                let encoding = &encodings[var];
+                for (j, &weight) in encoding.weights.iter().enumerate() {
+                    let weight =
+                        i64_to_exact_f64(weight).map_err(|error| {
+                            crate::rules::ReductionError::inexact_float_conversion::<
+                                ILP<i64>,
+                                ILP<bool>,
+                            >(error)
+                        })?;
+                    let encoded_coefficient = coefficient * weight;
+                    if !encoded_coefficient.is_finite() {
+                        return Err(crate::rules::ReductionError::invalid_target::<
+                            ILP<i64>,
+                            ILP<bool>,
+                        >(
+                            "encoding an integer constraint produced a non-finite coefficient",
+                        ));
                     }
+                    new_terms.push((encoding.start + j, encoded_coefficient));
                 }
-                LinearConstraint::new(new_terms, c.cmp, c.rhs)
-            })
-            .collect();
+            }
+            constraints.push(LinearConstraint::new(
+                new_terms,
+                constraint.cmp,
+                constraint.rhs,
+            ));
+        }
 
         // Step 4: Transform objective
         let mut new_objective = Vec::new();
         for &(var, coef) in &self.objective {
             let enc = &encodings[var];
             for (j, &w) in enc.weights.iter().enumerate() {
-                new_objective.push((enc.start + j, coef * w as f64));
+                let weight = i64_to_exact_f64(w).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<ILP<i64>, ILP<bool>>(
+                        error,
+                    )
+                })?;
+                let encoded_coefficient = coef * weight;
+                if !encoded_coefficient.is_finite() {
+                    return Err(crate::rules::ReductionError::invalid_target::<
+                        ILP<i64>,
+                        ILP<bool>,
+                    >(
+                        "encoding an integer objective produced a non-finite coefficient",
+                    ));
+                }
+                new_objective.push((enc.start + j, encoded_coefficient));
             }
         }
 
-        ReductionIntILPToBinaryILP {
+        Ok(ReductionIntILPToBinaryILP {
             target: ILP::<bool>::new(total_bool_vars, constraints, new_objective, self.sense),
             encodings,
-        }
+        })
     }
 }
 
 #[cfg(test)]
-#[path = "../unit_tests/rules/ilp_i32_ilp_bool.rs"]
+#[path = "../unit_tests/rules/ilp_i64_ilp_bool.rs"]
 mod tests;

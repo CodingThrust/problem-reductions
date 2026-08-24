@@ -28,30 +28,20 @@ impl ReductionResult for ReductionPartitionToKnapsack {
     }
 }
 
-fn partition_size_to_i64(value: u64) -> i64 {
-    i64::try_from(value)
-        .expect("Partition -> Knapsack requires all sizes and total_sum / 2 to fit in i64")
-}
-
 #[reduction(
     size = exact { num_items = "num_elements" },
 )]
 impl ReduceTo<Knapsack> for Partition {
     type Result = ReductionPartitionToKnapsack;
 
-    fn reduce_to(&self) -> Self::Result {
-        let weights: Vec<i64> = self
-            .sizes()
-            .iter()
-            .copied()
-            .map(partition_size_to_i64)
-            .collect();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let weights = self.sizes().to_vec();
         let values = weights.clone();
-        let capacity = partition_size_to_i64(self.total_sum() / 2);
+        let capacity = self.total_sum() / 2;
 
-        ReductionPartitionToKnapsack {
+        Ok(ReductionPartitionToKnapsack {
             target: Knapsack::new(weights, values, capacity),
-        }
+        })
     }
 }
 
@@ -63,7 +53,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_knapsack",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, Knapsack>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
                     source_config: vec![1, 0, 0, 1, 0, 0],
                     target_config: vec![1, 0, 0, 1, 0, 0],

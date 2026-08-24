@@ -11,11 +11,12 @@ fn test_reduction_creates_valid_ilp() {
     // 3-vertex path: 0 - 1 - 2, unit weights/lengths, K=1
     let problem = MinMaxMulticenter::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1i32; 3],
-        vec![1i32; 2],
+        vec![1i64; 3],
+        vec![1i64; 2],
         1,
     );
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 + 1 = 3 + 9 + 1 = 13
     assert_eq!(ilp.num_vars, 13, "n + n^2 + 1 variables");
@@ -37,18 +38,22 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
     // Optimal: place center at vertex 1, max distance = 1
     let problem = MinMaxMulticenter::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1i32; 3],
-        vec![1i32; 2],
+        vec![1i64; 3],
+        vec![1i64; 2],
         1,
     );
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).expect("should have optimal");
-    assert_eq!(problem.evaluate(&bf_witness), Min(Some(1)));
+    let bf_witness = bf
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should have optimal");
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Min(Some(1)));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
@@ -57,7 +62,7 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
         3,
         "extracted solution has one entry per vertex"
     );
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -65,11 +70,12 @@ fn test_solution_extraction() {
     // 3-vertex path: center at vertex 1
     let problem = MinMaxMulticenter::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![1i32; 3],
-        vec![1i32; 2],
+        vec![1i64; 3],
+        vec![1i64; 2],
         1,
     );
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct a valid ILP solution:
     // x = [0, 1, 0]; each vertex assigned to center 1; z = 1
@@ -82,7 +88,7 @@ fn test_solution_extraction() {
     ];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -90,29 +96,34 @@ fn test_minmaxmulticenter_to_ilp_weighted() {
     // Single weighted edge with length 100. With k=1, optimal = 100.
     let problem = MinMaxMulticenter::new(
         SimpleGraph::new(2, vec![(0, 1)]),
-        vec![1i32; 2],
-        vec![100i32],
+        vec![1i64; 2],
+        vec![100i64],
         1,
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).expect("should have optimal");
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_witness = bf
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should have optimal");
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
     assert_eq!(bf_value, Min(Some(100)));
 
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Min(Some(100)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(100)));
 }
 
 #[test]
 fn test_minmaxmulticenter_to_ilp_trivial() {
     // Single vertex, K=1: the only vertex is the center, distance = 0
-    let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i32], vec![], 1);
-    let reduction: ReductionMMCToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let problem = MinMaxMulticenter::new(SimpleGraph::new(1, vec![]), vec![5i64], vec![], 1);
+    let reduction: ReductionMMCToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 + 1 = 3
     assert_eq!(ilp.num_vars, 3);
@@ -121,5 +132,5 @@ fn test_minmaxmulticenter_to_ilp_trivial() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 1);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

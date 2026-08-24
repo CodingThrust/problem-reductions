@@ -31,7 +31,7 @@ inventory::submit! {
 /// distances between locations, find an injective assignment of facilities
 /// to locations that minimizes:
 ///
-/// f(p) = sum_{i != j} C[i][j] * D[p(i)][p(j)]
+/// `f(p) = sum_{i != j} C[i][j] * D[p(i)][p(j)]`
 ///
 /// where p is an injective mapping from facilities to locations (a permutation when n == m).
 ///
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = QuadraticAssignment::new(cost_matrix, distance_matrix);
 ///
 /// let solver = BruteForce::new();
-/// let best = solver.find_witness(&problem);
+/// let best = solver.find_witness(&problem).unwrap();
 /// assert!(best.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,42 +122,56 @@ impl Problem for QuadraticAssignment {
         vec![self.num_locations(); self.num_facilities()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let n = self.num_facilities();
-        let m = self.num_locations();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_facilities();
+            let m = self.num_locations();
 
-        // Check config length matches number of facilities
-        if config.len() != n {
-            return Min(None);
-        }
-
-        // Check that all assignments are valid locations
-        for &loc in config {
-            if loc >= m {
-                return Min(None);
+            // Check config length matches number of facilities
+            if config.len() != n {
+                return Ok(Min(None));
             }
-        }
 
-        // Check injectivity: no two facilities assigned to the same location
-        let mut used = vec![false; m];
-        for &loc in config {
-            if used[loc] {
-                return Min(None);
-            }
-            used[loc] = true;
-        }
-
-        // Compute objective: sum_{i != j} cost_matrix[i][j] * distance_matrix[config[i]][config[j]]
-        let mut total: i64 = 0;
-        for i in 0..n {
-            for j in 0..n {
-                if i != j {
-                    total += self.cost_matrix[i][j] * self.distance_matrix[config[i]][config[j]];
+            // Check that all assignments are valid locations
+            for &loc in config {
+                if loc >= m {
+                    return Ok(Min(None));
                 }
             }
-        }
 
-        Min(Some(total))
+            // Check injectivity: no two facilities assigned to the same location
+            let mut used = vec![false; m];
+            for &loc in config {
+                if used[loc] {
+                    return Ok(Min(None));
+                }
+                used[loc] = true;
+            }
+
+            // Compute objective: sum_{i != j} cost_matrix[i][j] * distance_matrix[config[i]][config[j]]
+            let mut total: i64 = 0;
+            for i in 0..n {
+                for j in 0..n {
+                    if i != j {
+                        let term = self.cost_matrix[i][j]
+                            .checked_mul(self.distance_matrix[config[i]][config[j]])
+                            .ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "multiplying quadratic assignment cost and distance"
+                                        .to_string(),
+                                )
+                            })?;
+                        total = total.checked_add(term).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing quadratic assignment objective".to_string(),
+                            )
+                        })?;
+                    }
+                }
+            }
+
+            Min(Some(total))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

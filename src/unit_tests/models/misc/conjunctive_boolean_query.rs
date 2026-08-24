@@ -53,7 +53,7 @@ fn test_conjunctivebooleanquery_evaluate_yes() {
     //   conjunct 0: R_0(0, 3) = (0,3) in R_0 -> true
     //   conjunct 1: R_0(1, 3) = (1,3) in R_0 -> true
     //   conjunct 2: R_1(0, 1, 5) = (0,1,5) in R_1 -> true
-    assert!(problem.evaluate(&[0, 1]));
+    assert!(problem.evaluate(&[0, 1]).unwrap());
 }
 
 #[test]
@@ -61,23 +61,23 @@ fn test_conjunctivebooleanquery_evaluate_no() {
     let problem = issue_example();
     // y_0=2, y_1=1:
     //   conjunct 0: R_0(2, 3) = (2,3) NOT in R_0 (R_0 has (2,4) not (2,3))
-    assert!(!problem.evaluate(&[2, 1]));
+    assert!(!problem.evaluate(&[2, 1]).unwrap());
 }
 
 #[test]
 fn test_conjunctivebooleanquery_out_of_range() {
     let problem = issue_example();
     // value 6 is out of range for domain_size=6
-    assert!(!problem.evaluate(&[6, 0]));
+    assert!(!problem.evaluate(&[6, 0]).unwrap());
 }
 
 #[test]
 fn test_conjunctivebooleanquery_wrong_length() {
     let problem = issue_example();
     // too short
-    assert!(!problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&[0]).unwrap());
     // too long
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -86,8 +86,9 @@ fn test_conjunctivebooleanquery_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
@@ -105,7 +106,7 @@ fn test_conjunctivebooleanquery_unsatisfiable() {
     ];
     let problem = ConjunctiveBooleanQuery::new(2, relations, 1, conjuncts);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -121,7 +122,7 @@ fn test_conjunctivebooleanquery_paper_example() {
     // Same instance as the issue example — count all satisfying assignments
     let problem = issue_example();
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     // (0,1) satisfies; verify count manually:
     // For each (y0, y1) in {0..5}x{0..5}:
     //   need R_0(y0, 3) and R_0(y1, 3) and R_1(y0, y1, 5)

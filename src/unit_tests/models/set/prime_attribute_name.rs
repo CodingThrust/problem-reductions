@@ -52,7 +52,7 @@ fn test_prime_attribute_name_creation() {
 fn test_prime_attribute_name_evaluate_yes() {
     let problem = example1();
     // {2, 3} is a candidate key containing attribute 3
-    assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -60,9 +60,9 @@ fn test_prime_attribute_name_evaluate_no() {
     let problem = example2();
     // Only key is {0,1} which doesn't contain attribute 3
     // Config selecting {0,1}: this is a candidate key but doesn't contain query=3
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]).unwrap());
     // Config selecting {2,3}: not a superkey since closure({2,3}) != A
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -70,48 +70,48 @@ fn test_prime_attribute_name_evaluate_superkey_not_minimal() {
     let problem = example1();
     // {1,2,3} has closure = A (since {2,3}->rest), but it's not minimal
     // because {2,3} alone is also a superkey
-    assert!(!problem.evaluate(&[0, 1, 1, 1, 0, 0]));
+    assert!(!problem.evaluate(&[0, 1, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_prime_attribute_name_evaluate_not_superkey() {
     let problem = example1();
     // {0} alone: closure({0}) = {0}, not all of A
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_prime_attribute_name_evaluate_query_not_in_k() {
     let problem = example1();
     // {0,1} is a candidate key but doesn't contain attribute 3
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_prime_attribute_name_evaluate_all_selected() {
     let problem = example1();
     // All attributes selected: superkey but not minimal
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]));
+    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_prime_attribute_name_evaluate_invalid_config() {
     let problem = example1();
     // Wrong length
-    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
     // Non-binary value
-    assert!(!problem.evaluate(&[0, 0, 1, 2, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 1, 2, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_prime_attribute_name_solver() {
     let problem = example1();
     let solver = BruteForce::new();
-    let mut solutions = solver.find_all_witnesses(&problem);
+    let mut solutions = solver.find_all_witnesses(&problem).unwrap();
     solutions.sort();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
     assert_eq!(
         solutions,
@@ -123,7 +123,7 @@ fn test_prime_attribute_name_solver() {
 fn test_prime_attribute_name_no_solution() {
     let problem = example2();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 

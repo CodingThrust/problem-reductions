@@ -55,21 +55,33 @@ impl ReductionResult for ReductionThreePartitionToRCS {
 impl ReduceTo<ResourceConstrainedScheduling> for ThreePartition {
     type Result = ReductionThreePartitionToRCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_groups();
         let bound = self.bound();
+        let deadline = i64::try_from(m).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                ThreePartition,
+                ResourceConstrainedScheduling,
+            >("converting the number of groups to a scheduling deadline")
+        })?;
 
         // Each element becomes a task with resource requirement = element size
-        let resource_requirements: Vec<Vec<u64>> = self.sizes().iter().map(|&s| vec![s]).collect();
+        let resource_requirements: Vec<Vec<i64>> = self.sizes().iter().map(|&s| vec![s]).collect();
 
-        ReductionThreePartitionToRCS {
+        Ok(ReductionThreePartitionToRCS {
             target: ResourceConstrainedScheduling::new(
                 3,           // 3 processors
                 vec![bound], // 1 resource with bound B
                 resource_requirements,
-                m as u64, // deadline = m time slots
-            ),
-        }
+                deadline,
+            )
+            .map_err(|error| {
+                crate::rules::ReductionError::construction::<
+                    ThreePartition,
+                    ResourceConstrainedScheduling,
+                >(error)
+            })?,
+        })
     }
 }
 

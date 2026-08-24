@@ -21,8 +21,11 @@ fn verify_optimization_round_trip<Source, Extract>(
     );
 
     let solver = BruteForce::new();
-    let reference_solutions: HashSet<Vec<usize>> =
-        solver.find_all_witnesses(source).into_iter().collect();
+    let reference_solutions: HashSet<Vec<usize>> = solver
+        .find_all_witnesses(source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert!(
         !reference_solutions.is_empty(),
         "{context}: direct source solver found no optimal solutions"
@@ -78,9 +81,9 @@ fn verify_satisfaction_round_trip<Source, Extract>(
         !extracted.is_empty(),
         "{context}: no extracted source solutions"
     );
-    let total = <BruteForce as crate::solvers::Solver>::solve(&BruteForce::new(), source);
+    let total = <BruteForce as crate::solvers::Solver>::solve(&BruteForce::new(), source).unwrap();
     for source_solution in &extracted {
-        let value = source.evaluate(source_solution);
+        let value = source.evaluate(source_solution).unwrap();
         assert!(
             <Source::Value as Aggregate>::contributes_to_witnesses(&value, &total),
             "{context}: extracted source solution is not satisfying: {:?}",
@@ -100,7 +103,9 @@ pub(crate) fn assert_optimization_round_trip_from_optimization_target<R>(
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -121,7 +126,9 @@ pub(crate) fn assert_optimization_round_trip_from_satisfaction_target<R>(
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -141,7 +148,9 @@ pub(crate) fn assert_optimization_round_trip_chain<Source, Target>(
     <Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
     <Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_witnesses(chain.target_problem::<Target>());
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(chain.target_problem::<Target>())
+        .unwrap();
     verify_optimization_round_trip(
         source,
         target_solutions,
@@ -162,7 +171,9 @@ pub(crate) fn assert_satisfaction_round_trip_from_optimization_target<R>(
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
     <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
     verify_satisfaction_round_trip(
         source,
         target_solutions,
@@ -183,7 +194,9 @@ pub(crate) fn assert_satisfaction_round_trip_from_satisfaction_target<R>(
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug,
     <R::Target as Problem>::Value: Aggregate,
 {
-    let target_solutions = BruteForce::new().find_all_witnesses(reduction.target_problem());
+    let target_solutions = BruteForce::new()
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
     verify_satisfaction_round_trip(
         source,
         target_solutions,
@@ -201,12 +214,12 @@ where
     <R::Source as Problem>::Value: Aggregate + std::fmt::Debug + PartialEq,
 {
     use crate::solvers::{ILPSolver, Solver};
-    let bf_value = BruteForce::new().solve(source);
+    let bf_value = BruteForce::new().solve(source).unwrap();
     let ilp_solution = ILPSolver::new()
         .solve_dyn(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(source.evaluate(&extracted), bf_value);
+    assert_eq!(source.evaluate(&extracted).unwrap(), bf_value);
 }
 
 pub(crate) fn solve_optimization_problem<P>(problem: &P) -> Option<Vec<usize>>
@@ -214,7 +227,7 @@ where
     P: Problem + 'static,
     P::Value: Aggregate,
 {
-    BruteForce::new().find_witness(problem)
+    BruteForce::new().find_witness(problem).unwrap()
 }
 
 pub(crate) fn solve_satisfaction_problem<P>(problem: &P) -> Option<Vec<usize>>
@@ -222,7 +235,7 @@ where
     P: Problem + 'static,
     P::Value: Aggregate,
 {
-    BruteForce::new().find_witness(problem)
+    BruteForce::new().find_witness(problem).unwrap()
 }
 
 #[cfg(test)]
@@ -242,17 +255,22 @@ mod tests {
 
     impl Problem for ToyExtremumProblem {
         const NAME: &'static str = "ToyExtremumProblem";
-        type Value = Max<i32>;
+        type Value = Max<i64>;
 
         fn dims(&self) -> Vec<usize> {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Value {
-            match config {
-                [1, 0] | [0, 1] => Max(Some(1)),
-                _ => Max(None),
-            }
+        fn evaluate(
+            &self,
+            config: &[usize],
+        ) -> Result<Self::Value, crate::traits::EvaluationError> {
+            Ok({
+                match config {
+                    [1, 0] | [0, 1] => Max(Some(1)),
+                    _ => Max(None),
+                }
+            })
         }
 
         fn variant() -> Vec<(&'static str, &'static str)> {
@@ -271,8 +289,11 @@ mod tests {
             vec![2, 2]
         }
 
-        fn evaluate(&self, config: &[usize]) -> Self::Value {
-            Or(matches!(config, [1, 0] | [0, 1]))
+        fn evaluate(
+            &self,
+            config: &[usize],
+        ) -> Result<Self::Value, crate::traits::EvaluationError> {
+            Ok(Or(matches!(config, [1, 0] | [0, 1])))
         }
 
         fn variant() -> Vec<(&'static str, &'static str)> {

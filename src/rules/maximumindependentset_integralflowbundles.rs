@@ -34,7 +34,7 @@ pub struct ReductionMISToIFB {
 }
 
 impl ReductionResult for ReductionMISToIFB {
-    type Source = MaximumIndependentSet<SimpleGraph, i32>;
+    type Source = MaximumIndependentSet<SimpleGraph, i64>;
     type Target = IntegralFlowBundles;
 
     fn target_problem(&self) -> &Self::Target {
@@ -64,16 +64,16 @@ impl ReductionResult for ReductionMISToIFB {
         num_bundles = "num_edges + num_vertices",
     }
 )]
-impl ReduceTo<IntegralFlowBundles> for MaximumIndependentSet<SimpleGraph, i32> {
+impl ReduceTo<IntegralFlowBundles> for MaximumIndependentSet<SimpleGraph, i64> {
     type Result = ReductionMISToIFB;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges = self.graph().edges();
 
         // Set requirement = 1: any independent set of size >= 1 maps to a feasible flow.
         // The bundle constraints ensure only independent sets produce valid flows.
-        let requirement = 1u64;
+        let requirement = 1i64;
 
         // Vertices: s = 0, w_i = i + 1 (for i in 0..n), t = n + 1
         let source_vertex = 0;
@@ -116,10 +116,10 @@ impl ReduceTo<IntegralFlowBundles> for MaximumIndependentSet<SimpleGraph, i32> {
             requirement,
         );
 
-        ReductionMISToIFB {
+        Ok(ReductionMISToIFB {
             target,
             num_source_vertices: n,
-        }
+        })
     }
 }
 
@@ -134,13 +134,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Optimal MIS = {0, 2} or {1, 3} or {0, 3}, size = 2
             let source = MaximumIndependentSet::new(
                 SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-                vec![1i32; 4],
+                vec![1i64; 4],
             );
-            let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+            let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source)
+                .expect("reduction should succeed");
             let target = reduction.target_problem();
 
             let target_witness = BruteForce::new()
                 .find_witness(target)
+                .expect("target evaluation should succeed")
                 .expect("target should have a feasible solution");
             let source_witness = reduction.extract_solution(&target_witness).unwrap();
 

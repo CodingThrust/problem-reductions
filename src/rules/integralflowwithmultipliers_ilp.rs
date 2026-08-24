@@ -7,18 +7,19 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing IntegralFlowWithMultipliers to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionIFWMToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
 }
 
 impl ReductionResult for ReductionIFWMToILP {
     type Source = IntegralFlowWithMultipliers;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -38,18 +39,29 @@ impl ReductionResult for ReductionIFWMToILP {
         num_constraints = "num_arcs + num_vertices - 1",
     },
 )]
-impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {
+impl ReduceTo<ILP<i64>> for IntegralFlowWithMultipliers {
     type Result = ReductionIFWMToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    IntegralFlowWithMultipliers,
+                    ILP<i64>,
+                >(error)
+            })
+        };
         let mut constraints = Vec::new();
 
         // Capacity: f_a <= c_a for each arc
         for (arc_idx, &capacity) in self.capacities().iter().enumerate() {
-            constraints.push(LinearConstraint::le(vec![(arc_idx, 1.0)], capacity as f64));
+            constraints.push(LinearConstraint::le(
+                vec![(arc_idx, 1.0)],
+                exact_f64(capacity)?,
+            ));
         }
 
         // Multiplier-scaled conservation:
@@ -60,7 +72,7 @@ impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {
             if vertex == self.source() || vertex == self.sink() {
                 continue;
             }
-            let multiplier = self.multipliers()[vertex] as f64;
+            let multiplier = exact_f64(self.multipliers()[vertex])?;
             let mut terms = Vec::new();
             for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
                 if u == vertex {
@@ -83,11 +95,14 @@ impl ReduceTo<ILP<i32>> for IntegralFlowWithMultipliers {
                 sink_terms.push((arc_idx, -1.0)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink_terms,
+            exact_f64(self.requirement())?,
+        ));
 
-        ReductionIFWMToILP {
+        Ok(ReductionIFWMToILP {
             target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        })
     }
 }
 
@@ -107,7 +122,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![2, 2, 2, 2],
                 2,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

@@ -40,13 +40,13 @@ use crate::topology::SimpleGraph;
 /// Result of reducing ExactCoverBy3Sets to BoundedDiameterSpanningTree.
 #[derive(Debug, Clone)]
 pub struct ReductionX3CToBoundedDiameterSpanningTree {
-    target: BoundedDiameterSpanningTree<SimpleGraph, i32>,
+    target: BoundedDiameterSpanningTree<SimpleGraph, i64>,
     source_num_subsets: usize,
 }
 
 impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     type Source = ExactCoverBy3Sets;
-    type Target = BoundedDiameterSpanningTree<SimpleGraph, i32>;
+    type Target = BoundedDiameterSpanningTree<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -81,10 +81,10 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
         weight_bound = "4 * universe_size / 3 + num_subsets + 2",
         diameter_bound = "4",
     })]
-impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Sets {
+impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToBoundedDiameterSpanningTree;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let m = self.num_subsets();
         let q = self.q();
@@ -95,7 +95,7 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
         let num_vertices = 3 + m + universe_size;
 
         let mut edges: Vec<(usize, usize)> = Vec::new();
-        let mut weights: Vec<i32> = Vec::new();
+        let mut weights: Vec<i64> = Vec::new();
 
         // Forced-center path edges (indices 0 and 1).
         edges.push((0, 1)); // (r, v_1)
@@ -137,16 +137,21 @@ impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i32>> for ExactCoverBy3Se
             .and_then(|value| value.checked_add(m))
             .and_then(|value| value.checked_add(2))
             .and_then(|value| i64::try_from(value).ok())
-            .expect("ExactCoverBy3Sets -> BoundedDiameterSpanningTree weight bound must fit i64");
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ExactCoverBy3Sets,
+                    BoundedDiameterSpanningTree<SimpleGraph, i64>,
+                >("computing the target weight bound")
+            })?;
         let diameter_bound: usize = 4;
 
         let graph = SimpleGraph::new(num_vertices, edges);
         let target = BoundedDiameterSpanningTree::new(graph, weights, weight_bound, diameter_bound);
 
-        ReductionX3CToBoundedDiameterSpanningTree {
+        Ok(ReductionX3CToBoundedDiameterSpanningTree {
             target,
             source_num_subsets: m,
-        }
+        })
     }
 }
 
@@ -179,7 +184,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                BoundedDiameterSpanningTree<SimpleGraph, i32>,
+                BoundedDiameterSpanningTree<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {

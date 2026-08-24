@@ -58,7 +58,7 @@ where
     T: Problem + Serialize,
     <S as ReduceTo<T>>::Result: ReductionResult<Source = S, Target = T>,
 {
-    let reduction = source.reduce_to();
+    let reduction = source.reduce_to().expect("reduction should succeed");
     let target = reduction.target_problem();
     assemble_rule_example(&source, target, vec![solution])
 }
@@ -76,7 +76,7 @@ where
         ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
 {
     use crate::export::SolutionPair;
-    let reduction = source.reduce_to();
+    let reduction = source.reduce_to().expect("reduction should succeed");
     let ilp_solution = crate::solvers::ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("canonical example must be ILP-solvable");

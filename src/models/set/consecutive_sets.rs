@@ -56,17 +56,17 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 ///
 /// // w = [0, 4, 2, 5, 1, 3] is a valid solution
 /// assert!(solution.is_some());
-/// assert!(problem.evaluate(&solution.unwrap()));
+/// assert!(problem.evaluate(&solution.unwrap()).unwrap());
 ///
 /// // Shorter strings are encoded with trailing `unused = alphabet_size`.
 /// let shorter = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
 /// let unused = shorter.alphabet_size();
-/// assert!(shorter.evaluate(&[0, 1, unused, unused]));
-/// assert!(!shorter.evaluate(&[0, unused, 1, unused]));
+/// assert!(shorter.evaluate(&[0, 1, unused, unused]).unwrap());
+/// assert!(!shorter.evaluate(&[0, unused, 1, unused]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsecutiveSets {
@@ -143,77 +143,82 @@ impl Problem for ConsecutiveSets {
         vec![self.alphabet_size + 1; self.bound_k]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            // 1. Validate config
-            if config.len() != self.bound_k || config.iter().any(|&v| v > self.alphabet_size) {
-                return crate::types::Or(false);
-            }
-
-            // 2. Build string: find the actual string length (strip trailing "unused")
-            let unused = self.alphabet_size;
-            let str_len = config
-                .iter()
-                .rposition(|&v| v != unused)
-                .map_or(0, |p| p + 1);
-
-            // 3. Check no internal "unused" symbols
-            let w = &config[..str_len];
-            if w.contains(&unused) {
-                return crate::types::Or(false);
-            }
-
-            let mut subset_membership = vec![0usize; self.alphabet_size];
-            let mut seen_in_window = vec![0usize; self.alphabet_size];
-            let mut subset_stamp = 1usize;
-            let mut window_stamp = 1usize;
-
-            // 4. Check each subset has a consecutive block
-            for subset in &self.subsets {
-                let subset_len = subset.len();
-                if subset_len == 0 {
-                    continue; // empty subset trivially satisfied
-                }
-                if subset_len > str_len {
-                    return crate::types::Or(false); // can't fit
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                // 1. Validate config
+                if config.len() != self.bound_k || config.iter().any(|&v| v > self.alphabet_size) {
+                    return Ok(crate::types::Or(false));
                 }
 
-                for &elem in subset {
-                    subset_membership[elem] = subset_stamp;
+                // 2. Build string: find the actual string length (strip trailing "unused")
+                let unused = self.alphabet_size;
+                let str_len = config
+                    .iter()
+                    .rposition(|&v| v != unused)
+                    .map_or(0, |p| p + 1);
+
+                // 3. Check no internal "unused" symbols
+                let w = &config[..str_len];
+                if w.contains(&unused) {
+                    return Ok(crate::types::Or(false));
                 }
 
-                let mut found = false;
-                for start in 0..=(str_len - subset_len) {
-                    let window = &w[start..start + subset_len];
-                    let current_window_stamp = window_stamp;
-                    window_stamp += 1;
+                let mut subset_membership = vec![0usize; self.alphabet_size];
+                let mut seen_in_window = vec![0usize; self.alphabet_size];
+                let mut subset_stamp = 1usize;
+                let mut window_stamp = 1usize;
 
-                    // Because subsets are validated to contain unique elements,
-                    // a window matches iff every symbol belongs to the subset and
-                    // appears at most once.
-                    if window.iter().all(|&elem| {
-                        let is_member = subset_membership[elem] == subset_stamp;
-                        let is_new = seen_in_window[elem] != current_window_stamp;
-                        if is_member && is_new {
-                            seen_in_window[elem] = current_window_stamp;
-                            true
-                        } else {
-                            false
-                        }
-                    }) {
-                        // subset is already sorted
-                        found = true;
-                        break;
+                // 4. Check each subset has a consecutive block
+                for subset in &self.subsets {
+                    let subset_len = subset.len();
+                    if subset_len == 0 {
+                        continue; // empty subset trivially satisfied
                     }
-                }
-                if !found {
-                    return crate::types::Or(false);
+                    if subset_len > str_len {
+                        return Ok(crate::types::Or(false)); // can't fit
+                    }
+
+                    for &elem in subset {
+                        subset_membership[elem] = subset_stamp;
+                    }
+
+                    let mut found = false;
+                    for start in 0..=(str_len - subset_len) {
+                        let window = &w[start..start + subset_len];
+                        let current_window_stamp = window_stamp;
+                        window_stamp += 1;
+
+                        // Because subsets are validated to contain unique elements,
+                        // a window matches iff every symbol belongs to the subset and
+                        // appears at most once.
+                        if window.iter().all(|&elem| {
+                            let is_member = subset_membership[elem] == subset_stamp;
+                            let is_new = seen_in_window[elem] != current_window_stamp;
+                            if is_member && is_new {
+                                seen_in_window[elem] = current_window_stamp;
+                                true
+                            } else {
+                                false
+                            }
+                        }) {
+                            // subset is already sorted
+                            found = true;
+                            break;
+                        }
+                    }
+                    if !found {
+                        return Ok(crate::types::Or(false));
+                    }
+
+                    subset_stamp += 1;
                 }
 
-                subset_stamp += 1;
-            }
-
-            true
+                true
+            })
         })
     }
 

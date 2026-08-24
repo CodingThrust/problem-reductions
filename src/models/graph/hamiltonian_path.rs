@@ -59,7 +59,7 @@ inventory::submit! {
 /// let problem = HamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,8 +111,14 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_hamiltonian_path(&self.graph, config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(is_valid_hamiltonian_path(
+            &self.graph,
+            config,
+        )))
     }
 }
 

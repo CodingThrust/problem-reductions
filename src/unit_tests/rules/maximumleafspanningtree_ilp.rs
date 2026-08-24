@@ -35,7 +35,7 @@ fn canonical_instance() -> MaximumLeafSpanningTree<SimpleGraph> {
 fn test_reduction_creates_expected_ilp_shape() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 3*4 + 4 = 16
@@ -49,18 +49,18 @@ fn test_reduction_creates_expected_ilp_shape() {
 fn test_maximumleafspanningtree_to_ilp_closed_loop() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let best_source = bf.find_all_witnesses(&problem);
+    let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // All brute-force optimal solutions have the same value
-    let bf_value = problem.evaluate(&best_source[0]);
-    let ilp_value = problem.evaluate(&extracted);
+    let bf_value = problem.evaluate(&best_source[0]).unwrap();
+    let ilp_value = problem.evaluate(&extracted).unwrap();
     assert_eq!(ilp_value, bf_value);
     assert!(problem.is_valid_solution(&extracted));
 }
@@ -69,17 +69,17 @@ fn test_maximumleafspanningtree_to_ilp_closed_loop() {
 fn test_maximumleafspanningtree_to_ilp_canonical_closed_loop() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
-    let best_source = bf.find_all_witnesses(&problem);
+    let best_source = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&best_source[0]), Max(Some(4)));
-    assert_eq!(problem.evaluate(&extracted), Max(Some(4)));
+    assert_eq!(problem.evaluate(&best_source[0]).unwrap(), Max(Some(4)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
     assert!(problem.is_valid_solution(&extracted));
 }
 
@@ -87,7 +87,7 @@ fn test_maximumleafspanningtree_to_ilp_canonical_closed_loop() {
 fn test_solution_extraction_reads_edge_selector_prefix() {
     let problem = small_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // 16 variables total, first 4 are edge selectors
     let mut target_solution = vec![0; 16];
@@ -105,12 +105,12 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 fn test_reduce_and_solve_via_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Max(Some(4)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
     assert!(problem.is_valid_solution(&extracted));
 }
 
@@ -118,7 +118,7 @@ fn test_reduce_and_solve_via_ilp() {
 fn test_maximumleafspanningtree_to_ilp_bf_vs_ilp() {
     let problem = canonical_instance();
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -127,12 +127,12 @@ fn test_maximumleafspanningtree_to_ilp_path_graph() {
     // Path P4: 0-1-2-3, only spanning tree is the path itself => 2 leaves
     let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Max(Some(2)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(2)));
 }
 
 #[test]
@@ -140,12 +140,12 @@ fn test_maximumleafspanningtree_to_ilp_star_graph() {
     // Star K1,3: center 0, leaves 1,2,3 => 3 leaves
     let problem = MaximumLeafSpanningTree::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Max(Some(3)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(3)));
     assert!(problem.is_valid_solution(&extracted));
 }
 
@@ -157,15 +157,15 @@ fn test_maximumleafspanningtree_to_ilp_complete_graph() {
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_value = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let reduction: ReductionMaximumLeafSpanningTreeToILP =
-        ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    assert_eq!(problem.evaluate(&extracted).unwrap(), bf_value);
     assert_eq!(bf_value, Max(Some(3)));
 }

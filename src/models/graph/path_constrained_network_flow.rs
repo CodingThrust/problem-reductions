@@ -36,11 +36,11 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathConstrainedNetworkFlow {
     graph: DirectedGraph,
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     source: usize,
     sink: usize,
     paths: Vec<Vec<usize>>,
-    requirement: u64,
+    requirement: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -52,7 +52,7 @@ struct PathConstrainedNetworkFlowCreateSpec {
     num_vertices: Option<usize>,
     /// Arc capacities; defaults to one per arc.
     #[create(codec = "comma-separated")]
-    capacities: Option<Vec<u64>>,
+    capacities: Option<Vec<i64>>,
     /// Source vertex.
     source: usize,
     /// Sink vertex.
@@ -61,18 +61,18 @@ struct PathConstrainedNetworkFlowCreateSpec {
     #[create(codec = "semicolon-separated")]
     paths: Vec<Vec<usize>>,
     /// Required total flow.
-    requirement: u64,
+    requirement: i64,
 }
 
 impl TryFrom<PathConstrainedNetworkFlowCreateSpec> for PathConstrainedNetworkFlow {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PathConstrainedNetworkFlowCreateSpec) -> Result<Self, Self::Error> {
         if spec.arcs.is_empty() {
-            return Err("arcs must be non-empty".to_string());
+            return Err("arcs must be non-empty".to_string().into());
         }
         if spec.paths.is_empty() {
-            return Err("paths must be non-empty".to_string());
+            return Err("paths must be non-empty".to_string().into());
         }
         let inferred = spec
             .arcs
@@ -86,7 +86,7 @@ impl TryFrom<PathConstrainedNetworkFlowCreateSpec> for PathConstrainedNetworkFlo
         if num_vertices < inferred {
             return Err(format!(
                 "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
-            ));
+            ).into());
         }
         let capacities = spec.capacities.unwrap_or_else(|| vec![1; spec.arcs.len()]);
         let graph = DirectedGraph::new(num_vertices, spec.arcs);
@@ -112,11 +112,11 @@ impl PathConstrainedNetworkFlow {
     /// - any prescribed path is not a valid directed simple s-t path
     pub fn new(
         graph: DirectedGraph,
-        capacities: Vec<u64>,
+        capacities: Vec<i64>,
         source: usize,
         sink: usize,
         paths: Vec<Vec<usize>>,
-        requirement: u64,
+        requirement: i64,
     ) -> Self {
         Self::try_new(graph, capacities, source, sink, paths, requirement)
             .unwrap_or_else(|message| panic!("{message}"))
@@ -125,26 +125,26 @@ impl PathConstrainedNetworkFlow {
     /// Create an instance, returning validation errors instead of panicking.
     pub fn try_new(
         graph: DirectedGraph,
-        capacities: Vec<u64>,
+        capacities: Vec<i64>,
         source: usize,
         sink: usize,
         paths: Vec<Vec<usize>>,
-        requirement: u64,
-    ) -> Result<Self, String> {
+        requirement: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_vertices = graph.num_vertices();
         if capacities.len() != graph.num_arcs() {
-            return Err("capacities length must match graph num_arcs".to_string());
+            return Err("capacities length must match graph num_arcs"
+                .to_string()
+                .into());
         }
         if source >= num_vertices {
-            return Err(format!(
-                "source ({source}) >= num_vertices ({num_vertices})"
-            ));
+            return Err(format!("source ({source}) >= num_vertices ({num_vertices})").into());
         }
         if sink >= num_vertices {
-            return Err(format!("sink ({sink}) >= num_vertices ({num_vertices})"));
+            return Err(format!("sink ({sink}) >= num_vertices ({num_vertices})").into());
         }
         if source == sink {
-            return Err("source and sink must be distinct".to_string());
+            return Err("source and sink must be distinct".to_string().into());
         }
 
         for (index, path) in paths.iter().enumerate() {
@@ -167,9 +167,9 @@ impl PathConstrainedNetworkFlow {
         path: &[usize],
         source: usize,
         sink: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::registry::ConstructionError> {
         if path.is_empty() {
-            return Err("prescribed paths must be non-empty".to_string());
+            return Err("prescribed paths must be non-empty".to_string().into());
         }
 
         let arcs = graph.arcs();
@@ -183,20 +183,21 @@ impl PathConstrainedNetworkFlow {
             if tail != current {
                 return Err(format!(
                     "not contiguous: expected arc leaving vertex {current}, got {tail}->{head}"
-                ));
+                )
+                .into());
             }
             if !visited_vertices.insert(head) {
-                return Err(format!("repeats vertex {head}, so it is not a simple path"));
+                return Err(format!("repeats vertex {head}, so it is not a simple path").into());
             }
             current = head;
         }
         if current != sink {
-            return Err(format!("must end at sink {sink}, ended at {current}"));
+            return Err(format!("must end at sink {sink}, ended at {current}").into());
         }
         Ok(())
     }
 
-    fn path_bottleneck(&self, path: &[usize]) -> u64 {
+    fn path_bottleneck(&self, path: &[usize]) -> i64 {
         path.iter()
             .map(|&arc_idx| self.capacities[arc_idx])
             .min()
@@ -209,7 +210,7 @@ impl PathConstrainedNetworkFlow {
     }
 
     /// Get the arc capacities.
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
@@ -229,12 +230,12 @@ impl PathConstrainedNetworkFlow {
     }
 
     /// Get the required total flow.
-    pub fn requirement(&self) -> u64 {
+    pub fn requirement(&self) -> i64 {
         self.requirement
     }
 
     /// Update the required total flow.
-    pub fn set_requirement(&mut self, requirement: u64) {
+    pub fn set_requirement(&mut self, requirement: i64) {
         self.requirement = requirement;
     }
 
@@ -254,35 +255,46 @@ impl PathConstrainedNetworkFlow {
     }
 
     /// Get the maximum arc capacity.
-    pub fn max_capacity(&self) -> u64 {
+    pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 
     /// Check whether a path-flow assignment is feasible.
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.paths.len() {
-            return false;
+            return Ok(false);
         }
 
-        let mut arc_loads = vec![0_u64; self.capacities.len()];
-        let mut total_flow = 0_u64;
+        let mut arc_loads = vec![0_i64; self.capacities.len()];
+        let mut total_flow = 0_i64;
 
         for (flow_value, path) in config.iter().copied().zip(&self.paths) {
-            let path_flow = flow_value as u64;
+            let path_flow = i64::try_from(flow_value).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting path flow to i64".into(),
+                )
+            })?;
             if path_flow > self.path_bottleneck(path) {
-                return false;
+                return Ok(false);
             }
 
-            total_flow += path_flow;
+            total_flow = total_flow.checked_add(path_flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow("summing total path flow".into())
+            })?;
             for &arc_idx in path {
-                arc_loads[arc_idx] += path_flow;
+                arc_loads[arc_idx] =
+                    arc_loads[arc_idx].checked_add(path_flow).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing path flow on an arc".into(),
+                        )
+                    })?;
                 if arc_loads[arc_idx] > self.capacities[arc_idx] {
-                    return false;
+                    return Ok(false);
                 }
             }
         }
 
-        total_flow >= self.requirement
+        Ok(total_flow >= self.requirement)
     }
 }
 
@@ -297,8 +309,11 @@ impl Problem for PathConstrainedNetworkFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_feasible(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

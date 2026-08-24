@@ -12,6 +12,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 use std::collections::HashMap;
 
 /// Result of reducing TravelingSalesman to QUBO.
@@ -24,7 +25,7 @@ pub struct ReductionTravelingSalesmanToQUBO {
 }
 
 impl ReductionResult for ReductionTravelingSalesmanToQUBO {
-    type Source = TravelingSalesman<SimpleGraph, i32>;
+    type Source = TravelingSalesman<SimpleGraph, i64>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -70,10 +71,10 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
         num_vars = "num_vertices^2",
     }
 )]
-impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
+impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTravelingSalesmanToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.edges();
 
@@ -81,10 +82,23 @@ impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
         let mut edge_weight_map: HashMap<(usize, usize), f64> = HashMap::new();
         let mut weight_sum: f64 = 0.0;
         for &(u, v, w) in &edges {
-            let wf = w as f64;
+            let wf = i64_to_exact_f64(w).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    TravelingSalesman<SimpleGraph, i64>,
+                    QUBO<f64>,
+                >(error)
+            })?;
             edge_weight_map.insert((u, v), wf);
             edge_weight_map.insert((v, u), wf);
             weight_sum += wf.abs();
+            if !weight_sum.is_finite() {
+                return Err(crate::rules::ReductionError::non_finite_result::<
+                    TravelingSalesman<SimpleGraph, i64>,
+                    QUBO<f64>,
+                >(
+                    "summing absolute tour weights produced a non-finite coefficient",
+                ));
+            }
         }
 
         // Build edge index map: canonical (min, max) → edge index
@@ -153,14 +167,19 @@ impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
             }
         }
 
-        let target = QUBO::from_matrix(matrix);
+        let target = QUBO::from_matrix(matrix).map_err(|message| {
+            crate::rules::ReductionError::construction::<
+                TravelingSalesman<SimpleGraph, i64>,
+                QUBO<f64>,
+            >(message)
+        })?;
 
-        ReductionTravelingSalesmanToQUBO {
+        Ok(ReductionTravelingSalesmanToQUBO {
             target,
             num_vertices: n,
             num_edges,
             edge_index,
-        }
+        })
     }
 }
 

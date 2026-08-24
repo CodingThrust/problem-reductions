@@ -1,4 +1,4 @@
-//! Reduction from UndirectedFlowLowerBounds to ILP<i32>.
+//! Reduction from UndirectedFlowLowerBounds to `ILP<i64>`.
 //!
 //! For each undirected edge e = {u,v} (indexed by e), we introduce:
 //!   f_{uv} = 2*e      (flow in u→v direction, ≥ 0)
@@ -28,8 +28,9 @@ use crate::models::graph::UndirectedFlowLowerBounds;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing UndirectedFlowLowerBounds to ILP<i32>.
+/// Result of reducing UndirectedFlowLowerBounds to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f_{uv}` at 2*e (flow u→v on edge e)
@@ -37,15 +38,15 @@ use crate::topology::Graph;
 /// - `z_e` at 2*|E| + e (orientation indicator: 1 = u→v direction)
 #[derive(Debug, Clone)]
 pub struct ReductionUFLBToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionUFLBToILP {
     type Source = UndirectedFlowLowerBounds;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -76,14 +77,22 @@ impl ReductionResult for ReductionUFLBToILP {
         num_constraints = "4 * num_edges + num_vertices + 1",
     },
 )]
-impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {
+impl ReduceTo<ILP<i64>> for UndirectedFlowLowerBounds {
     type Result = ReductionUFLBToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let e = edges.len();
         let n = self.num_vertices();
         let num_vars = 3 * e;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    UndirectedFlowLowerBounds,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         let f_uv = |edge: usize| 2 * edge;
         let f_vu = |edge: usize| 2 * edge + 1;
@@ -92,8 +101,8 @@ impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {
         let mut constraints = Vec::new();
 
         for (edge_idx, _) in edges.iter().enumerate() {
-            let cap = self.capacities()[edge_idx] as f64;
-            let lower = self.lower_bounds()[edge_idx] as f64;
+            let cap = exact_f64(self.capacities()[edge_idx])?;
+            let lower = exact_f64(self.lower_bounds()[edge_idx])?;
 
             // z_e ≤ 1 (binary)
             constraints.push(LinearConstraint::le(vec![(z(edge_idx), 1.0)], 1.0));
@@ -163,12 +172,15 @@ impl ReduceTo<ILP<i32>> for UndirectedFlowLowerBounds {
                 sink_terms.push((f_vu(edge_idx), 1.0));
             }
         }
-        constraints.push(LinearConstraint::ge(sink_terms, self.requirement() as f64));
+        constraints.push(LinearConstraint::ge(
+            sink_terms,
+            exact_f64(self.requirement())?,
+        ));
 
-        ReductionUFLBToILP {
+        Ok(ReductionUFLBToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_edges: e,
-        }
+        })
     }
 }
 
@@ -189,7 +201,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

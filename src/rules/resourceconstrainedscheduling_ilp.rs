@@ -1,4 +1,4 @@
-//! Reduction from ResourceConstrainedScheduling to ILP<bool>.
+//! Reduction from ResourceConstrainedScheduling to `ILP<bool>`.
 //!
 //! Time-indexed binary formulation: x_{j,t} = 1 iff task j runs in slot t.
 //! Each task in exactly one slot; processor capacity and resource bounds
@@ -8,8 +8,9 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ResourceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing ResourceConstrainedScheduling to ILP<bool>.
+/// Result of reducing ResourceConstrainedScheduling to `ILP<bool>`.
 ///
 /// Variable layout: x_{j,t} at index `j * D + t`
 /// for j in 0..n, t in 0..D.
@@ -52,11 +53,45 @@ impl ReductionResult for ReductionRCSToILP {
 impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
     type Result = ReductionRCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let d = self.deadline() as usize;
+        let d =
+            usize::try_from(self.deadline()).map_err(|_| {
+                crate::rules::ReductionError::invalid_target::<
+                    ResourceConstrainedScheduling,
+                    ILP<bool>,
+                >("deadline does not fit the structural usize domain")
+            })?;
         let r = self.num_resources();
         let m = self.num_processors();
+        let resource_requirements = self
+            .resource_requirements()
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .copied()
+                    .map(i64_to_exact_f64)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    ResourceConstrainedScheduling,
+                    ILP<bool>,
+                >(error)
+            })?;
+        let resource_bounds = self
+            .resource_bounds()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    ResourceConstrainedScheduling,
+                    ILP<bool>,
+                >(error)
+            })?;
         let num_vars = n * d;
 
         let var = |j: usize, t: usize| -> usize { j * d + t };
@@ -79,20 +114,17 @@ impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
         for q in 0..r {
             for t in 0..d {
                 let terms: Vec<(usize, f64)> = (0..n)
-                    .map(|j| (var(j, t), self.resource_requirements()[j][q] as f64))
+                    .map(|j| (var(j, t), resource_requirements[j][q]))
                     .collect();
-                constraints.push(LinearConstraint::le(
-                    terms,
-                    self.resource_bounds()[q] as f64,
-                ));
+                constraints.push(LinearConstraint::le(terms, resource_bounds[q]));
             }
         }
 
-        ReductionRCSToILP {
+        Ok(ReductionRCSToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_tasks: n,
             deadline: d,
-        }
+        })
     }
 }
 
@@ -107,7 +139,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![20],
                 vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
                 2,
-            );
+            )
+            .unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

@@ -1,6 +1,7 @@
 //! Typed internal problem references with catalog-validated variants.
 
 use super::problem_type::ProblemType;
+use super::ConstructionError;
 use std::collections::BTreeMap;
 
 /// A typed internal reference to a specific problem variant.
@@ -25,7 +26,10 @@ impl ProblemRef {
     /// # Errors
     ///
     /// Returns an error if any value doesn't match a dimension's allowed values.
-    pub fn from_values<I, S>(problem_type: &ProblemType, values: I) -> Result<Self, String>
+    pub fn from_values<I, S>(
+        problem_type: &ProblemType,
+        values: I,
+    ) -> Result<Self, ConstructionError>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
@@ -59,7 +63,8 @@ impl ProblemRef {
                     return Err(format!(
                         "Unknown variant value \"{val}\" for {}. Known variants: {known:?}",
                         problem_type.canonical_name,
-                    ));
+                    )
+                    .into());
                 }
             }
         }
@@ -74,7 +79,7 @@ impl ProblemRef {
     pub fn from_map(
         problem_type: &ProblemType,
         variant: BTreeMap<String, String>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, ConstructionError> {
         // Validate all keys and values
         for (key, value) in &variant {
             let dim = problem_type
@@ -91,7 +96,8 @@ impl ProblemRef {
                 return Err(format!(
                     "Unknown value \"{value}\" for dimension \"{key}\" of {}. Known variants: {:?}",
                     problem_type.canonical_name, dim.allowed_values
-                ));
+                )
+                .into());
             }
         }
 
@@ -128,7 +134,7 @@ impl ProblemRef {
 ///
 /// Only validates against catalog schema (names, aliases, dimensions).
 /// Does NOT check reduction graph reachability.
-pub fn parse_catalog_problem_ref(input: &str) -> Result<ProblemRef, String> {
+pub fn parse_catalog_problem_ref(input: &str) -> Result<ProblemRef, ConstructionError> {
     let parts: Vec<&str> = input.split('/').collect();
     let raw_name = parts[0];
     let values: Vec<&str> = parts[1..].to_vec();
@@ -149,7 +155,7 @@ pub fn parse_catalog_problem_ref(input: &str) -> Result<ProblemRef, String> {
 pub fn require_graph_variant(
     graph: &crate::rules::ReductionGraph,
     problem_ref: &ProblemRef,
-) -> Result<crate::export::ProblemRef, String> {
+) -> Result<crate::export::ProblemRef, ConstructionError> {
     let known_variants = graph.variants_for(problem_ref.name());
     if known_variants.iter().any(|v| v == problem_ref.variant()) {
         return Ok(problem_ref.to_export_ref());
@@ -161,5 +167,6 @@ pub fn require_graph_variant(
         problem_ref.variant(),
         problem_ref.name(),
         known_variants
-    ))
+    )
+    .into())
 }

@@ -8,6 +8,7 @@ use crate::models::graph::MaximalIS;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionMxISToILP {
@@ -15,7 +16,7 @@ pub struct ReductionMxISToILP {
 }
 
 impl ReductionResult for ReductionMxISToILP {
-    type Source = MaximalIS<SimpleGraph, i32>;
+    type Source = MaximalIS<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -38,10 +39,10 @@ impl ReductionResult for ReductionMxISToILP {
         num_constraints = "num_edges + num_vertices",
     },
 )]
-impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
     type Result = ReductionMxISToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let mut constraints = Vec::new();
 
@@ -68,11 +69,20 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i32> {
         let objective: Vec<(usize, f64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, w)| (i, *w as f64))
-            .collect();
+            .map(|(i, &w)| {
+                i64_to_exact_f64(w)
+                    .map(|weight| (i, weight))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            MaximalIS<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
-        ReductionMxISToILP { target }
+        Ok(ReductionMxISToILP { target })
     }
 }
 

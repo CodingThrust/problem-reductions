@@ -93,16 +93,16 @@ pub fn load_dyn(
     name: &str,
     variant: &BTreeMap<String, String>,
     data: serde_json::Value,
-) -> Result<LoadedDynProblem, String> {
+) -> Result<LoadedDynProblem, ConstructionError> {
     let entry = find_variant_entry(name, variant).ok_or_else(|| {
-        format!(
-            "No registered variant for `{name}` with variant {:?}",
-            variant
-        )
+        ConstructionError::UnregisteredVariant {
+            name: name.to_string(),
+            variant: variant.clone(),
+        }
     })?;
 
-    let inner =
-        (entry.factory)(data).map_err(|e| format!("Failed to deserialize `{name}`: {e}"))?;
+    let inner = (entry.factory)(data)
+        .map_err(|error| ConstructionError::InvalidInput(error.to_string()))?;
     Ok(LoadedDynProblem::new(
         inner,
         entry.solve_value_fn,

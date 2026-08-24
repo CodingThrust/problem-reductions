@@ -63,7 +63,7 @@ impl ReductionResult for ReductionPartitionToSumOfSquaresPartition {
 impl ReduceTo<SumOfSquaresPartition> for Partition {
     type Result = ReductionPartitionToSumOfSquaresPartition;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_n = self.num_elements();
 
         if source_n < 2 {
@@ -71,24 +71,16 @@ impl ReduceTo<SumOfSquaresPartition> for Partition {
             // so we cannot build a K=2 instance from a singleton. The singleton
             // Partition is always NO (a single positive element cannot be
             // partitioned into two equal-sum subsets).
-            return ReductionPartitionToSumOfSquaresPartition {
+            return Ok(ReductionPartitionToSumOfSquaresPartition {
                 target: SumOfSquaresPartition::new(vec![1, 1], 2),
                 source_n,
-            };
+            });
         }
 
-        // Sizes in Partition are `u64` (always positive). Canonical inputs in
-        // this repo fit comfortably in `i64`; we cast directly.
-        let sizes_i64: Vec<i64> = self
-            .sizes()
-            .iter()
-            .map(|&s| i64::try_from(s).expect("Partition size exceeds i64::MAX"))
-            .collect();
-
-        ReductionPartitionToSumOfSquaresPartition {
-            target: SumOfSquaresPartition::new(sizes_i64, 2),
+        Ok(ReductionPartitionToSumOfSquaresPartition {
+            target: SumOfSquaresPartition::new(self.sizes().to_vec(), 2),
             source_n,
-        }
+        })
     }
 }
 
@@ -102,7 +94,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // sizes [3, 1, 1, 2, 2, 1], S = 10, balanced split sums to 5/5.
             // Witness: {3, 2} (group 0) and {1, 1, 2, 1} (group 1) -> 5^2 + 5^2 = 50 = S^2 / 2.
             crate::example_db::specs::rule_example_with_witness::<_, SumOfSquaresPartition>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
                     source_config: vec![0, 1, 1, 0, 1, 1],
                     target_config: vec![0, 1, 1, 0, 1, 1],

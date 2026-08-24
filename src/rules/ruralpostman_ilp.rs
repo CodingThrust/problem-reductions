@@ -9,20 +9,20 @@ use crate::models::graph::RuralPostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{i64_to_exact_f64, WeightElement};
 
 /// Result of reducing RuralPostman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionRPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionRPToILP {
-    type Source = RuralPostman<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = RuralPostman<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -45,20 +45,20 @@ impl ReductionResult for ReductionRPToILP {
         num_constraints = "2 * num_edges + num_required_edges + num_vertices + 2 * num_edges + num_vertices + 2 * num_edges + num_vertices + num_edges + num_edges + num_vertices",
     },
 )]
-impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
     type Result = ReductionRPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_edges();
         let n = self.num_vertices();
         let edges = self.graph().edges();
 
         // If E' is empty, the empty circuit satisfies when B >= 0
         if self.required_edges().is_empty() {
-            return ReductionRPToILP {
+            return Ok(ReductionRPToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
                 num_edges: 0,
-            };
+            });
         }
 
         // Pick root vertex: first endpoint of first required edge
@@ -209,14 +209,23 @@ impl ReduceTo<ILP<i32>> for RuralPostman<SimpleGraph, i32> {
         // Objective: minimize total route cost
         let edge_lengths = self.edge_lengths();
         let objective: Vec<(usize, f64)> = (0..m)
-            .map(|e| (t_idx(e), edge_lengths[e].to_sum() as f64))
-            .collect();
+            .map(|e| {
+                i64_to_exact_f64(edge_lengths[e].to_sum())
+                    .map(|length| (t_idx(e), length))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            RuralPostman<SimpleGraph, i64>,
+                            ILP<i64>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionRPToILP {
+        Ok(ReductionRPToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -231,7 +240,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 1, 1],
                 vec![0],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

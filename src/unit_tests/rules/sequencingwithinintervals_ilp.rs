@@ -6,7 +6,7 @@ use crate::traits::Problem;
 fn feasible_instance() -> SequencingWithinIntervals {
     // 2 tasks: task 0 [r=0, d=3, l=2] (slots: 0 only), task 1 [r=2, d=5, l=2] (slots: 0,1)
     // Non-overlapping: task 0 at [0,2), task 1 at [2,4) or [3,5) — feasible
-    SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2])
+    SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]).unwrap()
 }
 
 fn infeasible_instance() -> SequencingWithinIntervals {
@@ -14,13 +14,14 @@ fn infeasible_instance() -> SequencingWithinIntervals {
     // task 0 [r=0, d=2, l=2]: only start at offset 0
     // task 1 [r=0, d=2, l=2]: only start at offset 0
     // Both start at 0 → overlap
-    SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2])
+    SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2]).unwrap()
 }
 
 #[test]
 fn test_sequencingwithinintervals_to_ilp_structure() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // task 0 has 1 start slot (d-r-l+1=3-0-2+1=2, so 2 offsets: 0 or 1... wait)
@@ -46,20 +47,22 @@ fn test_sequencingwithinintervals_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("feasible instance has a witness");
     assert!(
-        problem.evaluate(&bf_solution).0,
+        problem.evaluate(&bf_solution).unwrap().0,
         "brute force solution is valid"
     );
 
-    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "ILP extracted solution should be a valid schedule"
     );
 }
@@ -67,7 +70,8 @@ fn test_sequencingwithinintervals_to_ilp_closed_loop() {
 #[test]
 fn test_sequencingwithinintervals_to_ilp_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance (forced overlap) should yield infeasible ILP"
@@ -77,7 +81,8 @@ fn test_sequencingwithinintervals_to_ilp_infeasible() {
 #[test]
 fn test_sequencingwithinintervals_to_ilp_extract_solution() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // task 0 at offset 0, task 1 at offset 0
     // vars: x_{0,0}=1, x_{0,1}=0, x_{1,0}=1, x_{1,1}=0
@@ -85,7 +90,7 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0]);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "manually constructed solution is valid"
     );
 }
@@ -93,6 +98,7 @@ fn test_sequencingwithinintervals_to_ilp_extract_solution() {
 #[test]
 fn test_sequencingwithinintervals_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
-    let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSWIToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

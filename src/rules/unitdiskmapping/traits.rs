@@ -48,18 +48,18 @@ pub trait Pattern: Clone + std::fmt::Debug {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
 
     /// MIS overhead when applying this gadget.
-    fn mis_overhead(&self) -> i32;
+    fn mis_overhead(&self) -> i64;
 
     /// Weights for each node in source graph (for weighted mode).
     /// Default: all nodes have weight 2 (Julia's default for weighted gadgets).
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         let (locs, _, _) = self.source_graph();
         vec![2; locs.len()]
     }
 
     /// Weights for each node in mapped graph (for weighted mode).
     /// Default: all nodes have weight 2 (Julia's default for weighted gadgets).
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         let (locs, _) = self.mapped_graph();
         vec![2; locs.len()]
     }

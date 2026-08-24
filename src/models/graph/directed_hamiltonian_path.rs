@@ -51,7 +51,7 @@ inventory::submit! {
 /// let problem = DirectedHamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,9 +99,14 @@ impl Problem for DirectedHamiltonianPath {
         lehmer_dims(self.graph.num_vertices())
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        let perm = decode_lehmer(config);
-        crate::types::Or(is_valid_directed_hamiltonian_path(&self.graph, &perm))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            let perm = decode_lehmer(config);
+            crate::types::Or(is_valid_directed_hamiltonian_path(&self.graph, &perm))
+        })
     }
 }
 

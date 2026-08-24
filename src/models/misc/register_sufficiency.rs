@@ -52,7 +52,7 @@ inventory::submit! {
 ///     2,
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,10 +122,13 @@ impl RegisterSufficiency {
     /// Simulate register usage for a given evaluation ordering and return the
     /// maximum number of registers used, or `None` if the ordering is invalid
     /// (not a permutation or violates dependencies).
-    pub fn simulate_registers(&self, config: &[usize]) -> Option<usize> {
+    pub fn simulate_registers(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let n = self.num_vertices;
         if config.len() != n {
-            return None;
+            return Ok(None);
         }
 
         // Check valid permutation: each position 0..n-1 used exactly once
@@ -133,10 +136,10 @@ impl RegisterSufficiency {
         let mut used = vec![false; n];
         for (vertex, &position) in config.iter().enumerate() {
             if position >= n {
-                return None;
+                return Ok(None);
             }
             if used[position] {
-                return None;
+                return Ok(None);
             }
             used[position] = true;
             order[position] = vertex;
@@ -180,7 +183,7 @@ impl RegisterSufficiency {
             for &dep in &dependencies[vertex] {
                 if config[dep] >= step {
                     // Dependency not yet evaluated
-                    return None;
+                    return Ok(None);
                 }
             }
 
@@ -199,7 +202,11 @@ impl RegisterSufficiency {
             max_registers = max_registers.max(reg_count);
         }
 
-        Some(max_registers)
+        Ok(Some(i64::try_from(max_registers).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting register-usage count to i64".into(),
+            )
+        })?))
     }
 
     /// Exact branch-and-bound solver: finds a topological ordering using at
@@ -353,11 +360,19 @@ impl Problem for RegisterSufficiency {
         vec![self.num_vertices; self.num_vertices]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(
-            self.simulate_registers(config)
-                .is_some_and(|max_reg| max_reg <= self.bound),
-        )
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let bound = i64::try_from(self.bound).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting register bound to i64".into(),
+            )
+        })?;
+        Ok(crate::types::Or(
+            self.simulate_registers(config)?
+                .is_some_and(|max_reg| max_reg <= bound),
+        ))
     }
 }
 

@@ -54,8 +54,8 @@ inventory::submit! {
 /// let problem = MaximumAchromaticNumber::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert_eq!(value, problemreductions::types::Max(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumAchromaticNumber";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -138,21 +138,29 @@ where
         vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        if config.len() != self.graph.num_vertices() {
-            return Max(None);
-        }
-        if self.graph.num_vertices() == 0 {
-            return Max(Some(0));
-        }
-        if !self.is_proper_coloring(config) {
-            return Max(None);
-        }
-        if !self.is_complete_coloring(config) {
-            return Max(None);
-        }
-        let distinct_colors: HashSet<usize> = config.iter().copied().collect();
-        Max(Some(distinct_colors.len()))
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_vertices() {
+                return Ok(Max(None));
+            }
+            if self.graph.num_vertices() == 0 {
+                return Ok(Max(Some(0)));
+            }
+            if !self.is_proper_coloring(config) {
+                return Ok(Max(None));
+            }
+            if !self.is_complete_coloring(config) {
+                return Ok(Max(None));
+            }
+            let distinct_colors: HashSet<usize> = config.iter().copied().collect();
+            Max(Some(i64::try_from(distinct_colors.len()).map_err(
+                |_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting achromatic color count to i64".to_string(),
+                    )
+                },
+            )?))
+        })
     }
 }
 

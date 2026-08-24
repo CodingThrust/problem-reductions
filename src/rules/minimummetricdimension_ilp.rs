@@ -57,7 +57,7 @@ impl ReductionResult for ReductionMDToILP {
 impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
     type Result = ReductionMDToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
 
         // Precompute all-pairs shortest paths via BFS from each vertex
@@ -81,7 +81,7 @@ impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
 
         let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMDToILP { target }
+        Ok(ReductionMDToILP { target })
     }
 }
 

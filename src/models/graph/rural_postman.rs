@@ -18,7 +18,7 @@ inventory::submit! {
         aliases: &["RPP"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -51,7 +51,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight type for edge lengths (e.g., `i32`, `f64`)
+/// * `W` - The weight type for edge lengths (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuralPostman<G, W: WeightElement> {
     /// The underlying graph.
@@ -68,13 +68,13 @@ struct RuralPostmanCreateSpec {
     graph: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    edge_weights: Option<Vec<i32>>,
+    edge_weights: Option<Vec<i64>>,
     #[create(codec = "comma-separated")]
     required_edges: Vec<usize>,
 }
 
-impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i32> {
-    type Error = String;
+impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: RuralPostmanCreateSpec) -> Result<Self, Self::Error> {
         let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
@@ -86,14 +86,15 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i32> {
                 "edge_weights has length {}, expected {}",
                 edge_lengths.len(),
                 graph.num_edges()
-            ));
+            )
+            .into());
         }
         if let Some(&edge) = spec
             .required_edges
             .iter()
             .find(|&&edge| edge >= graph.num_edges())
         {
-            return Err(format!("required edge index {edge} is out of bounds"));
+            return Err(format!("required edge index {edge} is out of bounds").into());
         }
         Ok(Self::new(graph, edge_lengths, spec.required_edges))
     }
@@ -102,13 +103,15 @@ impl TryFrom<RuralPostmanCreateSpec> for RuralPostman<SimpleGraph, i32> {
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -122,7 +125,8 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        ));
+        )
+        .into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }
@@ -204,9 +208,12 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
     /// Returns `Some(cost)` if valid, `None` otherwise.
     ///
     /// Each `config[i]` is the multiplicity (number of traversals) of edge `i`.
-    pub fn is_valid_solution(&self, config: &[usize]) -> Option<W::Sum> {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         if config.len() != self.graph.num_edges() {
-            return None;
+            return Ok(None);
         }
 
         let edges = self.graph.edges();
@@ -215,7 +222,7 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         // Check all required edges are traversed at least once
         for &req_idx in &self.required_edges {
             if config[req_idx] == 0 {
-                return None;
+                return Ok(None);
             }
         }
 
@@ -234,16 +241,16 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         // No edges used: only valid if no required edges
         if !has_edges {
             if self.required_edges.is_empty() {
-                return Some(W::Sum::zero());
+                return Ok(Some(W::Sum::zero()));
             } else {
-                return None;
+                return Ok(None);
             }
         }
 
         // All vertices must have even degree (Eulerian condition)
         for &d in &degree {
             if d % 2 != 0 {
-                return None;
+                return Ok(None);
             }
         }
 
@@ -266,9 +273,9 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
             Some(v) => v,
             None => {
                 if self.required_edges.is_empty() {
-                    return Some(W::Sum::zero());
+                    return Ok(Some(W::Sum::zero()));
                 } else {
-                    return None;
+                    return Ok(None);
                 }
             }
         };
@@ -290,7 +297,7 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         // All vertices with degree > 0 must be visited
         for v in 0..n {
             if degree[v] > 0 && !visited[v] {
-                return None;
+                return Ok(None);
             }
         }
 
@@ -298,11 +305,15 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         let mut total = W::Sum::zero();
         for (idx, &mult) in config.iter().enumerate() {
             for _ in 0..mult {
-                total += self.edge_lengths[idx].to_sum();
+                total = W::checked_add_to_sum(
+                    total,
+                    self.edge_lengths[idx].to_sum(),
+                    "summing rural postman edge lengths",
+                )?;
             }
         }
 
-        Some(total)
+        Ok(Some(total))
     }
 }
 
@@ -322,13 +333,13 @@ where
         vec![3; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        Min(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok(Min(self.is_valid_solution(config)?))
     }
 }
 
 crate::declare_variants! {
-    default RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2" create RuralPostmanCreateSpec,
+    default RuralPostman<SimpleGraph, i64> => "2^num_vertices * num_vertices^2" create RuralPostmanCreateSpec,
 }
 
 #[cfg(feature = "example-db")]

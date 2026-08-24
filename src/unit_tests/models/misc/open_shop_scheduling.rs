@@ -48,7 +48,7 @@ fn test_open_shop_scheduling_creation() {
     assert_eq!(
         p.processing_times(),
         &[
-            vec![3usize, 1, 2],
+            vec![3_i64, 1, 2],
             vec![2, 3, 1],
             vec![1, 2, 3],
             vec![2, 2, 1],
@@ -74,7 +74,7 @@ fn test_open_shop_scheduling_evaluate_issue_example_optimal() {
     // Optimal config: M1=[0,1,2,3], M2=[1,0,3,2], M3=[2,3,0,1]
     // True optimal makespan = 8 (the issue body incorrectly claimed 11).
     let config = vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1];
-    assert_eq!(p.evaluate(&config), Min(Some(8)));
+    assert_eq!(p.evaluate(&config).unwrap(), Min(Some(8)));
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn test_open_shop_scheduling_evaluate_issue_example_suboptimal_schedule() {
     // The schedule from the issue body: M1=[2,1,0,3], M2=[2,1,0,3], M3=[2,0,1,3]
     // gives makespan 11, which is valid but not optimal (optimal is 8).
     let config = vec![2, 1, 0, 3, 2, 1, 0, 3, 2, 0, 1, 3];
-    let value = p.evaluate(&config);
+    let value = p.evaluate(&config).unwrap();
     assert_eq!(value, Min(Some(11)));
 }
 
@@ -92,7 +92,7 @@ fn test_open_shop_scheduling_evaluate_suboptimal() {
     let p = issue_example();
     // Identity orderings on all machines: M1=[0,1,2,3], M2=[0,1,2,3], M3=[0,1,2,3]
     let config = vec![0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3];
-    let value = p.evaluate(&config);
+    let value = p.evaluate(&config).unwrap();
     // Must be valid and > 8 (non-optimal)
     assert!(value.0.is_some());
     assert!(value.0.unwrap() > 8);
@@ -103,23 +103,23 @@ fn test_open_shop_scheduling_evaluate_invalid_not_permutation() {
     let p = issue_example();
     // config[0..4] = [0,0,0,0] is not a permutation → invalid
     let config = vec![0, 0, 0, 0, 0, 1, 2, 3, 0, 1, 2, 3];
-    assert_eq!(p.evaluate(&config), Min(None));
+    assert_eq!(p.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_open_shop_scheduling_evaluate_wrong_length() {
     let p = issue_example();
     // Too short
-    assert_eq!(p.evaluate(&[0, 1, 2]), Min(None));
+    assert_eq!(p.evaluate(&[0, 1, 2]).unwrap(), Min(None));
     // Too long
-    assert_eq!(p.evaluate(&[0; 13]), Min(None));
+    assert_eq!(p.evaluate(&[0; 13]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_open_shop_scheduling_evaluate_empty() {
     let p = OpenShopScheduling::new(3, vec![]);
     assert_eq!(p.dims(), Vec::<usize>::new());
-    assert_eq!(p.evaluate(&[]), Min(Some(0)));
+    assert_eq!(p.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -135,7 +135,7 @@ fn test_open_shop_scheduling_evaluate_two_by_two() {
     //   Step 4: M2 next is J2 (start=max(3,3)=3), schedule J2 on M2: [3,4), machine_avail[1]=4, job_avail[1]=4
     // Makespan = 4
     let config = vec![0, 1, 0, 1];
-    let val = p.evaluate(&config);
+    let val = p.evaluate(&config).unwrap();
     assert!(val.0.is_some());
     assert_eq!(val, Min(Some(4)));
 }
@@ -175,7 +175,7 @@ fn test_open_shop_scheduling_compute_makespan_optimal_schedule() {
         vec![1, 0, 3, 2], // M2
         vec![2, 3, 0, 1], // M3
     ];
-    assert_eq!(p.compute_makespan(&orders), 8);
+    assert_eq!(p.compute_makespan(&orders).unwrap(), 8);
 }
 
 #[test]
@@ -188,7 +188,7 @@ fn test_open_shop_scheduling_compute_makespan_issue_example_schedule() {
     // J2: M1=[1,3), M2=[3,6), M3=[9,10)
     // J3: M1=[0,1), M2=[1,3), M3=[3,6)
     // J4: M1=[6,8), M2=[8,10), M3=[10,11)
-    assert_eq!(p.compute_makespan(&orders), 11);
+    assert_eq!(p.compute_makespan(&orders).unwrap(), 11);
 }
 
 // ─── problem trait ───────────────────────────────────────────────────────────
@@ -218,12 +218,12 @@ fn test_open_shop_scheduling_brute_force_small() {
     // 2x2 instance: brute force over 2^4 = 16 configs (4 valid schedules)
     let p = two_by_two();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &p);
+    let value = Solver::solve(&solver, &p).unwrap();
     assert!(value.0.is_some());
     // Optimal value for this instance
     assert_eq!(value, Min(Some(3)));
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Min(Some(3)));
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Min(Some(3)));
 }
 
 #[test]
@@ -231,10 +231,10 @@ fn test_open_shop_scheduling_brute_force_medium() {
     // 3x3 instance: brute force over 3^9 = 19683 configs (216 valid schedules)
     let p = three_by_three();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &p);
+    let value = Solver::solve(&solver, &p).unwrap();
     assert!(value.0.is_some());
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), value);
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), value);
 }
 
 #[test]
@@ -242,5 +242,5 @@ fn test_open_shop_scheduling_canonical_example_config_is_optimal() {
     // Verify that the canonical example config achieves the true optimal makespan = 8
     let p = issue_example();
     let optimal_config = vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1];
-    assert_eq!(p.evaluate(&optimal_config), Min(Some(8)));
+    assert_eq!(p.evaluate(&optimal_config).unwrap(), Min(Some(8)));
 }

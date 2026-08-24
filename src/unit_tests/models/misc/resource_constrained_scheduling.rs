@@ -9,7 +9,8 @@ fn test_resource_constrained_scheduling_creation() {
         vec![20],
         vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
         2,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_tasks(), 6);
     assert_eq!(problem.num_processors(), 3);
     assert_eq!(problem.resource_bounds(), &[20]);
@@ -30,8 +31,9 @@ fn test_resource_constrained_scheduling_evaluate_valid() {
         vec![20],
         vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
         2,
-    );
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+    )
+    .unwrap();
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]).unwrap());
 }
 
 #[test]
@@ -43,8 +45,9 @@ fn test_resource_constrained_scheduling_evaluate_invalid_processor_capacity() {
         vec![100],
         vec![vec![1], vec![1], vec![1], vec![1]],
         2,
-    );
-    assert!(!problem.evaluate(&[0, 0, 0, 1]));
+    )
+    .unwrap();
+    assert!(!problem.evaluate(&[0, 0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -56,24 +59,27 @@ fn test_resource_constrained_scheduling_evaluate_invalid_resource() {
         vec![10],
         vec![vec![6], vec![6], vec![3], vec![3]],
         2,
-    );
-    assert!(!problem.evaluate(&[0, 0, 1, 1]));
+    )
+    .unwrap();
+    assert!(!problem.evaluate(&[0, 0, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_resource_constrained_scheduling_evaluate_wrong_config_length() {
     let problem =
-        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
-    assert!(!problem.evaluate(&[0, 1]));
-    assert!(!problem.evaluate(&[0, 1, 0, 1]));
+        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2)
+            .unwrap();
+    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_resource_constrained_scheduling_evaluate_out_of_range_slot() {
     let problem =
-        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2);
+        ResourceConstrainedScheduling::new(3, vec![20], vec![vec![5], vec![5], vec![5]], 2)
+            .unwrap();
     // Slot 2 is out of range for deadline=2 (valid: 0, 1)
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -87,18 +93,20 @@ fn test_resource_constrained_scheduling_multiple_resources() {
         vec![10, 8],
         vec![vec![5, 4], vec![5, 4], vec![5, 4]],
         2,
-    );
-    assert!(problem.evaluate(&[0, 0, 1]));
+    )
+    .unwrap();
+    assert!(problem.evaluate(&[0, 0, 1]).unwrap());
     // Slot 0: {t1, t2, t3} -> 3 > 2 processors
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_resource_constrained_scheduling_empty_tasks() {
-    let problem = ResourceConstrainedScheduling::new(2, vec![10], Vec::<Vec<u64>>::new(), 3);
+    let problem =
+        ResourceConstrainedScheduling::new(2, vec![10], Vec::<Vec<i64>>::new(), 3).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -109,9 +117,10 @@ fn test_resource_constrained_scheduling_brute_force_infeasible() {
         vec![100],
         vec![vec![1], vec![1], vec![1], vec![1]],
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     // 1 processor * 2 time slots = 2 tasks max, but we have 4
     assert!(solution.is_none());
 }
@@ -137,7 +146,8 @@ fn test_resource_constrained_scheduling_serialization() {
         vec![20],
         vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
         2,
-    );
+    )
+    .unwrap();
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ResourceConstrainedScheduling = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_tasks(), problem.num_tasks());
@@ -151,32 +161,41 @@ fn test_resource_constrained_scheduling_serialization() {
 }
 
 #[test]
-#[should_panic(expected = "deadline must be positive")]
 fn test_resource_constrained_scheduling_zero_deadline() {
-    ResourceConstrainedScheduling::new(2, vec![10], vec![vec![5]], 0);
+    assert!(ResourceConstrainedScheduling::new(2, vec![10], vec![vec![5]], 0).is_err());
 }
 
 #[test]
-#[should_panic(expected = "resource requirements")]
 fn test_resource_constrained_scheduling_mismatched_requirements() {
     // 2 resource bounds but task has only 1 requirement
-    ResourceConstrainedScheduling::new(2, vec![10, 20], vec![vec![5]], 2);
+    assert!(ResourceConstrainedScheduling::new(2, vec![10, 20], vec![vec![5]], 2).is_err());
+}
+
+#[test]
+fn test_resource_constrained_scheduling_deserialization_validates_fields() {
+    let json = r#"{
+        "num_processors": 2,
+        "resource_bounds": [10, 20],
+        "resource_requirements": [[5]],
+        "deadline": 2
+    }"#;
+    assert!(serde_json::from_str::<ResourceConstrainedScheduling>(json).is_err());
 }
 
 #[test]
 fn test_resource_constrained_scheduling_single_task_exceeds_bound() {
     // One task requires resource 15 but bound is 10 — instance is infeasible
-    let problem = ResourceConstrainedScheduling::new(2, vec![10], vec![vec![15]], 2);
-    assert!(!problem.evaluate(&[0]));
-    assert!(!problem.evaluate(&[1]));
+    let problem = ResourceConstrainedScheduling::new(2, vec![10], vec![vec![15]], 2).unwrap();
+    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(!problem.evaluate(&[1]).unwrap());
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_resource_constrained_scheduling_single_task() {
-    let problem = ResourceConstrainedScheduling::new(1, vec![5], vec![vec![5]], 1);
-    assert!(problem.evaluate(&[0]));
+    let problem = ResourceConstrainedScheduling::new(1, vec![5], vec![vec![5]], 1).unwrap();
+    assert!(problem.evaluate(&[0]).unwrap());
 }
 
 #[test]
@@ -187,9 +206,10 @@ fn test_resource_constrained_scheduling_canonical_brute_force() {
         vec![20],
         vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
         2,
-    );
+    )
+    .unwrap();
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all.is_empty());
     // Verify the hardcoded canonical solution is among the brute-force results
     assert!(all.contains(&vec![0, 0, 0, 1, 1, 1]));
@@ -198,6 +218,6 @@ fn test_resource_constrained_scheduling_canonical_brute_force() {
 #[test]
 fn test_resource_constrained_scheduling_resource_requirements_accessor() {
     let reqs = vec![vec![5, 3], vec![2, 4]];
-    let problem = ResourceConstrainedScheduling::new(2, vec![10, 10], reqs.clone(), 2);
+    let problem = ResourceConstrainedScheduling::new(2, vec![10, 10], reqs.clone(), 2).unwrap();
     assert_eq!(problem.resource_requirements(), &reqs[..]);
 }

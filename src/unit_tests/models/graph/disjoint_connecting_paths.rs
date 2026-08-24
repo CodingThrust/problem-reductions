@@ -67,20 +67,20 @@ fn test_disjoint_connecting_paths_rejects_overlapping_terminals() {
 #[test]
 fn test_disjoint_connecting_paths_yes_instance() {
     let problem = issue_yes_problem();
-    assert!(problem.evaluate(&issue_yes_config()));
+    assert!(problem.evaluate(&issue_yes_config()).unwrap());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_no_instance() {
     let problem = issue_no_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_wrong_length_config() {
     let problem = issue_yes_problem();
-    assert!(!problem.evaluate(&[1, 0, 1]));
+    assert!(!problem.evaluate(&[1, 0, 1]).unwrap());
 }
 
 #[test]
@@ -88,13 +88,13 @@ fn test_disjoint_connecting_paths_rejects_non_binary_entries() {
     let problem = issue_yes_problem();
     let mut config = issue_yes_config();
     config[3] = 2;
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_disjoint_connecting_paths_rejects_branching_subgraph() {
     let problem = issue_yes_problem();
-    assert!(!problem.evaluate(&[1, 0, 1, 1, 1, 0, 1]));
+    assert!(!problem.evaluate(&[1, 0, 1, 1, 1, 0, 1]).unwrap());
 }
 
 #[test]
@@ -111,10 +111,10 @@ fn test_disjoint_connecting_paths_serialization() {
 fn test_disjoint_connecting_paths_paper_example() {
     let problem = issue_yes_problem();
     let config = issue_yes_config();
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }

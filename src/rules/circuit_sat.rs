@@ -21,7 +21,7 @@ enum NormalizedExpr {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EncodedTerm {
     Const(bool),
-    Var(i32),
+    Var(i64),
 }
 
 #[derive(Debug, Clone)]
@@ -32,7 +32,7 @@ struct TseitinEncoding {
 
 #[derive(Debug)]
 struct TseitinEncoder {
-    source_var_ids: HashMap<String, i32>,
+    source_var_ids: HashMap<String, i64>,
     clauses: Vec<CNFClause>,
     variables: SatVariableAllocator,
 }
@@ -141,7 +141,7 @@ impl TseitinEncoder {
         }
     }
 
-    fn expect_var(&self, term: EncodedTerm, context: &str) -> i32 {
+    fn expect_var(&self, term: EncodedTerm, context: &str) -> i64 {
         match term {
             EncodedTerm::Var(var) => var,
             EncodedTerm::Const(_) => {
@@ -150,25 +150,25 @@ impl TseitinEncoder {
         }
     }
 
-    fn source_var(&self, name: &str) -> i32 {
+    fn source_var(&self, name: &str) -> i64 {
         *self
             .source_var_ids
             .get(name)
             .unwrap_or_else(|| panic!("CircuitSAT variable {name:?} missing from source ordering"))
     }
 
-    fn allocate_auxiliary_var(&mut self) -> i32 {
+    fn allocate_auxiliary_var(&mut self) -> i64 {
         self.variables
             .allocate()
             .unwrap_or_else(|message| panic!("{message}"))
     }
 
-    fn push_equivalence(&mut self, left: i32, right: i32) {
+    fn push_equivalence(&mut self, left: i64, right: i64) {
         self.push_clause(vec![-left, right]);
         self.push_clause(vec![left, -right]);
     }
 
-    fn push_clause(&mut self, literals: Vec<i32>) {
+    fn push_clause(&mut self, literals: Vec<i64>) {
         self.clauses.push(CNFClause::new(literals));
     }
 }
@@ -318,12 +318,12 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 impl ReduceTo<Satisfiability> for CircuitSAT {
     type Result = ReductionCircuitSATToSAT;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let encoding = build_tseitin_encoding(self);
-        ReductionCircuitSATToSAT {
+        Ok(ReductionCircuitSATToSAT {
             target: Satisfiability::new(encoding.num_vars, encoding.clauses),
             source_var_count: self.num_variables(),
-        }
+        })
     }
 }
 
@@ -353,9 +353,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source = issue_example_source();
             let source_config = vec![1, 1, 1, 0, 1];
-            let reduction = ReduceTo::<Satisfiability>::reduce_to(&source);
+            let reduction =
+                ReduceTo::<Satisfiability>::reduce_to(&source).expect("reduction should succeed");
             let target_config = BruteForce::new()
                 .find_all_witnesses(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .into_iter()
                 .find(|candidate| reduction.extract_solution(candidate).unwrap() == source_config)
                 .expect("canonical CircuitSAT -> Satisfiability example must be satisfiable");

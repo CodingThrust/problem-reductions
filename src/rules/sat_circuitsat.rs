@@ -50,7 +50,7 @@ impl ReductionResult for ReductionSATToCircuit {
 impl ReduceTo<CircuitSAT> for Satisfiability {
     type Result = ReductionSATToCircuit;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_variables();
         let clauses = self.clauses();
 
@@ -59,7 +59,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
 
         for (i, clause) in clauses.iter().enumerate() {
             let clause_output = format!("__clause_{}", i);
-            let literal_exprs: Vec<BooleanExpr> = clause
+            let mut literal_exprs: Vec<BooleanExpr> = clause
                 .literals
                 .iter()
                 .map(|&lit| {
@@ -74,7 +74,7 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
                 .collect();
 
             let clause_expr = if literal_exprs.len() == 1 {
-                literal_exprs.into_iter().next().unwrap()
+                literal_exprs.remove(0)
             } else {
                 BooleanExpr::or(literal_exprs)
             };
@@ -127,17 +127,18 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
         let source_var_indices: Vec<usize> = (1..=num_vars)
             .map(|i| {
                 let name = format!("x{}", i);
-                var_names
-                    .iter()
-                    .position(|n| n == &name)
-                    .unwrap_or_else(|| panic!("Variable {} not found in CircuitSAT", name))
+                var_names.iter().position(|n| n == &name).ok_or_else(|| {
+                    crate::rules::ReductionError::invalid_target::<Satisfiability, CircuitSAT>(
+                        format!("target circuit is missing source variable `{name}`"),
+                    )
+                })
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
-        ReductionSATToCircuit {
+        Ok(ReductionSATToCircuit {
             target,
             source_var_indices,
-        }
+        })
     }
 }
 

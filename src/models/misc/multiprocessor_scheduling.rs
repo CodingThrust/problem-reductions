@@ -46,34 +46,34 @@ inventory::submit! {
 /// // 5 tasks with lengths [4, 5, 3, 2, 6], 2 processors, deadline 10
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MultiprocessorScheduling {
     /// Processing time for each task.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
     /// Number of identical processors.
     #[serde(deserialize_with = "positive_usize::deserialize")]
     num_processors: usize,
     /// Global deadline.
-    deadline: u64,
+    deadline: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct MultiprocessorSchedulingCreateSpec {
     /// Processing time for each task.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
     /// Number of identical processors.
     num_processors: usize,
     /// Global deadline.
-    deadline: u64,
+    deadline: i64,
 }
 impl TryFrom<MultiprocessorSchedulingCreateSpec> for MultiprocessorScheduling {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MultiprocessorSchedulingCreateSpec) -> Result<Self, Self::Error> {
         if spec.num_processors == 0 {
-            return Err("num_processors must be positive".to_string());
+            return Err("num_processors must be positive".to_string().into());
         }
         Ok(Self::new(spec.lengths, spec.num_processors, spec.deadline))
     }
@@ -84,8 +84,13 @@ impl MultiprocessorScheduling {
     ///
     /// # Panics
     /// Panics if `num_processors` is zero.
-    pub fn new(lengths: Vec<u64>, num_processors: usize, deadline: u64) -> Self {
+    pub fn new(lengths: Vec<i64>, num_processors: usize, deadline: i64) -> Self {
         assert!(num_processors > 0, "num_processors must be positive");
+        assert!(
+            lengths.iter().all(|&length| length >= 0),
+            "task lengths must be nonnegative"
+        );
+        assert!(deadline >= 0, "deadline must be nonnegative");
         Self {
             lengths,
             num_processors,
@@ -94,7 +99,7 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the processing times for each task.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
@@ -104,7 +109,7 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the deadline.
-    pub fn deadline(&self) -> u64 {
+    pub fn deadline(&self) -> i64 {
         self.deadline
     }
 
@@ -114,7 +119,7 @@ impl MultiprocessorScheduling {
     }
 
     /// Returns the total processing time of all tasks.
-    pub fn total_length(&self) -> u64 {
+    pub fn total_length(&self) -> i64 {
         self.lengths.iter().sum()
     }
 }
@@ -131,20 +136,32 @@ impl Problem for MultiprocessorScheduling {
         vec![self.num_processors; self.num_tasks()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_tasks() {
-                return crate::types::Or(false);
-            }
-            let m = self.num_processors;
-            if config.iter().any(|&p| p >= m) {
-                return crate::types::Or(false);
-            }
-            let mut loads = vec![0u64; m];
-            for (i, &processor) in config.iter().enumerate() {
-                loads[processor] += self.lengths[i];
-            }
-            loads.iter().all(|&load| load <= self.deadline)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_tasks() {
+                    return Ok(crate::types::Or(false));
+                }
+                let m = self.num_processors;
+                if config.iter().any(|&p| p >= m) {
+                    return Ok(crate::types::Or(false));
+                }
+                let mut loads = vec![0i64; m];
+                for (i, &processor) in config.iter().enumerate() {
+                    loads[processor] =
+                        loads[processor]
+                            .checked_add(self.lengths[i])
+                            .ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "summing multiprocessor load".into(),
+                                )
+                            })?;
+                }
+                loads.iter().all(|&load| load <= self.deadline)
+            })
         })
     }
 }

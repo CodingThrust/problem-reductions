@@ -9,6 +9,7 @@ use crate::models::graph::GraphPartitioning;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing GraphPartitioning to QUBO.
 #[derive(Debug, Clone)]
@@ -40,9 +41,21 @@ impl ReductionResult for ReductionGraphPartitioningToQUBO {
 impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGraphPartitioningToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let penalty = self.num_edges() as f64 + 1.0;
+        let to_f64 = |value: usize, operation: &str| {
+            let value = i64::try_from(value).map_err(|_| {
+                crate::rules::ReductionError::integer_overflow::<Self, QUBO<f64>>(operation)
+            })?;
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<Self, QUBO<f64>>(error)
+            })
+        };
+        let n_f64 = to_f64(n, "converting the vertex count to a QUBO coefficient")?;
+        let penalty = to_f64(
+            self.num_edges(),
+            "converting the edge count to a QUBO coefficient",
+        )? + 1.0;
         let mut matrix = vec![vec![0.0f64; n]; n];
         let mut degrees = vec![0usize; n];
         let edges = self.graph().edges();
@@ -53,7 +66,11 @@ impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
         }
 
         for (i, row) in matrix.iter_mut().enumerate() {
-            row[i] = degrees[i] as f64 + penalty * (1.0 - n as f64);
+            let degree = to_f64(
+                degrees[i],
+                "converting a vertex degree to a QUBO coefficient",
+            )?;
+            row[i] = degree + penalty * (1.0 - n_f64);
             for value in row.iter_mut().skip(i + 1) {
                 *value = 2.0 * penalty;
             }
@@ -64,9 +81,14 @@ impl ReduceTo<QUBO<f64>> for GraphPartitioning<SimpleGraph> {
             matrix[lo][hi] -= 2.0;
         }
 
-        ReductionGraphPartitioningToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionGraphPartitioningToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<
+                    GraphPartitioning<SimpleGraph>,
+                    QUBO<f64>,
+                >(message)
+            })?,
+        })
     }
 }
 

@@ -11,6 +11,7 @@ use crate::models::graph::MaximumClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumClique to ILP.
 ///
@@ -24,7 +25,7 @@ pub struct ReductionCliqueToILP {
 }
 
 impl ReductionResult for ReductionCliqueToILP {
-    type Source = MaximumClique<SimpleGraph, i32>;
+    type Source = MaximumClique<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -51,10 +52,10 @@ impl ReductionResult for ReductionCliqueToILP {
         num_constraints = "num_vertices^2",
     }
 )]
-impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
     type Result = ReductionCliqueToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
 
         // Constraints: x_u + x_v <= 1 for each NON-EDGE (u, v)
@@ -74,12 +75,21 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(i, &w)| {
+                i64_to_exact_f64(w)
+                    .map(|weight| (i, weight))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            MaximumClique<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionCliqueToILP { target }
+        Ok(ReductionCliqueToILP { target })
     }
 }
 
@@ -89,7 +99,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "maximumclique_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::octahedral();
-            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i32; 6]);
+            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i64; 6]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

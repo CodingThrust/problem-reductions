@@ -8,20 +8,21 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
 
-fn issue_instance() -> MaximumEdgeWeightedKClique<i32> {
+fn issue_instance() -> MaximumEdgeWeightedKClique<i64> {
     // 4 vertices, edges (0,1),(0,2),(1,2),(0,3),(1,3) with weights [5,4,-1,1,0], k=3.
     // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
-    MaximumEdgeWeightedKClique::<i32>::new(
+    MaximumEdgeWeightedKClique::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
         vec![5, 4, -1, 1, 0],
         3,
     )
+    .unwrap()
 }
 
 #[test]
 fn test_maximumedgeweightedkclique_to_ilp_closed_loop() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -32,7 +33,7 @@ fn test_maximumedgeweightedkclique_to_ilp_closed_loop() {
 #[test]
 fn test_maximumedgeweightedkclique_to_ilp_structure() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 vertex variables + 5 edge variables = 9.
@@ -46,17 +47,17 @@ fn test_maximumedgeweightedkclique_to_ilp_structure() {
 #[test]
 fn test_maximumedgeweightedkclique_to_ilp_extract_solution_identity() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![1, 1, 1, 0, 1, 1, 1, 0, 0];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 1, 0]);
-    assert_eq!(source.evaluate(&extracted), Max(Some(8)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(8)));
 }
 
 #[test]
 fn test_maximumedgeweightedkclique_to_ilp_bf_vs_ilp() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -66,12 +67,13 @@ fn test_maximumedgeweightedkclique_to_ilp_negative_weight_excluded_via_extra_con
     // size-3 clique exists, and its weight is -3. The McCormick lower bound
     // y >= x_u + x_v - 1 ensures negative-weight y's are forced to 1 when
     // both endpoints are selected.
-    let source = MaximumEdgeWeightedKClique::<i32>::new(
+    let source = MaximumEdgeWeightedKClique::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![-1, -1, -1],
         3,
-    );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,

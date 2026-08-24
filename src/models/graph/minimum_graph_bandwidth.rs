@@ -55,7 +55,7 @@ inventory::submit! {
 /// let problem = MinimumGraphBandwidth::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,16 +108,23 @@ impl<G: Graph> MinimumGraphBandwidth<G> {
     /// Compute the bandwidth (maximum edge stretch) for a given arrangement.
     ///
     /// Returns `None` if the configuration is not a valid permutation.
-    pub fn bandwidth(&self, config: &[usize]) -> Option<usize> {
+    pub fn bandwidth(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if !self.is_valid_permutation(config) {
-            return None;
+            return Ok(None);
         }
         let mut max_stretch = 0usize;
         for (u, v) in self.graph.edges() {
             let stretch = config[u].abs_diff(config[v]);
             max_stretch = max_stretch.max(stretch);
         }
-        Some(max_stretch)
+        Ok(Some(i64::try_from(max_stretch).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting graph bandwidth to i64".to_string(),
+            )
+        })?))
     }
 }
 
@@ -126,7 +133,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumGraphBandwidth";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -137,11 +144,13 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        match self.bandwidth(config) {
-            Some(bw) => Min(Some(bw)),
-            None => Min(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.bandwidth(config)? {
+                Some(bw) => Min(Some(bw)),
+                None => Min(None),
+            }
+        })
     }
 }
 

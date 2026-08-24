@@ -45,7 +45,7 @@ impl ReductionResult for ReductionVCToHS {
 impl ReduceTo<MinimumHittingSet> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToHS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vertices = self.graph().num_vertices();
 
@@ -54,7 +54,7 @@ impl ReduceTo<MinimumHittingSet> for MinimumVertexCover<SimpleGraph, One> {
 
         let target = MinimumHittingSet::new(num_vertices, sets);
 
-        ReductionVCToHS { target }
+        Ok(ReductionVCToHS { target })
     }
 }
 

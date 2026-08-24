@@ -5,6 +5,8 @@
 
 use super::graph::Graph;
 use super::unit_disk_graph::UnitDiskGraph;
+use crate::registry::ConstructionError;
+use crate::types::i64_to_exact_f64;
 use serde::{Deserialize, Serialize};
 
 /// A King's Subgraph — an unweighted unit disk graph on a square lattice.
@@ -18,7 +20,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KingsSubgraph {
     /// Integer grid positions (row, col) for each vertex.
-    positions: Vec<(i32, i32)>,
+    positions: Vec<(i64, i64)>,
 }
 
 /// Fixed radius for king's move connectivity on integer grid.
@@ -26,12 +28,12 @@ const KINGS_RADIUS: f64 = 1.5;
 
 impl KingsSubgraph {
     /// Create a KingsSubgraph from a list of integer positions.
-    pub fn new(positions: Vec<(i32, i32)>) -> Self {
+    pub fn new(positions: Vec<(i64, i64)>) -> Self {
         Self { positions }
     }
 
     /// Get the positions of all vertices.
-    pub fn positions(&self) -> &[(i32, i32)] {
+    pub fn positions(&self) -> &[(i64, i64)] {
         &self.positions
     }
 
@@ -40,11 +42,33 @@ impl KingsSubgraph {
         self.positions.len()
     }
 
-    /// Compute Euclidean distance between two integer positions.
-    fn distance(p1: (i32, i32), p2: (i32, i32)) -> f64 {
-        let dx = (p1.0 - p2.0) as f64;
-        let dy = (p1.1 - p2.1) as f64;
-        (dx * dx + dy * dy).sqrt()
+    fn are_adjacent(p1: (i64, i64), p2: (i64, i64)) -> bool {
+        p1.0.abs_diff(p2.0) <= 1 && p1.1.abs_diff(p2.1) <= 1
+    }
+
+    pub(crate) fn try_to_unit_disk_graph(&self) -> Result<UnitDiskGraph, ConstructionError> {
+        let positions = self
+            .positions
+            .iter()
+            .map(|&(row, column)| {
+                let row = i64_to_exact_f64(row)?;
+                let column = i64_to_exact_f64(column)?;
+                Ok((row, column))
+            })
+            .collect::<Result<Vec<_>, ConstructionError>>()?;
+        let graph = UnitDiskGraph::new(positions, KINGS_RADIUS)?;
+        for first in 0..self.positions.len() {
+            for second in (first + 1)..self.positions.len() {
+                if Self::are_adjacent(self.positions[first], self.positions[second])
+                    != graph.has_edge(first, second)
+                {
+                    return Err(ConstructionError::Conversion(format!(
+                        "king's-subgraph coordinates at indices {first} and {second} cannot be represented in UnitDiskGraph without changing adjacency"
+                    )));
+                }
+            }
+        }
+        Ok(graph)
     }
 }
 
@@ -60,7 +84,7 @@ impl Graph for KingsSubgraph {
         let mut count = 0;
         for i in 0..n {
             for j in (i + 1)..n {
-                if Self::distance(self.positions[i], self.positions[j]) < KINGS_RADIUS {
+                if Self::are_adjacent(self.positions[i], self.positions[j]) {
                     count += 1;
                 }
             }
@@ -73,7 +97,7 @@ impl Graph for KingsSubgraph {
         let mut edges = Vec::new();
         for i in 0..n {
             for j in (i + 1)..n {
-                if Self::distance(self.positions[i], self.positions[j]) < KINGS_RADIUS {
+                if Self::are_adjacent(self.positions[i], self.positions[j]) {
                     edges.push((i, j));
                 }
             }
@@ -85,7 +109,7 @@ impl Graph for KingsSubgraph {
         if u >= self.positions.len() || v >= self.positions.len() || u == v {
             return false;
         }
-        Self::distance(self.positions[u], self.positions[v]) < KINGS_RADIUS
+        Self::are_adjacent(self.positions[u], self.positions[v])
     }
 
     fn neighbors(&self, v: usize) -> Vec<usize> {
@@ -93,9 +117,7 @@ impl Graph for KingsSubgraph {
             return Vec::new();
         }
         (0..self.positions.len())
-            .filter(|&u| {
-                u != v && Self::distance(self.positions[v], self.positions[u]) < KINGS_RADIUS
-            })
+            .filter(|&u| u != v && Self::are_adjacent(self.positions[v], self.positions[u]))
             .collect()
     }
 }
@@ -105,14 +127,50 @@ impl crate::variant::VariantParam for KingsSubgraph {
     const VALUE: &'static str = "KingsSubgraph";
     const PARENT_VALUE: Option<&'static str> = Some("UnitDiskGraph");
 }
-impl crate::variant::CastToParent for KingsSubgraph {
-    type Parent = UnitDiskGraph;
-    fn cast_to_parent(&self) -> UnitDiskGraph {
-        let positions: Vec<(f64, f64)> = self
-            .positions
-            .iter()
-            .map(|&(r, c)| (r as f64, c as f64))
-            .collect();
-        UnitDiskGraph::new(positions, KINGS_RADIUS)
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::MAX_EXACT_F64_INTEGER;
+
+    #[test]
+    fn adjacency_handles_full_i64_coordinate_range() {
+        let graph = KingsSubgraph::new(vec![
+            (i64::MAX, i64::MAX),
+            (i64::MAX - 1, i64::MAX - 1),
+            (i64::MIN, i64::MIN),
+        ]);
+
+        assert!(graph.has_edge(0, 1));
+        assert!(!graph.has_edge(0, 2));
+    }
+
+    #[test]
+    fn integer_adjacency_matches_euclidean_definition() {
+        for row_a in -4..=4 {
+            for column_a in -4..=4 {
+                for row_b in -4..=4 {
+                    for column_b in -4..=4 {
+                        let dr = (row_a - row_b) as f64;
+                        let dc = (column_a - column_b) as f64;
+                        let euclidean = dr.hypot(dc) < KINGS_RADIUS;
+                        assert_eq!(
+                            KingsSubgraph::are_adjacent((row_a, column_a), (row_b, column_b)),
+                            euclidean
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn unit_disk_conversion_rejects_inexact_coordinates() {
+        let graph = KingsSubgraph::new(vec![(MAX_EXACT_F64_INTEGER + 1, 0)]);
+
+        assert!(matches!(
+            graph.try_to_unit_disk_graph(),
+            Err(ConstructionError::InexactFloatConversion(_))
+        ));
     }
 }

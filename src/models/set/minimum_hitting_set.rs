@@ -47,7 +47,7 @@ struct MinimumHittingSetCreateSpec {
 }
 
 impl TryFrom<MinimumHittingSetCreateSpec> for MinimumHittingSet {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MinimumHittingSetCreateSpec) -> Result<Self, Self::Error> {
         for (set_index, set) in spec.subsets.iter().enumerate() {
@@ -55,7 +55,8 @@ impl TryFrom<MinimumHittingSetCreateSpec> for MinimumHittingSet {
                 return Err(format!(
                     "subsets[{set_index}] contains element {element} outside universe of size {}",
                     spec.universe_size
-                ));
+                )
+                .into());
             }
         }
         Ok(Self::new(spec.universe_size, spec.subsets))
@@ -139,25 +140,31 @@ impl MinimumHittingSet {
 
 impl Problem for MinimumHittingSet {
     const NAME: &'static str = "MinimumHittingSet";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let Some(selected) = self.selected_elements(config) else {
-            return Min(None);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let Some(selected) = self.selected_elements(config) else {
+                return Ok(Min(None));
+            };
 
-        if self.sets.iter().all(|set| {
-            set.iter()
-                .any(|element| selected.binary_search(element).is_ok())
-        }) {
-            Min(Some(selected.len()))
-        } else {
-            Min(None)
-        }
+            if self.sets.iter().all(|set| {
+                set.iter()
+                    .any(|element| selected.binary_search(element).is_ok())
+            }) {
+                Min(Some(i64::try_from(selected.len()).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting hitting-set cardinality to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

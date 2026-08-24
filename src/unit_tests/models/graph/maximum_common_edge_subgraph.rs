@@ -53,8 +53,11 @@ fn test_maximum_common_edge_subgraph_evaluate_optimum() {
     // Preserved arcs: (0,a,1), (1,b,2), (0,c,2), (2,a,3), (1,d,3); the last
     // source arc (3,b,4) is skipped because vertex 4 is unmatched.
     assert!(problem.is_valid_solution(&[0, 1, 2, 3, 4]));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4]), Max(Some(5)));
-    assert_eq!(problem.preserved_arc_count(&[0, 1, 2, 3, 4]), Some(5));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4]).unwrap(), Max(Some(5)));
+    assert_eq!(
+        problem.preserved_arc_count(&[0, 1, 2, 3, 4]).unwrap(),
+        Some(5)
+    );
 }
 
 #[test]
@@ -63,8 +66,8 @@ fn test_maximum_common_edge_subgraph_evaluate_injectivity_violated() {
 
     // Two source vertices map to graph_2 vertex 0 -> injectivity violated.
     assert!(!problem.is_valid_solution(&[0, 0, 2, 3, 4]));
-    assert_eq!(problem.evaluate(&[0, 0, 2, 3, 4]), Max(None));
-    assert_eq!(problem.preserved_arc_count(&[0, 0, 2, 3, 4]), None);
+    assert_eq!(problem.evaluate(&[0, 0, 2, 3, 4]).unwrap(), Max(None));
+    assert_eq!(problem.preserved_arc_count(&[0, 0, 2, 3, 4]).unwrap(), None);
 }
 
 #[test]
@@ -82,30 +85,33 @@ fn test_maximum_common_edge_subgraph_evaluate_fewer_preserved() {
     // So preserved = 0.
     let config = [0, 2, 1, 3, 4];
     assert!(problem.is_valid_solution(&config));
-    assert_eq!(problem.evaluate(&config), Max(Some(0)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(0)));
 
     // Unmatch vertex 3 as well: lose the (2,a,3) and (1,d,3) preservations
     // but keep (0,a,1), (1,b,2), (0,c,2). Total = 3.
     let config = [0, 1, 2, 4, 4];
     assert!(problem.is_valid_solution(&config));
-    assert_eq!(problem.evaluate(&config), Max(Some(3)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(3)));
 
     // All unmatched -> nothing preserved but still feasible.
     let config = [4, 4, 4, 4, 4];
     assert!(problem.is_valid_solution(&config));
-    assert_eq!(problem.evaluate(&config), Max(Some(0)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(0)));
 }
 
 #[test]
 fn test_maximum_common_edge_subgraph_brute_force_finds_optimum() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Max(Some(5)));
 
-    let witness = solver.find_witness(&problem).expect("witness exists");
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("witness exists");
     assert!(problem.is_valid_solution(&witness));
-    assert_eq!(problem.evaluate(&witness), Max(Some(5)));
+    assert_eq!(problem.evaluate(&witness).unwrap(), Max(Some(5)));
 }
 
 #[test]
@@ -117,7 +123,7 @@ fn test_maximum_common_edge_subgraph_serialization_roundtrip() {
     assert_eq!(restored.num_vertices_2(), 4);
     assert_eq!(restored.num_arcs_1(), 6);
     assert_eq!(restored.num_arcs_2(), 6);
-    assert_eq!(restored.evaluate(&[0, 1, 2, 3, 4]), Max(Some(5)));
+    assert_eq!(restored.evaluate(&[0, 1, 2, 3, 4]).unwrap(), Max(Some(5)));
     assert_eq!(restored, problem);
 }
 
@@ -136,10 +142,10 @@ fn test_maximum_common_edge_subgraph_rejects_wrong_length_config() {
     let problem = issue_instance();
     // |V1| = 5, but the config has 4 entries -> infeasible.
     assert!(!problem.is_valid_solution(&[0, 1, 2, 3]));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]), Max(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Max(None));
     // Too long.
     assert!(!problem.is_valid_solution(&[0, 1, 2, 3, 4, 4]));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4, 4]), Max(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4, 4]).unwrap(), Max(None));
 }
 
 #[test]
@@ -147,7 +153,7 @@ fn test_maximum_common_edge_subgraph_rejects_out_of_range_target() {
     let problem = issue_instance();
     // 5 is out of range: the only legal "unmatched" sentinel is |V2| = 4.
     assert!(!problem.is_valid_solution(&[0, 1, 2, 3, 5]));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 5]), Max(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 5]).unwrap(), Max(None));
 }
 
 #[test]

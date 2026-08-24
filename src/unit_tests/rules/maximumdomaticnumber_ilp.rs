@@ -8,34 +8,36 @@ use crate::types::Max;
 fn test_maximumdomaticnumber_to_ilp_closed_loop() {
     // Path P3: 0-1-2, domatic number = 2
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_witness = bf.find_witness(&problem).unwrap();
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_witness = bf.find_witness(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     // Both should find domatic number = 2
     assert_eq!(bf_value, Max(Some(2)));
     assert_eq!(ilp_value, Max(Some(2)));
 
     // Verify the ILP solution is valid for the original problem
-    assert!(problem.evaluate(&extracted).is_valid());
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
 #[test]
 fn test_maximumdomaticnumber_to_ilp_structure() {
     // P3: 3 vertices
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3: n²+n = 12 variables
@@ -59,7 +61,8 @@ fn test_maximumdomaticnumber_to_ilp_structure() {
 fn test_maximumdomaticnumber_to_ilp_bf_vs_ilp() {
     // P3: 3 vertices, domatic number = 2
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -67,13 +70,14 @@ fn test_maximumdomaticnumber_to_ilp_bf_vs_ilp() {
 fn test_maximumdomaticnumber_to_ilp_complete_graph() {
     // K3: domatic number = 3 (each vertex is its own dominating set)
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(value, Max(Some(3)));
 }
@@ -82,13 +86,14 @@ fn test_maximumdomaticnumber_to_ilp_complete_graph() {
 fn test_maximumdomaticnumber_to_ilp_single_vertex() {
     // Single vertex: domatic number = 1
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(1, vec![]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(value, Max(Some(1)));
 }
@@ -97,7 +102,8 @@ fn test_maximumdomaticnumber_to_ilp_single_vertex() {
 fn test_maximumdomaticnumber_to_ilp_solution_extraction() {
     // P3: 0-1-2
     let problem = MaximumDomaticNumber::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionDomaticNumberToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionDomaticNumberToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct an ILP solution: vertices 0,2 in set 0, vertex 1 in set 1
     // x_{0,0}=1, x_{0,1}=0, x_{0,2}=0,
@@ -109,6 +115,6 @@ fn test_maximumdomaticnumber_to_ilp_solution_extraction() {
     assert_eq!(extracted, vec![0, 1, 0]);
 
     // Verify this is a valid partition with 2 dominating sets
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Max(Some(2)));
 }

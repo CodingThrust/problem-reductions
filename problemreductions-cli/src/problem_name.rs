@@ -6,7 +6,7 @@ use std::ffi::OsStr;
 pub struct ProblemSpec {
     /// Resolved canonical problem name.
     pub name: String,
-    /// Positional variant values (e.g., ["UnitDiskGraph", "i32"]).
+    /// Positional variant values (e.g., ["UnitDiskGraph", "i64"]).
     pub variant_values: Vec<String>,
 }
 
@@ -70,7 +70,7 @@ pub fn resolve_catalog_problem_ref(
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-/// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
+/// Parse a problem spec string like "MIS/UnitDiskGraph/i64" into name + variant values.
 ///
 /// Resolution order:
 /// 1. **Variant-level alias** (`"3SAT"` → `KSatisfiability` + variant tokens `["K3"]`):
@@ -574,7 +574,7 @@ mod tests {
     #[test]
     fn resolve_problem_ref_rejects_duplicate_dimension_updates() {
         let graph = problemreductions::rules::ReductionGraph::new();
-        let err = resolve_problem_ref("MIS/One/i32", &graph).unwrap_err();
+        let err = resolve_problem_ref("MIS/One/i64", &graph).unwrap_err();
         assert!(
             err.to_string().contains("specified more than once"),
             "expected duplicate-dimension error, got: {err}"
@@ -608,7 +608,7 @@ mod tests {
     fn parse_problem_type_extracts_name_from_variant_spec() {
         // parse_problem_type extracts just the problem name from a variant spec
         assert_eq!(
-            parse_problem_type("MIS/UnitDiskGraph/i32").unwrap(),
+            parse_problem_type("MIS/UnitDiskGraph/i64").unwrap(),
             "MaximumIndependentSet"
         );
     }
@@ -616,9 +616,9 @@ mod tests {
     #[test]
     fn resolve_catalog_problem_ref_validates_against_schema() {
         // Schema-valid values should resolve
-        let r = resolve_catalog_problem_ref("MIS/i32").unwrap();
+        let r = resolve_catalog_problem_ref("MIS/i64").unwrap();
         assert_eq!(r.name(), "MaximumIndependentSet");
-        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i32"));
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i64"));
     }
 
     #[test]

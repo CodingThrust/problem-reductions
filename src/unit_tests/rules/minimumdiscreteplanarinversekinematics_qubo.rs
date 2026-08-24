@@ -14,12 +14,13 @@ fn worked_example() -> MinimumDiscretePlanarInverseKinematics {
         vec![vec![0.0, FRAC_PI_2], vec![0.0, FRAC_PI_2]],
         vec![vec![(0, 0), (0, 1), (1, 1)]],
     )
+    .unwrap()
 }
 
 #[test]
 fn test_minimumdiscreteplanarinversekinematics_to_qubo_closed_loop() {
     let source = worked_example();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().num_vars(), 4);
     assert_optimization_round_trip_from_optimization_target(
@@ -36,10 +37,13 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_link() {
         (0.0, 2.0),
         vec![vec![0.0, FRAC_PI_2, PI]],
         vec![],
-    );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(reduction.target_problem());
+    let qubo_solutions = solver
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
 
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions.len(), 1);
@@ -47,7 +51,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_link() {
         reduction.extract_solution(&qubo_solutions[0]).unwrap(),
         vec![1]
     );
-    assert!(matches!(source.evaluate(&[1]), Min(Some(v)) if v.abs() < EPS));
+    assert!(matches!(source.evaluate(&[1]).unwrap(), Min(Some(v)) if v.abs() < EPS));
 }
 
 #[test]
@@ -57,10 +61,13 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_sample_per_link() 
         (0.0, 4.5),
         vec![vec![FRAC_PI_2], vec![FRAC_PI_2], vec![FRAC_PI_2]],
         vec![vec![(0, 0)], vec![(0, 0)]],
-    );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(reduction.target_problem());
+    let qubo_solutions = solver
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
 
     assert_eq!(reduction.target_problem().num_vars(), 3);
     assert_eq!(qubo_solutions, vec![vec![1, 1, 1]]);
@@ -68,7 +75,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_sample_per_link() 
         reduction.extract_solution(&qubo_solutions[0]).unwrap(),
         vec![0, 0, 0]
     );
-    assert!(matches!(source.evaluate(&[0, 0, 0]), Min(Some(v)) if v.abs() < EPS));
+    assert!(matches!(source.evaluate(&[0, 0, 0]).unwrap(), Min(Some(v)) if v.abs() < EPS));
 }
 
 #[test]
@@ -78,16 +85,19 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_empty_allowed_pairs() {
         (2.0, 0.0),
         vec![vec![0.0, FRAC_PI_2], vec![0.0, FRAC_PI_2]],
         vec![vec![]],
-    );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(reduction.target_problem());
+    let qubo_solutions = solver
+        .find_all_witnesses(reduction.target_problem())
+        .unwrap();
 
-    assert_eq!(solver.solve(&source), Min(None));
+    assert_eq!(solver.solve(&source).unwrap(), Min(None));
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
     for target_solution in qubo_solutions {
         let extracted = reduction.extract_solution(&target_solution).unwrap();
-        assert_eq!(source.evaluate(&extracted), Min(None));
+        assert_eq!(source.evaluate(&extracted).unwrap(), Min(None));
     }
 }
 
@@ -106,6 +116,6 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
     );
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.target.instance["num_vars"], 4);
-    assert_eq!(example.solutions[0].source_config, vec![0_usize, 1]);
-    assert_eq!(example.solutions[0].target_config, vec![1_usize, 0, 0, 1]);
+    assert_eq!(example.solutions[0].source_config, vec![0, 1]);
+    assert_eq!(example.solutions[0].target_config, vec![1, 0, 0, 1]);
 }

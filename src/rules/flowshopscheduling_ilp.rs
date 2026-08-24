@@ -1,4 +1,4 @@
-//! Reduction from FlowShopScheduling to ILP<i32>.
+//! Reduction from FlowShopScheduling to `ILP<i64>`.
 //!
 //! Binary order variables y_{i,j} with y_{i,j}=1 iff job i precedes job j,
 //! integer completion-time variables C_{j,q} for each job j and machine q.
@@ -10,8 +10,9 @@ use crate::models::misc::FlowShopScheduling;
 use crate::reduction;
 use crate::rules::ilp_helpers::permutation_to_lehmer;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing FlowShopScheduling to ILP<i32>.
+/// Result of reducing FlowShopScheduling to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `y_{i,j}` for each ordered pair (i,j) with i<j: index `i*n + j - (i+1)*(i+2)/2`
@@ -21,7 +22,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n*(n-1)/2 + n*m variables.
 #[derive(Debug, Clone)]
 pub struct ReductionFSSToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_jobs: usize,
     num_machines: usize,
     num_order_vars: usize,
@@ -45,9 +46,9 @@ impl ReductionFSSToILP {
 
 impl ReductionResult for ReductionFSSToILP {
     type Source = FlowShopScheduling;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -82,10 +83,10 @@ impl ReductionResult for ReductionFSSToILP {
     num_vars = "num_jobs * (num_jobs - 1) / 2 + num_jobs * num_processors",
     num_constraints = "num_jobs * (num_jobs - 1) + num_jobs + num_jobs * (num_processors - 1) + num_jobs * (num_jobs - 1) * num_processors + num_jobs",
 })]
-impl ReduceTo<ILP<i32>> for FlowShopScheduling {
+impl ReduceTo<ILP<i64>> for FlowShopScheduling {
     type Result = ReductionFSSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_jobs();
         let m = self.num_processors();
 
@@ -103,6 +104,26 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
 
         let p = self.task_lengths();
         let d = self.deadline();
+        let p_f64 =
+            p.iter()
+                .map(|row| {
+                    row.iter()
+                        .copied()
+                        .map(i64_to_exact_f64)
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        FlowShopScheduling,
+                        ILP<i64>,
+                    >(error)
+                })?;
+        let deadline = i64_to_exact_f64(d).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<FlowShopScheduling, ILP<i64>>(
+                error,
+            )
+        })?;
 
         // Big-M: D + max processing time
         let max_p = p
@@ -111,7 +132,16 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
             .copied()
             .max()
             .unwrap_or(0);
-        let big_m = (d + max_p) as f64;
+        let big_m_i64 = d.checked_add(max_p).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<FlowShopScheduling, ILP<i64>>(
+                "computing the flow-shop big-M bound",
+            )
+        })?;
+        let big_m = i64_to_exact_f64(big_m_i64).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<FlowShopScheduling, ILP<i64>>(
+                error,
+            )
+        })?;
 
         let mut constraints = Vec::new();
 
@@ -126,20 +156,17 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
         }
 
         // 2. C_{j,0} >= p_{j,0} for all j
-        for (j, p_j) in p.iter().enumerate() {
-            constraints.push(LinearConstraint::ge(
-                vec![(c_var(j, 0), 1.0)],
-                p_j[0] as f64,
-            ));
+        for (j, p_j) in p_f64.iter().enumerate() {
+            constraints.push(LinearConstraint::ge(vec![(c_var(j, 0), 1.0)], p_j[0]));
         }
 
         // 3. Machine chain: C_{j,q+1} >= C_{j,q} + p_{j,q+1} for all j, q in 0..m-1
-        for (j, p_j) in p.iter().enumerate() {
+        for (j, p_j) in p_f64.iter().enumerate() {
             for q in 0..(m.saturating_sub(1)) {
                 // C_{j,q+1} - C_{j,q} >= p_{j,q+1}
                 constraints.push(LinearConstraint::ge(
                     vec![(c_var(j, q + 1), 1.0), (c_var(j, q), -1.0)],
-                    p_j[q + 1] as f64,
+                    p_j[q + 1],
                 ));
             }
         }
@@ -161,7 +188,7 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
         //   = C_{j,q} - C_{i,q} + M - M*y_{i,j} >= p_{j,q}
         //   = C_{j,q} - C_{i,q} - M*y_{i,j} >= p_{j,q} - M
         for i in 0..n {
-            for (j, p_j) in p.iter().enumerate() {
+            for (j, p_j) in p_f64.iter().enumerate() {
                 if i == j {
                     continue;
                 }
@@ -176,7 +203,7 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
                                 (c_var(i, q), -1.0),
                                 (order_var(i, j), -big_m),
                             ],
-                            p_jq as f64 - big_m,
+                            p_jq - big_m,
                         ));
                     } else {
                         // i > j: y_{j,i} is stored. y_{i,j} = 1 - y_{j,i}.
@@ -189,7 +216,7 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
                                 (c_var(i, q), -1.0),
                                 (order_var(j, i), big_m),
                             ],
-                            p_jq as f64,
+                            p_jq,
                         ));
                     }
                 }
@@ -199,16 +226,16 @@ impl ReduceTo<ILP<i32>> for FlowShopScheduling {
         // 5. Deadline: C_{j,m-1} <= D for all j
         if m > 0 {
             for j in 0..n {
-                constraints.push(LinearConstraint::le(vec![(c_var(j, m - 1), 1.0)], d as f64));
+                constraints.push(LinearConstraint::le(vec![(c_var(j, m - 1), 1.0)], deadline));
             }
         }
 
-        ReductionFSSToILP {
+        Ok(ReductionFSSToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_jobs: n,
             num_machines: m,
             num_order_vars,
-        }
+        })
     }
 }
 
@@ -219,7 +246,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 2 machines, 3 jobs, deadline 10
             let source = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

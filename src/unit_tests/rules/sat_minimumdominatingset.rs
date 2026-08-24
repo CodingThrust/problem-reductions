@@ -11,7 +11,8 @@ include!("../jl_helpers.rs");
 fn test_sat_to_minimumdominatingset_closed_loop() {
     // Simple SAT: (x1) - one variable, one clause
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     // Should have 3 vertices (variable gadget) + 1 clause vertex = 4 vertices
@@ -27,7 +28,8 @@ fn test_sat_to_minimumdominatingset_closed_loop() {
 fn test_two_variable_sat_to_ds() {
     // SAT: (x1 OR x2)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     // 2 variables * 3 = 6 gadget vertices + 1 clause vertex = 7
@@ -44,7 +46,8 @@ fn test_two_variable_sat_to_ds() {
 fn test_extract_solution_positive_literal() {
     // (x1) - select positive literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     // Solution: select vertex 0 (positive literal x1)
     // This dominates vertices 1, 2 (gadget) and vertex 3 (clause)
@@ -57,7 +60,8 @@ fn test_extract_solution_positive_literal() {
 fn test_extract_solution_negative_literal() {
     // (NOT x1) - select negative literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     // Solution: select vertex 1 (negative literal NOT x1)
     // This dominates vertices 0, 2 (gadget) and vertex 3 (clause)
@@ -70,7 +74,8 @@ fn test_extract_solution_negative_literal() {
 fn test_extract_solution_dummy() {
     // (x1 OR x2) where only x1 matters
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     // Select: vertex 0 (x1 positive) and vertex 5 (x2 dummy)
     // Vertex 0 dominates: itself, 1, 2, and clause 6
@@ -86,7 +91,8 @@ fn test_ds_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     // 3 vars * 3 = 9 gadget vertices + 2 clause vertices = 11
@@ -97,7 +103,8 @@ fn test_ds_structure() {
 fn test_empty_sat() {
     // Empty SAT (trivially satisfiable)
     let sat = Satisfiability::new(0, vec![]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     assert_eq!(ds_problem.graph().num_vertices(), 0);
@@ -110,7 +117,8 @@ fn test_empty_sat() {
 fn test_multiple_literals_same_variable() {
     // Clause with repeated variable: (x1 OR NOT x1) - tautology
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1, -1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     // 3 gadget vertices + 1 clause vertex = 4
@@ -125,7 +133,8 @@ fn test_multiple_literals_same_variable() {
 #[test]
 fn test_accessors() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     assert_eq!(reduction.num_literals(), 2);
     assert_eq!(reduction.num_clauses(), 1);
@@ -134,7 +143,8 @@ fn test_accessors() {
 #[test]
 fn test_extract_solution_too_many_selected() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     let ds_sol = vec![1, 1, 0, 0];
     assert_eq!(
@@ -146,7 +156,8 @@ fn test_extract_solution_too_many_selected() {
 #[test]
 fn test_extract_solution_rejects_unselected_variable_gadget() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     assert_eq!(
         reduction
@@ -160,7 +171,8 @@ fn test_extract_solution_rejects_unselected_variable_gadget() {
 #[test]
 fn test_extract_solution_rejects_selected_clause_vertex() {
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
 
     assert_eq!(
         reduction
@@ -175,7 +187,8 @@ fn test_extract_solution_rejects_selected_clause_vertex() {
 fn test_negated_variable_connection() {
     // (NOT x1 OR NOT x2) - both negated
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![-1, -2])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
+        .expect("reduction should succeed");
     let ds_problem = reduction.target_problem();
 
     // 2 * 3 = 6 gadget vertices + 1 clause = 7
@@ -223,10 +236,14 @@ fn test_jl_parity_sat_to_dominatingset() {
         let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
         let (num_vars, clauses) = jl_parse_sat_clauses(inst);
         let source = Satisfiability::new(num_vars, clauses);
-        let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&source);
+        let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source)
+            .expect("reduction should succeed");
         let solver = BruteForce::new();
-        let sat_solutions: HashSet<Vec<usize>> =
-            solver.find_all_witnesses(&source).into_iter().collect();
+        let sat_solutions: HashSet<Vec<usize>> = solver
+            .find_all_witnesses(&source)
+            .unwrap()
+            .into_iter()
+            .collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
                 let target_solution = solve_optimization_problem(result.target_problem())

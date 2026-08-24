@@ -8,15 +8,15 @@ fn test_setpacking_to_qubo_closed_loop() {
     // Overlaps: (0,1) share element 2, (0,2) share element 0
     // Max packing: sets 1 and 2 → {1,2} and {0,3} (no overlap)
     let sp = MaximumSetPacking::<f64>::new(vec![vec![0, 2], vec![1, 2], vec![0, 3]]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        assert!(sp.evaluate(&extracted).is_valid());
+        assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -25,15 +25,15 @@ fn test_setpacking_to_qubo_closed_loop() {
 fn test_setpacking_to_qubo_disjoint() {
     // Disjoint sets: all can be packed
     let sp = MaximumSetPacking::<f64>::new(vec![vec![0, 1], vec![2, 3], vec![4]]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        assert!(sp.evaluate(&extracted).is_valid());
+        assert!(sp.evaluate(&extracted).unwrap().is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
     }
@@ -43,15 +43,15 @@ fn test_setpacking_to_qubo_disjoint() {
 fn test_setpacking_to_qubo_all_overlap() {
     // All sets overlap: only 1 can be selected
     let sp = MaximumSetPacking::<f64>::new(vec![vec![0, 1], vec![0, 2], vec![0, 3]]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        assert!(sp.evaluate(&extracted).is_valid());
+        assert!(sp.evaluate(&extracted).unwrap().is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
     }
 }
@@ -59,7 +59,7 @@ fn test_setpacking_to_qubo_all_overlap() {
 #[test]
 fn test_setpacking_to_qubo_structure() {
     let sp = MaximumSetPacking::<f64>::new(vec![vec![0, 2], vec![1, 2], vec![0, 3]]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // QUBO should have same number of variables as sets

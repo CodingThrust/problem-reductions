@@ -12,8 +12,6 @@ pub(super) struct CreateContext {
 pub(crate) enum InputValueKind {
     Text,
     Usize,
-    U64,
-    I32,
     I64,
     F64,
     Bool,
@@ -400,8 +398,6 @@ fn insert_create_input(
 fn input_value_kind(concrete_type: &str) -> InputValueKind {
     match normalize_type_name(concrete_type).as_str() {
         "usize" => InputValueKind::Usize,
-        "u64" => InputValueKind::U64,
-        "i32" => InputValueKind::I32,
         "i64" => InputValueKind::I64,
         "f64" => InputValueKind::F64,
         "bool" => InputValueKind::Bool,
@@ -437,9 +433,9 @@ pub(super) fn resolve_schema_field_type(
 
 pub(super) fn weight_sum_type(weight_type: &str) -> &'static str {
     match weight_type {
-        "One" | "i32" => "i64",
+        "One" | "i64" => "i64",
         "f64" => "f64",
-        _ => "i32",
+        _ => "i64",
     }
 }
 
@@ -514,41 +510,34 @@ pub(super) fn parse_field_value(
         "KingsSubgraph" => parse_grid_subgraph_value(raw, true)?,
         "TriangularSubgraph" => parse_grid_subgraph_value(raw, false)?,
         "UnitDiskGraph" => parse_unit_disk_graph_value(raw, context)?,
-        "Vec<i32>" => parse_numeric_list_value::<i32>(raw)?,
-        "Vec<f64>" => parse_numeric_list_value::<f64>(raw)?,
-        "Vec<u64>" => parse_numeric_list_value::<u64>(raw)?,
         "Vec<i64>" => parse_numeric_list_value::<i64>(raw)?,
+        "Vec<f64>" => parse_numeric_list_value::<f64>(raw)?,
         "Vec<usize>" => parse_numeric_list_value::<usize>(raw)?,
-        "Vec<One>" => parse_numeric_list_value::<i32>(raw)?,
+        "Vec<One>" => parse_numeric_list_value::<i64>(raw)?,
         "Vec<bool>" => parse_bool_list_value(raw)?,
         "Vec<Vec<usize>>" => parse_nested_numeric_list_value::<usize>(raw)?,
-        "Vec<Vec<u64>>" => parse_nested_numeric_list_value::<u64>(raw)?,
-        "Vec<Vec<i32>>" => parse_nested_numeric_list_value::<i32>(raw)?,
         "Vec<Vec<i64>>" => parse_nested_numeric_list_value::<i64>(raw)?,
         "Vec<Vec<f64>>" => parse_nested_numeric_list_value::<f64>(raw)?,
-        "Vec<Vec<One>>" => parse_nested_numeric_list_value::<i32>(raw)?,
+        "Vec<Vec<One>>" => parse_nested_numeric_list_value::<i64>(raw)?,
         "Vec<Vec<bool>>" => parse_bool_rows_value(raw, field_name)?,
         "Vec<Vec<Vec<usize>>>" => parse_3d_numeric_list_value::<usize>(raw)?,
         "Vec<Vec<Vec<i64>>>" => parse_3d_numeric_list_value::<i64>(raw)?,
         "Vec<[usize;3]>" => parse_triple_array_list_value(raw)?,
         "Vec<CNFClause>" => serde_json::to_value(parse_clauses_raw(raw)?)?,
         "Vec<(usize,usize)>" => parse_pair_list_value(raw)?,
-        "Vec<(u64,u64)>" => parse_semicolon_tuple_list_value::<u64, 2>(raw)?,
         "Vec<(usize,f64)>" => parse_indexed_numeric_pairs_value::<f64>(raw)?,
         "Vec<(usize,usize,usize)>" => parse_semicolon_tuple_list_value::<usize, 3>(raw)?,
         "Vec<(usize,usize,usize,usize)>" => parse_semicolon_tuple_list_value::<usize, 4>(raw)?,
-        "Vec<(usize,usize,One)>" => parse_weighted_edge_list_value::<i32>(raw)?,
-        "Vec<(usize,usize,i32)>" => parse_weighted_edge_list_value::<i32>(raw)?,
+        "Vec<(usize,usize,One)>" => parse_weighted_edge_list_value::<i64>(raw)?,
         "Vec<(usize,usize,i64)>" => parse_weighted_edge_list_value::<i64>(raw)?,
-        "Vec<(usize,usize,u64)>" => parse_weighted_edge_list_value::<u64>(raw)?,
         "Vec<(usize,usize,f64)>" => parse_weighted_edge_list_value::<f64>(raw)?,
         "Vec<(Vec<usize>,Vec<usize>)>" => serde_json::to_value(parse_dependencies(raw)?)?,
         "Vec<(Vec<usize>,usize)>" => serde_json::to_value(parse_implications(raw)?)?,
         "Vec<(usize,Vec<QueryArg>)>" => serde_json::to_value(parse_cbq_conjuncts(raw, context)?)?,
         "Vec<(usize,Vec<usize>)>" => parse_indexed_usize_lists_value(raw)?,
-        "Vec<Vec<(usize,u64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
+        "Vec<Vec<(usize,i64)>>" => serde_json::to_value(parse_job_shop_jobs(raw)?)?,
         "Vec<(f64,f64)>" => serde_json::to_value(util::parse_positions::<f64>(raw, "0.0,0.0")?)?,
-        "Vec<(i32,i32)>" => serde_json::to_value(util::parse_positions::<i32>(raw, "0,0")?)?,
+        "Vec<(i64,i64)>" => serde_json::to_value(util::parse_positions::<i64>(raw, "0,0")?)?,
         "(f64,f64)" => parse_f64_pair_value(raw)?,
         "Vec<Vec<(usize,usize)>>" => parse_nested_pair_list_value(raw)?,
         "Vec<FrequencyTable>" => {
@@ -566,8 +555,6 @@ pub(super) fn parse_field_value(
         "bool" => serde_json::to_value(parse_bool_token(raw.trim())?)?,
         "One" => serde_json::json!(1),
         "usize" => parse_scalar_value::<usize>(raw)?,
-        "u64" => parse_scalar_value::<u64>(raw)?,
-        "i32" => parse_scalar_value::<i32>(raw)?,
         "i64" => parse_scalar_value::<i64>(raw)?,
         "f64" => parse_scalar_value::<f64>(raw)?,
         other => bail!("Unsupported schema parser for field '{field_name}' with type '{other}'"),
@@ -661,10 +648,10 @@ pub(super) fn parse_triple_array_list_value(raw: &str) -> Result<serde_json::Val
 pub(super) fn parse_clauses_raw(raw: &str) -> Result<Vec<CNFClause>> {
     raw.split(';')
         .map(|clause| {
-            let literals: Vec<i32> = clause
+            let literals: Vec<i64> = clause
                 .trim()
                 .split(',')
-                .map(|value| value.trim().parse::<i32>())
+                .map(|value| value.trim().parse::<i64>())
                 .collect::<std::result::Result<Vec<_>, _>>()?;
             Ok(CNFClause::new(literals))
         })
@@ -1173,7 +1160,7 @@ pub(super) fn parse_labelled_digraph_value(
             let src: usize = parts[0].trim().parse().map_err(|err| {
                 anyhow::anyhow!("{flag}: invalid arc source '{}': {err}", parts[0].trim())
             })?;
-            let label: u32 = parts[1].trim().parse().map_err(|err| {
+            let label: usize = parts[1].trim().parse().map_err(|err| {
                 anyhow::anyhow!("{flag}: invalid arc label '{}': {err}", parts[1].trim())
             })?;
             let dst: usize = parts[2].trim().parse().map_err(|err| {
@@ -1198,7 +1185,7 @@ pub(super) fn parse_labelled_digraph_value(
 }
 
 pub(super) fn parse_grid_subgraph_value(raw: &str, kings: bool) -> Result<serde_json::Value> {
-    let positions = util::parse_positions::<i32>(raw, "0,0")?;
+    let positions = util::parse_positions::<i64>(raw, "0,0")?;
     if kings {
         Ok(serde_json::to_value(KingsSubgraph::new(positions))?)
     } else {
@@ -1214,7 +1201,9 @@ pub(super) fn parse_unit_disk_graph_value(
     let radius = context
         .f64_field("radius")
         .ok_or_else(|| anyhow::anyhow!("UnitDiskGraph parsing requires a prior radius field"))?;
-    Ok(serde_json::to_value(UnitDiskGraph::new(positions, radius))?)
+    Ok(serde_json::to_value(
+        UnitDiskGraph::new(positions, radius).map_err(anyhow::Error::msg)?,
+    )?)
 }
 
 pub(super) fn help_flag_name(field_name: &str) -> String {

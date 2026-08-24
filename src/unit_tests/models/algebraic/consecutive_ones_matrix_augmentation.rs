@@ -58,7 +58,7 @@ fn test_consecutive_ones_matrix_augmentation_basic() {
 fn test_consecutive_ones_matrix_augmentation_yes_instance() {
     let problem = ConsecutiveOnesMatrixAugmentation::new(issue_yes_matrix(), 2);
 
-    assert!(problem.evaluate(&[0, 1, 4, 2, 3]));
+    assert!(problem.evaluate(&[0, 1, 4, 2, 3]).unwrap());
 }
 
 #[test]
@@ -66,16 +66,16 @@ fn test_consecutive_ones_matrix_augmentation_no_instance() {
     let problem = ConsecutiveOnesMatrixAugmentation::new(issue_no_matrix(), 0);
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_consecutive_ones_matrix_augmentation_invalid_permutations() {
     let problem = ConsecutiveOnesMatrixAugmentation::new(issue_yes_matrix(), 2);
 
-    assert!(!problem.evaluate(&[0, 1, 4, 2]));
-    assert!(!problem.evaluate(&[0, 1, 4, 2, 5]));
-    assert!(!problem.evaluate(&[0, 1, 4, 2, 2]));
+    assert!(!problem.evaluate(&[0, 1, 4, 2]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 4, 2, 5]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 4, 2, 2]).unwrap());
 }
 
 #[test]
@@ -136,9 +136,9 @@ fn test_consecutive_ones_matrix_augmentation_all_zero_row() {
     );
 
     // Permutation [0, 1, 2] — row 0 has gap, row 1 has no 1s (0 cost), row 2 is fine
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
     // Permutation [0, 2, 1] — row 0: [1,1,0] consecutive, row 1: all zeros (0 cost), row 2: [0,0,1] consecutive
-    assert!(problem.evaluate(&[0, 2, 1]));
+    assert!(problem.evaluate(&[0, 2, 1]).unwrap());
 }
 
 #[test]

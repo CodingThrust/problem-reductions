@@ -75,7 +75,7 @@ inventory::submit! {
 /// let problem = HighlyConnectedDeletion::new(graph);
 ///
 /// // Optimal: delete only the leaf edge (2,3) → K3 + isolated {3}.
-/// assert_eq!(BruteForce::new().solve(&problem), Min(Some(1)));
+/// assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
@@ -127,12 +127,19 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        if !is_feasible_deletion(&self.graph, config) {
-            return Min(None);
-        }
-        let deleted: i64 = config.iter().filter(|&&x| x == 1).count() as i64;
-        Min(Some(deleted))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_feasible_deletion(&self.graph, config) {
+                return Ok(Min(None));
+            }
+            let deleted =
+                i64::try_from(config.iter().filter(|&&x| x == 1).count()).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting deleted-edge count to i64".into(),
+                    )
+                })?;
+            Min(Some(deleted))
+        })
     }
 }
 
@@ -223,7 +230,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
     // current residual capacity.
     let in_component: HashSet<usize> = vertices.iter().copied().collect();
     let mut head: Vec<usize> = Vec::new();
-    let mut cap: Vec<i32> = Vec::new();
+    let mut cap: Vec<u8> = Vec::new();
     let mut out: Vec<Vec<usize>> = vec![Vec::new(); size];
 
     let mut seen_edges: HashSet<(usize, usize)> = HashSet::new();
@@ -260,7 +267,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
         let mut flow = 0usize;
         loop {
             // BFS to find an augmenting path with positive residual capacity.
-            let mut parent_arc: Vec<i32> = vec![-1; size];
+            let mut parent_arc: Vec<Option<usize>> = vec![None; size];
             let mut visited = vec![false; size];
             visited[s] = true;
             let mut queue: VecDeque<usize> = VecDeque::new();
@@ -273,7 +280,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
                     let v = head[a];
                     if !visited[v] && cap[a] > 0 {
                         visited[v] = true;
-                        parent_arc[v] = a as i32;
+                        parent_arc[v] = Some(a);
                         queue.push_back(v);
                     }
                 }
@@ -284,7 +291,7 @@ fn edge_connectivity(vertices: &[usize], adj: &[Vec<usize>]) -> usize {
             // Augment by 1 (unit capacities).
             let mut cur = t;
             while cur != s {
-                let a = parent_arc[cur] as usize;
+                let a = parent_arc[cur].expect("visited vertex has a BFS parent arc");
                 cap[a] -= 1;
                 cap[a ^ 1] += 1;
                 // The originating endpoint is the head of the reverse arc.

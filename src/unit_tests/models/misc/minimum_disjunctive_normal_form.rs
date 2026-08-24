@@ -39,14 +39,14 @@ fn test_minimum_dnf_evaluate_all_selected() {
     let problem = issue_instance();
     // Select all prime implicants — valid but not minimal
     let config = vec![1; 6];
-    assert_eq!(problem.evaluate(&config), Min(Some(6)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
 }
 
 #[test]
 fn test_minimum_dnf_evaluate_none_selected() {
     let problem = issue_instance();
     let config = vec![0; 6];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -54,14 +54,14 @@ fn test_minimum_dnf_evaluate_insufficient() {
     let problem = issue_instance();
     // Select only the first prime implicant — covers at most 2 minterms, not all 6
     let config = vec![1, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_dnf_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Min(Some(3)));
 }
 
@@ -69,11 +69,11 @@ fn test_minimum_dnf_solver() {
 fn test_minimum_dnf_all_witnesses() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(&problem);
+    let witnesses = solver.find_all_witnesses(&problem).unwrap();
     // Should be exactly 2 optimal covers of size 3
     assert_eq!(witnesses.len(), 2);
     for w in &witnesses {
-        assert_eq!(problem.evaluate(w), Min(Some(3)));
+        assert_eq!(problem.evaluate(w).unwrap(), Min(Some(3)));
     }
 }
 
@@ -95,7 +95,7 @@ fn test_minimum_dnf_two_variables() {
     assert_eq!(problem.num_prime_implicants(), 2);
 
     let solver = BruteForce::new();
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Min(Some(2))); // Both PIs needed
 }
 
@@ -106,7 +106,7 @@ fn test_minimum_dnf_single_minterm() {
     assert_eq!(problem.minterms(), &[3]);
     assert_eq!(problem.num_prime_implicants(), 1); // x1∧x2
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Min(Some(1)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -114,13 +114,13 @@ fn test_minimum_dnf_tautology_minus_one() {
     // f = all true except 000 and 111 (same as issue example)
     let problem = issue_instance();
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Min(Some(3)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(3)));
 }
 
 #[test]
 fn test_minimum_dnf_wrong_config_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[1, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(None));
 }
 
 #[test]

@@ -65,7 +65,7 @@ struct LengthBoundedDisjointPathsRandomSpec {
     /// Independent edge probability (default: 0.5).
     edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    seed: Option<u64>,
+    seed: Option<i64>,
     /// Source vertex (default: 0).
     source: Option<usize>,
     /// Sink vertex (default: the final vertex).
@@ -75,15 +75,17 @@ struct LengthBoundedDisjointPathsRandomSpec {
 }
 
 impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPaths<SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: LengthBoundedDisjointPathsCreateSpec) -> Result<Self, Self::Error> {
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
-            return Err("num_vertices is required for an empty graph".to_string());
+            return Err("num_vertices is required for an empty graph"
+                .to_string()
+                .into());
         }
         for (index, &(u, v)) in spec.graph.iter().enumerate() {
             if u == v {
-                return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+                return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
             }
         }
         let inferred = spec
@@ -98,16 +100,18 @@ impl TryFrom<LengthBoundedDisjointPathsCreateSpec> for LengthBoundedDisjointPath
         if num_vertices < inferred {
             return Err(format!(
                 "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-            ));
+            ).into());
         }
         if spec.source >= num_vertices || spec.sink >= num_vertices {
-            return Err("source and sink must be valid graph vertices".to_string());
+            return Err("source and sink must be valid graph vertices"
+                .to_string()
+                .into());
         }
         if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string());
+            return Err("source and sink must be distinct".to_string().into());
         }
         if spec.max_length == 0 {
-            return Err("max_length must be positive".to_string());
+            return Err("max_length must be positive".to_string().into());
         }
 
         let graph = SimpleGraph::new(num_vertices, spec.graph);
@@ -199,7 +203,7 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "LengthBoundedDisjointPaths";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -209,7 +213,7 @@ where
         vec![2; self.max_paths * self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
         validate_path_collection(
             &self.graph,
             self.source,
@@ -230,18 +234,18 @@ fn validate_path_collection<G: Graph>(
     max_paths: usize,
     max_length: usize,
     config: &[usize],
-) -> Max<usize> {
+) -> Result<Max<i64>, crate::traits::EvaluationError> {
     let num_vertices = graph.num_vertices();
     if config.len() != max_paths * num_vertices {
-        return Max(None);
+        return Ok(Max(None));
     }
     if config.iter().any(|&value| value > 1) {
-        return Max(None);
+        return Ok(Max(None));
     }
 
     let mut used_internal = vec![false; num_vertices];
     let mut used_direct_path = false;
-    let mut count = 0usize;
+    let mut count = 0_i64;
     for slot in config.chunks(num_vertices) {
         // Check if slot is empty (all zeros)
         if slot.iter().all(|&v| v == 0) {
@@ -256,11 +260,13 @@ fn validate_path_collection<G: Graph>(
             &mut used_internal,
             &mut used_direct_path,
         ) {
-            return Max(None);
+            return Ok(Max(None));
         }
-        count += 1;
+        count = count.checked_add(1).ok_or_else(|| {
+            crate::traits::EvaluationError::IntegerOverflow("counting disjoint paths".to_string())
+        })?;
     }
-    Max(Some(count))
+    Ok(Max(Some(count)))
 }
 
 fn is_valid_path_slot<G: Graph>(
@@ -391,7 +397,7 @@ crate::impl_random_generate!(
         let (source, sink) = endpoints.endpoints()?;
         let max_length = spec.max_length.unwrap_or(spec.num_vertices - 1);
         if max_length == 0 {
-            return Err("max_length must be positive".to_string());
+            return Err("max_length must be positive".to_string().into());
         }
         Ok(LengthBoundedDisjointPaths::new(
             endpoints.graph()?,

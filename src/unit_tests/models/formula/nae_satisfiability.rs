@@ -30,33 +30,33 @@ fn test_nae_satisfiability_creation() {
 fn test_nae_clause_requires_true_and_false_literals() {
     let problem = NAESatisfiability::new(3, vec![CNFClause::new(vec![1, 2, -3])]);
 
-    assert!(problem.evaluate(&[0, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 0]));
-    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_nae_clause_with_literal_and_negation_is_always_satisfied() {
     let problem = NAESatisfiability::new(1, vec![CNFClause::new(vec![1, -1])]);
 
-    assert!(problem.evaluate(&[0]));
-    assert!(problem.evaluate(&[1]));
+    assert!(problem.evaluate(&[0]).unwrap());
+    assert!(problem.evaluate(&[1]).unwrap());
 }
 
 #[test]
 fn test_nae_satisfying_example_from_issue() {
     let problem = issue_problem();
 
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1]));
-    assert!(problem.is_valid_solution(&[0, 0, 0, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1]).unwrap());
+    assert!(problem.is_valid_solution(&[0, 0, 0, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_nae_complement_symmetry_for_issue_example() {
     let problem = issue_problem();
 
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1]));
-    assert!(problem.evaluate(&[1, 1, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1]).unwrap());
+    assert!(problem.evaluate(&[1, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -64,7 +64,7 @@ fn test_nae_solver_counts_ten_solutions_for_issue_example() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     let set: HashSet<Vec<usize>> = solutions.into_iter().collect();
 
     assert_eq!(set.len(), 10);
@@ -77,10 +77,10 @@ fn test_nae_empty_formula_is_trivially_satisfying() {
     let problem = NAESatisfiability::new(0, vec![]);
     let solver = BruteForce::new();
 
-    assert!(problem.evaluate(&[]));
-    assert_eq!(solver.find_witness(&problem), Some(vec![]));
+    assert!(problem.evaluate(&[]).unwrap());
+    assert_eq!(solver.find_witness(&problem).unwrap(), Some(vec![]));
     assert_eq!(
-        solver.find_all_witnesses(&problem),
+        solver.find_all_witnesses(&problem).unwrap(),
         vec![Vec::<usize>::new()]
     );
 }
@@ -107,7 +107,9 @@ fn test_nae_get_clause_and_num_literals() {
     assert_eq!(problem.get_clause(0), Some(&CNFClause::new(vec![1, 2, -3])));
     assert_eq!(problem.get_clause(5), None);
     assert_eq!(
-        problem.count_nae_satisfied(&[false, false, false, true, true]),
+        problem
+            .count_nae_satisfied(&[false, false, false, true, true])
+            .unwrap(),
         5
     );
 }
@@ -121,7 +123,7 @@ fn test_nae_serialization_round_trip() {
     assert_eq!(round_trip.num_vars(), problem.num_vars());
     assert_eq!(round_trip.num_clauses(), problem.num_clauses());
     assert_eq!(round_trip.num_literals(), problem.num_literals());
-    assert!(round_trip.evaluate(&[0, 0, 0, 1, 1]));
+    assert!(round_trip.evaluate(&[0, 0, 0, 1, 1]).unwrap());
 }
 
 #[test]
@@ -137,7 +139,7 @@ fn test_nae_satisfiability_paper_example() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1]));
-    assert!(problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert_eq!(solver.find_all_witnesses(&problem).len(), 10);
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1]).unwrap());
+    assert!(problem.evaluate(&[1, 1, 1, 0, 0]).unwrap());
+    assert_eq!(solver.find_all_witnesses(&problem).unwrap().len(), 10);
 }

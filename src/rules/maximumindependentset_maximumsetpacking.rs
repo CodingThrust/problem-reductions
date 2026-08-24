@@ -45,7 +45,7 @@ macro_rules! impl_is_to_sp {
         impl ReduceTo<MaximumSetPacking<$W>> for MaximumIndependentSet<SimpleGraph, $W> {
             type Result = ReductionISToSP<$W>;
 
-            fn reduce_to(&self) -> Self::Result {
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
                 let edges = self.graph().edges();
                 let n = self.graph().num_vertices();
 
@@ -56,15 +56,21 @@ macro_rules! impl_is_to_sp {
                     sets[v].push(edge_idx);
                 }
 
-                let target = MaximumSetPacking::with_weights(sets, self.weights().to_vec());
+                let target = MaximumSetPacking::with_weights(sets, self.weights().to_vec())
+                    .map_err(|cause| {
+                        crate::rules::ReductionError::construction::<
+                            MaximumIndependentSet<SimpleGraph, $W>,
+                            MaximumSetPacking<$W>,
+                        >(cause)
+                    })?;
 
-                ReductionISToSP { target }
+                Ok(ReductionISToSP { target })
             }
         }
     };
 }
 
-impl_is_to_sp!(i32);
+impl_is_to_sp!(i64);
 impl_is_to_sp!(One);
 
 /// Result of reducing MaximumSetPacking to MaximumIndependentSet.
@@ -101,7 +107,7 @@ macro_rules! impl_sp_to_is {
         impl ReduceTo<MaximumIndependentSet<SimpleGraph, $W>> for MaximumSetPacking<$W> {
             type Result = ReductionSPToIS<$W>;
 
-            fn reduce_to(&self) -> Self::Result {
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
                 let sets = self.sets();
                 let n = sets.len();
 
@@ -122,13 +128,13 @@ macro_rules! impl_sp_to_is {
                     self.weights_ref().clone(),
                 );
 
-                ReductionSPToIS { target }
+                Ok(ReductionSPToIS { target })
             }
         }
     };
 }
 
-impl_sp_to_is!(i32);
+impl_sp_to_is!(i64);
 impl_sp_to_is!(One);
 
 #[cfg(feature = "example-db")]
@@ -140,8 +146,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
-                crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i32>>(
+                let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
+                crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                     source,
                     SolutionPair {
                         source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
@@ -174,10 +180,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![1, 5, 7],
                     vec![3, 6],
                 ];
-                let source = MaximumSetPacking::with_weights(sets, vec![1i32; 5]);
+                let source = MaximumSetPacking::with_weights(sets, vec![1i64; 5]).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
-                    MaximumIndependentSet<SimpleGraph, i32>,
+                    MaximumIndependentSet<SimpleGraph, i64>,
                 >(
                     source,
                     SolutionPair {
@@ -197,7 +203,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![1, 5, 7],
                     vec![3, 6],
                 ];
-                let source = MaximumSetPacking::with_weights(sets, vec![One; 5]);
+                let source = MaximumSetPacking::with_weights(sets, vec![One; 5]).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
                     MaximumIndependentSet<SimpleGraph, One>,

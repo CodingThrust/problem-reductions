@@ -40,7 +40,7 @@ fn test_maximum_likelihood_ranking_evaluate_optimal() {
     // (3,1): matrix[3][1] = 2
     // (3,2): matrix[3][2] = 1
     // Total = 1 + 2 + 1 + 0 + 2 + 1 = 7
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]), Min(Some(7)));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Min(Some(7)));
 }
 
 #[test]
@@ -53,12 +53,12 @@ fn test_maximum_likelihood_ranking_evaluate_non_permutation() {
     ];
     let problem = MaximumLikelihoodRanking::new(matrix);
     // Duplicate rank
-    assert_eq!(problem.evaluate(&[0, 0, 2, 3]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 2, 3]).unwrap(), Min(None));
     // Rank out of range
-    assert_eq!(problem.evaluate(&[0, 1, 2, 4]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 4]).unwrap(), Min(None));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn test_maximum_likelihood_ranking_evaluate_suboptimal() {
     // (1,3): config[1]=2 > config[3]=0 -> matrix[1][3] = 3
     // (2,3): config[2]=1 > config[3]=0 -> matrix[2][3] = 4
     // Total = 4 + 3 + 5 + 4 + 3 + 4 = 23
-    assert_eq!(problem.evaluate(&[3, 2, 1, 0]), Min(Some(23)));
+    assert_eq!(problem.evaluate(&[3, 2, 1, 0]).unwrap(), Min(Some(23)));
 }
 
 #[test]
@@ -95,8 +95,9 @@ fn test_maximum_likelihood_ranking_solver() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let value = problem.evaluate(&solution);
+    let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(7)));
 }
 
@@ -122,14 +123,14 @@ fn test_maximum_likelihood_ranking_two_items() {
     let problem = MaximumLikelihoodRanking::new(matrix);
     // config [0,1]: item 0 at pos 0, item 1 at pos 1
     // Only pair where config[a] > config[b]: (1,0) -> matrix[1][0] = 2
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(Some(2)));
     // config [1,0]: item 0 at pos 1, item 1 at pos 0
     // Only pair where config[a] > config[b]: (0,1) -> matrix[0][1] = 3
-    assert_eq!(problem.evaluate(&[1, 0]), Min(Some(3)));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(Some(3)));
     // Optimal is [0,1] with cost 2
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(2)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -138,7 +139,7 @@ fn test_maximum_likelihood_ranking_single_item() {
     assert_eq!(problem.num_items(), 1);
     assert_eq!(problem.comparison_count(), 0);
     assert_eq!(problem.dims(), vec![1]);
-    assert_eq!(problem.evaluate(&[0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -162,11 +163,11 @@ fn test_maximum_likelihood_ranking_skew_symmetric() {
     assert_eq!(problem.comparison_count(), 0);
     // Ranking [0,1,2]: 1 backward arc (2->0, cost +1), 2 forward arcs (cost -1 each)
     // Total = 1 + (-1) + (-1) = -1 = 2*FAS - |A| = 2*1 - 3
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(Some(-1)));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(Some(-1)));
     // Optimal FAS = 1, so minimum cost = 2*1 - 3 = -1
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(-1)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(-1)));
 }
 
 #[test]

@@ -72,22 +72,26 @@ fn bit_length(value: &BigUint) -> usize {
 }
 
 impl QuadraticCongruences {
-    fn validate_inputs(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<(), String> {
+    fn validate_inputs(
+        a: &BigUint,
+        b: &BigUint,
+        c: &BigUint,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if b.is_zero() {
-            return Err("Modulus b must be positive".to_string());
+            return Err("Modulus b must be positive".to_string().into());
         }
         if c.is_zero() {
-            return Err("Bound c must be positive".to_string());
+            return Err("Bound c must be positive".to_string().into());
         }
         if a >= b {
-            return Err(format!("Residue a ({a}) must be less than modulus b ({b})"));
+            return Err(format!("Residue a ({a}) must be less than modulus b ({b})").into());
         }
         Ok(())
     }
 
     /// Create a new QuadraticCongruences instance, returning an error instead of
     /// panicking when the inputs are invalid.
-    pub fn try_new<A, B, C>(a: A, b: B, c: C) -> Result<Self, String>
+    pub fn try_new<A, B, C>(a: A, b: B, c: C) -> Result<Self, crate::registry::ConstructionError>
     where
         A: ToBigUint,
         B: ToBigUint,
@@ -239,17 +243,19 @@ impl Problem for QuadraticCongruences {
         }
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        let Some(x) = self.decode_witness(config) else {
-            return Or(false);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            let Some(x) = self.decode_witness(config) else {
+                return Ok(Or(false));
+            };
 
-        if x.is_zero() || x >= *self.c() {
-            return Or(false);
-        }
+            if x.is_zero() || x >= *self.c() {
+                return Ok(Or(false));
+            }
 
-        let satisfies = (&x * &x) % self.b() == self.a().clone();
-        Or(satisfies)
+            let satisfies = (&x * &x) % self.b() == self.a().clone();
+            Or(satisfies)
+        })
     }
 }
 

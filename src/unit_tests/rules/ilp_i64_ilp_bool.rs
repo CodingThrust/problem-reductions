@@ -3,13 +3,13 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
-/// Helper: brute-force solve a small ILP<bool>, extract solution back to ILP<i32>,
+/// Helper: brute-force solve a small `ILP<bool>`, extract solution back to `ILP<i64>`,
 /// and return (source_config, source_obj).
-fn solve_via_bool(source: &ILP<i32>) -> Option<(Vec<usize>, f64)> {
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(source);
+fn solve_via_bool(source: &ILP<i64>) -> Option<(Vec<usize>, f64)> {
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target)?;
+    let witness = solver.find_witness(target).unwrap()?;
     let source_config = reduction.extract_solution(&witness).unwrap();
     let values: Vec<i64> = source_config.iter().map(|&c| c as i64).collect();
     let obj = source.evaluate_objective(&values);
@@ -17,9 +17,9 @@ fn solve_via_bool(source: &ILP<i32>) -> Option<(Vec<usize>, f64)> {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_closed_loop() {
+fn test_ilp_i64_to_ilp_bool_closed_loop() {
     // Minimize -5x0 - 6x1, s.t. x0 + x1 <= 5, 4x0 + 7x1 <= 28
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
@@ -43,9 +43,9 @@ fn test_ilp_i32_to_ilp_bool_closed_loop() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_maximize() {
+fn test_ilp_i64_to_ilp_bool_maximize() {
     // Maximize 3x0 + 5x1, s.t. x0 <= 4, x1 <= 3, x0 + x1 <= 6
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0)], 4.0),
@@ -67,9 +67,9 @@ fn test_ilp_i32_to_ilp_bool_maximize() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_empty() {
-    let source = ILP::<i32>::empty();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+fn test_ilp_i64_to_ilp_bool_empty() {
+    let source = ILP::<i64>::empty();
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.num_vars, 0);
     assert!(target.constraints.is_empty());
@@ -77,16 +77,16 @@ fn test_ilp_i32_to_ilp_bool_empty() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_target_structure() {
+fn test_ilp_i64_to_ilp_bool_target_structure() {
     // x0 + x1 <= 5, with bounds => U=[5, 5], K=[3, 3], total=6 bool vars
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0)],
         vec![(0, 1.0)],
         ObjectiveSense::Maximize,
     );
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Both variables bounded to 5: K=3 each, total 6
@@ -98,9 +98,9 @@ fn test_ilp_i32_to_ilp_bool_target_structure() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_single_variable() {
+fn test_ilp_i64_to_ilp_bool_single_variable() {
     // Maximize x0, s.t. x0 <= 7
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         1,
         vec![LinearConstraint::le(vec![(0, 1.0)], 7.0)],
         vec![(0, 1.0)],
@@ -113,9 +113,9 @@ fn test_ilp_i32_to_ilp_bool_single_variable() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_equality_constraint() {
+fn test_ilp_i64_to_ilp_bool_equality_constraint() {
     // Minimize x0, s.t. x0 + x1 = 4, x0 <= 3, x1 <= 3
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::eq(vec![(0, 1.0), (1, 1.0)], 4.0),
@@ -134,9 +134,9 @@ fn test_ilp_i32_to_ilp_bool_equality_constraint() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_ge_constraint() {
+fn test_ilp_i64_to_ilp_bool_ge_constraint() {
     // Maximize x0 + x1, s.t. x0 >= 2, x1 >= 1, x0 + x1 <= 5
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::ge(vec![(0, 1.0)], 2.0),
@@ -154,9 +154,9 @@ fn test_ilp_i32_to_ilp_bool_ge_constraint() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_infeasible() {
+fn test_ilp_i64_to_ilp_bool_infeasible() {
     // x0 >= 3 AND x0 <= 1 => infeasible
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         1,
         vec![
             LinearConstraint::ge(vec![(0, 1.0)], 3.0),
@@ -166,18 +166,18 @@ fn test_ilp_i32_to_ilp_bool_infeasible() {
         ObjectiveSense::Minimize,
     );
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let solver = BruteForce::new();
     // Should have no feasible solution
-    assert!(solver.find_witness(target).is_none());
+    assert!(solver.find_witness(target).unwrap().is_none());
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_variable_fixed_at_zero() {
+fn test_ilp_i64_to_ilp_bool_variable_fixed_at_zero() {
     // x0 <= 0 means x0 is always 0 => 0 binary variables for x0
     // Maximize x1, s.t. x0 <= 0, x1 <= 3
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0)], 0.0),
@@ -194,31 +194,32 @@ fn test_ilp_i32_to_ilp_bool_variable_fixed_at_zero() {
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_power_of_two_bound() {
+fn test_ilp_i64_to_ilp_bool_power_of_two_bound() {
     // x0 <= 7 (= 2^3 - 1): standard binary, weights = [1, 2, 4]
-    let source = ILP::<i32>::new(
+    let source = ILP::<i64>::new(
         1,
         vec![LinearConstraint::le(vec![(0, 1.0)], 7.0)],
         vec![(0, 1.0)],
         ObjectiveSense::Maximize,
     );
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     // 7 = 2^3 - 1, so K=3 bits
     assert_eq!(target.num_vars, 3);
 }
 
 #[test]
-fn test_ilp_i32_to_ilp_bool_preserves_sense() {
+fn test_ilp_i64_to_ilp_bool_preserves_sense() {
     for sense in [ObjectiveSense::Minimize, ObjectiveSense::Maximize] {
-        let source = ILP::<i32>::new(
+        let source = ILP::<i64>::new(
             1,
             vec![LinearConstraint::le(vec![(0, 1.0)], 3.0)],
             vec![(0, 1.0)],
             sense,
         );
-        let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+        let reduction =
+            ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
         assert_eq!(reduction.target_problem().sense, sense);
     }
 }

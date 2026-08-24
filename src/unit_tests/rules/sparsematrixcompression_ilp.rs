@@ -17,7 +17,8 @@ fn test_smc_to_ilp_structure() {
         ],
         2,
     );
-    let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 4*2 = 8
     assert_eq!(ilp.num_vars, 8);
@@ -35,7 +36,8 @@ fn test_smc_to_ilp_closed_loop() {
         ],
         2,
     );
-    let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_optimization_target(
         &problem,
         &reduction,
@@ -54,25 +56,30 @@ fn test_smc_to_ilp_bf_vs_ilp() {
         ],
         2,
     );
-    let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    let bf_witness = bf
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should be feasible");
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_smc_to_ilp_trivial() {
     // Single row, K=1
     let problem = SparseMatrixCompression::new(vec![vec![true, false]], 1);
-    let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSMCToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 1*1 = 1
     assert_eq!(ilp.num_vars, 1);

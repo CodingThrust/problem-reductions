@@ -6,8 +6,9 @@ use crate::types::Min;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // 3 items with weights [3, 3, 2], capacity 5
-    let problem = BinPacking::new(vec![3, 3, 2], 5);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 3, 2], 5).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3: 9 assignment vars + 3 bin vars = 12
@@ -21,21 +22,22 @@ fn test_reduction_creates_valid_ilp() {
 fn test_binpacking_to_ilp_closed_loop() {
     // 4 items with weights [3, 3, 2, 2], capacity 5
     // Optimal: 2 bins, e.g. {3,2} and {3,2}
-    let problem = BinPacking::new(vec![3, 3, 2, 2], 5);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 3, 2, 2], 5).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     // Solve original with brute force
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_obj = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     // Solve via ILP
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_obj = problem.evaluate(&extracted);
+    let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Min(Some(2)));
     assert_eq!(ilp_obj, Min(Some(2)));
@@ -43,8 +45,9 @@ fn test_binpacking_to_ilp_closed_loop() {
 
 #[test]
 fn test_single_item() {
-    let problem = BinPacking::new(vec![5], 10);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![5], 10).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 2); // 1 assignment + 1 bin var
@@ -54,44 +57,47 @@ fn test_single_item() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
 #[test]
 fn test_same_weight_items() {
     // 4 items all weight 3, capacity 6 -> 2 items per bin -> 2 bins needed
-    let problem = BinPacking::new(vec![3, 3, 3, 3], 6);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 3, 3, 3], 6).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Min(Some(2)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_exact_fill() {
     // 2 items, weights [5, 5], capacity 10 -> fit in 1 bin
-    let problem = BinPacking::new(vec![5, 5], 10);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![5, 5], 10).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
 #[test]
 fn test_solution_extraction() {
-    let problem = BinPacking::new(vec![3, 3, 2], 5);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 3, 2], 5).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually construct an ILP solution:
     // n=3, x_{00}=1 (item 0 in bin 0), x_{11}=1 (item 1 in bin 1), x_{20}=1 (item 2 in bin 0)
@@ -105,14 +111,15 @@ fn test_solution_extraction() {
 
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
-    assert!(problem.evaluate(&extracted).is_valid());
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
 #[test]
 fn test_ilp_structure_constraints() {
     // 2 items, weights [3, 4], capacity 5
-    let problem = BinPacking::new(vec![3, 4], 5);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 4], 5).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 assignment vars + 2 bin vars = 6
@@ -131,20 +138,21 @@ fn test_ilp_structure_constraints() {
 
 #[test]
 fn test_solve_reduced() {
-    let problem = BinPacking::new(vec![6, 5, 5, 4, 3], 10);
+    let problem = BinPacking::new(vec![6, 5, 5, 4, 3], 10).unwrap();
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
         .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
-    assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), Min(Some(3)));
+    assert!(problem.evaluate(&solution).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));
 }
 
 #[test]
 fn test_binpacking_to_ilp_bf_vs_ilp() {
-    let problem = BinPacking::new(vec![3, 3, 2], 5);
-    let reduction: ReductionBPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = BinPacking::new(vec![3, 3, 2], 5).unwrap();
+    let reduction: ReductionBPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

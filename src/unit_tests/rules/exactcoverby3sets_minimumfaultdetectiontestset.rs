@@ -17,7 +17,8 @@ fn no_cover_instance() -> ExactCoverBy3Sets {
 #[test]
 fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_closed_loop() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_satisfaction_round_trip_from_optimization_target(
@@ -28,14 +29,16 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_closed_loop() {
 
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("expected an optimal target witness");
-    assert_eq!(target.evaluate(&best), Min(Some(2)));
+    assert_eq!(target.evaluate(&best).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_structure() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 10);
@@ -68,26 +71,29 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_structure() {
 #[test]
 fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_no_instance_gap() {
     let source = no_cover_instance();
-    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("expected an optimal target witness");
-    assert_eq!(target.evaluate(&best), Min(Some(3)));
+    assert_eq!(target.evaluate(&best).unwrap(), Min(Some(3)));
 
     let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted));
+    assert!(!source.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_extract_solution_identity() {
     let source = issue_yes_instance();
-    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumFaultDetectionTestSet>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&[1, 1, 0]).unwrap(),
         vec![1, 1, 0]
     );
-    assert!(source.evaluate(&[1, 1, 0]).0);
+    assert!(source.evaluate(&[1, 1, 0]).unwrap().0);
 }

@@ -40,12 +40,12 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
 impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHamiltonianPathToDegreeConstrainedSpanningTree;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = DegreeConstrainedSpanningTree::new(
             SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             2,
         );
-        ReductionHamiltonianPathToDegreeConstrainedSpanningTree { target }
+        Ok(ReductionHamiltonianPathToDegreeConstrainedSpanningTree { target })
     }
 }
 
@@ -159,7 +159,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source_config = vec![0, 2, 4, 3, 1, 5];
             let source = source_example();
             let reduction =
-                ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source);
+                ReduceTo::<DegreeConstrainedSpanningTree<SimpleGraph>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let target_config =
                 edge_config_for_path(reduction.target_problem().graph(), &source_config);
             crate::example_db::specs::rule_example_with_witness::<

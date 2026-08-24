@@ -14,14 +14,15 @@ fn c5() -> SimpleGraph {
     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)])
 }
 
-fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i32, KN> {
-    MaximumCoKPlex::<_, i32, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
+fn issue_instance() -> MaximumCoKPlex<SimpleGraph, i64, KN> {
+    MaximumCoKPlex::<_, i64, KN>::with_k(c5(), vec![5, 1, 4, 1, 3], 2)
 }
 
 #[test]
 fn test_maximumcokplex_to_ilp_closed_loop() {
     let source = issue_instance();
-    let reduction: ReductionCoKPlexToILP<i32> = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionCoKPlexToILP<i64> =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -32,7 +33,8 @@ fn test_maximumcokplex_to_ilp_closed_loop() {
 #[test]
 fn test_maximumcokplex_to_ilp_issue_structure() {
     let source = issue_instance();
-    let reduction: ReductionCoKPlexToILP<i32> = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionCoKPlexToILP<i64> =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 5);
@@ -61,20 +63,22 @@ fn test_maximumcokplex_to_ilp_issue_structure() {
 #[test]
 fn test_maximumcokplex_to_ilp_bf_vs_ilp() {
     let source = issue_instance();
-    let reduction: ReductionCoKPlexToILP<i32> = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionCoKPlexToILP<i64> =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
 fn test_maximumcokplex_to_ilp_k_equals_1_regression() {
     let source = MaximumCoKPlex::<_, One, KN>::with_k(c5(), vec![One; 5], 1);
-    let reduction: ReductionCoKPlexToILP<One> = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionCoKPlexToILP<One> =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("k=1 instance should be ILP-solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(source.evaluate(&extracted), Max(Some(2)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(2)));
     assert_eq!(extracted.iter().sum::<usize>(), 2);
     assert!(source.is_valid_solution(&extracted));
 }
@@ -82,10 +86,11 @@ fn test_maximumcokplex_to_ilp_k_equals_1_regression() {
 #[test]
 fn test_maximumcokplex_to_ilp_extract_solution_identity() {
     let source = issue_instance();
-    let reduction: ReductionCoKPlexToILP<i32> = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionCoKPlexToILP<i64> =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![1, 0, 1, 0, 1];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(extracted, target_solution);
-    assert_eq!(source.evaluate(&extracted), Max(Some(12)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(12)));
 }

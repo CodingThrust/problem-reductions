@@ -5,11 +5,12 @@ use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 fn reduce_three_partition(
-    sizes: &[u64],
-    bound: u64,
+    sizes: &[i64],
+    bound: i64,
 ) -> (ThreePartition, ReductionThreePartitionToRCS) {
     let source = ThreePartition::new(sizes.to_vec(), bound);
-    let reduction = ReduceTo::<ResourceConstrainedScheduling>::reduce_to(&source);
+    let reduction = ReduceTo::<ResourceConstrainedScheduling>::reduce_to(&source)
+        .expect("reduction should succeed");
     (source, reduction)
 }
 
@@ -19,8 +20,8 @@ fn assert_satisfiability_matches(
     expected: bool,
 ) {
     let solver = BruteForce::new();
-    assert_eq!(solver.find_witness(source).is_some(), expected);
-    assert_eq!(solver.find_witness(target).is_some(), expected);
+    assert_eq!(solver.find_witness(source).unwrap().is_some(), expected);
+    assert_eq!(solver.find_witness(target).unwrap().is_some(), expected);
 }
 
 #[test]
@@ -61,13 +62,13 @@ fn test_threepartition_to_resourceconstrainedscheduling_solution_extraction() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        let target_valid = target.evaluate(sol);
-        let source_valid = source.evaluate(&extracted);
+        let target_valid = target.evaluate(sol).unwrap();
+        let source_valid = source.evaluate(&extracted).unwrap();
         if target_valid.0 {
             assert!(
                 source_valid.0,

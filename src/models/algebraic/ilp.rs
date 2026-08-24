@@ -5,7 +5,7 @@
 //!
 //! The type parameter `V` determines the variable domain:
 //! - `ILP<bool>`: binary variables (0 or 1)
-//! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
+//! - `ILP<i64>`: non-negative integer variables (0..=i64::MAX)
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
 use crate::traits::Problem;
@@ -18,7 +18,7 @@ inventory::submit! {
         name: "ILP",
         display_name: "ILP",
         aliases: &[],
-        dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i32"])],
+        dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i64"])],
         category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
@@ -40,11 +40,11 @@ inventory::submit! {
 
 /// Sealed trait for ILP variable domains.
 ///
-/// `bool` = binary variables (0 or 1), `i32` = non-negative integers (0..2^31-1).
+/// `bool` = binary variables (0 or 1), `i64` = non-negative integers (0..=i64::MAX).
 pub trait VariableDomain: 'static + Clone + std::fmt::Debug + Send + Sync {
     /// Number of possible values per variable (used by `dims()`).
     const DIMS_PER_VAR: usize;
-    /// Name for the variant system (e.g., "bool", "i32").
+    /// Name for the variant system (e.g., "bool", "i64").
     const NAME: &'static str;
 }
 
@@ -53,9 +53,9 @@ impl VariableDomain for bool {
     const NAME: &'static str = "bool";
 }
 
-impl VariableDomain for i32 {
-    const DIMS_PER_VAR: usize = (i32::MAX as usize) + 1;
-    const NAME: &'static str = "i32";
+impl VariableDomain for i64 {
+    const DIMS_PER_VAR: usize = (i64::MAX as usize) + 1;
+    const NAME: &'static str = "i64";
 }
 
 /// Comparison operator for linear constraints.
@@ -154,7 +154,7 @@ pub enum ObjectiveSense {
 /// # Type Parameter
 ///
 /// - `V = bool`: binary variables (0 or 1)
-/// - `V = i32`: non-negative integer variables
+/// - `V = i64`: non-negative integer variables
 ///
 /// # Example
 ///
@@ -229,7 +229,7 @@ impl<V: VariableDomain> ILP<V> {
     }
 
     /// Convert a configuration (Vec<usize>) to integer values (Vec<i64>).
-    /// For bool: config 0→0, 1→1. For i32: config index = value.
+    /// For bool: config 0→0, 1→1. For i64: config index = value.
     fn config_to_values(&self, config: &[usize]) -> Vec<i64> {
         config.iter().map(|&c| c as i64).collect()
     }
@@ -258,19 +258,21 @@ impl<V: VariableDomain> Problem for ILP<V> {
         vec![V::DIMS_PER_VAR; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Extremum<f64> {
-        let values = self.config_to_values(config);
-        if !self.is_feasible(&values) {
-            return match self.sense {
-                ObjectiveSense::Maximize => Extremum::maximize(None),
-                ObjectiveSense::Minimize => Extremum::minimize(None),
-            };
-        }
-        let objective = self.evaluate_objective(&values);
-        match self.sense {
-            ObjectiveSense::Maximize => Extremum::maximize(Some(objective)),
-            ObjectiveSense::Minimize => Extremum::minimize(Some(objective)),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Extremum<f64>, crate::traits::EvaluationError> {
+        Ok({
+            let values = self.config_to_values(config);
+            if !self.is_feasible(&values) {
+                return Ok(match self.sense {
+                    ObjectiveSense::Maximize => Extremum::maximize(None),
+                    ObjectiveSense::Minimize => Extremum::minimize(None),
+                });
+            }
+            let objective = self.evaluate_objective(&values);
+            match self.sense {
+                ObjectiveSense::Maximize => Extremum::maximize(Some(objective)),
+                ObjectiveSense::Minimize => Extremum::minimize(Some(objective)),
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -280,14 +282,14 @@ impl<V: VariableDomain> Problem for ILP<V> {
 
 crate::declare_variants! {
     default ILP<bool> => "2^num_vars",
-    ILP<i32> => "num_vars^num_vars",
+    ILP<i64> => "num_vars^num_vars",
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "ilp_i32",
-        instance: Box::new(ILP::<i32>::new(
+        id: "ilp_i64",
+        instance: Box::new(ILP::<i64>::new(
             2,
             vec![
                 LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),

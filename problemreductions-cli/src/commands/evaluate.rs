@@ -52,7 +52,7 @@ pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()
         }
     }
 
-    let result = problem.evaluate_dyn(&config);
+    let result = problem.evaluate_dyn(&config)?;
 
     let text = result.to_string();
     let json = serde_json::json!({

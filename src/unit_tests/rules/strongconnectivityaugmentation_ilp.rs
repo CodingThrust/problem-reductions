@@ -6,7 +6,7 @@ use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 
-fn small_instance() -> StrongConnectivityAugmentation<i32> {
+fn small_instance() -> StrongConnectivityAugmentation<i64> {
     // Path 0->1->2, candidates: (2,0,1),(1,0,2), bound=2
     StrongConnectivityAugmentation::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
@@ -18,12 +18,13 @@ fn small_instance() -> StrongConnectivityAugmentation<i32> {
 #[test]
 fn test_strongconnectivityaugmentation_to_ilp_closed_loop() {
     let source = small_instance();
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Solve source with brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&source);
+    let bf_solutions = bf.find_all_witnesses(&source).unwrap();
     assert!(!bf_solutions.is_empty(), "source should be satisfiable");
 
     // Solve ILP
@@ -32,7 +33,7 @@ fn test_strongconnectivityaugmentation_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_sol).unwrap();
 
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution must be valid"
     );
 }
@@ -40,41 +41,44 @@ fn test_strongconnectivityaugmentation_to_ilp_closed_loop() {
 #[test]
 fn test_extract_solution() {
     let source = small_instance();
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_sol).unwrap();
     assert_eq!(extracted.len(), 2);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_trivial_single_vertex() {
     let source = StrongConnectivityAugmentation::new(DirectedGraph::new(1, vec![]), vec![], 0);
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     let ilp_sol = solver.solve(ilp).expect("trivial should be solvable");
     let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_single_vertex_candidate_selection_must_still_respect_budget() {
     let source =
         StrongConnectivityAugmentation::new(DirectedGraph::new(1, vec![]), vec![(0, 0, 1)], 0);
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let mut config = vec![0; ilp.num_vars()];
     config[0] = 1;
 
     assert!(
-        !source.evaluate(&[1]).0,
+        !source.evaluate(&[1]).unwrap().0,
         "source rejects the over-budget candidate"
     );
     assert!(
-        !ilp.evaluate(&config).is_valid(),
+        !ilp.evaluate(&config).unwrap().is_valid(),
         "reduced ILP must reject the same candidate selection"
     );
 }
@@ -87,7 +91,8 @@ fn test_infeasible_budget() {
         vec![(2, 0, 10)],
         5,
     );
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = ILPSolver::new();
     assert!(solver.solve(ilp).is_err());
@@ -96,6 +101,7 @@ fn test_infeasible_budget() {
 #[test]
 fn test_strongconnectivityaugmentation_to_ilp_bf_vs_ilp() {
     let source = small_instance();
-    let reduction: ReductionSCAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction: ReductionSCAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

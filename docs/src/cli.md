@@ -41,7 +41,7 @@ ILP problems are solved with the bundled HiGHS backend.
 # Create a Maximum Independent Set problem
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
-# Create a weighted instance (variant auto-upgrades to i32)
+# Create a weighted instance (variant auto-upgrades to i64)
 pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
 
 # Create a Steiner Tree instance
@@ -57,10 +57,10 @@ pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound 2 -o cb
 pred solve cbm.json
 
 # Or start from a canonical model example
-pred create --example MIS/SimpleGraph/i32 -o example.json
+pred create --example MIS/SimpleGraph/i64 -o example.json
 
 # Or from a canonical rule example
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 -o example.json
 
 # Inspect what's inside a problem file
 pred inspect problem.json
@@ -91,8 +91,8 @@ pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --via route.json | pred solv
 ```
 
 > **Note:** When you provide `--weights` with non-unit values (e.g., `3,1,2,1`), the variant is
-> automatically upgraded from the default unit-weight (`One`) to `i32`. You can also specify the
-> weighted variant explicitly: `pred create MIS/SimpleGraph/i32 --graph 0-1 --weights 3,1`.
+> automatically upgraded from the default unit-weight (`One`) to `i64`. You can also specify the
+> weighted variant explicitly: `pred create MIS/SimpleGraph/i64 --graph 0-1 --weights 3,1`.
 
 ## Global Flags
 
@@ -185,9 +185,9 @@ pred export-graph -o reduction_graph.json   # save to file
 Construct a problem instance from CLI arguments and save as JSON:
 
 ```bash
-pred create --example MIS/SimpleGraph/i32 -o model.json
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o problem.json
-pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target -o target.json
+pred create --example MIS/SimpleGraph/i64 -o model.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 -o problem.json
+pred create --example MVC/SimpleGraph/i64 --to MIS/SimpleGraph/i64 --example-side target -o target.json
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
@@ -254,7 +254,7 @@ The output file uses a standard wrapper format:
 ```json
 {
   "type": "MaximumIndependentSet",
-  "variant": {"graph": "SimpleGraph", "weight": "i32"},
+  "variant": {"graph": "SimpleGraph", "weight": "i64"},
   "data": { ... }
 }
 ```
@@ -300,7 +300,7 @@ Show a summary of what's inside a problem JSON or reduction bundle:
 
 ```bash
 $ pred inspect problem.json
-Type: MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+Type: MaximumIndependentSet {graph=SimpleGraph, weight=i64}
 Size: 5 vertices, 5 edges
 ```
 
@@ -332,7 +332,7 @@ The bundle contains everything needed to map solutions back:
   "source": { "type": "MaximumIndependentSet", "variant": {...}, "data": {...} },
   "target": { "type": "QUBO", "variant": {...}, "data": {...} },
   "path": [
-    {"name": "MaximumIndependentSet", "variant": {"graph": "SimpleGraph", "weight": "i32"}},
+    {"name": "MaximumIndependentSet", "variant": {"graph": "SimpleGraph", "weight": "i64"}},
     {"name": "QUBO", "variant": {"weight": "f64"}}
   ]
 }

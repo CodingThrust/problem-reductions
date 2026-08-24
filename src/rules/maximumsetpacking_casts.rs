@@ -2,26 +2,47 @@
 
 use crate::impl_variant_reduction;
 use crate::models::set::MaximumSetPacking;
-use crate::types::One;
+use crate::rules::ReductionError;
+use crate::types::{i64_to_exact_f64, One};
 use crate::variant::CastToParent;
 
 impl_variant_reduction!(
     MaximumSetPacking,
-    <One> => <i32>,
+    <One> => <i64>,
     fields: [num_sets, universe_size],
     aggregate: identity,
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),
         src.weights_ref().iter().map(|w| w.cast_to_parent()).collect())
+        .map_err(ReductionError::construction::<
+            MaximumSetPacking<One>,
+            MaximumSetPacking<i64>,
+        >)?
 );
 
 impl_variant_reduction!(
     MaximumSetPacking,
-    <i32> => <f64>,
+    <i64> => <f64>,
     fields: [num_sets, universe_size],
-    |src| MaximumSetPacking::with_weights(
-        src.sets().to_vec(),
-        src.weights_ref().iter().map(|w| w.cast_to_parent()).collect())
+    |src| {
+        let weights = src
+            .weights_ref()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                ReductionError::inexact_float_conversion::<
+                    MaximumSetPacking<i64>,
+                    MaximumSetPacking<f64>,
+                >(error)
+            })?;
+        MaximumSetPacking::with_weights(src.sets().to_vec(), weights).map_err(|cause| {
+            ReductionError::construction::<MaximumSetPacking<i64>, MaximumSetPacking<f64>>(
+                cause,
+            )
+        })?
+    }
 );
 
 #[cfg(test)]

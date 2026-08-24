@@ -27,7 +27,8 @@ fn canonical_instance() -> GraphPartitioning<SimpleGraph> {
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = canonical_instance();
-    let reduction: ReductionGraphPartitioningToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionGraphPartitioningToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 15);
@@ -52,7 +53,8 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_constraint_shape() {
     let problem = GraphPartitioning::new(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction: ReductionGraphPartitioningToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionGraphPartitioningToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 3);
@@ -77,18 +79,19 @@ fn test_reduction_constraint_shape() {
 #[test]
 fn test_graphpartitioning_to_ilp_closed_loop() {
     let problem = canonical_instance();
-    let reduction: ReductionGraphPartitioningToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionGraphPartitioningToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_obj = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_obj = problem.evaluate(&extracted);
+    let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Min(Some(3)));
     assert_eq!(ilp_obj, Min(Some(3)));
@@ -97,7 +100,8 @@ fn test_graphpartitioning_to_ilp_closed_loop() {
 #[test]
 fn test_odd_vertices_reduce_to_infeasible_ilp() {
     let problem = GraphPartitioning::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionGraphPartitioningToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionGraphPartitioningToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.constraints[0].cmp, Comparison::Eq);
@@ -113,13 +117,14 @@ fn test_odd_vertices_reduce_to_infeasible_ilp() {
 #[test]
 fn test_solution_extraction() {
     let problem = canonical_instance();
-    let reduction: ReductionGraphPartitioningToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionGraphPartitioningToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = vec![0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(3)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
 
 #[test]
@@ -131,5 +136,5 @@ fn test_solve_reduced() {
         .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
-    assert_eq!(problem.evaluate(&solution), Min(Some(3)));
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));
 }

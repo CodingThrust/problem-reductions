@@ -19,14 +19,14 @@ fn test_cosine_product_integration_dims() {
 fn test_cosine_product_integration_evaluate_satisfying() {
     // [2, 3, 5]: (+2, +3, -5) = 0 → satisfying
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
-    assert!(p.evaluate(&[0, 0, 1]).0);
+    assert!(p.evaluate(&[0, 0, 1]).unwrap().0);
 }
 
 #[test]
 fn test_cosine_product_integration_evaluate_not_satisfying() {
     // [2, 3, 5]: (+2, +3, +5) = 10 → not satisfying
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
-    assert!(!p.evaluate(&[0, 0, 0]).0);
+    assert!(!p.evaluate(&[0, 0, 0]).unwrap().0);
 }
 
 #[test]
@@ -34,26 +34,26 @@ fn test_cosine_product_integration_unsatisfiable() {
     // [1, 2, 6]: total=9 (odd), no balanced sign assignment
     let p = CosineProductIntegration::new(vec![1, 2, 6]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&p).is_none());
+    assert!(solver.find_witness(&p).unwrap().is_none());
 }
 
 #[test]
 fn test_cosine_product_integration_solver() {
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap();
-    assert!(p.evaluate(&witness).0);
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert!(p.evaluate(&witness).unwrap().0);
 }
 
 #[test]
 fn test_cosine_product_integration_aggregate() {
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
     let solver = BruteForce::new();
-    let value = solver.solve(&p);
+    let value = solver.solve(&p).unwrap();
     assert!(value.0);
 
     let p2 = CosineProductIntegration::new(vec![1, 2, 6]);
-    let value2 = solver.solve(&p2);
+    let value2 = solver.solve(&p2).unwrap();
     assert!(!value2.0);
 }
 
@@ -62,16 +62,16 @@ fn test_cosine_product_integration_negative_coefficients() {
     // [-3, 2, 1]: (-(-3), +2, -1) = (3, 2, -1) = 4, not zero
     // but (-3, +2, +1) = 0 → config [0, 0, 0] → -3+2+1=0
     let p = CosineProductIntegration::new(vec![-3, 2, 1]);
-    assert!(p.evaluate(&[0, 0, 0]).0); // -3 + 2 + 1 = 0
+    assert!(p.evaluate(&[0, 0, 0]).unwrap().0); // -3 + 2 + 1 = 0
 }
 
 #[test]
 fn test_cosine_product_integration_invalid_config() {
     let p = CosineProductIntegration::new(vec![1, 2, 3]);
     // Wrong length
-    assert!(!p.evaluate(&[0, 0]).0);
+    assert!(!p.evaluate(&[0, 0]).unwrap().0);
     // Out of range
-    assert!(!p.evaluate(&[0, 2, 0]).0);
+    assert!(!p.evaluate(&[0, 2, 0]).unwrap().0);
 }
 
 #[test]
@@ -87,10 +87,10 @@ fn test_cosine_product_integration_all_witnesses() {
     // [2, 3, 5]: two balanced assignments: (+2,+3,-5)=0 and (-2,-3,+5)=0
     let p = CosineProductIntegration::new(vec![2, 3, 5]);
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(&p);
+    let witnesses = solver.find_all_witnesses(&p).unwrap();
     assert_eq!(witnesses.len(), 2);
     for w in &witnesses {
-        assert!(p.evaluate(w).0);
+        assert!(p.evaluate(w).unwrap().0);
     }
 }
 

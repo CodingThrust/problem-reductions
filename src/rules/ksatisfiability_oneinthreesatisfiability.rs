@@ -38,16 +38,24 @@ impl ReductionResult for Reduction3SATToOneInThreeSAT {
 impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
     type Result = Reduction3SATToOneInThreeSAT;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_num_vars = self.num_vars();
         let mut variables = SatVariableAllocator::new(
             "KSatisfiability -> OneInThreeSatisfiability",
             source_num_vars,
         )
-        .unwrap_or_else(|message| panic!("{message}"));
-        let sentinels = variables
-            .allocate_many(2)
-            .unwrap_or_else(|message| panic!("{message}"));
+        .map_err(
+            crate::rules::ReductionError::construction::<
+                KSatisfiability<K3>,
+                OneInThreeSatisfiability,
+            >,
+        )?;
+        let sentinels = variables.allocate_many(2).map_err(
+            crate::rules::ReductionError::construction::<
+                KSatisfiability<K3>,
+                OneInThreeSatisfiability,
+            >,
+        )?;
         let z_false = sentinels[0];
         let z_true = sentinels[1];
 
@@ -55,19 +63,37 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
             .num_clauses()
             .checked_mul(5)
             .and_then(|count| count.checked_add(1))
-            .expect("KSatisfiability -> OneInThreeSatisfiability clause count overflow");
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    KSatisfiability<K3>,
+                    OneInThreeSatisfiability,
+                >("computing the target clause count")
+            })?;
         let mut clauses = Vec::with_capacity(capacity);
         clauses.push(CNFClause::new(vec![z_false, z_false, z_true]));
 
         for clause in self.clauses() {
             let [l1, l2, l3] = clause.literals.as_slice() else {
-                unreachable!("K3 clauses must have exactly three literals");
+                return Err(crate::rules::ReductionError::invalid_target::<
+                    KSatisfiability<K3>,
+                    OneInThreeSatisfiability,
+                >(
+                    "source K3 clause does not contain exactly three literals"
+                ));
             };
-            let allocated = variables
-                .allocate_many(6)
-                .unwrap_or_else(|message| panic!("{message}"));
+            let allocated = variables.allocate_many(6).map_err(
+                crate::rules::ReductionError::construction::<
+                    KSatisfiability<K3>,
+                    OneInThreeSatisfiability,
+                >,
+            )?;
             let [a, b, c, d, e, f] = allocated.as_slice() else {
-                unreachable!("six variables were allocated")
+                return Err(crate::rules::ReductionError::invalid_target::<
+                    KSatisfiability<K3>,
+                    OneInThreeSatisfiability,
+                >(
+                    "SAT allocator returned an unexpected variable count"
+                ));
             };
 
             clauses.push(CNFClause::new(vec![*l1, *a, *d]));
@@ -79,10 +105,10 @@ impl ReduceTo<OneInThreeSatisfiability> for KSatisfiability<K3> {
 
         let target = OneInThreeSatisfiability::new(variables.num_vars(), clauses);
 
-        Reduction3SATToOneInThreeSAT {
+        Ok(Reduction3SATToOneInThreeSAT {
             source_num_vars,
             target,
-        }
+        })
     }
 }
 

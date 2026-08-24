@@ -377,7 +377,7 @@ fn parse_unavailable_fields(
     Ok(fields)
 }
 
-/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i32>").
+/// Extract the base type name from a Type (e.g., "IndependentSet" from "IndependentSet<i64>").
 /// Special-cases `Decision<T>` to produce `DecisionT`.
 fn extract_type_name(ty: &Type) -> Option<String> {
     match ty {
@@ -548,15 +548,12 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
     let reduce_aggregate_fn = if attrs.identity_aggregate {
         quote! {
-            Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynAggregateReductionResult> {
-                let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
-                    panic!(
-                        "DynAggregateReductionResult: source type mismatch: expected `{}`, got `{}`",
-                        std::any::type_name::<#source_type>(),
-                        std::any::type_name_of_val(src),
-                    )
-                });
-                Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
+            Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynAggregateReductionResult>, crate::rules::ReductionError> {
+                let src = src.downcast_ref::<#source_type>().ok_or_else(
+                    crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
+                )?;
+                let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
+                Ok(Box::new(result))
             })
         }
     } else {
@@ -619,15 +616,12 @@ fn generate_reduction_entry(
                     unavailable: vec![#(#unavailable_tokens),*],
                 },
                 module_path: module_path!(),
-                reduce_fn: Some(|src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
-                    let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
-                        panic!(
-                            "DynReductionResult: source type mismatch: expected `{}`, got `{}`",
-                            std::any::type_name::<#source_type>(),
-                            std::any::type_name_of_val(src),
-                        )
-                    });
-                    Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
+                reduce_fn: Some(|src: &dyn std::any::Any| -> Result<Box<dyn crate::rules::traits::DynReductionResult>, crate::rules::ReductionError> {
+                    let src = src.downcast_ref::<#source_type>().ok_or_else(
+                        crate::rules::ReductionError::source_type_mismatch::<#source_type, #target_type>,
+                    )?;
+                    let result = <#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src)?;
+                    Ok(Box::new(result))
                 }),
                 reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
@@ -774,8 +768,8 @@ impl syn::parse::Parse for DeclareVariantsInput {
 ///
 /// ```text
 /// declare_variants! {
-///     MaximumIndependentSet<SimpleGraph, i32>   => "1.1996^num_vertices",
-///     MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)",
+///     MaximumIndependentSet<SimpleGraph, i64>   => "1.1996^num_vertices",
+///     MaximumIndependentSet<KingsSubgraph, i64> => "2^sqrt(num_vertices)",
 /// }
 /// ```
 #[proc_macro]
@@ -873,12 +867,14 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
 
         // Generate dispatch fields based on aggregate value solving plus optional witnesses.
         let solve_value_body = quote! {
-            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p);
-            crate::registry::format_metric(&total)
+            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p)?;
+            Ok(crate::registry::format_metric(&total))
         };
 
         let solve_witness_body = quote! {
-            let config = crate::solvers::BruteForce::find_witness(&solver, p)?;
+            let Some(config) = crate::solvers::BruteForce::find_witness(&solver, p)? else {
+                return Ok(None);
+            };
         };
 
         let construction_fields = if let Some(create_spec) = create_spec {
@@ -892,7 +888,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     let spec: #create_spec = <#create_spec as crate::registry::CreateSpec>::deserialize_inputs(data)
                         .map_err(|error| crate::registry::ConstructionError::InvalidInput(error.to_string()))?;
                     let problem: #ty = <#ty as std::convert::TryFrom<#create_spec>>::try_from(spec)
-                        .map_err(|error| crate::registry::ConstructionError::Conversion(error.to_string()))?;
+                        .map_err(Into::<crate::registry::ConstructionError>::into)?;
                     Ok(Box::new(problem))
                 },
             }
@@ -933,19 +929,21 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
             },
-            solve_value_fn: |any: &dyn std::any::Any| -> String {
+            solve_value_fn: |any: &dyn std::any::Any| -> Result<String, crate::solvers::SolveError> {
                 let p = any
                     .downcast_ref::<#ty>()
                     .expect("type-erased solve_value downcast failed");
                 let solver = crate::solvers::BruteForce::new();
                 #solve_value_body
             },
-            solve_witness_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
-                let p = any.downcast_ref::<#ty>()?;
+            solve_witness_fn: |any: &dyn std::any::Any| -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError> {
+                let p = any
+                    .downcast_ref::<#ty>()
+                    .expect("type-erased solve_witness downcast failed");
                 let solver = crate::solvers::BruteForce::new();
                 #solve_witness_body
-                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config));
-                Some((config, evaluation))
+                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config)?);
+                Ok(Some((config, evaluation)))
             },
         };
 
@@ -1006,7 +1004,7 @@ mod tests {
 
     #[test]
     fn extract_type_name_strips_non_decision_generics() {
-        let ty: Type = parse_str("MinimumVertexCover<SimpleGraph, i32>").unwrap();
+        let ty: Type = parse_str("MinimumVertexCover<SimpleGraph, i64>").unwrap();
         assert_eq!(
             extract_type_name(&ty).as_deref(),
             Some("MinimumVertexCover")
@@ -1015,7 +1013,7 @@ mod tests {
 
     #[test]
     fn extract_type_name_unwraps_decision_inner_type() {
-        let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i32>>").unwrap();
+        let ty: Type = parse_str("Decision<MinimumVertexCover<SimpleGraph, i64>>").unwrap();
         assert_eq!(
             extract_type_name(&ty).as_deref(),
             Some("DecisionMinimumVertexCover")

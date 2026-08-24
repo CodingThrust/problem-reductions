@@ -27,12 +27,12 @@ inventory::submit! {
 pub struct ProductionPlanning {
     #[serde(deserialize_with = "positive_usize::deserialize")]
     num_periods: usize,
-    demands: Vec<u64>,
-    capacities: Vec<u64>,
-    setup_costs: Vec<u64>,
-    production_costs: Vec<u64>,
-    inventory_costs: Vec<u64>,
-    cost_bound: u64,
+    demands: Vec<i64>,
+    capacities: Vec<i64>,
+    setup_costs: Vec<i64>,
+    production_costs: Vec<i64>,
+    inventory_costs: Vec<i64>,
+    cost_bound: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -40,23 +40,23 @@ struct ProductionPlanningCreateSpec {
     /// Number of planning periods.
     num_periods: usize,
     /// Demand per period.
-    demands: Vec<u64>,
+    demands: Vec<i64>,
     /// Production capacity per period.
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     /// Setup cost per period.
-    setup_costs: Vec<u64>,
+    setup_costs: Vec<i64>,
     /// Per-unit production cost per period.
-    production_costs: Vec<u64>,
+    production_costs: Vec<i64>,
     /// Per-unit inventory cost per period.
-    inventory_costs: Vec<u64>,
+    inventory_costs: Vec<i64>,
     /// Total cost bound.
-    cost_bound: u64,
+    cost_bound: i64,
 }
 impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: ProductionPlanningCreateSpec) -> Result<Self, Self::Error> {
         if spec.num_periods == 0 {
-            return Err("num_periods must be positive".to_string());
+            return Err("num_periods must be positive".to_string().into());
         }
         for (name, len) in [
             ("demands", spec.demands.len()),
@@ -66,10 +66,9 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
             ("inventory_costs", spec.inventory_costs.len()),
         ] {
             if len != spec.num_periods {
-                return Err(format!(
-                    "{name} has {len} entries, expected {}",
-                    spec.num_periods
-                ));
+                return Err(
+                    format!("{name} has {len} entries, expected {}", spec.num_periods).into(),
+                );
             }
         }
         if spec.capacities.iter().any(|&capacity| {
@@ -78,7 +77,7 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
                 .and_then(|v| v.checked_add(1))
                 .is_none()
         }) {
-            return Err("capacities must fit in usize for dims()".to_string());
+            return Err("capacities must fit in usize for dims()".to_string().into());
         }
         Ok(Self::new(
             spec.num_periods,
@@ -95,12 +94,12 @@ impl TryFrom<ProductionPlanningCreateSpec> for ProductionPlanning {
 impl ProductionPlanning {
     pub fn new(
         num_periods: usize,
-        demands: Vec<u64>,
-        capacities: Vec<u64>,
-        setup_costs: Vec<u64>,
-        production_costs: Vec<u64>,
-        inventory_costs: Vec<u64>,
-        cost_bound: u64,
+        demands: Vec<i64>,
+        capacities: Vec<i64>,
+        setup_costs: Vec<i64>,
+        production_costs: Vec<i64>,
+        inventory_costs: Vec<i64>,
+        cost_bound: i64,
     ) -> Self {
         assert!(num_periods > 0, "num_periods must be positive");
         for len in [
@@ -124,6 +123,17 @@ impl ProductionPlanning {
             }),
             "capacities must fit in usize for dims()"
         );
+        assert!(
+            demands
+                .iter()
+                .chain(&capacities)
+                .chain(&setup_costs)
+                .chain(&production_costs)
+                .chain(&inventory_costs)
+                .all(|&value| value >= 0),
+            "demands, capacities, and costs must be nonnegative"
+        );
+        assert!(cost_bound >= 0, "cost bound must be nonnegative");
 
         Self {
             num_periods,
@@ -140,31 +150,31 @@ impl ProductionPlanning {
         self.num_periods
     }
 
-    pub fn demands(&self) -> &[u64] {
+    pub fn demands(&self) -> &[i64] {
         &self.demands
     }
 
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
-    pub fn setup_costs(&self) -> &[u64] {
+    pub fn setup_costs(&self) -> &[i64] {
         &self.setup_costs
     }
 
-    pub fn production_costs(&self) -> &[u64] {
+    pub fn production_costs(&self) -> &[i64] {
         &self.production_costs
     }
 
-    pub fn inventory_costs(&self) -> &[u64] {
+    pub fn inventory_costs(&self) -> &[i64] {
         &self.inventory_costs
     }
 
-    pub fn cost_bound(&self) -> u64 {
+    pub fn cost_bound(&self) -> i64 {
         self.cost_bound
     }
 
-    pub fn max_capacity(&self) -> u64 {
+    pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 }
@@ -185,47 +195,98 @@ impl Problem for ProductionPlanning {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            if config.len() != self.num_periods {
-                return Or(false);
-            }
-
-            let mut cumulative_production = 0u128;
-            let mut cumulative_demand = 0u128;
-            let mut total_cost = 0u128;
-            let cost_bound = self.cost_bound as u128;
-
-            for (i, &production) in config.iter().enumerate() {
-                let capacity = match usize::try_from(self.capacities[i]) {
-                    Ok(value) => value,
-                    Err(_) => return Or(false),
-                };
-                if production > capacity {
-                    return Or(false);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                if config.len() != self.num_periods {
+                    return Ok(Or(false));
                 }
 
-                let production = production as u128;
-                cumulative_production += production;
-                cumulative_demand += self.demands[i] as u128;
+                let mut cumulative_production = 0_i64;
+                let mut cumulative_demand = 0_i64;
+                let mut total_cost = 0_i64;
 
-                if cumulative_production < cumulative_demand {
-                    return Or(false);
+                for (i, &production) in config.iter().enumerate() {
+                    let capacity = match usize::try_from(self.capacities[i]) {
+                        Ok(value) => value,
+                        Err(_) => return Ok(Or(false)),
+                    };
+                    if production > capacity {
+                        return Ok(Or(false));
+                    }
+
+                    let production = i64::try_from(production).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting production quantity to i64".into(),
+                        )
+                    })?;
+                    cumulative_production = cumulative_production
+                        .checked_add(production)
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing cumulative production".to_string(),
+                            )
+                        })?;
+                    cumulative_demand =
+                        cumulative_demand
+                            .checked_add(self.demands[i])
+                            .ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "summing cumulative demand".to_string(),
+                                )
+                            })?;
+
+                    if cumulative_production < cumulative_demand {
+                        return Ok(Or(false));
+                    }
+
+                    let inventory = cumulative_production
+                        .checked_sub(cumulative_demand)
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "computing production inventory".into(),
+                            )
+                        })?;
+                    let production_cost = self.production_costs[i]
+                        .checked_mul(production)
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying production cost".to_string(),
+                            )
+                        })?;
+                    total_cost = total_cost.checked_add(production_cost).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing production-planning costs".to_string(),
+                        )
+                    })?;
+                    let inventory_cost = self.inventory_costs[i]
+                        .checked_mul(inventory)
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying inventory cost".to_string(),
+                            )
+                        })?;
+                    total_cost = total_cost.checked_add(inventory_cost).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing production-planning costs".to_string(),
+                        )
+                    })?;
+                    if production > 0 {
+                        total_cost =
+                            total_cost.checked_add(self.setup_costs[i]).ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "adding production setup cost".to_string(),
+                                )
+                            })?;
+                    }
+
+                    if total_cost > self.cost_bound {
+                        return Ok(Or(false));
+                    }
                 }
 
-                let inventory = cumulative_production - cumulative_demand;
-                total_cost += self.production_costs[i] as u128 * production;
-                total_cost += self.inventory_costs[i] as u128 * inventory;
-                if production > 0 {
-                    total_cost += self.setup_costs[i] as u128;
-                }
-
-                if total_cost > cost_bound {
-                    return Or(false);
-                }
-            }
-
-            total_cost <= cost_bound
+                total_cost <= self.cost_bound
+            })
         })
     }
 

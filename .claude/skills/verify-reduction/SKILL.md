@@ -62,8 +62,8 @@ Required report format:
 ```text
 TYPE RESOLUTION:
   Source syntax:   Min<W::Sum>
-  Substitutions:   W = One; <One as WeightElement>::Sum = i32
-  Source resolved: Min<i32>
+  Substitutions:   W = One; <One as WeightElement>::Sum = i64
+  Source resolved: Min<i64>
   Target syntax:   Min<usize>
   Target resolved: Min<usize>
   Full-domain compatibility: FAILED
@@ -85,9 +85,9 @@ STOP and report a value-domain mismatch.
 - `Or`->`Sum` or `Min`->`Sum` — Sum is aggregate-only; needs `ReduceToAggregate`
 - Any pair involving `And` or `Sum` on the target side
 
-**Regression case:** `MinimumDominatingSet<SimpleGraph, One>` resolves to `Min<i32>` because
-`<One as WeightElement>::Sum = i32`; `MinimumHittingSet` resolves to `Min<usize>`. Report
-`Min<i32> -> Min<usize>`, not `Min<usize> -> Min<usize>`. Without an explicit source-size bound,
+**Regression case:** `MinimumDominatingSet<SimpleGraph, One>` resolves to `Min<i64>` because
+`<One as WeightElement>::Sum = i64`; `MinimumHittingSet` resolves to `Min<usize>`. Report
+`Min<i64> -> Min<usize>`, not `Min<usize> -> Min<usize>`. Without an explicit source-size bound,
 the full-domain type gate fails even though the classical cardinality reduction is mathematically
 correct and exhaustive small-instance checks pass.
 

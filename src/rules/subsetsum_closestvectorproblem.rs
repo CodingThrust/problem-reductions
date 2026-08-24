@@ -3,19 +3,20 @@
 use crate::models::algebraic::{ClosestVectorProblem, VarBounds};
 use crate::models::misc::SubsetSum;
 use crate::reduction;
+use crate::registry::ConstructionError;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use num_bigint::BigUint;
+use crate::types::i64_to_exact_f64;
 use num_traits::ToPrimitive;
 
 /// Result of reducing SubsetSum to ClosestVectorProblem.
 #[derive(Debug, Clone)]
 pub struct ReductionSubsetSumToClosestVectorProblem {
-    target: ClosestVectorProblem<i32>,
+    target: ClosestVectorProblem<i64>,
 }
 
 impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
     type Source = SubsetSum;
-    type Target = ClosestVectorProblem<i32>;
+    type Target = ClosestVectorProblem<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -31,37 +32,56 @@ impl ReductionResult for ReductionSubsetSumToClosestVectorProblem {
     }
 }
 
-fn biguint_to_i32(value: &BigUint) -> i32 {
-    value
-        .to_i32()
-        .expect("SubsetSum -> ClosestVectorProblem requires all sizes and target to fit in i32")
-}
-
 #[reduction(
     size = exact {
         ambient_dimension = "num_elements + 1",
         num_basis_vectors = "num_elements",
     }
 )]
-impl ReduceTo<ClosestVectorProblem<i32>> for SubsetSum {
+impl ReduceTo<ClosestVectorProblem<i64>> for SubsetSum {
     type Result = ReductionSubsetSumToClosestVectorProblem;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_elements();
         let mut basis = Vec::with_capacity(n);
         for (i, size) in self.sizes().iter().enumerate() {
-            let mut column = vec![0i32; n + 1];
+            let mut column = vec![0i64; n + 1];
             column[i] = 1;
-            column[n] = biguint_to_i32(size);
+            column[n] = size.to_i64().ok_or_else(|| {
+                crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
+                    ConstructionError::IntegerOverflow(
+                        "an item size does not fit the ClosestVectorProblem i64 domain".into(),
+                    ),
+                )
+            })?;
             basis.push(column);
         }
 
         let mut target = vec![0.5; n];
-        target.push(biguint_to_i32(self.target()) as f64);
+        let target_sum = self.target().to_i64().ok_or_else(|| {
+            crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
+                ConstructionError::IntegerOverflow(
+                    "the target sum does not fit the ClosestVectorProblem i64 domain".into(),
+                ),
+            )
+        })?;
+        target.push(i64_to_exact_f64(target_sum).map_err(|error| {
+            crate::rules::ReductionError::construction::<SubsetSum, ClosestVectorProblem<i64>>(
+                error.into(),
+            )
+        })?);
 
-        ReductionSubsetSumToClosestVectorProblem {
-            target: ClosestVectorProblem::new(basis, target, vec![VarBounds::binary(); n]),
-        }
+        Ok(ReductionSubsetSumToClosestVectorProblem {
+            target:
+                ClosestVectorProblem::new(basis, target, vec![VarBounds::binary(); n]).map_err(
+                    |error| {
+                        crate::rules::ReductionError::construction::<
+                            SubsetSum,
+                            ClosestVectorProblem<i64>,
+                        >(error)
+                    },
+                )?,
+        })
     }
 }
 
@@ -72,7 +92,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "subsetsum_to_closestvectorproblem",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ClosestVectorProblem<i64>>(
                 SubsetSum::new(vec![3u32, 7, 1, 8], 11u32),
                 SolutionPair {
                     source_config: vec![1, 0, 0, 1],

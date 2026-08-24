@@ -4,7 +4,41 @@ use serde::de::{self, DeserializeOwned, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
-/// Bound for objective value types (i32, f64, etc.)
+/// Largest integer magnitude represented exactly by an IEEE 754 `f64`.
+pub const MAX_EXACT_F64_INTEGER: i64 = (1_i64 << 53) - 1;
+
+/// An `i64` cannot cross an exact-integer `f64` boundary without precision loss.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "integer {value} is outside the exactly representable f64 range [{min}, {max}]",
+    min = -MAX_EXACT_F64_INTEGER,
+    max = MAX_EXACT_F64_INTEGER
+)]
+pub struct ExactI64ToF64Error {
+    pub value: i64,
+}
+
+/// Failure while performing checked arithmetic on a numeric value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum NumericArithmeticError {
+    /// An exact integer result is outside the numeric type's range.
+    #[error("integer overflow")]
+    IntegerOverflow,
+    /// A floating-point result is not finite.
+    #[error("non-finite floating-point result")]
+    NonFiniteResult,
+}
+
+/// Convert an `i64` to `f64` only when the integer value remains exact.
+pub fn i64_to_exact_f64(value: i64) -> Result<f64, ExactI64ToF64Error> {
+    if (-MAX_EXACT_F64_INTEGER..=MAX_EXACT_F64_INTEGER).contains(&value) {
+        Ok(value as f64)
+    } else {
+        Err(ExactI64ToF64Error { value })
+    }
+}
+
+/// Bound for objective value types (i64, f64, etc.)
 pub trait NumericSize:
     Clone
     + Default
@@ -15,24 +49,66 @@ pub trait NumericSize:
     + std::ops::AddAssign
     + 'static
 {
+    /// Add two values when the exact result remains representable and finite.
+    fn checked_add_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
+    /// Multiply two values when the exact result remains representable and finite.
+    fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError>;
 }
 
-impl<T> NumericSize for T where
-    T: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static
-{
+macro_rules! impl_integer_numeric_size {
+    ($($type:ty),* $(,)?) => {
+        $(
+            impl NumericSize for $type {
+                fn checked_add_value(self, other: Self) -> Result<Self, NumericArithmeticError> {
+                    self.checked_add(other).ok_or(NumericArithmeticError::IntegerOverflow)
+                }
+
+                fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError> {
+                    self.checked_mul(other).ok_or(NumericArithmeticError::IntegerOverflow)
+                }
+            }
+        )*
+    };
+}
+
+impl_integer_numeric_size!(i64, u64, usize);
+
+impl NumericSize for f64 {
+    fn checked_add_value(self, other: Self) -> Result<Self, NumericArithmeticError> {
+        let result = self + other;
+        result
+            .is_finite()
+            .then_some(result)
+            .ok_or(NumericArithmeticError::NonFiniteResult)
+    }
+
+    fn checked_mul_value(self, other: Self) -> Result<Self, NumericArithmeticError> {
+        let result = self * other;
+        result
+            .is_finite()
+            .then_some(result)
+            .ok_or(NumericArithmeticError::NonFiniteResult)
+    }
+}
+
+fn evaluation_arithmetic_error(
+    error: NumericArithmeticError,
+    context: &str,
+) -> crate::traits::EvaluationError {
+    match error {
+        NumericArithmeticError::IntegerOverflow => {
+            crate::traits::EvaluationError::IntegerOverflow(context.to_string())
+        }
+        NumericArithmeticError::NonFiniteResult => {
+            crate::traits::EvaluationError::NonFiniteResult(context.to_string())
+        }
+    }
 }
 
 /// Maps a weight element to its sum/metric type.
 ///
 /// This decouples the per-element weight type from the accumulation type.
-/// Exact integer weights use a wider accumulation type: `i32` and the unit
+/// Exact integer weights use a wider accumulation type: `i64` and the unit
 /// weight [`One`] both use `i64`. Approximate `f64` weights continue to sum
 /// into `f64`.
 pub trait WeightElement: Clone + Default + 'static {
@@ -40,21 +116,62 @@ pub trait WeightElement: Clone + Default + 'static {
     type Sum: NumericSize;
     /// Whether this is the unit weight type (`One`).
     const IS_UNIT: bool;
+    /// Construct the multiplicative unit weight.
+    fn unit() -> Self;
+    /// Validate that an element belongs to the public weight domain.
+    fn validate_element(&self, context: &str) -> Result<(), crate::registry::ConstructionError>;
     /// Convert this weight element to the sum type.
     fn to_sum(&self) -> Self::Sum;
+    /// Add one element to an evaluated objective without overflowing or producing a non-finite value.
+    fn checked_add_to_sum(
+        total: Self::Sum,
+        value: Self::Sum,
+        context: &str,
+    ) -> Result<Self::Sum, crate::traits::EvaluationError> {
+        total
+            .checked_add_value(value)
+            .map_err(|error| evaluation_arithmetic_error(error, context))
+    }
+    /// Multiply evaluated quantities without overflowing or producing a non-finite value.
+    fn checked_mul_sum(
+        left: Self::Sum,
+        right: Self::Sum,
+        context: &str,
+    ) -> Result<Self::Sum, crate::traits::EvaluationError> {
+        left.checked_mul_value(right)
+            .map_err(|error| evaluation_arithmetic_error(error, context))
+    }
 }
 
-impl WeightElement for i32 {
+impl WeightElement for i64 {
     type Sum = i64;
     const IS_UNIT: bool = false;
+    fn unit() -> Self {
+        1
+    }
+    fn validate_element(&self, _context: &str) -> Result<(), crate::registry::ConstructionError> {
+        Ok(())
+    }
     fn to_sum(&self) -> i64 {
-        i64::from(*self)
+        *self
     }
 }
 
 impl WeightElement for f64 {
     type Sum = f64;
     const IS_UNIT: bool = false;
+    fn unit() -> Self {
+        1.0
+    }
+    fn validate_element(&self, context: &str) -> Result<(), crate::registry::ConstructionError> {
+        if self.is_finite() {
+            Ok(())
+        } else {
+            Err(crate::registry::ConstructionError::NonFiniteFloat(format!(
+                "{context} must be finite"
+            )))
+        }
+    }
     fn to_sum(&self) -> f64 {
         *self
     }
@@ -72,7 +189,7 @@ impl Serialize for One {
     where
         S: Serializer,
     {
-        serializer.serialize_i32(1)
+        serializer.serialize_i64(1)
     }
 }
 
@@ -145,6 +262,12 @@ impl<'de> Deserialize<'de> for One {
 impl WeightElement for One {
     type Sum = i64;
     const IS_UNIT: bool = true;
+    fn unit() -> Self {
+        One
+    }
+    fn validate_element(&self, _context: &str) -> Result<(), crate::registry::ConstructionError> {
+        Ok(())
+    }
     fn to_sum(&self) -> i64 {
         1
     }
@@ -156,14 +279,16 @@ impl std::fmt::Display for One {
     }
 }
 
-impl From<i32> for One {
-    fn from(_: i32) -> Self {
-        One
-    }
+/// Failure while combining configuration values during a solve.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum AggregationError {
+    #[error("aggregate arithmetic overflow or non-finite result")]
+    ArithmeticOverflow,
+    #[error("aggregate values are not comparable")]
+    UnorderedComparison,
+    #[error("cannot combine extrema with different optimization senses")]
+    IncompatibleExtremumSense,
 }
-
-/// Backward-compatible alias for `One`.
-pub type Unweighted = One;
 
 /// Foldable aggregate values for enumerating a problem's configuration space.
 pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
@@ -171,7 +296,7 @@ pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
     fn identity() -> Self;
 
     /// Associative combine operation.
-    fn combine(self, other: Self) -> Self;
+    fn combine(self, other: Self) -> Result<Self, AggregationError>;
 
     /// Whether this aggregate admits representative witness configurations.
     fn supports_witnesses() -> bool {
@@ -181,6 +306,11 @@ pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
     /// Whether a configuration-level value belongs to the witness set
     /// for the final aggregate value.
     fn contributes_to_witnesses(_config_value: &Self, _total: &Self) -> bool {
+        false
+    }
+
+    /// Whether no further configuration can change this aggregate value.
+    fn is_absorbing(&self) -> bool {
         false
     }
 }
@@ -194,20 +324,22 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
         Max(None)
     }
 
-    fn combine(self, other: Self) -> Self {
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
         use std::cmp::Ordering;
 
-        match (self.0, other.0) {
+        Ok(match (self.0, other.0) {
             (None, rhs) => Max(rhs),
             (lhs, None) => Max(lhs),
             (Some(lhs), Some(rhs)) => {
-                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                let ord = lhs
+                    .partial_cmp(&rhs)
+                    .ok_or(AggregationError::UnorderedComparison)?;
                 match ord {
                     Ordering::Less => Max(Some(rhs)),
                     Ordering::Equal | Ordering::Greater => Max(Some(lhs)),
                 }
             }
-        }
+        })
     }
 
     fn supports_witnesses() -> bool {
@@ -251,20 +383,22 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
         Min(None)
     }
 
-    fn combine(self, other: Self) -> Self {
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
         use std::cmp::Ordering;
 
-        match (self.0, other.0) {
+        Ok(match (self.0, other.0) {
             (None, rhs) => Min(rhs),
             (lhs, None) => Min(lhs),
             (Some(lhs), Some(rhs)) => {
-                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                let ord = lhs
+                    .partial_cmp(&rhs)
+                    .ok_or(AggregationError::UnorderedComparison)?;
                 match ord {
                     Ordering::Greater => Min(Some(rhs)),
                     Ordering::Equal | Ordering::Less => Min(Some(lhs)),
                 }
             }
-        }
+        })
     }
 
     fn supports_witnesses() -> bool {
@@ -337,10 +471,11 @@ impl<W: fmt::Debug + NumericSize + Serialize + DeserializeOwned> Aggregate for S
         Sum(W::zero())
     }
 
-    fn combine(self, other: Self) -> Self {
-        let mut total = self.0;
-        total += other.0;
-        Sum(total)
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
+        self.0
+            .checked_add_value(other.0)
+            .map(Sum)
+            .map_err(|_| AggregationError::ArithmeticOverflow)
     }
 }
 
@@ -369,8 +504,8 @@ impl Aggregate for Or {
         Or(false)
     }
 
-    fn combine(self, other: Self) -> Self {
-        Or(self.0 || other.0)
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
+        Ok(Or(self.0 || other.0))
     }
 
     fn supports_witnesses() -> bool {
@@ -379,6 +514,10 @@ impl Aggregate for Or {
 
     fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
         config_value.0 && total.0
+    }
+
+    fn is_absorbing(&self) -> bool {
+        self.0
     }
 }
 
@@ -417,8 +556,12 @@ impl Aggregate for And {
         And(true)
     }
 
-    fn combine(self, other: Self) -> Self {
-        And(self.0 && other.0)
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
+        Ok(And(self.0 && other.0))
+    }
+
+    fn is_absorbing(&self) -> bool {
+        !self.0
     }
 }
 
@@ -473,10 +616,10 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
         Self::maximize(None)
     }
 
-    fn combine(self, other: Self) -> Self {
+    fn combine(self, other: Self) -> Result<Self, AggregationError> {
         use std::cmp::Ordering;
 
-        match (self.value, other.value) {
+        Ok(match (self.value, other.value) {
             (None, rhs) => Self {
                 sense: other.sense,
                 value: rhs,
@@ -486,11 +629,12 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
                 value: lhs,
             },
             (Some(lhs), Some(rhs)) => {
-                assert_eq!(
-                    self.sense, other.sense,
-                    "cannot combine Extremum values with different senses"
-                );
-                let ord = lhs.partial_cmp(&rhs).expect("cannot compare values (NaN?)");
+                if self.sense != other.sense {
+                    return Err(AggregationError::IncompatibleExtremumSense);
+                }
+                let ord = lhs
+                    .partial_cmp(&rhs)
+                    .ok_or(AggregationError::UnorderedComparison)?;
                 let keep_self = match self.sense {
                     ExtremumSense::Maximize => matches!(ord, Ordering::Equal | Ordering::Greater),
                     ExtremumSense::Minimize => matches!(ord, Ordering::Equal | Ordering::Less),
@@ -507,7 +651,7 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
                     }
                 }
             }
-        }
+        })
     }
 
     fn supports_witnesses() -> bool {
@@ -576,8 +720,8 @@ impl fmt::Display for ProblemSize {
 use crate::impl_variant_param;
 
 impl_variant_param!(f64, "weight");
-impl_variant_param!(i32, "weight", parent: f64, cast: |w| *w as f64);
-impl_variant_param!(One, "weight", parent: i32, cast: |_| 1i32);
+impl_variant_param!(i64, "weight", parent: f64);
+impl_variant_param!(One, "weight", parent: i64, cast: |_| 1i64);
 
 #[cfg(test)]
 #[path = "unit_tests/types.rs"]

@@ -58,7 +58,7 @@ impl ReductionResult for ReductionSubIsoToILP {
 impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
     type Result = ReductionSubIsoToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n_pat = self.num_pattern_vertices();
         let n_host = self.num_host_vertices();
         let host = self.host_graph();
@@ -94,11 +94,11 @@ impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
         // Feasibility: no objective
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionSubIsoToILP {
+        Ok(ReductionSubIsoToILP {
             target,
             num_pattern_vertices: n_pat,
             num_host_vertices: n_host,
-        }
+        })
     }
 }
 

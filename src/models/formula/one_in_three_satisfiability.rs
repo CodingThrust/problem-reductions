@@ -52,7 +52,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,14 +75,14 @@ impl OneInThreeSatisfiability {
     }
 
     /// Create a new 1-in-3 SAT problem after validating its clauses.
-    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
             if clause.len() != 3 {
-                return Err(format!(
-                    "Clause {i} has {} literals, expected 3",
-                    clause.len()
-                ));
+                return Err(format!("Clause {i} has {} literals, expected 3", clause.len()).into());
             }
         }
         Ok(Self { num_vars, clauses })
@@ -137,10 +137,15 @@ impl Problem for OneInThreeSatisfiability {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_one_in_three_satisfying(&assignment)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let assignment = super::config_to_assignment(config);
+                self.is_one_in_three_satisfying(&assignment)
+            })
         })
     }
 
@@ -160,7 +165,7 @@ struct OneInThreeSatisfiabilityDef {
 }
 
 impl TryFrom<OneInThreeSatisfiabilityDef> for OneInThreeSatisfiability {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: OneInThreeSatisfiabilityDef) -> Result<Self, Self::Error> {
         Self::try_new(value.num_vars, value.clauses)

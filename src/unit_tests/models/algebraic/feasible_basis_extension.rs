@@ -54,7 +54,7 @@ fn test_feasible_basis_extension_evaluate_satisfying() {
     // Free columns are [2, 3, 4, 5]. Select col 2 (index 0 in free list).
     // B = {0, 1, 2}. A_B = I_3. x = (7, 5, 3) but actually A_B = [[1,0,1],[0,1,0],[0,0,1]]
     // A_B^{-1} a_bar: solve [[1,0,1],[0,1,0],[0,0,1]] x = [7,5,3] => x = (4, 5, 3) >= 0
-    assert!(problem.evaluate(&[1, 0, 0, 0]));
+    assert!(problem.evaluate(&[1, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_feasible_basis_extension_evaluate_satisfying_col3() {
     let problem = issue_example();
     // Select col 3 (index 1 in free list). B = {0, 1, 3}.
     // A_B = [[1,0,2],[0,1,1],[0,0,1]]. Solve: x = (1, 2, 3) >= 0
-    assert!(problem.evaluate(&[0, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_feasible_basis_extension_evaluate_singular() {
     let problem = issue_example();
     // Select col 4 (index 2 in free list). B = {0, 1, 4}.
     // A_B = [[1,0,-1],[0,1,1],[0,0,0]] => singular
-    assert!(!problem.evaluate(&[0, 0, 1, 0]));
+    assert!(!problem.evaluate(&[0, 0, 1, 0]).unwrap());
 }
 
 #[test]
@@ -78,28 +78,28 @@ fn test_feasible_basis_extension_evaluate_infeasible_negative() {
     let problem = issue_example();
     // Select col 5 (index 3 in free list). B = {0, 1, 5}.
     // A_B = [[1,0,0],[0,1,2],[0,0,1]]. Solve: x = (7, -1, 3). x_1 = -1 < 0
-    assert!(!problem.evaluate(&[0, 0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_wrong_count() {
     let problem = issue_example();
     // Need exactly 1 column selected (m - |S| = 3 - 2 = 1)
-    assert!(!problem.evaluate(&[1, 1, 0, 0])); // too many
-    assert!(!problem.evaluate(&[0, 0, 0, 0])); // too few
+    assert!(!problem.evaluate(&[1, 1, 0, 0]).unwrap()); // too many
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap()); // too few
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_wrong_config_length() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[1, 0])); // too short
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0])); // too long
+    assert!(!problem.evaluate(&[1, 0]).unwrap()); // too short
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 0]).unwrap()); // too long
 }
 
 #[test]
 fn test_feasible_basis_extension_evaluate_invalid_variable_value() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[2, 0, 0, 0]));
+    assert!(!problem.evaluate(&[2, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -108,19 +108,20 @@ fn test_feasible_basis_extension_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_feasible_basis_extension_brute_force_all() {
     let problem = issue_example();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // From the issue: B={0,1,2} and B={0,1,3} are feasible, so 2 solutions
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -135,7 +136,7 @@ fn test_feasible_basis_extension_unsatisfiable() {
     let problem =
         FeasibleBasisExtension::new(vec![vec![1, 1, 1], vec![1, 1, 1]], vec![1, 1], vec![]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -164,12 +165,12 @@ fn test_feasible_basis_extension_serialization() {
 fn test_feasible_basis_extension_paper_example() {
     let problem = issue_example();
     // Verify B={0,1,2} is satisfying (config [1,0,0,0])
-    assert!(problem.evaluate(&[1, 0, 0, 0]));
+    assert!(problem.evaluate(&[1, 0, 0, 0]).unwrap());
     // Verify B={0,1,3} is satisfying (config [0,1,0,0])
-    assert!(problem.evaluate(&[0, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 1, 0, 0]).unwrap());
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 2);
 }
 

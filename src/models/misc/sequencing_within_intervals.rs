@@ -4,7 +4,7 @@
 //! determine whether all tasks can be scheduled non-overlappingly such that each
 //! task runs entirely within its allowed time window.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -45,99 +45,111 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 3 tasks: release_times = [0, 2, 4], deadlines = [3, 5, 7], lengths = [2, 2, 2]
-/// let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
+/// let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SequencingWithinIntervals {
     /// Release times for each task.
-    release_times: Vec<u64>,
+    release_times: Vec<i64>,
     /// Deadlines for each task.
-    deadlines: Vec<u64>,
+    deadlines: Vec<i64>,
     /// Processing lengths for each task.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct SequencingWithinIntervalsCreateSpec {
     /// Release times.
-    release_times: Vec<u64>,
+    release_times: Vec<i64>,
     /// Deadlines.
-    deadlines: Vec<u64>,
+    deadlines: Vec<i64>,
     /// Processing lengths.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
 }
 impl TryFrom<SequencingWithinIntervalsCreateSpec> for SequencingWithinIntervals {
-    type Error = String;
+    type Error = ConstructionError;
     fn try_from(spec: SequencingWithinIntervalsCreateSpec) -> Result<Self, Self::Error> {
-        if spec.release_times.len() != spec.deadlines.len() {
-            return Err("release_times and deadlines must have the same length".to_string());
-        }
-        if spec.release_times.len() != spec.lengths.len() {
-            return Err("release_times and lengths must have the same length".to_string());
-        }
-        for index in 0..spec.release_times.len() {
-            let finish = spec.release_times[index]
-                .checked_add(spec.lengths[index])
-                .ok_or_else(|| format!("task {index} release time plus length overflows u64"))?;
-            if finish > spec.deadlines[index] {
-                return Err(format!("task {index} has an empty time window"));
-            }
-        }
-        Ok(Self::new(spec.release_times, spec.deadlines, spec.lengths))
+        Self::new(spec.release_times, spec.deadlines, spec.lengths)
     }
 }
 
 impl SequencingWithinIntervals {
     /// Create a new SequencingWithinIntervals problem.
     ///
-    /// # Panics
-    /// Panics if the three vectors have different lengths, or if any task has
-    /// `r(i) + l(i) > d(i)` (empty time window).
-    pub fn new(release_times: Vec<u64>, deadlines: Vec<u64>, lengths: Vec<u64>) -> Self {
-        assert_eq!(
-            release_times.len(),
-            deadlines.len(),
-            "release_times and deadlines must have the same length"
-        );
-        assert_eq!(
-            release_times.len(),
-            lengths.len(),
-            "release_times and lengths must have the same length"
-        );
-        for i in 0..release_times.len() {
-            let sum = release_times[i]
-                .checked_add(lengths[i])
-                .expect("overflow computing r(i) + l(i)");
-            assert!(
-                sum <= deadlines[i],
-                "Task {i}: r({}) + l({}) > d({}), time window is empty",
-                release_times[i],
-                lengths[i],
-                deadlines[i]
-            );
+    pub fn new(
+        release_times: Vec<i64>,
+        deadlines: Vec<i64>,
+        lengths: Vec<i64>,
+    ) -> Result<Self, ConstructionError> {
+        if release_times.len() != deadlines.len() {
+            return Err(ConstructionError::Conversion(
+                "release_times and deadlines must have the same length".into(),
+            ));
         }
-        Self {
+        if release_times.len() != lengths.len() {
+            return Err(ConstructionError::Conversion(
+                "release_times and lengths must have the same length".into(),
+            ));
+        }
+        if release_times.iter().any(|&release| release < 0)
+            || deadlines.iter().any(|&deadline| deadline < 0)
+            || lengths.iter().any(|&length| length < 0)
+        {
+            return Err(ConstructionError::Conversion(
+                "release times, deadlines, and lengths must be nonnegative".into(),
+            ));
+        }
+        let mut total_slots = 0usize;
+        for i in 0..release_times.len() {
+            let sum = release_times[i].checked_add(lengths[i]).ok_or_else(|| {
+                ConstructionError::IntegerOverflow(format!(
+                    "task {i} release time plus length overflows i64"
+                ))
+            })?;
+            if sum > deadlines[i] {
+                return Err(ConstructionError::Conversion(format!(
+                    "task {i} has an empty time window"
+                )));
+            }
+            let slots = deadlines[i]
+                .checked_sub(sum)
+                .and_then(|slack| slack.checked_add(1))
+                .ok_or_else(|| {
+                    ConstructionError::IntegerOverflow(format!(
+                        "task {i} start-slot count overflows i64"
+                    ))
+                })?;
+            let slots = usize::try_from(slots).map_err(|_| {
+                ConstructionError::IntegerOverflow(format!(
+                    "task {i} start-slot count does not fit usize"
+                ))
+            })?;
+            total_slots = total_slots.checked_add(slots).ok_or_else(|| {
+                ConstructionError::IntegerOverflow("total start-slot count exceeds usize".into())
+            })?;
+        }
+        Ok(Self {
             release_times,
             deadlines,
             lengths,
-        }
+        })
     }
 
     /// Returns the release times.
-    pub fn release_times(&self) -> &[u64] {
+    pub fn release_times(&self) -> &[i64] {
         &self.release_times
     }
 
     /// Returns the deadlines.
-    pub fn deadlines(&self) -> &[u64] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
     /// Returns the processing lengths.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
@@ -162,6 +174,23 @@ impl SequencingWithinIntervals {
     }
 }
 
+impl<'de> Deserialize<'de> for SequencingWithinIntervals {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            release_times: Vec<i64>,
+            deadlines: Vec<i64>,
+            lengths: Vec<i64>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Self::new(raw.release_times, raw.deadlines, raw.lengths).map_err(serde::de::Error::custom)
+    }
+}
+
 impl Problem for SequencingWithinIntervals {
     const NAME: &'static str = "SequencingWithinIntervals";
     type Value = crate::types::Or;
@@ -176,40 +205,63 @@ impl Problem for SequencingWithinIntervals {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.num_tasks();
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
-
-            // Check each variable is within range and compute start times
-            let mut starts = Vec::with_capacity(n);
-            for (i, &c) in config.iter().enumerate() {
-                let dim =
-                    (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
-                if c >= dim {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let n = self.num_tasks();
+                if config.len() != n {
+                    return Ok(crate::types::Or(false));
                 }
-                // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
-                // so start + l[i] <= d[i] is guaranteed by construction.
-                let start = self.release_times[i] + c as u64;
-                starts.push(start);
-            }
 
-            // Check no two tasks overlap
-            for i in 0..n {
-                for j in (i + 1)..n {
-                    let end_i = starts[i] + self.lengths[i];
-                    let end_j = starts[j] + self.lengths[j];
-                    // Tasks overlap if neither finishes before the other starts
-                    if !(end_i <= starts[j] || end_j <= starts[i]) {
-                        return crate::types::Or(false);
+                // Check each variable is within range and compute start times
+                let mut starts = Vec::with_capacity(n);
+                for (i, &c) in config.iter().enumerate() {
+                    let dim =
+                        (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
+                    if c >= dim {
+                        return Ok(crate::types::Or(false));
+                    }
+                    // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
+                    // so start + l[i] <= d[i] is guaranteed by construction.
+                    let offset = i64::try_from(c).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting a sequencing start offset to i64".into(),
+                        )
+                    })?;
+                    let start = self.release_times[i].checked_add(offset).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding a sequencing start offset".into(),
+                        )
+                    })?;
+                    starts.push(start);
+                }
+                let ends = starts
+                    .iter()
+                    .zip(&self.lengths)
+                    .map(|(&start, &length)| {
+                        start.checked_add(length).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "computing a sequencing task end".into(),
+                            )
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                // Check no two tasks overlap
+                for i in 0..n {
+                    for j in (i + 1)..n {
+                        // Tasks overlap if neither finishes before the other starts
+                        if !(ends[i] <= starts[j] || ends[j] <= starts[i]) {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 }
@@ -222,11 +274,14 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "sequencing_within_intervals",
-        instance: Box::new(SequencingWithinIntervals::new(
-            vec![0, 1, 3, 6, 0],
-            vec![5, 8, 9, 12, 12],
-            vec![2, 2, 2, 3, 2],
-        )),
+        instance: Box::new(
+            SequencingWithinIntervals::new(
+                vec![0, 1, 3, 6, 0],
+                vec![5, 8, 9, 12, 12],
+                vec![2, 2, 2, 3, 2],
+            )
+            .expect("canonical sequencing-within-intervals instance must be valid"),
+        ),
         optimal_config: vec![0, 1, 1, 0, 9],
         optimal_value: serde_json::json!(true),
     }]

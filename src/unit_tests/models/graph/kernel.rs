@@ -26,7 +26,10 @@ fn test_kernel_evaluate_valid() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1, 0]), crate::types::Or(true));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 0, 1, 0]).unwrap(),
+        crate::types::Or(true)
+    );
 }
 
 #[test]
@@ -37,7 +40,10 @@ fn test_kernel_evaluate_not_independent() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem.evaluate(&[1, 1, 0, 0, 0]).unwrap(),
+        crate::types::Or(false)
+    );
 }
 
 #[test]
@@ -53,7 +59,10 @@ fn test_kernel_evaluate_not_absorbing() {
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
     let problem = Kernel::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 0, 0, 0]).unwrap(),
+        crate::types::Or(false)
+    );
 }
 
 #[test]
@@ -64,8 +73,11 @@ fn test_kernel_brute_force() {
     );
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).expect("should have a kernel");
-    assert_eq!(problem.evaluate(&solution), crate::types::Or(true));
+    let solution = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should have a kernel");
+    assert_eq!(problem.evaluate(&solution).unwrap(), crate::types::Or(true));
 }
 
 #[test]
@@ -79,7 +91,7 @@ fn test_kernel_no_solution() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
     let problem = Kernel::new(graph);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -100,7 +112,13 @@ fn test_kernel_empty_graph() {
     let graph = DirectedGraph::new(3, vec![]);
     let problem = Kernel::new(graph);
     // All selected: independent (no arcs), absorbing (no unselected vertices)
-    assert_eq!(problem.evaluate(&[1, 1, 1]), crate::types::Or(true));
+    assert_eq!(
+        problem.evaluate(&[1, 1, 1]).unwrap(),
+        crate::types::Or(true)
+    );
     // Not all selected: e.g., {0} → vertex 1 has no arc to 0, not absorbing
-    assert_eq!(problem.evaluate(&[1, 0, 0]), crate::types::Or(false));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 0]).unwrap(),
+        crate::types::Or(false)
+    );
 }

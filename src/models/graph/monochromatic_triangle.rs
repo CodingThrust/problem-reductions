@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = MonochromaticTriangle::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,24 +152,29 @@ where
         vec![2; self.edge_list.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.edge_list.len() {
-                return crate::types::Or(false);
-            }
-
-            // Check each triangle: if all three edges have the same color,
-            // the coloring is invalid.
-            for tri in &self.triangles {
-                let c0 = config[tri[0]];
-                let c1 = config[tri[1]];
-                let c2 = config[tri[2]];
-                if c0 == c1 && c1 == c2 {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.edge_list.len() {
+                    return Ok(crate::types::Or(false));
                 }
-            }
 
-            true
+                // Check each triangle: if all three edges have the same color,
+                // the coloring is invalid.
+                for tri in &self.triangles {
+                    let c0 = config[tri[0]];
+                    let c1 = config[tri[1]];
+                    let c2 = config[tri[2]];
+                    if c0 == c1 && c1 == c2 {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 }

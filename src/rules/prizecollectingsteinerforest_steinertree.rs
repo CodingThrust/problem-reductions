@@ -45,7 +45,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// are not needed for extraction.
 #[derive(Debug, Clone)]
 pub struct ReductionPCSFToSteinerTree {
-    target: SteinerTree<SimpleGraph, i32>,
+    target: SteinerTree<SimpleGraph, i64>,
     /// Number of vertices in the source graph (also the prefix size of the
     /// source configuration's vertex-selector segment).
     num_source_vertices: usize,
@@ -62,10 +62,10 @@ pub struct ReductionPCSFToSteinerTree {
 }
 
 impl ReductionResult for ReductionPCSFToSteinerTree {
-    type Source = PrizeCollectingSteinerForest<SimpleGraph, i32>;
-    type Target = SteinerTree<SimpleGraph, i32>;
+    type Source = PrizeCollectingSteinerForest<SimpleGraph, i64>;
+    type Target = SteinerTree<SimpleGraph, i64>;
 
-    fn target_problem(&self) -> &SteinerTree<SimpleGraph, i32> {
+    fn target_problem(&self) -> &SteinerTree<SimpleGraph, i64> {
         &self.target
     }
 
@@ -129,10 +129,10 @@ impl ReductionPCSFToSteinerTree {
         num_terminals = "num_vertices_with_prize + 1",
     }
 )]
-impl ReduceTo<SteinerTree<SimpleGraph, i32>> for PrizeCollectingSteinerForest<SimpleGraph, i32> {
+impl ReduceTo<SteinerTree<SimpleGraph, i64>> for PrizeCollectingSteinerForest<SimpleGraph, i64> {
     type Result = ReductionPCSFToSteinerTree;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let source_edges = self.graph().edges();
@@ -153,7 +153,7 @@ impl ReduceTo<SteinerTree<SimpleGraph, i32>> for PrizeCollectingSteinerForest<Si
 
         let target_num_vertices = n + 1 + k;
         let mut target_edges: Vec<(usize, usize)> = Vec::with_capacity(m + n + 2 * k);
-        let mut target_edge_weights: Vec<i32> = Vec::with_capacity(m + n + 2 * k);
+        let mut target_edge_weights: Vec<i64> = Vec::with_capacity(m + n + 2 * k);
         let mut target_to_source_edge: Vec<Option<usize>> = Vec::with_capacity(m + n + 2 * k);
         let mut target_to_include_vertex: Vec<Option<usize>> = Vec::with_capacity(m + n + 2 * k);
 
@@ -198,15 +198,15 @@ impl ReduceTo<SteinerTree<SimpleGraph, i32>> for PrizeCollectingSteinerForest<Si
 
         let target_graph = SimpleGraph::new(target_num_vertices, target_edges);
         let target =
-            SteinerTree::<SimpleGraph, i32>::new(target_graph, target_edge_weights, terminals);
+            SteinerTree::<SimpleGraph, i64>::new(target_graph, target_edge_weights, terminals);
 
-        ReductionPCSFToSteinerTree {
+        Ok(ReductionPCSFToSteinerTree {
             target,
             num_source_vertices: n,
             num_source_edges: m,
             target_to_source_edge,
             target_to_include_vertex,
-        }
+        })
     }
 }
 
@@ -224,19 +224,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // c(1,2)=10, prizes p = (5, 1, 5), beta = 1, omega = 1. The
             // optimum drops vertex 1 (paying p(1) = 1) rather than paying a
             // size-10 edge to reach it.
-            let source = PrizeCollectingSteinerForest::<SimpleGraph, i32>::new(
+            let source = PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
                 vec![5, 1, 5],
                 vec![10, 10],
                 1,
                 1,
-            );
-            let reduction = <PrizeCollectingSteinerForest<SimpleGraph, i32> as ReduceTo<
-                SteinerTree<SimpleGraph, i32>,
-            >>::reduce_to(&source);
+            )
+            .unwrap();
+            let reduction = <PrizeCollectingSteinerForest<SimpleGraph, i64> as ReduceTo<
+                SteinerTree<SimpleGraph, i64>,
+            >>::reduce_to(&source)
+            .expect("reduction should succeed");
             let target = reduction.target_problem();
             let target_config = BruteForce::new()
                 .find_witness(target)
+                .expect("canonical target evaluation must succeed")
                 .expect("canonical PCSF -> SteinerTree example must have an optimal target tree");
             let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(

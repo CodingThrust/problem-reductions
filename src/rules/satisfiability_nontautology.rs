@@ -39,16 +39,18 @@ impl ReductionResult for ReductionSATToNonTautology {
 impl ReduceTo<NonTautology> for Satisfiability {
     type Result = ReductionSATToNonTautology;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let disjuncts = self
             .clauses()
             .iter()
             .map(|clause| clause.literals.iter().map(|&lit| -lit).collect())
             .collect();
 
-        ReductionSATToNonTautology {
-            target: NonTautology::new(self.num_vars(), disjuncts),
-        }
+        Ok(ReductionSATToNonTautology {
+            target: NonTautology::new(self.num_vars(), disjuncts).map_err(|error| {
+                crate::rules::ReductionError::construction::<Satisfiability, NonTautology>(error)
+            })?,
+        })
     }
 }
 

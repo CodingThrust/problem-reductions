@@ -1,4 +1,4 @@
-//! Reduction from MinimumTardinessSequencing to ILP<bool>.
+//! Reduction from MinimumTardinessSequencing to `ILP<bool>`.
 //!
 //! Position-assignment ILP: binary x_{j,p} placing task j in position p,
 //! with binary tardy indicator u_j. Precedence constraints and a
@@ -9,9 +9,10 @@ use crate::models::misc::MinimumTardinessSequencing;
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_decode, permutation_to_lehmer};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 use crate::types::One;
 
-/// Result of reducing MinimumTardinessSequencing<One> to ILP<bool>.
+/// Result of reducing MinimumTardinessSequencing<One> to `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionMTSToILP {
     target: ILP<bool>,
@@ -40,7 +41,7 @@ impl ReductionResult for ReductionMTSToILP {
     }
 }
 
-/// Result of reducing MinimumTardinessSequencing<i32> to ILP<bool>.
+/// Result of reducing MinimumTardinessSequencing<i64> to `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionMTSWeightedToILP {
     target: ILP<bool>,
@@ -48,7 +49,7 @@ pub struct ReductionMTSWeightedToILP {
 }
 
 impl ReductionResult for ReductionMTSWeightedToILP {
-    type Source = MinimumTardinessSequencing<i32>;
+    type Source = MinimumTardinessSequencing<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -111,7 +112,7 @@ fn build_common_constraints(
 impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
     type Result = ReductionMTSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let num_x_vars = n * n;
         let num_vars = num_x_vars + n;
@@ -127,15 +128,21 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
             let mut terms: Vec<(usize, f64)> =
                 (0..n).map(|p| (x_var(j, p), (p + 1) as f64)).collect();
             terms.push((u_var(j), -big_m));
-            constraints.push(LinearConstraint::le(terms, self.deadlines()[j] as f64));
+            let deadline = i64_to_exact_f64(self.deadlines()[j]).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumTardinessSequencing<One>,
+                    ILP<bool>,
+                >(error)
+            })?;
+            constraints.push(LinearConstraint::le(terms, deadline));
         }
 
         let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
 
-        ReductionMTSToILP {
+        Ok(ReductionMTSToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
-        }
+        })
     }
 }
 
@@ -145,15 +152,30 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
         num_vars = "num_tasks * num_tasks + num_tasks",
         num_constraints = "2 * num_tasks + num_precedences + num_tasks * num_tasks",
     },)]
-impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i32> {
+impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
     type Result = ReductionMTSWeightedToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let num_x_vars = n * n;
         let num_vars = num_x_vars + n;
-        let total_length: i32 = self.lengths().iter().copied().sum();
-        let big_m = total_length as f64;
+        let total_length = self.lengths().iter().try_fold(0_i64, |total, &length| {
+            total.checked_add(length).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    MinimumTardinessSequencing<i64>,
+                    ILP<bool>,
+                >("summing task lengths")
+            })
+        })?;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumTardinessSequencing<i64>,
+                    ILP<bool>,
+                >(error)
+            })
+        };
+        let big_m = exact_f64(total_length)?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
         let u_var = |j: usize| -> usize { num_x_vars + j };
@@ -168,21 +190,30 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i32> {
                 terms.push((x_var(j, p), big_m));
                 for pp in 0..p {
                     for (jj, &len) in lengths.iter().enumerate() {
-                        terms.push((x_var(jj, pp), len as f64));
+                        terms.push((x_var(jj, pp), exact_f64(len)?));
                     }
                 }
                 terms.push((u_var(j), -big_m));
-                let rhs = self.deadlines()[j] as f64 - lengths[j] as f64 + big_m;
+                let rhs_i64 = self.deadlines()[j]
+                    .checked_sub(lengths[j])
+                    .and_then(|value| value.checked_add(total_length))
+                    .ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            MinimumTardinessSequencing<i64>,
+                            ILP<bool>,
+                        >("computing a tardiness constraint bound")
+                    })?;
+                let rhs = exact_f64(rhs_i64)?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
 
         let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
 
-        ReductionMTSWeightedToILP {
+        Ok(ReductionMTSWeightedToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
-        }
+        })
     }
 }
 
@@ -199,7 +230,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "minimumtardinesssequencing_weighted_to_ilp",
             build: || {
-                let source = MinimumTardinessSequencing::<i32>::with_lengths(
+                let source = MinimumTardinessSequencing::<i64>::with_lengths(
                     vec![2, 1, 3],
                     vec![3, 4, 5],
                     vec![(0, 2)],

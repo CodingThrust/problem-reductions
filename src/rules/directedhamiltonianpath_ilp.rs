@@ -56,7 +56,7 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
     type Result = ReductionDirectedHamiltonianPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let arcs = self.graph().arcs();
 
@@ -102,10 +102,10 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
         // Feasibility objective
         let target = ILP::new(n * n, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionDirectedHamiltonianPathToILP {
+        Ok(ReductionDirectedHamiltonianPathToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

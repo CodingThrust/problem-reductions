@@ -10,7 +10,7 @@ use crate::models::graph::MaximumCoKPlex;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::{One, WeightElement};
+use crate::types::{i64_to_exact_f64, One, WeightElement};
 use crate::variant::{VariantParam, KN};
 use std::marker::PhantomData;
 
@@ -80,17 +80,23 @@ where
         num_constraints = "num_vertices",
     },
 )]
-impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i32, KN> {
-    type Result = ReductionCoKPlexToILP<i32>;
+impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i64, KN> {
+    type Result = ReductionCoKPlexToILP<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let objective: Vec<(usize, f64)> = self
             .weights()
             .iter()
             .enumerate()
-            .map(|(v, &weight)| (v, weight as f64))
-            .collect();
-        reduce_cokplex_to_ilp(self, objective)
+            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MaximumCoKPlex<SimpleGraph, i64, KN>,
+                    ILP<bool>,
+                >(error)
+            })?;
+        Ok(reduce_cokplex_to_ilp(self, objective))
     }
 }
 
@@ -103,14 +109,14 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, i32, KN> {
 impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
     type Result = ReductionCoKPlexToILP<One>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let objective: Vec<(usize, f64)> = self
             .weights()
             .iter()
             .enumerate()
             .map(|(v, _)| (v, 1.0))
             .collect();
-        reduce_cokplex_to_ilp(self, objective)
+        Ok(reduce_cokplex_to_ilp(self, objective))
     }
 }
 
@@ -118,9 +124,9 @@ impl ReduceTo<ILP<bool>> for MaximumCoKPlex<SimpleGraph, One, KN> {
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumcokplex_i32_to_ilp",
+            id: "maximumcokplex_i64_to_ilp",
             build: || {
-                let source = MaximumCoKPlex::<_, i32, KN>::with_k(
+                let source = MaximumCoKPlex::<_, i64, KN>::with_k(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
                     vec![5, 1, 4, 1, 3],
                     2,

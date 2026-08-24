@@ -51,7 +51,7 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
 impl ReduceTo<Betweenness> for SetSplitting {
     type Result = ReductionSetSplittingToBetweenness;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let (normalized_universe_size, normalized_subsets) = self.normalized_instance();
         let pole = normalized_universe_size;
         let size3_subsets = normalized_subsets
@@ -70,15 +70,22 @@ impl ReduceTo<Betweenness> for SetSplitting {
                     triples.push((*u, auxiliary, *v));
                     triples.push((auxiliary, pole, *w));
                 }
-                _ => unreachable!("normalization only produces size-2 or size-3 subsets"),
+                _ => {
+                    return Err(crate::rules::ReductionError::invalid_target::<
+                        SetSplitting,
+                        Betweenness,
+                    >(
+                        "normalized subset must contain two or three elements"
+                    ));
+                }
             }
         }
 
-        ReductionSetSplittingToBetweenness {
+        Ok(ReductionSetSplittingToBetweenness {
             target: Betweenness::new(num_elements, triples),
             source_universe_size: self.universe_size(),
             pole,
-        }
+        })
     }
 }
 

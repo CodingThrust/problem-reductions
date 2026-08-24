@@ -59,7 +59,7 @@ inventory::submit! {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,7 +164,7 @@ fn deductive_closure(current: &mut [bool], implications: &[(Vec<usize>, usize)])
 
 impl Problem for MinimumAxiomSet {
     const NAME: &'static str = "MinimumAxiomSet";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -174,35 +174,41 @@ impl Problem for MinimumAxiomSet {
         vec![2; self.num_true_sentences()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_true_sentences() {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Build the initial set of selected axioms
-        let mut current = vec![false; self.num_sentences];
-        let mut count = 0usize;
-        for (i, &v) in config.iter().enumerate() {
-            if v == 1 {
-                current[self.true_sentences[i]] = true;
-                count += 1;
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_true_sentences() {
+                return Ok(Min(None));
             }
-        }
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(Min(None));
+            }
 
-        // Compute deductive closure
-        deductive_closure(&mut current, &self.implications);
+            // Build the initial set of selected axioms
+            let mut current = vec![false; self.num_sentences];
+            let mut count = 0usize;
+            for (i, &v) in config.iter().enumerate() {
+                if v == 1 {
+                    current[self.true_sentences[i]] = true;
+                    count += 1;
+                }
+            }
 
-        // Check if closure equals T
-        let closure_equals_t = self.true_sentences.iter().all(|&s| current[s]);
+            // Compute deductive closure
+            deductive_closure(&mut current, &self.implications);
 
-        if closure_equals_t {
-            Min(Some(count))
-        } else {
-            Min(None)
-        }
+            // Check if closure equals T
+            let closure_equals_t = self.true_sentences.iter().all(|&s| current[s]);
+
+            if closure_equals_t {
+                Min(Some(i64::try_from(count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting axiom-set size to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
     }
 }
 

@@ -39,7 +39,7 @@ use problemreductions::prelude::*;
 use problemreductions::models::algebraic::ILP;
 use problemreductions::solvers::ILPSolver;
 
-let problem = MaximumSetPacking::<i32>::new(vec![
+let problem = MaximumSetPacking::<i64>::new(vec![
     vec![0, 1],
     vec![1, 2],
     vec![2, 3],
@@ -107,7 +107,7 @@ assert!(problem.evaluate(&solution).is_valid());
 ```
 
 The ILP domain is explicit because a source type may provide more than one
-direct ILP reduction. Both `bool` and `i32` are supported. `solve` and
+direct ILP reduction. Both `bool` and `i64` are supported. `solve` and
 `solve_reduced` return `ILPSolveError`, which distinguishes infeasibility,
 timeout, unboundedness, unsupported dynamic input, and backend failure.
 

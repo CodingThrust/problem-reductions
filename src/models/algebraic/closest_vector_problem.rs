@@ -3,21 +3,57 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
+
+/// Coordinate types supported by [`ClosestVectorProblem`].
+pub trait ClosestVectorCoordinate: Clone {
+    fn to_exact_f64(&self) -> Result<f64, crate::traits::EvaluationError>;
+    fn validate(&self, context: &str) -> Result<(), ConstructionError>;
+}
+
+impl ClosestVectorCoordinate for i64 {
+    fn to_exact_f64(&self) -> Result<f64, crate::traits::EvaluationError> {
+        crate::types::i64_to_exact_f64(*self).map_err(|error| {
+            crate::traits::EvaluationError::InexactFloatConversion(error.to_string())
+        })
+    }
+    fn validate(&self, _context: &str) -> Result<(), ConstructionError> {
+        Ok(())
+    }
+}
+
+impl ClosestVectorCoordinate for f64 {
+    fn to_exact_f64(&self) -> Result<f64, crate::traits::EvaluationError> {
+        self.is_finite().then_some(*self).ok_or_else(|| {
+            crate::traits::EvaluationError::NonFiniteResult(
+                "reading a closest-vector basis coordinate".to_string(),
+            )
+        })
+    }
+    fn validate(&self, context: &str) -> Result<(), ConstructionError> {
+        if self.is_finite() {
+            Ok(())
+        } else {
+            Err(ConstructionError::NonFiniteFloat(format!(
+                "{context} must be finite"
+            )))
+        }
+    }
+}
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ClosestVectorProblem",
         display_name: "Closest Vector Problem",
         aliases: &["CVP"],
-        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        dimensions: &[VariantDimension::new("weight", "i64", &["i64", "f64"])],
         category: crate::registry::ProblemCategory::Algebraic,
         module_path: module_path!(),
         description: "Find the closest lattice point to a target vector",
-        fields: ClosestVectorProblemI32CreateSpec::FIELDS,
+        fields: ClosestVectorProblemI64CreateSpec::FIELDS,
     }
 }
 
@@ -87,7 +123,8 @@ impl VarBounds {
         match (self.lower, self.upper) {
             (Some(lo), Some(hi)) => {
                 if hi >= lo {
-                    Some((hi - lo + 1) as usize)
+                    let count = i128::from(hi) - i128::from(lo) + 1;
+                    usize::try_from(count).ok()
                 } else {
                     Some(0)
                 }
@@ -96,21 +133,46 @@ impl VarBounds {
         }
     }
 
+    fn validate_enumerable(&self, index: usize) -> Result<(), ConstructionError> {
+        let (Some(lower), Some(upper)) = (self.lower, self.upper) else {
+            return Err(ConstructionError::Conversion(format!(
+                "bounds at index {index} must be finite"
+            )));
+        };
+        if upper < lower {
+            return Err(ConstructionError::Conversion(format!(
+                "upper bound at index {index} must not be less than its lower bound"
+            )));
+        }
+        if self.num_values().is_none() {
+            return Err(ConstructionError::IntegerOverflow(format!(
+                "integer range at index {index} is too large to enumerate"
+            )));
+        }
+        Ok(())
+    }
+
     /// Returns an exact bounded binary basis for offsets in this range.
     ///
     /// For a bounded variable with offsets `0..=hi-lo`, the returned weights
     /// ensure that every bit-pattern reconstructs an in-range offset. Low-order
     /// weights use powers of two; the final weight is capped so the maximum
     /// reachable offset is exactly `hi-lo`.
-    pub(crate) fn exact_encoding_weights(&self) -> Vec<i64> {
+    pub(crate) fn exact_encoding_weights(&self) -> Result<Vec<i64>, ConstructionError> {
         let Some(num_values) = self.num_values() else {
-            panic!("CVP QUBO encoding requires finite variable bounds");
+            return Err(ConstructionError::IntegerOverflow(
+                "CVP QUBO encoding requires finite variable bounds".to_string(),
+            ));
         };
         if num_values <= 1 {
-            return Vec::new();
+            return Ok(Vec::new());
         }
 
-        let max_offset = (num_values - 1) as i64;
+        let max_offset = i64::try_from(num_values - 1).map_err(|_| {
+            ConstructionError::IntegerOverflow(
+                "CVP QUBO encoding offset cannot be represented as i64".to_string(),
+            )
+        })?;
         let num_bits = (usize::BITS - (num_values - 1).leading_zeros()) as usize;
         let mut weights = Vec::with_capacity(num_bits);
 
@@ -124,12 +186,15 @@ impl VarBounds {
             (1_i64 << (num_bits - 1)) - 1
         };
         weights.push(max_offset - covered_by_lower_bits);
-        weights
+        Ok(weights)
     }
 
     /// Returns the number of encoding bits needed for the exact bounded basis.
     pub(crate) fn num_encoding_bits(&self) -> usize {
-        self.exact_encoding_weights().len()
+        self.num_values()
+            .filter(|&num_values| num_values > 1)
+            .map(|num_values| (usize::BITS - (num_values - 1).leading_zeros()) as usize)
+            .unwrap_or(0)
     }
 }
 
@@ -139,8 +204,8 @@ impl VarBounds {
 /// find integer x ∈ Z^n minimizing ‖Bx - t‖₂.
 ///
 /// Variables are integer coefficients with explicit bounds for enumeration.
-/// The configuration encoding follows ILP: config[i] is an offset from bounds[i].lower.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// The configuration encoding follows ILP: `config[i]` is an offset from `bounds[i].lower`.
+#[derive(Debug, Clone, Serialize)]
 pub struct ClosestVectorProblem<T> {
     /// Basis matrix B stored as n column vectors, each of dimension m.
     basis: Vec<Vec<T>>,
@@ -166,37 +231,26 @@ macro_rules! cvp_create_spec {
         }
 
         impl TryFrom<$name> for ClosestVectorProblem<$element> {
-            type Error = String;
+            type Error = ConstructionError;
 
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
-                for (index, column) in spec.basis.iter().enumerate() {
-                    if column.len() != spec.target.len() {
-                        return Err(format!(
-                            "basis vector {index} has length {}, expected {}",
-                            column.len(),
-                            spec.target.len()
-                        ));
-                    }
-                }
                 let limits = spec.bounds.unwrap_or_else(|| vec![-10, 10]);
                 if limits.len() != 2 {
-                    return Err("bounds expects exactly lower,upper".to_string());
+                    return Err(ConstructionError::Conversion(
+                        "bounds expects exactly lower,upper".to_string(),
+                    ));
                 }
                 let bounds = vec![VarBounds::bounded(limits[0], limits[1]); spec.basis.len()];
-                Ok(ClosestVectorProblem {
-                    basis: spec.basis,
-                    target: spec.target,
-                    bounds,
-                })
+                ClosestVectorProblem::new(spec.basis, spec.target, bounds)
             }
         }
     };
 }
 
-cvp_create_spec!(ClosestVectorProblemI32CreateSpec, i32);
+cvp_create_spec!(ClosestVectorProblemI64CreateSpec, i64);
 cvp_create_spec!(ClosestVectorProblemF64CreateSpec, f64);
 
-impl<T> ClosestVectorProblem<T> {
+impl<T: ClosestVectorCoordinate> ClosestVectorProblem<T> {
     /// Create a new CVP instance.
     ///
     /// # Arguments
@@ -204,29 +258,52 @@ impl<T> ClosestVectorProblem<T> {
     /// * `target` - target vector of dimension m
     /// * `bounds` - integer bounds per variable (length n)
     ///
-    /// # Panics
-    /// Panics if basis/bounds lengths mismatch or dimensions are inconsistent.
-    pub fn new(basis: Vec<Vec<T>>, target: Vec<f64>, bounds: Vec<VarBounds>) -> Self {
+    pub fn new(
+        basis: Vec<Vec<T>>,
+        target: Vec<f64>,
+        bounds: Vec<VarBounds>,
+    ) -> Result<Self, ConstructionError> {
         let n = basis.len();
-        assert_eq!(
-            bounds.len(),
-            n,
-            "bounds length must match number of basis vectors"
-        );
-        let m = target.len();
-        for (i, col) in basis.iter().enumerate() {
-            assert_eq!(
-                col.len(),
-                m,
-                "basis vector {i} has length {}, expected {m}",
-                col.len()
-            );
+        if bounds.len() != n {
+            return Err(ConstructionError::Conversion(
+                "bounds length must match number of basis vectors".to_string(),
+            ));
         }
-        Self {
+        let m = target.len();
+        for (row, value) in target.iter().enumerate() {
+            if !value.is_finite() {
+                return Err(ConstructionError::NonFiniteFloat(format!(
+                    "target coordinate at index {row} must be finite"
+                )));
+            }
+        }
+        for (i, col) in basis.iter().enumerate() {
+            if col.len() != m {
+                return Err(ConstructionError::Conversion(format!(
+                    "basis vector {i} has length {}, expected {m}",
+                    col.len()
+                )));
+            }
+            for (row, coordinate) in col.iter().enumerate() {
+                coordinate.validate(&format!("basis coordinate at column {i}, row {row}"))?;
+            }
+        }
+        let mut total_encoding_bits = 0usize;
+        for (index, bound) in bounds.iter().enumerate() {
+            bound.validate_enumerable(index)?;
+            total_encoding_bits = total_encoding_bits
+                .checked_add(bound.num_encoding_bits())
+                .ok_or_else(|| {
+                    ConstructionError::IntegerOverflow(
+                        "computing the total number of encoding bits".to_string(),
+                    )
+                })?;
+        }
+        Ok(Self {
             basis,
             target,
             bounds,
-        }
+        })
     }
 
     /// Number of basis vectors (lattice dimension n).
@@ -260,22 +337,72 @@ impl<T> ClosestVectorProblem<T> {
     }
 
     /// Convert a configuration (offsets from lower bounds) to integer values.
-    fn config_to_values(&self, config: &[usize]) -> Vec<i64> {
+    fn config_to_values(
+        &self,
+        config: &[usize],
+    ) -> Result<Vec<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.bounds.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                format!(
+                    "expected {} closest-vector coefficients, got {}",
+                    self.bounds.len(),
+                    config.len()
+                ),
+            ));
+        }
         config
             .iter()
             .enumerate()
             .map(|(i, &c)| {
-                let lo = self.bounds.get(i).and_then(|b| b.lower).unwrap_or(0);
-                lo + c as i64
+                let bound = &self.bounds[i];
+                let dimension = bound.num_values().expect("validated finite CVP bounds");
+                if c >= dimension {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        format!("coefficient at index {i} is outside its encoded range"),
+                    ));
+                }
+                let offset = i64::try_from(c).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting a closest-vector configuration offset to i64".into(),
+                    )
+                })?;
+                bound
+                    .lower
+                    .expect("validated finite CVP lower bound")
+                    .checked_add(offset)
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding a closest-vector configuration offset".into(),
+                        )
+                    })
             })
             .collect()
     }
 }
 
+impl<'de, T> Deserialize<'de> for ClosestVectorProblem<T>
+where
+    T: ClosestVectorCoordinate + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw<T> {
+            basis: Vec<Vec<T>>,
+            target: Vec<f64>,
+            bounds: Vec<VarBounds>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Self::new(raw.basis, raw.target, raw.bounds).map_err(serde::de::Error::custom)
+    }
+}
+
 impl<T> Problem for ClosestVectorProblem<T>
 where
-    T: Clone
-        + Into<f64>
+    T: ClosestVectorCoordinate
         + crate::variant::VariantParam
         + Serialize
         + for<'de> Deserialize<'de>
@@ -296,20 +423,49 @@ where
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<f64> {
-        let values = self.config_to_values(config);
-        let m = self.ambient_dimension();
-        let mut diff = vec![0.0f64; m];
-        for (i, &x_i) in values.iter().enumerate() {
-            for (j, b_ji) in self.basis[i].iter().enumerate() {
-                diff[j] += x_i as f64 * b_ji.clone().into();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<f64>, crate::traits::EvaluationError> {
+        Ok({
+            let values = self.config_to_values(config)?;
+            let m = self.ambient_dimension();
+            let mut diff = vec![0.0f64; m];
+            for (i, &x_i) in values.iter().enumerate() {
+                let x_i = crate::types::i64_to_exact_f64(x_i).map_err(|error| {
+                    crate::traits::EvaluationError::InexactFloatConversion(error.to_string())
+                })?;
+                for (j, b_ji) in self.basis[i].iter().enumerate() {
+                    let term = x_i * b_ji.to_exact_f64()?;
+                    let next = diff[j] + term;
+                    if !term.is_finite() || !next.is_finite() {
+                        return Err(crate::traits::EvaluationError::NonFiniteResult(
+                            "computing closest-vector lattice point".to_string(),
+                        ));
+                    }
+                    diff[j] = next;
+                }
             }
-        }
-        for (d, t) in diff.iter_mut().zip(self.target.iter()) {
-            *d -= t;
-        }
-        let norm = diff.iter().map(|d| d * d).sum::<f64>().sqrt();
-        Min(Some(norm))
+            for (d, t) in diff.iter_mut().zip(self.target.iter()) {
+                let next = *d - t;
+                if !next.is_finite() {
+                    return Err(crate::traits::EvaluationError::NonFiniteResult(
+                        "computing closest-vector displacement".to_string(),
+                    ));
+                }
+                *d = next;
+            }
+            let mut squared_norm = 0.0;
+            for displacement in diff {
+                let square = displacement * displacement;
+                let next = squared_norm + square;
+                if !square.is_finite() || !next.is_finite() {
+                    return Err(crate::traits::EvaluationError::NonFiniteResult(
+                        "computing closest-vector norm".to_string(),
+                    ));
+                }
+                squared_norm = next;
+            }
+            let norm = squared_norm.sqrt();
+            Min(Some(norm))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -318,19 +474,22 @@ where
 }
 
 crate::declare_variants! {
-    default ClosestVectorProblem<i32> => "2^num_basis_vectors" create ClosestVectorProblemI32CreateSpec,
+    default ClosestVectorProblem<i64> => "2^num_basis_vectors" create ClosestVectorProblemI64CreateSpec,
     ClosestVectorProblem<f64> => "2^num_basis_vectors" create ClosestVectorProblemF64CreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "closest_vector_problem_i32",
-        instance: Box::new(ClosestVectorProblem::new(
-            vec![vec![2, 0], vec![1, 2]],
-            vec![2.8, 1.5],
-            vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
-        )),
+        id: "closest_vector_problem_i64",
+        instance: Box::new(
+            ClosestVectorProblem::new(
+                vec![vec![2, 0], vec![1, 2]],
+                vec![2.8, 1.5],
+                vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
+            )
+            .expect("canonical closest-vector instance must be valid"),
+        ),
         optimal_config: vec![3, 3],
         optimal_value: serde_json::json!(0.5385164807134505),
     }]

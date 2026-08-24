@@ -46,7 +46,7 @@ impl ReductionResult for ReductionSMCToILP {
 impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
     type Result = ReductionSMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
         let k = self.bound_k();
@@ -98,11 +98,11 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionSMCToILP {
+        Ok(ReductionSMCToILP {
             target,
             num_rows: m,
             bound_k: k,
-        }
+        })
     }
 }
 
@@ -121,7 +121,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 2,
             );
-            let reduction: ReductionSMCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionSMCToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver
                 .solve(reduction.target_problem())

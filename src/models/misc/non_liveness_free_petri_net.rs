@@ -10,7 +10,7 @@
 //! transitions are claimed to be globally dead. The answer is YES (Or(true))
 //! when at least one selected transition is indeed globally dead.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -31,7 +31,7 @@ inventory::submit! {
             FieldInfo { name: "num_transitions", type_name: "usize", description: "Number of transitions |T|" },
             FieldInfo { name: "place_to_transition", type_name: "Vec<(usize,usize)>", description: "Arcs from places to transitions" },
             FieldInfo { name: "transition_to_place", type_name: "Vec<(usize,usize)>", description: "Arcs from transitions to places" },
-            FieldInfo { name: "initial_marking", type_name: "Vec<usize>", description: "Initial marking M₀ (tokens per place)" },
+            FieldInfo { name: "initial_marking", type_name: "Vec<i64>", description: "Initial marking M₀ (tokens per place)" },
         ],
     }
 }
@@ -49,7 +49,7 @@ pub struct NonLivenessFreePetriNet {
     num_transitions: usize,
     place_to_transition: Vec<(usize, usize)>,
     transition_to_place: Vec<(usize, usize)>,
-    initial_marking: Vec<usize>,
+    initial_marking: Vec<i64>,
     /// Precomputed globally dead transitions (not serialized).
     #[serde(skip)]
     globally_dead: Vec<bool>,
@@ -61,47 +61,67 @@ impl NonLivenessFreePetriNet {
         num_transitions: usize,
         place_to_transition: &[(usize, usize)],
         transition_to_place: &[(usize, usize)],
-        initial_marking: &[usize],
-    ) -> Result<(), String> {
+        initial_marking: &[i64],
+    ) -> Result<(), ConstructionError> {
         if num_places == 0 {
-            return Err("NonLivenessFreePetriNet requires at least one place".to_string());
+            return Err(ConstructionError::Conversion(
+                "NonLivenessFreePetriNet requires at least one place".into(),
+            ));
         }
         if num_transitions == 0 {
-            return Err("NonLivenessFreePetriNet requires at least one transition".to_string());
+            return Err(ConstructionError::Conversion(
+                "NonLivenessFreePetriNet requires at least one transition".into(),
+            ));
         }
         if initial_marking.len() != num_places {
-            return Err(format!(
+            return Err(ConstructionError::Conversion(format!(
                 "initial_marking length {} does not match num_places {}",
                 initial_marking.len(),
                 num_places
+            )));
+        }
+        if initial_marking.iter().any(|&tokens| tokens < 0) {
+            return Err(ConstructionError::Conversion(
+                "initial_marking must contain non-negative token counts".into(),
             ));
         }
+        let total_tokens = initial_marking
+            .iter()
+            .try_fold(0_i64, |total, &tokens| total.checked_add(tokens))
+            .ok_or_else(|| {
+                ConstructionError::IntegerOverflow("summing initial Petri-net tokens".into())
+            })?;
+        usize::try_from(total_tokens).map_err(|_| {
+            ConstructionError::IntegerOverflow(
+                "initial Petri-net token sum does not fit usize".into(),
+            )
+        })?;
         for (i, &(p, t)) in place_to_transition.iter().enumerate() {
             if p >= num_places {
-                return Err(format!(
+                return Err(ConstructionError::Conversion(format!(
                     "place_to_transition arc {} has place {} out of range 0..{}",
                     i, p, num_places
-                ));
+                )));
             }
             if t >= num_transitions {
-                return Err(format!(
+                return Err(ConstructionError::Conversion(format!(
                     "place_to_transition arc {} has transition {} out of range 0..{}",
                     i, t, num_transitions
-                ));
+                )));
             }
         }
         for (i, &(t, p)) in transition_to_place.iter().enumerate() {
             if t >= num_transitions {
-                return Err(format!(
+                return Err(ConstructionError::Conversion(format!(
                     "transition_to_place arc {} has transition {} out of range 0..{}",
                     i, t, num_transitions
-                ));
+                )));
             }
             if p >= num_places {
-                return Err(format!(
+                return Err(ConstructionError::Conversion(format!(
                     "transition_to_place arc {} has place {} out of range 0..{}",
                     i, p, num_places
-                ));
+                )));
             }
         }
 
@@ -125,10 +145,10 @@ impl NonLivenessFreePetriNet {
                     let p1 = preset.get(&t1).cloned().unwrap_or_default();
                     let p2 = preset.get(&t2).cloned().unwrap_or_default();
                     if p1 != p2 {
-                        return Err(format!(
+                        return Err(ConstructionError::Conversion(format!(
                             "Free-choice violation: transitions {} and {} share input place {} but have different presets",
                             t1, t2, p
-                        ));
+                        )));
                     }
                 }
             }
@@ -137,15 +157,14 @@ impl NonLivenessFreePetriNet {
         Ok(())
     }
 
-    /// Try to create a new `NonLivenessFreePetriNet` instance, returning an error
-    /// if validation fails.
-    pub fn try_new(
+    /// Create a new `NonLivenessFreePetriNet` instance.
+    pub fn new(
         num_places: usize,
         num_transitions: usize,
         place_to_transition: Vec<(usize, usize)>,
         transition_to_place: Vec<(usize, usize)>,
-        initial_marking: Vec<usize>,
-    ) -> Result<Self, String> {
+        initial_marking: Vec<i64>,
+    ) -> Result<Self, ConstructionError> {
         Self::validate_inputs(
             num_places,
             num_transitions,
@@ -161,31 +180,8 @@ impl NonLivenessFreePetriNet {
             initial_marking,
             globally_dead: Vec::new(),
         };
-        net.globally_dead = net.compute_globally_dead_transitions();
+        net.globally_dead = net.compute_globally_dead_transitions()?;
         Ok(net)
-    }
-
-    /// Create a new `NonLivenessFreePetriNet` instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if validation fails (indices out of range, wrong marking length,
-    /// or free-choice violation).
-    pub fn new(
-        num_places: usize,
-        num_transitions: usize,
-        place_to_transition: Vec<(usize, usize)>,
-        transition_to_place: Vec<(usize, usize)>,
-        initial_marking: Vec<usize>,
-    ) -> Self {
-        Self::try_new(
-            num_places,
-            num_transitions,
-            place_to_transition,
-            transition_to_place,
-            initial_marking,
-        )
-        .unwrap_or_else(|message| panic!("{message}"))
     }
 
     /// Number of places |S|.
@@ -205,7 +201,12 @@ impl NonLivenessFreePetriNet {
 
     /// Sum of tokens in the initial marking.
     pub fn initial_token_sum(&self) -> usize {
-        self.initial_marking.iter().sum()
+        let total = self
+            .initial_marking
+            .iter()
+            .try_fold(0_i64, |total, &tokens| total.checked_add(tokens))
+            .expect("construction validates the initial token sum");
+        usize::try_from(total).expect("validated initial token sum fits usize")
     }
 
     /// Arcs from places to transitions.
@@ -219,12 +220,12 @@ impl NonLivenessFreePetriNet {
     }
 
     /// Initial marking M₀.
-    pub fn initial_marking(&self) -> &[usize] {
+    pub fn initial_marking(&self) -> &[i64] {
         &self.initial_marking
     }
 
     /// Determine which transitions are enabled at the given marking.
-    fn enabled_transitions(&self, marking: &[usize]) -> Vec<bool> {
+    fn enabled_transitions(&self, marking: &[i64]) -> Vec<bool> {
         let mut enabled = vec![true; self.num_transitions];
         // A transition t is enabled iff every input place has at least one token.
         // Transitions with no input places remain enabled (source transitions).
@@ -237,13 +238,17 @@ impl NonLivenessFreePetriNet {
     }
 
     /// Fire a transition, producing a new marking. Returns None if not enabled.
-    fn fire(&self, marking: &[usize], transition: usize) -> Option<Vec<usize>> {
+    fn fire(
+        &self,
+        marking: &[i64],
+        transition: usize,
+    ) -> Result<Option<Vec<i64>>, ConstructionError> {
         let mut new_marking = marking.to_vec();
         // Remove tokens from input places
         for &(p, t) in &self.place_to_transition {
             if t == transition {
                 if new_marking[p] == 0 {
-                    return None;
+                    return Ok(None);
                 }
                 new_marking[p] -= 1;
             }
@@ -251,10 +256,14 @@ impl NonLivenessFreePetriNet {
         // Add tokens to output places
         for &(t, p) in &self.transition_to_place {
             if t == transition {
-                new_marking[p] += 1;
+                new_marking[p] = new_marking[p].checked_add(1).ok_or_else(|| {
+                    ConstructionError::IntegerOverflow(
+                        "firing a Petri-net transition increments a token count".into(),
+                    )
+                })?;
             }
         }
-        Some(new_marking)
+        Ok(Some(new_marking))
     }
 
     /// Build the bounded reachability graph and determine which transitions
@@ -264,13 +273,17 @@ impl NonLivenessFreePetriNet {
     /// For boundedness, we cap exploration at markings where no place exceeds
     /// `initial_token_sum`. This is sound for free-choice nets under the
     /// NP-completeness assumption from Garey & Johnson.
-    fn compute_globally_dead_transitions(&self) -> Vec<bool> {
-        let token_cap = self.initial_token_sum();
+    fn compute_globally_dead_transitions(&self) -> Result<Vec<bool>, ConstructionError> {
+        let token_cap = self
+            .initial_marking
+            .iter()
+            .try_fold(0_i64, |total, &tokens| total.checked_add(tokens))
+            .expect("construction validates the initial token sum");
         let num_t = self.num_transitions;
 
         // Build reachability graph: BFS from initial marking.
-        let mut marking_index: HashMap<Vec<usize>, usize> = HashMap::new();
-        let mut markings: Vec<Vec<usize>> = Vec::new();
+        let mut marking_index: HashMap<Vec<i64>, usize> = HashMap::new();
+        let mut markings: Vec<Vec<i64>> = Vec::new();
         // successors[m_idx] = list of (transition, next_marking_idx)
         let mut successors: Vec<Vec<(usize, usize)>> = Vec::new();
         let mut queue: VecDeque<usize> = VecDeque::new();
@@ -287,7 +300,7 @@ impl NonLivenessFreePetriNet {
                 if !is_enabled {
                     continue;
                 }
-                if let Some(new_marking) = self.fire(&markings[m_idx], t) {
+                if let Some(new_marking) = self.fire(&markings[m_idx], t)? {
                     // Check bound: no place exceeds token_cap
                     if new_marking.iter().any(|&tokens| tokens > token_cap) {
                         continue;
@@ -355,7 +368,7 @@ impl NonLivenessFreePetriNet {
             }
         }
 
-        globally_dead
+        Ok(globally_dead)
     }
 }
 
@@ -365,7 +378,7 @@ struct NonLivenessFreePetriNetData {
     num_transitions: usize,
     place_to_transition: Vec<(usize, usize)>,
     transition_to_place: Vec<(usize, usize)>,
-    initial_marking: Vec<usize>,
+    initial_marking: Vec<i64>,
 }
 
 impl<'de> Deserialize<'de> for NonLivenessFreePetriNet {
@@ -374,7 +387,7 @@ impl<'de> Deserialize<'de> for NonLivenessFreePetriNet {
         D: Deserializer<'de>,
     {
         let data = NonLivenessFreePetriNetData::deserialize(deserializer)?;
-        Self::try_new(
+        Self::new(
             data.num_places,
             data.num_transitions,
             data.place_to_transition,
@@ -397,20 +410,22 @@ impl Problem for NonLivenessFreePetriNet {
         vec![2; self.num_transitions]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        if config.len() != self.num_transitions {
-            return Or(false);
-        }
-
-        // Config selects transitions claimed to be dead.
-        // Return true iff at least one selected transition is indeed globally dead.
-        for (t, &selected) in config.iter().enumerate() {
-            if selected == 1 && self.globally_dead[t] {
-                return Or(true);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_transitions {
+                return Ok(Or(false));
             }
-        }
 
-        Or(false)
+            // Config selects transitions claimed to be dead.
+            // Return true iff at least one selected transition is indeed globally dead.
+            for (t, &selected) in config.iter().enumerate() {
+                if selected == 1 && self.globally_dead[t] {
+                    return Ok(Or(true));
+                }
+            }
+
+            Or(false)
+        })
     }
 }
 
@@ -422,13 +437,16 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "non_liveness_free_petri_net",
-        instance: Box::new(NonLivenessFreePetriNet::new(
-            4,
-            3,
-            vec![(0, 0), (1, 1), (2, 2)],
-            vec![(0, 1), (1, 2), (2, 3)],
-            vec![1, 0, 0, 0],
-        )),
+        instance: Box::new(
+            NonLivenessFreePetriNet::new(
+                4,
+                3,
+                vec![(0, 0), (1, 1), (2, 2)],
+                vec![(0, 1), (1, 2), (2, 3)],
+                vec![1, 0, 0, 0],
+            )
+            .unwrap(),
+        ),
         optimal_config: vec![1, 1, 1],
         optimal_value: serde_json::json!(true),
     }]

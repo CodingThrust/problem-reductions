@@ -56,9 +56,9 @@ impl EnsembleComputation {
         universe_size: usize,
         subsets: Vec<Vec<usize>>,
         budget: usize,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if budget == 0 {
-            return Err("budget must be positive".to_string());
+            return Err("budget must be positive".to_string().into());
         }
         let subsets = subsets
             .into_iter()
@@ -165,47 +165,53 @@ impl EnsembleComputation {
 
 impl Problem for EnsembleComputation {
     const NAME: &'static str = "EnsembleComputation";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![self.universe_size + self.budget; 2 * self.budget]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != 2 * self.budget {
-            return Min(None);
-        }
-
-        let Some(required_subsets) = self.required_subsets() else {
-            return Min(None);
-        };
-        if required_subsets.is_empty() {
-            return Min(Some(0));
-        }
-
-        let mut computed = Vec::with_capacity(self.budget);
-        for step in 0..self.budget {
-            let left_operand = config[2 * step];
-            let right_operand = config[2 * step + 1];
-
-            let Some(left) = self.decode_operand(left_operand, &computed) else {
-                return Min(None);
-            };
-            let Some(right) = self.decode_operand(right_operand, &computed) else {
-                return Min(None);
-            };
-
-            if !Self::are_disjoint(&left, &right) {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != 2 * self.budget {
+                return Ok(Min(None));
             }
 
-            computed.push(Self::union_disjoint(&left, &right));
-            if Self::all_required_subsets_present(&required_subsets, &computed) {
-                return Min(Some(step + 1));
+            let Some(required_subsets) = self.required_subsets() else {
+                return Ok(Min(None));
+            };
+            if required_subsets.is_empty() {
+                return Ok(Min(Some(0)));
             }
-        }
 
-        Min(None)
+            let mut computed = Vec::with_capacity(self.budget);
+            for step in 0..self.budget {
+                let left_operand = config[2 * step];
+                let right_operand = config[2 * step + 1];
+
+                let Some(left) = self.decode_operand(left_operand, &computed) else {
+                    return Ok(Min(None));
+                };
+                let Some(right) = self.decode_operand(right_operand, &computed) else {
+                    return Ok(Min(None));
+                };
+
+                if !Self::are_disjoint(&left, &right) {
+                    return Ok(Min(None));
+                }
+
+                computed.push(Self::union_disjoint(&left, &right));
+                if Self::all_required_subsets_present(&required_subsets, &computed) {
+                    return Ok(Min(Some(i64::try_from(step + 1).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting union-operation count to i64".into(),
+                        )
+                    })?)));
+                }
+            }
+
+            Min(None)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -225,7 +231,7 @@ struct EnsembleComputationDef {
 }
 
 impl TryFrom<EnsembleComputationDef> for EnsembleComputation {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: EnsembleComputationDef) -> Result<Self, Self::Error> {
         Self::try_new(value.universe_size, value.subsets, value.budget)

@@ -37,14 +37,14 @@ fn test_set_splitting_evaluate_valid() {
     // Universe {0,1,2,3}, one subset {0,1,2,3}
     // config [0,0,1,1] → subset has {0,1} in S1 and {2,3} in S2 → split
     let problem = SetSplitting::new(4, vec![vec![0, 1, 2, 3]]);
-    assert_eq!(problem.evaluate(&[0, 0, 1, 1]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 0, 1, 1]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_set_splitting_evaluate_monochromatic() {
     // All elements colored 0 — subset is entirely in S1 → not split
     let problem = SetSplitting::new(4, vec![vec![0, 1, 2]]);
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Or(false));
 }
 
 #[test]
@@ -56,18 +56,18 @@ fn test_set_splitting_evaluate_multiple_subsets() {
     );
     // config [1,0,1,0,0,1]: S1={1,3,4}, S2={0,2,5}
     let config = vec![1, 0, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), Or(true));
+    assert_eq!(problem.evaluate(&config).unwrap(), Or(true));
 
     // All 0: every subset is monochromatic
     let all_zero = vec![0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&all_zero), Or(false));
+    assert_eq!(problem.evaluate(&all_zero).unwrap(), Or(false));
 }
 
 #[test]
 fn test_set_splitting_is_valid_solution() {
     let problem = SetSplitting::new(4, vec![vec![0, 1], vec![2, 3]]);
-    assert!(problem.is_valid_solution(&[0, 1, 0, 1]));
-    assert!(!problem.is_valid_solution(&[0, 0, 0, 0]));
+    assert!(problem.is_valid_solution(&[0, 1, 0, 1]).unwrap());
+    assert!(!problem.is_valid_solution(&[0, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -77,10 +77,10 @@ fn test_set_splitting_brute_force_feasible() {
         vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4, 5], vec![1, 3, 5]],
     );
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem);
+    let witness = solver.find_witness(&problem).unwrap();
     assert!(witness.is_some());
     let w = witness.unwrap();
-    assert_eq!(problem.evaluate(&w), Or(true));
+    assert_eq!(problem.evaluate(&w).unwrap(), Or(true));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_set_splitting_brute_force_infeasible() {
     // config [0]: elem 0 → S1. subset needs both colors but only has elem 0 twice → impossible.
     let problem = SetSplitting::new(1, vec![vec![0, 0]]);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem);
+    let witness = solver.find_witness(&problem).unwrap();
     assert!(
         witness.is_none(),
         "single-element universe cannot split {{0,0}}"
@@ -116,12 +116,12 @@ fn test_set_splitting_serialization() {
 fn test_set_splitting_try_new_invalid_element() {
     let result = SetSplitting::try_new(3, vec![vec![0, 5]]);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("outside universe"));
+    assert!(result.unwrap_err().to_string().contains("outside universe"));
 }
 
 #[test]
 fn test_set_splitting_try_new_too_small_subset() {
     let result = SetSplitting::try_new(3, vec![vec![0]]);
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("at least 2"));
+    assert!(result.unwrap_err().to_string().contains("at least 2"));
 }

@@ -8,7 +8,8 @@ use crate::types::Min;
 #[test]
 fn test_reduction_creates_expected_ilp_shape() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 completion variables + 1 pair-order variable.
@@ -26,7 +27,8 @@ fn test_reduction_creates_expected_ilp_shape() {
 fn test_variable_layout_helpers() {
     let problem =
         SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1, 3], vec![3, 5, 1], vec![(0, 2)]);
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_eq!(reduction.completion_var(0), 0);
     assert_eq!(reduction.completion_var(2), 2);
@@ -38,13 +40,14 @@ fn test_variable_layout_helpers() {
 #[test]
 fn test_extract_solution_encodes_schedule_as_lehmer_code() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Completion times C0 = 3, C1 = 1 imply schedule [1, 0].
     // y_{0,1} = 0 means task 1 before task 0.
     let extracted = reduction.extract_solution(&[3, 1, 0]).unwrap();
     assert_eq!(extracted, vec![1, 0]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(14)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(14)));
 }
 
 #[test]
@@ -54,14 +57,15 @@ fn test_issue_example_closed_loop() {
         vec![3, 5, 1, 4, 2],
         vec![(0, 2), (1, 4)],
     );
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 2, 0, 1, 0]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(46)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(46)));
 }
 
 #[test]
@@ -75,14 +79,16 @@ fn test_ilp_matches_bruteforce_optimum() {
     let brute_force = BruteForce::new();
     let brute_force_solution = brute_force
         .find_witness(&problem)
+        .unwrap()
         .expect("brute force should find a schedule");
-    let brute_force_metric = problem.evaluate(&brute_force_solution);
+    let brute_force_metric = problem.evaluate(&brute_force_solution).unwrap();
 
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_metric = problem.evaluate(&extracted);
+    let ilp_metric = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(ilp_metric, brute_force_metric);
 }
@@ -94,7 +100,8 @@ fn test_cyclic_precedence_instance_is_infeasible() {
         vec![1, 1],
         vec![(0, 1), (1, 0)],
     );
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert!(
@@ -104,41 +111,33 @@ fn test_cyclic_precedence_instance_is_infeasible() {
 }
 
 #[test]
-#[should_panic(expected = "task lengths must fit in ILP<i32> variable bounds")]
-fn test_reduction_panics_when_a_task_length_exceeds_i32_domain() {
-    let problem = SequencingToMinimizeWeightedCompletionTime::new(
-        vec![(i32::MAX as u64) + 1],
-        vec![1],
-        vec![],
-    );
-    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-}
-
-#[test]
-#[should_panic(expected = "total processing time must fit in ILP<i32> variable bounds")]
-fn test_reduction_panics_when_total_processing_time_exceeds_i32_domain() {
-    let problem = SequencingToMinimizeWeightedCompletionTime::new(
-        vec![i32::MAX as u64, 1],
-        vec![1, 1],
-        vec![],
-    );
-    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
-}
-
-#[test]
-#[should_panic(expected = "weighted completion objective must fit exactly in f64")]
-fn test_reduction_panics_when_a_weight_exceeds_exact_f64_integer_range() {
+fn test_reduction_rejects_total_processing_time_outside_i64_domain() {
     let problem =
-        SequencingToMinimizeWeightedCompletionTime::new(vec![1], vec![(1u64 << 53) + 1], vec![]);
-    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+        SequencingToMinimizeWeightedCompletionTime::new(vec![i64::MAX, 1], vec![1, 1], vec![]);
+    assert!(matches!(
+        ReduceTo::<ILP<i64>>::reduce_to(&problem),
+        Err(crate::rules::ReductionError::IntegerOverflow { .. })
+    ));
 }
 
 #[test]
-#[should_panic(expected = "weighted completion objective must fit exactly in f64")]
-fn test_reduction_panics_when_weighted_completion_objective_exceeds_exact_f64_range() {
+fn test_reduction_rejects_a_weight_outside_exact_f64_integer_range() {
+    let problem =
+        SequencingToMinimizeWeightedCompletionTime::new(vec![1], vec![(1i64 << 53) + 1], vec![]);
+    assert!(matches!(
+        ReduceTo::<ILP<i64>>::reduce_to(&problem),
+        Err(crate::rules::ReductionError::InvalidTarget { .. })
+    ));
+}
+
+#[test]
+fn test_reduction_rejects_weighted_completion_objective_outside_exact_f64_range() {
     let problem =
         SequencingToMinimizeWeightedCompletionTime::new(vec![1, 1], vec![1 << 52, 1 << 52], vec![]);
-    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    assert!(matches!(
+        ReduceTo::<ILP<i64>>::reduce_to(&problem),
+        Err(crate::rules::ReductionError::InvalidTarget { .. })
+    ));
 }
 
 #[test]
@@ -148,19 +147,21 @@ fn test_solve_reduced_matches_source_optimum() {
         vec![3, 5, 1, 4, 2],
         vec![(0, 2), (1, 4)],
     );
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let source_solution = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(source_solution, vec![1, 2, 0, 1, 0]);
-    assert_eq!(problem.evaluate(&source_solution), Min(Some(46)));
+    assert_eq!(problem.evaluate(&source_solution).unwrap(), Min(Some(46)));
 }
 
 #[test]
 fn test_sequencingtominimizeweightedcompletiontime_to_ilp_bf_vs_ilp() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1], vec![3, 5], vec![]);
-    let reduction: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSTMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

@@ -57,7 +57,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStackerCrane {
 impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToStackerCrane;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
 
         // Each vertex i becomes two vertices: 2i (in) and 2i+1 (out).
@@ -65,7 +65,7 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
 
         // One mandatory arc per original vertex: (2i, 2i+1) with length 1.
         let arcs: Vec<(usize, usize)> = (0..n).map(|i| (2 * i, 2 * i + 1)).collect();
-        let arc_lengths: Vec<i32> = vec![1; n];
+        let arc_lengths: Vec<i64> = vec![1; n];
 
         // For each original edge {u, v}, add two undirected connector edges:
         //   {u^out, v^in} = {2u+1, 2v}  with length 1
@@ -83,7 +83,7 @@ impl ReduceTo<StackerCrane> for HamiltonianCircuit<SimpleGraph> {
 
         let target = StackerCrane::new(target_num_vertices, arcs, edges, arc_lengths, edge_lengths);
 
-        ReductionHamiltonianCircuitToStackerCrane { target }
+        Ok(ReductionHamiltonianCircuitToStackerCrane { target })
     }
 }
 

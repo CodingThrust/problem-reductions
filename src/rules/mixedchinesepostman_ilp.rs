@@ -9,20 +9,20 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MixedChinesePostman;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::WeightElement;
+use crate::types::{i64_to_exact_f64, WeightElement};
 
 /// Result of reducing MixedChinesePostman to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMCPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_undirected_edges: usize,
 }
 
 impl ReductionResult for ReductionMCPToILP {
-    type Source = MixedChinesePostman<i32>;
-    type Target = ILP<i32>;
+    type Source = MixedChinesePostman<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -45,11 +45,11 @@ impl ReductionResult for ReductionMCPToILP {
         num_constraints = "num_edges + 8 * (num_arcs + 2 * num_edges) + 10 * num_vertices + 2",
     }
 )]
-impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
+impl ReduceTo<ILP<i64>> for MixedChinesePostman<i64> {
     type Result = ReductionMCPToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_arcs(); // original directed arcs
         let q = self.num_edges(); // undirected edges
@@ -57,10 +57,10 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
         // If R = 0, empty walk is feasible
         if r_count == 0 {
-            return ReductionMCPToILP {
+            return Ok(ReductionMCPToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
                 num_undirected_edges: 0,
-            };
+            });
         }
 
         // Available arc list A*: L = m + 2q arcs
@@ -77,13 +77,26 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
         for (i, &(u, v)) in original_arcs.iter().enumerate() {
             avail_arcs.push((u, v));
-            avail_lengths.push(self.arc_weights()[i].to_sum() as f64);
+            avail_lengths.push(i64_to_exact_f64(self.arc_weights()[i].to_sum()).map_err(
+                |error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        MixedChinesePostman<i64>,
+                        ILP<i64>,
+                    >(error)
+                },
+            )?);
         }
         for (k, &(u, v)) in undirected_edges.iter().enumerate() {
+            let length = i64_to_exact_f64(self.edge_weights()[k].to_sum()).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MixedChinesePostman<i64>,
+                    ILP<i64>,
+                >(error)
+            })?;
             avail_arcs.push((u, v)); // forward
-            avail_lengths.push(self.edge_weights()[k].to_sum() as f64);
+            avail_lengths.push(length);
             avail_arcs.push((v, u)); // reverse
-            avail_lengths.push(self.edge_weights()[k].to_sum() as f64);
+            avail_lengths.push(length);
         }
 
         // Variable layout (from paper):
@@ -286,7 +299,7 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
                 vec![(b_idx(v), 1.0), (s_idx, -1.0), (rho_idx(v), -n_f64)],
                 -n_f64,
             ));
-            // b_v >= 0 is implied by ILP<i32> non-negativity
+            // b_v >= 0 is implied by `ILP<i64>` non-negativity
         }
 
         // Flow bounds: 0 <= f_j, h_j <= (n-1) * y_j
@@ -362,10 +375,10 @@ impl ReduceTo<ILP<i32>> for MixedChinesePostman<i32> {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMCPToILP {
+        Ok(ReductionMCPToILP {
             target,
             num_undirected_edges: q,
-        }
+        })
     }
 }
 
@@ -382,7 +395,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1],
                 vec![1, 1],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

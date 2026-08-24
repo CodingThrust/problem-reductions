@@ -273,8 +273,6 @@ fn add_value_parser(arg: Arg, kind: crate::commands::create::InputValueKind) -> 
     use crate::commands::create::InputValueKind;
     match kind {
         InputValueKind::Usize => arg.value_parser(clap::value_parser!(usize)),
-        InputValueKind::U64 => arg.value_parser(clap::value_parser!(u64)),
-        InputValueKind::I32 => arg.value_parser(clap::value_parser!(i32)),
         InputValueKind::I64 => arg.value_parser(clap::value_parser!(i64)),
         InputValueKind::F64 => arg.value_parser(clap::value_parser!(f64)),
         InputValueKind::Text => arg,

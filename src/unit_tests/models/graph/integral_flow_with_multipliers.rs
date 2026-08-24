@@ -73,33 +73,33 @@ fn test_integral_flow_with_multipliers_creation_accessors_and_dimensions() {
 
 #[test]
 fn test_integral_flow_with_multipliers_evaluate_yes_instance() {
-    assert!(yes_instance().evaluate(&yes_config()));
+    assert!(yes_instance().evaluate(&yes_config()).unwrap());
 }
 
 #[test]
 fn test_integral_flow_with_multipliers_evaluate_no_instance() {
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&no_instance()).is_none());
+    assert!(solver.find_witness(&no_instance()).unwrap().is_none());
 }
 
 #[test]
 fn test_integral_flow_with_multipliers_rejects_multiplier_conservation_violation() {
     let config = vec![1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0];
-    assert!(!yes_instance().evaluate(&config));
+    assert!(!yes_instance().evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_integral_flow_with_multipliers_sink_requirement_is_at_least() {
     let config = vec![0, 0, 1, 1, 1, 0, 0, 0, 4, 5, 6, 0];
-    assert!(yes_instance().evaluate(&config));
+    assert!(yes_instance().evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_integral_flow_with_multipliers_rejects_wrong_config_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0; 11]));
-    assert!(!problem.evaluate(&[0; 13]));
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[0; 11]).unwrap());
+    assert!(!problem.evaluate(&[0; 13]).unwrap());
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -118,8 +118,8 @@ fn test_integral_flow_with_multipliers_serialization_round_trip() {
 fn test_integral_flow_with_multipliers_solver_yes_instance() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert!(problem.evaluate(&solution));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
@@ -154,11 +154,11 @@ fn test_integral_flow_with_multipliers_paper_example() {
     let config = yes_config();
     let solver = BruteForce::new();
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
     assert_eq!([config[0], config[2], config[4]], [1, 1, 1]);
     assert_eq!([config[6], config[8], config[10]], [2, 4, 6]);
     assert_eq!(config[6] + config[8] + config[10], 12);
 
-    let all_solutions = solver.find_all_witnesses(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(all_solutions.iter().any(|solution| solution == &config));
 }

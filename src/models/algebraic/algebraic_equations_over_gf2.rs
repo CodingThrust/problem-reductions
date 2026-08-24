@@ -62,7 +62,7 @@ inventory::submit! {
 /// ).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -75,7 +75,10 @@ pub struct AlgebraicEquationsOverGF2 {
 }
 
 impl AlgebraicEquationsOverGF2 {
-    fn validate(num_variables: usize, equations: &[Vec<Vec<usize>>]) -> Result<(), String> {
+    fn validate(
+        num_variables: usize,
+        equations: &[Vec<Vec<usize>>],
+    ) -> Result<(), crate::registry::ConstructionError> {
         for (eq_idx, equation) in equations.iter().enumerate() {
             for (mono_idx, monomial) in equation.iter().enumerate() {
                 // Check variable indices are in range
@@ -84,7 +87,8 @@ impl AlgebraicEquationsOverGF2 {
                         return Err(format!(
                             "Variable index {var} in equation {eq_idx}, monomial {mono_idx} \
                              is out of range (num_variables = {num_variables})"
-                        ));
+                        )
+                        .into());
                     }
                 }
                 // Check monomial is sorted and has no duplicates
@@ -94,7 +98,8 @@ impl AlgebraicEquationsOverGF2 {
                             "Monomial {mono_idx} in equation {eq_idx} is not strictly sorted: \
                              found {} >= {}",
                             w[0], w[1]
-                        ));
+                        )
+                        .into());
                     }
                 }
             }
@@ -106,7 +111,10 @@ impl AlgebraicEquationsOverGF2 {
     ///
     /// Returns an error if any variable index is out of range or any monomial
     /// is not strictly sorted.
-    pub fn new(num_variables: usize, equations: Vec<Vec<Vec<usize>>>) -> Result<Self, String> {
+    pub fn new(
+        num_variables: usize,
+        equations: Vec<Vec<Vec<usize>>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate(num_variables, &equations)?;
         Ok(Self {
             num_variables,
@@ -185,11 +193,13 @@ impl Problem for AlgebraicEquationsOverGF2 {
         vec![2; self.num_variables]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(self
-            .equations
-            .iter()
-            .all(|eq| Self::evaluate_equation(eq, config)))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or(self
+                .equations
+                .iter()
+                .all(|eq| Self::evaluate_equation(eq, config)))
+        })
     }
 }
 

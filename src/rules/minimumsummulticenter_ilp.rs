@@ -25,6 +25,7 @@ use crate::models::graph::MinimumSumMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumSumMulticenter to ILP.
 #[derive(Debug, Clone)]
@@ -34,7 +35,7 @@ pub struct ReductionMSMCToILP {
 }
 
 impl ReductionResult for ReductionMSMCToILP {
-    type Source = MinimumSumMulticenter<SimpleGraph, i32>;
+    type Source = MinimumSumMulticenter<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -56,13 +57,13 @@ impl ReductionResult for ReductionMSMCToILP {
 /// Returns a vector of length `n`; unreachable vertices remain `None`.
 fn weighted_distances_msmc(
     graph: &SimpleGraph,
-    edge_lengths: &[i32],
+    edge_lengths: &[i64],
     source: usize,
     n: usize,
 ) -> Vec<Option<i64>> {
     let mut adj: Vec<Vec<(usize, i64)>> = vec![Vec::new(); n];
     for (idx, &(u, v)) in graph.edges().iter().enumerate() {
-        let len = i64::from(edge_lengths[idx]);
+        let len = edge_lengths[idx];
         adj[u].push((v, len));
         adj[v].push((u, len));
     }
@@ -120,10 +121,10 @@ fn weighted_distances_msmc(
         num_constraints = "num_vertices^2 + 2 * num_vertices + 1",
     }
 )]
-impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
     type Result = ReductionMSMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
         let vertex_weights = self.vertex_weights();
@@ -170,10 +171,22 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
         // Objective: Minimize Σ_{i,j} w_i · d(i,j) · y_{i,j}
         let mut objective: Vec<(usize, f64)> = Vec::new();
         for (i, &w) in vertex_weights.iter().enumerate() {
-            let w_i = w as f64;
             for (j, distance) in all_dist[i].iter().enumerate() {
                 if let Some(distance) = distance {
-                    let coeff = w_i * *distance as f64;
+                    let weighted_distance = w.checked_mul(*distance).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            MinimumSumMulticenter<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(
+                            "multiplying a vertex weight by a shortest-path distance"
+                        )
+                    })?;
+                    let coeff = i64_to_exact_f64(weighted_distance).map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            MinimumSumMulticenter<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })?;
                     if coeff != 0.0 {
                         objective.push((y_var(i, j), coeff));
                     }
@@ -182,10 +195,10 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i32> {
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMSMCToILP {
+        Ok(ReductionMSMCToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -198,8 +211,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Optimal center is vertex 1 with total distance 1+0+1 = 2.
             let source = MinimumSumMulticenter::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-                vec![1i32; 3],
-                vec![1i32; 2],
+                vec![1i64; 3],
+                vec![1i64; 2],
                 1,
             );
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)

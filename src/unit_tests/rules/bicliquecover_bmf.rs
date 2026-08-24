@@ -11,7 +11,8 @@ use crate::types::Min;
 fn test_bicliquecover_to_bmf_structure() {
     // Graph with edges (0,0) and (1,1), k=2 → BMF target is 2x2 identity, rank 2.
     let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 2);
-    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let reduction: ReductionBicliqueCoverToBMF =
+        ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.rows(), 2);
     assert_eq!(target.cols(), 2);
@@ -22,7 +23,8 @@ fn test_bicliquecover_to_bmf_structure() {
 #[test]
 fn test_bicliquecover_to_bmf_overhead_matches_target_shape() {
     let problem = BicliqueCover::new(BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]), 2);
-    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let reduction: ReductionBicliqueCoverToBMF =
+        ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let entry = inventory::iter::<crate::rules::ReductionEntry>()
@@ -49,40 +51,45 @@ fn test_bicliquecover_to_bmf_closed_loop_full_biclique() {
         BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
         1,
     );
-    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let reduction: ReductionBicliqueCoverToBMF =
+        ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let bf_source = BruteForce::new().solve(&problem);
+    let bf_source = BruteForce::new().solve(&problem).unwrap();
     let target_witness = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("target must be feasible");
     let extracted = reduction.extract_solution(&target_witness).unwrap();
-    assert_eq!(problem.evaluate(&extracted), bf_source);
+    assert_eq!(problem.evaluate(&extracted).unwrap(), bf_source);
 }
 
 #[test]
 fn test_bicliquecover_to_bmf_closed_loop_identity_rank2() {
     // Identity-biadjacency at rank 2 — exact factorization needs two singleton bicliques.
     let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 2);
-    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let reduction: ReductionBicliqueCoverToBMF =
+        ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let bf_source = BruteForce::new().solve(&problem);
+    let bf_source = BruteForce::new().solve(&problem).unwrap();
     let target_witness = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("target must be feasible");
     let extracted = reduction.extract_solution(&target_witness).unwrap();
-    assert_eq!(problem.evaluate(&extracted), bf_source);
+    assert_eq!(problem.evaluate(&extracted).unwrap(), bf_source);
 }
 
 #[test]
 fn test_bicliquecover_to_bmf_insufficient_rank() {
     // Identity biadjacency at rank 1 — infeasible for both problems.
     let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]), 1);
-    let reduction: ReductionBicliqueCoverToBMF = ReduceTo::<BMF>::reduce_to(&problem);
+    let reduction: ReductionBicliqueCoverToBMF =
+        ReduceTo::<BMF>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
-    assert_eq!(BruteForce::new().solve(&problem), Min(None));
-    assert_eq!(BruteForce::new().solve(target), Min(None));
+    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(None));
+    assert_eq!(BruteForce::new().solve(target).unwrap(), Min(None));
 }
 
 #[test]

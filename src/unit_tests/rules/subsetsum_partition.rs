@@ -11,7 +11,7 @@ use crate::traits::Problem;
 #[test]
 fn test_subsetsum_to_partition_closed_loop() {
     let source = SubsetSum::new(vec![1u32, 5, 6, 8], 11u32);
-    let reduction = ReduceTo::<Partition>::reduce_to(&source);
+    let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.sizes(), &[1, 5, 6, 8, 2]);
@@ -27,7 +27,7 @@ fn test_subsetsum_to_partition_closed_loop() {
 #[test]
 fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
     let source = SubsetSum::new(vec![10u32, 20, 30], 10u32);
-    let reduction = ReduceTo::<Partition>::reduce_to(&source);
+    let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().sizes(), &[10, 20, 30, 40]);
     assert_eq!(
@@ -43,7 +43,7 @@ fn test_subsetsum_to_partition_sigma_greater_than_two_t_extraction() {
 #[test]
 fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
     let source = SubsetSum::new(vec![3u32, 5, 2, 6], 8u32);
-    let reduction = ReduceTo::<Partition>::reduce_to(&source);
+    let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().sizes(), &[3, 5, 2, 6]);
     assert_eq!(
@@ -55,12 +55,12 @@ fn test_subsetsum_to_partition_sigma_equals_two_t_extraction() {
 #[test]
 fn test_subsetsum_to_partition_unsatisfiable_instance_stays_unsatisfiable() {
     let source = SubsetSum::new(vec![3u32, 7, 11], 5u32);
-    let reduction = ReduceTo::<Partition>::reduce_to(&source);
+    let reduction = ReduceTo::<Partition>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.sizes(), &[3, 7, 11, 11]);
-    assert!(BruteForce::new().find_witness(&source).is_none());
-    assert!(BruteForce::new().find_witness(target).is_none());
+    assert!(BruteForce::new().find_witness(&source).unwrap().is_none());
+    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
 }
 
 #[cfg(feature = "example-db")]
@@ -89,8 +89,10 @@ fn test_subsetsum_to_partition_canonical_example_spec() {
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert!(target
         .evaluate(&example.solutions[0].target_config)
+        .unwrap()
         .is_valid());
 }

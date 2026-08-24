@@ -66,7 +66,7 @@ impl ReductionResult for ReductionMMMToAchromatic {
 impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<BipartiteGraph> {
     type Result = ReductionMMMToAchromatic;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let source_edges = self.graph().edges();
 
@@ -88,10 +88,10 @@ impl ReduceTo<MaximumAchromaticNumber<SimpleGraph>> for MinimumMaximalMatching<B
 
         let target = MaximumAchromaticNumber::new(SimpleGraph::new(n, complement_edges));
 
-        ReductionMMMToAchromatic {
+        Ok(ReductionMMMToAchromatic {
             target,
             source_edges,
-        }
+        })
     }
 }
 

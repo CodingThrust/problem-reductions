@@ -1,7 +1,7 @@
 use super::*;
 #[test]
 fn create_spec_rejects_nonpositive_lengths() {
-    assert!(LongestPath::try_from(LongestPathI32CreateSpec {
+    assert!(LongestPath::try_from(LongestPathI64CreateSpec {
         graph: vec![(0, 1)],
         num_vertices: None,
         edge_lengths: vec![0],
@@ -15,7 +15,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Max, One};
 
-fn issue_problem() -> LongestPath<SimpleGraph, i32> {
+fn issue_problem() -> LongestPath<SimpleGraph, i64> {
     LongestPath::new(
         SimpleGraph::new(
             7,
@@ -71,15 +71,27 @@ fn test_longest_path_creation() {
 fn test_longest_path_evaluate_valid_and_invalid_configs() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&optimal_config()), Max(Some(20)));
-    assert_eq!(problem.evaluate(&suboptimal_config()), Max(Some(17)));
+    assert_eq!(problem.evaluate(&optimal_config()).unwrap(), Max(Some(20)));
+    assert_eq!(
+        problem.evaluate(&suboptimal_config()).unwrap(),
+        Max(Some(17))
+    );
     assert!(problem.is_valid_solution(&optimal_config()));
     assert!(problem.is_valid_solution(&suboptimal_config()));
 
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 1, 0, 0, 0, 0, 1]), Max(None));
-    assert_eq!(problem.evaluate(&[1, 0, 1, 1, 1, 1, 1, 1, 1, 1]), Max(None));
-    assert_eq!(problem.evaluate(&[0; 10]), Max(None));
+    assert_eq!(
+        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+        Max(None)
+    );
+    assert_eq!(
+        problem.evaluate(&[1, 0, 1, 0, 1, 0, 0, 0, 0, 1]).unwrap(),
+        Max(None)
+    );
+    assert_eq!(
+        problem.evaluate(&[1, 0, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
+        Max(None)
+    );
+    assert_eq!(problem.evaluate(&[0; 10]).unwrap(), Max(None));
     assert!(!problem.is_valid_solution(&[1, 0, 1]));
     assert!(!problem.is_valid_solution(&[1, 0, 1, 0, 1, 0, 1, 0, 1, 2]));
 }
@@ -89,11 +101,11 @@ fn test_longest_path_bruteforce_finds_issue_optimum() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    let best = solver.find_witness(&problem).unwrap();
+    let best = solver.find_witness(&problem).unwrap().unwrap();
     assert_eq!(best, optimal_config());
-    assert_eq!(problem.evaluate(&best), Max(Some(20)));
+    assert_eq!(problem.evaluate(&best).unwrap(), Max(Some(20)));
 
-    let all_best = solver.find_all_witnesses(&problem);
+    let all_best = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all_best, vec![optimal_config()]);
 }
 
@@ -101,14 +113,14 @@ fn test_longest_path_bruteforce_finds_issue_optimum() {
 fn test_longest_path_serialization() {
     let problem = issue_problem();
     let json = serde_json::to_value(&problem).unwrap();
-    let restored: LongestPath<SimpleGraph, i32> = serde_json::from_value(json).unwrap();
+    let restored: LongestPath<SimpleGraph, i64> = serde_json::from_value(json).unwrap();
 
     assert_eq!(restored.num_vertices(), 7);
     assert_eq!(restored.num_edges(), 10);
     assert_eq!(restored.source_vertex(), 0);
     assert_eq!(restored.target_vertex(), 6);
     assert_eq!(restored.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
-    assert_eq!(restored.evaluate(&optimal_config()), Max(Some(20)));
+    assert_eq!(restored.evaluate(&optimal_config()).unwrap(), Max(Some(20)));
 }
 
 #[test]
@@ -116,11 +128,11 @@ fn test_longest_path_source_equals_target_only_allows_empty_path() {
     let problem = LongestPath::new(SimpleGraph::path(3), vec![5, 7], 1, 1);
 
     assert!(problem.is_valid_solution(&[0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0]), Max(Some(0)));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Max(Some(0)));
     assert!(!problem.is_valid_solution(&[1, 0]));
-    assert_eq!(problem.evaluate(&[1, 0]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Max(None));
 
-    let best = BruteForce::new().find_witness(&problem).unwrap();
+    let best = BruteForce::new().find_witness(&problem).unwrap().unwrap();
     assert_eq!(best, vec![0, 0]);
 }
 
@@ -128,15 +140,21 @@ fn test_longest_path_source_equals_target_only_allows_empty_path() {
 fn test_longestpath_paper_example() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&optimal_config()), Max(Some(20)));
-    assert_eq!(problem.evaluate(&suboptimal_config()), Max(Some(17)));
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
+    assert_eq!(problem.evaluate(&optimal_config()).unwrap(), Max(Some(20)));
+    assert_eq!(
+        problem.evaluate(&suboptimal_config()).unwrap(),
+        Max(Some(17))
+    );
+    assert_eq!(
+        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+        Max(None)
+    );
 }
 
 #[test]
 fn test_longest_path_problem_name() {
     assert_eq!(
-        <LongestPath<SimpleGraph, i32> as Problem>::NAME,
+        <LongestPath<SimpleGraph, i64> as Problem>::NAME,
         "LongestPath"
     );
 }

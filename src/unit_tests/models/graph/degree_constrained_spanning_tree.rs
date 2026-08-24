@@ -32,7 +32,7 @@ fn test_degree_constrained_spanning_tree_evaluate_valid() {
     // Select edges 1,2,3,4: (0,2),(0,3),(1,2),(1,4)
     // Degrees: 0→2, 1→2, 2→2, 3→1, 4→1 — all ≤ 2
     // Connected and n-1=4 edges → valid spanning tree
-    assert!(problem.evaluate(&[0, 1, 1, 1, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 1, 1, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -40,16 +40,16 @@ fn test_degree_constrained_spanning_tree_evaluate_invalid_degree() {
     let problem = example_instance();
     // Select edges 0,1,2,4: (0,1),(0,2),(0,3),(1,4)
     // Degrees: 0→3 (exceeds K=2)
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 1, 0, 1, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_evaluate_not_tree() {
     let problem = example_instance();
     // Select only 3 edges (not enough for n-1=4)
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 1, 0, 0, 0, 0]).unwrap());
     // Select 5 edges (too many)
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -62,23 +62,23 @@ fn test_degree_constrained_spanning_tree_evaluate_disconnected() {
     // Need to pick 4 edges forming a tree where no vertex has degree > 2.
     // edges (0,2),(2,3),(3,4),(1,4) → indices 1,5,6,4
     // Degrees: 0→1, 1→1, 2→2, 3→2, 4→2 → valid and connected!
-    assert!(problem.evaluate(&[0, 1, 0, 0, 1, 1, 1]));
+    assert!(problem.evaluate(&[0, 1, 0, 0, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_evaluate_wrong_length() {
     let problem = example_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]));
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 0, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn test_degree_constrained_spanning_tree_infeasible() {
         2,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -101,12 +101,12 @@ fn test_degree_constrained_spanning_tree_k1_path() {
     let problem =
         DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 1);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 
     // For n=2, K=1 works: the single edge is the tree.
     let problem2 = DegreeConstrainedSpanningTree::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
     let solver2 = BruteForce::new();
-    let sol = solver2.find_witness(&problem2);
+    let sol = solver2.find_witness(&problem2).unwrap();
     assert!(sol.is_some());
 }
 

@@ -13,7 +13,7 @@ fn test_lengthboundeddisjointpaths_to_ilp_closed_loop() {
         3,
         2,
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -29,6 +29,6 @@ fn test_lengthboundeddisjointpaths_to_ilp_bf_vs_ilp() {
         3,
         2,
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

@@ -93,7 +93,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .map(|value| biguint_to_i64(value, "sizes"))
                     .collect(),
                 biguint_to_i64(source.target(), "target"),
-            );
+            )
+            .unwrap();
 
             assemble_rule_example(
                 &source,

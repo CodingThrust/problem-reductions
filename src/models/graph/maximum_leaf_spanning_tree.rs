@@ -146,7 +146,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumLeafSpanningTree";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -156,11 +156,19 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        if !is_valid_spanning_tree(&self.graph, config) {
-            return Max(None);
-        }
-        Max(Some(count_leaves(&self.graph, config)))
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_spanning_tree(&self.graph, config) {
+                return Ok(Max(None));
+            }
+            Max(Some(
+                i64::try_from(count_leaves(&self.graph, config)).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting leaf count to i64".into(),
+                    )
+                })?,
+            ))
+        })
     }
 }
 
@@ -169,7 +177,7 @@ crate::impl_random_generate!(
     crate::random::SimpleGraphRandomSpec,
     |spec| {
         if spec.num_vertices < 2 {
-            return Err("num_vertices must be at least 2".to_string());
+            return Err("num_vertices must be at least 2".to_string().into());
         }
         Ok(MaximumLeafSpanningTree::new(spec.graph()?))
     }

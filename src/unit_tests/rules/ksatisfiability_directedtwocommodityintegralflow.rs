@@ -43,17 +43,18 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
 fn solve_target_via_ilp(
     problem: &crate::models::graph::DirectedTwoCommodityIntegralFlow,
 ) -> Option<Vec<usize>> {
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(problem);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new().solve(reduction.target_problem()).ok()?;
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    problem.evaluate(&extracted).0.then_some(extracted)
+    problem.evaluate(&extracted).unwrap().0.then_some(extracted)
 }
 
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_structure() {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 36);
@@ -68,14 +69,15 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_assignment_encoding_
 ) {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     for assignment in all_assignments(source.num_vars()) {
         let flow = reduction.encode_assignment(&assignment);
         assert_eq!(
-            source.evaluate(&assignment).0,
-            target.evaluate(&flow).0,
+            source.evaluate(&assignment).unwrap().0,
+            target.evaluate(&flow).unwrap().0,
             "assignment {:?} should preserve satisfiability through the encoded flow",
             assignment
         );
@@ -87,11 +89,12 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
 {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     let assignment = vec![1, 1, 0];
     let flow = reduction.encode_assignment(&assignment);
-    assert!(reduction.target_problem().evaluate(&flow).0);
+    assert!(reduction.target_problem().evaluate(&flow).unwrap().0);
     assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
 }
 
@@ -99,22 +102,30 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_closed_loop() {
     let source = issue_example();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
 
     let target_solution = solve_target_via_ilp(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible two-commodity flow");
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_directedtwocommodityintegralflow_unsatisfiable() {
     let source = unsatisfiable_instance();
     let reduction =
-        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+        ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+            .expect("reduction should succeed");
     let maybe_solution = solve_target_via_ilp(reduction.target_problem());
     assert!(
         maybe_solution.is_none(),
@@ -160,8 +171,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert!(target
         .evaluate(&example.solutions[0].target_config)
+        .unwrap()
         .is_valid());
 }

@@ -385,25 +385,6 @@ enum TargetElement {
     Filler,
 }
 
-fn checked_mul(lhs: u128, rhs: u128, context: &str) -> u128 {
-    lhs.checked_mul(rhs)
-        .unwrap_or_else(|| panic!("{context} overflowed during multiplication"))
-}
-
-fn checked_add(lhs: u128, rhs: u128, context: &str) -> u128 {
-    lhs.checked_add(rhs)
-        .unwrap_or_else(|| panic!("{context} overflowed during addition"))
-}
-
-fn checked_sub(lhs: u128, rhs: u128, context: &str) -> u128 {
-    lhs.checked_sub(rhs)
-        .unwrap_or_else(|| panic!("{context} underflowed during subtraction"))
-}
-
-fn to_u64(value: u128, context: &str) -> u64 {
-    u64::try_from(value).unwrap_or_else(|_| panic!("{context} does not fit into u64"))
-}
-
 fn sorted_pair(a: usize, b: usize) -> [usize; 2] {
     if a <= b {
         [a, b]
@@ -412,18 +393,17 @@ fn sorted_pair(a: usize, b: usize) -> [usize; 2] {
     }
 }
 
-fn enumerate_pair_keys(num_regulars: usize) -> Vec<(usize, usize)> {
+fn enumerate_pair_keys(num_regulars: usize) -> Option<Vec<(usize, usize)>> {
     let capacity = num_regulars
         .checked_mul(num_regulars.saturating_sub(1))
-        .and_then(|value| value.checked_div(2))
-        .expect("pair count overflow for 4-Partition gadget");
+        .and_then(|value| value.checked_div(2))?;
     let mut pairs = Vec::with_capacity(capacity);
     for left in 0..num_regulars {
         for right in left + 1..num_regulars {
             pairs.push((left, right));
         }
     }
-    pairs
+    Some(pairs)
 }
 
 #[reduction(
@@ -434,15 +414,22 @@ fn enumerate_pair_keys(num_regulars: usize) -> Vec<(usize, usize)> {
 impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreePartition;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.universe_size();
         let t = self.num_triples();
 
-        assert!(q > 0, "3DM -> ThreePartition requires universe_size > 0");
-        assert!(
-            t > 0,
-            "3DM -> ThreePartition requires at least one source triple"
-        );
+        if q == 0 {
+            return Err(crate::rules::ReductionError::invalid_target::<
+                ThreeDimensionalMatching,
+                ThreePartition,
+            >("source universe must be nonempty"));
+        }
+        if t == 0 {
+            return Err(crate::rules::ReductionError::invalid_target::<
+                ThreeDimensionalMatching,
+                ThreePartition,
+            >("source must contain at least one triple"));
+        }
 
         let mut covered_w = vec![false; q];
         let mut covered_x = vec![false; q];
@@ -456,20 +443,35 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
             || covered_x.iter().any(|&covered| !covered)
             || covered_y.iter().any(|&covered| !covered)
         {
-            return ReductionThreeDimensionalMatchingToThreePartition {
+            return Ok(ReductionThreeDimensionalMatchingToThreePartition {
                 target: ThreePartition::new(vec![6, 6, 6, 6, 7, 9], 20),
                 step2_items: Vec::new(),
                 pair_keys: Vec::new(),
                 num_source_triples: t,
-            };
+            });
         }
 
-        let q128 = q as u128;
-        let r = checked_mul(32, q128, "r = 32q");
-        let r2 = checked_mul(r, r, "r^2");
-        let r3 = checked_mul(r2, r, "r^3");
-        let r4 = checked_mul(r3, r, "r^4");
-        let target1 = checked_mul(40, r4, "T1 = 40r^4");
+        let arithmetic_overflow = |context| {
+            crate::rules::ReductionError::integer_overflow::<ThreeDimensionalMatching, ThreePartition>(
+                context,
+            )
+        };
+        let q = i64::try_from(q).map_err(|_| arithmetic_overflow("converting q to i64"))?;
+        let r = 32_i64
+            .checked_mul(q)
+            .ok_or_else(|| arithmetic_overflow("computing r = 32q"))?;
+        let r2 = r
+            .checked_mul(r)
+            .ok_or_else(|| arithmetic_overflow("computing r^2"))?;
+        let r3 = r2
+            .checked_mul(r)
+            .ok_or_else(|| arithmetic_overflow("computing r^3"))?;
+        let r4 = r3
+            .checked_mul(r)
+            .ok_or_else(|| arithmetic_overflow("computing r^4"))?;
+        let target1 = 40_i64
+            .checked_mul(r4)
+            .ok_or_else(|| arithmetic_overflow("computing the ABCD-Partition target"))?;
 
         let mut step2_items = Vec::with_capacity(4 * t);
         let mut step2_values = Vec::with_capacity(4 * t);
@@ -479,27 +481,21 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
         let mut seen_y = std::collections::HashSet::new();
 
         for (source_triple, &(w, x, y)) in self.triples().iter().enumerate() {
-            let w128 = w as u128;
-            let x128 = x as u128;
-            let y128 = y as u128;
+            let w_num = i64::try_from(w).map_err(|_| arithmetic_overflow("converting w to i64"))?;
+            let x_num = i64::try_from(x).map_err(|_| arithmetic_overflow("converting x to i64"))?;
+            let y_num = i64::try_from(y).map_err(|_| arithmetic_overflow("converting y to i64"))?;
 
-            let a_value = checked_sub(
-                checked_sub(
-                    checked_sub(
-                        checked_mul(10, r4, "A digit"),
-                        checked_mul(y128, r3, "A y-term"),
-                        "A after y",
-                    ),
-                    checked_mul(x128, r2, "A x-term"),
-                    "A after x",
-                ),
-                checked_mul(w128, r, "A w-term"),
-                "A after w",
-            );
-            step2_values.push(to_u64(
-                checked_add(checked_mul(16, a_value, "step2 A"), 1, "step2 A tag"),
-                "step2 A",
-            ));
+            let a_value = 10_i64
+                .checked_mul(r4)
+                .and_then(|value| value.checked_sub(y_num.checked_mul(r3)?))
+                .and_then(|value| value.checked_sub(x_num.checked_mul(r2)?))
+                .and_then(|value| value.checked_sub(w_num.checked_mul(r)?))
+                .ok_or_else(|| arithmetic_overflow("computing an A item"))?;
+            let step2_a = 16_i64
+                .checked_mul(a_value)
+                .and_then(|value| value.checked_add(1))
+                .ok_or_else(|| arithmetic_overflow("encoding an A item"))?;
+            step2_values.push(step2_a);
             step2_items.push(Step2Item::A {
                 source_triple,
                 w,
@@ -508,141 +504,146 @@ impl ReduceTo<ThreePartition> for ThreeDimensionalMatching {
             });
 
             let w_first = seen_w.insert(w);
-            let b_digit = if w_first { 10 } else { 11 };
-            let b_value = checked_add(
-                checked_mul(b_digit, r4, "B digit"),
-                checked_mul(w128, r, "B coordinate"),
-                "B value",
-            );
-            step2_values.push(to_u64(
-                checked_add(checked_mul(16, b_value, "step2 B"), 2, "step2 B tag"),
-                "step2 B",
-            ));
+            let b_digit: i64 = if w_first { 10 } else { 11 };
+            let b_value = b_digit
+                .checked_mul(r4)
+                .and_then(|value| value.checked_add(w_num.checked_mul(r)?))
+                .ok_or_else(|| arithmetic_overflow("computing a B item"))?;
+            let step2_b = 16_i64
+                .checked_mul(b_value)
+                .and_then(|value| value.checked_add(2))
+                .ok_or_else(|| arithmetic_overflow("encoding a B item"))?;
+            step2_values.push(step2_b);
             step2_items.push(Step2Item::B {
                 w,
                 first_occurrence: w_first,
             });
 
             let x_first = seen_x.insert(x);
-            let c_digit = if x_first { 10 } else { 11 };
-            let c_value = checked_add(
-                checked_mul(c_digit, r4, "C digit"),
-                checked_mul(x128, r2, "C coordinate"),
-                "C value",
-            );
-            step2_values.push(to_u64(
-                checked_add(checked_mul(16, c_value, "step2 C"), 4, "step2 C tag"),
-                "step2 C",
-            ));
+            let c_digit: i64 = if x_first { 10 } else { 11 };
+            let c_value = c_digit
+                .checked_mul(r4)
+                .and_then(|value| value.checked_add(x_num.checked_mul(r2)?))
+                .ok_or_else(|| arithmetic_overflow("computing a C item"))?;
+            let step2_c = 16_i64
+                .checked_mul(c_value)
+                .and_then(|value| value.checked_add(4))
+                .ok_or_else(|| arithmetic_overflow("encoding a C item"))?;
+            step2_values.push(step2_c);
             step2_items.push(Step2Item::C {
                 x,
                 first_occurrence: x_first,
             });
 
             let y_first = seen_y.insert(y);
-            let d_digit = if y_first { 10 } else { 8 };
-            let d_value = checked_add(
-                checked_mul(d_digit, r4, "D digit"),
-                checked_mul(y128, r3, "D coordinate"),
-                "D value",
-            );
-            step2_values.push(to_u64(
-                checked_add(checked_mul(16, d_value, "step2 D"), 8, "step2 D tag"),
-                "step2 D",
-            ));
+            let d_digit: i64 = if y_first { 10 } else { 8 };
+            let d_value = d_digit
+                .checked_mul(r4)
+                .and_then(|value| value.checked_add(y_num.checked_mul(r3)?))
+                .ok_or_else(|| arithmetic_overflow("computing a D item"))?;
+            let step2_d = 16_i64
+                .checked_mul(d_value)
+                .and_then(|value| value.checked_add(8))
+                .ok_or_else(|| arithmetic_overflow("encoding a D item"))?;
+            step2_values.push(step2_d);
             step2_items.push(Step2Item::D {
                 y,
                 first_occurrence: y_first,
             });
         }
 
-        let target2 = checked_add(checked_mul(16, target1, "T2 base"), 15, "T2");
-        let pair_keys = enumerate_pair_keys(step2_values.len());
+        let target2 = 16_i64
+            .checked_mul(target1)
+            .and_then(|value| value.checked_add(15))
+            .ok_or_else(|| arithmetic_overflow("computing the 4-Partition target"))?;
+        let pair_keys = enumerate_pair_keys(step2_values.len())
+            .ok_or_else(|| arithmetic_overflow("computing the 4-Partition pair count"))?;
 
+        let subtract_fillers =
+            3usize.checked_mul(t).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ThreeDimensionalMatching,
+                    ThreePartition,
+                >("computing the filler count")
+            })?;
         let num_fillers = 8usize
             .checked_mul(t)
             .and_then(|value| value.checked_mul(t))
-            .and_then(|value| value.checked_sub(3 * t))
-            .expect("filler count overflow");
+            .and_then(|value| value.checked_sub(subtract_fillers))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ThreeDimensionalMatching,
+                    ThreePartition,
+                >("computing the filler count")
+            })?;
 
+        let pair_elements =
+            2usize.checked_mul(pair_keys.len()).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ThreeDimensionalMatching,
+                    ThreePartition,
+                >("computing the number of pair elements")
+            })?;
         let total_elements = step2_values
             .len()
-            .checked_add(2 * pair_keys.len())
+            .checked_add(pair_elements)
             .and_then(|value| value.checked_add(num_fillers))
-            .expect("3-Partition element count overflow");
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ThreeDimensionalMatching,
+                    ThreePartition,
+                >("computing the target element count")
+            })?;
 
         let mut sizes = Vec::with_capacity(total_elements);
 
         for &step2_value in &step2_values {
-            let regular = checked_add(
-                checked_mul(
-                    4,
-                    checked_add(
-                        checked_mul(5, target2, "regular base"),
-                        u128::from(step2_value),
-                        "regular inner",
-                    ),
-                    "regular outer",
-                ),
-                1,
-                "regular tag",
-            );
-            sizes.push(to_u64(regular, "regular element"));
+            let regular = 5_i64
+                .checked_mul(target2)
+                .and_then(|value| value.checked_add(step2_value))
+                .and_then(|value| value.checked_mul(4))
+                .and_then(|value| value.checked_add(1))
+                .ok_or_else(|| arithmetic_overflow("computing a regular element"))?;
+            sizes.push(regular);
         }
 
         for &(left, right) in &pair_keys {
-            let a_i = u128::from(step2_values[left]);
-            let a_j = u128::from(step2_values[right]);
+            let pair_sum = step2_values[left]
+                .checked_add(step2_values[right])
+                .ok_or_else(|| arithmetic_overflow("summing paired 4-Partition elements"))?;
+            let u_value = 6_i64
+                .checked_mul(target2)
+                .and_then(|value| value.checked_sub(pair_sum))
+                .and_then(|value| value.checked_mul(4))
+                .and_then(|value| value.checked_add(2))
+                .ok_or_else(|| arithmetic_overflow("computing a pairing u element"))?;
+            sizes.push(u_value);
 
-            let u_value = checked_add(
-                checked_mul(
-                    4,
-                    checked_sub(
-                        checked_mul(6, target2, "u base"),
-                        checked_add(a_i, a_j, "u pair sum"),
-                        "u inner",
-                    ),
-                    "u outer",
-                ),
-                2,
-                "u tag",
-            );
-            sizes.push(to_u64(u_value, "pairing u element"));
-
-            let uprime_value = checked_add(
-                checked_mul(
-                    4,
-                    checked_add(
-                        checked_mul(5, target2, "u' base"),
-                        checked_add(a_i, a_j, "u' pair sum"),
-                        "u' inner",
-                    ),
-                    "u' outer",
-                ),
-                2,
-                "u' tag",
-            );
-            sizes.push(to_u64(uprime_value, "pairing u' element"));
+            let uprime_value = 5_i64
+                .checked_mul(target2)
+                .and_then(|value| value.checked_add(pair_sum))
+                .and_then(|value| value.checked_mul(4))
+                .and_then(|value| value.checked_add(2))
+                .ok_or_else(|| arithmetic_overflow("computing a pairing u' element"))?;
+            sizes.push(uprime_value);
         }
 
-        let filler_value = to_u64(checked_mul(20, target2, "filler"), "filler element");
+        let filler_value = 20_i64
+            .checked_mul(target2)
+            .ok_or_else(|| arithmetic_overflow("computing a filler element"))?;
         sizes.extend(std::iter::repeat_n(filler_value, num_fillers));
 
-        let bound = to_u64(
-            checked_add(
-                checked_mul(64, target2, "3-Partition bound"),
-                4,
-                "3-Partition bound tag",
-            ),
-            "3-Partition bound",
-        );
+        let bound = 64_i64
+            .checked_mul(target2)
+            .and_then(|value| value.checked_add(4))
+            .ok_or_else(|| arithmetic_overflow("computing the 3-Partition bound"))?;
 
-        ReductionThreeDimensionalMatchingToThreePartition {
+        Ok(ReductionThreeDimensionalMatchingToThreePartition {
             target: ThreePartition::new(sizes, bound),
             step2_items,
             pair_keys,
             num_source_triples: t,
-        }
+        })
     }
 }
 

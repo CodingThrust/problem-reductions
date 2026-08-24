@@ -70,15 +70,15 @@ fn test_undirected_flow_lower_bounds_creation() {
 fn test_undirected_flow_lower_bounds_evaluation_yes() {
     let problem = canonical_yes_instance();
     let config = yes_orientation_config();
-    assert!(problem.evaluate(&config));
-    assert!(problem.is_valid_solution(&config));
+    assert!(problem.evaluate(&config).unwrap());
+    assert!(problem.is_valid_solution(&config).unwrap());
 }
 
 #[test]
 fn test_undirected_flow_lower_bounds_evaluation_no() {
     let problem = canonical_no_instance();
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
-    assert!(BruteForce::new().find_witness(&problem).is_none());
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn test_undirected_flow_lower_bounds_rejects_wrong_config_length() {
     let problem = canonical_yes_instance();
     let mut config = yes_orientation_config();
     config.pop();
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -107,8 +107,9 @@ fn test_undirected_flow_lower_bounds_solver_yes() {
     let problem = canonical_yes_instance();
     let solution = BruteForce::new()
         .find_witness(&problem)
+        .unwrap()
         .expect("expected a satisfying orientation");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
     assert_eq!(solution.len(), problem.num_edges());
 }
 
@@ -116,8 +117,8 @@ fn test_undirected_flow_lower_bounds_solver_yes() {
 fn test_undirected_flow_lower_bounds_paper_example() {
     let problem = canonical_yes_instance();
     let config = yes_orientation_config();
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let all = BruteForce::new().find_all_witnesses(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(all.contains(&config));
 }

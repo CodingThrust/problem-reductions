@@ -15,7 +15,7 @@ fn k4_instance() -> MonochromaticTriangle<SimpleGraph> {
 #[test]
 fn test_monochromatic_triangle_to_ilp_structure() {
     let problem = k4_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 6);
@@ -27,7 +27,7 @@ fn test_monochromatic_triangle_to_ilp_structure() {
 #[test]
 fn test_monochromatic_triangle_to_ilp_constraint_pairs_on_single_triangle() {
     let problem = MonochromaticTriangle::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 3);
@@ -41,7 +41,7 @@ fn test_monochromatic_triangle_to_ilp_constraint_pairs_on_single_triangle() {
 #[test]
 fn test_monochromatic_triangle_to_ilp_closed_loop() {
     let problem = k4_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -49,7 +49,7 @@ fn test_monochromatic_triangle_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, ilp_solution);
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
         }
     }
     let problem = MonochromaticTriangle::new(SimpleGraph::new(6, edges));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
@@ -72,11 +72,11 @@ fn test_monochromatic_triangle_to_ilp_infeasible_k6() {
 #[test]
 fn test_monochromatic_triangle_to_ilp_extract_solution_identity() {
     let problem = k4_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let coloring = vec![0, 0, 1, 1, 0, 1];
 
     let extracted = reduction.extract_solution(&coloring).unwrap();
 
     assert_eq!(extracted, coloring);
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 }

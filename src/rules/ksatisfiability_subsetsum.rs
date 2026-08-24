@@ -77,7 +77,7 @@ fn digits_to_integer(digits: &[u8]) -> BigUint {
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
         let num_digits = n + m;
@@ -136,10 +136,10 @@ impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
         }
         let target = digits_to_integer(&target_digits);
 
-        Reduction3SATToSubsetSum {
+        Ok(Reduction3SATToSubsetSum {
             target: SubsetSum::new_unchecked(sizes, target),
             source_num_vars: n,
-        }
+        })
     }
 }
 

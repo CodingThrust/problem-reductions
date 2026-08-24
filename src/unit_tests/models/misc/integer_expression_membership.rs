@@ -43,30 +43,30 @@ fn test_integer_expression_membership_creation() {
 fn test_integer_expression_membership_evaluate_satisfying() {
     let problem = IntegerExpressionMembership::new(example_expr(), 12);
     // config [1,1,0]: choose 4, 6, 2 → 4+6+2=12
-    assert!(problem.evaluate(&[1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 0]).unwrap());
     // config [0,1,1]: choose 1, 6, 5 → 1+6+5=12
-    assert!(problem.evaluate(&[0, 1, 1]));
+    assert!(problem.evaluate(&[0, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_integer_expression_membership_evaluate_unsatisfying() {
     let problem = IntegerExpressionMembership::new(example_expr(), 12);
     // config [0,0,0]: choose 1, 3, 2 → 1+3+2=6 ≠ 12
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
     // config [1,0,0]: choose 4, 3, 2 → 4+3+2=9 ≠ 12
-    assert!(!problem.evaluate(&[1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
     // config [1,1,1]: choose 4, 6, 5 → 4+6+5=15 ≠ 12
-    assert!(!problem.evaluate(&[1, 1, 1]));
+    assert!(!problem.evaluate(&[1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_integer_expression_membership_evaluate_wrong_config() {
     let problem = IntegerExpressionMembership::new(example_expr(), 12);
     // Wrong length
-    assert!(!problem.evaluate(&[0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
     // Invalid value
-    assert!(!problem.evaluate(&[2, 0, 0]));
+    assert!(!problem.evaluate(&[2, 0, 0]).unwrap());
 }
 
 #[test]
@@ -75,19 +75,20 @@ fn test_integer_expression_membership_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_integer_expression_membership_brute_force_all() {
     let problem = IntegerExpressionMembership::new(example_expr(), 12);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // K=12 can be reached by [0,1,1] (1+6+5), [1,0,1] (4+3+5), [1,1,0] (4+6+2)
     assert_eq!(solutions.len(), 3);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -96,7 +97,7 @@ fn test_integer_expression_membership_unsatisfiable() {
     // Target 100 is unreachable from {1,4}+{3,6}+{2,5} (max is 15)
     let problem = IntegerExpressionMembership::new(example_expr(), 100);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -105,14 +106,14 @@ fn test_integer_expression_membership_single_atom() {
     let problem = IntegerExpressionMembership::new(expr, 42);
     assert_eq!(problem.num_union_nodes(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[])); // empty config, atom == target
+    assert!(problem.evaluate(&[]).unwrap()); // empty config, atom == target
 }
 
 #[test]
 fn test_integer_expression_membership_single_atom_miss() {
     let expr = IntExpr::Atom(42);
     let problem = IntegerExpressionMembership::new(expr, 7);
-    assert!(!problem.evaluate(&[])); // 42 ≠ 7
+    assert!(!problem.evaluate(&[]).unwrap()); // 42 ≠ 7
 }
 
 #[test]
@@ -122,8 +123,8 @@ fn test_integer_expression_membership_simple_union() {
     let problem = IntegerExpressionMembership::new(expr, 7);
     assert_eq!(problem.num_union_nodes(), 1);
     assert_eq!(problem.dims(), vec![2]);
-    assert!(!problem.evaluate(&[0])); // 3 ≠ 7
-    assert!(problem.evaluate(&[1])); // 7 == 7
+    assert!(!problem.evaluate(&[0]).unwrap()); // 3 ≠ 7
+    assert!(problem.evaluate(&[1]).unwrap()); // 7 == 7
 }
 
 #[test]
@@ -132,7 +133,7 @@ fn test_integer_expression_membership_simple_sum() {
     let expr = IntExpr::Sum(Box::new(IntExpr::Atom(3)), Box::new(IntExpr::Atom(5)));
     let problem = IntegerExpressionMembership::new(expr, 8);
     assert_eq!(problem.num_union_nodes(), 0);
-    assert!(problem.evaluate(&[])); // 3+5=8
+    assert!(problem.evaluate(&[]).unwrap()); // 3+5=8
 }
 
 #[test]
@@ -143,7 +144,7 @@ fn test_integer_expression_membership_serialization() {
     let restored: IntegerExpressionMembership = serde_json::from_value(json).unwrap();
     assert_eq!(restored.target(), 4);
     assert_eq!(restored.num_union_nodes(), 1);
-    assert!(restored.evaluate(&[1])); // choose 4
+    assert!(restored.evaluate(&[1]).unwrap()); // choose 4
 }
 
 #[test]
@@ -164,10 +165,10 @@ fn test_integer_expression_membership_paper_example() {
 
     // Verify the claimed witness
     assert_eq!(problem.evaluate_config(&[1, 1, 0]), Some(12));
-    assert!(problem.evaluate(&[1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 0]).unwrap());
 
     // Verify all 8 configs produce the set {6, 9, 12, 15}
-    let mut values: Vec<u64> = Vec::new();
+    let mut values: Vec<i64> = Vec::new();
     for c0 in 0..2 {
         for c1 in 0..2 {
             for c2 in 0..2 {
@@ -182,7 +183,7 @@ fn test_integer_expression_membership_paper_example() {
     // Brute force confirms 3 satisfying configs for K=12:
     // [0,1,1] (1+6+5), [1,0,1] (4+3+5), [1,1,0] (4+6+2)
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 3);
 }
 
@@ -202,22 +203,22 @@ fn test_integer_expression_membership_nested_unions() {
     // [0, 0] → left of outer → left of inner → 1
     // [0, 1] → left of outer → right of inner → 2
     // [1, _] → right of outer → 3 (inner union not visited)
-    assert!(!problem.evaluate(&[0, 0])); // 1 ≠ 2
-    assert!(problem.evaluate(&[0, 1])); // 2 == 2
-    assert!(!problem.evaluate(&[1, 0])); // 3 ≠ 2
-    assert!(!problem.evaluate(&[1, 1])); // 3 ≠ 2
+    assert!(!problem.evaluate(&[0, 0]).unwrap()); // 1 ≠ 2
+    assert!(problem.evaluate(&[0, 1]).unwrap()); // 2 == 2
+    assert!(!problem.evaluate(&[1, 0]).unwrap()); // 3 ≠ 2
+    assert!(!problem.evaluate(&[1, 1]).unwrap()); // 3 ≠ 2
 }
 
 #[test]
 fn test_integer_expression_membership_overflow_safe() {
-    // Two atoms that sum to > u64::MAX should evaluate to Or(false), not panic.
+    // Two atoms that sum to > i64::MAX should evaluate to Or(false), not panic.
     let expr = IntExpr::Sum(
-        Box::new(IntExpr::Atom(u64::MAX)),
+        Box::new(IntExpr::Atom(i64::MAX)),
         Box::new(IntExpr::Atom(1)),
     );
     let problem = IntegerExpressionMembership::new(expr, 42);
     // The only config is [] (no union nodes). The sum overflows → None → Or(false).
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]

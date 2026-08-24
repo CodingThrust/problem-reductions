@@ -1,4 +1,4 @@
-//! Reduction from ThreeDimensionalMatching to ILP<bool>.
+//! Reduction from ThreeDimensionalMatching to `ILP<bool>`.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::ThreeDimensionalMatching;
@@ -37,7 +37,7 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToILP {
 impl ReduceTo<ILP<bool>> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_triples();
         let mut w_constraints = vec![Vec::new(); self.universe_size()];
         let mut x_constraints = vec![Vec::new(); self.universe_size()];
@@ -66,9 +66,9 @@ impl ReduceTo<ILP<bool>> for ThreeDimensionalMatching {
                 .map(|terms| LinearConstraint::eq(terms, 1.0)),
         );
 
-        ReductionThreeDimensionalMatchingToILP {
+        Ok(ReductionThreeDimensionalMatchingToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        })
     }
 }
 

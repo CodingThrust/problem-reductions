@@ -20,7 +20,7 @@ inventory::submit! {
         aliases: &["MCST"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -47,7 +47,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight type for edges and requirements (e.g., `i32`)
+/// * `W` - The weight type for edges and requirements (e.g., `i64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCapacitatedSpanningTree<G, W: WeightElement> {
     /// The underlying graph.
@@ -67,39 +67,37 @@ struct MinimumCapacitatedSpanningTreeCreateSpec {
     /// The underlying graph.
     graph: SimpleGraph,
     /// Edge weights; defaults to one per edge.
-    weights: Option<Vec<i32>>,
+    weights: Option<Vec<i64>>,
     /// Root vertex.
     root: usize,
     /// Vertex requirements.
-    requirements: Vec<i32>,
+    requirements: Vec<i64>,
     /// Subtree capacity bound.
     capacity: i64,
 }
 impl TryFrom<MinimumCapacitatedSpanningTreeCreateSpec>
-    for MinimumCapacitatedSpanningTree<SimpleGraph, i32>
+    for MinimumCapacitatedSpanningTree<SimpleGraph, i64>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumCapacitatedSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
         let edges = spec.graph.num_edges();
         let weights = spec.weights.unwrap_or_else(|| vec![1; edges]);
         if weights.len() != edges {
-            return Err(format!(
-                "weights has {} entries, expected {edges}",
-                weights.len()
-            ));
+            return Err(format!("weights has {} entries, expected {edges}", weights.len()).into());
         }
         let vertices = spec.graph.num_vertices();
         if vertices < 2 {
-            return Err("graph must have at least two vertices".to_string());
+            return Err("graph must have at least two vertices".to_string().into());
         }
         if spec.requirements.len() != vertices {
             return Err(format!(
                 "requirements has {} entries, expected {vertices}",
                 spec.requirements.len()
-            ));
+            )
+            .into());
         }
         if spec.root >= vertices {
-            return Err("root is outside the graph".to_string());
+            return Err("root is outside the graph".to_string().into());
         }
         Ok(Self::new(
             spec.graph,
@@ -201,7 +199,10 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
     }
 
     /// Check if a configuration is a valid capacitated spanning tree.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         is_valid_capacitated_spanning_tree(
             &self.graph,
             &self.requirements,
@@ -261,7 +262,7 @@ fn check_capacity<G: Graph, W: WeightElement>(
     root: usize,
     capacity: &W::Sum,
     config: &[usize],
-) -> bool {
+) -> Result<bool, crate::traits::EvaluationError> {
     let n = graph.num_vertices();
     let edges = graph.edges();
 
@@ -300,18 +301,22 @@ fn check_capacity<G: Graph, W: WeightElement>(
         if v != root {
             let p = parent[v];
             let sv = subtree_sum[v].clone();
-            subtree_sum[p] += sv;
+            subtree_sum[p] = W::checked_add_to_sum(
+                subtree_sum[p].clone(),
+                sv,
+                "summing capacitated spanning tree requirements",
+            )?;
         }
     }
 
     // Check capacity for each non-root vertex (its subtree sum is the flow on its parent edge)
     for (v, sum) in subtree_sum.iter().enumerate() {
         if v != root && *sum > *capacity {
-            return false;
+            return Ok(false);
         }
     }
 
-    true
+    Ok(true)
 }
 
 /// Check if a configuration forms a valid capacitated spanning tree.
@@ -321,9 +326,9 @@ fn is_valid_capacitated_spanning_tree<G: Graph, W: WeightElement>(
     root: usize,
     capacity: &W::Sum,
     config: &[usize],
-) -> bool {
+) -> Result<bool, crate::traits::EvaluationError> {
     if !is_spanning_tree(graph, config) {
-        return false;
+        return Ok(false);
     }
     check_capacity(graph, requirements, root, capacity, config)
 }
@@ -344,36 +349,42 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !is_valid_capacitated_spanning_tree(
-            &self.graph,
-            &self.requirements,
-            self.root,
-            &self.capacity,
-            config,
-        ) {
-            return Min(None);
-        }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.weights.get(idx) {
-                    total += w.to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_capacitated_spanning_tree(
+                &self.graph,
+                &self.requirements,
+                self.root,
+                &self.capacity,
+                config,
+            )? {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    if let Some(w) = self.weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing capacitated spanning tree edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Min(Some(total))
+            Min(Some(total))
+        })
     }
 }
 
 crate::declare_variants! {
-    default MinimumCapacitatedSpanningTree<SimpleGraph, i32> => "2^num_edges" create MinimumCapacitatedSpanningTreeCreateSpec,
+    default MinimumCapacitatedSpanningTree<SimpleGraph, i64> => "2^num_edges" create MinimumCapacitatedSpanningTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_capacitated_spanning_tree_simplegraph_i32",
+        id: "minimum_capacitated_spanning_tree_simplegraph_i64",
         instance: Box::new(MinimumCapacitatedSpanningTree::new(
             SimpleGraph::new(
                 5,

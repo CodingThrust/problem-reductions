@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn create_spec_expands_shared_default_bounds() {
-    let problem = ClosestVectorProblem::<i32>::try_from(ClosestVectorProblemI32CreateSpec {
+    let problem = ClosestVectorProblem::<i64>::try_from(ClosestVectorProblemI64CreateSpec {
         basis: vec![vec![1, 0], vec![0, 1]],
         target: vec![0.5, 0.5],
         bounds: None,
@@ -24,7 +24,7 @@ fn test_cvp_creation() {
         VarBounds::bounded(-2, 4),
         VarBounds::bounded(-2, 4),
     ];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
     assert_eq!(cvp.num_variables(), 3);
     assert_eq!(cvp.ambient_dimension(), 3);
     assert_eq!(cvp.num_basis_vectors(), 3);
@@ -40,13 +40,27 @@ fn test_cvp_evaluate() {
         VarBounds::bounded(-2, 4),
         VarBounds::bounded(-2, 4),
     ];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     // x=(1,1,1) -> Bx=(3,3,2), distance=1.0
     // config offset: x_i - lower = 1 - (-2) = 3
     let config_111 = vec![3, 3, 3]; // maps to x=(1,1,1)
-    let result = Problem::evaluate(&cvp, &config_111);
+    let result = Problem::evaluate(&cvp, &config_111).unwrap();
     assert_eq!(result, Min(Some(1.0)));
+}
+
+#[test]
+fn test_cvp_evaluate_reports_non_finite_norm() {
+    let problem = ClosestVectorProblem::new(
+        vec![vec![f64::MAX]],
+        vec![0.0],
+        vec![VarBounds::bounded(1, 1)],
+    )
+    .unwrap();
+    assert!(matches!(
+        problem.evaluate(&[0]),
+        Err(crate::traits::EvaluationError::NonFiniteResult(_))
+    ));
 }
 
 #[test]
@@ -54,7 +68,7 @@ fn test_cvp_dims() {
     let basis = vec![vec![1, 0], vec![0, 1]];
     let target = vec![0.5, 0.5];
     let bounds = vec![VarBounds::bounded(-1, 3), VarBounds::bounded(0, 5)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
     assert_eq!(cvp.dims(), vec![5, 6]); // (-1..3)=5 values, (0..5)=6 values
 }
 
@@ -67,14 +81,14 @@ fn test_cvp_num_encoding_bits_uses_var_bound_ranges() {
         VarBounds::bounded(0, 5),
         VarBounds::bounded(3, 3),
     ];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     assert_eq!(cvp.num_encoding_bits(), 6);
 }
 
 #[test]
 fn test_var_bounds_exact_encoding_weights_cap_non_power_of_two_ranges() {
-    let weights = VarBounds::bounded(0, 5).exact_encoding_weights();
+    let weights = VarBounds::bounded(0, 5).exact_encoding_weights().unwrap();
     let represented_offsets: std::collections::BTreeSet<i64> = (0..(1usize << weights.len()))
         .map(|mask| {
             weights
@@ -88,7 +102,18 @@ fn test_var_bounds_exact_encoding_weights_cap_non_power_of_two_ranges() {
 
     assert_eq!(weights, vec![1, 2, 2]);
     assert_eq!(represented_offsets, (0..=5).collect());
-    assert!(VarBounds::bounded(4, 4).exact_encoding_weights().is_empty());
+    assert!(VarBounds::bounded(4, 4)
+        .exact_encoding_weights()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn test_var_bounds_exact_encoding_weights_reject_i64_offset_overflow() {
+    assert!(matches!(
+        VarBounds::bounded(i64::MIN, 0).exact_encoding_weights(),
+        Err(crate::registry::ConstructionError::IntegerOverflow(_))
+    ));
 }
 
 #[test]
@@ -102,17 +127,20 @@ fn test_cvp_brute_force() {
         VarBounds::bounded(-1, 3),
         VarBounds::bounded(-1, 3),
     ];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&cvp).expect("should find a solution");
+    let solution = solver
+        .find_witness(&cvp)
+        .unwrap()
+        .expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
         .map(|(i, &c)| cvp.bounds()[i].lower.unwrap() + c as i64)
         .collect();
     assert_eq!(values, vec![1, 1, 1]);
-    assert_eq!(Problem::evaluate(&cvp, &solution), Min(Some(1.0)));
+    assert_eq!(Problem::evaluate(&cvp, &solution).unwrap(), Min(Some(1.0)));
 }
 
 #[test]
@@ -124,17 +152,17 @@ fn test_cvp_serialization() {
         VarBounds::bounded(-2, 4),
         VarBounds::bounded(-2, 4),
     ];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let json = serde_json::to_string(&cvp).expect("serialize");
-    let cvp2: ClosestVectorProblem<i32> = serde_json::from_str(&json).expect("deserialize");
+    let cvp2: ClosestVectorProblem<i64> = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(cvp2.num_basis_vectors(), 3);
     assert_eq!(cvp2.ambient_dimension(), 3);
     // Verify functional equivalence after round-trip
     let config = vec![3, 3, 3];
     assert_eq!(
-        Problem::evaluate(&cvp, &config),
-        Problem::evaluate(&cvp2, &config)
+        Problem::evaluate(&cvp, &config).unwrap(),
+        Problem::evaluate(&cvp2, &config).unwrap()
     );
 }
 
@@ -144,10 +172,13 @@ fn test_cvp_f64_basis() {
     let basis: Vec<Vec<f64>> = vec![vec![1.5, 0.0], vec![0.0, 2.0]];
     let target = vec![1.0, 1.0];
     let bounds = vec![VarBounds::bounded(-2, 2), VarBounds::bounded(-2, 2)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&cvp).expect("should find a solution");
+    let solution = solver
+        .find_witness(&cvp)
+        .unwrap()
+        .expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
@@ -168,10 +199,13 @@ fn test_cvp_2d_identity() {
     let basis = vec![vec![1, 0], vec![0, 1]];
     let target = vec![0.3, 0.7];
     let bounds = vec![VarBounds::bounded(-2, 2), VarBounds::bounded(-2, 2)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&cvp).expect("should find a solution");
+    let solution = solver
+        .find_witness(&cvp)
+        .unwrap()
+        .expect("should find a solution");
     let values: Vec<i64> = solution
         .iter()
         .enumerate()
@@ -186,30 +220,28 @@ fn test_cvp_evaluate_exact_solution() {
     let basis = vec![vec![1, 0], vec![0, 1]];
     let target = vec![2.0, 2.0];
     let bounds = vec![VarBounds::bounded(0, 4), VarBounds::bounded(0, 4)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     // x=(2,2), Bx=(2,2), distance=0
     let config = vec![2, 2]; // offset from lower=0
-    let result = Problem::evaluate(&cvp, &config);
+    let result = Problem::evaluate(&cvp, &config).unwrap();
     assert_eq!(result, Min(Some(0.0)));
 }
 
 #[test]
-#[should_panic(expected = "bounds length must match")]
 fn test_cvp_mismatched_bounds() {
     let basis = vec![vec![1, 0], vec![0, 1]];
     let target = vec![0.5, 0.5];
     let bounds = vec![VarBounds::bounded(0, 1)]; // only 1 bound for 2 vars
-    ClosestVectorProblem::new(basis, target, bounds);
+    assert!(ClosestVectorProblem::new(basis, target, bounds).is_err());
 }
 
 #[test]
-#[should_panic(expected = "basis vector")]
 fn test_cvp_inconsistent_dimensions() {
     let basis = vec![vec![1, 0], vec![0]]; // second vector has wrong dim
     let target = vec![0.5, 0.5];
     let bounds = vec![VarBounds::bounded(0, 1), VarBounds::bounded(0, 1)];
-    ClosestVectorProblem::new(basis, target, bounds);
+    assert!(ClosestVectorProblem::new(basis, target, bounds).is_err());
 }
 
 #[test]
@@ -218,19 +250,68 @@ fn test_cvp_paper_example() {
     let basis = vec![vec![2, 0], vec![1, 2]];
     let target = vec![2.8, 1.5];
     let bounds = vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
+    let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     // x=(1,1): Bx = 2*1+1*1=3, 0*1+2*1=2 -> point (3,2)
     // distance = sqrt((2.8-3)^2 + (1.5-2)^2) = sqrt(0.04+0.25) = sqrt(0.29)
     // config offset: x_i - lower = 1 - (-2) = 3
     let config = vec![3, 3]; // maps to x=(1,1)
-    let result = Problem::evaluate(&cvp, &config);
+    let result = Problem::evaluate(&cvp, &config).unwrap();
     assert!(result.is_valid());
     let dist = result.unwrap();
     assert!((dist - 0.29_f64.sqrt()).abs() < 1e-10);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&cvp).unwrap();
-    let best_dist = Problem::evaluate(&cvp, &best).unwrap();
+    let best = solver.find_witness(&cvp).unwrap().unwrap();
+    let best_dist = Problem::evaluate(&cvp, &best).unwrap().unwrap();
     assert!((best_dist - 0.29_f64.sqrt()).abs() < 1e-10);
+}
+
+#[test]
+fn test_cvp_rejects_invalid_numeric_boundaries() {
+    assert!(
+        ClosestVectorProblem::new(vec![vec![f64::NAN]], vec![0.0], vec![VarBounds::binary()])
+            .is_err()
+    );
+    assert!(ClosestVectorProblem::new(
+        vec![vec![1_i64]],
+        vec![f64::INFINITY],
+        vec![VarBounds::binary()]
+    )
+    .is_err());
+    assert!(
+        ClosestVectorProblem::new(vec![vec![1_i64]], vec![0.0], vec![VarBounds::unbounded()])
+            .is_err()
+    );
+    assert!(ClosestVectorProblem::new(
+        vec![vec![1_i64]],
+        vec![0.0],
+        vec![VarBounds::bounded(i64::MIN, i64::MAX)]
+    )
+    .is_err());
+}
+
+#[test]
+fn test_cvp_accepts_large_range_when_cardinality_fits_usize() {
+    if usize::BITS >= 64 {
+        let bound = VarBounds::bounded(0, i64::MAX);
+        assert_eq!(bound.num_values(), usize::try_from(1_u128 << 63).ok());
+        assert!(ClosestVectorProblem::new(vec![vec![1_i64]], vec![0.0], vec![bound]).is_ok());
+    }
+}
+
+#[test]
+fn test_cvp_evaluate_rejects_invalid_configuration() {
+    let problem =
+        ClosestVectorProblem::new(vec![vec![1_i64]], vec![0.0], vec![VarBounds::binary()]).unwrap();
+    assert!(matches!(
+        problem.evaluate(&[2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+}
+
+#[test]
+fn test_cvp_deserialization_validates_fields() {
+    let json = r#"{"basis":[[1]],"target":[0.0],"bounds":[{"lower":null,"upper":null}]}"#;
+    assert!(serde_json::from_str::<ClosestVectorProblem<i64>>(json).is_err());
 }

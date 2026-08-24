@@ -20,7 +20,7 @@ fn test_ilp_solver_basic_maximize() {
     let sol = solution.unwrap();
 
     // Solution should be valid
-    let result = ilp.evaluate(&sol);
+    let result = ilp.evaluate(&sol).unwrap();
     assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: x1=1, x0=0 => objective = 2
@@ -44,7 +44,7 @@ fn test_ilp_solver_basic_minimize() {
     let sol = solution.unwrap();
 
     // Solution should be valid
-    let result = ilp.evaluate(&sol);
+    let result = ilp.evaluate(&sol).unwrap();
     assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: one variable = 1, other = 0 => objective = 1
@@ -69,12 +69,12 @@ fn test_ilp_solver_matches_brute_force() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_witnesses(&ilp);
+    let bf_solutions = bf.find_all_witnesses(&ilp).unwrap();
     let ilp_solution = ilp_solver.solve(&ilp).unwrap();
 
     // Both should find optimal value (2)
-    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
-    let ilp_size = ilp.evaluate(&ilp_solution).unwrap();
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap().unwrap();
+    let ilp_size = ilp.evaluate(&ilp_solution).unwrap().unwrap();
     assert!(
         (bf_size - ilp_size).abs() < 1e-9,
         "ILP should find optimal solution"
@@ -153,7 +153,7 @@ fn test_ilp_equality_constraint() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
     // Optimal: x0=0, x1=1 => objective = 0
     assert!((result.unwrap() - 0.0).abs() < 1e-9);
@@ -164,8 +164,8 @@ fn test_ilp_non_binary_bounds() {
     // Variables with larger ranges
     // x0 in [0, 3], x1 in [0, 2]
     // Maximize x0 + x1 subject to x0 + x1 <= 4
-    // Use ILP::<i32> with explicit upper-bound constraints
-    let ilp = ILP::<i32>::new(
+    // Use ILP::<i64> with explicit upper-bound constraints
+    let ilp = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0)], 3.0),
@@ -179,7 +179,7 @@ fn test_ilp_non_binary_bounds() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
     // Optimal: x0=2, x1=2 => 4 <= 4 valid, obj=4
     // or x0=3, x1=1 => 4 <= 4 valid, obj=4
@@ -191,7 +191,7 @@ fn test_ilp_integer_upper_bounds() {
     // Variables with upper bounds (non-negative integers)
     // x0 in [0, 4], x1 in [0, 2]
     // Maximize x0 + x1 (with explicit upper-bound constraints)
-    let ilp = ILP::<i32>::new(
+    let ilp = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0)], 4.0),
@@ -204,7 +204,7 @@ fn test_ilp_integer_upper_bounds() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
     // Optimal: x0=4, x1=2 => objective = 6
     assert!((result.unwrap() - 6.0).abs() < 1e-9);
@@ -214,7 +214,7 @@ fn test_ilp_integer_upper_bounds() {
 fn test_ilp_config_to_values_roundtrip() {
     // Ensure the config encoding/decoding works correctly
     // x0 in [0, 5], x1 in [0, 3], maximize x0 + x1
-    let ilp = ILP::<i32>::new(
+    let ilp = ILP::<i64>::new(
         2,
         vec![
             LinearConstraint::le(vec![(0, 1.0)], 5.0),
@@ -228,7 +228,7 @@ fn test_ilp_config_to_values_roundtrip() {
     let solution = solver.solve(&ilp).unwrap();
 
     // The solution should be valid
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
     // Optimal: x0=5, x1=3 => objective = 8
     assert!((result.unwrap() - 8.0).abs() < 1e-9);
@@ -253,13 +253,13 @@ fn test_ilp_multiple_constraints() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
 
     // Check against brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&ilp);
-    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
+    let bf_solutions = bf.find_all_witnesses(&ilp).unwrap();
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap().unwrap();
 
     assert!(
         (bf_size - result.unwrap()).abs() < 1e-9,
@@ -280,7 +280,7 @@ fn test_ilp_unconstrained() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.evaluate(&solution);
+    let result = ilp.evaluate(&solution).unwrap();
     assert!(result.is_valid());
     // Optimal: both = 1
     assert!((result.unwrap() - 2.0).abs() < 1e-9);
@@ -311,10 +311,10 @@ fn test_registered_ilp_pipeline_success() {
     use crate::topology::SimpleGraph;
     use std::collections::BTreeMap;
 
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
     let variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
-        ("weight".to_string(), "i32".to_string()),
+        ("weight".to_string(), "i64".to_string()),
     ]);
     let loaded = load_dyn(
         "MaximumIndependentSet",
@@ -331,7 +331,7 @@ fn test_registered_ilp_pipeline_success() {
     else {
         panic!("registered ILP pipeline should return an optimal witness");
     };
-    let eval = problem.evaluate(&config);
+    let eval = problem.evaluate(&config).unwrap();
     assert!(eval.is_valid());
 }
 
@@ -349,11 +349,14 @@ fn test_ilp_solve_dyn_bool() {
 }
 
 #[test]
-fn test_ilp_solve_dyn_i32() {
+fn test_ilp_solve_dyn_i64() {
     let solver = ILPSolver::new();
-    let ilp = ILP::<i32>::new(
+    let ilp = ILP::<i64>::new(
         2,
-        vec![LinearConstraint::le(vec![(0, 1.0)], 3.0)],
+        vec![
+            LinearConstraint::le(vec![(0, 1.0)], 3.0),
+            LinearConstraint::le(vec![(1, 1.0)], 3.0),
+        ],
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Maximize,
     );
@@ -364,7 +367,7 @@ fn test_ilp_solve_dyn_i32() {
 #[test]
 fn test_ilp_solve_dyn_unknown_type_returns_unsupported_problem_type() {
     let solver = ILPSolver::new();
-    let not_ilp: i32 = 42;
+    let not_ilp: i64 = 42;
     let result = solver.solve_dyn(&not_ilp as &dyn std::any::Any);
     assert_eq!(result, Err(ILPSolveError::UnsupportedProblemType));
 }

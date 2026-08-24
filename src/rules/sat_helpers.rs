@@ -5,12 +5,15 @@ pub(crate) struct SatVariableAllocator {
 }
 
 impl SatVariableAllocator {
-    pub(crate) fn new(reduction: &'static str, existing: usize) -> Result<Self, String> {
-        if existing > i32::MAX as usize {
+    pub(crate) fn new(
+        reduction: &'static str,
+        existing: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if existing > i64::MAX as usize {
             return Err(format!(
                 "{reduction} has {existing} source variables; SAT variable numbers are limited to {}",
-                i32::MAX
-            ));
+                i64::MAX
+            ).into());
         }
         Ok(Self {
             reduction,
@@ -18,21 +21,24 @@ impl SatVariableAllocator {
         })
     }
 
-    pub(crate) fn allocate(&mut self) -> Result<i32, String> {
+    pub(crate) fn allocate(&mut self) -> Result<i64, crate::registry::ConstructionError> {
         let variable = self.next;
-        if variable > i32::MAX as u64 {
+        if variable > i64::MAX as u64 {
             return Err(format!(
                 "{} cannot allocate 1 auxiliary variable after {}; SAT variable numbers are limited to {}",
                 self.reduction,
                 self.num_vars(),
-                i32::MAX
-            ));
+                i64::MAX
+            ).into());
         }
         self.next += 1;
-        Ok(i32::try_from(variable).expect("checked SAT variable fits i32"))
+        Ok(i64::try_from(variable).expect("checked SAT variable fits i64"))
     }
 
-    pub(crate) fn allocate_many(&mut self, count: usize) -> Result<Vec<i32>, String> {
+    pub(crate) fn allocate_many(
+        &mut self,
+        count: usize,
+    ) -> Result<Vec<i64>, crate::registry::ConstructionError> {
         if count == 0 {
             return Ok(Vec::new());
         }
@@ -41,16 +47,16 @@ impl SatVariableAllocator {
             .next
             .checked_add(count - 1)
             .ok_or_else(|| format!("{} auxiliary variable count overflow", self.reduction))?;
-        if last > i32::MAX as u64 {
+        if last > i64::MAX as u64 {
             return Err(format!(
                 "{} cannot allocate {count} auxiliary variables after {}; SAT variable numbers are limited to {}",
                 self.reduction,
                 self.num_vars(),
-                i32::MAX
-            ));
+                i64::MAX
+            ).into());
         }
         let variables = (self.next..=last)
-            .map(|variable| i32::try_from(variable).expect("checked SAT variable fits i32"))
+            .map(|variable| i64::try_from(variable).expect("checked SAT variable fits i64"))
             .collect();
         self.next = last + 1;
         Ok(variables)

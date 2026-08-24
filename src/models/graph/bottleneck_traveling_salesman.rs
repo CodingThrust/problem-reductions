@@ -26,7 +26,7 @@ inventory::submit! {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BottleneckTravelingSalesman {
     graph: SimpleGraph,
-    edge_weights: Vec<i32>,
+    edge_weights: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -35,11 +35,11 @@ struct BottleneckTravelingSalesmanCreateSpec {
     graph: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    edge_weights: Option<Vec<i32>>,
+    edge_weights: Option<Vec<i64>>,
 }
 
 impl TryFrom<BottleneckTravelingSalesmanCreateSpec> for BottleneckTravelingSalesman {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BottleneckTravelingSalesmanCreateSpec) -> Result<Self, Self::Error> {
         let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
@@ -51,7 +51,8 @@ impl TryFrom<BottleneckTravelingSalesmanCreateSpec> for BottleneckTravelingSales
                 "edge_weights has length {}, expected {}",
                 edge_weights.len(),
                 graph.num_edges()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(graph, edge_weights))
     }
@@ -60,13 +61,15 @@ impl TryFrom<BottleneckTravelingSalesmanCreateSpec> for BottleneckTravelingSales
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -80,14 +83,15 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        ));
+        )
+        .into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }
 
 impl BottleneckTravelingSalesman {
     /// Create a BottleneckTravelingSalesman problem from a graph with edge weights.
-    pub fn new(graph: SimpleGraph, edge_weights: Vec<i32>) -> Self {
+    pub fn new(graph: SimpleGraph, edge_weights: Vec<i64>) -> Self {
         assert_eq!(
             edge_weights.len(),
             graph.num_edges(),
@@ -105,18 +109,18 @@ impl BottleneckTravelingSalesman {
     }
 
     /// Get the weights for the problem.
-    pub fn weights(&self) -> Vec<i32> {
+    pub fn weights(&self) -> Vec<i64> {
         self.edge_weights.clone()
     }
 
     /// Set new weights for the problem.
-    pub fn set_weights(&mut self, weights: Vec<i32>) {
+    pub fn set_weights(&mut self, weights: Vec<i64>) {
         assert_eq!(weights.len(), self.graph.num_edges());
         self.edge_weights = weights;
     }
 
     /// Get all edges with their weights.
-    pub fn edges(&self) -> Vec<(usize, usize, i32)> {
+    pub fn edges(&self) -> Vec<(usize, usize, i64)> {
         self.graph
             .edges()
             .into_iter()
@@ -152,7 +156,7 @@ impl BottleneckTravelingSalesman {
 
 impl Problem for BottleneckTravelingSalesman {
     const NAME: &'static str = "BottleneckTravelingSalesman";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -162,24 +166,26 @@ impl Problem for BottleneckTravelingSalesman {
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        if config.len() != self.graph.num_edges() {
-            return Min(None);
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_edges() {
+                return Ok(Min(None));
+            }
 
-        let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-        if !super::traveling_salesman::is_hamiltonian_cycle(&self.graph, &selected) {
-            return Min(None);
-        }
+            let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
+            if !super::traveling_salesman::is_hamiltonian_cycle(&self.graph, &selected) {
+                return Ok(Min(None));
+            }
 
-        let bottleneck = config
-            .iter()
-            .zip(self.edge_weights.iter())
-            .filter_map(|(&selected, &weight)| (selected == 1).then_some(weight))
-            .max()
-            .expect("valid Hamiltonian cycle selects at least one edge");
+            let bottleneck = config
+                .iter()
+                .zip(self.edge_weights.iter())
+                .filter_map(|(&selected, &weight)| (selected == 1).then_some(weight))
+                .max()
+                .expect("valid Hamiltonian cycle selects at least one edge");
 
-        Min(Some(bottleneck))
+            Min(Some(bottleneck))
+        })
     }
 }
 

@@ -4,6 +4,8 @@
 //! All gadgets use weighted mode (weight 2 for standard nodes).
 
 use super::super::grid::{CellState, MappingGrid};
+use crate::rules::unitdiskmapping::mapping_invalid;
+use crate::rules::ReductionError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -40,7 +42,7 @@ pub trait WeightedTriangularGadget {
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
     /// Returns (locations, pins) - use unit disk for edges on triangular lattice.
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
-    fn mis_overhead(&self) -> i32;
+    fn mis_overhead(&self) -> i64;
 
     /// Returns 1-indexed node indices that should be Connected (matching Julia).
     fn connected_nodes(&self) -> Vec<usize> {
@@ -48,13 +50,13 @@ pub trait WeightedTriangularGadget {
     }
 
     /// Returns source node weights. Default is weight 2 for all nodes.
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         let (locs, _, _) = self.source_graph();
         vec![2; locs.len()]
     }
 
     /// Returns mapped node weights. Default is weight 2 for all nodes.
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         let (locs, _) = self.mapped_graph();
         vec![2; locs.len()]
     }
@@ -174,7 +176,7 @@ impl WeightedTriangularGadget for WeightedTriCross<true> {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         1
     }
 
@@ -183,12 +185,12 @@ impl WeightedTriangularGadget for WeightedTriCross<true> {
         vec![1, 5]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         // Julia: sw = [2,2,2,2,2,2,2,2,2,2]
         vec![2; 10]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         // Julia: mw = [3,2,3,3,2,2,2,2,2,2,2]
         vec![3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2]
     }
@@ -268,15 +270,15 @@ impl WeightedTriangularGadget for WeightedTriCross<false> {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         3
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 12]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![3, 3, 2, 4, 2, 2, 2, 4, 3, 2, 2, 2, 2, 2, 2, 2]
     }
 }
@@ -322,15 +324,15 @@ impl WeightedTriangularGadget for WeightedTriTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 4]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 4]
     }
 }
@@ -407,16 +409,16 @@ impl WeightedTriangularGadget for WeightedTriBranch {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         // Julia: sw = [2,2,3,2,2,2,2,2,2]
         vec![2, 2, 3, 2, 2, 2, 2, 2, 2]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         // Julia: mw = [2,2,2,3,2,2,2,2,2]
         vec![2, 2, 2, 3, 2, 2, 2, 2, 2]
     }
@@ -478,7 +480,7 @@ impl WeightedTriangularGadget for WeightedTriTConLeft {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         4
     }
 
@@ -487,12 +489,12 @@ impl WeightedTriangularGadget for WeightedTriTConLeft {
         vec![1, 2]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         // Julia: sw = [2,1,2,2,2,2,2]
         vec![2, 1, 2, 2, 2, 2, 2]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         // Julia: mw = [3,2,3,3,1,3,2,2,2,2,2]
         vec![3, 2, 3, 3, 1, 3, 2, 2, 2, 2, 2]
     }
@@ -534,7 +536,7 @@ impl WeightedTriangularGadget for WeightedTriTConDown {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
@@ -543,11 +545,11 @@ impl WeightedTriangularGadget for WeightedTriTConDown {
         vec![1, 4]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2, 2, 2, 1]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2, 2, 3, 2]
     }
 }
@@ -588,7 +590,7 @@ impl WeightedTriangularGadget for WeightedTriTConUp {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
@@ -597,11 +599,11 @@ impl WeightedTriangularGadget for WeightedTriTConUp {
         vec![1, 2]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 2, 2, 2]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![3, 2, 2, 2]
     }
 }
@@ -638,7 +640,7 @@ impl WeightedTriangularGadget for WeightedTriTrivialTurnLeft {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
@@ -647,11 +649,11 @@ impl WeightedTriangularGadget for WeightedTriTrivialTurnLeft {
         vec![1, 2]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 }
@@ -688,7 +690,7 @@ impl WeightedTriangularGadget for WeightedTriTrivialTurnRight {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
@@ -697,11 +699,11 @@ impl WeightedTriangularGadget for WeightedTriTrivialTurnRight {
         vec![1, 2]
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1, 1]
     }
 }
@@ -748,15 +750,15 @@ impl WeightedTriangularGadget for WeightedTriEndTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2, 2, 1]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![1]
     }
 }
@@ -803,15 +805,15 @@ impl WeightedTriangularGadget for WeightedTriWTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         0
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 5]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 5]
     }
 }
@@ -852,15 +854,15 @@ impl WeightedTriangularGadget for WeightedTriBranchFix {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 6]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 4]
     }
 }
@@ -901,15 +903,15 @@ impl WeightedTriangularGadget for WeightedTriBranchFixB {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 {
+    fn mis_overhead(&self) -> i64 {
         -2
     }
 
-    fn source_weights(&self) -> Vec<i32> {
+    fn source_weights(&self) -> Vec<i64> {
         vec![2; 4]
     }
 
-    fn mapped_weights(&self) -> Vec<i32> {
+    fn mapped_weights(&self) -> Vec<i64> {
         vec![2; 2]
     }
 }
@@ -1016,7 +1018,7 @@ fn apply_gadget<G: WeightedTriangularGadget>(
     let weights = gadget.mapped_weights();
     for (idx, (r, c)) in locs.iter().enumerate() {
         if *r > 0 && *c > 0 && *r <= m && *c <= n {
-            let weight = weights.get(idx).copied().unwrap_or(2);
+            let weight = weights[idx];
             // Convert 1-indexed pattern pos to 0-indexed grid pos
             grid.add_node(i + r - 1, j + c - 1, weight);
         }
@@ -1214,7 +1216,7 @@ fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bo
     let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
     // Helper to check if cell has specific weight
-    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+    let has_weight = |row: usize, col: usize, w: i64| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
@@ -1264,7 +1266,7 @@ fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool
 
     let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
-    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+    let has_weight = |row: usize, col: usize, w: i64| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
@@ -1313,7 +1315,7 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
 
     let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
-    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+    let has_weight = |row: usize, col: usize, w: i64| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
@@ -1365,7 +1367,7 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
 
     let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
-    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+    let has_weight = |row: usize, col: usize, w: i64| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
@@ -1404,8 +1406,8 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
 /// For triangular mode, crossing gadgets use their native overhead,
 /// but simplifiers (DanglingLeg) use weighted overhead = unweighted * 2.
 /// Julia: mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
-pub fn tape_entry_mis_overhead(entry: &WeightedTriTapeEntry) -> i32 {
-    match entry.gadget_idx {
+pub fn tape_entry_mis_overhead(entry: &WeightedTriTapeEntry) -> Result<i64, ReductionError> {
+    Ok(match entry.gadget_idx {
         0 => WeightedTriCross::<false>.mis_overhead(),
         1 => WeightedTriCross::<true>.mis_overhead(),
         2 => WeightedTriTConLeft.mis_overhead(),
@@ -1420,7 +1422,47 @@ pub fn tape_entry_mis_overhead(entry: &WeightedTriTapeEntry) -> i32 {
         11 => WeightedTriBranchFixB.mis_overhead(),
         12 => WeightedTriBranch.mis_overhead(),
         // Simplifier gadgets (100+): weighted overhead = -1 * 2 = -2
-        idx if idx >= 100 => -2,
-        _ => 0,
+        100..=103 => -2,
+        _ => {
+            return Err(mapping_invalid(
+                "tape contains an unknown weighted triangular gadget index",
+            ))
+        }
+    })
+}
+
+pub(crate) fn tape_entry_size(gadget_idx: usize) -> Option<(usize, usize)> {
+    match gadget_idx {
+        0 => Some(WeightedTriCross::<false>.size()),
+        1 => Some(WeightedTriCross::<true>.size()),
+        2 => Some(WeightedTriTConLeft.size()),
+        3 => Some(WeightedTriTConUp.size()),
+        4 => Some(WeightedTriTConDown.size()),
+        5 => Some(WeightedTriTrivialTurnLeft.size()),
+        6 => Some(WeightedTriTrivialTurnRight.size()),
+        7 => Some(WeightedTriEndTurn.size()),
+        8 => Some(WeightedTriTurn.size()),
+        9 => Some(WeightedTriWTurn.size()),
+        10 => Some(WeightedTriBranchFix.size()),
+        11 => Some(WeightedTriBranchFixB.size()),
+        12 => Some(WeightedTriBranch.size()),
+        100 | 101 => Some((4, 3)),
+        102 | 103 => Some((3, 4)),
+        _ => None,
+    }
+}
+
+pub(crate) fn tape_entry_center_transform(
+    gadget_idx: usize,
+) -> Option<((usize, usize), (isize, isize))> {
+    match gadget_idx {
+        7 | 8 | 12 => Some(((2, 3), (-1, -1))),
+        9 => Some(((2, 3), (0, 0))),
+        10 | 11 => Some(((2, 3), (1, -1))),
+        100 => Some(((2, 2), (2, 0))),
+        101 => Some(((3, 2), (-2, 0))),
+        102 => Some(((2, 3), (0, -2))),
+        103 => Some(((2, 2), (0, 2))),
+        _ => None,
     }
 }

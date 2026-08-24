@@ -54,7 +54,7 @@ fn search_trees(
     parent: &mut Vec<usize>,
     edges: &[(usize, usize)],
     adj: &[Vec<usize>],
-    bound: usize,
+    bound: i64,
 ) -> Option<Vec<usize>> {
     if depth_idx == non_root.len() {
         // All parents assigned — validate tree structure and search for mapping
@@ -154,7 +154,7 @@ fn search_mapping(
     depths: &[usize],
     edges: &[(usize, usize)],
     adj: &[Vec<usize>],
-    bound: usize,
+    bound: i64,
 ) -> Option<Vec<usize>> {
     let mut mapping = vec![usize::MAX; n]; // graph vertex -> tree node
     let mut used = vec![false; n]; // which tree nodes are taken
@@ -180,11 +180,11 @@ fn search_mapping_dfs(
     depths: &[usize],
     _edges: &[(usize, usize)],
     adj: &[Vec<usize>],
-    bound: usize,
+    bound: i64,
     mapping: &mut Vec<usize>,
     used: &mut Vec<bool>,
     vertex: usize,
-    partial_stretch: usize,
+    partial_stretch: i64,
 ) -> Option<Vec<usize>> {
     if vertex == n {
         // All vertices assigned
@@ -203,7 +203,7 @@ fn search_mapping_dfs(
 
         // Check ancestor-comparability with all already-mapped neighbors
         let mut valid = true;
-        let mut added_stretch = 0usize;
+        let mut added_stretch = 0_i64;
         for &neighbor in &adj[vertex] {
             if neighbor < vertex && mapping[neighbor] != usize::MAX {
                 let t_neighbor = mapping[neighbor];
@@ -211,7 +211,11 @@ fn search_mapping_dfs(
                     valid = false;
                     break;
                 }
-                added_stretch += depths[tree_node].abs_diff(depths[t_neighbor]);
+                let edge_stretch = i64::try_from(depths[tree_node].abs_diff(depths[t_neighbor]))
+                    .expect("tree depth difference must fit i64");
+                added_stretch = added_stretch
+                    .checked_add(edge_stretch)
+                    .expect("partial rooted-tree stretch must fit i64");
             }
         }
 
@@ -219,7 +223,9 @@ fn search_mapping_dfs(
             continue;
         }
 
-        let new_stretch = partial_stretch + added_stretch;
+        let new_stretch = partial_stretch
+            .checked_add(added_stretch)
+            .expect("partial rooted-tree stretch must fit i64");
         if new_stretch > bound {
             continue;
         }

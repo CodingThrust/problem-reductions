@@ -33,11 +33,11 @@ fn test_planar_3_satisfiability_evaluate() {
 
     // config [1,1,1,0] -> x1=T, x2=T, x3=T, x4=F
     // (T OR T OR T)=T, (F OR T OR F)=T, (T OR F OR F)=T, (F OR T OR T)=T
-    assert!(problem.evaluate(&[1, 1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 1, 0]).unwrap());
 
     // config [0,0,0,0] -> all false
     // (F OR F OR F)=F -> unsatisfied
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -53,18 +53,18 @@ fn test_planar_3_satisfiability_solver() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
 
     // Verify the found solution actually satisfies the formula
     let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert!(problem.evaluate(&sol).unwrap());
 
     // Check all witnesses are valid
-    let all_solutions = solver.find_all_witnesses(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!all_solutions.is_empty());
     for sol in &all_solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -84,7 +84,7 @@ fn test_planar_3_satisfiability_unsatisfiable() {
     );
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]

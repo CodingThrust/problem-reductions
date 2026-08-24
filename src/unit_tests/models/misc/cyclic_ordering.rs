@@ -24,7 +24,7 @@ fn test_cyclic_ordering_evaluate_satisfying() {
     let problem = example_problem();
     // config = [1,3,4,0,2]: f(0)=1, f(1)=3, f(2)=4, f(3)=0, f(4)=2
     // (0,1,2): 1<3<4 ✓  (2,3,0): 0<1<4 (cyclic) ✓  (1,3,4): 0<2<3 (cyclic) ✓
-    assert_eq!(problem.evaluate(&[1, 3, 4, 0, 2]), Or(true));
+    assert_eq!(problem.evaluate(&[1, 3, 4, 0, 2]).unwrap(), Or(true));
 }
 
 #[test]
@@ -37,26 +37,26 @@ fn test_cyclic_ordering_evaluate_unsatisfying() {
     // Actually identity works! Let me pick one that doesn't.
     // [0,2,1,3,4]:
     // (0,1,2): f(0)=0, f(1)=2, f(2)=1 → (0<2<1)? no. (2<1<0)? no. (1<0<2)? no. → fails
-    assert_eq!(problem.evaluate(&[0, 2, 1, 3, 4]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 3, 4]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_cyclic_ordering_evaluate_invalid_permutation() {
     let problem = example_problem();
     // Not a permutation (duplicate positions)
-    assert_eq!(problem.evaluate(&[0, 0, 1, 2, 3]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 1, 2, 3]).unwrap(), Or(false));
     // Position out of range
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 5]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 5]).unwrap(), Or(false));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_cyclic_ordering_solver_finds_witness() {
     let problem = example_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Or(true));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_cyclic_ordering_unsatisfiable_instance() {
     // These are opposite cyclic orientations, so unsatisfiable.
     let problem = CyclicOrdering::new(3, vec![(0, 1, 2), (0, 2, 1)]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]

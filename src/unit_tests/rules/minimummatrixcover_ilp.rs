@@ -14,7 +14,7 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &problem,
@@ -26,14 +26,14 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Min(Some(-20)));
 }
 
 #[test]
 fn test_minimum_matrix_cover_to_ilp_structure() {
     let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=2: 2 sign vars + 1 auxiliary = 3 vars
@@ -59,15 +59,15 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
         vec![1, 0, 0, 4],
         vec![0, 2, 4, 0],
     ]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&problem);
+    let bf_value = BruteForce::new().solve(&problem).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
 }
@@ -75,13 +75,13 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_minimum_matrix_cover_to_ilp_2x2() {
     let problem = MinimumMatrixCover::new(vec![vec![0, 3], vec![2, 0]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     // Optimal: different signs → value = -(3+2) = -5
     assert_eq!(value, Min(Some(-5)));
 }
@@ -89,7 +89,7 @@ fn test_minimum_matrix_cover_to_ilp_2x2() {
 #[test]
 fn test_minimum_matrix_cover_to_ilp_1x1() {
     let problem = MinimumMatrixCover::new(vec![vec![5]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 1 variable, 0 pairs → 0 auxiliaries
@@ -103,7 +103,7 @@ fn test_minimum_matrix_cover_to_ilp_1x1() {
         .solve(ilp)
         .expect("1x1 ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(5)));
 }
 
 #[test]
@@ -111,29 +111,29 @@ fn test_minimum_matrix_cover_to_ilp_diagonal_matrix() {
     // Diagonal matrix: all off-diagonal entries are 0
     // Value is always Σ a_ii (constant), since f(i)²=1
     let problem = MinimumMatrixCover::new(vec![vec![2, 0, 0], vec![0, 3, 0], vec![0, 0, 1]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("diagonal ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     // All configs give value 2+3+1 = 6
-    assert_eq!(problem.evaluate(&extracted), Min(Some(6)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(6)));
 }
 
 #[test]
 fn test_minimum_matrix_cover_to_ilp_asymmetric() {
     // Non-symmetric matrix
     let problem = MinimumMatrixCover::new(vec![vec![0, 5], vec![1, 0]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&problem);
+    let bf_value = BruteForce::new().solve(&problem).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
     // Different signs: -(5+1) = -6, same signs: +(5+1) = 6

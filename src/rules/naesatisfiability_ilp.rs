@@ -45,7 +45,7 @@ impl ReductionResult for ReductionNAESATToILP {
 impl ReduceTo<ILP<bool>> for NAESatisfiability {
     type Result = ReductionNAESATToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let mut constraints = Vec::new();
 
@@ -79,7 +79,7 @@ impl ReduceTo<ILP<bool>> for NAESatisfiability {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionNAESATToILP { target }
+        Ok(ReductionNAESATToILP { target })
     }
 }
 

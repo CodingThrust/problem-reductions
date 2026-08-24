@@ -11,10 +11,10 @@
 //! let edges = vec![(0, 1), (1, 2), (0, 2)];
 //!
 //! // Unweighted mapping
-//! let result = ksg::map_unweighted(3, &edges);
+//! let result = ksg::map_unweighted(3, &edges).unwrap();
 //!
 //! // Weighted mapping
-//! let weighted_result = ksg::map_weighted(3, &edges);
+//! let weighted_result = ksg::map_weighted(3, &edges).unwrap();
 //! ```
 
 pub mod gadgets;
@@ -38,9 +38,8 @@ pub use gadgets_weighted::{
 };
 
 pub use mapping::{
-    embed_graph, map_config_copyback, map_unweighted, map_unweighted_with_method,
-    map_unweighted_with_order, map_weighted, map_weighted_with_method, map_weighted_with_order,
-    trace_centers, unapply_gadgets, unapply_weighted_gadgets, GridKind, MappingResult,
+    map_unweighted, map_unweighted_with_method, map_unweighted_with_order, map_weighted,
+    map_weighted_with_method, map_weighted_with_order, GridKind, MappingResult,
 };
 
 /// Spacing between copy lines for KSG mapping.

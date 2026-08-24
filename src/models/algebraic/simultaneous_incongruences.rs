@@ -21,7 +21,7 @@ inventory::submit! {
         fields: &[
             FieldInfo {
                 name: "pairs",
-                type_name: "Vec<(u64, u64)>",
+                type_name: "Vec<(i64, i64)>",
                 description: "Pairs (aᵢ, bᵢ) with bᵢ > 0 and 1 ≤ aᵢ ≤ bᵢ",
             },
         ],
@@ -52,29 +52,16 @@ inventory::submit! {
 /// // pairs: [(2,2),(1,3),(2,5),(3,7)] — lcm=210, x=5 is a solution
 /// let problem = SimultaneousIncongruences::new(vec![(2,2),(1,3),(2,5),(3,7)]).unwrap();
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct SimultaneousIncongruences {
     /// Incongruence pairs (aᵢ, bᵢ).
-    pairs: Vec<(u64, u64)>,
+    pairs: Vec<(i64, i64)>,
 }
 
-/// Maximum lcm value we will compute in full; if the lcm exceeds this cap we
-/// return this value to keep the brute-force search space manageable.
-pub(crate) const MAX_LCM: u128 = 1_000_000;
-
-fn lcm128(a: u128, b: u128) -> u128 {
-    if a == 0 || b == 0 {
-        return 0;
-    }
-    let g = gcd128(a, b);
-    // Use saturating arithmetic to avoid overflow; cap at MAX_LCM.
-    (a / g).saturating_mul(b).min(MAX_LCM)
-}
-
-fn gcd128(mut a: u128, mut b: u128) -> u128 {
+fn gcd(mut a: i64, mut b: i64) -> i64 {
     while b != 0 {
         let t = b;
         b = a % b;
@@ -84,28 +71,32 @@ fn gcd128(mut a: u128, mut b: u128) -> u128 {
 }
 
 impl SimultaneousIncongruences {
-    fn validate_inputs(pairs: &[(u64, u64)]) -> Result<(), String> {
+    fn validate_inputs(pairs: &[(i64, i64)]) -> Result<(), crate::registry::ConstructionError> {
         for (i, &(a, b)) in pairs.iter().enumerate() {
-            if b == 0 {
-                return Err(format!("Modulus b at index {i} must be positive (got b=0)"));
+            if b <= 0 {
+                return Err(format!("Modulus b at index {i} must be positive (got b={b})").into());
             }
-            if a == 0 {
-                return Err(format!(
-                    "Residue a at index {i} must be at least 1 (got a=0)"
-                ));
+            if a <= 0 {
+                return Err(format!("Residue a at index {i} must be at least 1 (got a=0)").into());
             }
             if a > b {
                 return Err(format!(
                     "Residue a ({a}) must not exceed modulus b ({b}) at index {i}"
-                ));
+                )
+                .into());
             }
         }
+        pairs.iter().try_fold(1i64, |lcm, &(_, modulus)| {
+            (lcm / gcd(lcm, modulus))
+                .checked_mul(modulus)
+                .ok_or_else(|| "Least common multiple of moduli exceeds i64 range".to_string())
+        })?;
         Ok(())
     }
 
     /// Create a new `SimultaneousIncongruences` instance, returning an error
     /// if any pair is invalid.
-    pub fn new(pairs: Vec<(u64, u64)>) -> Result<Self, String> {
+    pub fn new(pairs: Vec<(i64, i64)>) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&pairs)?;
         Ok(Self { pairs })
     }
@@ -116,26 +107,21 @@ impl SimultaneousIncongruences {
     }
 
     /// Get the incongruence pairs.
-    pub fn pairs(&self) -> &[(u64, u64)] {
+    pub fn pairs(&self) -> &[(i64, i64)] {
         &self.pairs
     }
 
-    /// Compute the LCM of all moduli (capped at `MAX_LCM`).
-    pub fn lcm_moduli(&self) -> u64 {
-        if self.pairs.is_empty() {
-            return 1;
-        }
-        let lcm = self
-            .pairs
-            .iter()
-            .fold(1u128, |acc, &(_, b)| lcm128(acc, b as u128));
-        lcm as u64
+    /// Compute the LCM of all moduli.
+    pub fn lcm_moduli(&self) -> i64 {
+        self.pairs.iter().fold(1i64, |lcm, &(_, modulus)| {
+            (lcm / gcd(lcm, modulus)) * modulus
+        })
     }
 }
 
 #[derive(Deserialize)]
 struct SimultaneousIncongruencesData {
-    pairs: Vec<(u64, u64)>,
+    pairs: Vec<(i64, i64)>,
 }
 
 impl<'de> Deserialize<'de> for SimultaneousIncongruences {
@@ -157,17 +143,21 @@ impl Problem for SimultaneousIncongruences {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let lcm = self.lcm_moduli() as usize;
+        let lcm = usize::try_from(self.lcm_moduli()).expect("validated positive LCM fits usize");
         vec![lcm]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        if config.len() != 1 {
-            return Or(false);
-        }
-        let x = config[0] as u64;
-        // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
-        Or(self.pairs.iter().all(|&(a, b)| x % b != a % b))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != 1 {
+                return Ok(Or(false));
+            }
+            let Ok(x) = i64::try_from(config[0]) else {
+                return Ok(Or(false));
+            };
+            // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
+            Or(self.pairs.iter().all(|&(a, b)| x % b != a % b))
+        })
     }
 }
 

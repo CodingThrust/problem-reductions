@@ -90,15 +90,15 @@ fn test_timetable_design_evaluate_valid_config() {
     let problem = timetable_design_toy_problem();
     let config = vec![1, 0, 0, 0, 0, 0, 0, 1];
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_rejects_wrong_config_length() {
     let problem = timetable_design_toy_problem();
 
-    assert!(!problem.evaluate(&[1, 0, 0]));
-    assert!(!problem.evaluate(&[0; 9]));
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0; 9]).unwrap());
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_timetable_design_rejects_assignment_outside_availability() {
     let problem = timetable_design_toy_problem();
     let config = vec![0, 1, 0, 0, 0, 0, 0, 1];
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -114,7 +114,7 @@ fn test_timetable_design_rejects_double_booked_craftsman() {
     let problem = timetable_design_toy_problem();
     let config = vec![1, 0, 0, 0, 0, 1, 0, 1];
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_timetable_design_rejects_double_booked_task() {
     let problem = timetable_design_toy_problem();
     let config = vec![1, 0, 0, 0, 1, 0, 0, 1];
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -130,16 +130,16 @@ fn test_timetable_design_rejects_requirement_mismatch() {
     let problem = timetable_design_toy_problem();
     let config = vec![1, 0, 0, 0, 0, 0, 0, 0];
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
 fn test_timetable_design_bruteforce_solver_finds_solution() {
     let problem = timetable_design_toy_problem();
-    let solution = BruteForce::new().find_witness(&problem);
+    let solution = BruteForce::new().find_witness(&problem).unwrap();
 
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn test_timetable_design_customized_solver_finds_feasible_solution() {
         .solve_via_required_assignments()
         .expect("expected customized solver to find a satisfying timetable");
 
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
@@ -186,7 +186,7 @@ fn test_timetable_design_issue_example_is_valid() {
     let problem = super::issue_example_problem();
     let config = super::issue_example_config();
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -196,7 +196,7 @@ fn test_timetable_design_issue_example_rejects_flipped_required_assignment() {
     let forced = timetable_design_flat_index(problem.num_tasks(), problem.num_periods(), 1, 1, 1);
     config[forced] = 0;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn test_timetable_design_issue_example_rejects_conflicting_assignment() {
         timetable_design_flat_index(problem.num_tasks(), problem.num_periods(), 4, 0, 0);
     config[conflicting] = 1;
 
-    assert!(!problem.evaluate(&config));
+    assert!(!problem.evaluate(&config).unwrap());
 }
 
 #[cfg(feature = "example-db")]
@@ -224,7 +224,7 @@ fn test_timetable_design_paper_example_is_valid() {
         serde_json::to_value(super::issue_example_problem()).unwrap()
     );
     assert_eq!(
-        spec.instance.evaluate_json(&spec.optimal_config),
+        spec.instance.evaluate_json(&spec.optimal_config).unwrap(),
         serde_json::json!(true)
     );
     assert_eq!(spec.optimal_value, serde_json::json!(true));

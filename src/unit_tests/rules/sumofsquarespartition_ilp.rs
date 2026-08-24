@@ -7,7 +7,8 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp() {
     // 3 elements, 2 groups
     let problem = SumOfSquaresPartition::new(vec![1, 2, 3], 2);
-    let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3, K=2: num_vars = 3*2 + 3^2*2 = 6 + 18 = 24
@@ -30,15 +31,16 @@ fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_value = bf.solve(&problem);
+    let bf_value = bf.solve(&problem).unwrap();
     // Optimal: {1,4}=5, {2,3}=5 -> 25+25=50
     assert_eq!(bf_value, Min(Some(50)));
 
-    let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
     assert_eq!(
         ilp_value, bf_value,
         "ILP solution should match brute-force optimal"
@@ -49,7 +51,8 @@ fn test_sumofsquarespartition_to_ilp_bf_vs_ilp() {
 fn test_solution_extraction() {
     // 4 elements, 2 groups
     let problem = SumOfSquaresPartition::new(vec![1, 2, 3, 4], 2);
-    let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // element 0→g0, element 1→g1, element 2→g1, element 3→g0
     // x_{0,0}=1,x_{0,1}=0, x_{1,0}=0,x_{1,1}=1, x_{2,0}=0,x_{2,1}=1, x_{3,0}=1,x_{3,1}=0
@@ -67,7 +70,8 @@ fn test_solution_extraction() {
 fn test_sumofsquarespartition_to_ilp_trivial() {
     // 2 elements, 2 groups, optimization
     let problem = SumOfSquaresPartition::new(vec![1, 2], 2);
-    let reduction: ReductionSSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=2, K=2: num_vars = 2*2 + 4*2 = 4+8 = 12
@@ -76,7 +80,7 @@ fn test_sumofsquarespartition_to_ilp_trivial() {
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     // Optimal: {1},{2} -> 1+4=5
     assert_eq!(value, Min(Some(5)));
 }

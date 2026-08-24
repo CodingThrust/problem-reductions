@@ -5,7 +5,9 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
-use crate::types::Min;
+use crate::types::Or;
+use num_bigint::{BigUint, ToBigUint};
+use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -20,7 +22,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },
             FieldInfo { name: "n", type_name: "usize", description: "Bits for second factor" },
-            FieldInfo { name: "target", type_name: "u64", description: "Number to factor" },
+            FieldInfo { name: "target", type_name: "BigUint", description: "Number to factor" },
         ],
     }
 }
@@ -40,12 +42,12 @@ inventory::submit! {
 /// let problem = Factoring::new(2, 2, 6);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Should find: 2*3=6 or 3*2=6
 /// for sol in &solutions {
 ///     let (a, b) = problem.read_factors(sol);
-///     assert_eq!(a * b, 6);
+///     assert_eq!(a * b, 6u32.into());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -55,7 +57,8 @@ pub struct Factoring {
     /// Number of bits for the second factor.
     n: usize,
     /// The number to factor.
-    target: u64,
+    #[serde(with = "super::biguint_serde::decimal_biguint")]
+    target: BigUint,
 }
 
 impl Factoring {
@@ -65,7 +68,10 @@ impl Factoring {
     /// * `m` - Number of bits for the first factor
     /// * `n` - Number of bits for the second factor
     /// * `target` - The number to factor
-    pub fn new(m: usize, n: usize, target: u64) -> Self {
+    pub fn new<T: ToBigUint>(m: usize, n: usize, target: T) -> Self {
+        let target = target
+            .to_biguint()
+            .expect("Factoring target must be nonnegative");
         Self { m, n, target }
     }
 
@@ -90,17 +96,22 @@ impl Factoring {
     }
 
     /// Get the target number to factor.
-    pub fn target(&self) -> u64 {
-        self.target
+    pub fn target(&self) -> &BigUint {
+        &self.target
+    }
+
+    /// Number of bits needed to represent the target (`1` for zero).
+    pub fn target_bits(&self) -> usize {
+        usize::try_from(self.target.bits().max(1)).expect("BigUint bit length fits usize")
     }
 
     /// Read the two factors from a configuration.
     ///
     /// The first `m` bits represent the first factor,
     /// the next `n` bits represent the second factor.
-    pub fn read_factors(&self, config: &[usize]) -> (u64, u64) {
-        let a = bits_to_int(&config[..self.m]);
-        let b = bits_to_int(&config[self.m..self.m + self.n]);
+    pub fn read_factors(&self, config: &[usize]) -> (BigUint, BigUint) {
+        let a = bits_to_biguint(&config[..self.m]);
+        let b = bits_to_biguint(&config[self.m..self.m + self.n]);
         (a, b)
     }
 
@@ -111,46 +122,48 @@ impl Factoring {
 
     /// Check if the configuration is a valid factorization.
     pub fn is_valid_factorization(&self, config: &[usize]) -> bool {
+        if config.len() != self.m + self.n || config.iter().any(|&bit| bit >= 2) {
+            return false;
+        }
         let (a, b) = self.read_factors(config);
         a * b == self.target
     }
 }
 
 /// Convert a bit vector (little-endian) to an integer.
-fn bits_to_int(bits: &[usize]) -> u64 {
-    bits.iter().enumerate().map(|(i, &b)| (b as u64) << i).sum()
+fn bits_to_biguint(bits: &[usize]) -> BigUint {
+    bits.iter()
+        .enumerate()
+        .filter(|(_, bit)| **bit == 1)
+        .fold(BigUint::zero(), |value, (index, _)| {
+            value + (BigUint::one() << index)
+        })
 }
 
 /// Convert an integer to a bit vector (little-endian).
 #[allow(dead_code)]
-fn int_to_bits(n: u64, num_bits: usize) -> Vec<usize> {
-    (0..num_bits).map(|i| ((n >> i) & 1) as usize).collect()
+fn int_to_bits(n: &BigUint, num_bits: usize) -> Vec<usize> {
+    (0..num_bits)
+        .map(|index| usize::from(n.bit(u64::try_from(index).expect("bit index fits u64"))))
+        .collect()
 }
 
 /// Check if the given factors correctly factorize the target.
 #[cfg(test)]
-pub(crate) fn is_factoring(target: u64, a: u64, b: u64) -> bool {
-    a * b == target
+pub(crate) fn is_factoring(target: &BigUint, a: &BigUint, b: &BigUint) -> bool {
+    a * b == *target
 }
 
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
-    type Value = Min<i32>;
+    type Value = Or;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.m + self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        let (a, b) = self.read_factors(config);
-        let product = a * b;
-        // Distance from target (0 means exact match)
-        let distance = if product > self.target {
-            (product - self.target) as i32
-        } else {
-            (self.target - product) as i32
-        };
-        Min(Some(distance))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(self.is_valid_factorization(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -168,7 +181,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "factoring",
         instance: Box::new(Factoring::new(2, 3, 15)),
         optimal_config: vec![1, 1, 1, 0, 1],
-        optimal_value: serde_json::json!(0),
+        optimal_value: serde_json::json!(true),
     }]
 }
 

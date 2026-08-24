@@ -14,7 +14,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_closed_loop() {
         0,
         4,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.num_vertices(), 5);
@@ -37,7 +38,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_path_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -56,10 +58,12 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
         1,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_best = solver
         .find_witness(result.target_problem())
+        .unwrap()
         .expect("LongestPath should have some valid path");
 
     // The best path has fewer than n-1 = 4 edges (it's not Hamiltonian)
@@ -78,7 +82,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_complete_graph() {
         0,
         3,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -95,7 +100,8 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_triangle() {
         0,
         2,
     );
-    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source);
+    let result = ReduceTo::<LongestPath<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
 
     assert_eq!(target.num_vertices(), 3);

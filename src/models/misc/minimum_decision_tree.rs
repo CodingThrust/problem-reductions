@@ -47,7 +47,7 @@ inventory::submit! {
 ///     3,
 /// );
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumDecisionTree {
@@ -71,7 +71,7 @@ struct MinimumDecisionTreeCreateSpec {
 }
 
 impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDecisionTreeCreateSpec) -> Result<Self, Self::Error> {
         if spec.num_objects < 2 {
             return Err("num_objects must be at least 2".into());
@@ -94,9 +94,9 @@ impl TryFrom<MinimumDecisionTreeCreateSpec> for MinimumDecisionTree {
                 if !(0..spec.num_tests)
                     .any(|test| spec.test_matrix[test][a] != spec.test_matrix[test][b])
                 {
-                    return Err(format!(
-                        "objects {a} and {b} are not distinguished by any test"
-                    ));
+                    return Err(
+                        format!("objects {a} and {b} are not distinguished by any test").into(),
+                    );
                 }
             }
         }
@@ -174,11 +174,11 @@ impl MinimumDecisionTree {
 
     /// Simulate the decision tree for all objects and return total external path length,
     /// or None if the tree is invalid (doesn't identify all objects uniquely).
-    fn simulate(&self, config: &[usize]) -> Option<usize> {
+    fn simulate(&self, config: &[usize]) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let sentinel = self.leaf_sentinel();
         let max_slots = self.num_tree_slots();
         let mut seen_leaves = std::collections::HashSet::new();
-        let mut total_depth = 0usize;
+        let mut total_depth = 0_i64;
 
         for obj in 0..self.num_objects {
             let mut node = 0usize;
@@ -188,9 +188,18 @@ impl MinimumDecisionTree {
                 if node >= max_slots || config[node] == sentinel {
                     // Two objects at same leaf — invalid
                     if !seen_leaves.insert(node) {
-                        return None;
+                        return Ok(None);
                     }
-                    total_depth += depth;
+                    let depth = i64::try_from(depth).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting decision-tree depth to i64".to_string(),
+                        )
+                    })?;
+                    total_depth = total_depth.checked_add(depth).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing decision-tree external path length".to_string(),
+                        )
+                    })?;
                     break;
                 }
 
@@ -202,29 +211,31 @@ impl MinimumDecisionTree {
                 depth += 1;
 
                 if depth > self.num_objects {
-                    return None;
+                    return Ok(None);
                 }
             }
         }
 
-        Some(total_depth)
+        Ok(Some(total_depth))
     }
 }
 
 impl Problem for MinimumDecisionTree {
     const NAME: &'static str = "MinimumDecisionTree";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
         vec![self.num_tests + 1; self.num_tree_slots()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_tree_slots() {
-            return Min(None);
-        }
-        Min(self.simulate(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_tree_slots() {
+                return Ok(Min(None));
+            }
+            Min(self.simulate(config)?)
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

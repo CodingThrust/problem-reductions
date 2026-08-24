@@ -65,7 +65,7 @@ inventory::submit! {
 /// let problem = HamiltonianPathBetweenTwoVertices::new(graph, 0, 3);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,7 +83,7 @@ struct HamiltonianPathBetweenTwoVerticesRandomSpec {
     /// Independent edge probability (default: 0.5).
     edge_prob: Option<f64>,
     /// Seed for reproducible generation.
-    seed: Option<u64>,
+    seed: Option<i64>,
     /// Path start vertex (default: 0).
     source_vertex: Option<usize>,
     /// Path end vertex (default: the final vertex).
@@ -164,13 +164,18 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_hamiltonian_st_path(
-            &self.graph,
-            config,
-            self.source_vertex,
-            self.target_vertex,
-        ))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or(is_valid_hamiltonian_st_path(
+                &self.graph,
+                config,
+                self.source_vertex,
+                self.target_vertex,
+            ))
+        })
     }
 }
 
@@ -249,13 +254,15 @@ crate::impl_random_generate!(
     HamiltonianPathBetweenTwoVerticesRandomSpec,
     |spec| {
         if spec.num_vertices < 2 {
-            return Err("num_vertices must be at least 2".to_string());
+            return Err("num_vertices must be at least 2".to_string().into());
         }
         let source = spec.source_vertex.unwrap_or(0);
         let sink = spec.target_vertex.unwrap_or(spec.num_vertices - 1);
         if source >= spec.num_vertices || sink >= spec.num_vertices || source == sink {
             return Err(
-                "source_vertex and target_vertex must be distinct valid vertices".to_string(),
+                "source_vertex and target_vertex must be distinct valid vertices"
+                    .to_string()
+                    .into(),
             );
         }
         let graph = crate::random::SimpleGraphRandomSpec {

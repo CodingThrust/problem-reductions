@@ -80,14 +80,17 @@ fn plain_problem_output(
 pub fn solve(
     input: &Path,
     solver_name: Option<&str>,
-    timeout: u64,
+    timeout: i64,
     out: &OutputConfig,
 ) -> Result<()> {
     let request = solver_request(solver_name)?;
 
     let parsed = parse_input(input)?;
 
-    if timeout > 0 {
+    let timeout_seconds =
+        u64::try_from(timeout).map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
+
+    if timeout_seconds > 0 {
         let out = out.clone();
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
@@ -99,9 +102,9 @@ pub fn solve(
             };
             tx.send(result).ok();
         });
-        match rx.recv_timeout(Duration::from_secs(timeout)) {
+        match rx.recv_timeout(Duration::from_secs(timeout_seconds)) {
             Ok(result) => result,
-            Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout),
+            Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout_seconds),
         }
     } else {
         match parsed {

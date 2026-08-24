@@ -109,8 +109,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 impl ReduceTo<ILP<bool>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToILP<KN, SimpleGraph>;
 
-    fn reduce_to(&self) -> Self::Result {
-        reduce_kcoloring_to_ilp(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_kcoloring_to_ilp(self))
     }
 }
 
@@ -119,7 +119,9 @@ macro_rules! impl_kcoloring_to_ilp {
     ($($ktype:ty),+) => {$(
         impl ReduceTo<ILP<bool>> for KColoring<$ktype, SimpleGraph> {
             type Result = ReductionKColoringToILP<$ktype, SimpleGraph>;
-            fn reduce_to(&self) -> Self::Result { reduce_kcoloring_to_ilp(self) }
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+                Ok(reduce_kcoloring_to_ilp(self))
+            }
         }
     )+};
 }

@@ -32,7 +32,7 @@ inventory::submit! {
 pub struct SchedulingWithIndividualDeadlines {
     num_tasks: usize,
     num_processors: usize,
-    deadlines: Vec<usize>,
+    deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
 }
 
@@ -43,19 +43,32 @@ struct SchedulingWithIndividualDeadlinesCreateSpec {
     /// Number of identical processors.
     num_processors: usize,
     /// Deadline for each task.
-    deadlines: Vec<usize>,
+    deadlines: Vec<i64>,
     /// Precedence pairs.
     precedences: Option<Vec<(usize, usize)>>,
 }
 impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndividualDeadlines {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: SchedulingWithIndividualDeadlinesCreateSpec) -> Result<Self, Self::Error> {
         if spec.deadlines.len() != spec.num_tasks {
             return Err(format!(
                 "deadlines has {} entries, expected {}",
                 spec.deadlines.len(),
                 spec.num_tasks
-            ));
+            )
+            .into());
+        }
+        if spec.deadlines.iter().any(|&deadline| deadline < 0) {
+            return Err("deadlines must be nonnegative".to_string().into());
+        }
+        if spec
+            .deadlines
+            .iter()
+            .any(|&deadline| usize::try_from(deadline).is_err())
+        {
+            return Err("deadlines must fit usize to define schedule slots"
+                .to_string()
+                .into());
         }
         let precedences = spec.precedences.unwrap_or_default();
         if let Some(&(pred, succ)) = precedences
@@ -65,7 +78,8 @@ impl TryFrom<SchedulingWithIndividualDeadlinesCreateSpec> for SchedulingWithIndi
             return Err(format!(
                 "precedence ({pred}, {succ}) is out of range for {} tasks",
                 spec.num_tasks
-            ));
+            )
+            .into());
         }
         Ok(Self::new(
             spec.num_tasks,
@@ -80,13 +94,23 @@ impl SchedulingWithIndividualDeadlines {
     pub fn new(
         num_tasks: usize,
         num_processors: usize,
-        deadlines: Vec<usize>,
+        deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
         assert_eq!(
             deadlines.len(),
             num_tasks,
             "deadlines length must equal num_tasks"
+        );
+        assert!(
+            deadlines.iter().all(|&deadline| deadline >= 0),
+            "deadlines must be nonnegative"
+        );
+        assert!(
+            deadlines
+                .iter()
+                .all(|&deadline| usize::try_from(deadline).is_ok()),
+            "deadlines must fit usize to define schedule slots"
         );
         for &(pred, succ) in &precedences {
             assert!(
@@ -119,7 +143,7 @@ impl SchedulingWithIndividualDeadlines {
         self.num_processors
     }
 
-    pub fn deadlines(&self) -> &[usize] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
@@ -131,7 +155,7 @@ impl SchedulingWithIndividualDeadlines {
         self.precedences.len()
     }
 
-    pub fn max_deadline(&self) -> usize {
+    pub fn max_deadline(&self) -> i64 {
         self.deadlines.iter().copied().max().unwrap_or(0)
     }
 }
@@ -145,37 +169,47 @@ impl Problem for SchedulingWithIndividualDeadlines {
     }
 
     fn dims(&self) -> Vec<usize> {
-        self.deadlines.clone()
+        self.deadlines
+            .iter()
+            .map(|&deadline| usize::try_from(deadline).expect("validated deadline must fit usize"))
+            .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_tasks {
-                return crate::types::Or(false);
-            }
-
-            for (&start, &deadline) in config.iter().zip(&self.deadlines) {
-                if start >= deadline {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_tasks {
+                    return Ok(crate::types::Or(false));
                 }
-            }
 
-            for &(pred, succ) in &self.precedences {
-                if config[pred] + 1 > config[succ] {
-                    return crate::types::Or(false);
+                for (&start, &deadline) in config.iter().zip(&self.deadlines) {
+                    let deadline =
+                        usize::try_from(deadline).expect("validated deadline must fit usize");
+                    if start >= deadline {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-            }
 
-            let mut slot_loads = BTreeMap::new();
-            for &start in config {
-                let load = slot_loads.entry(start).or_insert(0usize);
-                *load += 1;
-                if *load > self.num_processors {
-                    return crate::types::Or(false);
+                for &(pred, succ) in &self.precedences {
+                    if config[pred] + 1 > config[succ] {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-            }
 
-            true
+                let mut slot_loads = BTreeMap::new();
+                for &start in config {
+                    let load = slot_loads.entry(start).or_insert(0usize);
+                    *load += 1;
+                    if *load > self.num_processors {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 }

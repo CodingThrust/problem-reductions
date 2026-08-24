@@ -7,8 +7,9 @@ use crate::types::Min;
 
 #[test]
 fn test_partition_to_binpacking_closed_loop() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<BinPacking<i32>>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction =
+        ReduceTo::<BinPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -19,8 +20,9 @@ fn test_partition_to_binpacking_closed_loop() {
 
 #[test]
 fn test_partition_to_binpacking_structure() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<BinPacking<i32>>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction =
+        ReduceTo::<BinPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.sizes(), &[3, 1, 1, 2, 2, 1]);
@@ -32,28 +34,21 @@ fn test_partition_to_binpacking_structure() {
 fn test_partition_to_binpacking_odd_total_is_not_satisfying() {
     // Sizes [2, 4, 5], total = 11 (odd), capacity = 5
     // No balanced partition possible; BinPacking needs >= 3 bins
-    let source = Partition::new(vec![2, 4, 5]);
-    let reduction = ReduceTo::<BinPacking<i32>>::reduce_to(&source);
+    let source = Partition::new(vec![2, 4, 5]).unwrap();
+    let reduction =
+        ReduceTo::<BinPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("BinPacking target should always have an optimal solution");
 
     // With capacity 5, items [2,4,5]: bin 0 gets [5], bin 1 gets [2,4]=6 > 5,
     // so optimal needs 3 bins
-    let value = target.evaluate(&best);
+    let value = target.evaluate(&best).unwrap();
     assert_eq!(value, Min(Some(3)));
 
     let extracted = reduction.extract_solution(&best).unwrap();
-    assert!(!source.evaluate(&extracted));
-}
-
-#[test]
-#[should_panic(
-    expected = "Partition -> BinPacking requires all sizes and total_sum / 2 to fit in i32"
-)]
-fn test_partition_to_binpacking_panics_on_large_coefficients() {
-    let source = Partition::new(vec![(i32::MAX as u64) + 1]);
-    let _ = ReduceTo::<BinPacking<i32>>::reduce_to(&source);
+    assert!(!source.evaluate(&extracted).unwrap());
 }

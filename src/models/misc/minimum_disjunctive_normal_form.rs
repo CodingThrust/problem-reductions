@@ -67,7 +67,7 @@ impl PrimeImplicant {
 /// let truth_table = vec![false, true, true, true, true, true, true, false];
 /// let problem = MinimumDisjunctiveNormalForm::new(3, truth_table);
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumDisjunctiveNormalForm {
@@ -143,39 +143,45 @@ impl MinimumDisjunctiveNormalForm {
 
 impl Problem for MinimumDisjunctiveNormalForm {
     const NAME: &'static str = "MinimumDisjunctiveNormalForm";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.prime_implicants.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.prime_implicants.len() {
-            return Min(None);
-        }
-
-        // Collect selected prime implicants
-        let selected: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
-            .collect();
-
-        if selected.is_empty() {
-            return Min(None);
-        }
-
-        // Check that all minterms are covered
-        for &mt in &self.minterms {
-            let covered = selected
-                .iter()
-                .any(|&pi_idx| self.prime_implicants[pi_idx].covers(mt));
-            if !covered {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.prime_implicants.len() {
+                return Ok(Min(None));
             }
-        }
 
-        Min(Some(selected.len()))
+            // Collect selected prime implicants
+            let selected: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &v)| if v == 1 { Some(i) } else { None })
+                .collect();
+
+            if selected.is_empty() {
+                return Ok(Min(None));
+            }
+
+            // Check that all minterms are covered
+            for &mt in &self.minterms {
+                let covered = selected
+                    .iter()
+                    .any(|&pi_idx| self.prime_implicants[pi_idx].covers(mt));
+                if !covered {
+                    return Ok(Min(None));
+                }
+            }
+
+            Min(Some(i64::try_from(selected.len()).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting DNF term count to i64".into(),
+                )
+            })?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

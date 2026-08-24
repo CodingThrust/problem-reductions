@@ -24,7 +24,7 @@ pub enum ILPSolveError {
     #[error("the ILP backend failed: {0}")]
     BackendFailure(String),
     /// Type-erased dispatch received a value other than a supported ILP variant.
-    #[error("the ILP backend supports only ILP<bool> and ILP<i32>")]
+    #[error("the ILP backend supports only ILP<bool> and ILP<i64>")]
     UnsupportedProblemType,
     /// HiGHS reported an optimal solution that is invalid after integer rounding.
     #[error("the ILP backend returned an invalid rounded solution: {0}")]
@@ -32,6 +32,9 @@ pub enum ILPSolveError {
     /// A target witness could not be mapped back to the source problem.
     #[error(transparent)]
     Extraction(#[from] crate::rules::ExtractionError),
+    /// A registered reduction could not construct its target instance.
+    #[error(transparent)]
+    Reduction(#[from] crate::rules::ReductionError),
 }
 
 fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
@@ -62,7 +65,7 @@ fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> IL
 /// );
 ///
 /// let solver = ILPSolver::new();
-/// let solution = solver.solve(&ilp)?;
+/// let solution = solver.solve(&ilp).unwrap()?;
 /// println!("Solution: {:?}", solution);
 /// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
 /// ```
@@ -101,7 +104,7 @@ impl ILPSolver {
         }
 
         // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
-        // This avoids giving HiGHS the full domain (e.g. 2^31 for i32), which can
+        // This avoids giving HiGHS the full domain (e.g. 2^31 for i64), which can
         // cause severe performance degradation even when constraints already bound
         // the variable to a small range.
         let default_ub = (V::DIMS_PER_VAR - 1) as f64;
@@ -237,7 +240,7 @@ impl ILPSolver {
     /// use problemreductions::solvers::ILPSolver;
     ///
     /// // Create a problem that reduces directly to ILP.
-    /// let problem = MaximumSetPacking::<i32>::new(vec![
+    /// let problem = MaximumSetPacking::<i64>::new(vec![
     ///     vec![0, 1],
     ///     vec![1, 2],
     ///     vec![3, 4],
@@ -254,7 +257,7 @@ impl ILPSolver {
         V: VariableDomain,
         P: ReduceTo<ILP<V>>,
     {
-        let reduction = problem.reduce_to();
+        let reduction = problem.reduce_to()?;
         let ilp_solution = self.solve(reduction.target_problem())?;
         Ok(reduction.extract_solution(&ilp_solution)?)
     }
@@ -264,7 +267,7 @@ impl ILPSolver {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }
-        if let Some(ilp) = any.downcast_ref::<ILP<i32>>() {
+        if let Some(ilp) = any.downcast_ref::<ILP<i64>>() {
             return self.solve(ilp);
         }
         Err(ILPSolveError::UnsupportedProblemType)

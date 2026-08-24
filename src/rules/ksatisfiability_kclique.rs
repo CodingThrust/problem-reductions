@@ -24,7 +24,7 @@ use crate::variant::K3;
 pub struct Reduction3SATToKClique {
     target: KClique<SimpleGraph>,
     /// Clauses from the source problem, needed for solution extraction.
-    source_clauses: Vec<Vec<i32>>,
+    source_clauses: Vec<Vec<i64>>,
     source_num_vars: usize,
 }
 
@@ -69,7 +69,7 @@ impl ReductionResult for Reduction3SATToKClique {
 }
 
 /// Check whether two literals are contradictory (one is the negation of the other).
-fn literals_contradict(lit1: i32, lit2: i32) -> bool {
+fn literals_contradict(lit1: i64, lit2: i64) -> bool {
     lit1 == -lit2
 }
 
@@ -83,12 +83,12 @@ fn literals_contradict(lit1: i32, lit2: i32) -> bool {
 impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToKClique;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_clauses();
         let num_verts = 3 * m;
 
         // Collect literals for each clause for easy access.
-        let clause_lits: Vec<Vec<i32>> =
+        let clause_lits: Vec<Vec<i64>> =
             self.clauses().iter().map(|c| c.literals.clone()).collect();
 
         // Build edges: connect (j1,p1) and (j2,p2) if j1 != j2 and literals
@@ -113,11 +113,11 @@ impl ReduceTo<KClique<SimpleGraph>> for KSatisfiability<K3> {
         let graph = SimpleGraph::new(num_verts, edges);
         let target = KClique::new(graph, m);
 
-        Reduction3SATToKClique {
+        Ok(Reduction3SATToKClique {
             target,
             source_clauses: clause_lits,
             source_num_vars: self.num_vars(),
-        }
+        })
     }
 }
 

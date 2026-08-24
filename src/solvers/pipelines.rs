@@ -22,8 +22,8 @@ macro_rules! register_ilp_pipeline {
 }
 
 register_ilp_pipeline! {
-    ("AcyclicPartition", [("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("AcyclicPartition", [("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -43,23 +43,23 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("BiconnectivityAugmentation", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("BiconnectivityAugmentation", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("BinPacking", [("weight", "i32")]),
+    ("BinPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("BottleneckTravelingSalesman", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("BoundedComponentSpanningForest", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("BoundedComponentSpanningForest", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -74,12 +74,12 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("ClosestString", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("ClosestSubstring", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -109,27 +109,27 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DecisionMinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "One")]),
-    ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("DecisionMinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("DecisionMinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("DecisionMinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MinimumSetCovering", [("weight", "i32")]),
+    ("DecisionMinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MinimumSetCovering", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("DecisionOptimalLinearArrangement", [("graph", "SimpleGraph")]),
     ("OptimalLinearArrangement", [("graph", "SimpleGraph")]),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -139,7 +139,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("DirectedTwoCommodityIntegralFlow", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -149,7 +149,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("EulerianPath", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -164,17 +164,17 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("Factoring", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("FeasibleRegisterAssignment", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("FlowShopScheduling", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -184,7 +184,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("HamiltonianCircuit", [("graph", "SimpleGraph")]),
-    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -203,7 +203,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 // This exact variant also has a customized backend. Default dispatch selects the
@@ -211,22 +211,22 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("RootedTreeArrangement", [("graph", "SimpleGraph")]),
     ("RootedTreeStorageAssignment", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("IntegralFlowBundles", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("IntegralFlowHomologousArcs", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("IntegralFlowWithMultipliers", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -280,7 +280,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("LongestCircuit", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -290,12 +290,12 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("LongestPath", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("LongestPath", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximalIS", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximalIS", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -307,13 +307,13 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "One")]),
     ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "One")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumSetPacking", [("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumSetPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -323,7 +323,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MaximumCoKPlex", [("graph", "SimpleGraph"), ("k", "KN"), ("weight", "i32")]),
+    ("MaximumCoKPlex", [("graph", "SimpleGraph"), ("k", "KN"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -348,14 +348,14 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MaximumEdgeWeightedKClique", [("weight", "i32")]),
+    ("MaximumEdgeWeightedKClique", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "One")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumSetPacking", [("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumSetPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -363,51 +363,51 @@ register_ilp_pipeline! {
     ("MaximumIndependentSet", [("graph", "KingsSubgraph"), ("weight", "One")]),
     ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "One")]),
     ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "One")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumSetPacking", [("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumSetPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "One")]),
     ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "One")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximumIndependentSet", [("graph", "KingsSubgraph"), ("weight", "i32")]),
-    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i32")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "KingsSubgraph"), ("weight", "i64")]),
+    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i64")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximumIndependentSet", [("graph", "TriangularSubgraph"), ("weight", "i32")]),
-    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i32")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "TriangularSubgraph"), ("weight", "i64")]),
+    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i64")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i32")]),
-    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumIndependentSet", [("graph", "UnitDiskGraph"), ("weight", "i64")]),
+    ("MaximumIndependentSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MaximumClique", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MaximumLeafSpanningTree", [("graph", "SimpleGraph")]),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -416,13 +416,13 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MaximumMatching", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MaximumMatching", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MaximumSetPacking", [("weight", "One")]),
-    ("MaximumSetPacking", [("weight", "i32")]),
+    ("MaximumSetPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -433,18 +433,18 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MaximumSetPacking", [("weight", "i32")]),
+    ("MaximumSetPacking", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MinMaxMulticenter", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("MinMaxMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("MinimumCapacitatedSpanningTree", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("MinimumCapacitatedSpanningTree", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -453,7 +453,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumCutIntoBoundedSets", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MinimumCutIntoBoundedSets", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -464,13 +464,13 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MinimumDominatingSet", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MinimumEdgeCostFlow", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -484,13 +484,13 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumFeedbackVertexSet", [("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("MinimumFeedbackVertexSet", [("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("MinimumGraphBandwidth", [("graph", "SimpleGraph")]),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -519,17 +519,17 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumMultiwayCut", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MinimumMultiwayCut", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MinimumSetCovering", [("weight", "i32")]),
+    ("MinimumSetCovering", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
-    ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("MinimumSumMulticenter", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -539,7 +539,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumTardinessSequencing", [("weight", "i32")]),
+    ("MinimumTardinessSequencing", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
@@ -550,19 +550,19 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("MinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("MinimumSetCovering", [("weight", "i32")]),
+    ("MinimumVertexCover", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("MinimumSetCovering", [("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("MinimumWeightDecoding", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("MixedChinesePostman", [("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("MixedChinesePostman", [("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -598,12 +598,12 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("OpenShopScheduling", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("OptimalLinearArrangement", [("graph", "SimpleGraph")]),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -645,7 +645,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("PathConstrainedNetworkFlow", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -655,7 +655,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("PreemptiveScheduling", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -675,7 +675,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("RegisterSufficiency", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -685,12 +685,12 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("RootedTreeStorageAssignment", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
-    ("RuralPostman", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("RuralPostman", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -701,7 +701,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("SchedulingToMinimizeWeightedCompletionTime", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -711,7 +711,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("SequencingToMinimizeMaximumCumulativeCost", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -721,7 +721,7 @@ register_ilp_pipeline! {
 
 register_ilp_pipeline! {
     ("SequencingToMinimizeWeightedTardiness", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -750,8 +750,8 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("ShortestWeightConstrainedPath", [("graph", "SimpleGraph"), ("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("ShortestWeightConstrainedPath", [("graph", "SimpleGraph"), ("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -766,7 +766,7 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("SpinGlass", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("SpinGlass", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("SpinGlass", [("graph", "SimpleGraph"), ("weight", "f64")]),
     ("QUBO", [("weight", "f64")]),
     ("ILP", [("variable", "bool")]),
@@ -783,8 +783,8 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("StrongConnectivityAugmentation", [("weight", "i32")]),
-    ("ILP", [("variable", "i32")]),
+    ("StrongConnectivityAugmentation", [("weight", "i64")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
@@ -809,16 +809,16 @@ register_ilp_pipeline! {
 }
 
 register_ilp_pipeline! {
-    ("TravelingSalesman", [("graph", "SimpleGraph"), ("weight", "i32")]),
+    ("TravelingSalesman", [("graph", "SimpleGraph"), ("weight", "i64")]),
     ("ILP", [("variable", "bool")]),
 }
 
 register_ilp_pipeline! {
     ("UndirectedFlowLowerBounds", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }
 
 register_ilp_pipeline! {
     ("UndirectedTwoCommodityIntegralFlow", []),
-    ("ILP", [("variable", "i32")]),
+    ("ILP", [("variable", "i64")]),
 }

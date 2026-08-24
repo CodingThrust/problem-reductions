@@ -84,7 +84,7 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
     type Result = ReductionLBDPToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut edges: Vec<(usize, usize)> = self
             .graph()
             .edges()
@@ -195,12 +195,12 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
         let objective: Vec<(usize, f64)> = (0..j).map(|k| (a_var(k), 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionLBDPToILP {
+        Ok(ReductionLBDPToILP {
             target,
             edges,
             num_vertices: n,
             num_paths: j,
-        }
+        })
     }
 }
 

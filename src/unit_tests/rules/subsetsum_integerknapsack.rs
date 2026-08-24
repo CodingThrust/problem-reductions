@@ -31,6 +31,7 @@ fn subset_sum_embedding(source: &SubsetSum) -> IntegerKnapsack {
             .to_i64()
             .expect("test fixture target should fit in i64 for IntegerKnapsack"),
     )
+    .unwrap()
 }
 
 #[test]
@@ -39,8 +40,8 @@ fn test_subsetsum_to_integerknapsack_forward_example() {
     let target = subset_sum_embedding(&source);
     let source_witness = vec![1, 0, 0, 1, 1];
 
-    assert!(source.evaluate(&source_witness).is_valid());
-    assert_eq!(target.evaluate(&source_witness), Max(Some(16)));
+    assert!(source.evaluate(&source_witness).unwrap().is_valid());
+    assert_eq!(target.evaluate(&source_witness).unwrap(), Max(Some(16)));
 }
 
 #[test]
@@ -49,8 +50,8 @@ fn test_subsetsum_to_integerknapsack_counterexample_demonstrates_gap() {
     let target = subset_sum_embedding(&source);
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&source).is_none());
-    assert_eq!(solver.solve(&target), Max(Some(6)));
+    assert!(solver.find_witness(&source).unwrap().is_none());
+    assert_eq!(solver.solve(&target).unwrap(), Max(Some(6)));
 }
 
 #[cfg(feature = "example-db")]
@@ -84,9 +85,12 @@ fn test_subsetsum_to_integerknapsack_canonical_example_spec() {
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert_eq!(
-        target.evaluate(&example.solutions[0].target_config),
+        target
+            .evaluate(&example.solutions[0].target_config)
+            .unwrap(),
         Max(Some(16))
     );
 }

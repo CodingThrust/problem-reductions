@@ -54,7 +54,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -141,29 +141,34 @@ impl Problem for ThreeMatroidIntersection {
         vec![2; self.ground_set_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.ground_set_size || config.iter().any(|&v| v > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.ground_set_size || config.iter().any(|&v| v > 1) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check selected set has exactly K elements
-            let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
-            if selected_count != self.bound {
-                return crate::types::Or(false);
-            }
+                // Check selected set has exactly K elements
+                let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
+                if selected_count != self.bound {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check independence in each of the three partition matroids
-            for matroid in &self.partitions {
-                for group in matroid {
-                    let count = group.iter().filter(|&&e| config[e] == 1).count();
-                    if count > 1 {
-                        return crate::types::Or(false);
+                // Check independence in each of the three partition matroids
+                for matroid in &self.partitions {
+                    for group in matroid {
+                        let count = group.iter().filter(|&&e| config[e] == 1).count();
+                        if count > 1 {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 

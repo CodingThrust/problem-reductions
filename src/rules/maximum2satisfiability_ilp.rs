@@ -46,7 +46,7 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
 impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
     type Result = ReductionMaximum2SatisfiabilityToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
         let num_ilp_vars = n + m;
@@ -64,7 +64,7 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             .enumerate()
             .map(|(j, clause)| {
                 let mut terms: Vec<(usize, f64)> = Vec::new();
-                let mut neg_count = 0i32;
+                let mut neg_count = 0.0;
 
                 // z_{n+j} has coefficient +1
                 terms.push((n + j, 1.0));
@@ -77,11 +77,11 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
                     } else {
                         // negative literal: add y_i
                         terms.push((var_idx, 1.0));
-                        neg_count += 1;
+                        neg_count += 1.0;
                     }
                 }
 
-                LinearConstraint::le(terms, neg_count as f64)
+                LinearConstraint::le(terms, neg_count)
             })
             .collect();
 
@@ -95,10 +95,10 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             ObjectiveSense::Maximize,
         );
 
-        ReductionMaximum2SatisfiabilityToILP {
+        Ok(ReductionMaximum2SatisfiabilityToILP {
             target,
             num_vars: n,
-        }
+        })
     }
 }
 

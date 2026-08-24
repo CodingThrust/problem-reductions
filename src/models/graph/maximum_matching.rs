@@ -18,7 +18,7 @@ inventory::submit! {
         aliases: &["MaxMatching"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -35,7 +35,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`, `UnitDiskGraph`)
-/// * `W` - The weight type (e.g., `i32`, `f64`, `One`)
+/// * `W` - The weight type (e.g., `i64`, `f64`, `One`)
 ///
 /// # Example
 ///
@@ -46,10 +46,10 @@ inventory::submit! {
 ///
 /// // Path graph 0-1-2
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+/// let problem = MaximumMatching::<_, i64>::unit_weights(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum matching has 1 edge
 /// for sol in &solutions {
@@ -70,11 +70,11 @@ struct MaximumMatchingCreateSpec {
     graph: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    edge_weights: Option<Vec<i32>>,
+    edge_weights: Option<Vec<i64>>,
 }
 
-impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i32> {
-    type Error = String;
+impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MaximumMatchingCreateSpec) -> Result<Self, Self::Error> {
         let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
@@ -86,7 +86,8 @@ impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i32> {
                 "edge_weights has length {}, expected {}",
                 edge_weights.len(),
                 graph.num_edges()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(graph, edge_weights))
     }
@@ -95,13 +96,15 @@ impl TryFrom<MaximumMatchingCreateSpec> for MaximumMatching<SimpleGraph, i32> {
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -115,7 +118,8 @@ fn simple_graph_from_create(
     if num_vertices < inferred {
         return Err(format!(
             "num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"
-        ));
+        )
+        .into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }
@@ -141,9 +145,9 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     /// Create a MaximumMatching problem with unit weights.
     pub fn unit_weights(graph: G) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let edge_weights = vec![W::from(1); graph.num_edges()];
+        let edge_weights = vec![W::unit(); graph.num_edges()];
         Self {
             graph,
             edge_weights,
@@ -251,37 +255,43 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !self.is_valid_matching(config) {
-            return Max(None);
-        }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_valid_matching(config) {
+                return Ok(Max(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing selected matching-edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Max(Some(total))
+            Max(Some(total))
+        })
     }
 }
 
-crate::impl_random_generate!(MaximumMatching<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+crate::impl_random_generate!(MaximumMatching<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     let graph = spec.graph()?;
     let weights = vec![1; graph.num_edges()];
     Ok(MaximumMatching::new(graph, weights))
 });
 
 crate::declare_variants! {
-    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3" create MaximumMatchingCreateSpec random,
+    default MaximumMatching<SimpleGraph, i64> => "num_vertices^3" create MaximumMatchingCreateSpec random,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_matching_simplegraph_i32",
-        instance: Box::new(MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(
+        id: "maximum_matching_simplegraph_i64",
+        instance: Box::new(MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),

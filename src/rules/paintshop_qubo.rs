@@ -44,7 +44,7 @@ impl ReductionResult for ReductionPaintShopToQUBO {
 impl ReduceTo<QUBO<f64>> for PaintShop {
     type Result = ReductionPaintShopToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_cars();
         let seq = self.sequence_indices();
         let is_first = self.is_first();
@@ -83,9 +83,11 @@ impl ReduceTo<QUBO<f64>> for PaintShop {
             }
         }
 
-        ReductionPaintShopToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionPaintShopToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<PaintShop, QUBO<f64>>(message)
+            })?,
+        })
     }
 }
 

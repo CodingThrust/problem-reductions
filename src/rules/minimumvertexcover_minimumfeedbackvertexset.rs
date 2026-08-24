@@ -42,10 +42,10 @@ where
         num_arcs = "2 * num_edges",
     }
 )]
-impl ReduceTo<MinimumFeedbackVertexSet<i32>> for MinimumVertexCover<SimpleGraph, i32> {
-    type Result = ReductionVCToFVS<i32>;
+impl ReduceTo<MinimumFeedbackVertexSet<i64>> for MinimumVertexCover<SimpleGraph, i64> {
+    type Result = ReductionVCToFVS<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self
             .graph()
             .edges()
@@ -58,7 +58,7 @@ impl ReduceTo<MinimumFeedbackVertexSet<i32>> for MinimumVertexCover<SimpleGraph,
             self.weights().to_vec(),
         );
 
-        ReductionVCToFVS { target }
+        Ok(ReductionVCToFVS { target })
     }
 }
 
@@ -83,10 +83,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         (5, 6),
                     ],
                 ),
-                vec![1i32; 7],
+                vec![1i64; 7],
             );
 
-            crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackVertexSet<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackVertexSet<i64>>(
                 source,
                 SolutionPair {
                     source_config: vec![1, 1, 0, 1, 0, 1, 0],

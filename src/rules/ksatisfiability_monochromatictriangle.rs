@@ -23,7 +23,7 @@ fn normalized_edge(u: usize, v: usize) -> (usize, usize) {
     }
 }
 
-fn literal_vertex(num_vars: usize, literal: i32) -> usize {
+fn literal_vertex(num_vars: usize, literal: i64) -> usize {
     if literal > 0 {
         literal as usize - 1
     } else {
@@ -58,12 +58,12 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
             .iter()
             .map(|&edge_idx| usize::from(target_solution[edge_idx] == 0))
             .collect();
-        if self.source.evaluate(&direct).0 {
+        if self.source.evaluate(&direct)?.0 {
             return Ok(direct);
         }
 
         let complement: Vec<usize> = direct.iter().map(|&value| 1 - value).collect();
-        if self.source.evaluate(&complement).0 {
+        if self.source.evaluate(&complement)?.0 {
             return Ok(complement);
         }
 
@@ -82,7 +82,7 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
 impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
     type Result = Reduction3SATToMonochromaticTriangle;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let mut edges = Vec::with_capacity(num_vars + 9 * num_clauses);
@@ -131,11 +131,11 @@ impl ReduceTo<MonochromaticTriangle<SimpleGraph>> for KSatisfiability<K3> {
             .map(|var| edge_indices[&normalized_edge(var, num_vars + var)])
             .collect();
 
-        Reduction3SATToMonochromaticTriangle {
+        Ok(Reduction3SATToMonochromaticTriangle {
             target,
             source: self.clone(),
             negation_edge_indices,
-        }
+        })
     }
 }
 
@@ -152,9 +152,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let reduction =
                 <KSatisfiability<K3> as ReduceTo<MonochromaticTriangle<SimpleGraph>>>::reduce_to(
                     &source,
-                );
+                )
+                .expect("reduction should succeed");
             let target_config = BruteForce::new()
                 .find_witness(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .expect("canonical MonochromaticTriangle example must be feasible");
             let source_config = reduction.extract_solution(&target_config).unwrap();
             crate::example_db::specs::assemble_rule_example(

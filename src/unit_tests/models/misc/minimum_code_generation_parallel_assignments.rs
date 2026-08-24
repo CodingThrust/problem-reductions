@@ -30,7 +30,7 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_optimal() {
     // A_2 writes c(2): A_3 reads c and is later (pos 2) -> 1 backward dep
     // A_3 writes d(3): A_1 does not read d -> 0
     // Total: 2
-    assert_eq!(problem.evaluate(&[0, 3, 1, 2]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[0, 3, 1, 2]).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_suboptimal() {
     // A_0 writes a(0): A_1 already executed -> 0
     // A_2 writes c(2): A_3 reads c (later, pos 3) -> 1
     // Total: 3
-    assert_eq!(problem.evaluate(&[1, 0, 2, 3]), Min(Some(3)));
+    assert_eq!(problem.evaluate(&[1, 0, 2, 3]).unwrap(), Min(Some(3)));
 }
 
 #[test]
@@ -51,12 +51,12 @@ fn test_minimum_code_generation_parallel_assignments_evaluate_invalid() {
     let assignments = vec![(0, vec![1, 2]), (1, vec![0]), (2, vec![3]), (3, vec![1, 2])];
     let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
     // Duplicate position
-    assert_eq!(problem.evaluate(&[0, 0, 1, 2]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 1, 2]).unwrap(), Min(None));
     // Out of range
-    assert_eq!(problem.evaluate(&[0, 1, 2, 4]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 4]).unwrap(), Min(None));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -66,8 +66,9 @@ fn test_minimum_code_generation_parallel_assignments_solver() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let value = problem.evaluate(&solution);
+    let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(2)));
 }
 
@@ -90,11 +91,11 @@ fn test_minimum_code_generation_parallel_assignments_no_dependencies() {
     ];
     let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
     // Neither assignment reads the target of the other
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(0)));
-    assert_eq!(problem.evaluate(&[1, 0]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(Some(0)));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(0)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(0)));
 }
 
 #[test]

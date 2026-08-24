@@ -40,7 +40,7 @@ impl ReductionResult for ReductionHSToILP {
 impl ReduceTo<ILP<bool>> for MinimumHittingSet {
     type Result = ReductionHSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.universe_size();
         let constraints: Vec<LinearConstraint> = self
             .sets()
@@ -52,7 +52,7 @@ impl ReduceTo<ILP<bool>> for MinimumHittingSet {
             .collect();
         let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionHSToILP { target }
+        Ok(ReductionHSToILP { target })
     }
 }
 

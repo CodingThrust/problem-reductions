@@ -38,8 +38,8 @@ fn test_minimum_code_generation_unlimited_registers_evaluate_optimal() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     let config = vec![2, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
-    assert_eq!(problem.simulate(&config), Some(4));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
+    assert_eq!(problem.simulate(&config).unwrap(), Some(4));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn test_minimum_code_generation_unlimited_registers_evaluate_suboptimal() {
     //   Not needed -> no LOAD. instructions = 3 (+ 1 OP).
     // Step 2: OP v0, left=v1. future uses of v1: 0. No LOAD. instructions = 4 (+ 1 OP).
     // Total: 4 (same as optimal for this instance)
-    assert_eq!(problem.simulate(&config), Some(4));
+    assert_eq!(problem.simulate(&config).unwrap(), Some(4));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_minimum_code_generation_unlimited_registers_dependency_violation() {
     );
     // v0 first (pos 0) — depends on v1,v2 which haven't been computed
     let config = vec![0, 1, 2];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -101,11 +101,11 @@ fn test_minimum_code_generation_unlimited_registers_invalid_permutation() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     // Not a permutation: position 0 used twice
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 1]).unwrap(), Min(None));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(None));
     // Position out of range
-    assert_eq!(problem.evaluate(&[0, 1, 5]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 5]).unwrap(), Min(None));
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn test_minimum_code_generation_unlimited_registers_solver() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     let solver = BruteForce::new();
-    let result = solver.solve(&problem);
+    let result = solver.solve(&problem).unwrap();
     assert_eq!(result, Min(Some(4)));
 }
 
@@ -129,8 +129,11 @@ fn test_minimum_code_generation_unlimited_registers_solver_witness() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find witness");
-    assert_eq!(problem.simulate(&witness), Some(4));
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find witness");
+    assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
 }
 
 #[test]
@@ -159,8 +162,8 @@ fn test_minimum_code_generation_unlimited_registers_unary_ops() {
     // v1: left=v2, no future uses of v2 -> no LOAD. OP v1 = 1.
     // v0: left=v1, no future uses of v1 -> no LOAD. OP v0 = 1.
     // Total = 2 (just 2 OPs, no copies needed)
-    assert_eq!(problem.simulate(&config), Some(2));
-    assert_eq!(problem.evaluate(&config), Min(Some(2)));
+    assert_eq!(problem.simulate(&config).unwrap(), Some(2));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -171,7 +174,7 @@ fn test_minimum_code_generation_unlimited_registers_no_copy_needed() {
     // Only one internal vertex v0, config = [0]
     let config = vec![0];
     // OP v0: left=v1, right=v2. No future uses of v1. No LOAD. 1 OP.
-    assert_eq!(problem.simulate(&config), Some(1));
+    assert_eq!(problem.simulate(&config).unwrap(), Some(1));
 }
 
 #[test]
@@ -185,14 +188,14 @@ fn test_minimum_code_generation_unlimited_registers_paper_example() {
 
     // Optimal order: v1, v2, v0 => config = [2, 0, 1]
     let config = vec![2, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 
     // Verify with brute force
     let solver = BruteForce::new();
-    let result = solver.solve(&problem);
+    let result = solver.solve(&problem).unwrap();
     assert_eq!(result, Min(Some(4)));
 
     // Verify witness
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.simulate(&witness), Some(4));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
 }

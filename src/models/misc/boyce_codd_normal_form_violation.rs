@@ -53,7 +53,7 @@ inventory::submit! {
 /// );
 /// let solver = BruteForce::new();
 /// // X = {2}: closure = {2, 3}, y=3 ∈ closure, z=0 ∉ closure → BCNF violation
-/// assert!(problem.evaluate(&[0, 0, 1, 0, 0, 0]));
+/// assert!(problem.evaluate(&[0, 0, 1, 0, 0, 0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoyceCoddNormalFormViolation {
@@ -77,17 +77,15 @@ struct BoyceCoddNormalFormViolationCreateSpec {
 }
 
 impl TryFrom<BoyceCoddNormalFormViolationCreateSpec> for BoyceCoddNormalFormViolation {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoyceCoddNormalFormViolationCreateSpec) -> Result<Self, Self::Error> {
         if spec.target.is_empty() {
-            return Err("target must be non-empty".to_string());
+            return Err("target must be non-empty".to_string().into());
         }
         for (dependency_index, (lhs, rhs)) in spec.subsets.iter().enumerate() {
             if lhs.is_empty() {
-                return Err(format!(
-                    "subsets[{dependency_index}] has an empty left side"
-                ));
+                return Err(format!("subsets[{dependency_index}] has an empty left side").into());
             }
             if let Some(&attribute) = lhs
                 .iter()
@@ -97,14 +95,15 @@ impl TryFrom<BoyceCoddNormalFormViolationCreateSpec> for BoyceCoddNormalFormViol
                 return Err(format!(
                     "subsets[{dependency_index}] contains attribute {attribute} outside universe of size {}",
                     spec.n
-                ));
+                ).into());
             }
         }
         if let Some(&attribute) = spec.target.iter().find(|&&attribute| attribute >= spec.n) {
             return Err(format!(
                 "target contains attribute {attribute} outside universe of size {}",
                 spec.n
-            ));
+            )
+            .into());
         }
         Ok(Self::new(spec.n, spec.subsets, spec.target))
     }
@@ -224,31 +223,36 @@ impl Problem for BoyceCoddNormalFormViolation {
         vec![2; self.target_subset.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.target_subset.len() || config.iter().any(|&v| v > 1) {
-                return crate::types::Or(false);
-            }
-            let x: HashSet<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v == 1)
-                .map(|(i, _)| self.target_subset[i])
-                .collect();
-            let closure = Self::compute_closure(&x, &self.functional_deps);
-            // Check: ∃ y, z ∈ A' \ X s.t. y ∈ closure ∧ z ∉ closure
-            let mut has_in_closure = false;
-            let mut has_not_in_closure = false;
-            for &a in &self.target_subset {
-                if !x.contains(&a) {
-                    if closure.contains(&a) {
-                        has_in_closure = true;
-                    } else {
-                        has_not_in_closure = true;
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.target_subset.len() || config.iter().any(|&v| v > 1) {
+                    return Ok(crate::types::Or(false));
+                }
+                let x: HashSet<usize> = config
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &v)| v == 1)
+                    .map(|(i, _)| self.target_subset[i])
+                    .collect();
+                let closure = Self::compute_closure(&x, &self.functional_deps);
+                // Check: ∃ y, z ∈ A' \ X s.t. y ∈ closure ∧ z ∉ closure
+                let mut has_in_closure = false;
+                let mut has_not_in_closure = false;
+                for &a in &self.target_subset {
+                    if !x.contains(&a) {
+                        if closure.contains(&a) {
+                            has_in_closure = true;
+                        } else {
+                            has_not_in_closure = true;
+                        }
                     }
                 }
-            }
-            has_in_closure && has_not_in_closure
+                has_in_closure && has_not_in_closure
+            })
         })
     }
 

@@ -21,13 +21,13 @@ use crate::variant::K3;
 /// Result of reducing KSatisfiability<K3> to MinimumVertexCover.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToMVC {
-    target: MinimumVertexCover<SimpleGraph, i32>,
+    target: MinimumVertexCover<SimpleGraph, i64>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for Reduction3SATToMVC {
     type Source = KSatisfiability<K3>;
-    type Target = MinimumVertexCover<SimpleGraph, i32>;
+    type Target = MinimumVertexCover<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -67,10 +67,10 @@ impl ReductionResult for Reduction3SATToMVC {
         num_edges = "num_vars + 6 * num_clauses",
     }
 )]
-impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for KSatisfiability<K3> {
+impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToMVC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let m = self.num_clauses();
         let total_vertices = 2 * n + 3 * m;
@@ -105,13 +105,13 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for KSatisfiability<K3> {
         }
 
         let graph = SimpleGraph::new(total_vertices, edges);
-        let weights = vec![1i32; total_vertices];
+        let weights = vec![1i64; total_vertices];
         let target = MinimumVertexCover::new(graph, weights);
 
-        Reduction3SATToMVC {
+        Ok(Reduction3SATToMVC {
             target,
             source_num_vars: n,
-        }
+        })
     }
 }
 
@@ -132,7 +132,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumVertexCover<SimpleGraph, i32>,
+                MinimumVertexCover<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {

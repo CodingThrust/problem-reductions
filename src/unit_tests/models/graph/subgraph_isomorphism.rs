@@ -25,11 +25,11 @@ fn test_subgraph_isomorphism_evaluation_valid() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // Valid mapping: pattern vertex 0->host 0, pattern vertex 1->host 1
-    assert!(problem.evaluate(&[0, 1]));
+    assert!(problem.evaluate(&[0, 1]).unwrap());
     // Valid: 0->1, 1->2
-    assert!(problem.evaluate(&[1, 2]));
+    assert!(problem.evaluate(&[1, 2]).unwrap());
     // Valid: 0->0, 1->2
-    assert!(problem.evaluate(&[0, 2]));
+    assert!(problem.evaluate(&[0, 2]).unwrap());
 }
 
 #[test]
@@ -41,11 +41,11 @@ fn test_subgraph_isomorphism_evaluation_invalid() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // Invalid: non-injective (both map to same host vertex)
-    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
     // Invalid: no edge between host vertices 0 and 2
-    assert!(!problem.evaluate(&[0, 2]));
+    assert!(!problem.evaluate(&[0, 2]).unwrap());
     // Valid: 0->0, 1->1 (edge 0-1 exists)
-    assert!(problem.evaluate(&[0, 1]));
+    assert!(problem.evaluate(&[0, 1]).unwrap());
 }
 
 #[test]
@@ -57,12 +57,12 @@ fn test_subgraph_isomorphism_triangle_in_k4() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // Any injective mapping into K4 should work for K3
-    assert!(problem.evaluate(&[0, 1, 2]));
-    assert!(problem.evaluate(&[1, 2, 3]));
-    assert!(problem.evaluate(&[0, 2, 3]));
+    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&[1, 2, 3]).unwrap());
+    assert!(problem.evaluate(&[0, 2, 3]).unwrap());
 
     // Non-injective should fail
-    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_subgraph_isomorphism_no_solution() {
 
     // No possible mapping should work
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -88,11 +88,11 @@ fn test_subgraph_isomorphism_solver() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
 
     let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert!(problem.evaluate(&sol).unwrap());
 }
 
 #[test]
@@ -104,11 +104,11 @@ fn test_subgraph_isomorphism_all_satisfying() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // 3 edges in host, each can be mapped in 2 directions = 6 solutions
     assert_eq!(solutions.len(), 6);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -141,8 +141,8 @@ fn test_subgraph_isomorphism_is_valid_solution() {
     let pattern = SimpleGraph::new(2, vec![(0, 1)]);
     let problem = SubgraphIsomorphism::new(host, pattern);
 
-    assert!(problem.is_valid_solution(&[0, 1]));
-    assert!(!problem.is_valid_solution(&[0, 0]));
+    assert!(problem.is_valid_solution(&[0, 1]).unwrap());
+    assert!(!problem.is_valid_solution(&[0, 0]).unwrap());
 }
 
 #[test]
@@ -153,11 +153,11 @@ fn test_subgraph_isomorphism_empty_pattern() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // Any two distinct host vertices work
-    assert!(problem.evaluate(&[0, 1]));
-    assert!(problem.evaluate(&[1, 2]));
-    assert!(problem.evaluate(&[0, 2]));
+    assert!(problem.evaluate(&[0, 1]).unwrap());
+    assert!(problem.evaluate(&[1, 2]).unwrap());
+    assert!(problem.evaluate(&[0, 2]).unwrap());
     // Non-injective fails
-    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
 }
 
 #[test]
@@ -184,13 +184,13 @@ fn test_subgraph_isomorphism_issue_example() {
     let problem = SubgraphIsomorphism::new(host, pattern);
 
     // The mapping from the issue: a->0, b->1, c->2, d->3
-    assert!(problem.evaluate(&[0, 1, 2, 3]));
+    assert!(problem.evaluate(&[0, 1, 2, 3]).unwrap());
 
     // Verify solver can find a solution
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]

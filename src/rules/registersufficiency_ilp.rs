@@ -1,4 +1,4 @@
-//! Reduction from RegisterSufficiency to ILP<i32>.
+//! Reduction from RegisterSufficiency to `ILP<i64>`.
 //!
 //! The formulation uses:
 //! - integer `t_v` variables for evaluation positions
@@ -14,15 +14,15 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionRegisterSufficiencyToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionRegisterSufficiencyToILP {
     type Source = RegisterSufficiency;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -41,10 +41,10 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
         num_vars = "3 * num_vertices^2 + num_vertices * (num_vertices - 1) / 2 + 2 * num_vertices",
         num_constraints = "9 * num_vertices^2 + 3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + num_sinks",
     },)]
-impl ReduceTo<ILP<i32>> for RegisterSufficiency {
+impl ReduceTo<ILP<i64>> for RegisterSufficiency {
     type Result = ReductionRegisterSufficiencyToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let pair_list: Vec<(usize, usize)> = (0..n)
             .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
@@ -162,10 +162,10 @@ impl ReduceTo<ILP<i32>> for RegisterSufficiency {
             constraints.push(LinearConstraint::le(live_terms, self.bound() as f64));
         }
 
-        ReductionRegisterSufficiencyToILP {
+        Ok(ReductionRegisterSufficiencyToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -188,7 +188,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 3,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

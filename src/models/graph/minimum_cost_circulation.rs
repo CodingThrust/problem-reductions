@@ -87,9 +87,9 @@ inventory::submit! {
 ///     vec![2, -3, 1, -4], // costs (signed)
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.find_witness(&problem).unwrap().unwrap();
 /// // Optimal cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = -5.
-/// assert_eq!(problem.total_cost(&witness), -5);
+/// assert_eq!(problem.total_cost(&witness).unwrap(), -5);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCostCirculation {
@@ -169,35 +169,66 @@ impl MinimumCostCirculation {
     /// 3. inflow equals outflow at **every** vertex (no exempt
     ///    terminals — this is what distinguishes a circulation from a
     ///    flow).
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.graph.num_arcs();
         if config.len() != m {
-            return false;
+            return Ok(false);
         }
         // (1) Capacity constraints
         for (flow, cap) in config.iter().zip(self.capacities.iter()) {
-            if (*flow as i64) > *cap {
-                return false;
+            let flow = i64::try_from(*flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting circulation configuration value".to_string(),
+                )
+            })?;
+            if flow > *cap {
+                return Ok(false);
             }
         }
         // (2) Flow conservation at every vertex
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
         for (a, &(u, v)) in self.graph.arcs().iter().enumerate() {
-            let flow = config[a] as i64;
-            balance[u] -= flow;
-            balance[v] += flow;
+            let flow = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting circulation configuration value".to_string(),
+                )
+            })?;
+            balance[u] = balance[u].checked_sub(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing circulation vertex balance".to_string(),
+                )
+            })?;
+            balance[v] = balance[v].checked_add(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing circulation vertex balance".to_string(),
+                )
+            })?;
         }
-        balance.iter().all(|&b| b == 0)
+        Ok(balance.iter().all(|&b| b == 0))
     }
 
     /// Compute the total cost `sum_a a(a) * g(a)` of a circulation.
-    pub fn total_cost(&self, config: &[usize]) -> i64 {
-        config
-            .iter()
-            .zip(self.costs.iter())
-            .map(|(&g, &c)| (g as i64) * c)
-            .sum()
+    pub fn total_cost(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
+        let mut total = 0_i64;
+        for (&flow, &cost) in config.iter().zip(self.costs.iter()) {
+            let flow = i64::try_from(flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting circulation configuration value".to_string(),
+                )
+            })?;
+            let term = flow.checked_mul(cost).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying circulation arc cost".to_string(),
+                )
+            })?;
+            total = total.checked_add(term).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing circulation costs".to_string(),
+                )
+            })?;
+        }
+        Ok(total)
     }
 }
 
@@ -209,11 +240,16 @@ impl Problem for MinimumCostCirculation {
         self.capacities.iter().map(|&c| (c as usize) + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
-        if !self.is_feasible(config) {
-            return crate::types::Min(None);
-        }
-        crate::types::Min(Some(self.total_cost(config)))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_feasible(config)? {
+                return Ok(crate::types::Min(None));
+            }
+            crate::types::Min(Some(self.total_cost(config)?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -238,8 +274,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         vec![2, 2, 1, 1],
         vec![2, -3, 1, -4],
     );
-    let optimal_config = vec![2_usize, 2, 1, 1];
-    let optimal_value = problem.evaluate(&optimal_config);
+    let optimal_config = vec![2, 2, 1, 1];
+    let optimal_value = problem
+        .evaluate(&optimal_config)
+        .expect("canonical example evaluation must succeed");
     let scalar = match optimal_value {
         crate::types::Min(Some(v)) => v,
         crate::types::Min(None) => panic!("canonical example must be feasible"),

@@ -20,7 +20,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -43,7 +43,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - Graph type (e.g., SimpleGraph)
-/// * `W` - Edge weight type (e.g., i32)
+/// * `W` - Edge weight type (e.g., i64)
 ///
 /// # Example
 ///
@@ -56,7 +56,7 @@ inventory::submit! {
 /// let problem = BoundedDiameterSpanningTree::new(graph, vec![1,2,1,1,2,1,1], 5, 3);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,15 +82,15 @@ struct BoundedDiameterSpanningTreeCreateSpec {
     graph: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    edge_weights: Option<Vec<i32>>,
+    edge_weights: Option<Vec<i64>>,
     weight_bound: i64,
     diameter_bound: usize,
 }
 
 impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
-    for BoundedDiameterSpanningTree<SimpleGraph, i32>
+    for BoundedDiameterSpanningTree<SimpleGraph, i64>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoundedDiameterSpanningTreeCreateSpec) -> Result<Self, Self::Error> {
         let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
@@ -102,16 +102,17 @@ impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
                 "edge_weights has length {}, expected {}",
                 edge_weights.len(),
                 graph.num_edges()
-            ));
+            )
+            .into());
         }
         if edge_weights.iter().any(|&weight| weight <= 0) {
-            return Err("edge_weights must be positive".to_string());
+            return Err("edge_weights must be positive".to_string().into());
         }
         if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string());
+            return Err("weight_bound must be positive".to_string().into());
         }
         if spec.diameter_bound == 0 {
-            return Err("diameter_bound must be at least 1".to_string());
+            return Err("diameter_bound must be at least 1".to_string().into());
         }
         Ok(Self::new(
             graph,
@@ -125,13 +126,15 @@ impl TryFrom<BoundedDiameterSpanningTreeCreateSpec>
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -143,7 +146,7 @@ fn simple_graph_from_create(
         .unwrap_or(0);
     let num_vertices = num_vertices.unwrap_or(inferred);
     if num_vertices < inferred {
-        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"));
+        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }
@@ -282,73 +285,82 @@ where
         vec![2; self.edge_list.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.graph.num_vertices();
-            if config.len() != self.edge_list.len() {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let n = self.graph.num_vertices();
+                if config.len() != self.edge_list.len() {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Collect selected edges
-            let selected_indices: Vec<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v == 1)
-                .map(|(i, _)| i)
-                .collect();
+                // Collect selected edges
+                let selected_indices: Vec<usize> = config
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &v)| v == 1)
+                    .map(|(i, _)| i)
+                    .collect();
 
-            // A spanning tree on n vertices must have exactly n-1 edges
-            if n == 0 {
-                return crate::types::Or(selected_indices.is_empty());
-            }
-            if selected_indices.len() != n - 1 {
-                return crate::types::Or(false);
-            }
+                // A spanning tree on n vertices must have exactly n-1 edges
+                if n == 0 {
+                    return Ok(crate::types::Or(selected_indices.is_empty()));
+                }
+                if selected_indices.len() != n - 1 {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Build adjacency list and compute total weight
-            let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
-            let mut total_weight = W::Sum::zero();
-            for &idx in &selected_indices {
-                let (u, v) = self.edge_list[idx];
-                adj[u].push(v);
-                adj[v].push(u);
-                total_weight += self.edge_weights[idx].to_sum();
-            }
+                // Build adjacency list and compute total weight
+                let mut adj: Vec<Vec<usize>> = vec![Vec::new(); n];
+                let mut total_weight = W::Sum::zero();
+                for &idx in &selected_indices {
+                    let (u, v) = self.edge_list[idx];
+                    adj[u].push(v);
+                    adj[v].push(u);
+                    total_weight = W::checked_add_to_sum(
+                        total_weight,
+                        self.edge_weights[idx].to_sum(),
+                        "summing bounded-diameter spanning tree weights",
+                    )?;
+                }
 
-            // Check weight bound
-            if total_weight > self.weight_bound.clone() {
-                return crate::types::Or(false);
-            }
+                // Check weight bound
+                if total_weight > self.weight_bound.clone() {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check connectivity using BFS
-            let mut visited = vec![false; n];
-            let mut queue = VecDeque::new();
-            visited[0] = true;
-            queue.push_back(0);
-            let mut count = 1;
-            while let Some(v) = queue.pop_front() {
-                for &u in &adj[v] {
-                    if !visited[u] {
-                        visited[u] = true;
-                        count += 1;
-                        queue.push_back(u);
+                // Check connectivity using BFS
+                let mut visited = vec![false; n];
+                let mut queue = VecDeque::new();
+                visited[0] = true;
+                queue.push_back(0);
+                let mut count = 1;
+                while let Some(v) = queue.pop_front() {
+                    for &u in &adj[v] {
+                        if !visited[u] {
+                            visited[u] = true;
+                            count += 1;
+                            queue.push_back(u);
+                        }
                     }
                 }
-            }
 
-            if count != n {
-                return crate::types::Or(false);
-            }
+                if count != n {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check diameter bound (BFS from each vertex)
-            let diameter = Self::tree_diameter(&adj, n);
-            diameter <= self.diameter_bound
+                // Check diameter bound (BFS from each vertex)
+                let diameter = Self::tree_diameter(&adj, n);
+                diameter <= self.diameter_bound
+            })
         })
     }
 }
 
 crate::declare_variants! {
-    default BoundedDiameterSpanningTree<SimpleGraph, i32> => "num_vertices ^ num_vertices" create BoundedDiameterSpanningTreeCreateSpec,
+    default BoundedDiameterSpanningTree<SimpleGraph, i64> => "num_vertices ^ num_vertices" create BoundedDiameterSpanningTreeCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
@@ -358,7 +370,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Tree: edges (0,1),(0,3),(2,3),(3,4) → edge indices 0,2,5,6
     // Config: [1,0,1,0,0,1,1] → weight = 1+1+1+1 = 4 ≤ 5, diameter = 3 ≤ 3
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "bounded_diameter_spanning_tree_simplegraph_i32",
+        id: "bounded_diameter_spanning_tree_simplegraph_i64",
         instance: Box::new(BoundedDiameterSpanningTree::new(
             SimpleGraph::new(
                 5,

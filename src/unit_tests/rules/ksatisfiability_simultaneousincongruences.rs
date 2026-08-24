@@ -13,7 +13,8 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
             CNFClause::new(vec![-1, 2, 2]),
         ],
     );
-    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.lcm_moduli(), 15);
@@ -22,10 +23,11 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
     let solver = BruteForce::new();
     let target_solution = solver
         .find_witness(target)
+        .unwrap()
         .expect("target should be satisfiable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
@@ -37,10 +39,11 @@ fn test_ksatisfiability_to_simultaneous_incongruences_structure() {
             CNFClause::new(vec![-1, 2, 2]),
         ],
     );
-    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let pairs: Vec<(u64, u64)> = target.pairs().to_vec();
+    let pairs: Vec<(i64, i64)> = target.pairs().to_vec();
     assert_eq!(
         pairs,
         vec![(3, 3), (5, 5), (3, 5), (4, 5), (2, 15), (7, 15)]
@@ -56,10 +59,14 @@ fn test_ksatisfiability_to_simultaneous_incongruences_unsatisfiable() {
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_witness(reduction.target_problem()), None);
+    assert_eq!(
+        solver.find_witness(reduction.target_problem()).unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -71,20 +78,25 @@ fn test_ksatisfiability_to_simultaneous_incongruences_tautological_clause_is_red
             CNFClause::new(vec![2, 2, 2]),
         ],
     );
-    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+    let reduction = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_solution = solver
         .find_witness(reduction.target_problem())
+        .unwrap()
         .expect("target should remain satisfiable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
-#[should_panic(expected = "3-SAT -> SimultaneousIncongruences requires the variable-prime product")]
 fn test_ksatisfiability_to_simultaneous_incongruences_rejects_large_instances() {
-    let source = KSatisfiability::<K3>::new(7, vec![CNFClause::new(vec![1, 2, 3])]);
+    let source = KSatisfiability::<K3>::new(16, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let _ = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source);
+    let error = ReduceTo::<SimultaneousIncongruences>::reduce_to(&source).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ReductionError::InvalidTarget { .. }
+    ));
 }

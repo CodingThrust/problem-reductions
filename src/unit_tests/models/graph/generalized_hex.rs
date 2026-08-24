@@ -63,22 +63,22 @@ fn test_generalized_hex_creation_and_getters() {
 #[test]
 fn test_generalized_hex_forced_win_on_bottleneck_example() {
     let problem = winning_example();
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_detects_losing_position() {
     let problem = GeneralizedHex::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), 0, 3);
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_solver_returns_empty_config_for_win() {
     let problem = winning_example();
     let solver = BruteForce::new();
-    assert_eq!(solver.find_witness(&problem), Some(vec![]));
+    assert_eq!(solver.find_witness(&problem).unwrap(), Some(vec![]));
     assert_eq!(
-        solver.find_all_witnesses(&problem),
+        solver.find_all_witnesses(&problem).unwrap(),
         Vec::<Vec<usize>>::from([vec![]])
     );
 }
@@ -98,20 +98,23 @@ fn test_generalized_hex_serialization_round_trip() {
     let decoded: GeneralizedHex<SimpleGraph> = serde_json::from_str(&json).unwrap();
     assert_eq!(decoded.source(), 0);
     assert_eq!(decoded.target(), 5);
-    assert!(decoded.evaluate(&[]));
+    assert!(decoded.evaluate(&[]).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_issue_example_is_losing_under_optimal_play() {
     let problem = issue_example();
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]
 fn test_generalized_hex_paper_example() {
     let problem = winning_example();
-    assert!(problem.evaluate(&[]));
-    assert_eq!(BruteForce::new().find_witness(&problem), Some(vec![]));
+    assert!(problem.evaluate(&[]).unwrap());
+    assert_eq!(
+        BruteForce::new().find_witness(&problem).unwrap(),
+        Some(vec![])
+    );
 }
 
 #[test]

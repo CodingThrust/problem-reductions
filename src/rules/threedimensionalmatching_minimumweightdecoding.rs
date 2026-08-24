@@ -65,7 +65,7 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
 impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToMinimumWeightDecoding;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.universe_size();
         let m = self.num_triples();
 
@@ -76,10 +76,10 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
             // own evaluate on the empty set gives the correct answer:
             //   q = 0 → Or(true)  (empty matching of empty universe)
             //   q ≥ 1 → Or(false) (no triples cannot cover non-empty universe).
-            return ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+            return Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
                 target: MinimumWeightDecoding::new(vec![vec![true]], vec![false]),
                 source_num_triples: m,
-            };
+            });
         }
 
         // Main branch: build H ∈ {0,1}^{3q × m} with row blocks W, X, Y and
@@ -93,10 +93,10 @@ impl ReduceTo<MinimumWeightDecoding> for ThreeDimensionalMatching {
         }
         let syndrome = vec![true; num_rows];
 
-        ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
+        Ok(ReductionThreeDimensionalMatchingToMinimumWeightDecoding {
             target: MinimumWeightDecoding::new(matrix, syndrome),
             source_num_triples: m,
-        }
+        })
     }
 }
 

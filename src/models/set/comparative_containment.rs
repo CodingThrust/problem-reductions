@@ -4,7 +4,9 @@
 //! whether there exists a subset of the universe whose containment weight
 //! in the first family is at least its containment weight in the second.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{
+    ConstructionError, CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension,
+};
 use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
@@ -22,11 +24,11 @@ inventory::submit! {
         name: "ComparativeContainment",
         display_name: "Comparative Containment",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "i32", &["One", "i32", "f64"])],
+        dimensions: &[VariantDimension::new("weight", "i64", &["One", "i64", "f64"])],
         category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Compare containment-weight sums for two set families over a shared universe",
-        fields: ComparativeContainmentI32CreateSpec::FIELDS,
+        fields: ComparativeContainmentI64CreateSpec::FIELDS,
     }
 }
 
@@ -36,8 +38,8 @@ inventory::submit! {
 /// on those sets, determine whether there exists a subset `Y ⊆ X` such that
 /// the total weight of `R`-sets containing `Y` is at least the total weight
 /// of `S`-sets containing `Y`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ComparativeContainment<W = i32> {
+#[derive(Debug, Clone, Serialize)]
+pub struct ComparativeContainment<W = i64> {
     universe_size: usize,
     r_sets: Vec<Vec<usize>>,
     s_sets: Vec<Vec<usize>>,
@@ -66,25 +68,21 @@ macro_rules! comparative_containment_create_spec {
         }
 
         impl TryFrom<$name> for ComparativeContainment<$weight> {
-            type Error = String;
+            type Error = ConstructionError;
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
-                validate_create_set_family("R", spec.universe_size, &spec.r_sets)?;
-                validate_create_set_family("S", spec.universe_size, &spec.s_sets)?;
                 let r_weights = spec
                     .r_weights
                     .unwrap_or_else(|| vec![$one; spec.r_sets.len()]);
                 let s_weights = spec
                     .s_weights
                     .unwrap_or_else(|| vec![$one; spec.s_sets.len()]);
-                validate_create_weights("R", spec.r_sets.len(), &r_weights)?;
-                validate_create_weights("S", spec.s_sets.len(), &s_weights)?;
-                Ok(ComparativeContainment {
-                    universe_size: spec.universe_size,
-                    r_sets: spec.r_sets,
-                    s_sets: spec.s_sets,
+                ComparativeContainment::with_weights(
+                    spec.universe_size,
+                    spec.r_sets,
+                    spec.s_sets,
                     r_weights,
                     s_weights,
-                })
+                )
             }
         }
     };
@@ -94,11 +92,11 @@ fn validate_create_set_family(
     label: &str,
     universe_size: usize,
     sets: &[Vec<usize>],
-) -> Result<(), String> {
+) -> Result<(), ConstructionError> {
     for (set_index, set) in sets.iter().enumerate() {
         for &element in set {
             if element >= universe_size {
-                return Err(format!("{label} set {set_index} contains element {element} outside universe of size {universe_size}"));
+                return Err(ConstructionError::Conversion(format!("{label} set {set_index} contains element {element} outside universe of size {universe_size}")));
             }
         }
     }
@@ -109,32 +107,46 @@ fn validate_create_weights<W: WeightElement>(
     label: &str,
     count: usize,
     weights: &[W],
-) -> Result<(), String> {
+) -> Result<(), ConstructionError> {
     if weights.len() != count {
-        return Err(format!("number of {label} sets and weights must match"));
+        return Err(ConstructionError::Conversion(format!(
+            "number of {label} sets and weights must match"
+        )));
     }
     for (index, weight) in weights.iter().enumerate() {
-        if weight.to_sum().partial_cmp(&W::Sum::zero()) != Some(std::cmp::Ordering::Greater) {
-            return Err(format!(
-                "{label} weight at index {index} must be finite and positive"
-            ));
+        match weight.to_sum().partial_cmp(&W::Sum::zero()) {
+            None => {
+                return Err(ConstructionError::NonFiniteFloat(format!(
+                    "{label} weight at index {index} must be finite"
+                )));
+            }
+            Some(std::cmp::Ordering::Greater) => {}
+            Some(_) => {
+                return Err(ConstructionError::Conversion(format!(
+                    "{label} weight at index {index} must be positive"
+                )));
+            }
         }
     }
     Ok(())
 }
 
-comparative_containment_create_spec!(ComparativeContainmentI32CreateSpec, i32, 1_i32);
+comparative_containment_create_spec!(ComparativeContainmentI64CreateSpec, i64, 1_i64);
 comparative_containment_create_spec!(ComparativeContainmentF64CreateSpec, f64, 1.0_f64);
 comparative_containment_create_spec!(ComparativeContainmentOneCreateSpec, One, One);
 
 impl<W: WeightElement> ComparativeContainment<W> {
     /// Create a new instance with unit weights.
-    pub fn new(universe_size: usize, r_sets: Vec<Vec<usize>>, s_sets: Vec<Vec<usize>>) -> Self
+    pub fn new(
+        universe_size: usize,
+        r_sets: Vec<Vec<usize>>,
+        s_sets: Vec<Vec<usize>>,
+    ) -> Result<Self, ConstructionError>
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let r_weights = vec![W::from(1); r_sets.len()];
-        let s_weights = vec![W::from(1); s_sets.len()];
+        let r_weights = vec![W::unit(); r_sets.len()];
+        let s_weights = vec![W::unit(); s_sets.len()];
         Self::with_weights(universe_size, r_sets, s_sets, r_weights, s_weights)
     }
 
@@ -145,28 +157,18 @@ impl<W: WeightElement> ComparativeContainment<W> {
         s_sets: Vec<Vec<usize>>,
         r_weights: Vec<W>,
         s_weights: Vec<W>,
-    ) -> Self {
-        assert_eq!(
-            r_sets.len(),
-            r_weights.len(),
-            "number of R sets and R weights must match"
-        );
-        assert_eq!(
-            s_sets.len(),
-            s_weights.len(),
-            "number of S sets and S weights must match"
-        );
-        validate_set_family("R", universe_size, &r_sets);
-        validate_set_family("S", universe_size, &s_sets);
-        validate_weight_family("R", &r_weights);
-        validate_weight_family("S", &s_weights);
-        Self {
+    ) -> Result<Self, ConstructionError> {
+        validate_create_set_family("R", universe_size, &r_sets)?;
+        validate_create_set_family("S", universe_size, &s_sets)?;
+        validate_create_weights("R", r_sets.len(), &r_weights)?;
+        validate_create_weights("S", s_sets.len(), &s_weights)?;
+        Ok(Self {
             universe_size,
             r_sets,
             s_sets,
             r_weights,
             s_weights,
-        }
+        })
     }
 
     /// Get the size of the universe.
@@ -214,26 +216,66 @@ impl<W: WeightElement> ComparativeContainment<W> {
     }
 }
 
+impl<'de, W> Deserialize<'de> for ComparativeContainment<W>
+where
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw<W> {
+            universe_size: usize,
+            r_sets: Vec<Vec<usize>>,
+            s_sets: Vec<Vec<usize>>,
+            r_weights: Vec<W>,
+            s_weights: Vec<W>,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Self::with_weights(
+            raw.universe_size,
+            raw.r_sets,
+            raw.s_sets,
+            raw.r_weights,
+            raw.s_weights,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}
+
 impl<W> ComparativeContainment<W>
 where
     W: WeightElement,
 {
     /// Total R-family weight for sets containing the selected subset.
-    pub fn r_weight_sum(&self, config: &[usize]) -> Option<W::Sum> {
+    pub fn r_weight_sum(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         self.sum_containing_weights(config, &self.r_sets, &self.r_weights)
     }
 
     /// Total S-family weight for sets containing the selected subset.
-    pub fn s_weight_sum(&self, config: &[usize]) -> Option<W::Sum> {
+    pub fn s_weight_sum(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         self.sum_containing_weights(config, &self.s_sets, &self.s_weights)
     }
 
     /// Check if a configuration is a satisfying solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        match (self.r_weight_sum(config), self.s_weight_sum(config)) {
-            (Some(r_total), Some(s_total)) => r_total >= s_total,
-            _ => false,
-        }
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(
+            match (self.r_weight_sum(config)?, self.s_weight_sum(config)?) {
+                (Some(r_total), Some(s_total)) => r_total >= s_total,
+                _ => false,
+            },
+        )
     }
 
     fn sum_containing_weights(
@@ -241,18 +283,22 @@ where
         config: &[usize],
         sets: &[Vec<usize>],
         weights: &[W],
-    ) -> Option<W::Sum> {
+    ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         if !self.valid_config(config) {
-            return None;
+            return Ok(None);
         }
 
         let mut total = W::Sum::zero();
         for (set, weight) in sets.iter().zip(weights.iter()) {
             if contains_selected_subset_unchecked(config, set) {
-                total += weight.to_sum();
+                total = W::checked_add_to_sum(
+                    total,
+                    weight.to_sum(),
+                    "summing comparative containment weights",
+                )?;
             }
         }
-        Some(total)
+        Ok(Some(total))
     }
 }
 
@@ -267,8 +313,11 @@ where
         vec![2; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -278,29 +327,8 @@ where
 
 crate::declare_variants! {
     ComparativeContainment<One> => "2^universe_size" create ComparativeContainmentOneCreateSpec,
-    default ComparativeContainment<i32> => "2^universe_size" create ComparativeContainmentI32CreateSpec,
+    default ComparativeContainment<i64> => "2^universe_size" create ComparativeContainmentI64CreateSpec,
     ComparativeContainment<f64> => "2^universe_size" create ComparativeContainmentF64CreateSpec,
-}
-
-fn validate_set_family(label: &str, universe_size: usize, sets: &[Vec<usize>]) {
-    for (set_index, set) in sets.iter().enumerate() {
-        for &element in set {
-            assert!(
-                element < universe_size,
-                "{label} set {set_index} contains element {element} outside universe of size {universe_size}"
-            );
-        }
-    }
-}
-
-fn validate_weight_family<W: WeightElement>(label: &str, weights: &[W]) {
-    for (index, weight) in weights.iter().enumerate() {
-        let sum = weight.to_sum();
-        assert!(
-            sum.partial_cmp(&W::Sum::zero()) == Some(std::cmp::Ordering::Greater),
-            "{label} weights must be finite and positive; weight at index {index} is not"
-        );
-    }
 }
 
 fn contains_selected_subset_unchecked(config: &[usize], set: &[usize]) -> bool {
@@ -313,14 +341,17 @@ fn contains_selected_subset_unchecked(config: &[usize], set: &[usize]) -> bool {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "comparative_containment_i32",
-        instance: Box::new(ComparativeContainment::with_weights(
-            4,
-            vec![vec![0, 1, 2, 3], vec![0, 1]],
-            vec![vec![0, 1, 2, 3], vec![2, 3]],
-            vec![2, 5],
-            vec![3, 6],
-        )),
+        id: "comparative_containment_i64",
+        instance: Box::new(
+            ComparativeContainment::with_weights(
+                4,
+                vec![vec![0, 1, 2, 3], vec![0, 1]],
+                vec![vec![0, 1, 2, 3], vec![2, 3]],
+                vec![2, 5],
+                vec![3, 6],
+            )
+            .expect("canonical comparative-containment instance must be valid"),
+        ),
         optimal_config: vec![0, 1, 0, 0],
         optimal_value: serde_json::json!(true),
     }]

@@ -68,7 +68,7 @@ impl ReductionResult for Reduction3SATToQUBO {
 }
 
 /// Convert a signed literal to (0-indexed variable, is_negated).
-fn lit_to_var(lit: i32) -> (usize, bool) {
+fn lit_to_var(lit: i64) -> (usize, bool) {
     let var = (lit.unsigned_abs() as usize) - 1;
     let neg = lit < 0;
     (var, neg)
@@ -78,7 +78,7 @@ fn lit_to_var(lit: i32) -> (usize, bool) {
 ///
 /// For clause (l_i ∨ l_j), the penalty for the clause being unsatisfied is
 /// the product of the complemented literals.
-fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32]) {
+fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i64]) {
     assert_eq!(lits.len(), 2, "Expected 2-literal clause");
 
     let (var_i, neg_i) = lit_to_var(lits[0]);
@@ -129,7 +129,7 @@ fn add_2sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32]) {
 ///   H = a·y3 + M·(y1·y2 - 2·y1·a - 2·y2·a + 3·a)
 ///
 /// `aux_var` is the 0-indexed auxiliary variable.
-fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize) {
+fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i64], aux_var: usize) {
     assert_eq!(lits.len(), 3, "Expected 3-literal clause");
     let penalty = 2.0; // Rosenberg penalty weight
 
@@ -308,14 +308,18 @@ fn build_qubo_matrix(
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let matrix = build_qubo_matrix(n, self.clauses(), 2);
 
-        ReductionKSatToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionKSatToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<KSatisfiability<K2>, QUBO<f64>>(
+                    message,
+                )
+            })?,
             source_num_vars: n,
-        }
+        })
     }
 }
 
@@ -327,14 +331,18 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let matrix = build_qubo_matrix(n, self.clauses(), 3);
 
-        Reduction3SATToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(Reduction3SATToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<KSatisfiability<K3>, QUBO<f64>>(
+                    message,
+                )
+            })?,
             source_num_vars: n,
-        }
+        })
     }
 }
 

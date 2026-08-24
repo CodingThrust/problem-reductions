@@ -66,7 +66,7 @@ pub fn list(
 
     // Collect data: one row per variant, grouped by problem type.
     struct VariantRow {
-        /// Full problem/variant name (e.g., "MIS/SimpleGraph/i32")
+        /// Full problem/variant name (e.g., "MIS/SimpleGraph/i64")
         display: String,
         /// Aliases (shown only on first variant of each problem)
         aliases: String,
@@ -654,7 +654,7 @@ pub(crate) fn size_contract_to_json(
 }
 
 /// Convert a variant BTreeMap to slash notation showing ALL values.
-/// E.g., {graph: "SimpleGraph", weight: "i32"} → "/SimpleGraph/i32".
+/// E.g., {graph: "SimpleGraph", weight: "i64"} → "/SimpleGraph/i64".
 pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
     if variant.is_empty() {
         String::new()

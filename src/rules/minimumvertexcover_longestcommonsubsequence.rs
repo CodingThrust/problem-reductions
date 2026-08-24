@@ -51,7 +51,7 @@ impl ReductionResult for ReductionVCToLCS {
 impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToLCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.graph().num_vertices();
         let mut strings = Vec::with_capacity(self.graph().num_edges() + 1);
         strings.push((0..num_vertices).collect());
@@ -70,10 +70,10 @@ impl ReduceTo<LongestCommonSubsequence> for MinimumVertexCover<SimpleGraph, One>
         }
 
         let target = LongestCommonSubsequence::new(num_vertices, strings);
-        ReductionVCToLCS {
+        Ok(ReductionVCToLCS {
             target,
             num_vertices,
-        }
+        })
     }
 }
 

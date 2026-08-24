@@ -50,7 +50,7 @@ impl ReductionResult for ReductionClusteringToILP {
 impl ReduceTo<ILP<bool>> for Clustering {
     type Result = ReductionClusteringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_elements = self.num_elements();
         let num_clusters = self.num_clusters();
         let num_vars = num_elements * num_clusters;
@@ -81,11 +81,11 @@ impl ReduceTo<ILP<bool>> for Clustering {
             }
         }
 
-        ReductionClusteringToILP {
+        Ok(ReductionClusteringToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_elements,
             num_clusters,
-        }
+        })
     }
 }
 

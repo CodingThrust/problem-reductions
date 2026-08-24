@@ -41,11 +41,11 @@ inventory::submit! {
 /// let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // The minimum number of color switches
 /// for sol in &solutions {
-///     let switches = problem.count_switches(sol);
+///     let switches = problem.count_switches(sol).unwrap();
 ///     println!("Switches: {}", switches);
 /// }
 /// ```
@@ -165,9 +165,14 @@ impl PaintShop {
     }
 
     /// Count the number of color switches in the sequence.
-    pub fn count_switches(&self, config: &[usize]) -> usize {
+    pub fn count_switches(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
         let coloring = self.get_coloring(config);
-        coloring.windows(2).filter(|w| w[0] != w[1]).count()
+        let count = coloring.windows(2).filter(|w| w[0] != w[1]).count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting paint-switch count to i64".into(),
+            )
+        })
     }
 }
 
@@ -179,15 +184,17 @@ pub(crate) fn count_paint_switches(coloring: &[usize]) -> usize {
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_cars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        // All configurations are valid (no hard constraints).
-        Min(Some(self.count_switches(config) as i32))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            // All configurations are valid (no hard constraints).
+            Min(Some(self.count_switches(config)?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

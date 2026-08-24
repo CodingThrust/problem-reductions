@@ -66,7 +66,7 @@ Only run if review type includes "model". Given: problem name `P`, category `C`,
 | 14 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-| 17 | Numeric contract | Derive the expected representation from the mathematical definition, then compare schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
+| 17 | Numeric and error contracts | Derive the expected boundary representation from the mathematical definition, then compare schema types, Rust fields, aggregate/total type, constructor and serde validation, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify construction paths return `ConstructionError`, `evaluate()` returns `EvaluationError`, and no public model path returns `Result<_, String>`. |
 
 ### Rule Checklist
 
@@ -86,7 +86,7 @@ Only run if review type includes "rule". Given: source `S`, target `T`, rule fil
 | 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
 | 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
 | 12 | Extraction contract | Direct decoders call `validate_target_solution()`, enforce rule-specific structure, and test malformed cases; the helper does not establish feasibility or optimality. Composed extractors may delegate. |
-| 13 | Numeric contract | Compare source/target types, size arithmetic, coefficients, bounds, auxiliary IDs, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic` |
+| 13 | Numeric and error contracts | Compare source/target boundary types, size arithmetic, coefficients, bounds, auxiliary IDs, conversions, overflow behavior, and boundary tests against `docs/src/design.md#numeric-types-and-arithmetic`. Verify public reduction paths return `ReductionError`, preserve target `ConstructionError` as its construction cause, and never stringify or silently handle either failure. |
 
 ## Step 2b: Blacklisted File Check
 

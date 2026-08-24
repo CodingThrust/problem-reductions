@@ -38,7 +38,8 @@ fn infeasible_instance() -> UndirectedTwoCommodityIntegralFlow {
 #[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
     let problem = feasible_instance();
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 3 edges → 4 flow vars + 2 direction vars per edge = 18 variables.
@@ -51,7 +52,8 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
 #[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
     let problem = feasible_instance();
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let entry = inventory::iter::<crate::rules::ReductionEntry>()
@@ -61,9 +63,9 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
                 && entry
                     .target_variant()
                     .iter()
-                    .any(|(key, value)| *key == "variable" && *value == "i32")
+                    .any(|(key, value)| *key == "variable" && *value == "i64")
         })
-        .expect("U2CIF -> ILP<i32> reduction should be registered");
+        .expect("U2CIF -> ILP<i64> reduction should be registered");
 
     let source_size = (entry.source_size_measure_fn)(&problem as &dyn std::any::Any);
     let predicted = entry
@@ -89,20 +91,22 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("feasible instance has a witness");
     assert!(
-        problem.evaluate(&bf_solution).0,
+        problem.evaluate(&bf_solution).unwrap().0,
         "brute force solution is valid"
     );
 
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "ILP extracted solution should be a valid flow"
     );
 }
@@ -110,7 +114,8 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
 #[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should yield infeasible ILP"
@@ -120,7 +125,8 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_infeasible() {
 #[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
     let problem = feasible_instance();
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manual solution: edge 0 (0,2): f1_uv=1, f1_vu=0, f2_uv=0, f2_vu=0
     // edge 1 (1,2): f1_uv=0, f1_vu=0, f2_uv=1, f2_vu=0
@@ -138,7 +144,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
     // extract_solution returns first 4*3=12 flow variables
     assert_eq!(extracted.len(), 12);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "manually extracted solution should be valid"
     );
 }
@@ -146,6 +152,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_extract_solution() {
 #[test]
 fn test_undirectedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
-    let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionU2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

@@ -4,7 +4,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
 
-fn issue_problem() -> LongestCircuit<SimpleGraph, i32> {
+fn issue_problem() -> LongestCircuit<SimpleGraph, i64> {
     LongestCircuit::new(
         SimpleGraph::new(
             6,
@@ -41,13 +41,19 @@ fn test_longest_circuit_evaluate_valid_and_invalid() {
 
     // Outer hexagon: 3+2+4+1+5+2 = 17
     assert_eq!(
-        problem.evaluate(&[1, 1, 1, 1, 1, 1, 0, 0, 0, 0]),
+        problem.evaluate(&[1, 1, 1, 1, 1, 1, 0, 0, 0, 0]).unwrap(),
         Max(Some(17))
     );
     // Not a valid circuit (only 3 edges, not forming a cycle)
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]), Max(None));
+    assert_eq!(
+        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+        Max(None)
+    );
     // Chord edges only — not a valid circuit
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 1, 1, 0]), Max(None));
+    assert_eq!(
+        problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 1, 1, 0]).unwrap(),
+        Max(None)
+    );
 }
 
 #[test]
@@ -56,7 +62,7 @@ fn test_longest_circuit_rejects_disconnected_cycles() {
         SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)]),
         vec![1, 1, 1, 1, 1, 1],
     );
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1, 1]), Max(None));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1, 1]).unwrap(), Max(None));
 }
 
 #[test]
@@ -69,11 +75,11 @@ fn test_longest_circuit_rejects_non_binary() {
 fn test_longest_circuit_bruteforce() {
     let problem = issue_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem);
+    let witness = solver.find_witness(&problem).unwrap();
     assert!(witness.is_some());
 
     // The optimal circuit has value 18 (circuit 0-1-4-5-2-3-0)
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Max(Some(18)));
 }
 
@@ -81,7 +87,7 @@ fn test_longest_circuit_bruteforce() {
 fn test_longest_circuit_serialization() {
     let problem = issue_problem();
     let json = serde_json::to_value(&problem).unwrap();
-    let restored: LongestCircuit<SimpleGraph, i32> = serde_json::from_value(json).unwrap();
+    let restored: LongestCircuit<SimpleGraph, i64> = serde_json::from_value(json).unwrap();
     assert_eq!(restored.num_vertices(), problem.num_vertices());
     assert_eq!(restored.num_edges(), problem.num_edges());
     assert_eq!(restored.edge_lengths(), problem.edge_lengths());
@@ -92,9 +98,9 @@ fn test_longest_circuit_paper_example() {
     let problem = issue_problem();
     // Optimal circuit: 0-1-4-5-2-3-0 with total length 18
     let config = vec![1, 0, 1, 0, 1, 0, 1, 1, 1, 0];
-    assert_eq!(problem.evaluate(&config), Max(Some(18)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(18)));
 
-    let all = BruteForce::new().find_all_witnesses(&problem);
+    let all = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(all.contains(&config));
 }
 

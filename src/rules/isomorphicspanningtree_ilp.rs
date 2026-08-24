@@ -43,7 +43,7 @@ impl ReductionResult for ReductionISTToILP {
 impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
     type Result = ReductionISTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let num_vars = n * n;
 
@@ -80,7 +80,7 @@ impl ReduceTo<ILP<bool>> for IsomorphicSpanningTree<SimpleGraph> {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionISTToILP { target, n }
+        Ok(ReductionISTToILP { target, n })
     }
 }
 

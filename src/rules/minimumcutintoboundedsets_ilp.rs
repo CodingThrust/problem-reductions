@@ -11,6 +11,7 @@ use crate::models::graph::MinimumCutIntoBoundedSets;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionMinCutBSToILP {
@@ -19,7 +20,7 @@ pub struct ReductionMinCutBSToILP {
 }
 
 impl ReductionResult for ReductionMinCutBSToILP {
-    type Source = MinimumCutIntoBoundedSets<SimpleGraph, i32>;
+    type Source = MinimumCutIntoBoundedSets<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -42,10 +43,10 @@ impl ReductionResult for ReductionMinCutBSToILP {
         num_constraints = "2 + 2 + 2 * num_edges",
     },
 )]
-impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {
     type Result = ReductionMinCutBSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let m = edges.len();
@@ -89,14 +90,20 @@ impl ReduceTo<ILP<bool>> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
             .edge_weights()
             .iter()
             .enumerate()
-            .map(|(e_idx, &w)| (n + e_idx, w as f64))
-            .collect();
+            .map(|(edge, &weight)| Ok((n + edge, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumCutIntoBoundedSets<SimpleGraph, i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMinCutBSToILP {
+        Ok(ReductionMinCutBSToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

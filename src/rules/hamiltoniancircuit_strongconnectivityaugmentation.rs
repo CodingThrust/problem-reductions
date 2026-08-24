@@ -15,13 +15,13 @@ use crate::topology::{DirectedGraph, Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to StrongConnectivityAugmentation.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
-    target: StrongConnectivityAugmentation<i32>,
+    target: StrongConnectivityAugmentation<i64>,
     n: usize,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmentation {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = StrongConnectivityAugmentation<i32>;
+    type Target = StrongConnectivityAugmentation<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -81,10 +81,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
         num_potential_arcs = "num_vertices * (num_vertices - 1)",
     }
 )]
-impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<StrongConnectivityAugmentation<i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToStrongConnectivityAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = DirectedGraph::empty(n);
 
@@ -99,11 +99,15 @@ impl ReduceTo<StrongConnectivityAugmentation<i32>> for HamiltonianCircuit<Simple
             }
         }
 
-        let bound = i64::try_from(n)
-            .expect("HamiltonianCircuit -> StrongConnectivityAugmentation bound must fit i64");
+        let bound = i64::try_from(n).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                HamiltonianCircuit<SimpleGraph>,
+                StrongConnectivityAugmentation<i64>,
+            >("converting the vertex count to the target bound")
+        })?;
         let target = StrongConnectivityAugmentation::new(graph, candidate_arcs, bound);
 
-        ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n }
+        Ok(ReductionHamiltonianCircuitToStrongConnectivityAugmentation { target, n })
     }
 }
 
@@ -116,7 +120,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 4-cycle: 0-1-2-3-0
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
-            let reduction = ReduceTo::<StrongConnectivityAugmentation<i32>>::reduce_to(&source);
+            let reduction = ReduceTo::<StrongConnectivityAugmentation<i64>>::reduce_to(&source)
+                .expect("reduction should succeed");
             let target = reduction.target_problem();
 
             // The HC permutation [0, 1, 2, 3] corresponds to the directed cycle
@@ -134,7 +139,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
             // Verify the target config is valid
             assert!(
-                target.is_valid_solution(&target_config),
+                target.is_valid_solution(&target_config).unwrap(),
                 "canonical target config must be a valid SCA solution"
             );
 

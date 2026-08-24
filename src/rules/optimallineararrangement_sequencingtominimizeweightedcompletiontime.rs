@@ -70,22 +70,34 @@ impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
 {
     type Result = ReductionOLAToSequencingToMinimizeWeightedCompletionTime;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let num_vertices = graph.num_vertices();
         let edges = graph.edges();
         let max_degree = (0..num_vertices)
             .map(|v| graph.degree(v))
             .max()
-            .unwrap_or(0) as u64;
+            .unwrap_or(0);
+        let max_degree = i64::try_from(max_degree).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                OptimalLinearArrangement<SimpleGraph>,
+                SequencingToMinimizeWeightedCompletionTime,
+            >("converting the maximum degree to i64")
+        })?;
 
         let mut lengths = Vec::with_capacity(num_vertices + edges.len());
         let mut weights = Vec::with_capacity(num_vertices + edges.len());
         let mut precedences = Vec::with_capacity(2 * edges.len());
 
         for vertex in 0..num_vertices {
+            let degree = i64::try_from(graph.degree(vertex)).map_err(|_| {
+                crate::rules::ReductionError::integer_overflow::<
+                    OptimalLinearArrangement<SimpleGraph>,
+                    SequencingToMinimizeWeightedCompletionTime,
+                >("converting a vertex degree to i64")
+            })?;
             lengths.push(1);
-            weights.push(max_degree - graph.degree(vertex) as u64);
+            weights.push(max_degree - degree);
         }
 
         for (edge_index, &(u, v)) in edges.iter().enumerate() {
@@ -96,10 +108,10 @@ impl ReduceTo<SequencingToMinimizeWeightedCompletionTime>
             precedences.push((v, edge_task));
         }
 
-        ReductionOLAToSequencingToMinimizeWeightedCompletionTime {
+        Ok(ReductionOLAToSequencingToMinimizeWeightedCompletionTime {
             target: SequencingToMinimizeWeightedCompletionTime::new(lengths, weights, precedences),
             num_vertices,
-        }
+        })
     }
 }
 
@@ -115,9 +127,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source =
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
             let reduction =
-                ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source);
+                ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let target_config = BruteForce::new()
                 .find_witness(reduction.target_problem())
+                .expect("canonical target evaluation must succeed")
                 .expect("canonical example must be solvable");
             let source_config = reduction.extract_solution(&target_config).unwrap();
             assemble_rule_example(

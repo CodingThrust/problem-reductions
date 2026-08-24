@@ -21,14 +21,20 @@ fn test_sum_of_squares_partition_basic() {
 fn test_sum_of_squares_partition_evaluate_valid() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
     // Groups: {8,1}=9, {5,2}=7, {3,7}=10 -> 81+49+100=230
-    assert_eq!(problem.evaluate(&[1, 2, 0, 1, 2, 0]), Min(Some(230)));
+    assert_eq!(
+        problem.evaluate(&[1, 2, 0, 1, 2, 0]).unwrap(),
+        Min(Some(230))
+    );
 }
 
 #[test]
 fn test_sum_of_squares_partition_evaluate_imbalanced() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
     // All in group 0: sum=26 -> 676+0+0=676
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0]), Min(Some(676)));
+    assert_eq!(
+        problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap(),
+        Min(Some(676))
+    );
 }
 
 #[test]
@@ -36,29 +42,32 @@ fn test_sum_of_squares_partition_all_in_one_group() {
     // All elements in one group is maximally imbalanced
     let problem = SumOfSquaresPartition::new(vec![1, 2, 3], 2);
     // All in group 0: sum=6, group1=0 -> 36+0=36
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(Some(36)));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(Some(36)));
     // Balanced: {1,2}=3, {3}=3 -> 9+9=18
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Min(Some(18)));
+    assert_eq!(problem.evaluate(&[0, 0, 1]).unwrap(), Min(Some(18)));
 }
 
 #[test]
 fn test_sum_of_squares_partition_sum_of_squares_helper() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
     // Groups: {8,1}=9, {5,2}=7, {3,7}=10 -> 81+49+100=230
-    assert_eq!(problem.sum_of_squares(&[1, 2, 0, 1, 2, 0]), Some(230));
+    assert_eq!(
+        problem.sum_of_squares(&[1, 2, 0, 1, 2, 0]).unwrap(),
+        Some(230)
+    );
 }
 
 #[test]
 fn test_sum_of_squares_partition_invalid_config() {
     let problem = SumOfSquaresPartition::new(vec![1, 2, 3], 2);
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(None));
     // Group index out of range
-    assert_eq!(problem.evaluate(&[0, 2, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 0]).unwrap(), Min(None));
     // sum_of_squares returns None for invalid configs
-    assert_eq!(problem.sum_of_squares(&[0, 0]), None);
-    assert_eq!(problem.sum_of_squares(&[0, 2, 0]), None);
+    assert_eq!(problem.sum_of_squares(&[0, 0]).unwrap(), None);
+    assert_eq!(problem.sum_of_squares(&[0, 2, 0]).unwrap(), None);
 }
 
 #[test]
@@ -66,11 +75,11 @@ fn test_sum_of_squares_partition_two_elements() {
     // Two elements, 2 groups: balanced vs imbalanced
     let problem = SumOfSquaresPartition::new(vec![3, 5], 2);
     // {3},{5} -> 9+25=34
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(34)));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(Some(34)));
     // {3,5},{} -> 64+0=64
-    assert_eq!(problem.evaluate(&[0, 0]), Min(Some(64)));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(Some(64)));
     // {},{3,5} -> 0+64=64
-    assert_eq!(problem.evaluate(&[1, 1]), Min(Some(64)));
+    assert_eq!(problem.evaluate(&[1, 1]).unwrap(), Min(Some(64)));
 }
 
 #[test]
@@ -79,8 +88,9 @@ fn test_sum_of_squares_partition_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find an optimal solution");
-    let value = problem.evaluate(&solution);
+    let value = problem.evaluate(&solution).unwrap();
     assert!(value.0.is_some());
 }
 
@@ -88,7 +98,7 @@ fn test_sum_of_squares_partition_brute_force() {
 fn test_sum_of_squares_partition_brute_force_optimal() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
     let solver = BruteForce::new();
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     // The optimal partition has sums {9,9,8} -> 81+81+64=226
     assert_eq!(value, Min(Some(226)));
 }
@@ -97,12 +107,12 @@ fn test_sum_of_squares_partition_brute_force_optimal() {
 fn test_sum_of_squares_partition_brute_force_all() {
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     // All witnesses should achieve the optimal value
-    let optimal = solver.solve(&problem);
+    let optimal = solver.solve(&problem).unwrap();
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), optimal);
+        assert_eq!(problem.evaluate(sol).unwrap(), optimal);
     }
 }
 
@@ -149,19 +159,28 @@ fn test_sum_of_squares_partition_deserialization_rejects_invalid_fields() {
 }
 
 #[test]
-fn test_sum_of_squares_partition_sum_overflow_returns_none() {
+fn test_sum_of_squares_partition_sum_overflow_is_an_error() {
     let problem = SumOfSquaresPartition::new(vec![i64::MAX, 1], 1);
 
-    assert_eq!(problem.sum_of_squares(&[0, 0]), None);
-    assert_eq!(problem.evaluate(&[0, 0]), Min(None));
+    assert!(matches!(
+        problem.sum_of_squares(&[0, 0]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&[0, 0]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
 }
 
 #[test]
-fn test_sum_of_squares_partition_square_overflow_returns_none() {
+fn test_sum_of_squares_partition_square_overflow_is_an_error() {
     let problem = SumOfSquaresPartition::new(vec![3_037_000_500], 1);
 
-    assert_eq!(problem.sum_of_squares(&[0]), None);
-    assert_eq!(problem.evaluate(&[0]), Min(None));
+    assert!(problem.sum_of_squares(&[0]).is_err());
+    assert!(matches!(
+        problem.evaluate(&[0]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
 }
 
 #[test]
@@ -172,12 +191,12 @@ fn test_sum_of_squares_partition_paper_example() {
     // Verify a partition:
     // A1={8,1}(sums to 9), A2={5,2}(sums to 7), A3={3,7}(sums to 10)
     let config = vec![1, 2, 0, 1, 2, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(230)));
-    assert_eq!(problem.sum_of_squares(&config), Some(230));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(230)));
+    assert_eq!(problem.sum_of_squares(&config).unwrap(), Some(230));
 
     // Brute force finds the optimal value
     let solver = BruteForce::new();
-    let optimal = solver.solve(&problem);
+    let optimal = solver.solve(&problem).unwrap();
     // Best partition: sums {9,9,8} -> 81+81+64=226
     assert_eq!(optimal, Min(Some(226)));
 }

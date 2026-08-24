@@ -546,7 +546,7 @@
     parts.push(node.variant.graph)
   }
   if "weight" in node.variant {
-    if node.variant.weight == "i32" { parts.push("weighted") }
+    if node.variant.weight == "i64" { parts.push("weighted") }
     else if node.variant.weight == "f64" { parts.push("real-weighted") }
   }
   if "k" in node.variant { parts.push[$k$-ary] }
@@ -1359,7 +1359,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("MaxCut", variant: (graph: "SimpleGraph", weight: "i32"))
+  let x = load-model-example("MaxCut", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
@@ -1449,7 +1449,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 #{
-  let x = load-model-example("MinimumCutIntoBoundedSets", variant: (graph: "SimpleGraph", weight: "i32"))
+  let x = load-model-example("MinimumCutIntoBoundedSets", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = graph-num-vertices(x.instance)
   let edges = x.instance.graph.edges
   let ew = x.instance.edge_weights
@@ -1524,7 +1524,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ]
 }
 #{
-  let x = load-model-example("BiconnectivityAugmentation", variant: (graph: "SimpleGraph", weight: "i32"))
+  let x = load-model-example("BiconnectivityAugmentation", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = x.instance.graph.num_vertices
   let path-edges-j = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let candidates = x.instance.potential_weights.map(c => (u: c.at(0), v: c.at(1), w: c.at(2)))
@@ -1719,7 +1719,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 
 #{
-  let x = load-model-example("BoundedComponentSpanningForest", variant: (graph: "SimpleGraph", weight: "i32"))
+  let x = load-model-example("BoundedComponentSpanningForest", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = x.instance.graph.num_vertices
   let edges-j = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let weights = x.instance.weights
@@ -7179,7 +7179,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 }
 
 #{
-  let x = load-model-example("MixedChinesePostman", variant: (weight: "i32"))
+  let x = load-model-example("MixedChinesePostman", variant: (weight: "i64"))
   let nv = x.instance.graph.num_vertices
   let arcs = x.instance.graph.arcs
   let edges = x.instance.graph.edges
@@ -7198,7 +7198,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#config.map(str).join(", "))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
 
       #pred-commands(
-        "pred create --example MixedChinesePostman/i32 -o mixed-chinese-postman.json",
+        "pred create --example MixedChinesePostman/i64 -o mixed-chinese-postman.json",
         "pred solve mixed-chinese-postman.json --solver brute-force",
         "pred evaluate mixed-chinese-postman.json --config " + x.optimal_config.map(str).join(","),
       )
@@ -11715,13 +11715,13 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   "DecisionMinimumDominatingSet",
   "MinimumSumMulticenter",
   source-variant: (graph: "SimpleGraph", weight: "One"),
-  target-variant: (graph: "SimpleGraph", weight: "i32"),
+  target-variant: (graph: "SimpleGraph", weight: "i64"),
 )
 #let dmds_msmc_sol = dmds_msmc.solutions.at(0)
 #reduction-rule("DecisionMinimumDominatingSet", "MinimumSumMulticenter",
   example: true,
   example-source-variant: (graph: "SimpleGraph", weight: "One"),
-  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i64"),
   example-caption: [6-vertex unit graph: dominating set of size 2 gives total distance 4],
   extra: [
     #pred-commands(
@@ -11880,14 +11880,14 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 #let mis_clique = load-example(
   "MaximumIndependentSet",
   "MaximumClique",
-  source-variant: (graph: "SimpleGraph", weight: "i32"),
-  target-variant: (graph: "SimpleGraph", weight: "i32"),
+  source-variant: (graph: "SimpleGraph", weight: "i64"),
+  target-variant: (graph: "SimpleGraph", weight: "i64"),
 )
 #let mis_clique_sol = mis_clique.solutions.at(0)
 #reduction-rule("MaximumIndependentSet", "MaximumClique",
   example: true,
-  example-source-variant: (graph: "SimpleGraph", weight: "i32"),
-  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-source-variant: (graph: "SimpleGraph", weight: "i64"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i64"),
   example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
   extra: [
     #pred-commands(
@@ -13494,13 +13494,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let mckp_ilp = load-example(
   "MaximumCoKPlex",
   "ILP",
-  source-variant: (graph: "SimpleGraph", k: "KN", weight: "i32"),
+  source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
   target-variant: (variable: "bool"),
 )
 #let mckp_ilp_sol = mckp_ilp.solutions.at(0)
 #reduction-rule("MaximumCoKPlex", "ILP",
   example: true,
-  example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i32"),
+  example-source-variant: (graph: "SimpleGraph", k: "KN", weight: "i64"),
   example-target-variant: (variable: "bool"),
   example-caption: [Weighted 5-cycle ($n = 5$), $k = 2$],
   extra: [
@@ -13606,13 +13606,13 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let mewkc_ilp = load-example(
   "MaximumEdgeWeightedKClique",
   "ILP",
-  source-variant: (weight: "i32"),
+  source-variant: (weight: "i64"),
   target-variant: (variable: "bool"),
 )
 #let mewkc_ilp_sol = mewkc_ilp.solutions.at(0)
 #reduction-rule("MaximumEdgeWeightedKClique", "ILP",
   example: true,
-  example-source-variant: (weight: "i32"),
+  example-source-variant: (weight: "i64"),
   example-target-variant: (variable: "bool"),
   example-caption: [$n = 4$ vertices, $m = 5$ edges, $k = 3$],
   extra: [
@@ -13747,14 +13747,14 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let clique_mis = load-example(
   "MaximumClique",
   "MaximumIndependentSet",
-  source-variant: (graph: "SimpleGraph", weight: "i32"),
-  target-variant: (graph: "SimpleGraph", weight: "i32"),
+  source-variant: (graph: "SimpleGraph", weight: "i64"),
+  target-variant: (graph: "SimpleGraph", weight: "i64"),
 )
 #let clique_mis_sol = clique_mis.solutions.at(0)
 #reduction-rule("MaximumClique", "MaximumIndependentSet",
   example: true,
-  example-source-variant: (graph: "SimpleGraph", weight: "i32"),
-  example-target-variant: (graph: "SimpleGraph", weight: "i32"),
+  example-source-variant: (graph: "SimpleGraph", weight: "i64"),
+  example-target-variant: (graph: "SimpleGraph", weight: "i64"),
   example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
   extra: [
     #pred-commands(
@@ -14121,12 +14121,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let cs_ilp_str = load-example(
   "ClosestString",
   "ILP",
-  target-variant: (variable: "i32"),
+  target-variant: (variable: "i64"),
 )
 #let cs_ilp_str_sol = cs_ilp_str.solutions.at(0)
 #reduction-rule("ClosestString", "ILP",
   example: true,
-  example-target-variant: (variable: "i32"),
+  example-target-variant: (variable: "i64"),
   example-caption: [Binary alphabet, 4 length-3 strings],
   extra: [
     #pred-commands(
@@ -14164,12 +14164,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let css_ilp = load-example(
   "ClosestSubstring",
   "ILP",
-  target-variant: (variable: "i32"),
+  target-variant: (variable: "i64"),
 )
 #let css_ilp_sol = css_ilp.solutions.at(0)
 #reduction-rule("ClosestSubstring", "ILP",
   example: true,
-  example-target-variant: (variable: "i32"),
+  example-target-variant: (variable: "i64"),
   example-caption: [Binary alphabet, 3 length-5 strings, length-3 windows],
   extra: [
     #pred-commands(
@@ -15226,7 +15226,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Construction._ Let $n = |V|$, let the original directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (alpha_i, beta_i)$, and let the undirected edges be $E = {e_0, dots, e_(q-1)}$ with $e_k = {u_k, v_k}$. Set $R = m + q$. If $R = 0$, return the empty feasible ILP: the empty walk already has length 0. Otherwise form the available directed-arc list
   $A^* = {b_0, dots, b_(L-1)}$ with $L = m + 2 q$,
   where $b_i = a_i$ for $0 <= i < m$, $b_(m + 2 k) = (u_k, v_k)$, and $b_(m + 2 k + 1) = (v_k, u_k)$.
-  Write $b_j = ("tail"_j, "head"_j)$ and let $ell_j$ be the corresponding length. Use `ILP<i32>` with binary variables encoded by bounds $0 <= x <= 1$. Order the variables as
+  Write $b_j = ("tail"_j, "head"_j)$ and let $ell_j$ be the corresponding length. Use `ILP<i64>` with binary variables encoded by bounds $0 <= x <= 1$. Order the variables as
   $(d_0, dots, d_(q-1), g_0, dots, g_(L-1), y_0, dots, y_(L-1), z_0, dots, z_(n-1), rho_0, dots, rho_(n-1), s, b_0, dots, b_(n-1), f_0, dots, f_(L-1), h_0, dots, h_(L-1))$,
   so $d_k$ has index $k$, $g_j$ has index $q + j$, $y_j$ has index $q + L + j$, $z_v$ has index $q + 2 L + v$, $rho_v$ has index $q + 2 L + n + v$, $s$ has index $q + 2 L + 2 n$, $b_v$ has index $q + 2 L + 2 n + 1 + v$, $f_j$ has index $q + 2 L + 3 n + 1 + j$, and $h_j$ has index $q + 3 L + 3 n + 1 + j$. There are $q + 4 L + 3 n + 1$ variables in total.
 
@@ -15616,12 +15616,12 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let ep_ilp = load-example(
   "EulerianPath",
   "ILP",
-  target-variant: (variable: "i32"),
+  target-variant: (variable: "i64"),
 )
 #let ep_ilp_sol = ep_ilp.solutions.at(0)
 #reduction-rule("EulerianPath", "ILP",
   example: true,
-  example-target-variant: (variable: "i32"),
+  example-target-variant: (variable: "i64"),
   example-caption: [3-vertex digraph with 4 arcs (parallel edges)],
   extra: [
     #pred-commands(
@@ -15807,7 +15807,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("AcyclicPartition", "ILP")[
   Assign every vertex to one partition class, bound the weight and crossing cost of those classes, and impose a topological order on the quotient digraph.
 ][
-  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i32>` with variable order
+  _Construction._ Let $n = |V|$ and let the directed arcs be $A = {a_0, dots, a_(m-1)}$ with $a_t = (u_t -> v_t)$. The source witness already allows every vertex to choose one label in ${0, dots, n - 1}$, so the ILP uses exactly the same label range. Use `ILP<i64>` with variable order
   $(x_(v,c))_(v,c), (s_(t,c))_(t,c), (y_t)_t, (o_c)_c, (p_v)_v$.
   The indices are
   $"idx"_x(v,c) = v n + c$,
@@ -15875,7 +15875,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   $r_q = 0$ if $q != 0$, and $r_0 = 1$.
   This choice is explicit and valid because $n >= 2$.
 
-  Use `ILP<i32>`. The candidate-selection bits are $y_j in {0, 1}$ with index $j$. For the connectivity witnesses, allocate the full $(q, t)$ commodity grid with $q, t in {0, dots, n - 1}$, even though the commodities with $t = q$ or $t = r_q$ will be pinned to 0. For each base edge $e_i$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $u_i -> v_i$ and $eta = 1$ mean $v_i -> u_i$; define binary flow variables $f^(q,t)_(i,eta)$ with index
+  Use `ILP<i64>`. The candidate-selection bits are $y_j in {0, 1}$ with index $j$. For the connectivity witnesses, allocate the full $(q, t)$ commodity grid with $q, t in {0, dots, n - 1}$, even though the commodities with $t = q$ or $t = r_q$ will be pinned to 0. For each base edge $e_i$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $u_i -> v_i$ and $eta = 1$ mean $v_i -> u_i$; define binary flow variables $f^(q,t)_(i,eta)$ with index
   $p + (((q n + t) m + i) 2 + eta)$.
   For each candidate edge $f_j$ and orientation flag $eta in {0, 1}$, let $eta = 0$ mean $s_j -> t_j$ and $eta = 1$ mean $t_j -> s_j$; define binary flow variables $g^(q,t)_(j,eta)$ with index
   $p + 2 m n^2 + (((q n + t) p + j) 2 + eta)$.
@@ -15913,7 +15913,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("BoundedComponentSpanningForest", "ILP")[
   Assign every vertex to one of at most $K$ components, bound each component's total weight, and certify connectivity inside each used component by a flow witness.
 ][
-  _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i32>` with variables ordered as
+  _Construction._ Let $n = |V|$, let the graph edges be $E = {e_0, dots, e_(m-1)}$ with $e_i = {u_i, v_i}$, and let the allowed component labels be $c in {0, dots, K - 1}$. Use `ILP<i64>` with variables ordered as
   $(x_(v,c))_(v,c), (u_c)_c, (r_(v,c))_(v,c), (s_c)_c, (b_(v,c))_(v,c), (f_(i,eta,c))_(i,eta,c)$.
   Their indices are
   $"idx"_x(v,c) = v K + c$,
@@ -15984,7 +15984,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("StrongConnectivityAugmentation", "ILP")[
   Select candidate arcs under the budget and certify strong connectivity by sending flow both from a root to every vertex and back again.
 ][
-  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i32>` with variables ordered as
+  _Construction._ Let the base arcs be $A = {a_0, dots, a_(m-1)}$ with $a_i = (u_i, v_i)$, let the candidate arcs be $C = {c_0, dots, c_(p-1)}$ with $c_j = (s_j, t_j)$, and, when $n = |V| >= 1$, fix the root to be vertex $r = 0$. If $n <= 1$, return the empty feasible ILP. Use `ILP<i64>` with variables ordered as
   $(y_j)_j, (f^t_i)_(t,i), (bar(f)^t_j)_(t,j), (g^t_i)_(t,i), (bar(g)^t_j)_(t,j)$,
   where $f^t$ is the forward root-to-$t$ flow on base arcs, $bar(f)^t$ is the forward flow on candidate arcs, $g^t$ is the backward $t$-to-root flow on base arcs, and $bar(g)^t$ is the backward flow on candidate arcs.
   The indices are
@@ -16388,7 +16388,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 ][
   _Construction._ Let $X = {0, dots, n - 1}$ and let the subset family be $cal(C) = {S_0, dots, S_(m-1)}$. For every subset of size 0 or 1 the model charges extension cost 0 automatically, so only the nontrivial subsets matter. Enumerate them as
   $I = {k_0 < dots < k_(r-1)} = {k : |S_k| >= 2}$.
-  Use `ILP<i32>`. The variable blocks are:
+  Use `ILP<i64>`. The variable blocks are:
   parent indicators $p_(v,u) in {0, 1}$ for all $v, u in X$;
   depths $d_v in {0, dots, n - 1}$;
   ancestor indicators $a_(u,v) in {0, 1}$, where $a_(u,v) = 1$ means $u$ is an ancestor of $v$ (allowing $u = v$);
@@ -16514,7 +16514,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #reduction-rule("MinimumEdgeCostFlow", "ILP")[
   Introduce integer flow variables and binary arc-activation indicators, link them so that an indicator is forced to 1 whenever the corresponding arc carries positive flow, and minimize the total price of activated arcs.
 ][
-  _Construction._ Let $m = |A|$ and $n = |V|$. Use `ILP<i32>` with $2m$ variables: integer flow variables $f_a in {0, dots, c(a)}$ for $a in {0, dots, m - 1}$ and binary activation indicators $y_a in {0, 1}$ for $a in {m, dots, 2m - 1}$.
+  _Construction._ Let $m = |A|$ and $n = |V|$. Use `ILP<i64>` with $2m$ variables: integer flow variables $f_a in {0, dots, c(a)}$ for $a in {0, dots, m - 1}$ and binary activation indicators $y_a in {0, 1}$ for $a in {m, dots, 2m - 1}$.
 
   Constraints:
   - _Linking:_ $f_a - c(a) dot y_a <= 0$ for each arc $a$ — forces $y_a = 1$ when $f_a > 0$ ($m$ constraints).
@@ -16708,8 +16708,8 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
   - _KingsSubgraph $arrow.r$ UnitDiskGraph:_ integer grid positions $(i, j)$ map to float coordinates with radius $r = 1.5$.
   - _TriangularSubgraph $arrow.r$ UnitDiskGraph:_ triangular lattice positions map to float coordinates with radius $r = 1.1$.
   - _UnitDiskGraph $arrow.r$ SimpleGraph:_ discard coordinates, retain only the adjacency edge list.
-  - _One $arrow.r$ i32:_ each unit weight maps to $1_ZZ$.
-  - _i32 $arrow.r$ f64:_ each integer weight maps to its float representation.
+  - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
+  - _i64 $arrow.r$ f64:_ each integer weight maps to its float representation.
 
   _Correctness._ The cast preserves the vertex set, edge set, and weight values (up to type embedding). Since the MIS objective $max sum_(v in S) w(v)$ depends only on adjacency and weights, any independent set in $G_"sub"$ is independent in $G'$, and the objective is unchanged. Optimality is preserved in both directions.
 
@@ -16750,8 +16750,8 @@ Problems parameterized by graph type, weight type, or clause-width ($k$) admit i
   A Maximum Set Packing instance with unit weights casts to integer weights ($"One" arrow.r ZZ$) or integer weights cast to float weights ($ZZ arrow.r RR$). The set family and universe are preserved; only the weight type changes.
 ][
   _Construction._ Given $"MSP"(cal(S), bold(w))$ with weights $w_i$ of type $W_"sub"$, construct $"MSP"(cal(S), bold(w)')$ with $w'_i = "cast"(w_i)$:
-  - _One $arrow.r$ i32:_ each unit weight maps to $1_ZZ$.
-  - _i32 $arrow.r$ f64:_ each integer weight maps to its float representation.
+  - _One $arrow.r$ i64:_ each unit weight maps to $1_ZZ$.
+  - _i64 $arrow.r$ f64:_ each integer weight maps to its float representation.
 
   _Correctness._ The packing constraint (no two selected sets share a universe element) depends only on set membership, not on weights. The objective $max sum_(i in P) w_i$ is preserved under the type embedding. Optimality is unchanged.
 
@@ -16956,7 +16956,7 @@ The following table shows concrete target-variable counts for example instances,
 ]
 
 #{
-  let x = load-model-example("MinimumCapacitatedSpanningTree", variant: (graph: "SimpleGraph", weight: "i32"))
+  let x = load-model-example("MinimumCapacitatedSpanningTree", variant: (graph: "SimpleGraph", weight: "i64"))
   let nv = x.instance.graph.num_vertices
   let edges-j = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let ew = x.instance.weights

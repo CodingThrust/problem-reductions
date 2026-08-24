@@ -28,6 +28,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
+use crate::types::i64_to_exact_f64;
 use crate::types::WeightElement;
 use crate::variant::VariantParam;
 use std::marker::PhantomData;
@@ -129,12 +130,23 @@ where
         num_constraints = "1 + num_vertices * (num_vertices - 1) / 2 + 2 * num_edges",
     },
 )]
-impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i32> {
-    type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i32>;
+impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
+    type Result = ReductionMaximumEdgeWeightedKCliqueToILP<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
-        let coefficients: Vec<f64> = self.edge_weights().iter().map(|w| *w as f64).collect();
-        build_reduction(self, coefficients)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let coefficients = self
+            .edge_weights()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MaximumEdgeWeightedKClique<i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
+        Ok(build_reduction(self, coefficients))
     }
 }
 
@@ -147,9 +159,9 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i32> {
 impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<f64> {
     type Result = ReductionMaximumEdgeWeightedKCliqueToILP<f64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let coefficients: Vec<f64> = self.edge_weights().to_vec();
-        build_reduction(self, coefficients)
+        Ok(build_reduction(self, coefficients))
     }
 }
 
@@ -158,15 +170,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::topology::SimpleGraph;
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumedgeweightedkclique_i32_to_ilp",
+            id: "maximumedgeweightedkclique_i64_to_ilp",
             build: || {
                 // Canonical issue #1020 instance: 4 vertices, 5 edges, k = 3.
                 // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
-                let source = MaximumEdgeWeightedKClique::<i32>::new(
+                let source = MaximumEdgeWeightedKClique::<i64>::new(
                     SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
                     vec![5, 4, -1, 1, 0],
                     3,
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },
@@ -177,7 +190,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),
                     vec![5.0, 4.0, -1.0, 1.0, 0.0],
                     3,
-                );
+                )
+                .unwrap();
                 crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
             },
         },

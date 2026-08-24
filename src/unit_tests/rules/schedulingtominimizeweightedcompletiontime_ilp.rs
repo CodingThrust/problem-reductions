@@ -9,7 +9,8 @@ use crate::types::Min;
 fn test_reduction_creates_valid_ilp_structure() {
     // 3 tasks, 2 processors
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2, 3], vec![4, 2, 1], 2);
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3, m=2: x vars = 3*2=6, C vars = 3, y vars = 3*2/2=3, total=12
@@ -35,7 +36,8 @@ fn test_reduction_creates_valid_ilp_structure() {
 #[test]
 fn test_solution_extraction() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2], vec![3, 1], 2);
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Build a manual ILP solution:
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1 => task 0 on P0, task 1 on P1
@@ -56,7 +58,7 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&sol).unwrap();
     assert_eq!(extracted, vec![0, 1]);
     // Each on separate processor: C(0)=1, C(1)=2, WCT = 1*3 + 2*1 = 5
-    assert_eq!(problem.evaluate(&extracted), Min(Some(5)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(5)));
 }
 
 #[test]
@@ -67,14 +69,16 @@ fn test_ilp_matches_bruteforce_small() {
     let bf = BruteForce::new();
     let bf_witness = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("BF should find a solution");
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
 
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(ilp_value, bf_value);
 }
@@ -88,23 +92,25 @@ fn test_issue_example_closed_loop() {
         2,
     );
 
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&extracted), Min(Some(47)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(47)));
 }
 
 #[test]
 fn test_single_task_single_processor() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![5], vec![3], 1);
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Min(Some(15)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(15)));
 }
 
 #[test]
@@ -116,14 +122,16 @@ fn test_equal_tasks_multiple_processors() {
     let bf = BruteForce::new();
     let bf_witness = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("BF should find a solution");
-    let bf_value = problem.evaluate(&bf_witness);
+    let bf_value = problem.evaluate(&bf_witness).unwrap();
 
-    let reduction: ReductionSMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionSMWCTToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(ilp_value, bf_value);
 }

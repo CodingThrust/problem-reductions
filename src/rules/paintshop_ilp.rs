@@ -43,7 +43,7 @@ impl ReductionResult for ReductionPaintShopToILP {
 impl ReduceTo<ILP<bool>> for PaintShop {
     type Result = ReductionPaintShopToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let nc = self.num_cars();
         let seq_len = self.sequence_len();
 
@@ -113,10 +113,10 @@ impl ReduceTo<ILP<bool>> for PaintShop {
         let objective: Vec<(usize, f64)> = (1..seq_len).map(|p| (c_offset + p, 1.0)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionPaintShopToILP {
+        Ok(ReductionPaintShopToILP {
             target,
             num_cars: nc,
-        }
+        })
     }
 }
 
@@ -128,7 +128,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Sequence: A, B, A, C, B, C => 3 cars
             let source = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
-            let reduction: ReductionPaintShopToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionPaintShopToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver

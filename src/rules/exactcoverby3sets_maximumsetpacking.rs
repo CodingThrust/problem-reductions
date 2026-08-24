@@ -1,7 +1,7 @@
 //! Reduction from ExactCoverBy3Sets to MaximumSetPacking.
 //!
 //! Given an X3C instance with universe X (|X| = 3q) and collection C of
-//! 3-element subsets, construct a MaximumSetPacking<One> instance where each
+//! 3-element subsets, construct a `MaximumSetPacking<One>` instance where each
 //! triple becomes a variable-length set with unit weight. An exact cover
 //! of q disjoint triples corresponds to a maximum packing of value q.
 
@@ -46,16 +46,16 @@ impl ReductionResult for ReductionXC3SToMaximumSetPacking {
 impl ReduceTo<MaximumSetPacking<One>> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMaximumSetPacking;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let sets: Vec<Vec<usize>> = self
             .subsets()
             .iter()
             .map(|triple| triple.to_vec())
             .collect();
 
-        ReductionXC3SToMaximumSetPacking {
+        Ok(ReductionXC3SToMaximumSetPacking {
             target: MaximumSetPacking::<One>::new(sets),
-        }
+        })
     }
 }
 

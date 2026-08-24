@@ -137,13 +137,13 @@ fn test_circuit_sat_evaluate() {
 
     // Variables sorted: c, x, y
     // c=1, x=1, y=1 -> c = 1 AND 1 = 1, valid
-    assert!(problem.evaluate(&[1, 1, 1]));
+    assert!(problem.evaluate(&[1, 1, 1]).unwrap());
 
     // c=0, x=0, y=0 -> c = 0 AND 0 = 0, valid
-    assert!(problem.evaluate(&[0, 0, 0]));
+    assert!(problem.evaluate(&[0, 0, 0]).unwrap());
 
     // c=1, x=0, y=0 -> c should be 0, but c=1, invalid
-    assert!(!problem.evaluate(&[1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -156,12 +156,12 @@ fn test_circuit_sat_brute_force() {
     let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // All satisfying: c matches x AND y
     // 4 valid configs: (0,0,0), (0,0,1), (0,1,0), (1,1,1)
     assert_eq!(solutions.len(), 4);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -182,10 +182,10 @@ fn test_circuit_sat_complex() {
     let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // All valid solutions satisfy both assignments
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -211,7 +211,7 @@ fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
     let problem = CircuitSAT::new(circuit);
     // Empty circuit is trivially satisfied
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -229,11 +229,11 @@ fn test_circuit_sat_problem() {
     assert_eq!(p.dims(), vec![2, 2, 2]);
 
     // c=1, x=1, y=1: c = 1 AND 1 = 1 => satisfied
-    assert!(p.evaluate(&[1, 1, 1]));
+    assert!(p.evaluate(&[1, 1, 1]).unwrap());
     // c=0, x=0, y=0: c = 0 AND 0 = 0 => satisfied (c=0 matches)
-    assert!(p.evaluate(&[0, 0, 0]));
+    assert!(p.evaluate(&[0, 0, 0]).unwrap());
     // c=1, x=1, y=0: c = 1 AND 0 = 0 != 1 => not satisfied
-    assert!(!p.evaluate(&[1, 1, 0]));
+    assert!(!p.evaluate(&[1, 1, 0]).unwrap());
 }
 
 #[test]
@@ -286,12 +286,12 @@ fn test_circuit_sat_paper_example() {
     // Variables sorted: a, b, c, x1, x2
     // Paper satisfying inputs (output c=1): (x1=0,x2=1) and (x1=1,x2=0)
     // (x1=0,x2=1): a=0, b=1, c=1 → config [0, 1, 1, 0, 1]
-    assert!(problem.evaluate(&[0, 1, 1, 0, 1]));
+    assert!(problem.evaluate(&[0, 1, 1, 0, 1]).unwrap());
     // (x1=1,x2=0): a=0, b=1, c=1 → config [0, 1, 1, 1, 0]
-    assert!(problem.evaluate(&[0, 1, 1, 1, 0]));
+    assert!(problem.evaluate(&[0, 1, 1, 1, 0]).unwrap());
 
     // All 4 consistent configs are satisfying (CircuitSAT checks consistency)
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4);
 }

@@ -11,7 +11,7 @@
 pub trait VariantParam: 'static {
     /// Category name (e.g., `"graph"`, `"weight"`, `"k"`).
     const CATEGORY: &'static str;
-    /// Type name within the category (e.g., `"SimpleGraph"`, `"i32"`).
+    /// Type name within the category (e.g., `"SimpleGraph"`, `"i64"`).
     const VALUE: &'static str;
     /// Parent type name in the subtype hierarchy, or `None` for root types.
     const PARENT_VALUE: Option<&'static str>;
@@ -61,6 +61,14 @@ macro_rules! impl_variant_param {
             const CATEGORY: &'static str = $cat;
             const VALUE: &'static str = stringify!($ty);
             const PARENT_VALUE: Option<&'static str> = None;
+        }
+    };
+    // Type with a parent but no infallible cast.
+    ($ty:ty, $cat:expr, parent: $parent:ty) => {
+        impl $crate::variant::VariantParam for $ty {
+            const CATEGORY: &'static str = $cat;
+            const VALUE: &'static str = stringify!($ty);
+            const PARENT_VALUE: Option<&'static str> = Some(stringify!($parent));
         }
     };
     // Type with parent + cast closure
@@ -167,7 +175,9 @@ impl VariantSpec {
     /// Create a `VariantSpec` from key-value pairs, rejecting duplicate dimensions.
     ///
     /// Returns an error if the same dimension key appears more than once.
-    pub fn try_from_pairs<I, K, V>(pairs: I) -> std::result::Result<Self, String>
+    pub fn try_from_pairs<I, K, V>(
+        pairs: I,
+    ) -> std::result::Result<Self, crate::registry::ConstructionError>
     where
         I: IntoIterator<Item = (K, V)>,
         K: Into<String>,
@@ -178,14 +188,16 @@ impl VariantSpec {
             let key = k.into();
             let val = v.into();
             if dims.insert(key.clone(), val).is_some() {
-                return Err(format!("duplicate dimension: {}", key));
+                return Err(format!("duplicate dimension: {}", key).into());
             }
         }
         Ok(Self { dims })
     }
 
     /// Create a `VariantSpec` from an existing `BTreeMap`.
-    pub fn try_from_map(map: BTreeMap<String, String>) -> std::result::Result<Self, String> {
+    pub fn try_from_map(
+        map: BTreeMap<String, String>,
+    ) -> std::result::Result<Self, crate::registry::ConstructionError> {
         Ok(Self { dims: map })
     }
 

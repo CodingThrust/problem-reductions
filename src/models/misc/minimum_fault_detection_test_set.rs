@@ -55,7 +55,7 @@ inventory::submit! {
 /// );
 /// let solver = BruteForce::new();
 /// use problemreductions::solvers::Solver as _;
-/// let optimal = solver.solve(&problem);
+/// let optimal = solver.solve(&problem).unwrap();
 /// assert_eq!(optimal, problemreductions::types::Min(Some(2)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -270,7 +270,7 @@ impl MinimumFaultDetectionTestSet {
 
 impl Problem for MinimumFaultDetectionTestSet {
     const NAME: &'static str = "MinimumFaultDetectionTestSet";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -280,46 +280,52 @@ impl Problem for MinimumFaultDetectionTestSet {
         vec![2; self.inputs.len() * self.outputs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let num_pairs = self.inputs.len() * self.outputs.len();
-        if config.len() != num_pairs {
-            return Min(None);
-        }
-        if config.iter().any(|&c| c > 1) {
-            return Min(None);
-        }
-
-        let mut boundary = vec![false; self.num_vertices];
-        for &input in &self.inputs {
-            boundary[input] = true;
-        }
-        for &output in &self.outputs {
-            boundary[output] = true;
-        }
-        let required_internal_vertices =
-            boundary.iter().filter(|&&is_boundary| !is_boundary).count();
-
-        // Collect union of internal vertices covered by the selected pairs.
-        let mut covered: HashSet<usize> = HashSet::new();
-        let mut count = 0usize;
-        for (idx, &sel) in config.iter().enumerate() {
-            if sel == 1 {
-                count += 1;
-                covered.extend(
-                    self.coverage[idx]
-                        .iter()
-                        .copied()
-                        .filter(|&vertex| !boundary[vertex]),
-                );
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let num_pairs = self.inputs.len() * self.outputs.len();
+            if config.len() != num_pairs {
+                return Ok(Min(None));
             }
-        }
+            if config.iter().any(|&c| c > 1) {
+                return Ok(Min(None));
+            }
 
-        // Check all internal vertices are covered.
-        if covered.len() == required_internal_vertices {
-            Min(Some(count))
-        } else {
-            Min(None)
-        }
+            let mut boundary = vec![false; self.num_vertices];
+            for &input in &self.inputs {
+                boundary[input] = true;
+            }
+            for &output in &self.outputs {
+                boundary[output] = true;
+            }
+            let required_internal_vertices =
+                boundary.iter().filter(|&&is_boundary| !is_boundary).count();
+
+            // Collect union of internal vertices covered by the selected pairs.
+            let mut covered: HashSet<usize> = HashSet::new();
+            let mut count = 0usize;
+            for (idx, &sel) in config.iter().enumerate() {
+                if sel == 1 {
+                    count += 1;
+                    covered.extend(
+                        self.coverage[idx]
+                            .iter()
+                            .copied()
+                            .filter(|&vertex| !boundary[vertex]),
+                    );
+                }
+            }
+
+            // Check all internal vertices are covered.
+            if covered.len() == required_internal_vertices {
+                Min(Some(i64::try_from(count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting test-set size to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
     }
 }
 

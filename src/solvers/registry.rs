@@ -51,7 +51,7 @@ impl ExactProblemKey {
         self.name == "ILP"
             && matches!(
                 self.variant.get("variable").map(String::as_str),
-                Some("bool" | "i32")
+                Some("bool" | "i64")
             )
     }
 }
@@ -129,7 +129,7 @@ impl CompiledIlpPipeline {
                 .last()
                 .map(|step| step.target_problem_any())
                 .unwrap_or(source);
-            reductions.push(reducer(input));
+            reductions.push(reducer(input)?);
         }
 
         let target = reductions
@@ -231,7 +231,7 @@ pub enum RegistryBuildError {
     DuplicateIlp(String),
     #[error("ILP pipeline must contain at least one node")]
     EmptyPipeline,
-    #[error("ILP pipeline for {0} does not end at ILP<bool> or ILP<i32>")]
+    #[error("ILP pipeline for {0} does not end at ILP<bool> or ILP<i64>")]
     UnsupportedTarget(String),
     #[error("ILP pipeline for {0} continues after reaching a supported ILP node")]
     ContinuesAfterIlp(String),

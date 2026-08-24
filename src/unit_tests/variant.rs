@@ -92,31 +92,31 @@ fn test_variant_for_problems() {
     use crate::traits::Problem;
 
     // Test MaximumIndependentSet variants
-    let v = MaximumIndependentSet::<SimpleGraph, i32>::variant();
+    let v = MaximumIndependentSet::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].0, "graph");
     assert_eq!(v[0].1, "SimpleGraph");
     assert_eq!(v[1].0, "weight");
-    assert_eq!(v[1].1, "i32");
+    assert_eq!(v[1].1, "i64");
 
     // Test MinimumVertexCover
-    let v = MinimumVertexCover::<SimpleGraph, i32>::variant();
+    let v = MinimumVertexCover::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
-    assert_eq!(v[1].1, "i32");
+    assert_eq!(v[1].1, "i64");
 
     // Test MinimumDominatingSet
-    let v = MinimumDominatingSet::<SimpleGraph, i32>::variant();
+    let v = MinimumDominatingSet::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
     // Test MaximumMatching
-    let v = MaximumMatching::<SimpleGraph, i32>::variant();
+    let v = MaximumMatching::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
     // Test MaxCut
-    let v = MaxCut::<SimpleGraph, i32>::variant();
+    let v = MaxCut::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
@@ -127,12 +127,12 @@ fn test_variant_for_problems() {
     assert_eq!(v[1], ("graph", "SimpleGraph"));
 
     // Test MaximalIS
-    let v = MaximalIS::<SimpleGraph, i32>::variant();
+    let v = MaximalIS::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
     // Test MaximumClique
-    let v = MaximumClique::<SimpleGraph, i32>::variant();
+    let v = MaximumClique::<SimpleGraph, i64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
@@ -146,22 +146,22 @@ fn test_variant_for_problems() {
     assert_eq!(v[0], ("k", "K3"));
 
     // Test MaximumSetPacking (weight parameter only)
-    let v = MaximumSetPacking::<i32>::variant();
+    let v = MaximumSetPacking::<i64>::variant();
     assert_eq!(v.len(), 1);
-    assert_eq!(v[0], ("weight", "i32"));
+    assert_eq!(v[0], ("weight", "i64"));
 
     // Test MinimumSetCovering (weight parameter only)
-    let v = MinimumSetCovering::<i32>::variant();
+    let v = MinimumSetCovering::<i64>::variant();
     assert_eq!(v.len(), 1);
-    assert_eq!(v[0], ("weight", "i32"));
+    assert_eq!(v[0], ("weight", "i64"));
 
     // Test SpinGlass (graph + weight parameters)
     let v = SpinGlass::<SimpleGraph, f64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[1].1, "f64");
 
-    let v = SpinGlass::<SimpleGraph, i32>::variant();
-    assert_eq!(v[1].1, "i32");
+    let v = SpinGlass::<SimpleGraph, i64>::variant();
+    assert_eq!(v[1].1, "i64");
 
     // Test QUBO (weight parameter only)
     let v = QUBO::<f64>::variant();
@@ -275,7 +275,7 @@ fn test_unit_disk_graph_variant_param() {
 
 #[test]
 fn test_udg_cast_to_parent() {
-    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (2.0, 0.0)], 1.0);
+    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (2.0, 0.0)], 1.0).unwrap();
     let sg: SimpleGraph = udg.cast_to_parent();
     assert_eq!(sg.num_vertices(), 3);
     // Only the first two points are within distance 1.0
@@ -295,26 +295,24 @@ fn test_weight_f64_variant_param() {
 }
 
 #[test]
-fn test_weight_i32_variant_param() {
-    assert_eq!(<i32 as VariantParam>::CATEGORY, "weight");
-    assert_eq!(<i32 as VariantParam>::VALUE, "i32");
-    assert_eq!(<i32 as VariantParam>::PARENT_VALUE, Some("f64"));
+fn test_weight_i64_variant_param() {
+    assert_eq!(<i64 as VariantParam>::CATEGORY, "weight");
+    assert_eq!(<i64 as VariantParam>::VALUE, "i64");
+    assert_eq!(<i64 as VariantParam>::PARENT_VALUE, Some("f64"));
 }
 
 #[test]
 fn test_weight_one_variant_param() {
     assert_eq!(One::CATEGORY, "weight");
     assert_eq!(One::VALUE, "One");
-    assert_eq!(One::PARENT_VALUE, Some("i32"));
+    assert_eq!(One::PARENT_VALUE, Some("i64"));
 }
 
 #[test]
 fn test_weight_cast_chain() {
     let one = One;
-    let i: i32 = one.cast_to_parent();
+    let i: i64 = one.cast_to_parent();
     assert_eq!(i, 1);
-    let f: f64 = i.cast_to_parent();
-    assert_eq!(f, 1.0);
 }
 
 // --- VariantSpec tests ---
@@ -323,12 +321,12 @@ use crate::variant::VariantSpec;
 
 #[test]
 fn variant_spec_basic_construction() {
-    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "i32")])
+    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "i64")])
         .expect("valid pairs should succeed");
     let map = spec.as_map();
     assert_eq!(map.len(), 2);
     assert_eq!(map["graph"], "SimpleGraph");
-    assert_eq!(map["weight"], "i32");
+    assert_eq!(map["weight"], "i64");
 }
 
 #[test]
@@ -353,7 +351,7 @@ fn variant_spec_rejects_duplicate_dimensions() {
 #[test]
 fn variant_spec_preserves_btreemap_order() {
     // BTreeMap sorts by key, so insertion order doesn't matter
-    let spec = VariantSpec::try_from_pairs(vec![("weight", "i32"), ("graph", "SimpleGraph")])
+    let spec = VariantSpec::try_from_pairs(vec![("weight", "i64"), ("graph", "SimpleGraph")])
         .expect("valid pairs");
     let keys: Vec<&String> = spec.as_map().keys().collect();
     assert_eq!(keys, vec!["graph", "weight"], "BTreeMap should sort keys");
@@ -363,7 +361,7 @@ fn variant_spec_preserves_btreemap_order() {
 fn variant_spec_normalizes_empty_graph_to_simple_graph() {
     // A variant with graph="" should normalize to graph="SimpleGraph"
     let spec =
-        VariantSpec::try_from_pairs(vec![("graph", ""), ("weight", "i32")]).expect("valid pairs");
+        VariantSpec::try_from_pairs(vec![("graph", ""), ("weight", "i64")]).expect("valid pairs");
     let normalized = spec.normalize();
     assert_eq!(
         normalized.as_map()["graph"],
@@ -396,11 +394,11 @@ fn variant_spec_is_default_for_default_values() {
 #[test]
 fn variant_spec_is_not_default_for_non_default_values() {
     // A variant with non-default values should NOT be the default
-    let spec = VariantSpec::try_from_pairs(vec![("graph", "PlanarGraph"), ("weight", "i32")])
+    let spec = VariantSpec::try_from_pairs(vec![("graph", "PlanarGraph"), ("weight", "i64")])
         .expect("valid pairs");
     assert!(
         !spec.is_default(),
-        "variant with PlanarGraph+i32 should not be the default"
+        "variant with PlanarGraph+i64 should not be the default"
     );
 }
 
@@ -408,7 +406,7 @@ fn variant_spec_is_not_default_for_non_default_values() {
 fn variant_spec_try_from_map() {
     let map = std::collections::BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
-        ("weight".to_string(), "i32".to_string()),
+        ("weight".to_string(), "i64".to_string()),
     ]);
     let spec = VariantSpec::try_from_map(map.clone()).expect("should succeed for valid map");
     assert_eq!(spec.as_map(), &map);
@@ -428,9 +426,9 @@ fn variant_spec_into_map_returns_owned() {
 fn variant_spec_update_dimension_adds_new() {
     let mut spec =
         VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph")]).expect("valid pairs");
-    spec.update_dimension("weight", "i32");
+    spec.update_dimension("weight", "i64");
     assert_eq!(spec.as_map().len(), 2);
-    assert_eq!(spec.as_map()["weight"], "i32");
+    assert_eq!(spec.as_map()["weight"], "i64");
 }
 
 #[test]
@@ -444,10 +442,10 @@ fn variant_spec_update_dimension_overwrites_existing() {
 #[test]
 fn variant_spec_normalize_no_graph_dimension_unchanged() {
     // A variant without a "graph" dimension should not be changed
-    let spec = VariantSpec::try_from_pairs(vec![("weight", "i32")]).expect("valid pairs");
+    let spec = VariantSpec::try_from_pairs(vec![("weight", "i64")]).expect("valid pairs");
     let normalized = spec.normalize();
     assert_eq!(normalized.as_map().len(), 1);
-    assert_eq!(normalized.as_map()["weight"], "i32");
+    assert_eq!(normalized.as_map()["weight"], "i64");
 }
 
 #[test]
@@ -471,10 +469,10 @@ fn variant_spec_is_default_kn() {
 
 #[test]
 fn variant_spec_is_not_default_mixed() {
-    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "i32")])
+    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "i64")])
         .expect("valid pairs");
     assert!(
         !spec.is_default(),
-        "variant with i32 weight should not be default"
+        "variant with i64 weight should not be default"
     );
 }

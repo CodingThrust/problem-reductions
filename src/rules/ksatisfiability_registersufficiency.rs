@@ -237,7 +237,7 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
 impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let layout = SethiRegisterLayout::new(self.num_vars(), self.num_clauses());
         let mut arcs = Vec::with_capacity(
             6 * self.num_vars() * self.num_vars()
@@ -356,10 +356,10 @@ impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SATToRegisterSufficiency {
+        Ok(Reduction3SATToRegisterSufficiency {
             target: RegisterSufficiency::new(layout.total_vertices(), arcs, layout.bound()),
             layout,
-        }
+        })
     }
 }
 
@@ -379,7 +379,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let to_registers =
-                <KSatisfiability<K3> as ReduceTo<RegisterSufficiency>>::reduce_to(&source);
+                <KSatisfiability<K3> as ReduceTo<RegisterSufficiency>>::reduce_to(&source)
+                    .expect("reduction should succeed");
 
             // Use the B&B solver on the RS instance directly, avoiding the
             // expensive RS→ILP chain (17K vars, minutes on CI).

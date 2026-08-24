@@ -37,7 +37,7 @@ impl ReductionResult for ReductionPartitionToProductionPlanning {
 impl ReduceTo<ProductionPlanning> for Partition {
     type Result = ReductionPartitionToProductionPlanning;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let half_floor = self.total_sum() / 2;
         let half_ceil = half_floor + (self.total_sum() % 2);
         let mut demands = vec![0; self.num_elements()];
@@ -53,7 +53,7 @@ impl ReduceTo<ProductionPlanning> for Partition {
         let inventory_costs = vec![0; self.num_elements() + 1];
 
         let num_periods = self.num_elements() + 1;
-        ReductionPartitionToProductionPlanning {
+        Ok(ReductionPartitionToProductionPlanning {
             target: ProductionPlanning::new(
                 num_periods,
                 demands,
@@ -63,7 +63,7 @@ impl ReduceTo<ProductionPlanning> for Partition {
                 inventory_costs,
                 half_floor,
             ),
-        }
+        })
     }
 }
 
@@ -75,7 +75,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_production_planning",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ProductionPlanning>(
-                Partition::new(vec![3, 5, 2, 4, 6]),
+                Partition::new(vec![3, 5, 2, 4, 6]).unwrap(),
                 SolutionPair {
                     source_config: vec![0, 0, 0, 1, 1],
                     target_config: vec![0, 0, 0, 4, 6, 0],

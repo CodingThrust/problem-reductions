@@ -13,7 +13,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -25,7 +26,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Same number of vertices
@@ -59,7 +61,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Select edges (0,1), (0,3), (1,2), (2,3) => config [1, 0, 1, 1, 0, 1]
     let target_config = vec![1, 0, 1, 1, 0, 1];
@@ -67,7 +70,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
 
     assert_eq!(extracted.len(), 4);
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution must be a valid HC"
     );
 }
@@ -76,12 +79,13 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_no_circuit() {
     // Path graph 0-1-2-3: no Hamiltonian circuit (endpoints have degree 1)
     let source = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The target should have no feasible augmentation
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target);
+    let witness = solver.find_witness(target).unwrap();
     assert!(
         witness.is_none(),
         "target should be infeasible when source has no HC"
@@ -92,7 +96,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_no_circuit() {
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_triangle() {
     // Triangle graph: 3 vertices, 3 edges, has HC
     let source = HamiltonianCircuit::new(SimpleGraph::cycle(3));
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -105,7 +110,8 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_triangle() {
 fn test_hamiltoniancircuit_to_biconnectivityaugmentation_complete4() {
     // Complete graph K4: has many Hamiltonian circuits
     let source = HamiltonianCircuit::new(SimpleGraph::complete(4));
-    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BiconnectivityAugmentation<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // All potential edges have weight 1 (K4 has all edges)
     let target = reduction.target_problem();

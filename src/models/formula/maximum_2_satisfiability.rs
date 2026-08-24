@@ -49,7 +49,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let value = solver.solve(&problem);
+/// let value = solver.solve(&problem).unwrap();
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "Maximum2SatisfiabilityDef")]
@@ -70,14 +70,14 @@ impl Maximum2Satisfiability {
     }
 
     /// Create a new MAX-2-SAT problem after validating its clauses.
-    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         for (i, clause) in clauses.iter().enumerate() {
             if clause.len() != 2 {
-                return Err(format!(
-                    "Clause {i} has {} literals, expected 2",
-                    clause.len()
-                ));
+                return Err(format!("Clause {i} has {} literals, expected 2", clause.len()).into());
             }
         }
         Ok(Self { num_vars, clauses })
@@ -99,25 +99,36 @@ impl Maximum2Satisfiability {
     }
 
     /// Count satisfied clauses for an assignment.
-    pub fn count_satisfied(&self, assignment: &[bool]) -> usize {
-        self.clauses
+    pub fn count_satisfied(
+        &self,
+        assignment: &[bool],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let count = self
+            .clauses
             .iter()
             .filter(|c| c.is_satisfied(assignment))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting satisfied-clause count to i64".into(),
+            )
+        })
     }
 }
 
 impl Problem for Maximum2Satisfiability {
     const NAME: &'static str = "Maximum2Satisfiability";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        let assignment = super::config_to_assignment(config);
-        Max(Some(self.count_satisfied(&assignment)))
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let assignment = super::config_to_assignment(config);
+            Max(Some(self.count_satisfied(&assignment)?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -136,7 +147,7 @@ struct Maximum2SatisfiabilityDef {
 }
 
 impl TryFrom<Maximum2SatisfiabilityDef> for Maximum2Satisfiability {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: Maximum2SatisfiabilityDef) -> Result<Self, Self::Error> {
         Self::try_new(value.num_vars, value.clauses)

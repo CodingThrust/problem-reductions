@@ -47,7 +47,7 @@ inventory::submit! {
 ///
 /// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,21 +119,26 @@ impl Problem for SubsetSum {
         vec![2; self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_elements() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            let mut total = BigUint::zero();
-            for (i, &x) in config.iter().enumerate() {
-                if x == 1 {
-                    total += &self.sizes[i];
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_elements() {
+                    return Ok(crate::types::Or(false));
                 }
-            }
-            total == self.target
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
+                let mut total = BigUint::zero();
+                for (i, &x) in config.iter().enumerate() {
+                    if x == 1 {
+                        total += &self.sizes[i];
+                    }
+                }
+                total == self.target
+            })
         })
     }
 }

@@ -47,7 +47,7 @@ impl ReductionResult for ReductionSetSplittingToILP {
 impl ReduceTo<ILP<bool>> for SetSplitting {
     type Result = ReductionSetSplittingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.universe_size();
         let mut constraints = Vec::new();
 
@@ -63,7 +63,7 @@ impl ReduceTo<ILP<bool>> for SetSplitting {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionSetSplittingToILP { target }
+        Ok(ReductionSetSplittingToILP { target })
     }
 }
 

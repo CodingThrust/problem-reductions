@@ -6,7 +6,7 @@ use crate::solvers::BruteForce;
 fn test_paintshop_to_qubo_closed_loop() {
     // Issue example: Sequence [A, B, C, A, D, B, D, C], 4 cars
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 4 cars -> 4 QUBO variables
@@ -23,7 +23,7 @@ fn test_paintshop_to_qubo_closed_loop() {
 fn test_paintshop_to_qubo_simple() {
     // Simple case: a, b, a, b
     let source = PaintShop::new(vec!["a", "b", "a", "b"]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 2);
@@ -39,16 +39,16 @@ fn test_paintshop_to_qubo_simple() {
 fn test_paintshop_to_qubo_optimal_value() {
     // Issue example verifies optimal QUBO = -1, total switches = -1 + 3 = 2
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let best_target = solver.find_all_witnesses(qubo);
+    let best_target = solver.find_all_witnesses(qubo).unwrap();
 
     // Extract solutions and verify they are optimal for the source
     for sol in &best_target {
         let source_sol = reduction.extract_solution(sol).unwrap();
-        let switches = source.count_switches(&source_sol);
+        let switches = source.count_switches(&source_sol).unwrap();
         // Optimal is 2 switches
         assert_eq!(switches, 2, "Expected 2 switches for optimal solution");
     }
@@ -58,7 +58,7 @@ fn test_paintshop_to_qubo_optimal_value() {
 fn test_paintshop_to_qubo_matrix_structure() {
     // Issue example: verify the Q matrix matches expected values
     let source = PaintShop::new(vec!["A", "B", "C", "A", "D", "B", "D", "C"]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let m = qubo.matrix();
@@ -83,7 +83,7 @@ fn test_paintshop_to_qubo_matrix_structure() {
 fn test_paintshop_to_qubo_two_cars() {
     // Two cars, adjacent: a, b, b, a
     let source = PaintShop::new(vec!["a", "b", "b", "a"]);
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -96,7 +96,7 @@ fn test_paintshop_to_qubo_two_cars() {
 fn test_paintshop_to_qubo_empty_sequence() {
     // Empty PaintShop with 0 cars should not panic
     let source = PaintShop::new(Vec::<&str>::new());
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
     assert_eq!(qubo.num_vars(), 0);
 }

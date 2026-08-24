@@ -53,7 +53,7 @@ impl ReductionResult for ReductionXC3SToMinimumAxiomSet {
 impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumAxiomSet;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let universe_size = self.universe_size();
         let num_subsets = self.num_subsets();
         let num_sentences = universe_size + num_subsets;
@@ -70,11 +70,11 @@ impl ReduceTo<MinimumAxiomSet> for ExactCoverBy3Sets {
         let target =
             MinimumAxiomSet::new(num_sentences, (0..num_sentences).collect(), implications);
 
-        ReductionXC3SToMinimumAxiomSet {
+        Ok(ReductionXC3SToMinimumAxiomSet {
             target,
             source_universe_size: universe_size,
             source_num_subsets: num_subsets,
-        }
+        })
     }
 }
 

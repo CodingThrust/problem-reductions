@@ -9,13 +9,13 @@ fn test_emdc_to_ilp_closed_loop() {
     // s = "ab" (len 2), alphabet {a,b}, h=2
     // Optimal: uncompressed, cost = 2
     let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid(), "Extracted solution should be valid");
     assert_eq!(value, Min(Some(2)));
 }
@@ -28,13 +28,13 @@ fn test_emdc_to_ilp_compression_wins() {
     // Uncompressed: 18
     let s: Vec<usize> = (0..6).cycle().take(18).collect();
     let problem = MinimumExternalMacroDataCompression::new(6, s, 2);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid(), "Extracted solution should be valid");
     assert_eq!(value, Min(Some(12)));
 }
@@ -43,7 +43,7 @@ fn test_emdc_to_ilp_compression_wins() {
 fn test_emdc_to_ilp_structure() {
     // s = "ab" (len 2), alphabet {a,b} (k=2), h=2
     let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let _n = 2;
@@ -71,7 +71,7 @@ fn test_emdc_to_ilp_structure() {
 fn test_emdc_to_ilp_empty() {
     // Empty string: cost should be 0
     let problem = MinimumExternalMacroDataCompression::new(2, vec![], 1);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 0);
@@ -79,7 +79,7 @@ fn test_emdc_to_ilp_empty() {
 
     // For empty ILP, the solution is empty
     let extracted = reduction.extract_solution(&[]).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Min(Some(0)));
 }
 
@@ -87,7 +87,7 @@ fn test_emdc_to_ilp_empty() {
 fn test_emdc_to_ilp_bf_vs_ilp() {
     // Small instance: s="ab", alphabet {a,b}, h=2
     let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1], 2);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -97,13 +97,13 @@ fn test_emdc_to_ilp_single_char() {
     // Uncompressed: cost = 0+1+0 = 1. With D="a"(1), C=ptr(0,1)(1, 1 ptr): cost = 1+1+0 = 2.
     // So uncompressed is optimal.
     let problem = MinimumExternalMacroDataCompression::new(1, vec![0], 1);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
     assert_eq!(value, Min(Some(1)));
 }
@@ -116,13 +116,13 @@ fn test_emdc_to_ilp_repeated_string() {
     // D="aa"(2), C=ptr(0,1) ptr(0,2): cost = 2+2+0 = 4.
     // Uncompressed is best at 3.
     let problem = MinimumExternalMacroDataCompression::new(1, vec![0, 0, 0], 1);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
     assert_eq!(value, Min(Some(3)));
 }

@@ -19,7 +19,8 @@ fn test_naesatisfiability_to_maxcut_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 2*3 = 6 vertices
@@ -38,7 +39,8 @@ fn test_naesatisfiability_to_maxcut_closed_loop() {
 fn test_naesatisfiability_to_maxcut_single_clause() {
     // Single clause: (x1, x2, x3) — NAE-satisfying iff not all same
     let naesat = NAESatisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 6 vertices, 3 variable + 3 clause = 6 edges
@@ -57,7 +59,8 @@ fn test_naesatisfiability_to_maxcut_two_literal_clause() {
     // Clause with 2 literals: (x1, ~x2) — always NAE-satisfying unless x1=T, x2=F or x1=F, x2=T... actually (x1, ~x2) is NAE-unsatisfied when both literals are same: x1=T,~x2=T (x2=F) or x1=F,~x2=F (x2=T).
     // NAE-satisfied when x1 != ~x2, i.e., x1 == x2.
     let naesat = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 4 vertices, 2 variable + 1 clause = 3 edges
@@ -75,7 +78,8 @@ fn test_naesatisfiability_to_maxcut_two_literal_clause() {
 fn test_naesatisfiability_to_maxcut_four_literal_clause() {
     // Clause with 4 literals: (x1, x2, ~x3, x4)
     let naesat = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, -3, 4])]);
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 8 vertices, 4 variable + C(4,2)=6 clause = 10 edges
@@ -99,7 +103,8 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
             CNFClause::new(vec![-1, 3, 2]),
         ],
     );
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
 
     // Vertices: x1(0), ~x1(1), x2(2), ~x2(3), x3(4), ~x3(5)
     // x1=T -> vertex 0 in set 1, vertex 1 in set 0
@@ -110,7 +115,7 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
     assert_eq!(extracted, vec![1, 0, 1]); // x1=T, x2=F, x3=T
 
     // Verify this is a valid NAE-SAT solution
-    assert!(naesat.evaluate(&extracted).0);
+    assert!(naesat.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
@@ -124,7 +129,8 @@ fn test_naesatisfiability_to_maxcut_mixed_clause_sizes() {
             CNFClause::new(vec![-1, -3]),  // 2 literals -> 1 pair
         ],
     );
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 6 vertices, 3 variable + (1 + 3 + 1) = 8 edges
@@ -149,15 +155,16 @@ fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&naesat);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&naesat).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target);
+    let witness = solver.find_witness(target).unwrap();
     assert!(witness.is_some());
 
     let config = witness.unwrap();
-    let cut_value = target.cut_size(&config);
+    let cut_value = target.cut_size(&config).unwrap();
     // n=3, m=2, M=3, k1=3, k2=3
     // Expected: 3*3 + (3-1) + (3-1) = 9 + 2 + 2 = 13
     assert_eq!(cut_value, 13);

@@ -36,32 +36,36 @@ inventory::submit! {
 /// A configuration is valid iff it is a permutation of `0..n`.
 #[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeTardyTaskWeight {
-    lengths: Vec<u64>,
-    weights: Vec<u64>,
-    deadlines: Vec<u64>,
+    lengths: Vec<i64>,
+    weights: Vec<i64>,
+    deadlines: Vec<i64>,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct SequencingToMinimizeTardyTaskWeightCreateSpec {
     /// Processing time for each task.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
     /// Task weights; defaults to one per task.
-    weights: Option<Vec<u64>>,
+    weights: Option<Vec<i64>>,
     /// Deadline for each task.
-    deadlines: Vec<u64>,
+    deadlines: Vec<i64>,
 }
 impl TryFrom<SequencingToMinimizeTardyTaskWeightCreateSpec>
     for SequencingToMinimizeTardyTaskWeight
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: SequencingToMinimizeTardyTaskWeightCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.lengths.len();
         if spec.deadlines.len() != count {
-            return Err("deadlines length must equal lengths length".to_string());
+            return Err("deadlines length must equal lengths length"
+                .to_string()
+                .into());
         }
         let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
         if weights.len() != count {
-            return Err("weights length must equal lengths length".to_string());
+            return Err("weights length must equal lengths length"
+                .to_string()
+                .into());
         }
         Ok(Self::new(spec.lengths, weights, spec.deadlines))
     }
@@ -69,24 +73,32 @@ impl TryFrom<SequencingToMinimizeTardyTaskWeightCreateSpec>
 
 #[derive(Deserialize)]
 struct SequencingToMinimizeTardyTaskWeightSerde {
-    lengths: Vec<u64>,
-    weights: Vec<u64>,
-    deadlines: Vec<u64>,
+    lengths: Vec<i64>,
+    weights: Vec<i64>,
+    deadlines: Vec<i64>,
 }
 
 impl SequencingToMinimizeTardyTaskWeight {
-    fn validate(lengths: &[u64], weights: &[u64], deadlines: &[u64]) -> Result<(), String> {
+    fn validate(
+        lengths: &[i64],
+        weights: &[i64],
+        deadlines: &[i64],
+    ) -> Result<(), crate::registry::ConstructionError> {
         if lengths.len() != weights.len() {
-            return Err("lengths length must equal weights length".to_string());
+            return Err("lengths length must equal weights length"
+                .to_string()
+                .into());
         }
         if lengths.len() != deadlines.len() {
-            return Err("lengths length must equal deadlines length".to_string());
+            return Err("lengths length must equal deadlines length"
+                .to_string()
+                .into());
         }
         if lengths.contains(&0) {
-            return Err("task lengths must be positive".to_string());
+            return Err("task lengths must be positive".to_string().into());
         }
         if weights.contains(&0) {
-            return Err("task weights must be positive".to_string());
+            return Err("task weights must be positive".to_string().into());
         }
         Ok(())
     }
@@ -97,7 +109,7 @@ impl SequencingToMinimizeTardyTaskWeight {
     ///
     /// Panics if `lengths`, `weights`, and `deadlines` are not all the same
     /// length, or if any length or weight is zero.
-    pub fn new(lengths: Vec<u64>, weights: Vec<u64>, deadlines: Vec<u64>) -> Self {
+    pub fn new(lengths: Vec<i64>, weights: Vec<i64>, deadlines: Vec<i64>) -> Self {
         Self::validate(&lengths, &weights, &deadlines).unwrap_or_else(|err| panic!("{err}"));
         Self {
             lengths,
@@ -112,39 +124,46 @@ impl SequencingToMinimizeTardyTaskWeight {
     }
 
     /// Returns the processing times.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
     /// Returns the task weights.
-    pub fn weights(&self) -> &[u64] {
+    pub fn weights(&self) -> &[i64] {
         &self.weights
     }
 
     /// Returns the task deadlines.
-    pub fn deadlines(&self) -> &[u64] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
-    fn tardy_task_weight(&self, schedule: &[usize]) -> Min<u64> {
-        let mut elapsed: u64 = 0;
-        let mut total: u64 = 0;
+    fn tardy_task_weight(
+        &self,
+        schedule: &[usize],
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let mut elapsed: i64 = 0;
+        let mut total: i64 = 0;
         for &task in schedule {
-            elapsed = elapsed
-                .checked_add(self.lengths[task])
-                .expect("total processing time overflowed u64");
+            elapsed = elapsed.checked_add(self.lengths[task]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing tardiness sequencing processing times".to_string(),
+                )
+            })?;
             if elapsed > self.deadlines[task] {
-                total = total
-                    .checked_add(self.weights[task])
-                    .expect("tardy task weight overflowed u64");
+                total = total.checked_add(self.weights[task]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing tardy task weights".to_string(),
+                    )
+                })?;
             }
         }
-        Min(Some(total))
+        Ok(Min(Some(total)))
     }
 }
 
 impl TryFrom<SequencingToMinimizeTardyTaskWeightSerde> for SequencingToMinimizeTardyTaskWeight {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: SequencingToMinimizeTardyTaskWeightSerde) -> Result<Self, Self::Error> {
         Self::validate(&value.lengths, &value.weights, &value.deadlines)?;
@@ -168,7 +187,7 @@ impl<'de> Deserialize<'de> for SequencingToMinimizeTardyTaskWeight {
 
 impl Problem for SequencingToMinimizeTardyTaskWeight {
     const NAME: &'static str = "SequencingToMinimizeTardyTaskWeight";
-    type Value = Min<u64>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -179,12 +198,14 @@ impl Problem for SequencingToMinimizeTardyTaskWeight {
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<u64> {
-        let n = self.num_tasks();
-        let Some(schedule) = super::decode_permutation(config, n) else {
-            return Min(None);
-        };
-        self.tardy_task_weight(&schedule)
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_tasks();
+            let Some(schedule) = super::decode_permutation(config, n) else {
+                return Ok(Min(None));
+            };
+            self.tardy_task_weight(&schedule)?
+        })
     }
 }
 

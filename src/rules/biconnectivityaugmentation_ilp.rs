@@ -1,4 +1,4 @@
-//! Reduction from BiconnectivityAugmentation to ILP<i32>.
+//! Reduction from BiconnectivityAugmentation to `ILP<i64>`.
 //!
 //! Select candidate edges under budget and, for every deleted vertex q,
 //! certify that the remaining augmented graph stays connected via unit-flow
@@ -9,18 +9,19 @@ use crate::models::graph::BiconnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionBiconnAugToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_candidates: usize,
 }
 
 impl ReductionResult for ReductionBiconnAugToILP {
-    type Source = BiconnectivityAugmentation<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = BiconnectivityAugmentation<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -40,20 +41,20 @@ impl ReductionResult for ReductionBiconnAugToILP {
         num_constraints = "num_potential_edges + 1 + 4 * num_vertices * (num_edges + num_potential_edges) + num_vertices^2 * (2 * num_edges + 4 * num_potential_edges + num_vertices)",
     }
 )]
-impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for BiconnectivityAugmentation<SimpleGraph, i64> {
     type Result = ReductionBiconnAugToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let p = self.num_potential_edges();
 
         // Trivial case: n ≤ 1 already biconnected
         if n <= 1 {
             let target = ILP::new(p, vec![], vec![], ObjectiveSense::Minimize);
-            return ReductionBiconnAugToILP {
+            return Ok(ReductionBiconnAugToILP {
                 target,
                 num_candidates: p,
-            };
+            });
         }
 
         let base_edges = self.graph().edges();
@@ -72,6 +73,14 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
         };
 
         let mut constraints = Vec::new();
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    BiconnectivityAugmentation<SimpleGraph, i64>,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         // Binary bounds: y_j ≤ 1
         for j in 0..p {
@@ -83,9 +92,12 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
             .potential_weights()
             .iter()
             .enumerate()
-            .map(|(j, &(_, _, w))| (j, w as f64))
-            .collect();
-        constraints.push(LinearConstraint::le(budget_terms, *self.budget() as f64));
+            .map(|(candidate, &(_, _, weight))| Ok((candidate, exact_f64(weight)?)))
+            .collect::<Result<_, crate::rules::ReductionError>>()?;
+        constraints.push(LinearConstraint::le(
+            budget_terms,
+            exact_f64(*self.budget())?,
+        ));
 
         // For each deleted vertex q
         for q in 0..n {
@@ -193,10 +205,10 @@ impl ReduceTo<ILP<i32>> for BiconnectivityAugmentation<SimpleGraph, i32> {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionBiconnAugToILP {
+        Ok(ReductionBiconnAugToILP {
             target,
             num_candidates: p,
-        }
+        })
     }
 }
 
@@ -213,12 +225,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
             );
             let reduction: ReductionBiconnAugToILP =
-                crate::rules::ReduceTo::<ILP<i32>>::reduce_to(&source);
+                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config: extracted,

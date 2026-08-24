@@ -109,29 +109,39 @@ impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
 {
     type Result = ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
-        let k = self.k();
+        let k = *self.bound();
 
         // Edgeless graph: total edge length is 0 for every arrangement, so the
         // source decision is YES for any bound. Emit a 1x1 all-zero matrix
         // (already C1P at cost 0 <= bound) to keep num_cols >= 1.
         if m == 0 {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: ConsecutiveOnesMatrixAugmentation::new(vec![vec![false]], k as i64),
-                construction: ConstructionKind::EdgelessYes { num_vertices: n },
-            };
+            return Ok(
+                ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                    target: ConsecutiveOnesMatrixAugmentation::new(vec![vec![false]], k),
+                    construction: ConstructionKind::EdgelessYes { num_vertices: n },
+                },
+            );
         }
 
         // Negative target bound (k < m): every arrangement costs at least m
         // (each edge contributes >= 1), so the source decision is NO. Route to
         // the fixed genuine-NO sentinel.
-        if k < m {
-            return ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-                target: no_sentinel(),
-                construction: ConstructionKind::FixedNo { num_vertices: n },
-            };
+        let m_i64 = i64::try_from(m).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<OptimalLinearArrangement<SimpleGraph>>,
+                ConsecutiveOnesMatrixAugmentation,
+            >("converting the number of edges to i64")
+        })?;
+        if k < m_i64 {
+            return Ok(
+                ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                    target: no_sentinel(),
+                    construction: ConstructionKind::FixedNo { num_vertices: n },
+                },
+            );
         }
 
         // Generic case: edge-vertex incidence matrix, rows = edges, cols = vertices.
@@ -140,12 +150,19 @@ impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
             matrix[edge_idx][u] = true;
             matrix[edge_idx][v] = true;
         }
-        let bound = (k - m) as i64;
+        let bound = k.checked_sub(m_i64).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                Decision<OptimalLinearArrangement<SimpleGraph>>,
+                ConsecutiveOnesMatrixAugmentation,
+            >("subtracting the edge count from the arrangement bound")
+        })?;
 
-        ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
-            target: ConsecutiveOnesMatrixAugmentation::new(matrix, bound),
-            construction: ConstructionKind::Incidence { num_vertices: n },
-        }
+        Ok(
+            ReductionOptimalLinearArrangementToConsecutiveOnesMatrixAugmentation {
+                target: ConsecutiveOnesMatrixAugmentation::new(matrix, bound),
+                construction: ConstructionKind::Incidence { num_vertices: n },
+            },
+        )
     }
 }
 
@@ -168,7 +185,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 )),
                 11,
             );
-            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source);
+            let reduction = ReduceTo::<ConsecutiveOnesMatrixAugmentation>::reduce_to(&source)
+                .expect("reduction should succeed");
             // Source arrangement f(v) = v <=> target column permutation = identity.
             let source_config = vec![0, 1, 2, 3, 4, 5];
             let target_config = vec![0, 1, 2, 3, 4, 5];

@@ -1,4 +1,4 @@
-//! Reduction from HamiltonianPath to IsomorphicSpanningTree<SimpleGraph>.
+//! Reduction from HamiltonianPath to `IsomorphicSpanningTree<SimpleGraph>`.
 //!
 //! A Hamiltonian path in G exists iff G has a spanning tree isomorphic to the
 //! path graph P_n. The reduction keeps G unchanged as the host graph and
@@ -47,7 +47,7 @@ impl ReductionResult for ReductionHPToIST {
 impl ReduceTo<IsomorphicSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHPToIST;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
 
         // Host graph: keep G unchanged
@@ -55,9 +55,9 @@ impl ReduceTo<IsomorphicSpanningTree<SimpleGraph>> for HamiltonianPath<SimpleGra
 
         let tree = SimpleGraph::path(n);
 
-        ReductionHPToIST {
+        Ok(ReductionHPToIST {
             target: IsomorphicSpanningTree::new(graph, tree),
-        }
+        })
     }
 }
 

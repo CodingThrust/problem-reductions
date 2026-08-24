@@ -29,7 +29,8 @@ use crate::variant::K3;
 #[test]
 fn test_ksatisfiability_to_bicliquecover_structure_single_variable() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Normalized: n = 2, ell = 1, m = 1 + 2 = 3.
@@ -65,7 +66,8 @@ fn test_ksatisfiability_to_bicliquecover_structure_issue_example() {
             CNFClause::new(vec![-1, 3, 4]),
         ],
     );
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let n = 8; // next power of two of 2*4 = 8
@@ -97,7 +99,8 @@ fn test_ksatisfiability_to_bicliquecover_unsat_constructs() {
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Even an UNSAT formula yields a syntactically valid BicliqueCover
@@ -115,7 +118,8 @@ fn test_ksatisfiability_to_bicliquecover_unsat_constructs() {
 #[test]
 fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let n = reduction.normalized_n;
@@ -148,7 +152,8 @@ fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
 #[test]
 fn test_ksatisfiability_to_bicliquecover_rejects_missing_b1() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let target_solution = vec![0; target.num_vertices() * target.k()];
 
@@ -169,7 +174,8 @@ fn test_ksatisfiability_to_bicliquecover_rejects_missing_b1() {
 #[test]
 fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let k = target.k();
@@ -218,7 +224,8 @@ fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
 #[test]
 fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
     let source = KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let witness = super::forward_witness_single_variable_single_clause(&source);
@@ -234,7 +241,7 @@ fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
         "extracted assignment must set x_1 = true (the only satisfying assignment)"
     );
     assert_eq!(
-        source.evaluate(&extracted),
+        source.evaluate(&extracted).unwrap(),
         crate::types::Or(true),
         "extracted source assignment must satisfy the formula"
     );
@@ -252,7 +259,8 @@ fn test_ksatisfiability_to_bicliquecover_construct_two_vars_no_panic() {
             CNFClause::new(vec![-1, 2, -2]),
         ],
     );
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Normalized n = next_power_of_two(2*2) = 4, ell = 2.

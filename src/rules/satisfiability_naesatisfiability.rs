@@ -53,13 +53,15 @@ impl ReductionResult for ReductionSATToNAESAT {
 impl ReduceTo<NAESatisfiability> for Satisfiability {
     type Result = ReductionSATToNAESAT;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let mut variables = SatVariableAllocator::new("Satisfiability -> NAESatisfiability", n)
-            .unwrap_or_else(|message| panic!("{message}"));
-        let sentinel_lit = variables
-            .allocate()
-            .unwrap_or_else(|message| panic!("{message}"));
+            .map_err(
+                crate::rules::ReductionError::construction::<Satisfiability, NAESatisfiability>,
+            )?;
+        let sentinel_lit = variables.allocate().map_err(
+            crate::rules::ReductionError::construction::<Satisfiability, NAESatisfiability>,
+        )?;
 
         let nae_clauses: Vec<CNFClause> = self
             .clauses()
@@ -79,10 +81,10 @@ impl ReduceTo<NAESatisfiability> for Satisfiability {
 
         let target = NAESatisfiability::new(variables.num_vars(), nae_clauses);
 
-        ReductionSATToNAESAT {
+        Ok(ReductionSATToNAESAT {
             source_num_vars: n,
             target,
-        }
+        })
     }
 }
 

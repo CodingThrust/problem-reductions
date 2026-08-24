@@ -34,12 +34,12 @@ fn test_grouping_by_swapping_basic() {
 #[test]
 fn test_grouping_by_swapping_evaluate_issue_yes() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]));
+    assert!(problem.evaluate(&[2, 1, 3, 5, 5]).unwrap());
     assert_eq!(
         problem.apply_swap_program(&[2, 1, 3, 5, 5]),
         Some(vec![0, 0, 1, 1, 2, 2])
     );
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]));
+    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]).unwrap());
     assert!(!problem.is_grouped(&[0, 1, 0]));
     assert!(problem.is_grouped(&[0, 0, 1, 1, 2, 2]));
 }
@@ -47,8 +47,8 @@ fn test_grouping_by_swapping_evaluate_issue_yes() {
 #[test]
 fn test_grouping_by_swapping_rejects_wrong_length_and_out_of_range_swaps() {
     let problem = issue_yes_instance();
-    assert!(!problem.evaluate(&[2, 1, 3, 5]));
-    assert!(!problem.evaluate(&[2, 1, 3, 5, 6]));
+    assert!(!problem.evaluate(&[2, 1, 3, 5]).unwrap());
+    assert!(!problem.evaluate(&[2, 1, 3, 5, 6]).unwrap());
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5]), None);
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5, 6]), None);
 }
@@ -61,28 +61,34 @@ fn test_grouping_by_swapping_bruteforce_yes_and_no() {
 
     let satisfying = solver
         .find_witness(&yes_problem)
+        .unwrap()
         .expect("expected a satisfying 3-swap sequence");
-    assert!(yes_problem.evaluate(&satisfying));
+    assert!(yes_problem.evaluate(&satisfying).unwrap());
     assert!(solver
         .find_all_witnesses(&yes_problem)
+        .unwrap()
         .iter()
         .any(|config| config == &vec![2, 1, 3]));
 
-    assert!(solver.find_witness(&no_problem).is_none());
-    assert!(solver.find_all_witnesses(&no_problem).is_empty());
+    assert!(solver.find_witness(&no_problem).unwrap().is_none());
+    assert!(solver.find_all_witnesses(&no_problem).unwrap().is_empty());
 }
 
 #[test]
 fn test_grouping_by_swapping_paper_example() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]));
+    assert!(problem.evaluate(&[2, 1, 3, 5, 5]).unwrap());
 
     let solver = BruteForce::new();
     assert!(solver
         .find_all_witnesses(&problem)
+        .unwrap()
         .iter()
         .any(|config| config == &vec![2, 1, 3, 5, 5]));
-    assert!(solver.find_witness(&issue_two_swap_instance()).is_none());
+    assert!(solver
+        .find_witness(&issue_two_swap_instance())
+        .unwrap()
+        .is_none());
 }
 
 #[test]

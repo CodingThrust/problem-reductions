@@ -54,7 +54,7 @@ impl ReductionResult for ReductionHamiltonianPathToILP {
 impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
     type Result = ReductionHamiltonianPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges = graph.edges();
@@ -105,10 +105,10 @@ impl ReduceTo<ILP<bool>> for HamiltonianPath<SimpleGraph> {
         // Feasibility: no objective
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionHamiltonianPathToILP {
+        Ok(ReductionHamiltonianPathToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

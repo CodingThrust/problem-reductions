@@ -19,7 +19,7 @@ fn issue_graph() -> DirectedGraph {
     )
 }
 
-fn issue_candidate_arcs() -> Vec<(usize, usize, i32)> {
+fn issue_candidate_arcs() -> Vec<(usize, usize, i64)> {
     vec![
         (3, 0, 5),
         (3, 1, 3),
@@ -42,7 +42,7 @@ fn issue_candidate_arcs() -> Vec<(usize, usize, i32)> {
     ]
 }
 
-fn issue_example_yes() -> StrongConnectivityAugmentation<i32> {
+fn issue_example_yes() -> StrongConnectivityAugmentation<i64> {
     StrongConnectivityAugmentation::new(issue_graph(), issue_candidate_arcs(), 1)
 }
 
@@ -50,7 +50,7 @@ fn yes_config() -> Vec<usize> {
     vec![0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 }
 
-fn issue_example_already_strongly_connected() -> StrongConnectivityAugmentation<i32> {
+fn issue_example_already_strongly_connected() -> StrongConnectivityAugmentation<i64> {
     StrongConnectivityAugmentation::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
         vec![(0, 2, 5)],
@@ -76,36 +76,36 @@ fn test_strong_connectivity_augmentation_issue_example_yes() {
     let problem = issue_example_yes();
     let config = yes_config();
 
-    assert!(problem.evaluate(&config));
-    assert!(problem.is_valid_solution(&config));
+    assert!(problem.evaluate(&config).unwrap());
+    assert!(problem.is_valid_solution(&config).unwrap());
 }
 
 #[test]
 fn test_strong_connectivity_augmentation_issue_example_no() {
     let problem = issue_example_yes();
-    assert!(!problem.evaluate(&[0; 18]));
+    assert!(!problem.evaluate(&[0; 18]).unwrap());
 }
 
 #[test]
 fn test_strong_connectivity_augmentation_wrong_length() {
     let problem = issue_example_yes();
-    assert!(!problem.evaluate(&[0, 1]));
-    assert!(!problem.is_valid_solution(&[0, 1]));
+    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(!problem.is_valid_solution(&[0, 1]).unwrap());
 }
 
 #[test]
 fn test_strong_connectivity_augmentation_already_strongly_connected() {
     let problem = issue_example_already_strongly_connected();
     assert_eq!(problem.dims(), vec![2]);
-    assert!(problem.evaluate(&[0]));
-    assert!(!problem.evaluate(&[1]));
+    assert!(problem.evaluate(&[0]).unwrap());
+    assert!(!problem.evaluate(&[1]).unwrap());
 }
 
 #[test]
 fn test_strong_connectivity_augmentation_serialization() {
     let problem = issue_example_yes();
     let json = serde_json::to_string(&problem).unwrap();
-    let restored: StrongConnectivityAugmentation<i32> = serde_json::from_str(&json).unwrap();
+    let restored: StrongConnectivityAugmentation<i64> = serde_json::from_str(&json).unwrap();
 
     assert_eq!(restored.graph(), problem.graph());
     assert_eq!(restored.candidate_arcs(), problem.candidate_arcs());
@@ -117,17 +117,17 @@ fn test_strong_connectivity_augmentation_solver() {
     let problem = issue_example_yes();
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_witness(&problem).unwrap();
-    assert!(problem.evaluate(&satisfying));
+    let satisfying = solver.find_witness(&problem).unwrap().unwrap();
+    assert!(problem.evaluate(&satisfying).unwrap());
 
-    let all_satisfying = solver.find_all_witnesses(&problem);
+    let all_satisfying = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all_satisfying, vec![yes_config()]);
 }
 
 #[test]
 fn test_strong_connectivity_augmentation_variant() {
-    let variant = <StrongConnectivityAugmentation<i32> as Problem>::variant();
-    assert_eq!(variant, vec![("weight", "i32")]);
+    let variant = <StrongConnectivityAugmentation<i64> as Problem>::variant();
+    assert_eq!(variant, vec![("weight", "i64")]);
 }
 
 #[test]

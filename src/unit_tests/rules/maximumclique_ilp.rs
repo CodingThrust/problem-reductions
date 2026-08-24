@@ -3,7 +3,7 @@ use crate::solvers::ILPSolver;
 
 /// Check if a configuration represents a valid clique in the graph.
 /// A clique is valid if all selected vertices are pairwise adjacent.
-fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) -> bool {
+fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[usize]) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
@@ -23,7 +23,7 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) 
 }
 
 /// Compute the clique size (sum of weights of selected vertices).
-fn clique_size(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) -> i32 {
+fn clique_size(problem: &MaximumClique<SimpleGraph, i64>, config: &[usize]) -> i64 {
     config
         .iter()
         .enumerate()
@@ -33,7 +33,7 @@ fn clique_size(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) -> i
 }
 
 /// Find maximum clique size by brute force enumeration.
-fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i32>) -> i32 {
+fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i64>) -> i64 {
     let n = problem.graph().num_vertices();
     let mut max_size = 0;
     for mask in 0..(1 << n) {
@@ -52,11 +52,12 @@ fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i32>) -> i32 {
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges (complete graph K3)
     // All pairs are adjacent, so no constraints should be added
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1; 3],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Check ILP structure
@@ -72,9 +73,10 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_with_non_edges() {
     // Path graph 0-1-2: edges (0,1) and (1,2), non-edge (0,2)
-    let problem: MaximumClique<SimpleGraph, i32> =
+    let problem: MaximumClique<SimpleGraph, i64> =
         MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1; 3]);
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Should have 1 constraint for non-edge (0, 2)
@@ -88,9 +90,10 @@ fn test_reduction_with_non_edges() {
 
 #[test]
 fn test_reduction_weighted() {
-    let problem: MaximumClique<SimpleGraph, i32> =
+    let problem: MaximumClique<SimpleGraph, i64> =
         MaximumClique::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
@@ -106,11 +109,12 @@ fn test_reduction_weighted() {
 #[test]
 fn test_maximumclique_to_ilp_closed_loop() {
     // Triangle graph (K3): max clique = 3 vertices
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1; 3],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -137,11 +141,12 @@ fn test_maximumclique_to_ilp_closed_loop() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: max clique = 2 (any adjacent pair)
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1; 4],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -167,9 +172,10 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // Weights: [1, 100, 1]
     // Max clique by weight: {0, 1} (weight 101) or {1, 2} (weight 101), or just {1} (weight 100)
     // Since 0-1 and 1-2 are edges, both {0,1} and {1,2} are valid cliques
-    let problem: MaximumClique<SimpleGraph, i32> =
+    let problem: MaximumClique<SimpleGraph, i64> =
         MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -189,9 +195,10 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem: MaximumClique<SimpleGraph, i32> =
+    let problem: MaximumClique<SimpleGraph, i64> =
         MaximumClique::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1; 4]);
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1, 0, 0];
@@ -204,11 +211,12 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1; 5],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 5);
@@ -219,9 +227,10 @@ fn test_ilp_structure() {
 #[test]
 fn test_empty_graph() {
     // Graph with no edges: max clique = 1 (any single vertex)
-    let problem: MaximumClique<SimpleGraph, i32> =
+    let problem: MaximumClique<SimpleGraph, i64> =
         MaximumClique::new(SimpleGraph::new(3, vec![]), vec![1; 3]);
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // All pairs are non-edges, so 3 constraints
@@ -241,11 +250,12 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph() {
     // Complete graph K4: max clique = 4 (all vertices)
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         vec![1; 4],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // No non-edges, so no constraints
@@ -266,11 +276,12 @@ fn test_complete_graph() {
 fn test_bipartite_graph() {
     // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (two independent sets: {0,1} and {2,3})
     // Max clique = 2 (any edge, e.g., {0, 2})
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]),
         vec![1; 4],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -289,11 +300,12 @@ fn test_bipartite_graph() {
 fn test_star_graph() {
     // Star graph: center 0 connected to 1, 2, 3
     // Max clique = 2 (center + any leaf)
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
         vec![1; 4],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Non-edges: (1,2), (1,3), (2,3) = 3 constraints
@@ -309,10 +321,11 @@ fn test_star_graph() {
 
 #[test]
 fn test_maximumclique_to_ilp_bf_vs_ilp() {
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
+    let problem: MaximumClique<SimpleGraph, i64> = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1; 4],
     );
-    let reduction: ReductionCliqueToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionCliqueToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

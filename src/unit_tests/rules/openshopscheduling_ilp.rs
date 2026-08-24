@@ -21,7 +21,8 @@ fn medium_instance() -> OpenShopScheduling {
 #[test]
 fn test_openshopscheduling_to_ilp_structure_small() {
     let p = small_instance();
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=2, m=2:
@@ -55,13 +56,14 @@ fn test_openshopscheduling_to_ilp_structure_small() {
 #[test]
 fn test_openshopscheduling_to_ilp_closed_loop_small() {
     let p = small_instance();
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = p.evaluate(&extracted);
+    let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
         "extracted schedule must be valid, got {value:?}"
@@ -73,13 +75,14 @@ fn test_openshopscheduling_to_ilp_closed_loop_small() {
 #[test]
 fn test_openshopscheduling_to_ilp_closed_loop_medium() {
     let p = medium_instance();
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
 
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = p.evaluate(&extracted);
+    let value = p.evaluate(&extracted).unwrap();
     assert!(
         value.0.is_some(),
         "extracted schedule must be valid, got {value:?}"
@@ -97,7 +100,8 @@ fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
     // For small instance, if we manually craft an ILP solution, extraction should
     // order jobs on each machine by start time.
     let p = small_instance();
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
 
     // Variable layout: x_{0,1,0}=0, x_{0,1,1}=1, s_{0,0}=1, s_{0,1}=0, s_{1,0}=0, s_{1,1}=2, y_{0,0,1}=0, y_{1,0,1}=1, C=3
     // => M1: job 1 starts at 0, job 0 starts at 1 → order [1, 0]
@@ -108,7 +112,7 @@ fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
     // M2: J0 at t=0, J1 at t=2 → order [0, 1]
     assert_eq!(extracted[0..2], [1, 0], "M1 order should be [1, 0]");
     assert_eq!(extracted[2..4], [0, 1], "M2 order should be [0, 1]");
-    let value = p.evaluate(&extracted);
+    let value = p.evaluate(&extracted).unwrap();
     assert!(value.0.is_some(), "extracted config should be valid");
 }
 
@@ -118,12 +122,13 @@ fn test_openshopscheduling_to_ilp_extract_solution_respects_start_times() {
 fn test_openshopscheduling_to_ilp_single_job() {
     // 1 job, 2 machines: trivial, makespan = sum of processing times
     let p = OpenShopScheduling::new(2, vec![vec![3, 4]]);
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = p.evaluate(&extracted);
+    let value = p.evaluate(&extracted).unwrap();
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(7)));
 }
@@ -132,12 +137,13 @@ fn test_openshopscheduling_to_ilp_single_job() {
 fn test_openshopscheduling_to_ilp_single_machine() {
     // 3 jobs, 1 machine: serial schedule, makespan = sum of all processing times
     let p = OpenShopScheduling::new(1, vec![vec![2], vec![3], vec![1]]);
-    let reduction: ReductionOSSToILP = ReduceTo::<ILP<i32>>::reduce_to(&p);
+    let reduction: ReductionOSSToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = p.evaluate(&extracted);
+    let value = p.evaluate(&extracted).unwrap();
     assert!(value.0.is_some());
     assert_eq!(value, Min(Some(6)));
 }

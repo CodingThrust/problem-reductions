@@ -404,14 +404,14 @@ fn test_path_rejects_zero_edge_route_for_symbolic_and_concrete_queries() {
     let instance = std::env::temp_dir().join("pred_path_same_source_mis.json");
     std::fs::write(
         &instance,
-        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":2,"edges":[[0,1]]},"weights":[1,1]}}"#,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":2,"edges":[[0,1]]},"weights":[1,1]}}"#,
     )
     .unwrap();
     let concrete = pred()
         .args([
             "path",
-            "MIS/SimpleGraph/i32",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
+            "MIS/SimpleGraph/i64",
             instance.to_str().unwrap(),
             "--json",
         ])
@@ -427,15 +427,15 @@ fn test_path_concrete_execution_is_deterministic_and_measures_constructed_target
     let instance = std::env::temp_dir().join("pred_path_concrete_mis.json");
     std::fs::write(
         &instance,
-        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
     )
     .unwrap();
     let run = || {
         let output = pred()
             .args([
                 "path",
-                "MIS/SimpleGraph/i32",
-                "MaximumClique/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
+                "MaximumClique/SimpleGraph/i64",
                 instance.to_str().unwrap(),
                 "--json",
             ])
@@ -469,13 +469,13 @@ fn test_path_defaults_to_pareto_and_unfiltered_returns_every_candidate() {
     let instance = std::env::temp_dir().join("pred_path_selection_mis.json");
     std::fs::write(
         &instance,
-        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i32"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
+        r#"{"type":"MaximumIndependentSet","variant":{"graph":"SimpleGraph","weight":"i64"},"data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}}"#,
     )
     .unwrap();
     let run = |limit: &str, unfiltered: bool| {
         let mut args = vec![
             "path",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "QUBO",
             instance.to_str().unwrap(),
             "--limit",
@@ -523,8 +523,8 @@ fn test_path_save() {
     let output = pred()
         .args([
             "path",
-            "MIS/SimpleGraph/i32",
-            "MaximumClique/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
             "-o",
             tmp.to_str().unwrap(),
         ])
@@ -741,7 +741,7 @@ fn test_unknown_problem_no_match() {
 fn test_evaluate() {
     let problem_json = r#"{
         "type": "MaximumIndependentSet",
-        "variant": {"graph": "SimpleGraph", "weight": "i32"},
+        "variant": {"graph": "SimpleGraph", "weight": "i64"},
         "data": {
             "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
@@ -811,7 +811,7 @@ fn test_evaluate_consecutive_block_minimization_rejects_ragged_matrix() {
 fn test_evaluate_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
     let problem_json = r#"{
         "type": "MultipleChoiceBranching",
-        "variant": {"weight": "i32"},
+        "variant": {"weight": "i64"},
         "data": {
             "graph": {"num_vertices": 2, "arcs": [[0,1]]},
             "weights": [1],
@@ -1453,7 +1453,7 @@ fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",
-        "variant": {"graph": "SimpleGraph", "weight": "i32"},
+        "variant": {"graph": "SimpleGraph", "weight": "i64"},
         "data": {
             "graph": {"num_vertices": 4, "edges": [[0,1],[1,2],[2,3]]},
             "weights": [1, 1, 1, 1]
@@ -1464,7 +1464,7 @@ fn test_reduce() {
     let route_file = std::env::temp_dir().join("pred_test_reduce_route.json");
     std::fs::write(&input, problem_json).unwrap();
     write_named_route(
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -1513,7 +1513,7 @@ fn test_reduce_via_path() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1526,7 +1526,7 @@ fn test_reduce_via_path() {
     // 2. Explicitly extract a named route from the enumerated path set.
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
     write_named_route(
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -1576,7 +1576,7 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2",
             "--weights",
@@ -1586,7 +1586,7 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
         .unwrap();
     assert!(create.status.success());
     write_named_route(
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -1627,7 +1627,7 @@ fn test_reduce_rejects_unselected_path_set() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1642,8 +1642,8 @@ fn test_reduce_rejects_unselected_path_set() {
     let path_out = pred()
         .args([
             "path",
-            "MaximumIndependentSet/SimpleGraph/i32",
-            "MaximumClique/SimpleGraph/i32",
+            "MaximumIndependentSet/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
             "-o",
             path_file.to_str().unwrap(),
         ])
@@ -1677,8 +1677,8 @@ fn test_path_set_envelope_has_only_per_item_paths() {
     let output = pred()
         .args([
             "path",
-            "MIS/SimpleGraph/i32",
-            "MaximumClique/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
             "--json",
         ])
         .output()
@@ -1711,7 +1711,7 @@ fn test_reduce_via_infer_target() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1723,7 +1723,7 @@ fn test_reduce_via_infer_target() {
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
     write_named_route(
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -1770,7 +1770,7 @@ fn test_reduce_via_preserves_explicit_target_variant() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -1782,7 +1782,7 @@ fn test_reduce_via_preserves_explicit_target_variant() {
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_variant_path.json");
     write_named_route(
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "ILP/bool",
         &["MaximumIndependentSet", "MaximumClique", "ILP"],
         &path_file,
@@ -2153,7 +2153,7 @@ fn test_create_comparative_containment() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "ComparativeContainment");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["universe_size"], 4);
     assert_eq!(
         json["data"]["r_sets"],
@@ -2719,7 +2719,7 @@ fn test_create_multiple_choice_branching() {
             "-o",
             output_file.to_str().unwrap(),
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
@@ -2741,7 +2741,7 @@ fn test_create_multiple_choice_branching() {
     let content = std::fs::read_to_string(&output_file).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "MultipleChoiceBranching");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(
         json["data"]["weights"],
         serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3])
@@ -2758,7 +2758,7 @@ fn test_create_multiple_choice_branching() {
 #[test]
 fn test_create_model_example_multiple_choice_branching() {
     let output = pred()
-        .args(["create", "--example", "MultipleChoiceBranching/i32"])
+        .args(["create", "--example", "MultipleChoiceBranching/i64"])
         .output()
         .unwrap();
     assert!(
@@ -2770,7 +2770,7 @@ fn test_create_model_example_multiple_choice_branching() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MultipleChoiceBranching");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["threshold"], 10);
     assert_eq!(json["data"]["partition"].as_array().unwrap().len(), 4);
 }
@@ -2788,7 +2788,7 @@ fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() 
         .args([
             "create",
             "--example",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -2870,7 +2870,7 @@ fn test_create_acyclic_partition() {
     let output = pred()
         .args([
             "create",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
             "--arcs",
             "0>1,0>2,1>3,1>4,2>4,2>5,3>5,4>5",
             "--weights",
@@ -2893,7 +2893,7 @@ fn test_create_acyclic_partition() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "AcyclicPartition");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(
         json["data"]["vertex_weights"],
         serde_json::json!([2, 3, 2, 1, 3, 1])
@@ -2909,7 +2909,7 @@ fn test_create_acyclic_partition() {
 #[test]
 fn test_create_model_example_acyclic_partition() {
     let output = pred()
-        .args(["create", "--example", "AcyclicPartition/i32"])
+        .args(["create", "--example", "AcyclicPartition/i64"])
         .output()
         .unwrap();
     assert!(
@@ -2921,7 +2921,7 @@ fn test_create_model_example_acyclic_partition() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "AcyclicPartition");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["weight_bound"], 5);
     assert_eq!(json["data"]["cost_bound"], 5);
     assert_eq!(json["data"]["graph"]["num_vertices"], 6);
@@ -2940,7 +2940,7 @@ fn test_create_model_example_acyclic_partition_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -2991,7 +2991,7 @@ fn test_create_mixed_chinese_postman() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["graph"]["num_vertices"], 5);
     assert_eq!(json["data"]["arc_weights"], serde_json::json!([2, 3, 1, 4]));
     assert_eq!(
@@ -3003,7 +3003,7 @@ fn test_create_mixed_chinese_postman() {
 #[test]
 fn test_create_model_example_mixed_chinese_postman() {
     let output = pred()
-        .args(["create", "--example", "MixedChinesePostman/i32"])
+        .args(["create", "--example", "MixedChinesePostman/i64"])
         .output()
         .unwrap();
     assert!(
@@ -3015,7 +3015,7 @@ fn test_create_model_example_mixed_chinese_postman() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MixedChinesePostman");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -3077,7 +3077,7 @@ fn test_create_multiple_choice_branching_rejects_invalid_partition_without_panic
     let output = pred()
         .args([
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
@@ -3485,7 +3485,7 @@ fn test_solve_bundle_ilp() {
     let reduce_out = reduce_named_to_file(
         &problem_file,
         "MIS/SimpleGraph/One",
-        "MVC/SimpleGraph/i32",
+        "MVC/SimpleGraph/i64",
         &[
             "MaximumIndependentSet",
             "MaximumIndependentSet",
@@ -3518,8 +3518,8 @@ fn test_solve_bundle_ilp() {
 }
 
 #[test]
-fn test_solve_direct_ilp_i32_problem() {
-    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i32_problem.json");
+fn test_solve_direct_ilp_i64_problem() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp_i64_problem.json");
 
     let create_out = pred()
         .args([
@@ -3529,7 +3529,7 @@ fn test_solve_direct_ilp_i32_problem() {
             "--example",
             "SequencingToMinimizeWeightedCompletionTime",
             "--to",
-            "ILP/i32",
+            "ILP/i64",
             "--example-side",
             "target",
         ])
@@ -4179,7 +4179,7 @@ fn test_create_steiner_tree() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "SteinerTree");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2, 4]));
     std::fs::remove_file(&output_file).ok();
 }
@@ -4288,9 +4288,9 @@ fn test_create_from_example_source() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
         ])
         .output()
         .unwrap();
@@ -4311,9 +4311,9 @@ fn test_create_from_example_target() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--example-side",
             "target",
         ])
@@ -4355,7 +4355,7 @@ fn test_create_unknown_example_problem() {
 #[test]
 fn test_create_model_example_mis() {
     let output = pred()
-        .args(["create", "--example", "MIS/SimpleGraph/i32"])
+        .args(["create", "--example", "MIS/SimpleGraph/i64"])
         .output()
         .unwrap();
     assert!(
@@ -4367,7 +4367,7 @@ fn test_create_model_example_mis() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -4391,7 +4391,7 @@ fn test_create_model_example_mis_shorthand() {
 #[test]
 fn test_create_model_example_mis_weight_only() {
     let output = pred()
-        .args(["create", "--example", "MIS/i32"])
+        .args(["create", "--example", "MIS/i64"])
         .output()
         .unwrap();
     assert!(
@@ -4403,7 +4403,7 @@ fn test_create_model_example_mis_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -4421,7 +4421,7 @@ fn test_create_model_example_steiner_tree() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "SteinerTree");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -4476,7 +4476,7 @@ fn test_create_sequencing_to_minimize_weighted_tardiness_no_flags_shows_help() {
 #[test]
 fn test_create_multiple_choice_branching_help_uses_threshold_flag() {
     let output = pred()
-        .args(["create", "MultipleChoiceBranching/i32"])
+        .args(["create", "MultipleChoiceBranching/i64"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -4756,7 +4756,7 @@ fn test_create_minmaxmulticenter_success() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinMaxMulticenter");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["k"], 2);
     assert_eq!(
         json["data"]["vertex_weights"],
@@ -5284,8 +5284,8 @@ fn test_path_overall_exact_map_json() {
     let output = pred()
         .args([
             "path",
-            "MIS/SimpleGraph/i32",
-            "MaximumClique/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
+            "MaximumClique/SimpleGraph/i64",
             "--json",
         ])
         .output()
@@ -5309,7 +5309,7 @@ fn test_path_overall_upper_bound_map_composition() {
         .args([
             "path",
             "MIS/SimpleGraph/One",
-            "MaximumClique/SimpleGraph/i32",
+            "MaximumClique/SimpleGraph/i64",
             "--json",
         ])
         .output()
@@ -6093,7 +6093,7 @@ fn test_create_multiple_choice_branching_pipe_to_solve() {
     let create_out = pred()
         .args([
             "create",
-            "MultipleChoiceBranching/i32",
+            "MultipleChoiceBranching/i64",
             "--arcs",
             "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
             "--weights",
@@ -6309,7 +6309,7 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
     let weighted_create = pred()
         .args([
             "create",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -6334,7 +6334,7 @@ fn test_inspect_reports_only_executable_reductions_for_exact_variant() {
         ),
         (
             &weighted_file,
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "IntegralFlowBundles",
             "MaximumIndependentSet/KingsSubgraph/One",
         ),
@@ -6803,7 +6803,7 @@ fn test_inspect_acyclic_partition_reports_size_fields() {
             problem_file.to_str().unwrap(),
             "create",
             "--example",
-            "AcyclicPartition/i32",
+            "AcyclicPartition/i64",
         ])
         .output()
         .unwrap();
@@ -7871,7 +7871,7 @@ fn test_create_mis_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph/i32",
+            "MIS/TriangularSubgraph/i64",
             "--positions",
             "0,0;0,1;1,0;1,1",
         ])
@@ -7954,7 +7954,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let output = pred()
         .args([
             "create",
-            "MIS/KingsSubgraph/i32",
+            "MIS/KingsSubgraph/i64",
             "--positions",
             "0,0;1,0;1,1",
             "--weights",
@@ -7971,7 +7971,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "KingsSubgraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -8004,7 +8004,7 @@ fn test_create_random_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph/i32",
+            "MIS/TriangularSubgraph/i64",
             "--random",
             "--num-vertices",
             "8",
@@ -8097,7 +8097,7 @@ fn test_create_model_example_mis_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -8135,9 +8135,9 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
         .args([
             "create",
             "--example",
-            "MVC/SimpleGraph/i32",
+            "MVC/SimpleGraph/i64",
             "--to",
-            "MIS/SimpleGraph/i32",
+            "MIS/SimpleGraph/i64",
             "-o",
             path.to_str().unwrap(),
         ])
@@ -8165,7 +8165,7 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
 #[test]
 fn test_create_rule_example_mvc_to_mis_weight_only() {
     let output = pred()
-        .args(["create", "--example", "MVC/i32", "--to", "MIS/i32"])
+        .args(["create", "--example", "MVC/i64", "--to", "MIS/i64"])
         .output()
         .unwrap();
     assert!(
@@ -8177,7 +8177,7 @@ fn test_create_rule_example_mvc_to_mis_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumVertexCover");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -8186,9 +8186,9 @@ fn test_create_rule_example_mvc_to_mis_target_weight_only() {
         .args([
             "create",
             "--example",
-            "MVC/i32",
+            "MVC/i64",
             "--to",
-            "MIS/i32",
+            "MIS/i64",
             "--example-side",
             "target",
         ])
@@ -8203,7 +8203,7 @@ fn test_create_rule_example_mvc_to_mis_target_weight_only() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 // ---- Variant-level show semantics ----
@@ -8612,12 +8612,12 @@ fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("edge_lengths (Vec<i32>)"),
-        "expected concrete Vec<i32> construction type for edge_lengths, got: {stdout}"
+        stdout.contains("edge_lengths (Vec<i64>)"),
+        "expected concrete Vec<i64> construction type for edge_lengths, got: {stdout}"
     );
     assert!(
-        stdout.contains("edge_weights (Vec<i32>)"),
-        "expected concrete Vec<i32> construction type for edge_weights, got: {stdout}"
+        stdout.contains("edge_weights (Vec<i64>)"),
+        "expected concrete Vec<i64> construction type for edge_weights, got: {stdout}"
     );
     assert!(
         stdout.contains("weight_bound (i64)"),
@@ -8656,7 +8656,7 @@ fn test_create_nonunit_weights_require_weighted_variant() {
         .unwrap();
     assert!(
         !output.status.success(),
-        "non-unit weights should require /i32"
+        "non-unit weights should require /i64"
     );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
@@ -8695,7 +8695,7 @@ fn test_create_weighted_mis_round_trips_into_solve() {
     let create_output = pred()
         .args([
             "create",
-            "MIS/i32",
+            "MIS/i64",
             "--graph",
             "0-1,1-2,2-3",
             "--weights",
@@ -8759,7 +8759,7 @@ fn test_create_minimum_multiway_cut() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "MinimumMultiwayCut");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["terminals"], serde_json::json!([0, 2]));
     assert_eq!(json["data"]["edge_weights"], serde_json::json!([1, 1, 1]));
     std::fs::remove_file(&output_file).ok();
@@ -8978,7 +8978,7 @@ fn test_create_model_example_minimum_multiway_cut() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MinimumMultiwayCut");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
 }
 
 #[test]
@@ -9097,9 +9097,9 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
             "create",
             "SequencingWithinIntervals",
             "--release-times",
-            "18446744073709551615",
+            "9223372036854775807",
             "--deadlines",
-            "18446744073709551615",
+            "9223372036854775807",
             "--lengths",
             "1",
         ])
@@ -9112,7 +9112,7 @@ fn test_create_sequencing_within_intervals_rejects_overflow() {
         "expected graceful CLI error, got panic: {stderr}"
     );
     assert!(
-        stderr.contains("task 0 release time plus length overflows u64"),
+        stderr.contains("task 0 release time plus length overflows i64"),
         "expected overflow validation error, got: {stderr}"
     );
 }
@@ -9501,7 +9501,7 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
 
     let reduce_out = reduce_named_to_file(
         &problem_file,
-        "TSP/SimpleGraph/i32",
+        "TSP/SimpleGraph/i64",
         "QUBO",
         &["TravelingSalesman", "QUBO"],
         &bundle_file,

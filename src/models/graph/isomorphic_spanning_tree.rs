@@ -51,7 +51,7 @@ inventory::submit! {
 /// let problem = IsomorphicSpanningTree::new(graph, tree);
 ///
 /// let solver = BruteForce::new();
-/// let sol = solver.find_witness(&problem);
+/// let sol = solver.find_witness(&problem).unwrap();
 /// assert!(sol.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,12 +125,17 @@ where
         vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_isomorphic_spanning_tree(
-            &self.graph,
-            &self.tree,
-            config,
-        ))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or(is_valid_isomorphic_spanning_tree(
+                &self.graph,
+                &self.tree,
+                config,
+            ))
+        })
     }
 }
 

@@ -1,4 +1,4 @@
-//! Reduction from SequencingToMinimizeTardyTaskWeight to ILP<bool>.
+//! Reduction from SequencingToMinimizeTardyTaskWeight to `ILP<bool>`.
 //!
 //! Position-assignment ILP: binary x_{j,p} placing task j in position p,
 //! with binary tardy indicator u_j. A big-M constraint forces u_j = 1
@@ -9,8 +9,9 @@ use crate::models::misc::SequencingToMinimizeTardyTaskWeight;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing SequencingToMinimizeTardyTaskWeight to ILP<bool>.
+/// Result of reducing SequencingToMinimizeTardyTaskWeight to `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionSTMTTWToILP {
     target: ILP<bool>,
@@ -49,12 +50,47 @@ impl ReductionResult for ReductionSTMTTWToILP {
 impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
     type Result = ReductionSTMTTWToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let num_x_vars = n * n;
         let num_vars = num_x_vars + n;
-        let total_length: u64 = self.lengths().iter().copied().sum();
-        let big_m = total_length as f64;
+        let total_length = self
+            .lengths()
+            .iter()
+            .try_fold(0_i64, |total, &length| total.checked_add(length))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SequencingToMinimizeTardyTaskWeight,
+                    ILP<bool>,
+                >("summing task processing times")
+            })?;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SequencingToMinimizeTardyTaskWeight,
+                    ILP<bool>,
+                >(error)
+            })
+        };
+        let big_m = exact_f64(total_length)?;
+        let lengths_f64 = self
+            .lengths()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
+        let deadlines_f64 = self
+            .deadlines()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
+        let weights_f64 = self
+            .weights()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
         let u_var = |j: usize| -> usize { num_x_vars + j };
@@ -77,30 +113,30 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
         //    completion_time_at_p >= l_j + sum_{p' < p} sum_{j'} l_{j'} * x_{j',p'}
         //    If completion > d_j then u_j must be 1.
         //    Linearized as: big_m * x_{j,p} + sum_{p'<p} sum_{j'} l_{j'} * x_{j',p'} - big_m * u_j <= d_j - l_j + big_m
-        let lengths = self.lengths();
         for j in 0..n {
             for p in 0..n {
                 let mut terms: Vec<(usize, f64)> = Vec::new();
                 terms.push((x_var(j, p), big_m));
                 for pp in 0..p {
-                    for (jj, &len) in lengths.iter().enumerate() {
-                        terms.push((x_var(jj, pp), len as f64));
+                    for (jj, &length) in lengths_f64.iter().enumerate() {
+                        terms.push((x_var(jj, pp), length));
                     }
                 }
                 terms.push((u_var(j), -big_m));
-                let rhs = self.deadlines()[j] as f64 - lengths[j] as f64 + big_m;
+                let rhs = deadlines_f64[j] - lengths_f64[j] + big_m;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
 
         // Objective: minimize sum w_j * u_j
-        let weights = self.weights();
-        let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), weights[j] as f64)).collect();
+        let objective: Vec<(usize, f64)> = (0..n)
+            .map(|task| (u_var(task), weights_f64[task]))
+            .collect();
 
-        ReductionSTMTTWToILP {
+        Ok(ReductionSTMTTWToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
-        }
+        })
     }
 }
 

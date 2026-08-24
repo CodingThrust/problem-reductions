@@ -15,7 +15,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_closed_loop() {
         ],
     );
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -28,7 +29,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_closed_loop() {
 fn test_ksatisfiability_to_oneinthreesatisfiability_structure_single_clause() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vars(), 11);
@@ -51,7 +53,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_structure_single_clause() {
 fn test_ksatisfiability_to_oneinthreesatisfiability_structure_negated_clause() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vars(), 11);
@@ -80,24 +83,26 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_unsatisfiable() {
         ],
     );
 
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&source).is_none());
-    assert!(solver.find_witness(target).is_none());
+    assert!(solver.find_witness(&source).unwrap().is_none());
+    assert!(solver.find_witness(target).unwrap().is_none());
 }
 
 #[test]
 fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let target_solution = vec![0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0];
-    assert!(target.evaluate(&target_solution).0);
+    assert!(target.evaluate(&target_solution).unwrap().0);
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }

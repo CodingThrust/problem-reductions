@@ -68,7 +68,7 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
     type Result = ReductionDCPToILP;
 
     #[allow(clippy::needless_range_loop)]
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.ordered_edges();
         let m = edges.len();
         let n = self.num_vertices();
@@ -166,12 +166,12 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionDCPToILP {
+        Ok(ReductionDCPToILP {
             target,
             edges,
             num_commodities: k_count,
             num_edge_vars_per_commodity: num_flow_vars_per_k,
-        }
+        })
     }
 }
 

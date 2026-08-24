@@ -112,7 +112,7 @@ struct ReductionLayout {
     num_periods: usize,
     craftsman_avail: Vec<Vec<bool>>,
     task_avail: Vec<Vec<bool>>,
-    requirements: Vec<Vec<u64>>,
+    requirements: Vec<Vec<i64>>,
     pure_assignments: Vec<Option<usize>>,
     transformed_to_original: Vec<usize>,
     normalized_clauses: Vec<CNFClause>,
@@ -128,7 +128,7 @@ pub struct Reduction3SATToTimetableDesign {
     layout: ReductionLayout,
 }
 
-fn literal_var_index(literal: i32) -> usize {
+fn literal_var_index(literal: i64) -> usize {
     usize::try_from(literal.unsigned_abs()).expect("SAT literal magnitude must fit usize") - 1
 }
 
@@ -272,8 +272,8 @@ fn normalize_formula(source: &KSatisfiability<K3>) -> NormalizedFormula {
             );
             let compact_var = temp_var - source_num_vars;
             *literal = sign
-                * i32::try_from(compact_var)
-                    .expect("checked normalized SAT variable count fits i32");
+                * i64::try_from(compact_var)
+                    .expect("checked normalized SAT variable count fits i64");
         }
     }
 
@@ -610,7 +610,7 @@ fn build_layout(source: &KSatisfiability<K3>) -> ReductionLayout {
 
     let mut craftsman_avail = vec![vec![true; num_periods]; num_craftsmen];
     let mut task_avail = vec![vec![true; num_periods]; num_tasks];
-    let mut requirements = vec![vec![0u64; num_tasks]; num_craftsmen];
+    let mut requirements = vec![vec![0i64; num_tasks]; num_craftsmen];
     let mut edge_pairs = vec![(usize::MAX, usize::MAX); graph.edges.len()];
 
     for (edge_idx, &(u, v)) in graph.edges.iter().enumerate() {
@@ -804,7 +804,7 @@ impl ReductionResult for Reduction3SATToTimetableDesign {
 impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
     type Result = Reduction3SATToTimetableDesign;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let layout = build_layout(self);
         let target = TimetableDesign::new(
             layout.num_periods,
@@ -815,7 +815,7 @@ impl ReduceTo<TimetableDesign> for KSatisfiability<K3> {
             layout.requirements.clone(),
         );
 
-        Reduction3SATToTimetableDesign { target, layout }
+        Ok(Reduction3SATToTimetableDesign { target, layout })
     }
 }
 
@@ -826,7 +826,8 @@ pub(super) fn construct_timetable_from_assignment(
     assignment: &[usize],
     source: &KSatisfiability<K3>,
 ) -> Option<Vec<usize>> {
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(source).expect("reduction should succeed");
     if reduction.target_problem().num_periods() != target.num_periods()
         || reduction.target_problem().num_craftsmen() != target.num_craftsmen()
         || reduction.target_problem().num_tasks() != target.num_tasks()
@@ -854,7 +855,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, -2, -3]),
                 ],
             );
-            let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+            let reduction =
+                ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
             let source_config = vec![1, 0, 0];
             let target_config = reduction
                 .construct_target_solution(&source_config)

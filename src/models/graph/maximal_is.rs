@@ -17,7 +17,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -46,11 +46,11 @@ inventory::submit! {
 /// let problem = MaximalIS::new(graph, vec![1; 3]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximal independent sets: {0, 2} or {1}
 /// for sol in &solutions {
-///     assert!(problem.evaluate(sol).is_valid());
+///     assert!(problem.evaluate(sol).unwrap().is_valid());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -66,18 +66,19 @@ struct MaximalISCreateSpec {
     /// The underlying graph G=(V,E).
     graph: SimpleGraph,
     /// Vertex weights w: V -> R.
-    weights: Vec<i32>,
+    weights: Vec<i64>,
 }
 
-impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i32> {
-    type Error = String;
+impl TryFrom<MaximalISCreateSpec> for MaximalIS<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MaximalISCreateSpec) -> Result<Self, Self::Error> {
         if spec.weights.len() != spec.graph.num_vertices() {
             return Err(format!(
                 "weights has {} entries, expected {}",
                 spec.weights.len(),
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(spec.graph, spec.weights))
     }
@@ -183,27 +184,33 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !self.is_maximal(config) {
-            return Max(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_maximal(config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected maximal-independent-set weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximal_is_simplegraph_i32",
+        id: "maximal_is_simplegraph_i64",
         instance: Box::new(MaximalIS::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-            vec![1i32; 5],
+            vec![1i64; 5],
         )),
         optimal_config: vec![1, 0, 1, 0, 1],
         optimal_value: serde_json::json!(3),
@@ -242,12 +249,12 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
     true
 }
 
-crate::impl_random_generate!(MaximalIS<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+crate::impl_random_generate!(MaximalIS<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     Ok(MaximalIS::new(spec.graph()?, vec![1; spec.num_vertices]))
 });
 
 crate::declare_variants! {
-    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)" create MaximalISCreateSpec random,
+    default MaximalIS<SimpleGraph, i64> => "3^(num_vertices / 3)" create MaximalISCreateSpec random,
 }
 
 #[cfg(test)]

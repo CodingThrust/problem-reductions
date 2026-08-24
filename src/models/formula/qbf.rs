@@ -89,12 +89,13 @@ impl QuantifiedBooleanFormulas {
         num_vars: usize,
         quantifiers: Vec<Quantifier>,
         clauses: Vec<CNFClause>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if quantifiers.len() != num_vars {
             return Err(format!(
                 "quantifiers length ({}) must equal num_vars ({num_vars})",
                 quantifiers.len()
-            ));
+            )
+            .into());
         }
         validate_cnf_literals(num_vars, &clauses)?;
         Ok(Self {
@@ -174,12 +175,17 @@ impl Problem for QuantifiedBooleanFormulas {
         vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if !config.is_empty() {
-                return crate::types::Or(false);
-            }
-            self.is_true()
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if !config.is_empty() {
+                    return Ok(crate::types::Or(false));
+                }
+                self.is_true()
+            })
         })
     }
 
@@ -200,7 +206,7 @@ struct QuantifiedBooleanFormulasDef {
 }
 
 impl TryFrom<QuantifiedBooleanFormulasDef> for QuantifiedBooleanFormulas {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: QuantifiedBooleanFormulasDef) -> Result<Self, Self::Error> {
         Self::try_new(value.num_vars, value.quantifiers, value.clauses)

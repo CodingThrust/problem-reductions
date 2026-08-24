@@ -51,7 +51,7 @@ inventory::submit! {
 /// let problem = BicliqueCover::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Check coverage
 /// for sol in &solutions {
@@ -80,7 +80,7 @@ struct BicliqueCoverCreateSpec {
 }
 
 impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BicliqueCoverCreateSpec) -> Result<Self, Self::Error> {
         for (edge_index, &(left_vertex, right_vertex)) in spec.biedges.iter().enumerate() {
@@ -88,13 +88,13 @@ impl TryFrom<BicliqueCoverCreateSpec> for BicliqueCover {
                 return Err(format!(
                     "biedges[{edge_index}] left vertex {left_vertex} is out of bounds for left partition size {}",
                     spec.left
-                ));
+                ).into());
             }
             if right_vertex >= spec.right {
                 return Err(format!(
                     "biedges[{edge_index}] right vertex {right_vertex} is out of bounds for right partition size {}",
                     spec.right
-                ));
+                ).into());
             }
         }
 
@@ -252,18 +252,35 @@ impl BicliqueCover {
     }
 
     /// Count covered edges.
-    pub fn count_covered_edges(&self, config: &[usize]) -> usize {
+    pub fn count_covered_edges(
+        &self,
+        config: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
         use crate::topology::Graph;
-        self.graph
+        let count = self
+            .graph
             .edges()
             .iter()
             .filter(|&&(l, r)| self.is_edge_covered(l, r, config))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting covered-edge count to i64".into(),
+            )
+        })
     }
 
     /// Count total biclique size (sum of vertices in all bicliques).
-    pub fn total_biclique_size(&self, config: &[usize]) -> usize {
-        config.iter().filter(|&&x| x == 1).count()
+    pub fn total_biclique_size(
+        &self,
+        config: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let size = config.iter().filter(|&&x| x == 1).count();
+        i64::try_from(size).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting total biclique size to i64".into(),
+            )
+        })
     }
 }
 
@@ -303,18 +320,20 @@ pub(crate) fn is_biclique_cover(
 
 impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         // Each vertex has k binary variables (one per biclique)
         vec![2; self.num_vertices() * self.k]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        if !self.is_valid_cover(config) {
-            return Min(None);
-        }
-        Min(Some(self.total_biclique_size(config) as i32))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_valid_cover(config) {
+                return Ok(Min(None));
+            }
+            Min(Some(self.total_biclique_size(config)?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

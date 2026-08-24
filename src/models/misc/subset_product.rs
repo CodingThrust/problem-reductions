@@ -47,7 +47,7 @@ inventory::submit! {
 ///
 /// let problem = SubsetProduct::new(vec![2u32, 3, 5, 7, 6, 10], 210u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,24 +118,29 @@ impl Problem for SubsetProduct {
         vec![2; self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_elements() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            let mut product = BigUint::one();
-            for (i, &x) in config.iter().enumerate() {
-                if x == 1 {
-                    product *= &self.sizes[i];
-                    if product > self.target {
-                        return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_elements() {
+                    return Ok(crate::types::Or(false));
+                }
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
+                let mut product = BigUint::one();
+                for (i, &x) in config.iter().enumerate() {
+                    if x == 1 {
+                        product *= &self.sizes[i];
+                        if product > self.target {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
-            product == self.target
+                product == self.target
+            })
         })
     }
 }

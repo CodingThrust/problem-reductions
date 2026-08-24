@@ -29,7 +29,7 @@ fn test_minimum_matrix_cover_evaluate_all_minus() {
         vec![0, 2, 4, 0],
     ];
     let problem = MinimumMatrixCover::new(matrix);
-    let value = problem.evaluate(&[0, 0, 0, 0]);
+    let value = problem.evaluate(&[0, 0, 0, 0]).unwrap();
     // Sum of all entries = 0+3+1+0 + 3+0+0+2 + 1+0+0+4 + 0+2+4+0 = 20
     assert_eq!(value, Min(Some(20)));
 }
@@ -57,7 +57,7 @@ fn test_minimum_matrix_cover_evaluate_mixed() {
     // (3,2): 4 * (-1)(+1) = -4
     // All other terms are 0 (zero matrix entries or diagonal zeros)
     // Total = -3 + -1 + -3 + -2 + -1 + -4 + -2 + -4 = -20
-    let value = problem.evaluate(&[0, 1, 1, 0]);
+    let value = problem.evaluate(&[0, 1, 1, 0]).unwrap();
     assert_eq!(value, Min(Some(-20)));
 }
 
@@ -66,9 +66,9 @@ fn test_minimum_matrix_cover_evaluate_invalid() {
     let problem = MinimumMatrixCover::new(vec![vec![0, 1], vec![1, 0]]);
 
     // Wrong length
-    assert_eq!(problem.evaluate(&[0]), Min(None));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
     // Out-of-range value
-    assert_eq!(problem.evaluate(&[0, 2]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2]).unwrap(), Min(None));
 }
 
 #[test]
@@ -82,13 +82,13 @@ fn test_minimum_matrix_cover_solver() {
     let problem = MinimumMatrixCover::new(matrix);
     let solver = BruteForce::new();
 
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Min(Some(-20)));
 
-    let witness = solver.find_witness(&problem);
+    let witness = solver.find_witness(&problem).unwrap();
     assert!(witness.is_some());
     let w = witness.unwrap();
-    assert_eq!(problem.evaluate(&w), Min(Some(-20)));
+    assert_eq!(problem.evaluate(&w).unwrap(), Min(Some(-20)));
 }
 
 #[test]
@@ -106,11 +106,11 @@ fn test_minimum_matrix_cover_1x1() {
     // 1×1 matrix: only one variable, f(1) = ±1
     // value = a_11 * f(1)^2 = a_11 regardless of sign
     let problem = MinimumMatrixCover::new(vec![vec![5]]);
-    assert_eq!(problem.evaluate(&[0]), Min(Some(5)));
-    assert_eq!(problem.evaluate(&[1]), Min(Some(5)));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(5)));
+    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(Some(5)));
 
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Min(Some(5)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(5)));
 }
 
 #[test]
@@ -126,15 +126,15 @@ fn test_minimum_matrix_cover_paper_example() {
     let solver = BruteForce::new();
 
     // Verify the claimed optimal from the issue
-    let value = problem.evaluate(&[0, 1, 1, 0]);
+    let value = problem.evaluate(&[0, 1, 1, 0]).unwrap();
     assert_eq!(value, Min(Some(-20)));
 
     // Verify it is truly optimal
-    let optimal_value = solver.solve(&problem);
+    let optimal_value = solver.solve(&problem).unwrap();
     assert_eq!(optimal_value, Min(Some(-20)));
 
     // Verify the witness is one of the optimal solutions
-    let all_witnesses = solver.find_all_witnesses(&problem);
+    let all_witnesses = solver.find_all_witnesses(&problem).unwrap();
     assert!(all_witnesses.contains(&vec![0, 1, 1, 0]));
 }
 

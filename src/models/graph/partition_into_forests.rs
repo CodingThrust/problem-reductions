@@ -50,7 +50,7 @@ inventory::submit! {
 /// let problem = PartitionIntoForests::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,12 +108,17 @@ where
         vec![self.num_forests; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_forest_partition(
-            &self.graph,
-            self.num_forests,
-            config,
-        ))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or(is_valid_forest_partition(
+                &self.graph,
+                self.num_forests,
+                config,
+            ))
+        })
     }
 }
 

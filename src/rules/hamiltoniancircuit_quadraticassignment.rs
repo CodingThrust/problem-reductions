@@ -49,9 +49,16 @@ impl ReductionResult for ReductionHamiltonianCircuitToQuadraticAssignment {
 impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToQuadraticAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let omega = (n + 1) as i64;
+        let omega = i64::try_from(n)
+            .ok()
+            .and_then(|n| n.checked_add(1))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<Self, QuadraticAssignment>(
+                    "computing the non-edge penalty",
+                )
+            })?;
 
         // Cost matrix C: cycle adjacency on positions.
         // c[i][j] = 1 if j == (i+1) mod n, else 0.
@@ -82,7 +89,7 @@ impl ReduceTo<QuadraticAssignment> for HamiltonianCircuit<SimpleGraph> {
             .collect();
 
         let target = QuadraticAssignment::new(cost_matrix, distance_matrix);
-        ReductionHamiltonianCircuitToQuadraticAssignment { target }
+        Ok(ReductionHamiltonianCircuitToQuadraticAssignment { target })
     }
 }
 

@@ -19,9 +19,9 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Partition elements into at most K clusters where all intra-cluster distances are at most B",
         fields: &[
-            FieldInfo { name: "distances", type_name: "Vec<Vec<u64>>", description: "Symmetric distance matrix with zero diagonal" },
+            FieldInfo { name: "distances", type_name: "Vec<Vec<i64>>", description: "Symmetric distance matrix with zero diagonal" },
             FieldInfo { name: "num_clusters", type_name: "usize", description: "Maximum number of clusters K" },
-            FieldInfo { name: "diameter_bound", type_name: "u64", description: "Maximum allowed intra-cluster pairwise distance B" },
+            FieldInfo { name: "diameter_bound", type_name: "i64", description: "Maximum allowed intra-cluster pairwise distance B" },
         ],
     }
 }
@@ -55,17 +55,17 @@ inventory::submit! {
 /// ];
 /// let problem = Clustering::new(distances, 2, 1);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Clustering {
     /// Symmetric distance matrix with zero diagonal.
-    distances: Vec<Vec<u64>>,
+    distances: Vec<Vec<i64>>,
     /// Maximum number of clusters K.
     num_clusters: usize,
     /// Maximum allowed intra-cluster pairwise distance B.
-    diameter_bound: u64,
+    diameter_bound: i64,
 }
 
 impl Clustering {
@@ -79,7 +79,7 @@ impl Clustering {
     /// - `distances` is not symmetric
     /// - diagonal entries are not zero
     /// - `num_clusters` is zero
-    pub fn new(distances: Vec<Vec<u64>>, num_clusters: usize, diameter_bound: u64) -> Self {
+    pub fn new(distances: Vec<Vec<i64>>, num_clusters: usize, diameter_bound: i64) -> Self {
         let n = distances.len();
         assert!(n > 0, "Clustering requires at least one element");
         assert!(num_clusters > 0, "num_clusters must be at least 1");
@@ -112,7 +112,7 @@ impl Clustering {
     }
 
     /// Returns the distance matrix.
-    pub fn distances(&self) -> &[Vec<u64>] {
+    pub fn distances(&self) -> &[Vec<i64>] {
         &self.distances
     }
 
@@ -127,7 +127,7 @@ impl Clustering {
     }
 
     /// Returns the diameter bound B.
-    pub fn diameter_bound(&self) -> u64 {
+    pub fn diameter_bound(&self) -> i64 {
         self.diameter_bound
     }
 
@@ -171,8 +171,11 @@ impl Problem for Clustering {
         vec![self.num_clusters; self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_partition(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_partition(config)))
     }
 }
 

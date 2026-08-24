@@ -89,6 +89,7 @@ pub(crate) fn execute_route(
     let graph = ReductionGraph::new();
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
+        .map_err(|error| anyhow::anyhow!("Reduction path execution failed: {error}"))?
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "Reduction bundles require witness-capable paths; this path cannot produce a recoverable witness."

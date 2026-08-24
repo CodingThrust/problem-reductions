@@ -9,6 +9,7 @@ use crate::models::misc::StackerCrane;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing StackerCrane to ILP.
 ///
@@ -53,14 +54,14 @@ impl ReductionResult for ReductionSCToILP {
 impl ReduceTo<ILP<bool>> for StackerCrane {
     type Result = ReductionSCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_arcs();
 
         if m == 0 {
-            return ReductionSCToILP {
+            return Ok(ReductionSCToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
                 num_arcs: 0,
-            };
+            });
         }
 
         let num_vars = m * m + m * m * m;
@@ -137,7 +138,13 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
                     let tail_j = self.arcs()[j].0;
                     let dist = distances[head_i][tail_j];
                     if dist < i64::MAX {
-                        objective.push((z_idx(i, j, p), dist as f64));
+                        let distance = i64_to_exact_f64(dist).map_err(|error| {
+                            crate::rules::ReductionError::inexact_float_conversion::<
+                                StackerCrane,
+                                ILP<bool>,
+                            >(error)
+                        })?;
+                        objective.push((z_idx(i, j, p), distance));
                     }
                 }
             }
@@ -145,10 +152,10 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionSCToILP {
+        Ok(ReductionSCToILP {
             target,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -156,9 +163,9 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 fn all_pairs_shortest_paths(
     n: usize,
     arcs: &[(usize, usize)],
-    arc_lengths: &[i32],
+    arc_lengths: &[i64],
     edges: &[(usize, usize)],
-    edge_lengths: &[i32],
+    edge_lengths: &[i64],
 ) -> Vec<Vec<i64>> {
     let mut dist = vec![vec![i64::MAX; n]; n];
     for (i, row) in dist.iter_mut().enumerate() {
@@ -167,7 +174,7 @@ fn all_pairs_shortest_paths(
 
     // Directed arcs
     for (&(u, v), &length) in arcs.iter().zip(arc_lengths) {
-        let cost = i64::from(length);
+        let cost = length;
         if cost < dist[u][v] {
             dist[u][v] = cost;
         }
@@ -175,7 +182,7 @@ fn all_pairs_shortest_paths(
 
     // Undirected edges (both directions)
     for (&(u, v), &length) in edges.iter().zip(edge_lengths) {
-        let cost = i64::from(length);
+        let cost = length;
         if cost < dist[u][v] {
             dist[u][v] = cost;
         }

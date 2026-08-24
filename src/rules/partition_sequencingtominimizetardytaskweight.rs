@@ -35,14 +35,14 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
             }
 
             let mut source_config = vec![1; self.target.num_tasks()];
-            let mut completion_time = 0u64;
+            let mut completion_time = 0i64;
 
             for &task in target_solution {
                 completion_time = completion_time
                     .checked_add(self.target.lengths()[task])
                     .ok_or_else(|| {
                         crate::rules::ExtractionError::invalid(
-                            "target schedule completion time overflows u64",
+                            "target schedule completion time overflows i64",
                         )
                     })?;
                 if completion_time <= self.target.deadlines()[task] {
@@ -62,15 +62,15 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
 impl ReduceTo<SequencingToMinimizeTardyTaskWeight> for Partition {
     type Result = ReductionPartitionToSequencingToMinimizeTardyTaskWeight;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let common_deadline = self.total_sum() / 2;
         let lengths = self.sizes().to_vec();
         let weights = self.sizes().to_vec();
         let deadlines = vec![common_deadline; self.num_elements()];
 
-        ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
+        Ok(ReductionPartitionToSequencingToMinimizeTardyTaskWeight {
             target: SequencingToMinimizeTardyTaskWeight::new(lengths, weights, deadlines),
-        }
+        })
     }
 }
 
@@ -85,7 +85,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 _,
                 SequencingToMinimizeTardyTaskWeight,
             >(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
                     source_config: vec![1, 0, 0, 1, 0, 0],
                     target_config: vec![1, 2, 4, 5, 0, 3],

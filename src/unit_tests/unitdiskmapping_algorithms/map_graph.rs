@@ -11,21 +11,19 @@ use crate::topology::smallgraph;
 #[test]
 fn test_map_path_graph() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert!(!result.positions.is_empty());
     assert!(result.mis_overhead >= 0);
 
     let config = vec![0; result.positions.len()];
-    let original = result.map_config_back(&config);
+    let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 3);
 }
 
 #[test]
 fn test_map_triangle_graph() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert!(result.positions.len() >= 3);
     assert!(result.mis_overhead >= 0);
     assert_eq!(result.lines.len(), 3);
@@ -34,8 +32,7 @@ fn test_map_triangle_graph() {
 #[test]
 fn test_map_star_graph() {
     let edges = vec![(0, 1), (0, 2), (0, 3)];
-    let result = ksg::map_unweighted(4, &edges);
-
+    let result = ksg::map_unweighted(4, &edges).unwrap();
     assert!(result.positions.len() > 4);
     assert_eq!(result.lines.len(), 4);
 }
@@ -43,8 +40,7 @@ fn test_map_star_graph() {
 #[test]
 fn test_map_empty_graph() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert!(!result.positions.is_empty());
     assert_eq!(result.lines.len(), 3);
 }
@@ -52,8 +48,7 @@ fn test_map_empty_graph() {
 #[test]
 fn test_map_single_edge() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     assert_eq!(result.lines.len(), 2);
     assert!(!result.positions.is_empty());
 }
@@ -61,8 +56,7 @@ fn test_map_single_edge() {
 #[test]
 fn test_map_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = ksg::map_unweighted(1, &edges);
-
+    let result = ksg::map_unweighted(1, &edges).unwrap();
     assert_eq!(result.lines.len(), 1);
     assert!(!result.positions.is_empty());
 }
@@ -70,8 +64,7 @@ fn test_map_single_vertex() {
 #[test]
 fn test_map_complete_k4() {
     let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-    let result = ksg::map_unweighted(4, &edges);
-
+    let result = ksg::map_unweighted(4, &edges).unwrap();
     assert!(result.positions.len() > 4);
     assert_eq!(result.lines.len(), 4);
 }
@@ -80,8 +73,7 @@ fn test_map_complete_k4() {
 fn test_map_graph_with_custom_order() {
     let edges = vec![(0, 1), (1, 2)];
     let order = vec![2, 1, 0];
-    let result = ksg::map_unweighted_with_order(3, &edges, &order);
-
+    let result = ksg::map_unweighted_with_order(3, &edges, &order).unwrap();
     assert!(!result.positions.is_empty());
     assert_eq!(result.lines.len(), 3);
 }
@@ -89,16 +81,14 @@ fn test_map_graph_with_custom_order() {
 #[test]
 fn test_square_grid_type() {
     let edges = vec![(0, 1)];
-    let result = ksg::map_unweighted(2, &edges);
-
+    let result = ksg::map_unweighted(2, &edges).unwrap();
     assert!(matches!(result.kind, GridKind::Kings));
 }
 
 #[test]
 fn test_mapping_preserves_vertex_count() {
     let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4)];
-    let result = ksg::map_unweighted(5, &edges);
-
+    let result = ksg::map_unweighted(5, &edges).unwrap();
     assert_eq!(result.lines.len(), 5);
 
     let vertices: Vec<usize> = result.lines.iter().map(|l| l.vertex).collect();
@@ -116,8 +106,7 @@ fn test_mapping_preserves_vertex_count() {
 #[test]
 fn test_mapping_result_serialization() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let json = serde_json::to_string(&result).unwrap();
     let deserialized: MappingResult = serde_json::from_str(&json).unwrap();
 
@@ -128,11 +117,9 @@ fn test_mapping_result_serialization() {
 #[test]
 fn test_mapping_result_config_back_all_zeros() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let config = vec![0; result.positions.len()];
-    let original = result.map_config_back(&config);
-
+    let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 3);
     assert!(original.iter().all(|&x| x == 0));
 }
@@ -142,11 +129,9 @@ fn test_mapping_result_config_back_all_zeros() {
 #[test]
 fn test_mapping_result_config_back_returns_correct_length() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let config = vec![0; result.positions.len()];
-    let original = result.map_config_back(&config);
-
+    let original = result.map_config_back(&config).unwrap();
     assert_eq!(original.len(), 3);
     assert!(original.iter().all(|&x| x == 0));
 }
@@ -154,8 +139,7 @@ fn test_mapping_result_config_back_returns_correct_length() {
 #[test]
 fn test_mapping_result_fields_populated() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     assert!(!result.lines.is_empty());
     assert!(!result.positions.is_empty());
     assert!(result.spacing > 0);
@@ -168,8 +152,7 @@ fn test_mapping_result_fields_populated() {
 fn test_disconnected_graph() {
     // Two disconnected edges
     let edges = vec![(0, 1), (2, 3)];
-    let result = ksg::map_unweighted(4, &edges);
-
+    let result = ksg::map_unweighted(4, &edges).unwrap();
     assert_eq!(result.lines.len(), 4);
     assert!(!result.positions.is_empty());
 }
@@ -177,8 +160,7 @@ fn test_disconnected_graph() {
 #[test]
 fn test_linear_chain() {
     let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4)];
-    let result = ksg::map_unweighted(5, &edges);
-
+    let result = ksg::map_unweighted(5, &edges).unwrap();
     assert_eq!(result.lines.len(), 5);
 }
 
@@ -186,8 +168,7 @@ fn test_linear_chain() {
 fn test_cycle_graph() {
     // C5: pentagon
     let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)];
-    let result = ksg::map_unweighted(5, &edges);
-
+    let result = ksg::map_unweighted(5, &edges).unwrap();
     assert_eq!(result.lines.len(), 5);
 }
 
@@ -195,8 +176,7 @@ fn test_cycle_graph() {
 fn test_bipartite_graph() {
     // K2,3
     let edges = vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)];
-    let result = ksg::map_unweighted(5, &edges);
-
+    let result = ksg::map_unweighted(5, &edges).unwrap();
     assert_eq!(result.lines.len(), 5);
 }
 
@@ -208,8 +188,7 @@ fn test_map_standard_graphs_square() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = ksg::map_unweighted(n, &edges);
-
+        let result = ksg::map_unweighted(n, &edges).unwrap();
         assert_eq!(
             result.lines.len(),
             n,
@@ -230,13 +209,11 @@ fn test_map_standard_graphs_square() {
 #[test]
 fn test_map_config_back_returns_valid_is() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let grid_edges = result.edges();
     let grid_config = solve_mis_config(result.positions.len(), &grid_edges);
 
-    let original_config = result.map_config_back(&grid_config);
-
+    let original_config = result.map_config_back(&grid_config).unwrap();
     assert!(
         is_independent_set(&edges, &original_config),
         "Mapped back config should be a valid IS"
@@ -247,21 +224,17 @@ fn test_map_config_back_returns_valid_is() {
 fn test_mis_overhead_path_graph() {
     let edges = vec![(0, 1), (1, 2)];
     let n = 3;
-    let result = ksg::map_unweighted(n, &edges);
-
-    let original_mis = solve_mis(n, &edges) as i32;
+    let result = ksg::map_unweighted(n, &edges).unwrap();
+    let original_mis = solve_mis(n, &edges) as i64;
     let grid_edges = result.edges();
-    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i32;
+    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i64;
 
     let expected = original_mis + result.mis_overhead;
 
-    assert!(
-        (mapped_mis - expected).abs() <= 1,
+    assert_eq!(
+        mapped_mis, expected,
         "Path graph: mapped MIS {} should equal original {} + overhead {} = {}",
-        mapped_mis,
-        original_mis,
-        result.mis_overhead,
-        expected
+        mapped_mis, original_mis, result.mis_overhead, expected
     );
 }
 
@@ -269,32 +242,27 @@ fn test_mis_overhead_path_graph() {
 fn test_mis_overhead_triangle() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
     let n = 3;
-    let result = ksg::map_unweighted(n, &edges);
-
-    let original_mis = solve_mis(n, &edges) as i32;
+    let result = ksg::map_unweighted(n, &edges).unwrap();
+    let original_mis = solve_mis(n, &edges) as i64;
     let grid_edges = result.edges();
-    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i32;
+    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i64;
 
     let expected = original_mis + result.mis_overhead;
 
-    assert!(
-        (mapped_mis - expected).abs() <= 1,
+    assert_eq!(
+        mapped_mis, expected,
         "Triangle: mapped MIS {} should equal original {} + overhead {} = {}",
-        mapped_mis,
-        original_mis,
-        result.mis_overhead,
-        expected
+        mapped_mis, original_mis, result.mis_overhead, expected
     );
 }
 
 #[test]
 fn test_mis_overhead_cubical() {
     let (n, edges) = smallgraph("cubical").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
-    let original_mis = solve_mis(n, &edges) as i32;
+    let result = ksg::map_unweighted(n, &edges).unwrap();
+    let original_mis = solve_mis(n, &edges) as i64;
     let grid_edges = result.edges();
-    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i32;
+    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i64;
 
     let expected = original_mis + result.mis_overhead;
 
@@ -309,11 +277,10 @@ fn test_mis_overhead_cubical() {
 #[ignore] // tutte maps to 1232-vertex grid; ILP solving takes ~10s
 fn test_mis_overhead_tutte() {
     let (n, edges) = smallgraph("tutte").unwrap();
-    let result = ksg::map_unweighted(n, &edges);
-
-    let original_mis = solve_mis(n, &edges) as i32;
+    let result = ksg::map_unweighted(n, &edges).unwrap();
+    let original_mis = solve_mis(n, &edges) as i64;
     let grid_edges = result.edges();
-    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i32;
+    let mapped_mis = solve_mis(result.positions.len(), &grid_edges) as i64;
 
     let expected = original_mis + result.mis_overhead;
 
@@ -358,15 +325,13 @@ fn test_map_config_back_standard_graphs() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = ksg::map_unweighted(n, &edges);
-
+        let result = ksg::map_unweighted(n, &edges).unwrap();
         // Solve MIS on mapped graph
         let grid_edges = result.edges();
         let grid_config = solve_mis_config(result.positions.len(), &grid_edges);
 
         // Extract original config using gadget traceback
-        let original_config = result.map_config_back(&grid_config);
-
+        let original_config = result.map_config_back(&grid_config).unwrap();
         // Verify it's a valid independent set
         assert!(
             is_independent_set(&edges, &original_config),
@@ -385,61 +350,6 @@ fn test_map_config_back_standard_graphs() {
     }
 }
 
-// === map_config_back_via_centers Tests ===
-
-#[test]
-fn test_map_config_back_via_centers_all_zeros() {
-    let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
-    let config = vec![0; result.positions.len()];
-    let original = result.map_config_back_via_centers(&config);
-
-    assert_eq!(original.len(), 3);
-    // All zeros should map back to all zeros
-    assert!(original.iter().all(|&x| x == 0));
-}
-
-#[test]
-fn test_map_config_back_via_centers_triangle() {
-    let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
-    let config = vec![0; result.positions.len()];
-    let original = result.map_config_back_via_centers(&config);
-
-    assert_eq!(original.len(), 3);
-}
-
-#[test]
-fn test_map_config_back_via_centers_star() {
-    let edges = vec![(0, 1), (0, 2), (0, 3)];
-    let result = ksg::map_unweighted(4, &edges);
-
-    // Set all grid nodes to selected
-    let config = vec![1; result.positions.len()];
-    let original = result.map_config_back_via_centers(&config);
-
-    assert_eq!(original.len(), 4);
-}
-
-#[test]
-fn test_map_config_back_consistency() {
-    // Both methods should give reasonable results for the same input
-    let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
-    let config = vec![0; result.positions.len()];
-
-    let via_regions = result.map_config_back(&config);
-    let via_centers = result.map_config_back_via_centers(&config);
-
-    assert_eq!(via_regions.len(), via_centers.len());
-    // Both should return all zeros for zero input
-    assert!(via_regions.iter().all(|&x| x == 0));
-    assert!(via_centers.iter().all(|&x| x == 0));
-}
-
 // === Additional Edge Cases ===
 
 #[test]
@@ -448,8 +358,7 @@ fn test_large_graph_mapping() {
     let edges: Vec<(usize, usize)> = (0..9)
         .flat_map(|i| [(i, (i + 1) % 10), (i, (i + 3) % 10)])
         .collect();
-    let result = ksg::map_unweighted(10, &edges);
-
+    let result = ksg::map_unweighted(10, &edges).unwrap();
     assert_eq!(result.lines.len(), 10);
     assert!(result.positions.len() > 10);
 }
@@ -458,8 +367,7 @@ fn test_large_graph_mapping() {
 fn test_mapping_result_tape_populated() {
     // Triangle graph should generate crossings
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     // Tape may or may not have entries depending on crossings
     // Just verify it's accessible
     let _tape_len = result.tape.len();
@@ -468,8 +376,7 @@ fn test_mapping_result_tape_populated() {
 #[test]
 fn test_grid_graph_edges() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     let grid_edges = result.edges();
     // Grid graph should have edges based on unit disk distance
     // Just verify edges are accessible
@@ -479,8 +386,7 @@ fn test_grid_graph_edges() {
 #[test]
 fn test_grid_graph_nodes_have_weights() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = ksg::map_unweighted(3, &edges);
-
+    let result = ksg::map_unweighted(3, &edges).unwrap();
     for &weight in &result.node_weights {
         // All nodes should have positive weights
         assert!(weight > 0, "Node weight should be positive");
@@ -514,7 +420,7 @@ fn test_tape_entry_mis_overhead_crossing_patterns() {
             row: 0,
             col: 0,
         };
-        let overhead = tape_entry_mis_overhead(&entry);
+        let overhead = tape_entry_mis_overhead(&entry).unwrap();
         // All crossing gadgets should have overhead in range [-2, 1]
         assert!(
             (-2..=1).contains(&overhead),
@@ -534,7 +440,7 @@ fn test_tape_entry_mis_overhead_simplifier_patterns() {
             row: 0,
             col: 0,
         };
-        let overhead = tape_entry_mis_overhead(&entry);
+        let overhead = tape_entry_mis_overhead(&entry).unwrap();
         assert_eq!(
             overhead, -1,
             "DanglingLeg pattern {} should have overhead -1",
@@ -550,6 +456,5 @@ fn test_tape_entry_mis_overhead_unknown_pattern() {
         row: 0,
         col: 0,
     };
-    let overhead = tape_entry_mis_overhead(&entry);
-    assert_eq!(overhead, 0, "Unknown pattern should have overhead 0");
+    assert!(tape_entry_mis_overhead(&entry).is_err());
 }

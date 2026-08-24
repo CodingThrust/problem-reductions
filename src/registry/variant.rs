@@ -110,6 +110,33 @@ pub enum ConstructionError {
     /// A typed create spec failed to convert into the problem model.
     #[error("problem construction failed: {0}")]
     Conversion(String),
+    /// Arithmetic used to produce a stored model field overflowed.
+    #[error("integer overflow during construction: {0}")]
+    IntegerOverflow(String),
+    /// A stored approximate value is not finite.
+    #[error("non-finite floating-point construction value: {0}")]
+    NonFiniteFloat(String),
+    /// An exact integer cannot be stored in the target floating-point domain.
+    #[error("inexact integer-to-float construction value: {0}")]
+    InexactFloatConversion(#[from] crate::types::ExactI64ToF64Error),
+}
+
+impl From<String> for ConstructionError {
+    fn from(message: String) -> Self {
+        Self::Conversion(message)
+    }
+}
+
+impl From<&str> for ConstructionError {
+    fn from(message: &str) -> Self {
+        Self::Conversion(message.to_string())
+    }
+}
+
+impl From<std::convert::Infallible> for ConstructionError {
+    fn from(value: std::convert::Infallible) -> Self {
+        match value {}
+    }
 }
 
 /// Type-erased problem constructor used by dynamic frontends.
@@ -191,7 +218,7 @@ fn validate_input_contract<'a>(
 
 /// A registered problem variant entry.
 ///
-/// Submitted by [`declare_variants!`] for each concrete problem type.
+/// Submitted by `declare_variants!` for each concrete problem type.
 /// The reduction graph uses these entries to build nodes with complexity metadata.
 pub struct VariantEntry {
     /// Problem name (from `Problem::NAME`).

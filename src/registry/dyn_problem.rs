@@ -4,7 +4,7 @@ use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt;
 
-use crate::traits::Problem;
+use crate::traits::{EvaluationError, Problem};
 use crate::types::Aggregate;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
@@ -24,9 +24,9 @@ where
 /// Implemented via blanket impl for any `T: Problem + Serialize + 'static`.
 pub trait DynProblem: Any {
     /// Evaluate a configuration and return the CLI-facing metric string.
-    fn evaluate_dyn(&self, config: &[usize]) -> String;
+    fn evaluate_dyn(&self, config: &[usize]) -> Result<String, EvaluationError>;
     /// Evaluate a configuration and return the result as a serializable JSON value.
-    fn evaluate_json(&self, config: &[usize]) -> Value;
+    fn evaluate_json(&self, config: &[usize]) -> Result<Value, EvaluationError>;
     /// Serialize the problem to a JSON value.
     fn serialize_json(&self) -> Value;
     /// Downcast to `&dyn Any` for type recovery.
@@ -48,12 +48,12 @@ where
     T: Problem + Serialize + 'static,
     T::Value: Aggregate + fmt::Display + Serialize,
 {
-    fn evaluate_dyn(&self, config: &[usize]) -> String {
-        format_metric(&self.evaluate(config))
+    fn evaluate_dyn(&self, config: &[usize]) -> Result<String, EvaluationError> {
+        Ok(format_metric(&self.evaluate(config)?))
     }
 
-    fn evaluate_json(&self, config: &[usize]) -> Value {
-        serde_json::to_value(self.evaluate(config)).expect("serialize metric failed")
+    fn evaluate_json(&self, config: &[usize]) -> Result<Value, EvaluationError> {
+        Ok(serde_json::to_value(self.evaluate(config)?).expect("serialize metric failed"))
     }
 
     fn serialize_json(&self) -> Value {
@@ -86,10 +86,11 @@ where
 }
 
 /// Function pointer type for brute-force value solve dispatch.
-pub type SolveValueFn = fn(&dyn Any) -> String;
+pub type SolveValueFn = fn(&dyn Any) -> Result<String, crate::solvers::SolveError>;
 
 /// Function pointer type for brute-force witness solve dispatch.
-pub type SolveWitnessFn = fn(&dyn Any) -> Option<(Vec<usize>, String)>;
+pub type SolveWitnessFn =
+    fn(&dyn Any) -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError>;
 
 /// A loaded problem with type-erased solve capability.
 ///
@@ -123,18 +124,15 @@ impl LoadedDynProblem {
     }
 
     /// Solve the problem using brute force and return its aggregate value string.
-    pub fn solve_brute_force_value(&self) -> String {
+    pub fn solve_brute_force_value(&self) -> Result<String, crate::solvers::SolveError> {
         (self.solve_value_fn)(self.inner.as_any())
     }
 
     /// Solve the problem using brute force and return a witness when available.
-    pub fn solve_brute_force_witness(&self) -> Option<(Vec<usize>, String)> {
+    pub fn solve_brute_force_witness(
+        &self,
+    ) -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError> {
         (self.solve_witness_fn)(self.inner.as_any())
-    }
-
-    /// Backward-compatible witness solve entry point.
-    pub fn solve_brute_force(&self) -> Option<(Vec<usize>, String)> {
-        self.solve_brute_force_witness()
     }
 }
 

@@ -55,9 +55,9 @@ fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
 
     assert_eq!(problem.selected_elements(&[0, 1, 0, 1]), Some(vec![1, 3]));
     assert_eq!(problem.selected_elements(&[0, 2, 0, 1]), None);
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Min(Some(2)));
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 2, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1]).unwrap(), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 0, 1]).unwrap(), Min(None));
     assert!(problem.is_valid_solution(&[0, 1, 0, 1]));
     assert!(!problem.is_valid_solution(&[1, 0, 0, 0]));
     assert!(!problem.is_valid_solution(&[0, 2, 0, 1]));
@@ -67,8 +67,8 @@ fn test_minimum_hitting_set_evaluate_valid_and_invalid() {
 fn test_minimum_hitting_set_empty_set_is_always_invalid() {
     let problem = MinimumHittingSet::new(3, vec![vec![0, 1], vec![]]);
 
-    assert_eq!(problem.evaluate(&[1, 1, 1]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 1, 1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -89,15 +89,15 @@ fn test_minimum_hitting_set_bruteforce_optimum_issue_example() {
     let problem = issue_example_problem();
     let solver = BruteForce::new();
 
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(3)));
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
 
-    let best_solutions = solver.find_all_witnesses(&problem);
+    let best_solutions = solver.find_all_witnesses(&problem).unwrap();
     let best_solution_set: HashSet<Vec<usize>> = best_solutions.iter().cloned().collect();
     assert!(best_solution_set.contains(&issue_example_config()));
     assert!(best_solutions
         .iter()
-        .all(|config| problem.evaluate(config) == Min(Some(3))));
+        .all(|config| problem.evaluate(config).unwrap() == Min(Some(3))));
 }
 
 #[test]
@@ -110,8 +110,8 @@ fn test_minimum_hitting_set_serialization_round_trip() {
     assert_eq!(deserialized.num_sets(), problem.num_sets());
     assert_eq!(deserialized.sets(), problem.sets());
     assert_eq!(
-        deserialized.evaluate(&[1, 1, 0, 0]),
-        problem.evaluate(&[1, 1, 0, 0])
+        deserialized.evaluate(&[1, 1, 0, 0]).unwrap(),
+        problem.evaluate(&[1, 1, 0, 0]).unwrap()
     );
 }
 
@@ -119,7 +119,10 @@ fn test_minimum_hitting_set_serialization_round_trip() {
 fn test_minimum_hitting_set_paper_example_consistency() {
     let problem = issue_example_problem();
 
-    assert_eq!(problem.evaluate(&issue_example_config()), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&issue_example_config()).unwrap(),
+        Min(Some(3))
+    );
 }
 
 #[test]
@@ -147,6 +150,6 @@ fn test_minimum_hitting_set_canonical_example_spec() {
     assert_eq!(problem.sets().len(), 7);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(3)));
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(3)));
 }

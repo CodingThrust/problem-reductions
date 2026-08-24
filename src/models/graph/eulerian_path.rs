@@ -75,7 +75,7 @@ inventory::submit! {
 ///
 /// // Witness: ordering [a_0, a_2, a_3, a_1] = (0->1)->(1->2)->(2->0)->(0->1)
 /// // traces trail 0->1->2->0->1.
-/// let witness = BruteForce::new().find_witness(&problem);
+/// let witness = BruteForce::new().find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,8 +123,14 @@ impl Problem for EulerianPath {
         vec![m; m]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_eulerian_trail(&self.graph, config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(is_valid_eulerian_trail(
+            &self.graph,
+            config,
+        )))
     }
 }
 

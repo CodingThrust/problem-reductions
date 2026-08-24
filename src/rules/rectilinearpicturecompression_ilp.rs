@@ -7,6 +7,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::RectilinearPictureCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionRPCToILP {
@@ -40,7 +41,7 @@ impl ReductionResult for ReductionRPCToILP {
 impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
     type Result = ReductionRPCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let rects = self.maximal_rectangles();
         let num_vars = rects.len();
         let mut constraints = Vec::new();
@@ -62,10 +63,16 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
 
         // Bound constraint: Σ x_r ≤ bound
         let bound_terms: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
-        constraints.push(LinearConstraint::le(bound_terms, self.bound() as f64));
+        let bound = i64_to_exact_f64(self.bound()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                RectilinearPictureCompression,
+                ILP<bool>,
+            >(error)
+        })?;
+        constraints.push(LinearConstraint::le(bound_terms, bound));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionRPCToILP { target }
+        Ok(ReductionRPCToILP { target })
     }
 }
 

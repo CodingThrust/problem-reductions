@@ -51,7 +51,7 @@ struct GeneralizedHexCreateSpec {
 }
 
 impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: GeneralizedHexCreateSpec) -> Result<Self, Self::Error> {
         let num_vertices = spec.graph.num_vertices();
@@ -59,16 +59,18 @@ impl TryFrom<GeneralizedHexCreateSpec> for GeneralizedHex<SimpleGraph> {
             return Err(format!(
                 "source {} is outside graph with {num_vertices} vertices",
                 spec.source
-            ));
+            )
+            .into());
         }
         if spec.sink >= num_vertices {
             return Err(format!(
                 "sink {} is outside graph with {num_vertices} vertices",
                 spec.sink
-            ));
+            )
+            .into());
         }
         if spec.source == spec.sink {
-            return Err("source and sink must be distinct".to_string());
+            return Err("source and sink must be distinct".to_string().into());
         }
         Ok(Self::new(spec.graph, spec.source, spec.sink))
     }
@@ -280,16 +282,21 @@ where
         vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if !config.is_empty() {
-                return crate::types::Or(false);
-            }
-            let playable_vertices = self.playable_vertices();
-            let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
-            let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
-            let mut memo = HashMap::new();
-            self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if !config.is_empty() {
+                    return Ok(crate::types::Or(false));
+                }
+                let playable_vertices = self.playable_vertices();
+                let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
+                let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
+                let mut memo = HashMap::new();
+                self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
+            })
         })
     }
 }

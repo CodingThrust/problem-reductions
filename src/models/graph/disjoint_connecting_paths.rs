@@ -47,14 +47,14 @@ struct DisjointConnectingPathsCreateSpec {
 }
 
 impl TryFrom<DisjointConnectingPathsCreateSpec> for DisjointConnectingPaths<SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: DisjointConnectingPathsCreateSpec) -> Result<Self, Self::Error> {
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
         for &(u, v) in &spec.graph {
             if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed"));
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
             }
         }
         let inferred = spec
@@ -181,8 +181,11 @@ where
         vec![2; self.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)))
     }
 }
 

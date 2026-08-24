@@ -67,7 +67,7 @@ impl ReductionResult for ReductionPIPL2ToILP {
 impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
     type Result = ReductionPIPL2ToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let q = self.num_groups();
         let edges: Vec<(usize, usize)> = self.graph().edges();
@@ -118,11 +118,11 @@ impl ReduceTo<ILP<bool>> for PartitionIntoPathsOfLength2<SimpleGraph> {
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionPIPL2ToILP {
+        Ok(ReductionPIPL2ToILP {
             target,
             num_vertices,
             num_groups: q,
-        }
+        })
     }
 }
 

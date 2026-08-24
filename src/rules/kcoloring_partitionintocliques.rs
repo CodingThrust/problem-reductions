@@ -44,12 +44,12 @@ impl ReductionResult for ReductionKColoringToPartitionIntoCliques {
 impl ReduceTo<PartitionIntoCliques<SimpleGraph>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToPartitionIntoCliques;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = PartitionIntoCliques::new(
             SimpleGraph::new(self.graph().num_vertices(), complement_edges(self.graph())),
             self.num_colors(),
         );
-        ReductionKColoringToPartitionIntoCliques { target }
+        Ok(ReductionKColoringToPartitionIntoCliques { target })
     }
 }
 

@@ -9,6 +9,7 @@ use crate::models::algebraic::{
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionCBMToILP {
@@ -43,7 +44,7 @@ impl ReductionResult for ReductionCBMToILP {
 impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
     type Result = ReductionCBMToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
 
@@ -105,13 +106,19 @@ impl ReduceTo<ILP<bool>> for ConsecutiveBlockMinimization {
                 bound_terms.push((b_offset + r * n + p, 1.0));
             }
         }
-        constraints.push(LinearConstraint::le(bound_terms, self.bound() as f64));
+        let bound = i64_to_exact_f64(self.bound()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                ConsecutiveBlockMinimization,
+                ILP<bool>,
+            >(error)
+        })?;
+        constraints.push(LinearConstraint::le(bound_terms, bound));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionCBMToILP {
+        Ok(ReductionCBMToILP {
             target,
             num_cols: n,
-        }
+        })
     }
 }
 

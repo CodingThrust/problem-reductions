@@ -51,7 +51,7 @@ inventory::submit! {
 /// // coefficients [2, 3, 5]: sign assignment (+2, +3, -5) = 0
 /// let problem = CosineProductIntegration::new(vec![2, 3, 5]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,28 +96,39 @@ impl Problem for CosineProductIntegration {
         vec![2; self.num_coefficients()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_coefficients() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            let signed_sum: i128 = self
-                .coefficients
-                .iter()
-                .zip(config.iter())
-                .map(|(&a, &bit)| {
-                    let val = a as i128;
-                    if bit == 0 {
-                        val
-                    } else {
-                        -val
-                    }
-                })
-                .sum();
-            signed_sum == 0
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_coefficients() {
+                    return Ok(crate::types::Or(false));
+                }
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
+                let signed_sum = self.coefficients.iter().zip(config.iter()).try_fold(
+                    0_i64,
+                    |total, (&coefficient, &bit)| {
+                        let term = if bit == 0 {
+                            coefficient
+                        } else {
+                            coefficient.checked_neg().ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "negating cosine-product coefficient".into(),
+                                )
+                            })?
+                        };
+                        total.checked_add(term).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing signed cosine-product coefficients".into(),
+                            )
+                        })
+                    },
+                )?;
+                signed_sum == 0
+            })
         })
     }
 }

@@ -31,15 +31,15 @@ inventory::submit! {
 /// The Minimum Intersection Graph Basis problem.
 ///
 /// Given a graph G = (V, E), find a universe U of minimum cardinality and
-/// an assignment of subsets S[v] ⊆ U for each vertex v ∈ V such that:
-/// - For every edge (u, v) ∈ E: S[u] ∩ S[v] ≠ ∅
-/// - For every non-edge pair (u, v) ∉ E: S[u] ∩ S[v] = ∅
+/// an assignment of subsets `S[v]` ⊆ U for each vertex v ∈ V such that:
+/// - For every edge (u, v) ∈ E: `S[u] ∩ S[v] ≠ ∅`
+/// - For every non-edge pair (u, v) ∉ E: `S[u] ∩ S[v] = ∅`
 /// - |U| is minimized
 ///
 /// The minimum |U| is the *intersection number* of G.
 ///
 /// Variables: n × |E| binary variables where n = |V| and |E| is the upper bound
-/// on universe size. config[v * |E| + s] = 1 means element s ∈ S[v].
+/// on universe size. `config[v * |E| + s] = 1` means element s ∈ `S[v]`.
 ///
 /// # Type Parameters
 ///
@@ -57,8 +57,8 @@ inventory::submit! {
 /// let problem = MinimumIntersectionGraphBasis::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert_eq!(value, problemreductions::types::Min(Some(2)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,7 +94,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumIntersectionGraphBasis";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -110,50 +110,56 @@ where
         vec![2; n * m]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.graph.num_vertices();
-        let m = self.graph.num_edges();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.graph.num_vertices();
+            let m = self.graph.num_edges();
 
-        if m == 0 {
-            // No edges: universe size 0 suffices (all subsets empty, no
-            // adjacency constraints). But we must also check that no two
-            // vertices are adjacent — which is guaranteed when m == 0.
-            if config.is_empty() {
-                return Min(Some(0));
-            } else {
-                return Min(None);
-            }
-        }
-
-        if config.len() != n * m {
-            return Min(None);
-        }
-
-        // Parse subsets: S[v] = set of elements s where config[v * m + s] == 1
-        let subsets: Vec<HashSet<usize>> = (0..n)
-            .map(|v| (0..m).filter(|&s| config[v * m + s] == 1).collect())
-            .collect();
-
-        // Check edge constraints: for every edge (u, v), S[u] ∩ S[v] ≠ ∅
-        let edges = self.graph.edges();
-        for &(u, v) in &edges {
-            if subsets[u].is_disjoint(&subsets[v]) {
-                return Min(None);
-            }
-        }
-
-        // Check non-edge constraints: for every non-edge pair (u, v), S[u] ∩ S[v] = ∅
-        for u in 0..n {
-            for v in (u + 1)..n {
-                if !self.graph.has_edge(u, v) && !subsets[u].is_disjoint(&subsets[v]) {
-                    return Min(None);
+            if m == 0 {
+                // No edges: universe size 0 suffices (all subsets empty, no
+                // adjacency constraints). But we must also check that no two
+                // vertices are adjacent — which is guaranteed when m == 0.
+                if config.is_empty() {
+                    return Ok(Min(Some(0)));
+                } else {
+                    return Ok(Min(None));
                 }
             }
-        }
 
-        // Count elements used (union of all subsets)
-        let used: HashSet<usize> = subsets.iter().flat_map(|s| s.iter().copied()).collect();
-        Min(Some(used.len()))
+            if config.len() != n * m {
+                return Ok(Min(None));
+            }
+
+            // Parse subsets: S[v] = set of elements s where config[v * m + s] == 1
+            let subsets: Vec<HashSet<usize>> = (0..n)
+                .map(|v| (0..m).filter(|&s| config[v * m + s] == 1).collect())
+                .collect();
+
+            // Check edge constraints: for every edge (u, v), S[u] ∩ S[v] ≠ ∅
+            let edges = self.graph.edges();
+            for &(u, v) in &edges {
+                if subsets[u].is_disjoint(&subsets[v]) {
+                    return Ok(Min(None));
+                }
+            }
+
+            // Check non-edge constraints: for every non-edge pair (u, v), S[u] ∩ S[v] = ∅
+            for u in 0..n {
+                for v in (u + 1)..n {
+                    if !self.graph.has_edge(u, v) && !subsets[u].is_disjoint(&subsets[v]) {
+                        return Ok(Min(None));
+                    }
+                }
+            }
+
+            // Count elements used (union of all subsets)
+            let used: HashSet<usize> = subsets.iter().flat_map(|s| s.iter().copied()).collect();
+            Min(Some(i64::try_from(used.len()).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting intersection-basis size to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

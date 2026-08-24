@@ -1,4 +1,4 @@
-//! Reduction from UndirectedTwoCommodityIntegralFlow to ILP<i32>.
+//! Reduction from UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 //!
 //! For each undirected edge {u,v} (indexed by e), we introduce 4 flow variables:
 //!   f1_{uv} = 4*e + 0  (commodity 1 flow u→v)
@@ -13,7 +13,7 @@
 //! For each edge e with capacity c_e, the joint capacity constraint is:
 //!   max(f1_{uv}, f1_{vu}) + max(f2_{uv}, f2_{vu}) ≤ c_e
 //!
-//! Since this is ILP<i32>, we use direction indicators d1_e, d2_e ∈ {0,1} to linearize:
+//! Since this is `ILP<i64>`, we use direction indicators d1_e, d2_e ∈ {0,1} to linearize:
 //!   f1_{uv} ≤ c_e * d1_e;  f1_{vu} ≤ c_e * (1 - d1_e)
 //!   f2_{uv} ≤ c_e * d2_e;  f2_{vu} ≤ c_e * (1 - d2_e)
 //!   f1_{uv} + f1_{vu} + f2_{uv} + f2_{vu} ≤ c_e  (joint capacity)
@@ -29,8 +29,9 @@ use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing UndirectedTwoCommodityIntegralFlow to ILP<i32>.
+/// Result of reducing UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f1_{uv}` at 4*e + 0, `f1_{vu}` at 4*e + 1 (commodity 1 flows on edge e)
@@ -38,15 +39,15 @@ use crate::topology::Graph;
 /// - `d1_e` at 4*|E| + 2*e, `d2_e` at 4*|E| + 2*e + 1 (direction indicators)
 #[derive(Debug, Clone)]
 pub struct ReductionU2CIFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionU2CIFToILP {
     type Source = UndirectedTwoCommodityIntegralFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -67,15 +68,23 @@ impl ReductionResult for ReductionU2CIFToILP {
         num_constraints = "7 * num_edges + 2 * num_nonterminal_vertices + 2",
     },
 )]
-impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
+impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
     type Result = ReductionU2CIFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let e = edges.len();
         let n = self.num_vertices();
         // 4*e flow variables + 2*e direction indicators = 6*e total
         let num_vars = 6 * e;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    UndirectedTwoCommodityIntegralFlow,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         // Variable index helpers
         let f1_uv = |edge: usize| 4 * edge;
@@ -88,7 +97,7 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
         let mut constraints = Vec::with_capacity(7 * e + 2 * self.num_nonterminal_vertices() + 2);
 
         for (edge_idx, (_u, _v)) in edges.iter().enumerate() {
-            let cap = self.capacities()[edge_idx] as f64;
+            let cap = exact_f64(self.capacities()[edge_idx])?;
 
             // Direction indicators are binary: d1_e ≤ 1, d2_e ≤ 1
             constraints.push(LinearConstraint::le(vec![(d1(edge_idx), 1.0)], 1.0));
@@ -186,7 +195,7 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(
             sink1_terms,
-            self.requirement_1() as f64,
+            exact_f64(self.requirement_1())?,
         ));
 
         // Commodity 2: net inflow at sink_2 ≥ requirement_2
@@ -203,13 +212,13 @@ impl ReduceTo<ILP<i32>> for UndirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(
             sink2_terms,
-            self.requirement_2() as f64,
+            exact_f64(self.requirement_2())?,
         ));
 
-        ReductionU2CIFToILP {
+        Ok(ReductionU2CIFToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_edges: e,
-        }
+        })
     }
 }
 
@@ -234,13 +243,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
                 1,
             );
-            let reduction: ReductionU2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let reduction: ReductionU2CIFToILP =
+                ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();
             let target_config = solver
                 .solve(reduction.target_problem())
                 .expect("canonical example should be feasible");
             let source_config = reduction.extract_solution(&target_config).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config,

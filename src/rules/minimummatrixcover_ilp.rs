@@ -11,6 +11,7 @@ use crate::models::algebraic::MinimumMatrixCover;
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMatrixCover to ILP.
 #[derive(Debug, Clone)]
@@ -57,7 +58,7 @@ fn y_index(n: usize, i: usize, j: usize) -> usize {
 impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
     type Result = ReductionMinimumMatrixCoverToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_rows();
         let num_pairs = n * (n.saturating_sub(1)) / 2;
         let num_vars = n + num_pairs;
@@ -108,17 +109,51 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
         for (i, row_i) in matrix.iter().enumerate() {
             for j in (i + 1)..n {
                 let y = y_index(n, i, j);
-                obj_coeffs[y] = 4.0 * (row_i[j] + matrix[j][i]) as f64;
+                let coefficient = row_i[j]
+                    .checked_add(matrix[j][i])
+                    .and_then(|value| value.checked_mul(4))
+                    .ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            MinimumMatrixCover,
+                            ILP<bool>,
+                        >(
+                            "computing an off-diagonal matrix-cover coefficient"
+                        )
+                    })?;
+                obj_coeffs[y] = i64_to_exact_f64(coefficient).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        MinimumMatrixCover,
+                        ILP<bool>,
+                    >(error)
+                })?;
             }
         }
 
         // x_k coefficients: -2·Σ_{j≠k} (a_kj + a_jk)
         for (k, row_k) in matrix.iter().enumerate() {
-            let sum: i64 = (0..n)
-                .filter(|&j| j != k)
-                .map(|j| row_k[j] + matrix[j][k])
-                .sum();
-            obj_coeffs[k] = -2.0 * sum as f64;
+            let sum = (0..n).filter(|&j| j != k).try_fold(0_i64, |total, j| {
+                let pair = row_k[j].checked_add(matrix[j][k]).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<MinimumMatrixCover, ILP<bool>>(
+                        "adding symmetric matrix-cover entries",
+                    )
+                })?;
+                total.checked_add(pair).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<MinimumMatrixCover, ILP<bool>>(
+                        "summing matrix-cover row coefficients",
+                    )
+                })
+            })?;
+            let coefficient = sum.checked_mul(-2).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<MinimumMatrixCover, ILP<bool>>(
+                    "scaling a matrix-cover row coefficient",
+                )
+            })?;
+            obj_coeffs[k] = i64_to_exact_f64(coefficient).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumMatrixCover,
+                    ILP<bool>,
+                >(error)
+            })?;
         }
 
         let objective: Vec<(usize, f64)> = obj_coeffs
@@ -129,7 +164,7 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMinimumMatrixCoverToILP { target, n }
+        Ok(ReductionMinimumMatrixCoverToILP { target, n })
     }
 }
 

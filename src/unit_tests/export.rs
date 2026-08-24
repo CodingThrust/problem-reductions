@@ -15,17 +15,17 @@ fn test_variant_to_map_single() {
 
 #[test]
 fn test_variant_to_map_multiple() {
-    let map = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    let map = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
     assert_eq!(map.len(), 2);
     assert_eq!(map["graph"], "SimpleGraph");
-    assert_eq!(map["weight"], "i32");
+    assert_eq!(map["weight"], "i64");
 }
 
 #[test]
 fn test_lookup_size_contract_known_reduction() {
     // IS -> VC is a known registered reduction
-    let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
+    let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
     let result = lookup_size_contract(
         "MaximumIndependentSet",
         &source_variant,
@@ -59,7 +59,7 @@ fn sample_example_db() -> ExampleDb {
             },
             target: ProblemSide {
                 problem: "TargetProblem".to_string(),
-                variant: variant_to_map(vec![("weight", "i32")]),
+                variant: variant_to_map(vec![("weight", "i64")]),
                 instance: serde_json::json!({"m": 4}),
             },
             solutions: vec![],
@@ -177,7 +177,7 @@ fn rule_example_serialization_omits_reduction_metadata() {
 fn test_problem_side_serialization() {
     let side = ProblemSide {
         problem: "MaximumIndependentSet".to_string(),
-        variant: variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        variant: variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]),
         instance: serde_json::json!({"num_vertices": 4, "edges": [[0, 1], [1, 2]]}),
     };
     let json = serde_json::to_value(&side).unwrap();
@@ -192,12 +192,12 @@ fn test_problem_side_serialization() {
 fn export_variant_to_map_normalizes_empty_graph() {
     // When a variant has an empty graph value, variant_to_map should normalize
     // it to "SimpleGraph" for consistency with the reduction graph convention.
-    let map = variant_to_map(vec![("graph", ""), ("weight", "i32")]);
+    let map = variant_to_map(vec![("graph", ""), ("weight", "i64")]);
     assert_eq!(
         map["graph"], "SimpleGraph",
         "variant_to_map should normalize empty graph to SimpleGraph"
     );
-    assert_eq!(map["weight"], "i32");
+    assert_eq!(map["weight"], "i64");
 }
 
 #[test]
@@ -226,7 +226,7 @@ fn problem_side_from_typed_problem() {
 fn model_example_new() {
     let example = ModelExample::new(
         "MaximumIndependentSet",
-        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
+        variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]),
         serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
         vec![1, 0, 1],
         serde_json::json!(2),
@@ -299,9 +299,9 @@ fn write_model_example_to_creates_json_file() {
 
 #[test]
 fn lookup_size_contract_rejects_target_variant_mismatch() {
-    let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
-    // MIS<SG,i32> -> QUBO<f64> exists, but not MIS<SG,i32> -> QUBO<i32>
-    let wrong_target = variant_to_map(vec![("weight", "i32")]);
+    let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]);
+    // MIS<SG,i64> -> QUBO<f64> exists, but not MIS<SG,i64> -> QUBO<i64>
+    let wrong_target = variant_to_map(vec![("weight", "i64")]);
     let result = lookup_size_contract("MaximumIndependentSet", &source, "QUBO", &wrong_target);
     assert!(
         result.unwrap().is_none(),

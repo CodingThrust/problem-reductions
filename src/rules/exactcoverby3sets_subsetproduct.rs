@@ -65,7 +65,7 @@ fn assigned_primes(universe_size: usize) -> Vec<u64> {
 impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
     type Result = ReductionX3CToSubsetProduct;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let primes = assigned_primes(self.universe_size());
         let values = self
             .sets()
@@ -74,9 +74,9 @@ impl ReduceTo<SubsetProduct> for ExactCoverBy3Sets {
             .collect();
         let target = product_biguint(primes.iter().copied());
 
-        ReductionX3CToSubsetProduct {
+        Ok(ReductionX3CToSubsetProduct {
             target: SubsetProduct::new(values, target),
-        }
+        })
     }
 }
 

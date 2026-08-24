@@ -33,7 +33,8 @@ fn satisfying_config() -> Vec<usize> {
 #[test]
 fn test_integral_flow_bundles_to_ilp_structure() {
     let problem = yes_instance();
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 6);
@@ -68,22 +69,25 @@ fn test_integral_flow_bundles_to_ilp_closed_loop() {
     let problem = yes_instance();
     let direct = BruteForce::new()
         .find_witness(&problem)
+        .unwrap()
         .expect("source instance should be satisfiable");
-    assert!(problem.evaluate(&direct));
+    assert!(problem.evaluate(&direct).unwrap());
 
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted));
+    assert!(problem.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
     let problem = yes_instance();
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         reduction.extract_solution(&satisfying_config()).unwrap(),
         satisfying_config()
@@ -93,14 +97,16 @@ fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
 #[test]
 fn test_integral_flow_bundles_to_ilp_unsat_instance_is_infeasible() {
     let problem = no_instance();
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }
 
 #[test]
 fn test_integral_flow_bundles_to_ilp_sink_requirement_constraint() {
     let problem = yes_instance();
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let sink_constraint = ilp
@@ -115,6 +121,7 @@ fn test_integral_flow_bundles_to_ilp_sink_requirement_constraint() {
 #[test]
 fn test_integralflowbundles_to_ilp_bf_vs_ilp() {
     let problem = yes_instance();
-    let reduction: ReductionIFBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionIFBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

@@ -69,15 +69,19 @@ fn bit_length(value: &BigUint) -> usize {
 }
 
 impl QuadraticDiophantineEquations {
-    fn validate_inputs(a: &BigUint, b: &BigUint, c: &BigUint) -> Result<(), String> {
+    fn validate_inputs(
+        a: &BigUint,
+        b: &BigUint,
+        c: &BigUint,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if a.is_zero() {
-            return Err("Coefficient a must be positive".to_string());
+            return Err("Coefficient a must be positive".to_string().into());
         }
         if b.is_zero() {
-            return Err("Coefficient b must be positive".to_string());
+            return Err("Coefficient b must be positive".to_string().into());
         }
         if c.is_zero() {
-            return Err("Right-hand side c must be positive".to_string());
+            return Err("Right-hand side c must be positive".to_string().into());
         }
         Ok(())
     }
@@ -104,7 +108,7 @@ impl QuadraticDiophantineEquations {
 
     /// Create a new QuadraticDiophantineEquations instance, returning an error
     /// instead of panicking when inputs are invalid.
-    pub fn try_new<A, B, C>(a: A, b: B, c: C) -> Result<Self, String>
+    pub fn try_new<A, B, C>(a: A, b: B, c: C) -> Result<Self, crate::registry::ConstructionError>
     where
         A: ToBigUint,
         B: ToBigUint,
@@ -290,16 +294,18 @@ impl Problem for QuadraticDiophantineEquations {
         }
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        let Some(x) = self.decode_witness(config) else {
-            return Or(false);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            let Some(x) = self.decode_witness(config) else {
+                return Ok(Or(false));
+            };
 
-        if x.is_zero() || x > self.max_x() {
-            return Or(false);
-        }
+            if x.is_zero() || x > self.max_x() {
+                return Ok(Or(false));
+            }
 
-        Or(self.check_x(&x).is_some())
+            Or(self.check_x(&x).is_some())
+        })
     }
 }
 

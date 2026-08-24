@@ -55,7 +55,7 @@ inventory::submit! {
 ///     vec![0, 1, 0, 0],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -280,8 +280,11 @@ impl Problem for FeasibleRegisterAssignment {
         vec![self.num_vertices; self.num_vertices]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_feasible(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_feasible(config)))
     }
 }
 

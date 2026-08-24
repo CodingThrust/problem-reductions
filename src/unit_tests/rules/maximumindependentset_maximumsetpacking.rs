@@ -8,7 +8,8 @@ include!("../jl_helpers.rs");
 fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
+    let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
+        .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();
 
     // Weights should be preserved
@@ -18,15 +19,16 @@ fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
 #[test]
 fn test_empty_graph() {
     // No edges means all sets are empty (or we need to handle it)
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
+    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
+        .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();
 
     // All sets should be empty (no edges to include)
     assert_eq!(sp_problem.num_sets(), 3);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(sp_problem);
+    let solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
     // With no overlaps, we can select all sets
     assert_eq!(solutions[0].iter().sum::<usize>(), 3);
@@ -36,9 +38,10 @@ fn test_empty_graph() {
 fn test_disjoint_sets() {
     // Completely disjoint sets
     let sets = vec![vec![0], vec![1], vec![2]];
-    let sp_problem = MaximumSetPacking::<i32>::new(sets);
-    let reduction: ReductionSPToIS<i32> =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
+    let sp_problem = MaximumSetPacking::new(sets);
+    let reduction: ReductionSPToIS<i64> =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&sp_problem)
+            .expect("reduction should succeed");
     let is_problem = reduction.target_problem();
 
     // No edges in the intersection graph
@@ -49,8 +52,9 @@ fn test_disjoint_sets() {
 fn test_reduction_structure() {
     // Test IS to SP structure
     let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i32; 4]);
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
+        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i64; 4]);
+    let reduction = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&is_problem)
+        .expect("reduction should succeed");
     let sp = reduction.target_problem();
 
     // SP should have same number of sets as vertices in IS
@@ -58,9 +62,10 @@ fn test_reduction_structure() {
 
     // Test SP to IS structure
     let sets = vec![vec![0, 1], vec![2, 3]];
-    let sp_problem = MaximumSetPacking::<i32>::new(sets);
-    let reduction2: ReductionSPToIS<i32> =
-        ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
+    let sp_problem = MaximumSetPacking::new(sets);
+    let reduction2: ReductionSPToIS<i64> =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&sp_problem)
+            .expect("reduction should succeed");
     let is = reduction2.target_problem();
 
     // IS should have same number of vertices as sets in SP
@@ -78,10 +83,15 @@ fn test_jl_parity_is_to_setpacking() {
     let inst = &is_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
-    let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let result =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -101,10 +111,15 @@ fn test_jl_parity_setpacking_to_is() {
     let sp_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/setpacking.json")).unwrap();
     let inst = &sp_data["instances"][0]["instance"];
-    let source = MaximumSetPacking::<i32>::new(jl_parse_sets(&inst["sets"]));
-    let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let source = MaximumSetPacking::new(jl_parse_sets(&inst["sets"]));
+    let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -126,10 +141,15 @@ fn test_jl_parity_rule_is_to_setpacking() {
     let inst = &jl_find_instance_by_label(&is_data, "doc_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
-    let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let result =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -152,10 +172,15 @@ fn test_jl_parity_doc_is_to_setpacking() {
     let inst = &is_instance["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let source =
-        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
-    let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i64; nv]);
+    let result =
+        ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver.find_all_witnesses(&source).into_iter().collect();
+    let best_source: HashSet<Vec<usize>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &result,
@@ -171,13 +196,14 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     // Path graph: 0-1-2 with unit weights (MIS = 2: select vertices 0, 2)
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
-    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&is_problem);
+    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&is_problem)
+        .expect("reduction should succeed");
     let sp_problem = reduction.target_problem();
 
     assert_eq!(sp_problem.num_sets(), 3);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_witnesses(sp_problem);
+    let sp_solutions = solver.find_all_witnesses(sp_problem).unwrap();
     assert!(!sp_solutions.is_empty());
 
     let original_solution = reduction.extract_solution(&sp_solutions[0]).unwrap();
@@ -190,14 +216,15 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
 fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
     // Disjoint sets: S0={0,1}, S1={1,2}, S2={3,4} — S0 and S1 overlap
     let sets = vec![vec![0, 1], vec![1, 2], vec![3, 4]];
-    let sp_problem = MaximumSetPacking::with_weights(sets, vec![One; 3]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sp_problem);
+    let sp_problem = MaximumSetPacking::with_weights(sets, vec![One; 3]).unwrap();
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sp_problem)
+        .expect("reduction should succeed");
     let is_problem = reduction.target_problem();
 
     assert_eq!(is_problem.graph().num_vertices(), 3);
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_all_witnesses(is_problem);
+    let is_solutions = solver.find_all_witnesses(is_problem).unwrap();
     assert!(!is_solutions.is_empty());
 
     let original_solution = reduction.extract_solution(&is_solutions[0]).unwrap();

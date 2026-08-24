@@ -31,14 +31,14 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
     ) -> crate::rules::ExtractionResult<Vec<usize>> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(self.mapping_result.map_config_back(target_solution))
+        self.mapping_result.map_config_back(target_solution)
     }
 }
 
 #[reduction(
-    size = exact {
-        num_vertices = "num_vertices * num_vertices",
-        num_edges = "num_vertices * num_vertices",
+    size = upper_bound {
+        num_vertices = "16 * num_vertices^2 + 32 * num_vertices + 12",
+        num_edges = "64 * num_vertices^2 + 128 * num_vertices + 48",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
@@ -46,17 +46,19 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
 {
     type Result = ReductionISSimpleOneToGridOne;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges = self.graph().edges();
-        let result = ksg::map_unweighted(n, &edges);
+        let result = ksg::map_unweighted(n, &edges).map_err(|error| {
+            error.for_reduction::<Self, MaximumIndependentSet<KingsSubgraph, One>>()
+        })?;
         let grid = result.to_kings_subgraph();
         let weights = vec![One; grid.num_vertices()];
         let target = MaximumIndependentSet::new(grid, weights);
-        ReductionISSimpleOneToGridOne {
+        Ok(ReductionISSimpleOneToGridOne {
             target,
             mapping_result: result,
-        }
+        })
     }
 }
 

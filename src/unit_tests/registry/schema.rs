@@ -132,7 +132,7 @@ fn test_decision_problem_schema_entries_registered() {
 fn test_decision_problem_variants_registered() {
     let simple_weighted_variant = BTreeMap::from([
         ("graph".to_string(), "SimpleGraph".to_string()),
-        ("weight".to_string(), "i32".to_string()),
+        ("weight".to_string(), "i64".to_string()),
     ]);
 
     assert!(

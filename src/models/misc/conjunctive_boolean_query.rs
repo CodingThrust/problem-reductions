@@ -72,7 +72,7 @@ pub enum QueryArg {
 /// ];
 /// let problem = ConjunctiveBooleanQuery::new(6, relations, 1, conjuncts);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -96,7 +96,7 @@ struct ConjunctiveBooleanQueryCreateSpec {
 }
 
 impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: ConjunctiveBooleanQueryCreateSpec) -> Result<Self, Self::Error> {
         let mut num_variables = 0_usize;
@@ -118,14 +118,14 @@ impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
                         "relation {relation_index} tuple {tuple_index} has length {}, expected arity {}",
                         tuple.len(),
                         relation.arity
-                    ));
+                    ).into());
                 }
                 for (entry_index, &value) in tuple.iter().enumerate() {
                     if value >= spec.domain_size {
                         return Err(format!(
                             "relation {relation_index} tuple {tuple_index} entry {entry_index} is {value}, must be less than domain size {}",
                             spec.domain_size
-                        ));
+                        ).into());
                     }
                 }
             }
@@ -143,7 +143,8 @@ impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
                     "conjunct {conjunct_index} has {} arguments, expected arity {}",
                     args.len(),
                     relation.arity
-                ));
+                )
+                .into());
             }
             for (argument_index, arg) in args.iter().enumerate() {
                 if let QueryArg::Constant(value) = arg {
@@ -151,7 +152,7 @@ impl TryFrom<ConjunctiveBooleanQueryCreateSpec> for ConjunctiveBooleanQuery {
                         return Err(format!(
                             "conjunct {conjunct_index} argument {argument_index} constant {value} must be less than domain size {}",
                             spec.domain_size
-                        ));
+                        ).into());
                     }
                 }
             }
@@ -280,23 +281,28 @@ impl Problem for ConjunctiveBooleanQuery {
         vec![self.domain_size; self.num_variables]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_variables {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= self.domain_size) {
-                return crate::types::Or(false);
-            }
-            self.conjuncts.iter().all(|(rel_idx, args)| {
-                let tuple: Vec<usize> = args
-                    .iter()
-                    .map(|arg| match arg {
-                        QueryArg::Variable(i) => config[*i],
-                        QueryArg::Constant(c) => *c,
-                    })
-                    .collect();
-                self.relations[*rel_idx].tuples.contains(&tuple)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_variables {
+                    return Ok(crate::types::Or(false));
+                }
+                if config.iter().any(|&v| v >= self.domain_size) {
+                    return Ok(crate::types::Or(false));
+                }
+                self.conjuncts.iter().all(|(rel_idx, args)| {
+                    let tuple: Vec<usize> = args
+                        .iter()
+                        .map(|arg| match arg {
+                            QueryArg::Variable(i) => config[*i],
+                            QueryArg::Constant(c) => *c,
+                        })
+                        .collect();
+                    self.relations[*rel_idx].tuples.contains(&tuple)
+                })
             })
         })
     }

@@ -36,7 +36,7 @@ fn test_kclique_creation() {
 fn test_kclique_evaluate_yes_instance() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(problem.evaluate(&issue_witness()));
+    assert!(problem.evaluate(&issue_witness()).unwrap());
     assert!(problem.is_valid_solution(&issue_witness()));
 }
 
@@ -44,7 +44,7 @@ fn test_kclique_evaluate_yes_instance() {
 fn test_kclique_evaluate_rejects_non_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem.evaluate(&[1, 0, 1, 1, 0]));
+    assert!(!problem.evaluate(&[1, 0, 1, 1, 0]).unwrap());
     assert!(!problem.is_valid_solution(&[1, 0, 1, 1, 0]));
 }
 
@@ -52,8 +52,8 @@ fn test_kclique_evaluate_rejects_non_clique() {
 fn test_kclique_evaluate_rejects_too_small_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem.evaluate(&[1, 0, 1, 0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 0]));
+    assert!(!problem.evaluate(&[1, 0, 1, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
@@ -61,8 +61,14 @@ fn test_kclique_solver_finds_unique_witness() {
     let problem = KClique::new(issue_graph(), 3);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_witness(&problem), Some(issue_witness()));
-    assert_eq!(solver.find_all_witnesses(&problem), vec![issue_witness()]);
+    assert_eq!(
+        solver.find_witness(&problem).unwrap(),
+        Some(issue_witness())
+    );
+    assert_eq!(
+        solver.find_all_witnesses(&problem).unwrap(),
+        vec![issue_witness()]
+    );
 }
 
 #[test]
@@ -73,7 +79,7 @@ fn test_kclique_serialization_round_trip() {
 
     assert_eq!(restored.graph().edges(), problem.graph().edges());
     assert_eq!(restored.k(), 3);
-    assert!(restored.evaluate(&issue_witness()));
+    assert!(restored.evaluate(&issue_witness()).unwrap());
 }
 
 #[test]
@@ -81,8 +87,11 @@ fn test_kclique_paper_example() {
     let problem = KClique::new(issue_graph(), 3);
     let solver = BruteForce::new();
 
-    assert!(problem.evaluate(&issue_witness()));
-    assert_eq!(solver.find_all_witnesses(&problem), vec![issue_witness()]);
+    assert!(problem.evaluate(&issue_witness()).unwrap());
+    assert_eq!(
+        solver.find_all_witnesses(&problem).unwrap(),
+        vec![issue_witness()]
+    );
 }
 
 #[test]

@@ -49,7 +49,7 @@ inventory::submit! {
 /// ];
 /// let problem = MinimumMatrixDomination::new(matrix);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// // All 3 diagonal entries must be selected (no domination possible)
 /// assert_eq!(witness, Some(vec![1, 1, 1]));
 /// ```
@@ -113,7 +113,7 @@ impl MinimumMatrixDomination {
 
 impl Problem for MinimumMatrixDomination {
     const NAME: &'static str = "MinimumMatrixDomination";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -123,43 +123,49 @@ impl Problem for MinimumMatrixDomination {
         vec![2; self.num_ones()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_ones() {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Collect the set of selected 1-entry indices
-        let selected: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| i)
-            .collect();
-
-        // Build sets of rows and columns covered by selected entries
-        let mut covered_rows = std::collections::HashSet::new();
-        let mut covered_cols = std::collections::HashSet::new();
-        for &idx in &selected {
-            let (r, c) = self.ones[idx];
-            covered_rows.insert(r);
-            covered_cols.insert(c);
-        }
-
-        // Check domination: every unselected 1-entry must share a row or
-        // column with some selected entry
-        for (k, &(r, c)) in self.ones.iter().enumerate() {
-            if config[k] == 1 {
-                continue; // selected entries don't need domination
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_ones() {
+                return Ok(Min(None));
             }
-            if !covered_rows.contains(&r) && !covered_cols.contains(&c) {
-                return Min(None); // not dominated
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(Min(None));
             }
-        }
 
-        Min(Some(selected.len()))
+            // Collect the set of selected 1-entry indices
+            let selected: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| i)
+                .collect();
+
+            // Build sets of rows and columns covered by selected entries
+            let mut covered_rows = std::collections::HashSet::new();
+            let mut covered_cols = std::collections::HashSet::new();
+            for &idx in &selected {
+                let (r, c) = self.ones[idx];
+                covered_rows.insert(r);
+                covered_cols.insert(c);
+            }
+
+            // Check domination: every unselected 1-entry must share a row or
+            // column with some selected entry
+            for (k, &(r, c)) in self.ones.iter().enumerate() {
+                if config[k] == 1 {
+                    continue; // selected entries don't need domination
+                }
+                if !covered_rows.contains(&r) && !covered_cols.contains(&c) {
+                    return Ok(Min(None)); // not dominated
+                }
+            }
+
+            Min(Some(i64::try_from(selected.len()).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting matrix-domination cardinality to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

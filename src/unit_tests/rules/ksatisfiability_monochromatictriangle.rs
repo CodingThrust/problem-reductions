@@ -12,7 +12,8 @@ use crate::solvers::ILPSolver;
 #[test]
 fn test_ksatisfiability_to_monochromatic_triangle_structure() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 9);
@@ -45,20 +46,24 @@ fn test_ksatisfiability_to_monochromatic_triangle_structure() {
 #[test]
 fn test_ksatisfiability_to_monochromatic_triangle_complement_extraction() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Negation edges all use color 1, so direct extraction gives (0,0,0),
     // which does not satisfy (x1 v x2 v x3). The complement (1,1,1) does.
     let target_coloring = vec![1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0];
 
     assert!(
-        reduction.target_problem().evaluate(&target_coloring),
+        reduction
+            .target_problem()
+            .evaluate(&target_coloring)
+            .unwrap(),
         "the supplied target coloring must avoid monochromatic triangles"
     );
 
     let extracted = reduction.extract_solution(&target_coloring).unwrap();
     assert_eq!(extracted, vec![1, 1, 1]);
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
@@ -70,16 +75,18 @@ fn test_ksatisfiability_to_monochromatic_triangle_closed_loop() {
             CNFClause::new(vec![-1, 3, 4]),
         ],
     );
-    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source);
-    let mono_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem());
+    let reduction = ReduceTo::<MonochromaticTriangle<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
+    let mono_to_ilp = ReduceTo::<ILP<bool>>::reduce_to(reduction.target_problem())
+        .expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(mono_to_ilp.target_problem())
         .expect("reduced MonochromaticTriangle instance should be feasible");
     let mono_solution = mono_to_ilp.extract_solution(&ilp_solution).unwrap();
 
-    assert!(reduction.target_problem().evaluate(&mono_solution));
+    assert!(reduction.target_problem().evaluate(&mono_solution).unwrap());
 
     let extracted = reduction.extract_solution(&mono_solution).unwrap();
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }

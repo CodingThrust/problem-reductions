@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn create_spec_rejects_duplicate_terminals() {
-    assert_eq!(SteinerTreeCreateSpec::<i32>::FIELDS[2].name, "terminals");
+    assert_eq!(SteinerTreeCreateSpec::<i64>::FIELDS[2].name, "terminals");
     let result = SteinerTree::try_from(SteinerTreeCreateSpec {
         graph: SimpleGraph::new(2, vec![(0, 1)]),
         edge_weights: vec![1],
@@ -14,7 +14,7 @@ use crate::{solvers::BruteForce, topology::SimpleGraph, traits::Problem};
 
 /// Issue #122 example: 5 vertices, 7 edges, terminals {0, 2, 4}.
 /// Edges in order: (0,1)=2, (0,3)=5, (1,2)=2, (1,3)=1, (2,3)=5, (2,4)=6, (3,4)=1
-fn example_instance() -> SteinerTree<SimpleGraph, i32> {
+fn example_instance() -> SteinerTree<SimpleGraph, i64> {
     let graph = SimpleGraph::new(
         5,
         vec![(0, 1), (0, 3), (1, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
@@ -54,7 +54,7 @@ fn test_steiner_tree_evaluate_optimal() {
     // Optimal: edges (0,1)=2, (1,2)=2, (1,3)=1, (3,4)=1 => cost 6
     // Edge indices: 0=(0,1), 2=(1,2), 3=(1,3), 6=(3,4)
     let config = vec![1, 0, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(6)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_steiner_tree_evaluate_invalid_disconnected() {
     let problem = example_instance();
     // Only edge (0,1) — terminals 2, 4 unreachable
     let config = vec![1, 0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -70,25 +70,25 @@ fn test_steiner_tree_evaluate_invalid_cycle() {
     let problem = example_instance();
     // Edges (0,1), (0,3), (1,2), (1,3), (3,4) — cycle 0-1-3-0
     let config = vec![1, 1, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_steiner_tree_evaluate_empty() {
     let problem = example_instance();
     let config = vec![0; 7];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_steiner_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     // All optimal solutions should have cost 6
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), Min(Some(6)));
+        assert_eq!(problem.evaluate(sol).unwrap(), Min(Some(6)));
     }
 }
 
@@ -100,17 +100,17 @@ fn test_steiner_tree_all_terminals() {
     let terminals = vec![0, 1, 2];
     let problem = SteinerTree::new(graph, edge_weights, terminals);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     // MST = edges (0,1)=1, (1,2)=2 => cost 3
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), Min(Some(3)));
+        assert_eq!(problem.evaluate(sol).unwrap(), Min(Some(3)));
     }
 }
 
 #[test]
 fn test_steiner_tree_is_weighted() {
-    // i32 has IS_UNIT = false, so is_weighted() returns true
+    // i64 has IS_UNIT = false, so is_weighted() returns true
     let problem = example_instance();
     assert!(problem.is_weighted());
 
@@ -125,7 +125,7 @@ fn test_steiner_tree_is_weighted() {
 fn test_steiner_tree_serialization() {
     let problem = example_instance();
     let json = serde_json::to_value(&problem).unwrap();
-    let deserialized: SteinerTree<SimpleGraph, i32> = serde_json::from_value(json).unwrap();
+    let deserialized: SteinerTree<SimpleGraph, i64> = serde_json::from_value(json).unwrap();
     assert_eq!(deserialized.graph().num_vertices(), 5);
     assert_eq!(deserialized.graph().num_edges(), 7);
     assert_eq!(deserialized.terminals(), &[0, 2, 4]);
@@ -156,7 +156,7 @@ fn test_steiner_tree_disconnected_non_terminal_edges() {
     // Edges: 0=(0,1), 1=(1,2), 2=(2,3), 3=(3,4)
     // Select edges 0, 1, 3 — disconnected: {0,1,2} and {3,4}
     let config = vec![1, 1, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
 
@@ -171,7 +171,7 @@ fn test_steiner_tree_edge_weights_and_set_weights() {
     assert_eq!(problem.edge_weights(), &[1, 1, 1, 1, 1, 1, 1]);
     // The same tree (0,1),(1,2),(1,3),(3,4) now costs 4
     let config = vec![1, 0, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }
 
 #[test]

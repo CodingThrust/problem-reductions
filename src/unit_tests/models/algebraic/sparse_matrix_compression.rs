@@ -43,7 +43,7 @@ fn test_sparse_matrix_compression_basic() {
 fn test_sparse_matrix_compression_issue_example_is_satisfying() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(problem.evaluate(&[1, 1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 1, 0]).unwrap());
     assert_eq!(
         problem
             .storage_vector(&[1, 1, 1, 0])
@@ -56,18 +56,18 @@ fn test_sparse_matrix_compression_issue_example_is_satisfying() {
 fn test_sparse_matrix_compression_issue_unsatisfying_examples() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(!problem.evaluate(&[0, 0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 1, 1, 1]));
-    assert!(!problem.evaluate(&[1, 1, 1, 1]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_sparse_matrix_compression_rejects_bad_configs() {
     let problem = SparseMatrixCompression::new(issue_example_matrix(), 2);
 
-    assert!(!problem.evaluate(&[1, 1, 1]));
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert!(!problem.evaluate(&[2, 1, 1, 0]));
+    assert!(!problem.evaluate(&[1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[2, 1, 1, 0]).unwrap());
     assert!(problem.storage_vector(&[2, 1, 1, 0]).is_none());
 }
 
@@ -78,10 +78,11 @@ fn test_sparse_matrix_compression_bruteforce_finds_unique_solution() {
 
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("issue example should be satisfiable");
     assert_eq!(solution, vec![1, 1, 1, 0]);
 
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all, vec![vec![1, 1, 1, 0]]);
 }
 

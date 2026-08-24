@@ -7,7 +7,7 @@ use crate::rules::ReduceTo;
 fn test_stackercrane_to_ilp_closed_loop() {
     // 3 vertices, 2 required arcs, 1 connector edge
     let source = StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -18,6 +18,6 @@ fn test_stackercrane_to_ilp_closed_loop() {
 #[test]
 fn test_stackercrane_to_ilp_bf_vs_ilp() {
     let source = StackerCrane::new(3, vec![(0, 1), (2, 0)], vec![(1, 2)], vec![1, 1], vec![1]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

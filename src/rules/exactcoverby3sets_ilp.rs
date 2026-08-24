@@ -40,7 +40,7 @@ impl ReductionResult for ReductionX3CToILP {
 impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_subsets();
         let mut constraints = Vec::new();
 
@@ -64,7 +64,7 @@ impl ReduceTo<ILP<bool>> for ExactCoverBy3Sets {
         ));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionX3CToILP { target }
+        Ok(ReductionX3CToILP { target })
     }
 }
 

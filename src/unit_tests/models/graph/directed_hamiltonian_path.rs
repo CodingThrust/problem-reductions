@@ -27,12 +27,12 @@ fn test_directed_hamiltonian_path_evaluate_valid() {
 
     // Path [0, 1, 2, 3]: Lehmer code [0, 0, 0, 0]
     assert_eq!(
-        problem.evaluate(&encode(&[0, 1, 2, 3])),
+        problem.evaluate(&encode(&[0, 1, 2, 3])).unwrap(),
         crate::types::Or(true)
     );
     // Path [3, 2, 1, 0]: no arcs in reverse, invalid
     assert_eq!(
-        problem.evaluate(&encode(&[3, 2, 1, 0])),
+        problem.evaluate(&encode(&[3, 2, 1, 0])).unwrap(),
         crate::types::Or(false)
     );
 }
@@ -44,7 +44,7 @@ fn test_directed_hamiltonian_path_evaluate_invalid_no_arc() {
     let problem = DirectedHamiltonianPath::new(graph);
     // No Hamiltonian path should be valid
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -55,8 +55,9 @@ fn test_directed_hamiltonian_path_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should have a Hamiltonian path");
-    assert_eq!(problem.evaluate(&solution), crate::types::Or(true));
+    assert_eq!(problem.evaluate(&solution).unwrap(), crate::types::Or(true));
 }
 
 #[test]
@@ -82,7 +83,7 @@ fn test_directed_hamiltonian_path_issue_example() {
     let problem = DirectedHamiltonianPath::new(graph);
     let path = vec![0usize, 1, 3, 2, 4, 5];
     assert_eq!(
-        problem.evaluate(&encode(&path)),
+        problem.evaluate(&encode(&path)).unwrap(),
         crate::types::Or(true),
         "Path [0,1,3,2,4,5] should be a valid Hamiltonian path"
     );
@@ -94,7 +95,7 @@ fn test_directed_hamiltonian_path_no_solution() {
     let graph = DirectedGraph::new(3, vec![(0, 1), (0, 2)]);
     let problem = DirectedHamiltonianPath::new(graph);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -102,9 +103,9 @@ fn test_directed_hamiltonian_path_single_vertex() {
     let graph = DirectedGraph::new(1, vec![]);
     let problem = DirectedHamiltonianPath::new(graph);
     // Single vertex: trivially Hamiltonian
-    assert_eq!(problem.evaluate(&[0]), crate::types::Or(true));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), crate::types::Or(true));
     let solver = BruteForce::new();
-    let sol = solver.find_witness(&problem);
+    let sol = solver.find_witness(&problem).unwrap();
     assert!(sol.is_some());
 }
 

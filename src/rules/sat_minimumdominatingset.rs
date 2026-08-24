@@ -30,7 +30,7 @@ use crate::topology::SimpleGraph;
 #[derive(Debug, Clone)]
 pub struct ReductionSATToDS {
     /// The target MinimumDominatingSet problem.
-    target: MinimumDominatingSet<SimpleGraph, i32>,
+    target: MinimumDominatingSet<SimpleGraph, i64>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
@@ -39,7 +39,7 @@ pub struct ReductionSATToDS {
 
 impl ReductionResult for ReductionSATToDS {
     type Source = Satisfiability;
-    type Target = MinimumDominatingSet<SimpleGraph, i32>;
+    type Target = MinimumDominatingSet<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -104,10 +104,10 @@ impl ReductionSATToDS {
         num_edges = "3 * num_vars + num_literals",
     }
 )]
-impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
+impl ReduceTo<MinimumDominatingSet<SimpleGraph, i64>> for Satisfiability {
     type Result = ReductionSATToDS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_variables = self.num_vars();
         let num_clauses = self.num_clauses();
 
@@ -151,14 +151,14 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
 
         let target = MinimumDominatingSet::new(
             SimpleGraph::new(num_vertices, edges),
-            vec![1i32; num_vertices],
+            vec![1i64; num_vertices],
         );
 
-        ReductionSATToDS {
+        Ok(ReductionSATToDS {
             target,
             num_literals: num_variables,
             num_clauses,
-        }
+        })
     }
 }
 
@@ -184,7 +184,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             );
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumDominatingSet<SimpleGraph, i32>,
+                MinimumDominatingSet<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {

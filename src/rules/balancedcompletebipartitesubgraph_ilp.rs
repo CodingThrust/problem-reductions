@@ -43,7 +43,7 @@ impl ReductionResult for ReductionBCBSToILP {
 impl ReduceTo<ILP<bool>> for BalancedCompleteBipartiteSubgraph {
     type Result = ReductionBCBSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let left = self.left_size();
         let right = self.right_size();
         let n = left + right;
@@ -71,10 +71,10 @@ impl ReduceTo<ILP<bool>> for BalancedCompleteBipartiteSubgraph {
         }
 
         let target = ILP::new(n, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionBCBSToILP {
+        Ok(ReductionBCBSToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

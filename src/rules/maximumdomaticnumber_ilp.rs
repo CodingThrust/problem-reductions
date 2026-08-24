@@ -67,7 +67,7 @@ impl ReductionResult for ReductionDomaticNumberToILP {
 impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
     type Result = ReductionDomaticNumberToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let num_vars = n * n + n;
         let mut constraints = Vec::new();
@@ -110,7 +110,7 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionDomaticNumberToILP { target, n }
+        Ok(ReductionDomaticNumberToILP { target, n })
     }
 }
 

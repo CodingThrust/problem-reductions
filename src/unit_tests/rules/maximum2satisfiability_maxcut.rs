@@ -22,7 +22,8 @@ fn make_issue_instance() -> Maximum2Satisfiability {
 #[test]
 fn test_maximum2satisfiability_to_maxcut_closed_loop() {
     let source = make_issue_instance();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -34,7 +35,8 @@ fn test_maximum2satisfiability_to_maxcut_closed_loop() {
 #[test]
 fn test_maximum2satisfiability_to_maxcut_structure() {
     let source = make_issue_instance();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 4);
@@ -48,14 +50,15 @@ fn test_maximum2satisfiability_to_maxcut_structure() {
 
     let source_solution = vec![0, 1, 1];
     let target_solution = vec![0, 1, 0, 0];
-    assert_eq!(source.evaluate(&source_solution), Max(Some(5)));
-    assert_eq!(target.evaluate(&target_solution), Max(Some(2)));
+    assert_eq!(source.evaluate(&source_solution).unwrap(), Max(Some(5)));
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Max(Some(2)));
 }
 
 #[test]
 fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions() {
     let source = make_issue_instance();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // For this issue instance, every partition satisfies
@@ -65,8 +68,8 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
             .map(|bit| (mask >> bit) & 1)
             .collect();
         let source_solution = reduction.extract_solution(&target_solution).unwrap();
-        let satisfied = i64::try_from(source.evaluate(&source_solution).unwrap()).unwrap();
-        let cut_weight = target.evaluate(&target_solution).unwrap();
+        let satisfied = source.evaluate(&source_solution).unwrap().unwrap();
+        let cut_weight = target.evaluate(&target_solution).unwrap().unwrap();
 
         assert_eq!(
             2 * satisfied,
@@ -79,7 +82,8 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
 #[test]
 fn test_maximum2satisfiability_to_maxcut_extract_solution_uses_reference_vertex() {
     let source = make_issue_instance();
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&[0, 1, 0, 0]).unwrap(),
@@ -90,7 +94,9 @@ fn test_maximum2satisfiability_to_maxcut_extract_solution_uses_reference_vertex(
         vec![0, 1, 1]
     );
     assert_eq!(
-        source.evaluate(&reduction.extract_solution(&[1, 0, 1, 1]).unwrap()),
+        source
+            .evaluate(&reduction.extract_solution(&[1, 0, 1, 1]).unwrap())
+            .unwrap(),
         Max(Some(5))
     );
 }
@@ -105,7 +111,8 @@ fn test_maximum2satisfiability_to_maxcut_handles_duplicate_and_tautological_clau
             CNFClause::new(vec![-2, -2]),
         ],
     );
-    let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 3);

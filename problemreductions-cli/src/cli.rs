@@ -115,7 +115,7 @@ Examples:
 Examples:
   pred show MIS                   # all variants for MIS
   pred show MIS/UnitDiskGraph     # specific variant
-  pred show MIS/UnitDiskGraph/i32 # fully qualified variant
+  pred show MIS/UnitDiskGraph/i64 # fully qualified variant
   pred show KSAT/K3               # KSatisfiability with K=3
 
 Use `pred list` to see all available problem types and variants.")]
@@ -316,7 +316,7 @@ pub struct SolveArgs {
     pub solver: Option<String>,
     /// Timeout in seconds (0 = no limit)
     #[arg(long, default_value = "0")]
-    pub timeout: u64,
+    pub timeout: i64,
 }
 
 #[derive(clap::Args)]
@@ -471,16 +471,16 @@ mod tests {
                     .kind(),
                     ErrorKind::UnknownArgument
                 );
-                Cli::try_parse_from([
+                assert!(Cli::try_parse_from([
                     "pred",
                     "create",
                     "ThreePartition",
                     "--sizes",
                     "1,1,1",
                     "--bound",
-                    "18446744073709551615",
+                    "9223372036854775808",
                 ])
-                .expect("u64 construction inputs are typed by schema, not by flag name");
+                .is_err());
                 Cli::try_parse_from([
                     "pred",
                     "create",

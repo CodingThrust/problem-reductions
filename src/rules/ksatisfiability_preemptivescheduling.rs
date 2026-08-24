@@ -55,7 +55,7 @@ fn slot_capacities(num_vars: usize, num_clauses: usize) -> Vec<usize> {
 }
 
 fn literal_endpoint(
-    literal: i32,
+    literal: i64,
     pick_literal: bool,
     positive_chains: &[Vec<usize>],
     negative_chains: &[Vec<usize>],
@@ -361,15 +361,18 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
 impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
     type Result = Reduction3SATToPreemptiveScheduling;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let construction = build_ullman_construction(self);
         let target = PreemptiveScheduling::new(
-            vec![1; construction.num_jobs],
+            vec![1_i64; construction.num_jobs],
             construction.num_processors,
             construction.precedences.clone(),
-        );
+        )
+        .map_err(
+            crate::rules::ReductionError::construction::<KSatisfiability<K3>, PreemptiveScheduling>,
+        )?;
 
-        Reduction3SATToPreemptiveScheduling {
+        Ok(Reduction3SATToPreemptiveScheduling {
             target,
             positive_start_jobs: construction
                 .positive_chains
@@ -377,7 +380,7 @@ impl ReduceTo<PreemptiveScheduling> for KSatisfiability<K3> {
                 .map(|chain| chain[0])
                 .collect(),
             threshold: construction.time_limit,
-        }
+        })
     }
 }
 
@@ -390,7 +393,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "ksatisfiability_to_preemptivescheduling",
         build: || {
             let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-            let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source);
+            let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source)
+                .expect("reduction should succeed");
             let source_config = vec![0, 0, 1];
             let target_config = construct_schedule_from_assignment(
                 reduction.target_problem(),

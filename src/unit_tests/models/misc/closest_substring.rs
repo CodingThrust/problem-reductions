@@ -14,6 +14,7 @@ fn issue_instance() -> ClosestSubstring {
         ],
         3,
     )
+    .unwrap()
 }
 
 #[test]
@@ -41,7 +42,7 @@ fn test_closest_substring_evaluate_at_optimum() {
     //   s_2[1..4] = [0,1,0], d_H = 0
     //   s_3[0..3] = [1,1,0], d_H = 1
     // max = 1.
-    assert_eq!(problem.evaluate(&[0, 1, 0, 0, 1, 0]), Min(Some(1)));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -52,7 +53,7 @@ fn test_closest_substring_evaluate_all_zero_windows() {
     //   s_2[0..3] = [1,0,1]  d = 2
     //   s_3[0..3] = [1,1,0]  d = 2
     // max = 2.
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -61,7 +62,7 @@ fn test_closest_substring_evaluate_at_111_center() {
     // Any center [1,1,1] has Hamming distance >= 1 to every length-3 binary
     // string that contains at least one 0. All windows of s_1, s_2, s_3
     // contain at least one zero, so the radius is at least 1.
-    let value = problem.evaluate(&[1, 1, 1, 0, 0, 0]);
+    let value = problem.evaluate(&[1, 1, 1, 0, 0, 0]).unwrap();
     if let Min(Some(d)) = value {
         assert!(d >= 1, "expected radius >= 1, got {d}");
     } else {
@@ -72,8 +73,8 @@ fn test_closest_substring_evaluate_at_111_center() {
 #[test]
 fn test_closest_substring_evaluate_invalid_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -81,11 +82,12 @@ fn test_closest_substring_bruteforce_finds_optimum() {
     let problem = issue_instance();
     let solver = BruteForce::new();
     // 8 centers * 27 window combinations = 216 configurations; optimum is 1.
-    assert_eq!(solver.solve(&problem), Min(Some(1)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(1)));
     let witness = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("expected a witness for ClosestSubstring");
-    assert_eq!(problem.evaluate(&witness), Min(Some(1)));
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -98,30 +100,40 @@ fn test_closest_substring_specializes_to_closest_string() {
         2,
         vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
         3,
-    );
+    )
+    .unwrap();
     assert_eq!(problem.num_window_choice_product(), 1);
     assert_eq!(problem.dims(), vec![2, 2, 2, 1, 1, 1, 1]);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Min(Some(2)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(2)));
 }
 
 #[test]
-#[should_panic(expected = "ClosestSubstring requires at least one input string")]
-fn test_closest_substring_panics_on_empty_input_list() {
-    let _ = ClosestSubstring::new(2, Vec::new(), 3);
+fn test_closest_substring_rejects_empty_input_list() {
+    assert!(matches!(
+        ClosestSubstring::new(2, Vec::new(), 3).unwrap_err(),
+        crate::registry::ConstructionError::Conversion(message)
+            if message == "ClosestSubstring requires at least one input string"
+    ));
 }
 
 #[test]
-#[should_panic(expected = "substring_length must be <= |s_i| for every input string")]
-fn test_closest_substring_panics_on_substring_too_long() {
+fn test_closest_substring_rejects_substring_too_long() {
     // s_2 has length 2 < substring_length 3.
-    let _ = ClosestSubstring::new(2, vec![vec![0, 0, 0], vec![1, 1]], 3);
+    assert!(matches!(
+        ClosestSubstring::new(2, vec![vec![0, 0, 0], vec![1, 1]], 3).unwrap_err(),
+        crate::registry::ConstructionError::Conversion(message)
+            if message == "substring_length must be <= |s_i| for every input string"
+    ));
 }
 
 #[test]
-#[should_panic(expected = "input symbols must be less than alphabet_size")]
-fn test_closest_substring_panics_on_out_of_alphabet_symbol() {
-    let _ = ClosestSubstring::new(2, vec![vec![0, 1, 2]], 3);
+fn test_closest_substring_rejects_out_of_alphabet_symbol() {
+    assert!(matches!(
+        ClosestSubstring::new(2, vec![vec![0, 1, 2]], 3).unwrap_err(),
+        crate::registry::ConstructionError::Conversion(message)
+            if message == "input symbols must be less than alphabet_size"
+    ));
 }
 
 #[test]
@@ -134,7 +146,7 @@ fn test_closest_substring_serialization() {
     assert_eq!(restored.substring_length(), problem.substring_length());
     assert_eq!(restored.dims(), problem.dims());
     assert_eq!(
-        restored.evaluate(&[0, 1, 0, 0, 1, 0]),
-        problem.evaluate(&[0, 1, 0, 0, 1, 0])
+        restored.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap(),
+        problem.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap()
     );
 }

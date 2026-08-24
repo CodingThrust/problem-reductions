@@ -6,7 +6,7 @@
 //!
 //! Variants:
 //! - `MinimumTardinessSequencing<One>` — unit-length tasks (`1|prec, pj=1|∑Uj`)
-//! - `MinimumTardinessSequencing<i32>` — arbitrary-length tasks (`1|prec|∑Uj`)
+//! - `MinimumTardinessSequencing<i64>` — arbitrary-length tasks (`1|prec|∑Uj`)
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
@@ -18,7 +18,7 @@ inventory::submit! {
         name: "MinimumTardinessSequencing",
         display_name: "Minimum Tardiness Sequencing",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "One", &["One", "i32"])],
+        dimensions: &[VariantDimension::new("weight", "One", &["One", "i64"])],
         category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Schedule tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
@@ -35,7 +35,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `W` - The weight/length type. `One` for unit-length tasks, `i32` for arbitrary.
+/// * `W` - The weight/length type. `One` for unit-length tasks, `i64` for arbitrary.
 ///
 /// # Example
 ///
@@ -51,13 +51,13 @@ inventory::submit! {
 ///     vec![(0, 2)],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumTardinessSequencing<W> {
     lengths: Vec<W>,
-    deadlines: Vec<usize>,
+    deadlines: Vec<i64>,
     precedences: Vec<(usize, usize)>,
 }
 
@@ -66,16 +66,18 @@ macro_rules! minimum_tardiness_create_spec {
         #[derive(Debug, Deserialize, crate::CreateSpec)]
         struct $name {
             lengths: Vec<$weight>,
-            deadlines: Vec<usize>,
+            deadlines: Vec<i64>,
             precedences: Option<Vec<(usize, usize)>>,
         }
 
         impl TryFrom<$name> for MinimumTardinessSequencing<$weight> {
-            type Error = String;
+            type Error = crate::registry::ConstructionError;
 
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 if spec.lengths.len() != spec.deadlines.len() {
-                    return Err("lengths and deadlines must have the same length".to_string());
+                    return Err("lengths and deadlines must have the same length"
+                        .to_string()
+                        .into());
                 }
                 let precedences = spec.precedences.unwrap_or_default();
                 let num_tasks = spec.lengths.len();
@@ -85,7 +87,8 @@ macro_rules! minimum_tardiness_create_spec {
                 {
                     return Err(format!(
                         "precedence ({pred}, {succ}) is out of range for {num_tasks} tasks"
-                    ));
+                    )
+                    .into());
                 }
                 $construct(spec.lengths, spec.deadlines, precedences)
             }
@@ -105,11 +108,11 @@ minimum_tardiness_create_spec!(
     }
 );
 minimum_tardiness_create_spec!(
-    MinimumTardinessSequencingI32CreateSpec,
-    i32,
-    |lengths: Vec<i32>, deadlines, precedences| {
+    MinimumTardinessSequencingI64CreateSpec,
+    i64,
+    |lengths: Vec<i64>, deadlines, precedences| {
         if lengths.iter().any(|&length| length <= 0) {
-            return Err("all task lengths must be positive".to_string());
+            return Err("all task lengths must be positive".to_string().into());
         }
         Ok(MinimumTardinessSequencing::with_lengths(
             lengths,
@@ -126,7 +129,7 @@ impl MinimumTardinessSequencing<One> {
     ///
     /// Panics if `deadlines.len() != num_tasks` or if any task index in `precedences`
     /// is out of range.
-    pub fn new(num_tasks: usize, deadlines: Vec<usize>, precedences: Vec<(usize, usize)>) -> Self {
+    pub fn new(num_tasks: usize, deadlines: Vec<i64>, precedences: Vec<(usize, usize)>) -> Self {
         assert_eq!(
             deadlines.len(),
             num_tasks,
@@ -141,7 +144,7 @@ impl MinimumTardinessSequencing<One> {
     }
 }
 
-impl MinimumTardinessSequencing<i32> {
+impl MinimumTardinessSequencing<i64> {
     /// Create a new arbitrary-length MinimumTardinessSequencing instance.
     ///
     /// # Panics
@@ -149,8 +152,8 @@ impl MinimumTardinessSequencing<i32> {
     /// Panics if `lengths.len() != deadlines.len()`, if any length is 0,
     /// or if any task index in `precedences` is out of range.
     pub fn with_lengths(
-        lengths: Vec<i32>,
-        deadlines: Vec<usize>,
+        lengths: Vec<i64>,
+        deadlines: Vec<i64>,
         precedences: Vec<(usize, usize)>,
     ) -> Self {
         assert_eq!(
@@ -201,7 +204,7 @@ impl<W: WeightElement> MinimumTardinessSequencing<W> {
     }
 
     /// Returns the deadlines.
-    pub fn deadlines(&self) -> &[usize] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
@@ -238,7 +241,7 @@ impl<W: WeightElement> MinimumTardinessSequencing<W> {
 
 impl Problem for MinimumTardinessSequencing<One> {
     const NAME: &'static str = "MinimumTardinessSequencing";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![One]
@@ -248,62 +251,93 @@ impl Problem for MinimumTardinessSequencing<One> {
         super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.num_tasks();
-        let Some(sigma) = self.decode_and_validate(config) else {
-            return Min(None);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let Some(sigma) = self.decode_and_validate(config) else {
+                return Ok(Min(None));
+            };
 
-        // Unit length: completion time at position p is p + 1
-        let tardy_count = (0..n).filter(|&t| sigma[t] + 1 > self.deadlines[t]).count();
+            // Unit length: completion time at position p is p + 1
+            let mut tardy_count = 0_i64;
+            for (task, &position) in sigma.iter().enumerate() {
+                let completion = i64::try_from(position)
+                    .ok()
+                    .and_then(|position| position.checked_add(1))
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "computing a unit-length task completion time".to_string(),
+                        )
+                    })?;
+                if completion > self.deadlines[task] {
+                    tardy_count = tardy_count.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting tardy tasks".to_string(),
+                        )
+                    })?;
+                }
+            }
 
-        Min(Some(tardy_count))
+            Min(Some(tardy_count))
+        })
     }
 }
 
-impl Problem for MinimumTardinessSequencing<i32> {
+impl Problem for MinimumTardinessSequencing<i64> {
     const NAME: &'static str = "MinimumTardinessSequencing";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![i32]
+        crate::variant_params![i64]
     }
 
     fn dims(&self) -> Vec<usize> {
         super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.num_tasks();
-        let Some(sigma) = self.decode_and_validate(config) else {
-            return Min(None);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_tasks();
+            let Some(sigma) = self.decode_and_validate(config) else {
+                return Ok(Min(None));
+            };
 
-        // Build schedule order from sigma (inverse permutation)
-        let mut schedule = vec![0usize; n];
-        for (task, &pos) in sigma.iter().enumerate() {
-            schedule[pos] = task;
-        }
+            // Build schedule order from sigma (inverse permutation)
+            let mut schedule = vec![0usize; n];
+            for (task, &pos) in sigma.iter().enumerate() {
+                schedule[pos] = task;
+            }
 
-        // Compute completion times using actual lengths
-        let mut completion = vec![0usize; n];
-        let mut cumulative = 0usize;
-        for &task in &schedule {
-            cumulative += self.lengths[task] as usize;
-            completion[task] = cumulative;
-        }
+            // Compute completion times using actual lengths
+            let mut completion = vec![0_i64; n];
+            let mut cumulative = 0_i64;
+            for &task in &schedule {
+                cumulative = cumulative.checked_add(self.lengths[task]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing task lengths while computing completion times".to_string(),
+                    )
+                })?;
+                completion[task] = cumulative;
+            }
 
-        let tardy_count = (0..n)
-            .filter(|&t| completion[t] > self.deadlines[t])
-            .count();
+            let mut tardy_count = 0_i64;
+            for (task, &completion_time) in completion.iter().enumerate() {
+                if completion_time > self.deadlines[task] {
+                    tardy_count = tardy_count.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting tardy tasks".to_string(),
+                        )
+                    })?;
+                }
+            }
 
-        Min(Some(tardy_count))
+            Min(Some(tardy_count))
+        })
     }
 }
 
 crate::declare_variants! {
     default MinimumTardinessSequencing<One> => "2^num_tasks" create MinimumTardinessSequencingOneCreateSpec,
-    MinimumTardinessSequencing<i32> => "2^num_tasks" create MinimumTardinessSequencingI32CreateSpec,
+    MinimumTardinessSequencing<i64> => "2^num_tasks" create MinimumTardinessSequencingI64CreateSpec,
 }
 
 #[cfg(feature = "example-db")]
@@ -327,7 +361,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             // Optimal schedule: t0,t4,t2,t1,t3 → 2 tardy
             // Lehmer [0,3,1,0,0]: avail=[0,1,2,3,4] pick 0→0; [1,2,3,4] pick 3→4;
             //   [1,2,3] pick 1→2; [1,3] pick 0→1; [3] pick 0→3
-            instance: Box::new(MinimumTardinessSequencing::<i32>::with_lengths(
+            instance: Box::new(MinimumTardinessSequencing::<i64>::with_lengths(
                 vec![3, 2, 2, 1, 2],
                 vec![4, 3, 8, 3, 6],
                 vec![(0, 2), (1, 3)],

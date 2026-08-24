@@ -42,14 +42,16 @@ struct SparseMatrixCompressionCreateSpec {
 }
 
 impl TryFrom<SparseMatrixCompressionCreateSpec> for SparseMatrixCompression {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: SparseMatrixCompressionCreateSpec) -> Result<Self, Self::Error> {
         if spec.bound_k == 0 {
-            return Err("bound_k must be positive".to_string());
+            return Err("bound_k must be positive".to_string().into());
         }
         let columns = spec.matrix.first().map_or(0, Vec::len);
         if spec.matrix.iter().any(|row| row.len() != columns) {
-            return Err("all matrix rows must have the same length".to_string());
+            return Err("all matrix rows must have the same length"
+                .to_string()
+                .into());
         }
         Ok(Self::new(spec.matrix, spec.bound_k))
     }
@@ -145,8 +147,11 @@ impl Problem for SparseMatrixCompression {
         vec![self.bound_k; self.num_rows()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.storage_vector(config).is_some())
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.storage_vector(config).is_some()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

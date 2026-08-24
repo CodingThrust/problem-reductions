@@ -38,19 +38,19 @@ fn test_two_dimensional_consecutive_sets_evaluation() {
 
     // Valid partition: X0={0}, X1={1,5}, X2={2,3}, X3={4}
     // config[i] = group of symbol i
-    assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]));
+    assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]).unwrap());
 
     // Invalid: all symbols in same group (intersection constraint violated)
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap());
 
     // Invalid: wrong config length
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
 
     // Invalid: group index out of range
-    assert!(!problem.evaluate(&[0, 1, 2, 2, 3, 7]));
+    assert!(!problem.evaluate(&[0, 1, 2, 2, 3, 7]).unwrap());
 
     // Invalid: {0,1,2} not consecutive (0 in group 0, 1 in group 1, 2 in group 5)
-    assert!(!problem.evaluate(&[0, 1, 5, 2, 3, 1]));
+    assert!(!problem.evaluate(&[0, 1, 5, 2, 3, 1]).unwrap());
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn test_two_dimensional_consecutive_sets_evaluation_ignores_empty_group_labels()
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![0, 1]]);
 
     // The empty label 1 should be ignored, so this encodes the ordered partition {0} | {1,2}.
-    assert!(problem.evaluate(&[0, 2, 2]));
+    assert!(problem.evaluate(&[0, 2, 2]).unwrap());
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn test_two_dimensional_consecutive_sets_no_instance() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 
@@ -82,10 +82,10 @@ fn test_two_dimensional_consecutive_sets_solver() {
     let problem = TwoDimensionalConsecutiveSets::new(4, vec![vec![0, 1], vec![2, 3], vec![1, 2]]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -110,16 +110,16 @@ fn test_two_dimensional_consecutive_sets_deserialization_rejects_out_of_range_el
 fn test_two_dimensional_consecutive_sets_empty_subsets() {
     // All empty subsets — trivially satisfiable
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![], vec![]]);
-    assert!(problem.evaluate(&[0, 1, 2]));
-    assert!(problem.evaluate(&[0, 0, 0]));
+    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&[0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_two_dimensional_consecutive_sets_single_element_subsets() {
     // Single-element subsets: always satisfiable (no consecutiveness constraint to check)
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![0], vec![1], vec![2]]);
-    assert!(problem.evaluate(&[0, 1, 2]));
-    assert!(problem.evaluate(&[0, 0, 0])); // single elements always consecutive
+    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&[0, 0, 0]).unwrap()); // single elements always consecutive
 }
 
 #[test]
@@ -138,11 +138,11 @@ fn test_two_dimensional_consecutive_sets_paper_example() {
 
     // Verify the known valid solution
     let valid_config = vec![0, 1, 2, 2, 3, 1];
-    assert!(problem.evaluate(&valid_config));
+    assert!(problem.evaluate(&valid_config).unwrap());
 
     // Use brute force to find all solutions
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     // The known solution should be among them
     assert!(solutions.contains(&valid_config));

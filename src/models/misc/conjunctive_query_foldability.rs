@@ -82,7 +82,7 @@ pub enum Term {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -285,34 +285,39 @@ impl Problem for ConjunctiveQueryFoldability {
     ///
     /// Returns `true` iff applying the substitution encoded by `config` to every
     /// atom of Q1 produces exactly the set of atoms in Q2.
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_undistinguished {
-                return crate::types::Or(false);
-            }
-            let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
-            if config.iter().any(|&v| v >= range) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_undistinguished {
+                    return Ok(crate::types::Or(false));
+                }
+                let range = self.domain_size + self.num_distinguished + self.num_undistinguished;
+                if config.iter().any(|&v| v >= range) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Apply σ to every atom of Q1.
-            let substituted: HashSet<(usize, Vec<Term>)> = self
-                .query1_conjuncts
-                .iter()
-                .map(|(rel_idx, args)| {
-                    let new_args = args
-                        .iter()
-                        .map(|term| self.apply_substitution(term, config))
-                        .collect();
-                    (*rel_idx, new_args)
-                })
-                .collect();
+                // Apply σ to every atom of Q1.
+                let substituted: HashSet<(usize, Vec<Term>)> = self
+                    .query1_conjuncts
+                    .iter()
+                    .map(|(rel_idx, args)| {
+                        let new_args = args
+                            .iter()
+                            .map(|term| self.apply_substitution(term, config))
+                            .collect();
+                        (*rel_idx, new_args)
+                    })
+                    .collect();
 
-            // Collect Q2 as a set.
-            let q2_set: HashSet<(usize, Vec<Term>)> =
-                self.query2_conjuncts.iter().cloned().collect();
+                // Collect Q2 as a set.
+                let q2_set: HashSet<(usize, Vec<Term>)> =
+                    self.query2_conjuncts.iter().cloned().collect();
 
-            substituted == q2_set
+                substituted == q2_set
+            })
         })
     }
 }

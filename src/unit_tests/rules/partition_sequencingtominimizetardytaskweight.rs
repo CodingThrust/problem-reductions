@@ -10,8 +10,9 @@ use crate::types::Min;
 
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_closed_loop() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -22,8 +23,9 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_closed_loop() {
 
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_structure() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.lengths(), &[3, 1, 1, 2, 2, 1]);
@@ -34,8 +36,9 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_structure() {
 
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&[1, 2, 4, 5, 0, 3]).unwrap(),
@@ -45,15 +48,19 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution()
 
 #[test]
 fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsatisfying() {
-    let source = Partition::new(vec![2, 4, 5]);
-    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source);
+    let source = Partition::new(vec![2, 4, 5]).unwrap();
+    let reduction = ReduceTo::<SequencingToMinimizeTardyTaskWeight>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("target should always have an optimal schedule");
 
-    assert_eq!(target.evaluate(&best), Min(Some(6)));
-    assert!(!source.evaluate(&reduction.extract_solution(&best).unwrap()));
+    assert_eq!(target.evaluate(&best).unwrap(), Min(Some(6)));
+    assert!(!source
+        .evaluate(&reduction.extract_solution(&best).unwrap())
+        .unwrap());
 }
 
 #[cfg(feature = "example-db")]
@@ -94,8 +101,10 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert!(target
         .evaluate(&example.solutions[0].target_config)
+        .unwrap()
         .is_valid());
 }

@@ -42,13 +42,13 @@ fn test_consecutive_block_minimization_evaluate() {
         vec![vec![true, false, true], vec![false, true, true]],
         2,
     );
-    assert!(problem.evaluate(&[0, 2, 1]));
+    assert!(problem.evaluate(&[0, 2, 1]).unwrap());
 
     // Identity permutation [0, 1, 2]:
     //   [1, 0, 1]  -> 2 blocks
     //   [0, 1, 1]  -> 1 block
     // Total = 3 blocks, bound = 2 => does not satisfy
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -57,14 +57,20 @@ fn test_consecutive_block_minimization_count_blocks() {
         vec![vec![true, false, true], vec![false, true, true]],
         2,
     );
-    assert_eq!(problem.count_consecutive_blocks(&[0, 2, 1]), Some(2));
-    assert_eq!(problem.count_consecutive_blocks(&[0, 1, 2]), Some(3));
+    assert_eq!(
+        problem.count_consecutive_blocks(&[0, 2, 1]).unwrap(),
+        Some(2)
+    );
+    assert_eq!(
+        problem.count_consecutive_blocks(&[0, 1, 2]).unwrap(),
+        Some(3)
+    );
     // Invalid: duplicate column
-    assert_eq!(problem.count_consecutive_blocks(&[0, 0, 1]), None);
+    assert_eq!(problem.count_consecutive_blocks(&[0, 0, 1]).unwrap(), None);
     // Invalid: wrong length
-    assert_eq!(problem.count_consecutive_blocks(&[0, 1]), None);
+    assert_eq!(problem.count_consecutive_blocks(&[0, 1]).unwrap(), None);
     // Invalid: out of range
-    assert_eq!(problem.count_consecutive_blocks(&[0, 1, 5]), None);
+    assert_eq!(problem.count_consecutive_blocks(&[0, 1, 5]).unwrap(), None);
 }
 
 #[test]
@@ -74,13 +80,13 @@ fn test_consecutive_block_minimization_brute_force() {
         2,
     );
     let solver = BruteForce::new();
-    let mut solutions = solver.find_all_witnesses(&problem);
+    let mut solutions = solver.find_all_witnesses(&problem).unwrap();
     solutions.sort();
     let mut expected = vec![vec![0, 2, 1], vec![1, 2, 0]];
     expected.sort();
     assert_eq!(solutions, expected);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -89,8 +95,8 @@ fn test_consecutive_block_minimization_empty_matrix() {
     let problem = ConsecutiveBlockMinimization::new(vec![], 0);
     assert_eq!(problem.num_rows(), 0);
     assert_eq!(problem.num_cols(), 0);
-    assert!(problem.evaluate(&[]));
-    assert!(!problem.evaluate(&[0]));
+    assert!(problem.evaluate(&[]).unwrap());
+    assert!(!problem.evaluate(&[0]).unwrap());
 }
 
 #[test]
@@ -125,7 +131,7 @@ fn test_consecutive_block_minimization_deserialization_rejects_ragged_matrix() {
 fn test_consecutive_block_minimization_invalid_permutation() {
     let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
     // Not a valid permutation => evaluate returns false
-    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
     // Wrong length
-    assert!(!problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&[0]).unwrap());
 }

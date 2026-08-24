@@ -74,7 +74,9 @@ Read these first to understand the patterns:
 ## Pre-review Checklist
 
 Before implementing, make sure the plan explicitly covers these items that structural review checks later:
-- Derive numeric implementation types from the mathematical domains in the issue and follow `docs/src/design.md#numeric-types-and-arithmetic`; serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation
+- Follow `docs/src/design.md#numeric-types-and-arithmetic` at model, result, and external-I/O boundaries: `usize` for structural integers, `i64` for mathematical integers, `bool` for Boolean data, and finite `f64` for real or rational data. Use another format only when required by the mathematical problem or schema, such as `BigUint` for arbitrary-precision problems or `One` for unit weights; implementation convenience is not sufficient, and there is no `i32` model or I/O format. Implementation-local values are outside this contract.
+- Keep failure phases explicit: fallible constructors, create specs, serde-facing validation, and random generation return `ConstructionError`; `evaluate()` returns `EvaluationError`; no public model path returns `Result<_, String>`. Stored-field arithmetic and evaluation arithmetic are checked and reported in their own phase.
+- Serde/CLI construction uses the same validation as `new`/`try_new`, and boundary tests cover the supported maximum without requiring impractical allocation.
 - `ProblemSchemaEntry` metadata is complete (`display_name`, `aliases`, `dimensions`, explicit `category`, and construction `fields`)
 - `Problem::Value` uses the correct aggregate wrapper and witness support is intentional
 - `declare_variants!` is present with exactly one `default` variant when multiple concrete variants exist
@@ -130,8 +132,8 @@ Key decisions:
 - **Aggregate-only problems:** use a value-only aggregate such as `Sum<_>`, `And`, or a custom `Aggregate` when witnesses are not meaningful
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
-- **`evaluate()`:** must return the per-configuration aggregate value. For models with invalid configs, check feasibility first and return the appropriate invalid/false contribution
-- **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i32`, `One`). See `src/variant.rs`.
+- **`evaluate()`:** must return `Result<Value, EvaluationError>`. Invalid configurations remain the aggregate's invalid/false contribution; arithmetic overflow and non-finite computed values are errors.
+- **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i64`, `One`). See `src/variant.rs`.
 - **Solve surface:** `Solver::solve()` always computes the aggregate value. `pred solve problem.json` prints a `Solution` only when a witness exists; `pred solve bundle.json` and `--solver ilp` remain witness-only workflows
 
 ## Step 2.5: Register variant complexity
@@ -140,7 +142,7 @@ Add `declare_variants!` at the bottom of the model file (after the trait impls, 
 
 ```rust
 crate::declare_variants! {
-    ProblemName<SimpleGraph, i32> => "1.1996^num_vertices",
+    ProblemName<SimpleGraph, i64> => "1.1996^num_vertices",
     default ProblemName<SimpleGraph, One> => "1.1996^num_vertices",
 }
 ```
@@ -180,7 +182,7 @@ CLI and MCP construction are registry-driven. Do not edit either frontend to rec
 
 2. If construction has derived fields, renamed inputs, defaults depending on other inputs, or a composite value assembled from multiple inputs, define a model-local DTO with `#[derive(Deserialize, CreateSpec)]`. Its named fields are the complete public construction contract. Use `Option<T>` only for genuinely optional inputs, doc comments for help text, and `#[create(codec = "...")]` when the transport syntax cannot be inferred from the Rust type. Set `ProblemSchemaEntry.fields` to `LocalCreateSpec::FIELDS` so the catalog and executable constructor share the derived metadata.
 
-3. Implement `TryFrom<LocalCreateSpec> for Model`. Validate before calling constructors that assert or panic, return a descriptive error, compute derived state there, and build the canonical model value.
+3. Implement `TryFrom<LocalCreateSpec> for Model` with `ConstructionError`. The direct constructor and serde path must share validation. Use `Conversion` for contract violations, `IntegerOverflow` for stored integer arithmetic, and `NonFiniteFloat` for stored non-finite values; do not call a panicking constructor.
 
 4. Register the spec on each applicable variant: `default Model => "..." create LocalCreateSpec`. Both frontends then discover the inputs automatically and serialize the constructed typed model back to canonical persisted JSON.
 
@@ -328,7 +330,7 @@ Structural and quality review is handled by the `review-pipeline` stage, not her
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Adding frontend model-name branches | Construction is model-owned. Use a local `CreateSpec` and register it with `declare_variants!`; CLI and MCP must discover it. |
 | Hand-maintaining custom construction fields twice | Derive `CreateSpec`, use `LocalCreateSpec::FIELDS` in `ProblemSchemaEntry`, and register the same type in `declare_variants!`. |
-| Calling a panicking constructor from `TryFrom<CreateSpec>` | Validate the spec first and return a descriptive conversion error. |
+| Calling a panicking constructor from `TryFrom<CreateSpec>` | Share a fallible constructor and preserve its `ConstructionError`. |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
 | Claiming direct ILP solving but leaving `<Problem> -> ILP` for later | If the issue promises a direct ILP path, implement that rule in the same PR with exact overhead metadata and production-level ILP tests |

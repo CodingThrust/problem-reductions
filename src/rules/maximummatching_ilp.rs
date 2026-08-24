@@ -11,6 +11,7 @@ use crate::models::graph::MaximumMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumMatching to ILP.
 ///
@@ -24,7 +25,7 @@ pub struct ReductionMatchingToILP {
 }
 
 impl ReductionResult for ReductionMatchingToILP {
-    type Source = MaximumMatching<SimpleGraph, i32>;
+    type Source = MaximumMatching<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -51,10 +52,10 @@ impl ReductionResult for ReductionMatchingToILP {
         num_constraints = "num_vertices",
     },
 )]
-impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {
     type Result = ReductionMatchingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_edges(); // Number of edges
 
         // Constraints: For each vertex v, sum of incident edge variables <= 1
@@ -74,12 +75,18 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
         let objective: Vec<(usize, f64)> = weights
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(edge, &weight)| Ok((edge, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MaximumMatching<SimpleGraph, i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionMatchingToILP { target }
+        Ok(ReductionMatchingToILP { target })
     }
 }
 

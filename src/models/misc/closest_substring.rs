@@ -65,48 +65,77 @@ inventory::submit! {
 ///
 /// where `d_H` is the Hamming distance. Every choice in the discrete cube is
 /// syntactically feasible.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ClosestSubstring {
     alphabet_size: usize,
     strings: Vec<Vec<usize>>,
     substring_length: usize,
 }
 
+#[derive(Deserialize)]
+struct ClosestSubstringData {
+    alphabet_size: usize,
+    strings: Vec<Vec<usize>>,
+    substring_length: usize,
+}
+
+impl<'de> Deserialize<'de> for ClosestSubstring {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data = ClosestSubstringData::deserialize(deserializer)?;
+        Self::new(data.alphabet_size, data.strings, data.substring_length)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
 impl ClosestSubstring {
     /// Create a new `ClosestSubstring` instance.
     ///
-    /// # Panics
-    ///
-    /// Panics if:
-    /// - `strings` is empty (the problem requires at least one input string),
-    /// - `substring_length > |s_i|` for any input string,
-    /// - `alphabet_size == 0` while `substring_length > 0`,
-    /// - any symbol in any input string is `>= alphabet_size`.
-    pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>, substring_length: usize) -> Self {
-        assert!(
-            !strings.is_empty(),
-            "ClosestSubstring requires at least one input string"
-        );
-        assert!(
-            strings.iter().all(|s| s.len() >= substring_length),
-            "substring_length must be <= |s_i| for every input string"
-        );
-        assert!(
-            alphabet_size > 0 || substring_length == 0,
-            "alphabet_size must be > 0 when substring_length > 0"
-        );
-        assert!(
-            strings
-                .iter()
-                .flat_map(|s| s.iter())
-                .all(|&symbol| symbol < alphabet_size),
-            "input symbols must be less than alphabet_size"
-        );
-        Self {
+    pub fn new(
+        alphabet_size: usize,
+        strings: Vec<Vec<usize>>,
+        substring_length: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
+        if strings.is_empty() {
+            return Err("ClosestSubstring requires at least one input string".into());
+        }
+        if strings.iter().any(|s| s.len() < substring_length) {
+            return Err("substring_length must be <= |s_i| for every input string".into());
+        }
+        if alphabet_size == 0 && substring_length > 0 {
+            return Err("alphabet_size must be > 0 when substring_length > 0".into());
+        }
+        if strings
+            .iter()
+            .flat_map(|s| s.iter())
+            .any(|&symbol| symbol >= alphabet_size)
+        {
+            return Err("input symbols must be less than alphabet_size".into());
+        }
+        substring_length
+            .checked_add(strings.len())
+            .ok_or("configuration length exceeds usize")?;
+        strings
+            .iter()
+            .try_fold(0_usize, |total, string| total.checked_add(string.len()))
+            .ok_or("total input length exceeds usize")?;
+        strings
+            .iter()
+            .map(|string| string.len() - substring_length + 1)
+            .try_fold(0_usize, usize::checked_add)
+            .ok_or("total number of windows exceeds usize")?;
+        strings
+            .iter()
+            .map(|string| string.len() - substring_length + 1)
+            .try_fold(1_usize, usize::checked_mul)
+            .ok_or("window-choice count exceeds usize")?;
+        Ok(Self {
             alphabet_size,
             strings,
             substring_length,
-        }
+        })
     }
 
     /// Returns the alphabet size `q`.
@@ -144,13 +173,12 @@ impl ClosestSubstring {
 
     /// Returns `prod_i W_i`, the number of distinct window-selection tuples.
     ///
-    /// Uses saturating multiplication so the value cannot overflow; callers
-    /// should treat a return of `usize::MAX` as "very large".
     pub fn num_window_choice_product(&self) -> usize {
         self.strings
             .iter()
             .map(|s| s.len() - self.substring_length + 1)
-            .fold(1usize, |acc, w| acc.saturating_mul(w))
+            .try_fold(1usize, usize::checked_mul)
+            .expect("validated window-choice count must fit usize")
     }
 }
 
@@ -169,37 +197,43 @@ impl Problem for ClosestSubstring {
         dims
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let ell = self.substring_length;
-        let n = self.num_strings();
-        if config.len() != ell + n {
-            return Min(None);
-        }
-        let (center, window_starts) = config.split_at(ell);
-        if center.iter().any(|&symbol| symbol >= self.alphabet_size) {
-            return Min(None);
-        }
-        for (i, &start) in window_starts.iter().enumerate() {
-            let w_i = self.strings[i].len() - ell + 1;
-            if start >= w_i {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let ell = self.substring_length;
+            let n = self.num_strings();
+            if config.len() != ell + n {
+                return Ok(Min(None));
             }
-        }
-        // Maximum Hamming distance from the center to the chosen window of each string.
-        let max_distance = window_starts
-            .iter()
-            .enumerate()
-            .map(|(i, &start)| {
+            let (center, window_starts) = config.split_at(ell);
+            if center.iter().any(|&symbol| symbol >= self.alphabet_size) {
+                return Ok(Min(None));
+            }
+            for (i, &start) in window_starts.iter().enumerate() {
+                let w_i = self.strings[i].len() - ell + 1;
+                if start >= w_i {
+                    return Ok(Min(None));
+                }
+            }
+            // Maximum Hamming distance from the center to the chosen window of each string.
+            let mut max_distance = 0_i64;
+            for (i, &start) in window_starts.iter().enumerate() {
                 let window = &self.strings[i][start..start + ell];
-                center
-                    .iter()
-                    .zip(window.iter())
-                    .filter(|(c, t)| c != t)
-                    .count() as i64
-            })
-            .max()
-            .unwrap_or(0);
-        Min(Some(max_distance))
+                let distance = i64::try_from(
+                    center
+                        .iter()
+                        .zip(window.iter())
+                        .filter(|(center_symbol, target_symbol)| center_symbol != target_symbol)
+                        .count(),
+                )
+                .map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting substring Hamming distance to i64".into(),
+                    )
+                })?;
+                max_distance = max_distance.max(distance);
+            }
+            Min(Some(max_distance))
+        })
     }
 }
 
@@ -211,15 +245,18 @@ crate::declare_variants! {
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "closest_substring",
-        instance: Box::new(ClosestSubstring::new(
-            2,
-            vec![
-                vec![0, 0, 0, 1, 1],
-                vec![1, 0, 1, 0, 0],
-                vec![1, 1, 0, 0, 1],
-            ],
-            3,
-        )),
+        instance: Box::new(
+            ClosestSubstring::new(
+                2,
+                vec![
+                    vec![0, 0, 0, 1, 1],
+                    vec![1, 0, 1, 0, 0],
+                    vec![1, 1, 0, 0, 1],
+                ],
+                3,
+            )
+            .unwrap(),
+        ),
         // Center c = [0, 1, 0]; windows (0, 1, 0) selecting s_1[0..3] = 000,
         // s_2[1..4] = 010, s_3[0..3] = 110 with distances 1, 0, 1 and radius 1.
         optimal_config: vec![0, 1, 0, 0, 1, 0],

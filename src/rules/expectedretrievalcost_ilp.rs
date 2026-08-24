@@ -85,7 +85,7 @@ impl ReductionResult for ReductionERCToILP {
 impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
     type Result = ReductionERCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_records = self.num_records();
         let num_sectors = self.num_sectors();
         let n = num_records * num_sectors; // total x variables
@@ -155,11 +155,11 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionERCToILP {
+        Ok(ReductionERCToILP {
             target,
             num_records,
             num_sectors,
-        }
+        })
     }
 }
 
@@ -172,9 +172,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // 2 records with probabilities [0.5, 0.5], 2 sectors
             // Assignment: record 0 → sector 0, record 1 → sector 1
-            let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2);
+            let source = ExpectedRetrievalCost::new(vec![0.5, 0.5], 2).unwrap();
             // Compute target_config from solver to ensure consistency
-            let reduction: ReductionERCToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionERCToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();
             let target_config = solver
                 .solve(reduction.target_problem())

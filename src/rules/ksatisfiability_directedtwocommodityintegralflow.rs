@@ -61,7 +61,7 @@ pub struct Reduction3SATToDirectedTwoCommodityIntegralFlow {
     clause_sink_arcs: Vec<usize>,
 }
 
-fn literal_var_index(literal: i32) -> usize {
+fn literal_var_index(literal: i64) -> usize {
     literal.unsigned_abs() as usize - 1
 }
 
@@ -194,7 +194,7 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
 impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
     type Result = Reduction3SATToDirectedTwoCommodityIntegralFlow;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_1 = 0usize;
         let sink_1 = 1usize;
         let source_2 = 2usize;
@@ -288,7 +288,13 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             .map(|&clause_vertex| add_arc(clause_vertex, sink_2))
             .collect();
 
-        let capacities = vec![1u64; arcs.len()];
+        let capacities = vec![1i64; arcs.len()];
+        let clause_requirement = i64::try_from(self.num_clauses()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                DirectedTwoCommodityIntegralFlow,
+            >("converting the clause count to an i64 flow requirement")
+        })?;
         let target = DirectedTwoCommodityIntegralFlow::new(
             DirectedGraph::new(next_vertex, arcs),
             capacities,
@@ -297,16 +303,16 @@ impl ReduceTo<DirectedTwoCommodityIntegralFlow> for KSatisfiability<K3> {
             source_2,
             sink_2,
             1,
-            self.num_clauses() as u64,
+            clause_requirement,
         );
 
-        Reduction3SATToDirectedTwoCommodityIntegralFlow {
+        Ok(Reduction3SATToDirectedTwoCommodityIntegralFlow {
             target,
             commodity_1_chain_arcs,
             variable_paths,
             clause_routes,
             clause_sink_arcs,
-        }
+        })
     }
 }
 
@@ -325,7 +331,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let reduction =
-                crate::rules::ReduceTo::<DirectedTwoCommodityIntegralFlow>::reduce_to(&source);
+                crate::rules::ReduceTo::<DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let source_config = vec![1, 1, 0];
             let target_config = reduction.encode_assignment(&source_config);
 

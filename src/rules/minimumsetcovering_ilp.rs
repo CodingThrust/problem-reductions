@@ -9,6 +9,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::MinimumSetCovering;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumSetCovering to ILP.
 ///
@@ -22,7 +23,7 @@ pub struct ReductionSCToILP {
 }
 
 impl ReductionResult for ReductionSCToILP {
-    type Source = MinimumSetCovering<i32>;
+    type Source = MinimumSetCovering<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -49,10 +50,10 @@ impl ReductionResult for ReductionSCToILP {
         num_constraints = "universe_size",
     },
 )]
-impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
+impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
     type Result = ReductionSCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_sets();
 
         // Constraints: For each element e, sum_{j: e in set_j} x_j >= 1
@@ -77,12 +78,18 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i32> {
             .weights_ref()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(set, &weight)| Ok((set, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumSetCovering<i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionSCToILP { target }
+        Ok(ReductionSCToILP { target })
     }
 }
 

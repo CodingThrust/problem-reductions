@@ -60,12 +60,6 @@ impl ReductionResult for ReductionSubsetSumToPartition {
     }
 }
 
-fn biguint_to_u64(value: &BigUint) -> u64 {
-    value
-        .to_u64()
-        .expect("SubsetSum -> Partition requires all sizes and padding to fit in u64")
-}
-
 #[reduction(
     size = exact {
         num_elements = "num_elements + 1",
@@ -73,7 +67,7 @@ fn biguint_to_u64(value: &BigUint) -> u64 {
 impl ReduceTo<Partition> for SubsetSum {
     type Result = ReductionSubsetSumToPartition;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total: BigUint = self.sizes().iter().cloned().sum();
         let double_target = self.target() * 2u32;
         let relation = total.cmp(&double_target);
@@ -83,18 +77,27 @@ impl ReduceTo<Partition> for SubsetSum {
             Ordering::Less => PaddingRelation::OppositeSide,
         };
 
-        let mut sizes: Vec<u64> = self.sizes().iter().map(biguint_to_u64).collect();
+        let convert = |value: &BigUint| {
+            value.to_i64().ok_or_else(|| {
+                crate::rules::ReductionError::invalid_target::<SubsetSum, Partition>(
+                    "a source size or derived padding does not fit the Partition i64 domain",
+                )
+            })
+        };
+        let mut sizes: Vec<i64> = self.sizes().iter().map(convert).collect::<Result<_, _>>()?;
         match relation {
             Ordering::Equal => {}
-            Ordering::Greater => sizes.push(biguint_to_u64(&(total - double_target))),
-            Ordering::Less => sizes.push(biguint_to_u64(&(double_target - total))),
+            Ordering::Greater => sizes.push(convert(&(total - double_target))?),
+            Ordering::Less => sizes.push(convert(&(double_target - total))?),
         }
 
-        ReductionSubsetSumToPartition {
-            target: Partition::new(sizes),
+        Ok(ReductionSubsetSumToPartition {
+            target: Partition::new(sizes).map_err(|error| {
+                crate::rules::ReductionError::construction::<SubsetSum, Partition>(error)
+            })?,
             source_len: self.num_elements(),
             padding_relation,
-        }
+        })
     }
 }
 

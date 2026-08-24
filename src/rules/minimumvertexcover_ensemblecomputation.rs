@@ -55,8 +55,12 @@ impl ReductionResult for ReductionVCToEC {
             use crate::traits::Problem;
             use crate::types::Min;
 
-            let meaningful_steps = match self.target.evaluate(target_solution) {
-                Min(Some(n)) => n,
+            let meaningful_steps = match self.target.evaluate(target_solution)? {
+                Min(Some(n)) => usize::try_from(n).map_err(|_| {
+                    crate::rules::ExtractionError::invalid(
+                        "ensemble operation count cannot be represented as usize",
+                    )
+                })?,
                 _ => {
                     return Err(crate::rules::ExtractionError::invalid(
                         "target configuration does not encode a valid ensemble computation",
@@ -91,7 +95,7 @@ impl ReductionResult for ReductionVCToEC {
 impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
     type Result = ReductionVCToEC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.graph().num_vertices();
         let edges = self.graph().edges();
         let num_edges = edges.len();
@@ -109,10 +113,10 @@ impl ReduceTo<EnsembleComputation> for MinimumVertexCover<SimpleGraph, One> {
 
         let target = EnsembleComputation::new(universe_size, subsets, budget);
 
-        ReductionVCToEC {
+        Ok(ReductionVCToEC {
             target,
             num_vertices,
-        }
+        })
     }
 }
 

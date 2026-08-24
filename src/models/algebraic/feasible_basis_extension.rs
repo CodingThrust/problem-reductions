@@ -53,7 +53,7 @@ inventory::submit! {
 /// let required = vec![0, 1];
 /// let problem = FeasibleBasisExtension::new(matrix, rhs, required);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,7 +77,7 @@ struct FeasibleBasisExtensionCreateSpec {
 }
 
 impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: FeasibleBasisExtensionCreateSpec) -> Result<Self, Self::Error> {
         let m = spec.matrix.len();
         let first = spec
@@ -100,10 +100,10 @@ impl TryFrom<FeasibleBasisExtensionCreateSpec> for FeasibleBasisExtension {
         let mut seen = std::collections::HashSet::new();
         for &column in &spec.required_columns {
             if column >= n {
-                return Err(format!("required column {column} is out of bounds"));
+                return Err(format!("required column {column} is out of bounds").into());
             }
             if !seen.insert(column) {
-                return Err(format!("duplicate required column {column}"));
+                return Err(format!("duplicate required column {column}").into());
             }
         }
         Ok(Self {
@@ -213,51 +213,84 @@ impl FeasibleBasisExtension {
     /// Uses exact rational arithmetic via integer Gaussian elimination with
     /// numerator/denominator tracking to avoid floating-point errors.
     #[allow(clippy::needless_range_loop)]
-    fn check_feasible_basis(&self, basis_cols: &[usize]) -> bool {
+    fn check_feasible_basis(
+        &self,
+        basis_cols: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.num_rows();
         assert_eq!(basis_cols.len(), m);
 
-        // Build augmented matrix [A_B | a_bar] in i128 to avoid overflow
-        // during Bareiss fraction-free Gaussian elimination.
-        let mut aug128: Vec<Vec<i128>> = Vec::with_capacity(m);
+        // Build augmented matrix [A_B | a_bar] for Bareiss elimination.
+        let mut augmented: Vec<Vec<i64>> = Vec::with_capacity(m);
         for i in 0..m {
             let mut row = Vec::with_capacity(m + 1);
             for &col in basis_cols {
-                row.push(self.matrix[i][col] as i128);
+                row.push(self.matrix[i][col]);
             }
-            row.push(self.rhs[i] as i128);
-            aug128.push(row);
+            row.push(self.rhs[i]);
+            augmented.push(row);
         }
 
         // Bareiss algorithm: fraction-free Gaussian elimination.
         // After elimination, the system is upper-triangular.
-        let mut prev_pivot = 1i128;
+        let mut prev_pivot = 1_i64;
 
         for k in 0..m {
             // Partial pivoting
             let mut max_row = k;
-            let mut max_val = aug128[k][k].abs();
+            let mut max_val = augmented[k][k].checked_abs().ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "taking an elimination pivot magnitude".into(),
+                )
+            })?;
             for i in (k + 1)..m {
-                if aug128[i][k].abs() > max_val {
-                    max_val = aug128[i][k].abs();
+                let candidate = augmented[i][k].checked_abs().ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "taking an elimination candidate magnitude".into(),
+                    )
+                })?;
+                if candidate > max_val {
+                    max_val = candidate;
                     max_row = i;
                 }
             }
             if max_val == 0 {
-                return false; // singular
+                return Ok(false); // singular
             }
             if max_row != k {
-                aug128.swap(k, max_row);
+                augmented.swap(k, max_row);
             }
 
             for i in (k + 1)..m {
                 for j in (k + 1)..=m {
-                    aug128[i][j] =
-                        (aug128[k][k] * aug128[i][j] - aug128[i][k] * aug128[k][j]) / prev_pivot;
+                    let left = augmented[k][k]
+                        .checked_mul(augmented[i][j])
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying Bareiss pivot and row entry".into(),
+                            )
+                        })?;
+                    let right = augmented[i][k]
+                        .checked_mul(augmented[k][j])
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying Bareiss elimination entries".into(),
+                            )
+                        })?;
+                    let numerator = left.checked_sub(right).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "subtracting Bareiss products".into(),
+                        )
+                    })?;
+                    augmented[i][j] = numerator.checked_div(prev_pivot).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "dividing by the previous Bareiss pivot".into(),
+                        )
+                    })?;
                 }
-                aug128[i][k] = 0;
+                augmented[i][k] = 0;
             }
-            prev_pivot = aug128[k][k];
+            prev_pivot = augmented[k][k];
         }
 
         // Back-substitution to solve. We solve in rational form: x_i = num_i / det.
@@ -268,38 +301,92 @@ impl FeasibleBasisExtension {
         // x[i] = (aug128[i][m] - sum_{j>i} aug128[i][j] * x[j]) / aug128[i][i]
         // We track x[i] as (numerator, denominator) pairs.
 
-        let mut x_nums = vec![0i128; m];
-        let mut x_dens = vec![1i128; m];
+        let mut x_nums = vec![0_i64; m];
+        let mut x_dens = vec![1_i64; m];
 
         for i in (0..m).rev() {
             // numerator of (aug128[i][m] - sum_{j>i} aug128[i][j] * x[j])
-            let mut num = aug128[i][m];
-            let mut den = 1i128;
+            let mut num = augmented[i][m];
+            let mut den = 1_i64;
 
             for j in (i + 1)..m {
                 // subtract aug128[i][j] * (x_nums[j] / x_dens[j])
                 // num/den - aug128[i][j] * x_nums[j] / x_dens[j]
                 // = (num * x_dens[j] - den * aug128[i][j] * x_nums[j]) / (den * x_dens[j])
-                let a = aug128[i][j];
-                num = num * x_dens[j] - den * a * x_nums[j];
-                den *= x_dens[j];
+                let left = num.checked_mul(x_dens[j]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "multiplying basis-solution numerator".into(),
+                    )
+                })?;
+                let right = den
+                    .checked_mul(augmented[i][j])
+                    .and_then(|value| value.checked_mul(x_nums[j]))
+                    .ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "multiplying basis-solution subtraction term".into(),
+                        )
+                    })?;
+                num = left.checked_sub(right).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "subtracting basis-solution terms".into(),
+                    )
+                })?;
+                den = den.checked_mul(x_dens[j]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "multiplying basis-solution denominators".into(),
+                    )
+                })?;
                 // Simplify to avoid overflow
-                let g = gcd_i128(num.abs(), den.abs());
+                let g = gcd_i64(
+                    num.checked_abs().ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "taking basis-solution numerator magnitude".into(),
+                        )
+                    })?,
+                    den.checked_abs().ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "taking basis-solution denominator magnitude".into(),
+                        )
+                    })?,
+                );
                 if g > 1 {
                     num /= g;
                     den /= g;
                 }
             }
             // x[i] = (num/den) / aug128[i][i] = num / (den * aug128[i][i])
-            let diag = aug128[i][i];
+            let diag = augmented[i][i];
             x_nums[i] = num;
-            x_dens[i] = den * diag;
+            x_dens[i] = den.checked_mul(diag).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying basis-solution denominator by diagonal".into(),
+                )
+            })?;
             // Normalize sign: make denominator positive
             if x_dens[i] < 0 {
-                x_nums[i] = -x_nums[i];
-                x_dens[i] = -x_dens[i];
+                x_nums[i] = x_nums[i].checked_neg().ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "normalizing basis-solution numerator sign".into(),
+                    )
+                })?;
+                x_dens[i] = x_dens[i].checked_neg().ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "normalizing basis-solution denominator sign".into(),
+                    )
+                })?;
             }
-            let g = gcd_i128(x_nums[i].abs(), x_dens[i].abs());
+            let g = gcd_i64(
+                x_nums[i].checked_abs().ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "taking normalized numerator magnitude".into(),
+                    )
+                })?,
+                x_dens[i].checked_abs().ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "taking normalized denominator magnitude".into(),
+                    )
+                })?,
+            );
             if g > 1 {
                 x_nums[i] /= g;
                 x_dens[i] /= g;
@@ -308,12 +395,12 @@ impl FeasibleBasisExtension {
 
         // Check x >= 0: each x_nums[i] / x_dens[i] >= 0
         // Since x_dens[i] > 0 (normalized), we need x_nums[i] >= 0
-        x_nums.iter().take(m).all(|&num| num >= 0)
+        Ok(x_nums.iter().take(m).all(|&num| num >= 0))
     }
 }
 
-/// Compute GCD of two i128 values.
-fn gcd_i128(mut a: i128, mut b: i128) -> i128 {
+/// Compute GCD of two nonnegative i64 values.
+fn gcd_i64(mut a: i64, mut b: i64) -> i64 {
     while b != 0 {
         let t = b;
         b = a % b;
@@ -334,38 +421,43 @@ impl Problem for FeasibleBasisExtension {
         vec![2; self.num_columns() - self.num_required()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        let free_cols = self.free_columns();
-        let num_free = free_cols.len();
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            let free_cols = self.free_columns();
+            let num_free = free_cols.len();
 
-        if config.len() != num_free {
-            return crate::types::Or(false);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return crate::types::Or(false);
-        }
+            if config.len() != num_free {
+                return Ok(crate::types::Or(false));
+            }
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(crate::types::Or(false));
+            }
 
-        let m = self.num_rows();
-        let s = self.num_required();
-        let needed = m - s;
+            let m = self.num_rows();
+            let s = self.num_required();
+            let needed = m - s;
 
-        // Count selected free columns
-        let selected_free: Vec<usize> = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &v)| v == 1)
-            .map(|(i, _)| free_cols[i])
-            .collect();
+            // Count selected free columns
+            let selected_free: Vec<usize> = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &v)| v == 1)
+                .map(|(i, _)| free_cols[i])
+                .collect();
 
-        if selected_free.len() != needed {
-            return crate::types::Or(false);
-        }
+            if selected_free.len() != needed {
+                return Ok(crate::types::Or(false));
+            }
 
-        // Form basis: required columns + selected free columns
-        let mut basis_cols: Vec<usize> = self.required_columns.clone();
-        basis_cols.extend_from_slice(&selected_free);
+            // Form basis: required columns + selected free columns
+            let mut basis_cols: Vec<usize> = self.required_columns.clone();
+            basis_cols.extend_from_slice(&selected_free);
 
-        crate::types::Or(self.check_feasible_basis(&basis_cols))
+            crate::types::Or(self.check_feasible_basis(&basis_cols)?)
+        })
     }
 }
 

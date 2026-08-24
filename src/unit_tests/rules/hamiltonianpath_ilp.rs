@@ -8,7 +8,8 @@ use crate::types::Or;
 fn test_reduction_creates_valid_ilp() {
     // Path P3: 0-1-2
     let problem = HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=3, m=2, n_pos=2
     // num_x = 9, num_z = 2*2*2 = 8, total = 17
@@ -24,18 +25,20 @@ fn test_hamiltonianpath_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert_eq!(problem.evaluate(&bf_solution), Or(true));
+    assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
     // Solve via ILP
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "ILP solution should satisfy the HamiltonianPath constraint"
     );
@@ -49,23 +52,26 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert_eq!(problem.evaluate(&bf_solution), Or(true));
+    assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
 
     // Solve via ILP
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_hamiltonianpath_to_ilp_bf_vs_ilp() {
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -73,7 +79,8 @@ fn test_hamiltonianpath_to_ilp_bf_vs_ilp() {
 fn test_hamiltonianpath_to_ilp_no_path() {
     // Disconnected graph: no Hamiltonian path
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(reduction.target_problem());
     assert!(
@@ -85,11 +92,12 @@ fn test_hamiltonianpath_to_ilp_no_path() {
 #[test]
 fn test_solution_extraction() {
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionHamiltonianPathToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionHamiltonianPathToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

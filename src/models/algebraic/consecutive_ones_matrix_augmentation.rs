@@ -35,7 +35,7 @@ struct ConsecutiveOnesMatrixAugmentationCreateSpec {
     bound: i64,
 }
 impl TryFrom<ConsecutiveOnesMatrixAugmentationCreateSpec> for ConsecutiveOnesMatrixAugmentation {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: ConsecutiveOnesMatrixAugmentationCreateSpec) -> Result<Self, Self::Error> {
         Self::try_new(spec.matrix, spec.bound)
     }
@@ -46,13 +46,18 @@ impl ConsecutiveOnesMatrixAugmentation {
         Self::try_new(matrix, bound).unwrap_or_else(|err| panic!("{err}"))
     }
 
-    pub fn try_new(matrix: Vec<Vec<bool>>, bound: i64) -> Result<Self, String> {
+    pub fn try_new(
+        matrix: Vec<Vec<bool>>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let num_cols = matrix.first().map_or(0, Vec::len);
         if matrix.iter().any(|row| row.len() != num_cols) {
-            return Err("all matrix rows must have the same length".to_string());
+            return Err("all matrix rows must have the same length"
+                .to_string()
+                .into());
         }
         if bound < 0 {
-            return Err("bound must be nonnegative".to_string());
+            return Err("bound must be nonnegative".to_string().into());
         }
         Ok(Self { matrix, bound })
     }
@@ -107,20 +112,29 @@ impl ConsecutiveOnesMatrixAugmentation {
         }
     }
 
-    fn total_augmentation_cost(&self, config: &[usize]) -> Option<usize> {
+    fn total_augmentation_cost(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<usize>, crate::traits::EvaluationError> {
         if !self.validate_permutation(config) {
-            return None;
+            return Ok(None);
         }
 
         let mut total = 0usize;
         for row in &self.matrix {
-            total += Self::row_augmentation_cost(row, config);
+            total = total
+                .checked_add(Self::row_augmentation_cost(row, config))
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing consecutive-ones matrix augmentation costs".to_string(),
+                    )
+                })?;
             if total > self.bound as usize {
-                return Some(total);
+                return Ok(Some(total));
             }
         }
 
-        Some(total)
+        Ok(Some(total))
     }
 }
 
@@ -132,10 +146,15 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
         vec![self.num_cols(); self.num_cols()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.total_augmentation_cost(config)
-                .is_some_and(|cost| cost <= self.bound as usize)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                self.total_augmentation_cost(config)?
+                    .is_some_and(|cost| cost <= self.bound as usize)
+            })
         })
     }
 

@@ -9,7 +9,8 @@ use std::collections::HashSet;
 #[test]
 fn test_subsetsum_to_closestvectorproblem_closed_loop() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_basis_vectors(), 4);
@@ -26,7 +27,8 @@ fn test_subsetsum_to_closestvectorproblem_closed_loop() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_structure() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.basis()[0], vec![1, 0, 0, 0, 3]);
@@ -39,10 +41,12 @@ fn test_subsetsum_to_closestvectorproblem_structure() {
 #[test]
 fn test_subsetsum_to_closestvectorproblem_issue_example_minimizers() {
     let source = SubsetSum::new(vec![3u32, 7, 1, 8], 11u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let solutions: HashSet<Vec<usize>> = BruteForce::new()
         .find_all_witnesses(target)
+        .unwrap()
         .into_iter()
         .collect();
 
@@ -50,29 +54,35 @@ fn test_subsetsum_to_closestvectorproblem_issue_example_minimizers() {
     assert_eq!(solutions, expected);
 
     for solution in &solutions {
-        assert_eq!(target.evaluate(solution), Min(Some(1.0)));
+        assert_eq!(target.evaluate(solution).unwrap(), Min(Some(1.0)));
     }
 }
 
 #[test]
 fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
     let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
-    let reduction = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("unsatisfiable instance should still have a best CVP assignment");
 
-    let metric = target.evaluate(&best);
+    let metric = target.evaluate(&best).unwrap();
     assert!(metric.is_valid(), "CVP solution should be valid");
     assert!(metric.unwrap() > (source.num_elements() as f64).sqrt() / 2.0);
 }
 
 #[test]
-#[should_panic(
-    expected = "SubsetSum -> ClosestVectorProblem requires all sizes and target to fit in i32"
-)]
-fn test_subsetsum_to_closestvectorproblem_panics_on_large_coefficients() {
-    let source = SubsetSum::new(vec![(i32::MAX as u64) + 1], 1u64);
-    let _ = ReduceTo::<ClosestVectorProblem<i32>>::reduce_to(&source);
+fn test_subsetsum_to_closestvectorproblem_rejects_large_coefficients() {
+    let source = SubsetSum::new(vec![(i64::MAX as u64) + 1], 1u64);
+    let error = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ReductionError::Construction {
+            cause: crate::registry::ConstructionError::IntegerOverflow(_),
+            ..
+        }
+    ));
 }

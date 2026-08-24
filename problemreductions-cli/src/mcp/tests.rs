@@ -45,8 +45,8 @@ fn test_find_path_enumerates_without_a_mode_or_sizes() {
     let result: serde_json::Value = serde_json::from_str(
         &server
             .find_path_inner(
-                "MIS/SimpleGraph/i32",
-                "MaximumClique/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
+                "MaximumClique/SimpleGraph/i64",
                 20,
                 false,
                 None,
@@ -62,14 +62,14 @@ fn test_find_path_executes_complete_instance_and_reports_actual_size() {
     let server = McpServer::new();
     let problem_json = r#"{
             "type":"MaximumIndependentSet",
-            "variant":{"graph":"SimpleGraph","weight":"i32"},
+            "variant":{"graph":"SimpleGraph","weight":"i64"},
             "data":{"graph":{"num_vertices":5,"edges":[[0,1],[1,2],[2,3],[3,4]]},"weights":[1,1,1,1,1]}
         }"#;
     let result: serde_json::Value = serde_json::from_str(
         &server
             .find_path_inner(
-                "MIS/SimpleGraph/i32",
-                "MaximumClique/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
+                "MaximumClique/SimpleGraph/i64",
                 20,
                 false,
                 Some(problem_json),
@@ -160,7 +160,7 @@ fn test_neighbors_and_export_graph() {
 fn create_test_mis(server: &McpServer) -> String {
     let params = serde_json::json!({"graph": [[0, 1], [1, 2], [2, 3]]});
     server
-        .create_problem_inner("MIS/SimpleGraph/i32", &params)
+        .create_problem_inner("MIS/SimpleGraph/i64", &params)
         .unwrap()
 }
 
@@ -314,7 +314,7 @@ fn test_reduce() {
     let problem_json = create_test_mis(&server);
     let route = explicit_route(
         &server,
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -345,7 +345,7 @@ fn test_reduce_rejects_discontinuous_explicit_route() {
     let problem_json = create_test_mis(&server);
     let route = explicit_route(
         &server,
-        "MIS/SimpleGraph/i32",
+        "MIS/SimpleGraph/i64",
         "QUBO",
         &[
             "MaximumIndependentSet",
@@ -461,7 +461,7 @@ fn test_solve_bundle() {
             &problem_json,
             &explicit_route(
                 &server,
-                "MIS/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
                 "QUBO",
                 &[
                     "MaximumIndependentSet",
@@ -543,7 +543,7 @@ fn test_solve_bundle_rejects_unavailable_customized_solver() {
             &problem_json,
             &explicit_route(
                 &server,
-                "MIS/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
                 "QUBO",
                 &[
                     "MaximumIndependentSet",
@@ -572,7 +572,7 @@ fn test_inspect_bundle() {
             &problem_json,
             &explicit_route(
                 &server,
-                "MIS/SimpleGraph/i32",
+                "MIS/SimpleGraph/i64",
                 "QUBO",
                 &[
                     "MaximumIndependentSet",
@@ -595,7 +595,7 @@ fn test_inspect_minmaxmulticenter_reports_registered_ilp_pipeline() {
     let server = McpServer::new();
     let problem_json = serde_json::json!({
         "type": "MinMaxMulticenter",
-        "variant": {"graph": "SimpleGraph", "weight": "i32"},
+        "variant": {"graph": "SimpleGraph", "weight": "i64"},
         "data": {
             "graph": {
                 "num_vertices": 4,

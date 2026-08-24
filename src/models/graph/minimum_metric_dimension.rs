@@ -71,8 +71,8 @@ pub fn bfs_distances<G: Graph>(graph: &G, source: usize) -> Vec<usize> {
 /// let problem = MinimumMetricDimension::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert!(value.is_valid());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -154,7 +154,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumMetricDimension";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -164,12 +164,18 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if !self.is_resolving(config) {
-            return Min(None);
-        }
-        let count = config.iter().filter(|&&x| x == 1).count();
-        Min(Some(count))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_resolving(config) {
+                return Ok(Min(None));
+            }
+            let count = config.iter().filter(|&&x| x == 1).count();
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting metric-basis size to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

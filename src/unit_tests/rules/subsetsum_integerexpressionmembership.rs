@@ -24,7 +24,8 @@ fn issue_example_target_config() -> Vec<usize> {
 #[test]
 fn test_subsetsum_to_integerexpressionmembership_closed_loop() {
     let source = issue_example_source();
-    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 4 items -> 4 union nodes
@@ -42,7 +43,8 @@ fn test_subsetsum_to_integerexpressionmembership_closed_loop() {
 #[test]
 fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice_bits() {
     let source = issue_example_source();
-    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(
         reduction
@@ -59,11 +61,13 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
 #[test]
 fn test_subsetsum_to_integerexpressionmembership_unsatisfiable_instance_stays_unsatisfiable() {
     let source = SubsetSum::new(vec![2u32, 4, 6], 5u32);
-    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source)
+        .expect("reduction should succeed");
 
-    assert!(BruteForce::new().find_witness(&source).is_none());
+    assert!(BruteForce::new().find_witness(&source).unwrap().is_none());
     assert!(BruteForce::new()
         .find_witness(reduction.target_problem())
+        .unwrap()
         .is_none());
 }
 
@@ -97,8 +101,10 @@ fn test_subsetsum_to_integerexpressionmembership_canonical_example_spec() {
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert!(target
         .evaluate(&example.solutions[0].target_config)
+        .unwrap()
         .is_valid());
 }

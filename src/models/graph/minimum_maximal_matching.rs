@@ -48,7 +48,7 @@ inventory::submit! {
 /// let problem = MinimumMaximalMatching::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
 ///
 /// // Minimum maximal matching has 1 edge (e.g., edge (1,2))
 /// let count: usize = solution.iter().sum();
@@ -124,7 +124,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumMaximalMatching";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -134,15 +134,21 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.graph.num_edges() {
-            return Min(None);
-        }
-        if !self.is_valid_maximal_matching(config) {
-            return Min(None);
-        }
-        let count = config.iter().filter(|&&x| x == 1).count();
-        Min(Some(count))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_edges() {
+                return Ok(Min(None));
+            }
+            if !self.is_valid_maximal_matching(config) {
+                return Ok(Min(None));
+            }
+            let count = config.iter().filter(|&&x| x == 1).count();
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting matching cardinality to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

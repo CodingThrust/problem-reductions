@@ -5,7 +5,7 @@
 //! `m` identical processors, subject to precedence constraints.
 //! The goal is to minimize the makespan (latest completion time).
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -49,16 +49,16 @@ inventory::submit! {
 /// use problemreductions::models::misc::PreemptiveScheduling;
 /// use problemreductions::Problem;
 ///
-/// let problem = PreemptiveScheduling::new(vec![2, 1], 2, vec![]);
+/// let problem = PreemptiveScheduling::new(vec![2, 1], 2, vec![]).unwrap();
 /// // D_max = 3, config length = 2 * 3 = 6
 /// // task 0 active at slots 0,1; task 1 active at slot 0
 /// let config = vec![1, 1, 0, 1, 0, 0];
-/// assert_eq!(problem.evaluate(&config), problemreductions::types::Min(Some(2)));
+/// assert_eq!(problem.evaluate(&config).unwrap(), problemreductions::types::Min(Some(2)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct PreemptiveScheduling {
     /// Processing length for each task.
-    lengths: Vec<usize>,
+    lengths: Vec<i64>,
     /// Number of identical processors.
     num_processors: usize,
     /// Precedence constraints: (pred, succ) means pred must finish before succ starts.
@@ -67,46 +67,59 @@ pub struct PreemptiveScheduling {
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct PreemptiveSchedulingCreateSpec {
-    lengths: Vec<usize>,
+    lengths: Vec<i64>,
     num_processors: usize,
     precedences: Option<Vec<(usize, usize)>>,
 }
 
 impl TryFrom<PreemptiveSchedulingCreateSpec> for PreemptiveScheduling {
-    type Error = String;
+    type Error = ConstructionError;
 
     fn try_from(spec: PreemptiveSchedulingCreateSpec) -> Result<Self, Self::Error> {
         let precedences = spec.precedences.unwrap_or_default();
-        Self::validate(&spec.lengths, spec.num_processors, &precedences)?;
-        Ok(Self::new(spec.lengths, spec.num_processors, precedences))
+        Self::new(spec.lengths, spec.num_processors, precedences)
     }
 }
 
 #[derive(Deserialize)]
 struct PreemptiveSchedulingSerde {
-    lengths: Vec<usize>,
+    lengths: Vec<i64>,
     num_processors: usize,
     precedences: Vec<(usize, usize)>,
 }
 
 impl PreemptiveScheduling {
     fn validate(
-        lengths: &[usize],
+        lengths: &[i64],
         num_processors: usize,
         precedences: &[(usize, usize)],
-    ) -> Result<(), String> {
-        if lengths.contains(&0) {
-            return Err("task lengths must be positive".to_string());
+    ) -> Result<(), ConstructionError> {
+        if lengths.iter().any(|&length| length <= 0) {
+            return Err(ConstructionError::Conversion(
+                "task lengths must be positive".into(),
+            ));
         }
         if num_processors == 0 {
-            return Err("num_processors must be positive".to_string());
+            return Err(ConstructionError::Conversion(
+                "num_processors must be positive".into(),
+            ));
         }
         let n = lengths.len();
+        let total_length = lengths
+            .iter()
+            .try_fold(0_i64, |total, &length| total.checked_add(length))
+            .ok_or_else(|| ConstructionError::IntegerOverflow("summing task lengths".into()))?;
+        let horizon = usize::try_from(total_length).map_err(|_| {
+            ConstructionError::IntegerOverflow("task horizon does not fit usize".into())
+        })?;
+        n.checked_mul(horizon).ok_or_else(|| {
+            ConstructionError::IntegerOverflow("configuration size does not fit usize".into())
+        })?;
         for &(pred, succ) in precedences {
             if pred >= n || succ >= n {
-                return Err(format!(
+                return Err(ConstructionError::Conversion(format!(
                     "precedence index out of range: ({pred}, {succ}) but num_tasks = {n}"
-                ));
+                )));
             }
         }
         Ok(())
@@ -119,22 +132,17 @@ impl PreemptiveScheduling {
     /// * `num_processors` - Number of identical processors `m` (must be positive)
     /// * `precedences` - Pairs `(pred, succ)`: task `pred` must finish before task `succ` starts
     ///
-    /// # Panics
-    ///
-    /// Panics if any length is zero, `num_processors` is zero, or any precedence
-    /// index is out of range.
     pub fn new(
-        lengths: Vec<usize>,
+        lengths: Vec<i64>,
         num_processors: usize,
         precedences: Vec<(usize, usize)>,
-    ) -> Self {
-        Self::validate(&lengths, num_processors, &precedences)
-            .unwrap_or_else(|err| panic!("{err}"));
-        Self {
+    ) -> Result<Self, ConstructionError> {
+        Self::validate(&lengths, num_processors, &precedences)?;
+        Ok(Self {
             lengths,
             num_processors,
             precedences,
-        }
+        })
     }
 
     /// Get the number of tasks.
@@ -153,7 +161,7 @@ impl PreemptiveScheduling {
     }
 
     /// Get the processing lengths.
-    pub fn lengths(&self) -> &[usize] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
@@ -164,20 +172,20 @@ impl PreemptiveScheduling {
 
     /// Compute `D_max = sum of all task lengths` (worst-case makespan).
     pub fn d_max(&self) -> usize {
-        self.lengths.iter().sum()
+        let total = self
+            .lengths
+            .iter()
+            .try_fold(0_i64, |total, &length| total.checked_add(length))
+            .expect("construction validates the task horizon");
+        usize::try_from(total).expect("validated task horizon fits usize")
     }
 }
 
 impl TryFrom<PreemptiveSchedulingSerde> for PreemptiveScheduling {
-    type Error = String;
+    type Error = ConstructionError;
 
     fn try_from(value: PreemptiveSchedulingSerde) -> Result<Self, Self::Error> {
-        Self::validate(&value.lengths, value.num_processors, &value.precedences)?;
-        Ok(Self {
-            lengths: value.lengths,
-            num_processors: value.num_processors,
-            precedences: value.precedences,
-        })
+        Self::new(value.lengths, value.num_processors, value.precedences)
     }
 }
 
@@ -193,7 +201,7 @@ impl<'de> Deserialize<'de> for PreemptiveScheduling {
 
 impl Problem for PreemptiveScheduling {
     const NAME: &'static str = "PreemptiveScheduling";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -204,56 +212,62 @@ impl Problem for PreemptiveScheduling {
         vec![2; self.num_tasks() * d]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.num_tasks();
-        let d = self.d_max();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_tasks();
+            let d = self.d_max();
 
-        // Check config length
-        if config.len() != n * d {
-            return Min(None);
-        }
-
-        // Check each slot is binary
-        if config.iter().any(|&v| v > 1) {
-            return Min(None);
-        }
-
-        // Check each task t is active in exactly l(t) slots
-        for t in 0..n {
-            let active: usize = config[t * d..(t + 1) * d].iter().sum();
-            if active != self.lengths[t] {
-                return Min(None);
+            // Check config length
+            if config.len() != n * d {
+                return Ok(Min(None));
             }
-        }
 
-        // Check processor capacity at each time slot
-        for u in 0..d {
-            let active_count: usize = (0..n).filter(|&t| config[t * d + u] == 1).count();
-            if active_count > self.num_processors {
-                return Min(None);
+            // Check each slot is binary
+            if config.iter().any(|&v| v > 1) {
+                return Ok(Min(None));
             }
-        }
 
-        // Check precedence constraints:
-        // last active slot of pred < first active slot of succ
-        for &(pred, succ) in &self.precedences {
-            let last_pred = (0..d).rev().find(|&u| config[pred * d + u] == 1);
-            let first_succ = (0..d).find(|&u| config[succ * d + u] == 1);
-            if let (Some(lp), Some(fs)) = (last_pred, first_succ) {
-                if lp >= fs {
-                    return Min(None);
+            // Check each task t is active in exactly l(t) slots
+            for t in 0..n {
+                let active: usize = config[t * d..(t + 1) * d].iter().sum();
+                if i64::try_from(active).expect("active slots fit the validated horizon")
+                    != self.lengths[t]
+                {
+                    return Ok(Min(None));
                 }
             }
-        }
 
-        // Compute makespan: max over all t of (last active slot + 1)
-        let makespan = (0..n)
-            .filter_map(|t| (0..d).rev().find(|&u| config[t * d + u] == 1))
-            .map(|last| last + 1)
-            .max()
-            .unwrap_or(0);
+            // Check processor capacity at each time slot
+            for u in 0..d {
+                let active_count: usize = (0..n).filter(|&t| config[t * d + u] == 1).count();
+                if active_count > self.num_processors {
+                    return Ok(Min(None));
+                }
+            }
 
-        Min(Some(makespan))
+            // Check precedence constraints:
+            // last active slot of pred < first active slot of succ
+            for &(pred, succ) in &self.precedences {
+                let last_pred = (0..d).rev().find(|&u| config[pred * d + u] == 1);
+                let first_succ = (0..d).find(|&u| config[succ * d + u] == 1);
+                if let (Some(lp), Some(fs)) = (last_pred, first_succ) {
+                    if lp >= fs {
+                        return Ok(Min(None));
+                    }
+                }
+            }
+
+            // Compute makespan: max over all t of (last active slot + 1)
+            let makespan = (0..n)
+                .filter_map(|t| (0..d).rev().find(|&u| config[t * d + u] == 1))
+                .map(|last| last + 1)
+                .max()
+                .unwrap_or(0);
+
+            Min(Some(
+                i64::try_from(makespan).expect("makespan fits the validated horizon"),
+            ))
+        })
     }
 }
 
@@ -294,11 +308,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     config[36 + 1] = 1;
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "preemptive_scheduling",
-        instance: Box::new(PreemptiveScheduling::new(
-            vec![2, 1, 3, 2, 1],
-            2,
-            vec![(0, 2), (1, 3)],
-        )),
+        instance: Box::new(
+            PreemptiveScheduling::new(vec![2, 1, 3, 2, 1], 2, vec![(0, 2), (1, 3)]).unwrap(),
+        ),
         optimal_config: config,
         optimal_value: serde_json::json!(5),
     }]

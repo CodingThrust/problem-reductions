@@ -257,6 +257,7 @@ impl BundleReplay {
         let graph = ReductionGraph::new();
         let chain = graph
             .reduce_along_path(&reduction_path, source.as_any())
+            .map_err(|error| anyhow::anyhow!("Bundle reduction replay failed: {error}"))?
             .ok_or_else(|| anyhow::anyhow!(
                 "Bundle requires a witness-capable reduction path; this bundle cannot map a target solution back to the source."
             ))?;
@@ -287,7 +288,7 @@ impl BundleReplay {
     /// Map a target-space configuration back to the source space and evaluate it.
     pub fn extract(&self, target_config: &[usize]) -> Result<(Vec<usize>, String)> {
         let source_config = self.chain.extract_solution(target_config)?;
-        let source_eval = self.source.evaluate_dyn(&source_config);
+        let source_eval = self.source.evaluate_dyn(&source_config)?;
         Ok((source_config, source_eval))
     }
 
@@ -413,10 +414,10 @@ mod tests {
 
     #[test]
     fn test_load_problem_alias_uses_registry_dispatch() {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
         let variant = BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]);
         let loaded =
             load_problem("MIS", &variant, serde_json::to_value(&problem).unwrap()).unwrap();
@@ -425,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_load_problem_rejects_unresolved_weight_variant() {
-        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
+        let problem = BinPacking::new(vec![3i64, 3, 2, 2], 5i64).unwrap();
         let loaded = load_problem(
             "BinPacking",
             &BTreeMap::new(),
@@ -436,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_load_problem_rejects_invalid_strong_connectivity_augmentation_instance() {
-        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
         let data = json!({
             "graph": {
                 "num_vertices": 3,
@@ -455,8 +456,8 @@ mod tests {
 
     #[test]
     fn test_serialize_any_problem_round_trips_bin_packing() {
-        let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
-        let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+        let problem = BinPacking::new(vec![3i64, 3, 2, 2], 5i64).unwrap();
+        let variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
         let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
         assert_eq!(json, serde_json::to_value(&problem).unwrap());
     }

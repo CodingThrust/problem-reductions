@@ -23,7 +23,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "One", &["One", "i32"]),
+            VariantDimension::new("weight", "One", &["One", "i64"]),
             VariantDimension::new("k", "KN", &["KN"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
@@ -50,7 +50,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - Graph type (e.g., [`SimpleGraph`]).
-/// * `W` - Weight type (e.g., [`One`], `i32`).
+/// * `W` - Weight type (e.g., [`One`], `i64`).
 /// * `K` - Compile-time [`KValue`] tag. [`KN`] stores `k` at runtime; fixed
 ///   variants (`K1`, `K2`, ...) can be added later by registering more
 ///   `declare_variants!` entries.
@@ -101,7 +101,7 @@ struct MaximumCoKPlexCreateSpec<W> {
 impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
     for MaximumCoKPlex<SimpleGraph, W, KN>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: MaximumCoKPlexCreateSpec<W>) -> Result<Self, Self::Error> {
         if spec.weights.len() != spec.graph.num_vertices() {
@@ -109,10 +109,11 @@ impl<W: Clone + Default> TryFrom<MaximumCoKPlexCreateSpec<W>>
                 "weights has {} entries, expected {}",
                 spec.weights.len(),
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         if spec.k == 0 {
-            return Err("k must be at least 1".to_string());
+            return Err("k must be at least 1".to_string().into());
         }
         Ok(Self::with_k(spec.graph, spec.weights, spec.k))
     }
@@ -214,17 +215,23 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_co_k_plex_config(&self.graph, config, self.bound_k) {
-            return Max(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_co_k_plex_config(&self.graph, config, self.bound_k) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected co-k-plex weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
     }
 }
 
@@ -252,14 +259,14 @@ fn is_co_k_plex_config<G: Graph>(graph: &G, config: &[usize], bound_k: usize) ->
 
 crate::declare_variants! {
     default MaximumCoKPlex<SimpleGraph, One, KN> => "2^num_vertices" create MaximumCoKPlexCreateSpec<One>,
-    MaximumCoKPlex<SimpleGraph, i32, KN>          => "2^num_vertices" create MaximumCoKPlexCreateSpec<i32>,
+    MaximumCoKPlex<SimpleGraph, i64, KN>          => "2^num_vertices" create MaximumCoKPlexCreateSpec<i64>,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_co_k_plex_simplegraph_i32",
-        instance: Box::new(MaximumCoKPlex::<_, i32, KN>::with_k(
+        id: "maximum_co_k_plex_simplegraph_i64",
+        instance: Box::new(MaximumCoKPlex::<_, i64, KN>::with_k(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
             vec![5, 1, 4, 1, 3],
             2,

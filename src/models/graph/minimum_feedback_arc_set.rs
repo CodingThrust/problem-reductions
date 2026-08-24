@@ -16,7 +16,7 @@ inventory::submit! {
         display_name: "Minimum Feedback Arc Set",
         aliases: &["FAS"],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -46,11 +46,11 @@ inventory::submit! {
 ///
 /// // Directed cycle: 0->1->2->0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
+/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i64; 3]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
 ///
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
 /// assert_eq!(solution.iter().sum::<usize>(), 1);
@@ -68,18 +68,15 @@ struct MinimumFeedbackArcSetCreateSpec {
     /// The directed graph.
     graph: DirectedGraph,
     /// Arc weights; defaults to one per arc.
-    weights: Option<Vec<i32>>,
+    weights: Option<Vec<i64>>,
 }
-impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i32> {
-    type Error = String;
+impl TryFrom<MinimumFeedbackArcSetCreateSpec> for MinimumFeedbackArcSet<i64> {
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumFeedbackArcSetCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_arcs();
         let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
         if weights.len() != count {
-            return Err(format!(
-                "weights has {} entries, expected {count}",
-                weights.len()
-            ));
+            return Err(format!("weights has {} entries, expected {count}", weights.len()).into());
         }
         Ok(Self::new(spec.graph, weights))
     }
@@ -156,17 +153,23 @@ where
         vec![2; self.graph.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !is_valid_fas(&self.graph, config) {
-            return Min(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected != 0 {
-                total += self.weights[i].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_fas(&self.graph, config) {
+                return Ok(Min(None));
             }
-        }
-        Min(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected != 0 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected feedback-arc weights",
+                    )?;
+                }
+            }
+            Min(Some(total))
+        })
     }
 }
 
@@ -185,7 +188,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackArcSet<i32> => "2^num_vertices" create MinimumFeedbackArcSetCreateSpec,
+    default MinimumFeedbackArcSet<i64> => "2^num_vertices" create MinimumFeedbackArcSetCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
@@ -196,7 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "minimum_feedback_arc_set",
         instance: Box::new(MinimumFeedbackArcSet::new(
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-            vec![1i32, 1, 1],
+            vec![1i64, 1, 1],
         )),
         optimal_config: vec![0, 0, 1],
         optimal_value: serde_json::json!(1),

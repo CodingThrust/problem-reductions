@@ -9,6 +9,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Knapsack;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing Knapsack to ILP.
 #[derive(Debug, Clone)]
@@ -43,25 +44,41 @@ impl ReductionResult for ReductionKnapsackToILP {
 impl ReduceTo<ILP<bool>> for Knapsack {
     type Result = ReductionKnapsackToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_items();
-        let constraints = vec![LinearConstraint::le(
-            self.weights()
-                .iter()
-                .enumerate()
-                .map(|(i, &weight)| (i, weight as f64))
-                .collect(),
-            self.capacity() as f64,
-        )];
-        let objective = self
+        let weights = self
+            .weights()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
+            })?;
+        let values = self
             .values()
             .iter()
-            .enumerate()
-            .map(|(i, &value)| (i, value as f64))
-            .collect();
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
+            })?;
+        let capacity = i64_to_exact_f64(self.capacity()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
+        })?;
+        let constraints = vec![LinearConstraint::le(
+            weights
+                .iter()
+                .enumerate()
+                .map(|(item, &weight)| (item, weight))
+                .collect(),
+            capacity,
+        )];
+        let objective = values.into_iter().enumerate().collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionKnapsackToILP { target }
+        Ok(ReductionKnapsackToILP { target })
     }
 }
 

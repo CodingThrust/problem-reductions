@@ -34,7 +34,7 @@ fn test_square_tiling_evaluate_valid() {
     //   (1,0)=t2, (1,1)=t3
     // Horizontal: t0.right=1==t1.left=1, t2.right=1==t3.left=1
     // Vertical:   t0.bottom=2==t2.top=2, t1.bottom=2==t3.top=2
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Or(true));
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn test_square_tiling_evaluate_invalid_horizontal() {
     // Config [0, 0, 2, 3]:
     //   (0,0)=t0, (0,1)=t0
     //   t0.right=1, t0.left=0 => mismatch
-    assert_eq!(problem.evaluate(&[0, 0, 2, 3]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 2, 3]).unwrap(), Or(false));
 }
 
 #[test]
@@ -53,28 +53,28 @@ fn test_square_tiling_evaluate_invalid_vertical() {
     //   (0,0)=t0, (0,1)=t1
     //   (1,0)=t0, (1,1)=t3
     //   Vertical (0,0)-(1,0): t0.bottom=2, t0.top=0 => mismatch
-    assert_eq!(problem.evaluate(&[0, 1, 0, 3]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 3]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_square_tiling_evaluate_wrong_length() {
     let problem = example_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_square_tiling_evaluate_tile_index_out_of_range() {
     let problem = example_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 2, 4]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 4]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_square_tiling_solver_finds_witness() {
     let problem = example_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
@@ -83,16 +83,16 @@ fn test_square_tiling_unsatisfiable_instance() {
     // Both have right=1, left=0, so no horizontal match possible.
     let problem = SquareTiling::new(3, vec![(0, 1, 2, 0), (2, 1, 0, 0)], 2);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_square_tiling_single_cell() {
     // 1x1 grid: any single tile is a valid tiling
     let problem = SquareTiling::new(2, vec![(0, 1, 0, 1)], 1);
-    assert_eq!(problem.evaluate(&[0]), Or(true));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Or(true));
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
     assert_eq!(witness, vec![0]);
 }
 
@@ -179,6 +179,6 @@ fn test_square_tiling_count_valid_tilings() {
     // Issue states 16 valid tilings out of 256 for the positive example
     let problem = example_problem();
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(&problem);
+    let witnesses = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(witnesses.len(), 16);
 }

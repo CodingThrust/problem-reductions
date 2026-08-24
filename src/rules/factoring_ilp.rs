@@ -33,7 +33,7 @@ use std::cmp::min;
 /// - Constraints enforce the multiplication equals the target
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     m: usize, // bits for first factor
     n: usize, // bits for second factor
 }
@@ -64,9 +64,9 @@ impl ReductionFactoringToILP {
 
 impl ReductionResult for ReductionFactoringToILP {
     type Source = Factoring;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -101,23 +101,19 @@ impl ReductionResult for ReductionFactoringToILP {
 }
 
 #[reduction(size = upper_bound {
-    num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + 64",
-    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 193",
+    num_vars = "num_bits_first * num_bits_second + 2 * num_bits_first + 2 * num_bits_second + target_bits",
+    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 3 * target_bits + 1",
 })]
-impl ReduceTo<ILP<i32>> for Factoring {
+impl ReduceTo<ILP<i64>> for Factoring {
     type Result = ReductionFactoringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.m();
         let n = self.n();
         let target = self.target();
 
         // Calculate the number of bits needed for the target
-        let target_bits = if target == 0 {
-            1
-        } else {
-            (64 - target.leading_zeros()) as usize
-        };
+        let target_bits = self.target_bits();
 
         // Number of bit positions to check: max(m+n, target_bits)
         // For feasible instances, target_bits <= m+n (product of m-bit × n-bit has at most m+n bits).
@@ -188,12 +184,8 @@ impl ReduceTo<ILP<i32>> for Factoring {
             // Subtract 2 × carry_out
             terms.push((carry_var(k), -2.0));
 
-            // RHS is N_k (k-th bit of target). For k >= 64, the bit is 0 for u64.
-            let n_k = if k < 64 {
-                ((target >> k) & 1) as f64
-            } else {
-                0.0
-            };
+            // RHS is N_k (k-th bit of target).
+            let n_k = f64::from(target.bit(u64::try_from(k).expect("bit index fits u64")));
             constraints.push(LinearConstraint::eq(terms, n_k));
         }
 
@@ -222,9 +214,9 @@ impl ReduceTo<ILP<i32>> for Factoring {
         // Objective: feasibility problem (minimize 0)
         let objective: Vec<(usize, f64)> = vec![];
 
-        let ilp = ILP::<i32>::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let ilp = ILP::<i64>::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionFactoringToILP { target: ilp, m, n }
+        Ok(ReductionFactoringToILP { target: ilp, m, n })
     }
 }
 
@@ -234,7 +226,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "factoring_to_ilp",
         build: || {
             let source = Factoring::new(3, 3, 35);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

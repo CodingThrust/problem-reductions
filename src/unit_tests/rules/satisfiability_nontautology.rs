@@ -10,7 +10,7 @@ fn test_satisfiability_to_non_tautology_structure() {
         vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![-1, 3])],
     );
 
-    let reduction = ReduceTo::<NonTautology>::reduce_to(&source);
+    let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vars(), 3);
@@ -29,7 +29,7 @@ fn test_satisfiability_to_non_tautology_closed_loop() {
         ],
     );
 
-    let reduction = ReduceTo::<NonTautology>::reduce_to(&source);
+    let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
@@ -41,19 +41,23 @@ fn test_satisfiability_to_non_tautology_closed_loop() {
 fn test_satisfiability_to_non_tautology_unsatisfiable_source_has_no_target_witness() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction = ReduceTo::<NonTautology>::reduce_to(&source);
+    let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_witness(reduction.target_problem()), None);
+    assert_eq!(
+        solver.find_witness(reduction.target_problem()).unwrap(),
+        None
+    );
 }
 
 #[test]
 fn test_satisfiability_to_non_tautology_extract_solution_is_identity() {
     let source = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
 
-    let reduction = ReduceTo::<NonTautology>::reduce_to(&source);
+    let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = BruteForce::new()
         .find_witness(reduction.target_problem())
+        .unwrap()
         .expect("target should have a witness");
 
     assert_eq!(

@@ -1,4 +1,4 @@
-//! Reduction from StrongConnectivityAugmentation to ILP<i32>.
+//! Reduction from StrongConnectivityAugmentation to `ILP<i64>`.
 //!
 //! Select candidate arcs under the budget and certify strong connectivity by
 //! sending flow both from a root to every vertex and back again.
@@ -8,18 +8,19 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionSCAToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_candidates: usize,
 }
 
 impl ReductionResult for ReductionSCAToILP {
-    type Source = StrongConnectivityAugmentation<i32>;
-    type Target = ILP<i32>;
+    type Source = StrongConnectivityAugmentation<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -39,10 +40,10 @@ impl ReductionResult for ReductionSCAToILP {
         num_constraints = "1 + 2 * num_vertices * num_potential_arcs + 2 * num_vertices * num_vertices",
     },
 )]
-impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
+impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
     type Result = ReductionSCAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let p = self.num_potential_arcs();
 
@@ -63,6 +64,14 @@ impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
         let g_cand = |t: usize, j: usize| -> usize { p + n * (2 * m + p) + t * p + j };
 
         let mut constraints = Vec::new();
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    StrongConnectivityAugmentation<i64>,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         // Binary bounds: y_j ≤ 1
         for j in 0..p {
@@ -74,9 +83,12 @@ impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
             .candidate_arcs()
             .iter()
             .enumerate()
-            .map(|(j, &(_, _, w))| (j, w as f64))
-            .collect();
-        constraints.push(LinearConstraint::le(budget_terms, *self.bound() as f64));
+            .map(|(candidate, &(_, _, weight))| Ok((candidate, exact_f64(weight)?)))
+            .collect::<Result<_, crate::rules::ReductionError>>()?;
+        constraints.push(LinearConstraint::le(
+            budget_terms,
+            exact_f64(*self.bound())?,
+        ));
 
         for t in 0..n {
             if t == root {
@@ -174,10 +186,10 @@ impl ReduceTo<ILP<i32>> for StrongConnectivityAugmentation<i32> {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionSCAToILP {
+        Ok(ReductionSCAToILP {
             target,
             num_candidates: p,
-        }
+        })
     }
 }
 
@@ -195,12 +207,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
             );
             let reduction: ReductionSCAToILP =
-                crate::rules::ReduceTo::<ILP<i32>>::reduce_to(&source);
+                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config: extracted,

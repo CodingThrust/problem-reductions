@@ -61,7 +61,7 @@ fn add_clause_to_ksat(
     clause: &CNFClause,
     result_clauses: &mut Vec<CNFClause>,
     variables: &mut SatVariableAllocator,
-) -> Result<(), String> {
+) -> Result<(), crate::registry::ConstructionError> {
     let len = clause.len();
 
     if len == k {
@@ -85,12 +85,18 @@ fn add_clause_to_ksat(
     } else {
         // Too many literals: split using ancilla variable
         // (a v b v c v d) with k=3 becomes (a v b v x) AND (-x v c v d)
-        assert!(k >= 3, "K must be at least 3 for splitting");
+        if k < 3 {
+            return Err(format!(
+                "cannot split a clause with {} literals into {k}-literal clauses",
+                clause.len()
+            )
+            .into());
+        }
 
         let ancilla = variables.allocate()?;
 
         // First clause: first k-1 literals + positive ancilla
-        let mut first_lits: Vec<i32> = clause.literals[..k - 1].to_vec();
+        let mut first_lits: Vec<i64> = clause.literals[..k - 1].to_vec();
         first_lits.push(ancilla);
         result_clauses.push(CNFClause::new(first_lits));
 
@@ -122,25 +128,31 @@ macro_rules! impl_sat_to_ksat {
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;
 
-            fn reduce_to(&self) -> Self::Result {
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
                 let source_num_vars = self.num_vars();
                 let mut result_clauses = Vec::new();
                 let mut variables = SatVariableAllocator::new(
                     "Satisfiability -> KSatisfiability",
                     source_num_vars,
-                ).unwrap_or_else(|message| panic!("{message}"));
+                ).map_err(crate::rules::ReductionError::construction::<
+                    Satisfiability,
+                    KSatisfiability<$ktype>,
+                >)?;
 
                 for clause in self.clauses() {
                     add_clause_to_ksat($k, clause, &mut result_clauses, &mut variables)
-                        .unwrap_or_else(|message| panic!("{message}"));
+                        .map_err(crate::rules::ReductionError::construction::<
+                            Satisfiability,
+                            KSatisfiability<$ktype>,
+                        >)?;
                 }
 
                 let target = KSatisfiability::<$ktype>::new(variables.num_vars(), result_clauses);
 
-                ReductionSATToKSAT {
+                Ok(ReductionSATToKSAT {
                     source_num_vars,
                     target,
-                }
+                })
             }
         }
     };
@@ -205,8 +217,8 @@ macro_rules! impl_ksat_to_sat {
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
             type Result = ReductionKSATToSAT<$ktype>;
 
-            fn reduce_to(&self) -> Self::Result {
-                reduce_ksat_to_sat(self)
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+                Ok(reduce_ksat_to_sat(self))
             }
         }
     };
@@ -219,15 +231,15 @@ impl_ksat_to_sat!(KN);
 // but are NOT registered as separate primitive graph edges (KN covers them).
 impl ReduceTo<Satisfiability> for KSatisfiability<K3> {
     type Result = ReductionKSATToSAT<K3>;
-    fn reduce_to(&self) -> Self::Result {
-        reduce_ksat_to_sat(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_ksat_to_sat(self))
     }
 }
 
 impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
     type Result = ReductionKSATToSAT<K2>;
-    fn reduce_to(&self) -> Self::Result {
-        reduce_ksat_to_sat(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_ksat_to_sat(self))
     }
 }
 

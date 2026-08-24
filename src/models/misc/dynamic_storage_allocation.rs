@@ -46,33 +46,43 @@ pub struct DynamicStorageAllocation {
 }
 
 impl DynamicStorageAllocation {
-    fn validate_inputs(items: &[(usize, usize, usize)], memory_size: usize) -> Result<(), String> {
+    fn validate_inputs(
+        items: &[(usize, usize, usize)],
+        memory_size: usize,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if items.is_empty() {
-            return Err("DynamicStorageAllocation requires at least one item".to_string());
+            return Err("DynamicStorageAllocation requires at least one item"
+                .to_string()
+                .into());
         }
         if memory_size == 0 {
-            return Err("DynamicStorageAllocation requires a positive memory_size".to_string());
+            return Err("DynamicStorageAllocation requires a positive memory_size"
+                .to_string()
+                .into());
         }
         for (i, &(arrival, departure, size)) in items.iter().enumerate() {
             if size == 0 {
-                return Err(format!("Item {i} has zero size; all sizes must be >= 1"));
+                return Err(format!("Item {i} has zero size; all sizes must be >= 1").into());
             }
             if departure <= arrival {
                 return Err(format!(
                     "Item {i} has departure ({departure}) <= arrival ({arrival}); departure must be strictly greater"
-                ));
+                ).into());
             }
             if size > memory_size {
                 return Err(format!(
                     "Item {i} has size ({size}) > memory_size ({memory_size}); every item must fit in memory"
-                ));
+                ).into());
             }
         }
         Ok(())
     }
 
     /// Try to create a new `DynamicStorageAllocation` instance.
-    pub fn try_new(items: Vec<(usize, usize, usize)>, memory_size: usize) -> Result<Self, String> {
+    pub fn try_new(
+        items: Vec<(usize, usize, usize)>,
+        memory_size: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&items, memory_size)?;
         Ok(Self { items, memory_size })
     }
@@ -133,37 +143,39 @@ impl Problem for DynamicStorageAllocation {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            if config.len() != self.num_items() {
-                return Or(false);
-            }
-
-            // Check each item fits within memory
-            for (i, &(_, _, size)) in self.items.iter().enumerate() {
-                let start = config[i];
-                if start + size > self.memory_size {
-                    return Or(false);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                if config.len() != self.num_items() {
+                    return Ok(Or(false));
                 }
-            }
 
-            // Check all pairs of time-overlapping items for memory non-overlap
-            for (i, &(r_i, d_i, s_i)) in self.items.iter().enumerate() {
-                let sigma_i = config[i];
-                for (j, &(r_j, d_j, s_j)) in self.items.iter().enumerate().skip(i + 1) {
-                    // Time overlap: r_i < d_j AND r_j < d_i
-                    if r_i < d_j && r_j < d_i {
-                        let sigma_j = config[j];
-                        // Memory overlap: NOT (sigma_i + s_i <= sigma_j OR sigma_j + s_j <= sigma_i)
-                        let no_memory_overlap =
-                            sigma_i + s_i <= sigma_j || sigma_j + s_j <= sigma_i;
-                        if !no_memory_overlap {
-                            return Or(false);
+                // Check each item fits within memory
+                for (i, &(_, _, size)) in self.items.iter().enumerate() {
+                    let start = config[i];
+                    if start + size > self.memory_size {
+                        return Ok(Or(false));
+                    }
+                }
+
+                // Check all pairs of time-overlapping items for memory non-overlap
+                for (i, &(r_i, d_i, s_i)) in self.items.iter().enumerate() {
+                    let sigma_i = config[i];
+                    for (j, &(r_j, d_j, s_j)) in self.items.iter().enumerate().skip(i + 1) {
+                        // Time overlap: r_i < d_j AND r_j < d_i
+                        if r_i < d_j && r_j < d_i {
+                            let sigma_j = config[j];
+                            // Memory overlap: NOT (sigma_i + s_i <= sigma_j OR sigma_j + s_j <= sigma_i)
+                            let no_memory_overlap =
+                                sigma_i + s_i <= sigma_j || sigma_j + s_j <= sigma_i;
+                            if !no_memory_overlap {
+                                return Ok(Or(false));
+                            }
                         }
                     }
                 }
-            }
-            true
+                true
+            })
         })
     }
 }

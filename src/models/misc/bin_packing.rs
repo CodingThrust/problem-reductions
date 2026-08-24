@@ -3,9 +3,10 @@
 //! The Bin Packing problem asks for an assignment of items to bins
 //! that minimizes the number of bins used while respecting capacity constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -13,7 +14,7 @@ inventory::submit! {
         name: "BinPacking",
         display_name: "Bin Packing",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
+        dimensions: &[VariantDimension::new("weight", "i64", &["i64", "f64"])],
         category: crate::registry::ProblemCategory::Misc,
         module_path: module_path!(),
         description: "Assign items to bins minimizing number of bins used, subject to capacity",
@@ -38,7 +39,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `W` - The weight type for sizes and capacity (e.g., `i32`, `f64`)
+/// * `W` - The weight type for sizes and capacity (e.g., `i64`, `f64`)
 ///
 /// # Example
 ///
@@ -47,12 +48,12 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 4 items with sizes [3, 3, 2, 2], capacity 5
-/// let problem = BinPacking::new(vec![3, 3, 2, 2], 5);
+/// let problem = BinPacking::new(vec![3, 3, 2, 2], 5).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BinPacking<W> {
     /// Item sizes.
     sizes: Vec<W>,
@@ -60,10 +61,33 @@ pub struct BinPacking<W> {
     capacity: W,
 }
 
-impl<W: Clone> BinPacking<W> {
+#[derive(Deserialize)]
+struct BinPackingData<W> {
+    sizes: Vec<W>,
+    capacity: W,
+}
+
+impl<'de, W> Deserialize<'de> for BinPacking<W>
+where
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data = BinPackingData::deserialize(deserializer)?;
+        Self::new(data.sizes, data.capacity).map_err(serde::de::Error::custom)
+    }
+}
+
+impl<W: WeightElement> BinPacking<W> {
     /// Create a Bin Packing problem from item sizes and capacity.
-    pub fn new(sizes: Vec<W>, capacity: W) -> Self {
-        Self { sizes, capacity }
+    pub fn new(sizes: Vec<W>, capacity: W) -> Result<Self, ConstructionError> {
+        for (index, size) in sizes.iter().enumerate() {
+            size.validate_element(&format!("item size at index {index}"))?;
+        }
+        capacity.validate_element("bin capacity")?;
+        Ok(Self { sizes, capacity })
     }
 
     /// Get the item sizes.
@@ -88,7 +112,7 @@ where
     W::Sum: PartialOrd,
 {
     const NAME: &'static str = "BinPacking";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
@@ -99,36 +123,50 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        if !is_valid_packing(&self.sizes, &self.capacity, config) {
-            return Min(None);
-        }
-        let num_bins = count_bins(config);
-        Min(Some(num_bins as i32))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_packing(&self.sizes, &self.capacity, config)? {
+                return Ok(Min(None));
+            }
+            let num_bins = count_bins(config);
+            Min(Some(i64::try_from(num_bins).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting used-bin count to i64".into(),
+                )
+            })?))
+        })
     }
 }
 
 /// Check if a configuration is a valid bin packing (all bins within capacity).
-fn is_valid_packing<W: WeightElement>(sizes: &[W], capacity: &W, config: &[usize]) -> bool
+fn is_valid_packing<W: WeightElement>(
+    sizes: &[W],
+    capacity: &W,
+    config: &[usize],
+) -> Result<bool, crate::traits::EvaluationError>
 where
     W::Sum: PartialOrd,
 {
     if config.len() != sizes.len() {
-        return false;
+        return Ok(false);
     }
     let n = sizes.len();
     // Check all bin indices are in range
     if config.iter().any(|&b| b >= n) {
-        return false;
+        return Ok(false);
     }
     // Compute load per bin
     let cap_sum = capacity.to_sum();
-    let mut bin_load: Vec<W::Sum> = vec![W::Sum::default(); n];
+    let mut bin_load: Vec<W::Sum> = vec![W::Sum::zero(); n];
     for (i, &bin) in config.iter().enumerate() {
-        bin_load[bin] += sizes[i].to_sum();
+        bin_load[bin] = W::checked_add_to_sum(
+            bin_load[bin].clone(),
+            sizes[i].to_sum(),
+            "summing bin loads",
+        )?;
     }
     // Check capacity constraints
-    bin_load.iter().all(|load| *load <= cap_sum)
+    Ok(bin_load.iter().all(|load| *load <= cap_sum))
 }
 
 /// Count the number of distinct bins used in a configuration.
@@ -143,7 +181,7 @@ fn count_bins(config: &[usize]) -> usize {
 }
 
 crate::declare_variants! {
-    default BinPacking<i32> => "2^num_items",
+    default BinPacking<i64> => "2^num_items",
     BinPacking<f64> => "2^num_items",
 }
 
@@ -152,7 +190,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bin_packing",
         // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
-        instance: Box::new(BinPacking::<i32>::new(vec![3, 3, 4], 7)),
+        instance: Box::new(BinPacking::<i64>::new(vec![3, 3, 4], 7).unwrap()),
         optimal_config: vec![0, 1, 0],
         optimal_value: serde_json::json!(2),
     }]

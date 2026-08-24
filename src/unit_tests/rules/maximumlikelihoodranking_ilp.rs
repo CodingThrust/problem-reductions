@@ -9,7 +9,7 @@ use crate::types::Min;
 fn test_maximumlikelihoodranking_to_ilp_closed_loop() {
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &problem,
@@ -22,7 +22,7 @@ fn test_maximumlikelihoodranking_to_ilp_closed_loop() {
 fn test_maximumlikelihoodranking_to_ilp_structure() {
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 3 items -> C(3,2) = 3 variables
@@ -41,16 +41,16 @@ fn test_maximumlikelihoodranking_to_ilp_bf_vs_ilp() {
         vec![0, 2, 1, 0],
     ];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_solutions = BruteForce::new().find_all_witnesses(&problem);
-    let bf_value = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
+    let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = problem.evaluate(&extracted);
+    let ilp_value = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
     assert!(ilp_value.is_valid());
@@ -61,7 +61,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     // 3 items: simple instance
     let matrix = vec![vec![0, 3, 2], vec![2, 0, 4], vec![3, 1, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -76,7 +76,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
     assert_eq!(sorted, (0..n).collect::<Vec<_>>());
 
     // Verify evaluation is valid
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 }
 
@@ -84,7 +84,7 @@ fn test_maximumlikelihoodranking_to_ilp_extraction() {
 fn test_maximumlikelihoodranking_to_ilp_two_items() {
     let matrix = vec![vec![0, 5], vec![3, 0]];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 items -> 1 variable, 0 transitivity constraints
@@ -93,7 +93,7 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
 
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let value = problem.evaluate(&extracted);
+    let value = problem.evaluate(&extracted).unwrap();
     assert!(value.is_valid());
 
     // Optimal: item 0 before item 1 costs matrix[1][0]=3
@@ -105,7 +105,7 @@ fn test_maximumlikelihoodranking_to_ilp_two_items() {
 #[test]
 fn test_maximumlikelihoodranking_to_ilp_single_item() {
     let problem = MaximumLikelihoodRanking::new(vec![vec![0]]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 0);
@@ -128,7 +128,7 @@ fn test_maximumlikelihoodranking_to_ilp_larger_instance() {
         vec![0, 2, 1, 0],
     ];
     let problem = MaximumLikelihoodRanking::new(matrix);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 items -> C(4,2) = 6 variables

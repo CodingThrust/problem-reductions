@@ -1,4 +1,4 @@
-//! Reduction from SequencingWithDeadlinesAndSetUpTimes to ILP<bool>.
+//! Reduction from SequencingWithDeadlinesAndSetUpTimes to `ILP<bool>`.
 //!
 //! Position-assignment ILP with compiler-switch detection.
 //!
@@ -20,8 +20,9 @@ use crate::models::misc::SequencingWithDeadlinesAndSetUpTimes;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing SequencingWithDeadlinesAndSetUpTimes to ILP<bool>.
+/// Result of reducing SequencingWithDeadlinesAndSetUpTimes to `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionSWDSTToILP {
     target: ILP<bool>,
@@ -57,15 +58,15 @@ impl ReductionResult for ReductionSWDSTToILP {
 impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
     type Result = ReductionSWDSTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
 
         // Handle empty case.
         if n == 0 {
-            return ReductionSWDSTToILP {
+            return Ok(ReductionSWDSTToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
                 num_tasks: 0,
-            };
+            });
         }
 
         // Variable layout:
@@ -88,9 +89,47 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
         let setup_times = self.setup_times();
 
         // Big-M: total processing time + worst-case total setup overhead.
-        let total_length: u64 = lengths.iter().copied().sum();
-        let max_setup: u64 = setup_times.iter().copied().max().unwrap_or(0);
-        let big_m = total_length as f64 + max_setup as f64 * (n as f64 - 1.0);
+        let total_length = lengths.iter().try_fold(0_i64, |total, &length| {
+            total.checked_add(length).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SequencingWithDeadlinesAndSetUpTimes,
+                    ILP<bool>,
+                >("summing task lengths")
+            })
+        })?;
+        let max_setup: i64 = setup_times.iter().copied().max().unwrap_or(0);
+        let transition_count = i64::try_from(n - 1).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                SequencingWithDeadlinesAndSetUpTimes,
+                ILP<bool>,
+            >("converting the number of compiler transitions to i64")
+        })?;
+        let big_m_i64 = max_setup
+            .checked_mul(transition_count)
+            .and_then(|setup_total| total_length.checked_add(setup_total))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SequencingWithDeadlinesAndSetUpTimes,
+                    ILP<bool>,
+                >("computing the scheduling big-M bound")
+            })?;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SequencingWithDeadlinesAndSetUpTimes,
+                    ILP<bool>,
+                >(error)
+            })
+        };
+        let big_m = exact_f64(big_m_i64)?;
+        let lengths_f64 = lengths
+            .iter()
+            .map(|&length| exact_f64(length))
+            .collect::<Result<Vec<_>, _>>()?;
+        let setup_times_f64 = setup_times
+            .iter()
+            .map(|&setup| exact_f64(setup))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let mut constraints = Vec::new();
 
@@ -185,28 +224,37 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
                 terms.push((x_var(j, p), big_m));
                 // Processing time for positions 0..p (not including p itself)
                 for pp in 0..p {
-                    for (jj, &len) in lengths.iter().enumerate() {
-                        terms.push((x_var(jj, pp), len as f64));
+                    for (jj, &length) in lengths_f64.iter().enumerate() {
+                        terms.push((x_var(jj, pp), length));
                     }
                 }
                 // Setup time for positions 1..=p
                 for pp in 1..=p {
                     for jj in 0..n {
-                        let s = setup_times[compilers[jj]] as f64;
+                        let s = setup_times_f64[compilers[jj]];
                         if s > 0.0 {
                             terms.push((a_var(jj, pp), s));
                         }
                     }
                 }
-                let rhs = deadlines[j] as f64 - lengths[j] as f64 + big_m;
+                let rhs_i64 = deadlines[j]
+                    .checked_sub(lengths[j])
+                    .and_then(|value| value.checked_add(big_m_i64))
+                    .ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            SequencingWithDeadlinesAndSetUpTimes,
+                            ILP<bool>,
+                        >("computing a deadline constraint bound")
+                    })?;
+                let rhs = exact_f64(rhs_i64)?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
 
-        ReductionSWDSTToILP {
+        Ok(ReductionSWDSTToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_tasks: n,
-        }
+        })
     }
 }
 

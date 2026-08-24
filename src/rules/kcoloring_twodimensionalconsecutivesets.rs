@@ -79,7 +79,7 @@ impl ReductionResult for ReductionKColoringToTDCS {
 impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToTDCS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges: Vec<(usize, usize)> = self.graph().edges();
         let m = edges.len();
@@ -94,10 +94,10 @@ impl ReduceTo<TwoDimensionalConsecutiveSets> for KColoring<K3, SimpleGraph> {
 
         let target = TwoDimensionalConsecutiveSets::new(alphabet_size, subsets);
 
-        ReductionKColoringToTDCS {
+        Ok(ReductionKColoringToTDCS {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -116,7 +116,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]));
             let reduction = <KColoring<K3, SimpleGraph> as ReduceTo<
                 TwoDimensionalConsecutiveSets,
-            >>::reduce_to(&source);
+            >>::reduce_to(&source)
+            .expect("reduction should succeed");
             let target = reduction.target_problem();
 
             // Source coloring: 0->0, 1->1, 2->2, 3->0
@@ -131,7 +132,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
             // Verify the target config is valid
             assert!(
-                target.evaluate(&target_config).0,
+                target
+                    .evaluate(&target_config)
+                    .expect("canonical target evaluation must succeed")
+                    .0,
                 "canonical example target config must be valid"
             );
 

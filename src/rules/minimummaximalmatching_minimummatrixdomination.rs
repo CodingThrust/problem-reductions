@@ -302,7 +302,7 @@ fn find_swap_edge(
 impl ReduceTo<MinimumMatrixDomination> for MinimumMaximalMatching<BipartiteGraph> {
     type Result = ReductionMMMToMatrixDomination;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let g = self.graph();
         let m = g.left_size();
         let n = g.right_size();
@@ -321,10 +321,10 @@ impl ReduceTo<MinimumMatrixDomination> for MinimumMaximalMatching<BipartiteGraph
 
         let target = MinimumMatrixDomination::new(matrix);
 
-        ReductionMMMToMatrixDomination {
+        Ok(ReductionMMMToMatrixDomination {
             target,
             source: self.clone(),
-        }
+        })
     }
 }
 

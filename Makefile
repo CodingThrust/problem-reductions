@@ -218,14 +218,17 @@ compare: rust-export
 		echo ""; \
 		echo "=== $$graph ==="; \
 		echo "-- unweighted --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_unweighted_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_unweighted.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_unweighted_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_unweighted.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 		echo "-- weighted --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_weighted_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_weighted.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_weighted_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_weighted.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 		echo "-- triangular --"; \
-		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_triangular_trace.json)"; \
-		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_triangular.json)"; \
+		julia=$$(jq -c '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: (.tape | length)}' tests/data/$${graph}_triangular_trace.json); \
+		rust=$$(jq -c '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/julia/$${graph}_rust_triangular.json); \
+		echo "Julia: $$julia"; echo "Rust:  $$rust"; test "$$julia" = "$$rust" || exit 1; \
 	done
 
 # Run a plan with Codex or Claude
@@ -309,7 +312,7 @@ cli-demo: cli
 	echo ""; \
 	echo "--- 8. create: build problem instances ---"; \
 	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
-	$$PRED create MaximumIndependentSet/SimpleGraph/i32 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create MaximumIndependentSet/SimpleGraph/i64 --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
 	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
 	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
 	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \

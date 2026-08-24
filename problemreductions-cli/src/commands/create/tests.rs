@@ -47,7 +47,7 @@ fn test_parse_field_value_parses_dependency_pairs() {
 #[test]
 fn test_parse_field_value_parses_job_shop_jobs() {
     let value = parse_field_value(
-        "Vec<Vec<(usize, u64)>>",
+        "Vec<Vec<(usize, i64)>>",
         "jobs",
         "0:3,1:4;1:2,0:3,1:2",
         &CreateContext::default(),
@@ -132,22 +132,22 @@ fn construction_contract_cli_discovers_test_only_registered_model() {
 
 #[test]
 fn construction_contract_preserves_variant_declared_numeric_types() {
-    let max_u64 = u64::MAX.to_string();
+    let max_i64 = i64::MAX.to_string();
     let cli = Cli::try_parse_from([
         "pred",
         "create",
         "ThreePartition",
         "--sizes",
-        "6148914691236517205,6148914691236517205,6148914691236517205",
+        "3074457345618258602,3074457345618258602,3074457345618258603",
         "--bound",
-        max_u64.as_str(),
+        max_i64.as_str(),
     ])
     .expect("create command parses");
     let Commands::Create(args) = cli.command else {
         panic!("expected create command");
     };
     let (data, _) = create_schema_driven(&args, "ThreePartition", &BTreeMap::new()).unwrap();
-    assert_eq!(data["bound"], serde_json::json!(u64::MAX));
+    assert_eq!(data["bound"], serde_json::json!(i64::MAX));
 
     let huge = "340282366920938463463374607431768211457";
     let cli = Cli::try_parse_from([
@@ -348,7 +348,7 @@ fn test_create_schema_driven_builds_closest_vector_problem_with_default_bounds()
         panic!("expected create command");
     };
 
-    let resolved_variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+    let resolved_variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
     let (data, variant) = create_schema_driven(&args, "ClosestVectorProblem", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -444,7 +444,7 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
     let cli = Cli::try_parse_from([
         "pred",
         "create",
-        "MixedChinesePostman/i32",
+        "MixedChinesePostman/i64",
         "--graph",
         "0-2,1-3,0-4,4-2",
         "--arcs",
@@ -460,7 +460,7 @@ fn test_create_schema_driven_builds_mixed_chinese_postman() {
         panic!("expected create command");
     };
 
-    let resolved_variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
+    let resolved_variant = BTreeMap::from([("weight".to_string(), "i64".to_string())]);
     let (data, variant) = create_schema_driven(&args, "MixedChinesePostman", &resolved_variant)
         .expect("schema-driven create should parse");
 
@@ -1304,7 +1304,7 @@ fn test_create_longest_path_serializes_problem_json() {
     fs::remove_file(&output).unwrap();
     assert_eq!(json["type"], "LongestPath");
     assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["variant"]["weight"], "i64");
     assert_eq!(json["data"]["source_vertex"], 0);
     assert_eq!(json["data"]["target_vertex"], 6);
     assert_eq!(
@@ -1656,7 +1656,7 @@ fn test_create_biconnectivity_augmentation_json_with_isolated_vertices() {
 
     let content = std::fs::read_to_string(&output_path).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    let problem: BiconnectivityAugmentation<SimpleGraph, i32> =
+    let problem: BiconnectivityAugmentation<SimpleGraph, i64> =
         serde_json::from_value(json["data"].clone()).unwrap();
 
     assert_eq!(problem.num_vertices(), 3);
@@ -1783,7 +1783,7 @@ fn test_create_expected_retrieval_cost_json() {
     assert_eq!(problem.num_sectors(), 3);
     use problemreductions::types::Min;
     assert!(matches!(
-        problem.evaluate(&[0, 1, 2, 1, 0, 2]),
+        problem.evaluate(&[0, 1, 2, 1, 0, 2]).unwrap(),
         Min(Some(_))
     ));
 
@@ -1824,7 +1824,9 @@ fn test_create_job_shop_scheduling_json() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(
-        problem.evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
+        problem
+            .evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0])
+            .unwrap(),
         Min(Some(19))
     );
 
@@ -2128,7 +2130,7 @@ fn test_create_kclique() {
     let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
-    assert!(problem.evaluate(&[0, 0, 1, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 1, 1, 1]).unwrap());
 
     let _ = std::fs::remove_file(output_path);
 }

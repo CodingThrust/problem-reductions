@@ -13,12 +13,12 @@ use crate::types::One;
 /// Result of reducing DecisionMinimumDominatingSet to MinimumSumMulticenter.
 #[derive(Debug, Clone)]
 pub struct ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
-    target: MinimumSumMulticenter<SimpleGraph, i32>,
+    target: MinimumSumMulticenter<SimpleGraph, i64>,
 }
 
 impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter {
     type Source = Decision<MinimumDominatingSet<SimpleGraph, One>>;
-    type Target = MinimumSumMulticenter<SimpleGraph, i32>;
+    type Target = MinimumSumMulticenter<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -35,20 +35,20 @@ impl ReductionResult for ReductionDecisionMinimumDominatingSetToMinimumSumMultic
 }
 
 #[reduction(size = upper_bound { num_vertices = "num_vertices", num_edges = "num_edges" })]
-impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i32>>
+impl ReduceTo<MinimumSumMulticenter<SimpleGraph, i64>>
     for Decision<MinimumDominatingSet<SimpleGraph, One>>
 {
     type Result = ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source_graph = self.inner().graph();
         let target = MinimumSumMulticenter::new(
             SimpleGraph::new(source_graph.num_vertices(), source_graph.edges()),
-            vec![1i32; source_graph.num_vertices()],
-            vec![1i32; source_graph.num_edges()],
+            vec![1i64; source_graph.num_vertices()],
+            vec![1i64; source_graph.num_edges()],
             self.k(),
         );
-        ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter { target }
+        Ok(ReductionDecisionMinimumDominatingSetToMinimumSumMulticenter { target })
     }
 }
 
@@ -61,7 +61,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                MinimumSumMulticenter<SimpleGraph, i32>,
+                MinimumSumMulticenter<SimpleGraph, i64>,
             >(
                 Decision::new(
                     MinimumDominatingSet::new(

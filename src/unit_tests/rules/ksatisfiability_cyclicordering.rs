@@ -118,7 +118,8 @@ fn solve_cyclic_ordering(problem: &CyclicOrdering) -> Option<Vec<usize>> {
 #[test]
 fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<CyclicOrdering>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_elements(), 14);
@@ -143,13 +144,14 @@ fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
         solve_cyclic_ordering(target).expect("single-clause gadget should be solvable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 1]);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_cyclicordering_all_negated_clause_matches_reference_vector() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<CyclicOrdering>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_elements(), 14);
@@ -174,10 +176,17 @@ fn test_ksatisfiability_to_cyclicordering_all_negated_clause_matches_reference_v
 #[test]
 fn test_ksatisfiability_to_cyclicordering_extract_solution_from_reference_witness() {
     let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<CyclicOrdering>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5];
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         vec![1, 1, 1]
@@ -228,7 +237,8 @@ fn test_ksatisfiability_to_cyclicordering_unsatisfiable_repeated_literal_pair() 
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<CyclicOrdering>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
         solve_cyclic_ordering(reduction.target_problem()).is_none(),
@@ -240,7 +250,8 @@ fn test_ksatisfiability_to_cyclicordering_unsatisfiable_repeated_literal_pair() 
 fn test_ksatisfiability_to_cyclicordering_closed_loop() {
     let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, 2, 1])]);
 
-    let reduction = ReduceTo::<CyclicOrdering>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<CyclicOrdering>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // CyclicOrdering configs are permutations of length num_elements;
@@ -250,13 +261,13 @@ fn test_ksatisfiability_to_cyclicordering_closed_loop() {
         solve_cyclic_ordering(target).expect("satisfiable source must yield solvable target");
 
     assert!(
-        target.evaluate(&target_solution).0,
+        target.evaluate(&target_solution).unwrap().0,
         "target solution must evaluate as satisfying"
     );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted source config must satisfy the source"
     );
 }

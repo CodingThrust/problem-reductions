@@ -19,7 +19,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -51,7 +51,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `N` - The edge length / weight type (e.g., `i32`, `f64`)
+/// * `N` - The edge length / weight type (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortestWeightConstrainedPath<G, N: WeightElement> {
     /// The underlying graph.
@@ -73,9 +73,9 @@ struct ShortestWeightConstrainedPathCreateSpec {
     /// The underlying graph G=(V,E).
     graph: SimpleGraph,
     /// Positive edge lengths in graph edge order.
-    edge_lengths: Vec<i32>,
+    edge_lengths: Vec<i64>,
     /// Positive edge weights in graph edge order.
-    edge_weights: Vec<i32>,
+    edge_weights: Vec<i64>,
     /// Source vertex s.
     source_vertex: usize,
     /// Target vertex t.
@@ -85,44 +85,48 @@ struct ShortestWeightConstrainedPathCreateSpec {
 }
 
 impl TryFrom<ShortestWeightConstrainedPathCreateSpec>
-    for ShortestWeightConstrainedPath<SimpleGraph, i32>
+    for ShortestWeightConstrainedPath<SimpleGraph, i64>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: ShortestWeightConstrainedPathCreateSpec) -> Result<Self, Self::Error> {
         let edge_count = spec.graph.num_edges();
         if spec.edge_lengths.len() != edge_count {
             return Err(format!(
                 "edge_lengths has {} entries, expected {edge_count}",
                 spec.edge_lengths.len()
-            ));
+            )
+            .into());
         }
         if spec.edge_weights.len() != edge_count {
             return Err(format!(
                 "edge_weights has {} entries, expected {edge_count}",
                 spec.edge_weights.len()
-            ));
+            )
+            .into());
         }
         if spec.edge_lengths.iter().any(|&value| value <= 0) {
-            return Err("edge_lengths must be positive".to_string());
+            return Err("edge_lengths must be positive".to_string().into());
         }
         if spec.edge_weights.iter().any(|&value| value <= 0) {
-            return Err("edge_weights must be positive".to_string());
+            return Err("edge_weights must be positive".to_string().into());
         }
         let vertex_count = spec.graph.num_vertices();
         if spec.source_vertex >= vertex_count {
             return Err(format!(
                 "source_vertex {} is outside graph with {vertex_count} vertices",
                 spec.source_vertex
-            ));
+            )
+            .into());
         }
         if spec.target_vertex >= vertex_count {
             return Err(format!(
                 "target_vertex {} is outside graph with {vertex_count} vertices",
                 spec.target_vertex
-            ));
+            )
+            .into());
         }
         if spec.weight_bound <= 0 {
-            return Err("weight_bound must be positive".to_string());
+            return Err("weight_bound must be positive".to_string().into());
         }
         Ok(Self::new(
             spec.graph,
@@ -269,16 +273,19 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
     ///
     /// Returns `Some(total_length)` for a valid simple s-t path whose total
     /// weight is within the weight bound, or `None` otherwise.
-    pub fn is_valid_solution(&self, config: &[usize]) -> Option<N::Sum> {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<N::Sum>, crate::traits::EvaluationError> {
         if config.len() != self.graph.num_edges() || config.iter().any(|&value| value > 1) {
-            return None;
+            return Ok(None);
         }
 
         if self.source_vertex == self.target_vertex {
             if config.contains(&1) {
-                return None;
+                return Ok(None);
             }
-            return Some(N::Sum::zero());
+            return Ok(Some(N::Sum::zero()));
         }
 
         let edges = self.graph.edges();
@@ -298,20 +305,28 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             adjacency[u].push(v);
             adjacency[v].push(u);
             selected_edge_count += 1;
-            total_length += self.edge_lengths[idx].to_sum();
-            total_weight += self.edge_weights[idx].to_sum();
+            total_length = N::checked_add_to_sum(
+                total_length,
+                self.edge_lengths[idx].to_sum(),
+                "summing constrained path edge lengths",
+            )?;
+            total_weight = N::checked_add_to_sum(
+                total_weight,
+                self.edge_weights[idx].to_sum(),
+                "summing constrained path edge weights",
+            )?;
         }
 
         if selected_edge_count == 0 {
-            return None;
+            return Ok(None);
         }
 
         if total_weight > self.weight_bound.clone() {
-            return None;
+            return Ok(None);
         }
 
         if degree[self.source_vertex] != 1 || degree[self.target_vertex] != 1 {
-            return None;
+            return Ok(None);
         }
 
         for (vertex, &vertex_degree) in degree.iter().enumerate() {
@@ -319,7 +334,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
                 continue;
             }
             if vertex_degree != 0 && vertex_degree != 2 {
-                return None;
+                return Ok(None);
             }
         }
 
@@ -338,7 +353,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         }
 
         if !visited[self.target_vertex] {
-            return None;
+            return Ok(None);
         }
 
         let used_vertex_count = degree
@@ -347,14 +362,14 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
             .count();
         for (vertex, &vertex_degree) in degree.iter().enumerate() {
             if vertex_degree > 0 && !visited[vertex] {
-                return None;
+                return Ok(None);
             }
         }
 
         if used_vertex_count == selected_edge_count + 1 {
-            Some(total_length)
+            Ok(Some(total_length))
         } else {
-            None
+            Ok(None)
         }
     }
 }
@@ -375,15 +390,15 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<N::Sum> {
-        Min(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<N::Sum>, crate::traits::EvaluationError> {
+        Ok(Min(self.is_valid_solution(config)?))
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "shortest_weight_constrained_path_simplegraph_i32",
+        id: "shortest_weight_constrained_path_simplegraph_i64",
         instance: Box::new(ShortestWeightConstrainedPath::new(
             SimpleGraph::new(
                 6,
@@ -410,7 +425,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default ShortestWeightConstrainedPath<SimpleGraph, i32> => "2^num_edges" create ShortestWeightConstrainedPathCreateSpec,
+    default ShortestWeightConstrainedPath<SimpleGraph, i64> => "2^num_edges" create ShortestWeightConstrainedPathCreateSpec,
 }
 
 #[cfg(test)]

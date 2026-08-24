@@ -155,16 +155,6 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     }
 }
 
-/// Smallest power of two greater than or equal to `n`. Returns at least
-/// `1` (so `next_power_of_two(0) == 1`).
-fn next_power_of_two_at_least(n: usize) -> usize {
-    let mut p = 1usize;
-    while p < n {
-        p *= 2;
-    }
-    p
-}
-
 /// `ceil(log2(m))` with the convention `ceil_log2(0) = ceil_log2(1) = 0`.
 fn ceil_log2(m: usize) -> usize {
     if m <= 1 {
@@ -190,30 +180,52 @@ fn ceil_log2(m: usize) -> usize {
 ///
 /// For each source variable `i` in `1..=source_num_vars` and each padded
 /// dummy variable, two exactly-one clauses are appended.
-fn normalize(source: &KSatisfiability<K3>) -> (usize, Vec<Vec<i32>>) {
+fn normalize(
+    source: &KSatisfiability<K3>,
+) -> Result<(usize, Vec<Vec<i64>>), crate::rules::ReductionError> {
+    let overflow = |operation| {
+        crate::rules::ReductionError::integer_overflow::<KSatisfiability<K3>, BicliqueCover>(
+            operation,
+        )
+    };
     let s = source.num_vars();
     // Padded source-variable count `s_pad` so that `2 * s_pad` is a
     // power of two.
-    let s_pad = next_power_of_two_at_least(s.max(1));
-    let n = 2 * s_pad;
+    let s_pad = s
+        .max(1)
+        .checked_next_power_of_two()
+        .ok_or_else(|| overflow("padding the normalized variable count to a power of two"))?;
+    let n = s_pad
+        .checked_mul(2)
+        .ok_or_else(|| overflow("doubling the normalized variable count"))?;
 
-    let t_lit = |i_one_indexed: usize| -> i32 { (2 * i_one_indexed - 1) as i32 };
-    let f_lit = |i_one_indexed: usize| -> i32 { (2 * i_one_indexed) as i32 };
+    let f_lit = |i_one_indexed: usize| {
+        i_one_indexed
+            .checked_mul(2)
+            .and_then(|literal| i64::try_from(literal).ok())
+            .ok_or_else(|| overflow("encoding a normalized SAT literal"))
+    };
+    let t_lit = |i_one_indexed: usize| {
+        f_lit(i_one_indexed)?
+            .checked_sub(1)
+            .ok_or_else(|| overflow("encoding a normalized SAT literal"))
+    };
 
-    let mut clauses: Vec<Vec<i32>> = Vec::new();
+    let mut clauses: Vec<Vec<i64>> = Vec::new();
 
     // 1. Translate source clauses: x_i -> t_i, ¬x_i -> f_i.
     //    Both replacements use positive normalized literals; the
     //    exactly-one clauses below tie t_i and f_i to opposite truth
     //    values in any satisfying assignment.
     for clause in source.clauses() {
-        let mut translated: Vec<i32> = Vec::with_capacity(clause.literals.len());
+        let mut translated: Vec<i64> = Vec::with_capacity(clause.literals.len());
         for &lit in &clause.literals {
-            let var = lit.unsigned_abs() as usize; // 1-indexed source var
+            let var = usize::try_from(lit.unsigned_abs())
+                .expect("SAT construction validates literal indices against usize");
             if lit > 0 {
-                translated.push(t_lit(var));
+                translated.push(t_lit(var)?);
             } else {
-                translated.push(f_lit(var));
+                translated.push(f_lit(var)?);
             }
         }
         clauses.push(translated);
@@ -222,18 +234,20 @@ fn normalize(source: &KSatisfiability<K3>) -> (usize, Vec<Vec<i32>>) {
     // 2. Exactly-one clauses for each (real or dummy) normalized pair.
     //    (t_i ∨ f_i ∨ f_i) and (¬t_i ∨ ¬f_i ∨ ¬f_i).
     for i in 1..=s_pad {
-        let t = t_lit(i);
-        let f = f_lit(i);
+        let t = t_lit(i)?;
+        let f = f_lit(i)?;
         clauses.push(vec![t, f, f]);
         clauses.push(vec![-t, -f, -f]);
     }
 
-    (n, clauses)
+    Ok((n, clauses))
 }
 
 /// Compute `k_f = 4*ell + 2*ceil(log2 m) + 6` for the normalized formula.
-fn free_edge_budget(ell: usize, m: usize) -> usize {
-    4 * ell + 2 * ceil_log2(m) + 6
+fn free_edge_budget(ell: usize, m: usize) -> Option<usize> {
+    ell.checked_mul(4)?
+        .checked_add(ceil_log2(m).checked_mul(2)?)?
+        .checked_add(6)
 }
 
 // Size expressions are upper bounds in terms of source counts.
@@ -253,23 +267,45 @@ fn free_edge_budget(ell: usize, m: usize) -> usize {
 impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
     type Result = ReductionKSatisfiabilityToBicliqueCover;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         // ---------------- Stage 1: normalize ----------------
         let source_num_vars = self.num_vars();
-        let (n, normalized_clauses) = normalize(self);
+        let (n, normalized_clauses) = normalize(self)?;
         let ell = ceil_log2(n).max(1); // n = 2^ell; ell >= 1
         let m = normalized_clauses.len();
-        let k_f = free_edge_budget(ell, m);
-        let rank = k_f + 2 * ell + 2;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, BicliqueCover>(operation)
+        };
+        let k_f =
+            free_edge_budget(ell, m).ok_or_else(|| overflow("computing the free-edge budget"))?;
+        let twice_ell = ell
+            .checked_mul(2)
+            .ok_or_else(|| overflow("doubling the normalization exponent"))?;
+        let rank = k_f
+            .checked_add(twice_ell)
+            .and_then(|value| value.checked_add(2))
+            .ok_or_else(|| overflow("computing the biclique-cover rank"))?;
 
         // ---------------- Stage 2: assemble vertex layout ----------------
         // Bipartite-local block offsets (same on left and right partitions).
         let h_offset = 0usize;
-        let p_offset = h_offset + n;
-        let s_offset = p_offset + 3 * m;
-        let q_offset = s_offset + 3 * ell;
-        let y_offset = q_offset + 2;
-        let partition_size = y_offset + k_f;
+        let p_offset = h_offset
+            .checked_add(n)
+            .ok_or_else(|| overflow("computing the clause-block offset"))?;
+        let s_offset = m
+            .checked_mul(3)
+            .and_then(|size| p_offset.checked_add(size))
+            .ok_or_else(|| overflow("computing the domino-block offset"))?;
+        let q_offset = ell
+            .checked_mul(3)
+            .and_then(|size| s_offset.checked_add(size))
+            .ok_or_else(|| overflow("computing the guard-block offset"))?;
+        let y_offset = q_offset
+            .checked_add(2)
+            .ok_or_else(|| overflow("computing the forcing-block offset"))?;
+        let partition_size = y_offset
+            .checked_add(k_f)
+            .ok_or_else(|| overflow("computing the bipartite partition size"))?;
 
         // Coordinate helpers (bipartite-local).
         let h_left = |i: usize| -> usize { h_offset + i };
@@ -377,7 +413,8 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
         //     0-indexed var_idx = var - 1.)
         for (i, clause) in normalized_clauses.iter().enumerate() {
             for (a, &lit) in clause.iter().enumerate() {
-                let var_one_indexed = lit.unsigned_abs() as usize;
+                let var_one_indexed = usize::try_from(lit.unsigned_abs())
+                    .expect("normalized literal indices fit usize");
                 let var_zero_indexed = var_one_indexed - 1;
                 let is_positive = lit > 0;
                 for j in 0..n {
@@ -449,7 +486,7 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
         let bipartite = BipartiteGraph::new(partition_size, partition_size, edges_vec);
         let target = BicliqueCover::new(bipartite, rank);
 
-        ReductionKSatisfiabilityToBicliqueCover {
+        Ok(ReductionKSatisfiabilityToBicliqueCover {
             target,
             source_num_vars,
             normalized_n: n,
@@ -458,7 +495,7 @@ impl ReduceTo<BicliqueCover> for KSatisfiability<K3> {
             y_left_offset: y_offset,
             y_right_offset: y_offset,
             k_f,
-        }
+        })
     }
 }
 
@@ -487,7 +524,7 @@ fn enumerate_free_bicliques(
     n: usize,
     m: usize,
     ell: usize,
-    normalized_clauses: &[Vec<i32>],
+    normalized_clauses: &[Vec<i64>],
     h_left: &dyn Fn(usize) -> usize,
     h_right: &dyn Fn(usize) -> usize,
     p_left: &dyn Fn(usize, usize) -> usize,
@@ -609,7 +646,9 @@ fn enumerate_free_bicliques(
             }
             for (i, clause) in normalized_clauses.iter().enumerate() {
                 for (a, &lit) in clause.iter().enumerate() {
-                    let var_idx = lit.unsigned_abs() as usize - 1;
+                    let var_idx = usize::try_from(lit.unsigned_abs())
+                        .expect("normalized literal indices fit usize")
+                        - 1;
                     let is_positive = lit > 0;
                     // p_{i,a}^u h_j^v omitted only when positive literal
                     // hits j == var_idx. Include p_{i,a}^u in B_u iff
@@ -635,7 +674,9 @@ fn enumerate_free_bicliques(
             }
             for (i, clause) in normalized_clauses.iter().enumerate() {
                 for (a, &lit) in clause.iter().enumerate() {
-                    let var_idx = lit.unsigned_abs() as usize - 1;
+                    let var_idx = usize::try_from(lit.unsigned_abs())
+                        .expect("normalized literal indices fit usize")
+                        - 1;
                     let is_positive = lit > 0;
                     let var_bit_matches = ((var_idx >> bit) & 1 == 1) == invert;
                     let include = is_positive || !var_bit_matches;
@@ -704,7 +745,7 @@ fn enumerate_free_bicliques(
 fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -> Vec<usize> {
     use crate::traits::Problem;
 
-    let reduction = ReduceTo::<BicliqueCover>::reduce_to(source);
+    let reduction = ReduceTo::<BicliqueCover>::reduce_to(source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let k = target.k();
     let left_size = target.left_size();
@@ -716,7 +757,7 @@ fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -
     let n = reduction.normalized_n;
     let ell = ceil_log2(n).max(1);
     let m = 3usize; // hard-coded for the canonical case
-    let k_f = free_edge_budget(ell, m);
+    let k_f = free_edge_budget(ell, m).expect("canonical free-edge budget must fit usize");
     let h_offset = 0usize;
     let p_offset = h_offset + n;
     let s_offset = p_offset + 3 * m;
@@ -802,7 +843,7 @@ fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -
     }
 
     // Bicliques 4..(4+k_f): free-edge bicliques B_r^f ∪ {y_r^u, y_r^v}.
-    let (_, normalized_clauses) = normalize(source);
+    let (_, normalized_clauses) = normalize(source).expect("fixture normalization must succeed");
     let free = enumerate_free_bicliques(
         n,
         m,

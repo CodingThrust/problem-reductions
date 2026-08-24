@@ -81,16 +81,16 @@ fn test_path_constrained_network_flow_dims_use_path_bottlenecks() {
 #[test]
 fn test_path_constrained_network_flow_evaluation_satisfying() {
     let problem = yes_instance();
-    assert!(problem.evaluate(&[1, 1, 0, 0, 1]));
-    assert!(problem.evaluate(&[1, 0, 1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 0, 0, 1]).unwrap());
+    assert!(problem.evaluate(&[1, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_path_constrained_network_flow_evaluation_unsatisfying() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 0, 0]).unwrap());
 }
 
 #[test]
@@ -99,11 +99,13 @@ fn test_path_constrained_network_flow_solver_yes_and_no() {
     let no = no_instance();
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_all_witnesses(&yes);
+    let satisfying = solver.find_all_witnesses(&yes).unwrap();
     assert_eq!(satisfying.len(), 2);
-    assert!(satisfying.iter().all(|config| yes.evaluate(config).0));
+    assert!(satisfying
+        .iter()
+        .all(|config| yes.evaluate(config).unwrap().0));
 
-    assert!(solver.find_witness(&no).is_none());
+    assert!(solver.find_witness(&no).unwrap().is_none());
 }
 
 #[test]
@@ -161,9 +163,9 @@ fn test_path_constrained_network_flow_paper_example() {
     let solver = BruteForce::new();
     let config = vec![1, 1, 0, 0, 1];
 
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 2);
     assert!(all.contains(&config));
 }

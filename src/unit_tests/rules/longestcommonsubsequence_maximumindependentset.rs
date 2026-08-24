@@ -14,7 +14,8 @@ fn test_longestcommonsubsequence_to_maximumindependentset_closed_loop() {
             vec![1, 0, 2, 0], // BACA
         ],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &lcs,
         &reduction,
@@ -32,7 +33,8 @@ fn test_lcs_to_mis_graph_structure() {
             vec![1, 0, 2, 0], // BACA
         ],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), 6);
@@ -52,11 +54,15 @@ fn test_lcs_to_mis_cross_frequency_product() {
 fn test_lcs_to_mis_optimal_value() {
     // LCS of "ABAC" and "BACA" is "BAC" (length 3)
     let lcs = LongestCommonSubsequence::new(3, vec![vec![0, 1, 0, 2], vec![1, 0, 2, 0]]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).expect("should have a solution");
+    let witness = solver
+        .find_witness(target)
+        .unwrap()
+        .expect("should have a solution");
     let mis_size: usize = witness.iter().sum();
     assert_eq!(mis_size, 3);
 }
@@ -65,7 +71,8 @@ fn test_lcs_to_mis_optimal_value() {
 fn test_lcs_to_mis_three_strings() {
     // k=3 strings over binary alphabet
     let lcs = LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1], vec![0, 1, 1]]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &lcs,
         &reduction,
@@ -77,7 +84,8 @@ fn test_lcs_to_mis_three_strings() {
 fn test_lcs_to_mis_single_char_alphabet() {
     // All same character: LCS = min length
     let lcs = LongestCommonSubsequence::new(1, vec![vec![0, 0, 0], vec![0, 0]]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &lcs,
         &reduction,
@@ -89,7 +97,8 @@ fn test_lcs_to_mis_single_char_alphabet() {
 fn test_lcs_to_mis_no_common_chars() {
     // No common characters: LCS = 0
     let lcs = LongestCommonSubsequence::new(2, vec![vec![0, 0, 0], vec![1, 1, 1]]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // No match nodes since no character appears in both strings at any position
@@ -107,7 +116,8 @@ fn test_lcs_to_mis_extract_solution() {
             vec![1, 0, 2, 0], // BACA
         ],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
 
     // Vertices: A nodes at indices 0-3, B node at index 4, C node at index 5
     // Actually the ordering depends on implementation: char 0 (A) first, then 1 (B), then 2 (C)
@@ -115,11 +125,12 @@ fn test_lcs_to_mis_extract_solution() {
     let solver = BruteForce::new();
     let witness = solver
         .find_witness(reduction.target_problem())
+        .unwrap()
         .expect("should have a solution");
     let source_sol = reduction.extract_solution(&witness).unwrap();
 
     // The extracted solution should be valid for the source
-    let value = lcs.evaluate(&source_sol);
+    let value = lcs.evaluate(&source_sol).unwrap();
     assert!(value.0.is_some(), "extracted solution should be valid");
     assert_eq!(value.0.unwrap(), 3, "LCS length should be 3");
 }
@@ -129,7 +140,8 @@ fn test_lcs_to_mis_four_strings() {
     // k=4 strings
     let lcs =
         LongestCommonSubsequence::new(2, vec![vec![0, 1], vec![1, 0], vec![0, 1], vec![1, 0]]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&lcs)
+        .expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &lcs,
         &reduction,

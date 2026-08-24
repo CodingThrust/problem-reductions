@@ -44,15 +44,15 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
             let m = self.target.num_machines();
 
             // Simulate to get start times
-            let mut machine_avail = vec![0usize; m];
-            let mut job_avail = vec![0usize; n];
-            let mut start_times = vec![vec![0usize; m]; n];
+            let mut machine_avail = vec![0_i64; m];
+            let mut job_avail = vec![0_i64; n];
+            let mut start_times = vec![vec![0_i64; m]; n];
 
             // Schedule by processing the orders
             let mut cursor = vec![0usize; m];
             let total_ops = n * m;
             for _ in 0..total_ops {
-                let mut best: Option<(usize, usize, usize)> = None; // (start, machine, job)
+                let mut best: Option<(i64, usize, usize)> = None; // (start, machine, job)
                 for (mi, order) in makespan_orders.iter().enumerate() {
                     if cursor[mi] < order.len() {
                         let job = order[cursor[mi]];
@@ -69,9 +69,7 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
                 let end = start
                     .checked_add(self.target.processing_times()[job][mi])
                     .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target schedule time overflows usize",
-                        )
+                        crate::rules::ExtractionError::invalid("target schedule time overflows i64")
                     })?;
                 machine_avail[mi] = end;
                 job_avail[job] = end;
@@ -92,9 +90,7 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
                 let completion = start_times[job][middle_machine]
                     .checked_add(self.target.processing_times()[job][middle_machine])
                     .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target schedule time overflows usize",
-                        )
+                        crate::rules::ExtractionError::invalid("target schedule time overflows i64")
                     })?;
                 if completion <= pivot {
                     *slot = 1;
@@ -114,18 +110,15 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
 impl ReduceTo<OpenShopScheduling> for Partition {
     type Result = ReductionPartitionToOpenShopScheduling;
 
-    fn reduce_to(&self) -> Self::Result {
-        let half_sum = self.total_sum() as usize / 2;
-        let mut processing_times: Vec<Vec<usize>> = self
-            .sizes()
-            .iter()
-            .map(|&size| vec![size as usize; 3])
-            .collect();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let half_sum = self.total_sum() / 2;
+        let mut processing_times: Vec<Vec<i64>> =
+            self.sizes().iter().map(|&size| vec![size; 3]).collect();
         processing_times.push(vec![half_sum; 3]);
 
-        ReductionPartitionToOpenShopScheduling {
+        Ok(ReductionPartitionToOpenShopScheduling {
             target: OpenShopScheduling::new(3, processing_times),
-        }
+        })
     }
 }
 
@@ -137,7 +130,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_open_shop_scheduling",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, OpenShopScheduling>(
-                Partition::new(vec![1, 2, 3]),
+                Partition::new(vec![1, 2, 3]).unwrap(),
                 SolutionPair {
                     source_config: vec![0, 0, 1],
                     target_config: vec![0, 1, 2, 3, 0, 1, 2, 3, 2, 3, 0, 1],

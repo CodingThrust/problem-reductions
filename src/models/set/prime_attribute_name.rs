@@ -51,10 +51,10 @@ inventory::submit! {
 /// );
 ///
 /// // {2, 3} is a candidate key containing attribute 3
-/// assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]));
+/// assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]).unwrap());
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,20 +78,21 @@ struct PrimeAttributeNameCreateSpec {
 }
 
 impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: PrimeAttributeNameCreateSpec) -> Result<Self, Self::Error> {
         if spec.query_attribute >= spec.universe_size {
             return Err(format!(
                 "query_attribute {} is outside universe of size {}",
                 spec.query_attribute, spec.universe_size
-            ));
+            )
+            .into());
         }
         for (dependency_index, (lhs, rhs)) in spec.dependencies.iter().enumerate() {
             if lhs.is_empty() {
-                return Err(format!(
-                    "dependencies[{dependency_index}] has an empty left side"
-                ));
+                return Err(
+                    format!("dependencies[{dependency_index}] has an empty left side").into(),
+                );
             }
             if let Some(&attribute) = lhs
                 .iter()
@@ -101,7 +102,7 @@ impl TryFrom<PrimeAttributeNameCreateSpec> for PrimeAttributeName {
                 return Err(format!(
                     "dependencies[{dependency_index}] contains attribute {attribute} outside universe of size {}",
                     spec.universe_size
-                ));
+                ).into());
             }
         }
         Ok(Self::new(
@@ -203,41 +204,46 @@ impl Problem for PrimeAttributeName {
         vec![2; self.num_attributes]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            // Check config length and binary values
-            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                // Check config length and binary values
+                if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // K = {i : config[i] = 1}
-            let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+                // K = {i : config[i] = 1}
+                let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
 
-            // query_attribute must be in K
-            if !k[self.query_attribute] {
-                return crate::types::Or(false);
-            }
+                // query_attribute must be in K
+                if !k[self.query_attribute] {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Compute closure(K) -- must equal all attributes (K is a superkey)
-            let closure = self.compute_closure(&k);
-            if closure.iter().any(|&v| !v) {
-                return crate::types::Or(false);
-            }
+                // Compute closure(K) -- must equal all attributes (K is a superkey)
+                let closure = self.compute_closure(&k);
+                if closure.iter().any(|&v| !v) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check minimality: removing any attribute from K must break the superkey property
-            for i in 0..self.num_attributes {
-                if k[i] {
-                    let mut reduced = k.clone();
-                    reduced[i] = false;
-                    let reduced_closure = self.compute_closure(&reduced);
-                    if reduced_closure.iter().all(|&v| v) {
-                        // K \ {i} is still a superkey, so K is not minimal
-                        return crate::types::Or(false);
+                // Check minimality: removing any attribute from K must break the superkey property
+                for i in 0..self.num_attributes {
+                    if k[i] {
+                        let mut reduced = k.clone();
+                        reduced[i] = false;
+                        let reduced_closure = self.compute_closure(&reduced);
+                        if reduced_closure.iter().all(|&v| v) {
+                            // K \ {i} is still a superkey, so K is not minimal
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 

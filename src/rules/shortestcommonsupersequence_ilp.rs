@@ -51,7 +51,7 @@ impl ReductionResult for ReductionSCSToILP {
 impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
     type Result = ReductionSCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let b = self.max_length();
         let alpha = self.alphabet_size();
         let k = alpha + 1; // alphabet + padding symbol
@@ -133,11 +133,11 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
         // Objective: minimize non-padding positions = maximize padding positions
         let objective: Vec<(usize, f64)> = (0..b).map(|p| (p * k + pad, 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
-        ReductionSCSToILP {
+        Ok(ReductionSCSToILP {
             target,
             max_length: b,
             alphabet_size: alpha,
-        }
+        })
     }
 }
 
@@ -149,7 +149,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Alphabet {0,1}, strings [0,1] and [1,0]
             let source = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
-            let reduction: ReductionSCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionSCSToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver

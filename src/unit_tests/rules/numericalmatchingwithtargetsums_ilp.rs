@@ -9,7 +9,7 @@ use crate::types::Or;
 fn test_numericalmatchingwithtargetsums_to_ilp_closed_loop() {
     let problem =
         NumericalMatchingWithTargetSums::new(vec![1, 4, 7], vec![2, 5, 3], vec![3, 7, 12]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &problem,
@@ -21,14 +21,14 @@ fn test_numericalmatchingwithtargetsums_to_ilp_closed_loop() {
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_numericalmatchingwithtargetsums_to_ilp_bf_vs_ilp() {
     let problem =
         NumericalMatchingWithTargetSums::new(vec![1, 4, 7], vec![2, 5, 3], vec![3, 7, 12]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -36,7 +36,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_bf_vs_ilp() {
 fn test_numericalmatchingwithtargetsums_to_ilp_structure() {
     let problem =
         NumericalMatchingWithTargetSums::new(vec![1, 4, 7], vec![2, 5, 3], vec![3, 7, 12]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Only compatible triples are created as variables
@@ -57,7 +57,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_structure() {
 fn test_numericalmatchingwithtargetsums_to_ilp_unsatisfiable() {
     // m=2, no valid matching: sums {1+3,2+4}={4,6} or {1+4,2+3}={5,5}, neither = {10,20}
     let problem = NumericalMatchingWithTargetSums::new(vec![1, 2], vec![3, 4], vec![10, 20]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let result = ILPSolver::new().solve(reduction.target_problem());
     assert!(
         result.is_err(),
@@ -68,7 +68,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_unsatisfiable() {
 #[test]
 fn test_numericalmatchingwithtargetsums_to_ilp_single_pair() {
     let problem = NumericalMatchingWithTargetSums::new(vec![5], vec![3], vec![8]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 1 compatible triple: (0,0,0) since 5+3=8
@@ -80,7 +80,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_single_pair() {
         .expect("single-pair ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -92,7 +92,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_compatible_triples_only() {
     // Wait: (0,1,0): 1+4=5≠4, (1,0,1): 2+3=5≠6 — also not
     // So only 2 variables
     let problem = NumericalMatchingWithTargetSums::new(vec![1, 2], vec![3, 4], vec![4, 6]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 2);
@@ -100,7 +100,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_compatible_triples_only() {
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[cfg(feature = "example-db")]

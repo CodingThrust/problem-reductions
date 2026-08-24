@@ -11,6 +11,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::CapacityAssignment;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing CapacityAssignment to ILP.
 ///
@@ -58,10 +59,47 @@ impl ReductionResult for ReductionCAToILP {
 impl ReduceTo<ILP<bool>> for CapacityAssignment {
     type Result = ReductionCAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_links = self.num_links();
         let num_capacities = self.num_capacities();
         let num_vars = num_links * num_capacities;
+        let delay = self
+            .delay()
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .copied()
+                    .map(i64_to_exact_f64)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    CapacityAssignment,
+                    ILP<bool>,
+                >(error)
+            })?;
+        let cost = self
+            .cost()
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .copied()
+                    .map(i64_to_exact_f64)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    CapacityAssignment,
+                    ILP<bool>,
+                >(error)
+            })?;
+        let delay_budget = i64_to_exact_f64(self.delay_budget()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<CapacityAssignment, ILP<bool>>(
+                error,
+            )
+        })?;
 
         let mut constraints = Vec::with_capacity(num_links + 1);
 
@@ -74,31 +112,29 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
         }
 
         // Delay budget constraint: Σ_{l,c} delay[l][c] * x_{l,c} ≤ delay_budget
-        let delay_terms: Vec<(usize, f64)> = (0..num_links)
-            .flat_map(|l| {
-                (0..num_capacities)
-                    .map(move |c| (l * num_capacities + c, self.delay()[l][c] as f64))
-            })
-            .collect();
-        constraints.push(LinearConstraint::le(
-            delay_terms,
-            self.delay_budget() as f64,
-        ));
+        let mut delay_terms = Vec::with_capacity(num_vars);
+        for (link, row) in delay.iter().enumerate() {
+            for (capacity, &value) in row.iter().enumerate() {
+                delay_terms.push((link * num_capacities + capacity, value));
+            }
+        }
+        constraints.push(LinearConstraint::le(delay_terms, delay_budget));
 
         // Objective: minimize total cost
-        let objective: Vec<(usize, f64)> = (0..num_links)
-            .flat_map(|l| {
-                (0..num_capacities).map(move |c| (l * num_capacities + c, self.cost()[l][c] as f64))
-            })
-            .collect();
+        let mut objective = Vec::with_capacity(num_vars);
+        for (link, row) in cost.iter().enumerate() {
+            for (capacity, &value) in row.iter().enumerate() {
+                objective.push((link * num_capacities + capacity, value));
+            }
+        }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionCAToILP {
+        Ok(ReductionCAToILP {
             target,
             num_links,
             num_capacities,
-        }
+        })
     }
 }
 

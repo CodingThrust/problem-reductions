@@ -58,7 +58,7 @@ impl ReductionResult for ReductionKCliqueToCBQ {
 impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToCBQ;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
 
@@ -80,10 +80,10 @@ impl ReduceTo<ConjunctiveBooleanQuery> for KClique<SimpleGraph> {
 
         let target = ConjunctiveBooleanQuery::new(n, vec![relation], k, conjuncts);
 
-        ReductionKCliqueToCBQ {
+        Ok(ReductionKCliqueToCBQ {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

@@ -44,7 +44,7 @@ impl ReductionResult for ReductionCOSToILP {
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
     type Result = ReductionCOSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
         let k = self.bound() as usize;
@@ -191,10 +191,10 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesSubmatrix {
         }
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionCOSToILP {
+        Ok(ReductionCOSToILP {
             target,
             num_cols: n,
-        }
+        })
     }
 }
 
@@ -213,7 +213,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 3,
             );
-            let reduction: ReductionCOSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionCOSToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver
                 .solve(reduction.target_problem())

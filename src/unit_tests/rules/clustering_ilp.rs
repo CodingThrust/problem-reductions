@@ -25,7 +25,8 @@ fn infeasible_instance() -> Clustering {
 #[test]
 fn test_clustering_to_ilp_structure() {
     let problem = canonical_yes_instance();
-    let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionClusteringToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 8);
@@ -50,7 +51,8 @@ fn test_clustering_to_ilp_structure() {
 #[test]
 fn test_clustering_to_ilp_closed_loop() {
     let problem = canonical_yes_instance();
-    let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionClusteringToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &problem,
@@ -62,19 +64,21 @@ fn test_clustering_to_ilp_closed_loop() {
 #[test]
 fn test_clustering_to_ilp_solution_extraction() {
     let problem = canonical_yes_instance();
-    let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionClusteringToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let extracted = reduction
         .extract_solution(&[1, 0, 1, 0, 0, 1, 0, 1])
         .unwrap();
     assert_eq!(extracted, vec![0, 0, 1, 1]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_clustering_to_ilp_infeasible_instance_is_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionClusteringToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionClusteringToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert!(ILPSolver::new().solve(reduction.target_problem()).is_err());
 }

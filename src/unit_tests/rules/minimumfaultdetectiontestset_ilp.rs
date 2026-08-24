@@ -27,7 +27,8 @@ fn issue_problem() -> MinimumFaultDetectionTestSet {
 #[test]
 fn test_reduction_creates_covering_ilp() {
     let problem = issue_problem();
-    let reduction: ReductionMFDTSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMFDTSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 4);
@@ -54,7 +55,8 @@ fn test_reduction_creates_covering_ilp() {
 #[test]
 fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
     let problem = issue_problem();
-    let reduction: ReductionMFDTSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMFDTSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -62,14 +64,15 @@ fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 0, 0, 1]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(2)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
     assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
 fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
     let problem = MinimumFaultDetectionTestSet::new(3, vec![], vec![0], vec![2]);
-    let reduction: ReductionMFDTSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMFDTSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 1);
@@ -78,15 +81,16 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
     assert_eq!(ilp.constraints[0].cmp, Comparison::Ge);
     assert_eq!(ilp.constraints[0].rhs, 1.0);
 
-    assert_eq!(problem.evaluate(&[0]), Min(None));
-    assert_eq!(problem.evaluate(&[1]), Min(None));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(None));
     assert!(ILPSolver::new().solve(ilp).is_err());
 }
 
 #[test]
 fn test_reduction_handles_instances_without_internal_vertices() {
     let problem = MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]);
-    let reduction: ReductionMFDTSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMFDTSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 1);
@@ -98,5 +102,5 @@ fn test_reduction_handles_instances_without_internal_vertices() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![0]);
-    assert_eq!(problem.evaluate(&extracted), Min(Some(0)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

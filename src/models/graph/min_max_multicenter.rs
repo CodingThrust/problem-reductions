@@ -17,12 +17,12 @@ inventory::submit! {
         aliases: &["pCenter"],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32", "One"]),
+            VariantDimension::new("weight", "i64", &["i64", "One"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find K centers minimizing the maximum weighted distance from any vertex to its nearest center (vertex p-center)",
-        fields: MinMaxMulticenterI32CreateSpec::FIELDS,
+        fields: MinMaxMulticenterI64CreateSpec::FIELDS,
     }
 }
 
@@ -36,7 +36,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight/length type (e.g., `i32`)
+/// * `W` - The weight/length type (e.g., `i64`)
 ///
 /// # Example
 ///
@@ -47,10 +47,10 @@ inventory::submit! {
 ///
 /// // Hexagonal-like graph: 6 vertices, 7 edges, unit weights/lengths, K=2
 /// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)]);
-/// let problem = MinMaxMulticenter::new(graph, vec![1i32; 6], vec![1i32; 7], 2);
+/// let problem = MinMaxMulticenter::new(graph, vec![1i64; 6], vec![1i64; 7], 2);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ macro_rules! min_max_multicenter_create_spec {
         }
 
         impl TryFrom<$name> for MinMaxMulticenter<SimpleGraph, $weight> {
-            type Error = String;
+            type Error = crate::registry::ConstructionError;
 
             fn try_from(spec: $name) -> Result<Self, Self::Error> {
                 let graph = simple_graph_from_create(spec.graph, spec.num_vertices)?;
@@ -92,7 +92,8 @@ macro_rules! min_max_multicenter_create_spec {
                         "weights has length {}, expected {}",
                         vertex_weights.len(),
                         graph.num_vertices()
-                    ));
+                    )
+                    .into());
                 }
                 let edge_lengths = spec
                     .edge_weights
@@ -102,23 +103,24 @@ macro_rules! min_max_multicenter_create_spec {
                         "edge_weights has length {}, expected {}",
                         edge_lengths.len(),
                         graph.num_edges()
-                    ));
+                    )
+                    .into());
                 }
                 let zero = <$weight as WeightElement>::Sum::zero();
                 if vertex_weights
                     .iter()
                     .any(|weight| weight.to_sum() < zero.clone())
                 {
-                    return Err("weights must be non-negative".to_string());
+                    return Err("weights must be non-negative".to_string().into());
                 }
                 if edge_lengths
                     .iter()
                     .any(|weight| weight.to_sum() < zero.clone())
                 {
-                    return Err("edge_weights must be non-negative".to_string());
+                    return Err("edge_weights must be non-negative".to_string().into());
                 }
                 if spec.k == 0 || spec.k > graph.num_vertices() {
-                    return Err(format!("k must be between 1 and {}", graph.num_vertices()));
+                    return Err(format!("k must be between 1 and {}", graph.num_vertices()).into());
                 }
                 Ok(Self::new(graph, vertex_weights, edge_lengths, spec.k))
             }
@@ -126,19 +128,21 @@ macro_rules! min_max_multicenter_create_spec {
     };
 }
 
-min_max_multicenter_create_spec!(MinMaxMulticenterI32CreateSpec, i32, 1);
+min_max_multicenter_create_spec!(MinMaxMulticenterI64CreateSpec, i64, 1);
 min_max_multicenter_create_spec!(MinMaxMulticenterOneCreateSpec, One, One);
 
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -150,7 +154,7 @@ fn simple_graph_from_create(
         .unwrap_or(0);
     let num_vertices = num_vertices.unwrap_or(inferred);
     if num_vertices < inferred {
-        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}"));
+        return Err(format!("num_vertices {num_vertices} is too small for graph endpoints; need at least {inferred}").into());
     }
     Ok(SimpleGraph::new(num_vertices, edges))
 }
@@ -324,55 +328,62 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if config.len() != self.graph.num_vertices() || config.iter().any(|&selected| selected > 1)
-        {
-            return Min(None);
-        }
-
-        // Check exactly K centers are selected
-        let num_selected = config.iter().filter(|&&selected| selected == 1).count();
-        if num_selected != self.k {
-            return Min(None);
-        }
-
-        // Compute shortest distances to nearest center
-        let distances = match self.shortest_distances(config) {
-            Some(d) => d,
-            None => {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_vertices()
+                || config.iter().any(|&selected| selected > 1)
+            {
+                return Ok(Min(None));
             }
-        };
 
-        // Compute max weighted distance: max_{v} w(v) * d(v)
-        let mut max_wd = W::Sum::zero();
-        for (v, dist) in distances.iter().enumerate() {
-            let wd = self.vertex_weights[v].to_sum() * dist.clone();
-            if wd > max_wd {
-                max_wd = wd;
+            // Check exactly K centers are selected
+            let num_selected = config.iter().filter(|&&selected| selected == 1).count();
+            if num_selected != self.k {
+                return Ok(Min(None));
             }
-        }
 
-        Min(Some(max_wd))
+            // Compute shortest distances to nearest center
+            let distances = match self.shortest_distances(config) {
+                Some(d) => d,
+                None => {
+                    return Ok(Min(None));
+                }
+            };
+
+            // Compute max weighted distance: max_{v} w(v) * d(v)
+            let mut max_wd = W::Sum::zero();
+            for (v, dist) in distances.iter().enumerate() {
+                let wd = W::checked_mul_sum(
+                    self.vertex_weights[v].to_sum(),
+                    dist.clone(),
+                    "multiplying min-max multicenter vertex weight by distance",
+                )?;
+                if wd > max_wd {
+                    max_wd = wd;
+                }
+            }
+
+            Min(Some(max_wd))
+        })
     }
 }
 
 crate::declare_variants! {
-    default MinMaxMulticenter<SimpleGraph, i32> => "1.4969^num_vertices" create MinMaxMulticenterI32CreateSpec,
+    default MinMaxMulticenter<SimpleGraph, i64> => "1.4969^num_vertices" create MinMaxMulticenterI64CreateSpec,
     MinMaxMulticenter<SimpleGraph, One> => "1.4969^num_vertices" create MinMaxMulticenterOneCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "min_max_multicenter_simplegraph_i32",
+        id: "min_max_multicenter_simplegraph_i64",
         instance: Box::new(MinMaxMulticenter::new(
             SimpleGraph::new(
                 6,
                 vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)],
             ),
-            vec![1i32; 6],
-            vec![1i32; 7],
+            vec![1i64; 6],
+            vec![1i64; 7],
             2,
         )),
         optimal_config: vec![0, 1, 0, 0, 1, 0],

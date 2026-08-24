@@ -39,10 +39,10 @@ fn test_partition_into_cliques_evaluate_positive() {
     let problem = two_triangle_instance();
 
     // Group 0 = {0,1,2} (triangle), Group 1 = {3,4,5} (triangle)
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]).unwrap());
 
     // Each vertex in its own group (trivially valid)
-    assert!(problem.evaluate(&[0, 1, 2, 0, 1, 2]));
+    assert!(problem.evaluate(&[0, 1, 2, 0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -50,21 +50,21 @@ fn test_partition_into_cliques_evaluate_negative() {
     let problem = two_triangle_instance();
 
     // Group 0 = {0,1,2,3}: 0-1, 0-2, 1-2, 0-3 present, but 1-3 missing
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 1, 2]).unwrap());
 }
 
 #[test]
 fn test_partition_into_cliques_evaluate_wrong_config_length() {
     let problem = two_triangle_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]));
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 1, 0]));
+    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_partition_into_cliques_evaluate_out_of_range_group() {
     let problem = two_triangle_instance();
     // Group 3 doesn't exist (num_cliques=3, valid groups are 0,1,2)
-    assert!(!problem.evaluate(&[0, 1, 3, 0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 1, 3, 0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -75,9 +75,9 @@ fn test_partition_into_cliques_brute_force_finds_solution() {
         2,
     );
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
@@ -85,17 +85,17 @@ fn test_partition_into_cliques_brute_force_no_solution() {
     // Path 0-1-2, K=1: {0,1,2} not a clique (missing edge 0-2)
     let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 1);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_partition_into_cliques_brute_force_all_valid() {
     // Complete graph K3, K=3: every assignment is valid
     let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]), 3);
-    let solutions = BruteForce::new().find_all_witnesses(&problem);
+    let solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 

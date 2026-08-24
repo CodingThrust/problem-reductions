@@ -15,21 +15,21 @@ use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing OptimalLinearArrangement to ILP.
 ///
-/// Variable layout (ILP<i32>, non-negative integers):
+/// Variable layout (`ILP<i64>`, non-negative integers):
 /// - `x_{v,p}` at index `v * n + p`, bounded to {0,1}
 /// - `p_v` at index `n^2 + v`, integer position in {0, ..., n-1}
 /// - `z_e` at index `n^2 + n + e`, non-negative integer for edge length
 #[derive(Debug, Clone)]
 pub struct ReductionOLAToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionOLAToILP {
     type Source = OptimalLinearArrangement<SimpleGraph>;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -55,10 +55,10 @@ impl ReductionResult for ReductionOLAToILP {
         num_constraints = "2 * num_vertices + num_vertices^2 + num_vertices + num_vertices + 3 * num_edges",
     },
 )]
-impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
+impl ReduceTo<ILP<i64>> for OptimalLinearArrangement<SimpleGraph> {
     type Result = ReductionOLAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges = graph.edges();
@@ -85,7 +85,7 @@ impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
-        // Binary bounds for x variables (ILP<i32>)
+        // Binary bounds for x variables (`ILP<i64>`)
         for v in 0..n {
             for p in 0..n {
                 constraints.push(LinearConstraint::le(vec![(x_idx(v, p), 1.0)], 1.0));
@@ -127,10 +127,10 @@ impl ReduceTo<ILP<i32>> for OptimalLinearArrangement<SimpleGraph> {
         let objective: Vec<(usize, f64)> = (0..m).map(|e| (z_idx(e), 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionOLAToILP {
+        Ok(ReductionOLAToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -142,7 +142,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Path P4: 0-1-2-3 (identity permutation achieves cost 3)
             let source =
                 OptimalLinearArrangement::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

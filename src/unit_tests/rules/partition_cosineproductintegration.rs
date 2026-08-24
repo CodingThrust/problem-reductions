@@ -4,9 +4,10 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
-fn reduce_partition(sizes: &[u64]) -> (Partition, ReductionPartitionToCPI) {
-    let source = Partition::new(sizes.to_vec());
-    let reduction = ReduceTo::<CosineProductIntegration>::reduce_to(&source);
+fn reduce_partition(sizes: &[i64]) -> (Partition, ReductionPartitionToCPI) {
+    let source = Partition::new(sizes.to_vec()).unwrap();
+    let reduction =
+        ReduceTo::<CosineProductIntegration>::reduce_to(&source).expect("reduction should succeed");
     (source, reduction)
 }
 
@@ -16,8 +17,8 @@ fn assert_satisfiability_matches(
     expected: bool,
 ) {
     let solver = BruteForce::new();
-    assert_eq!(solver.find_witness(source).is_some(), expected);
-    assert_eq!(solver.find_witness(target).is_some(), expected);
+    assert_eq!(solver.find_witness(source).unwrap().is_some(), expected);
+    assert_eq!(solver.find_witness(target).unwrap().is_some(), expected);
 }
 
 #[test]
@@ -66,13 +67,13 @@ fn test_partition_to_cosineproductintegration_solution_extraction() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        let target_valid = target.evaluate(sol);
-        let source_valid = source.evaluate(&extracted);
+        let target_valid = target.evaluate(sol).unwrap();
+        let source_valid = source.evaluate(&extracted).unwrap();
         if target_valid.0 {
             assert!(
                 source_valid.0,

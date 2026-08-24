@@ -52,7 +52,7 @@ inventory::submit! {
 /// ];
 /// let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,7 +103,7 @@ impl MinimumCodeGenerationParallelAssignments {
 
 impl Problem for MinimumCodeGenerationParallelAssignments {
     const NAME: &'static str = "MinimumCodeGenerationParallelAssignments";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -114,45 +114,51 @@ impl Problem for MinimumCodeGenerationParallelAssignments {
         vec![m; m]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let m = self.num_assignments();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let m = self.num_assignments();
 
-        // Validate config length
-        if config.len() != m {
-            return Min(None);
-        }
-
-        // Validate permutation: all values must be distinct and in 0..m
-        let mut seen = vec![false; m];
-        for &pos in config {
-            if pos >= m || seen[pos] {
-                return Min(None);
+            // Validate config length
+            if config.len() != m {
+                return Ok(Min(None));
             }
-            seen[pos] = true;
-        }
 
-        // config[i] = position of assignment i in execution order
-        // Build execution order: order[pos] = assignment index
-        let mut order = vec![0usize; m];
-        for (assignment_idx, &pos) in config.iter().enumerate() {
-            order[pos] = assignment_idx;
-        }
+            // Validate permutation: all values must be distinct and in 0..m
+            let mut seen = vec![false; m];
+            for &pos in config {
+                if pos >= m || seen[pos] {
+                    return Ok(Min(None));
+                }
+                seen[pos] = true;
+            }
 
-        // Count backward dependencies: for each pair (i, j) where i < j
-        // (i executes before j), check if the target variable of order[i]
-        // is in the read set of order[j]
-        let mut count = 0usize;
-        for (i, &earlier) in order.iter().enumerate() {
-            let (target_var, _) = &self.assignments[earlier];
-            for &later in &order[(i + 1)..] {
-                let (_, read_vars) = &self.assignments[later];
-                if read_vars.contains(target_var) {
-                    count += 1;
+            // config[i] = position of assignment i in execution order
+            // Build execution order: order[pos] = assignment index
+            let mut order = vec![0usize; m];
+            for (assignment_idx, &pos) in config.iter().enumerate() {
+                order[pos] = assignment_idx;
+            }
+
+            // Count backward dependencies: for each pair (i, j) where i < j
+            // (i executes before j), check if the target variable of order[i]
+            // is in the read set of order[j]
+            let mut count = 0usize;
+            for (i, &earlier) in order.iter().enumerate() {
+                let (target_var, _) = &self.assignments[earlier];
+                for &later in &order[(i + 1)..] {
+                    let (_, read_vars) = &self.assignments[later];
+                    if read_vars.contains(target_var) {
+                        count += 1;
+                    }
                 }
             }
-        }
 
-        Min(Some(count))
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting parallel instruction count to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

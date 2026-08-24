@@ -86,7 +86,7 @@ impl ReductionResult for ReductionHPBTVToLP {
 impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertices<SimpleGraph> {
     type Result = ReductionHPBTVToLP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph().clone();
         let num_edges = graph.num_edges();
         let edges = graph.edges();
@@ -99,12 +99,12 @@ impl ReduceTo<LongestPath<SimpleGraph, One>> for HamiltonianPathBetweenTwoVertic
             self.target_vertex(),
         );
 
-        ReductionHPBTVToLP {
+        Ok(ReductionHPBTVToLP {
             target,
             edges,
             source_vertex: self.source_vertex(),
             num_vertices: self.num_vertices(),
-        }
+        })
     }
 }
 

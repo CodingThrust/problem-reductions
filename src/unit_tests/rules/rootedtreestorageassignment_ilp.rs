@@ -7,7 +7,8 @@ use crate::types::Or;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
-    let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionRTSAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=3, r=2 (both subsets have size 2)
@@ -23,20 +24,21 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.find_witness(&problem).unwrap();
     let bf_value = bf_witness
         .as_ref()
-        .map(|w| problem.evaluate(w))
+        .map(|w| problem.evaluate(w).unwrap())
         .unwrap_or(Or(false));
 
-    let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionRTSAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
 
     match ilp_result {
         Ok(ilp_solution) => {
             let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-            let ilp_value = problem.evaluate(&extracted);
+            let ilp_value = problem.evaluate(&extracted).unwrap();
             assert!(ilp_value.0, "ILP solution should be feasible");
             assert!(bf_value.0, "BF should also find feasible solution");
         }
@@ -57,9 +59,10 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.find_witness(&problem).unwrap();
 
-    let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionRTSAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_result = ilp_solver.solve(reduction.target_problem());
     assert!(bf_witness.is_none(), "source should be infeasible");
@@ -69,12 +72,13 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
 #[test]
 fn test_solution_extraction() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1, 2]], 0);
-    let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionRTSAToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 3);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

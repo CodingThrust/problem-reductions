@@ -4,9 +4,10 @@ use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
-fn reduce(sizes: Vec<u64>, bound: u64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
+fn reduce(sizes: Vec<i64>, bound: i64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
     let source = ThreePartition::new(sizes, bound);
-    let reduction = ReduceTo::<SequencingWithReleaseTimesAndDeadlines>::reduce_to(&source);
+    let reduction = ReduceTo::<SequencingWithReleaseTimesAndDeadlines>::reduce_to(&source)
+        .expect("reduction should succeed");
     (source, reduction)
 }
 
@@ -59,9 +60,9 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_satisfiability(
 
     let solver = BruteForce::new();
     // Source is satisfiable
-    assert!(solver.find_witness(&source).is_some());
+    assert!(solver.find_witness(&source).unwrap().is_some());
     // Target should also be satisfiable
-    assert!(solver.find_witness(target).is_some());
+    assert!(solver.find_witness(target).unwrap().is_some());
 }
 
 #[test]
@@ -70,12 +71,12 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_solution_extrac
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     for sol in &target_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        let source_valid = source.evaluate(&extracted);
+        let source_valid = source.evaluate(&extracted).unwrap();
         assert!(
             source_valid.0,
             "Valid schedule should yield valid 3-partition"

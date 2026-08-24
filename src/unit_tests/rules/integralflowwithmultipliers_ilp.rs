@@ -18,16 +18,17 @@ fn test_integralflowwithmultipliers_to_ilp_closed_loop() {
     );
     let direct = BruteForce::new()
         .find_witness(&source)
+        .unwrap()
         .expect("source instance should be satisfiable");
-    assert!(source.evaluate(&direct));
+    assert!(source.evaluate(&direct).unwrap());
 
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
@@ -40,6 +41,6 @@ fn test_integralflowwithmultipliers_to_ilp_bf_vs_ilp() {
         vec![2, 2, 2, 2],
         2,
     );
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

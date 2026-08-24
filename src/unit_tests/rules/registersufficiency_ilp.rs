@@ -33,7 +33,7 @@ fn canonical_example() -> RegisterSufficiency {
 #[test]
 fn test_register_sufficiency_to_ilp_structure() {
     let source = feasible_example();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 62);
@@ -45,14 +45,14 @@ fn test_register_sufficiency_to_ilp_structure() {
 #[test]
 fn test_register_sufficiency_to_ilp_closed_loop() {
     let source = feasible_example();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("feasible register-sufficiency instance should yield a feasible ILP");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(source.evaluate(&extracted), Or(true));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     let mut sorted = extracted.clone();
     sorted.sort_unstable();
     assert_eq!(sorted, vec![0, 1, 2, 3]);
@@ -61,7 +61,7 @@ fn test_register_sufficiency_to_ilp_closed_loop() {
 #[test]
 fn test_register_sufficiency_to_ilp_infeasible() {
     let source = infeasible_example();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
@@ -72,7 +72,7 @@ fn test_register_sufficiency_to_ilp_infeasible() {
 #[test]
 fn test_register_sufficiency_to_ilp_bf_vs_ilp() {
     let source = feasible_example();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -101,9 +101,9 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     assert_eq!(example.solutions.len(), 1);
 
     let source = canonical_example();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solution = &example.solutions[0];
-    assert_eq!(source.evaluate(&solution.source_config), Or(true));
+    assert_eq!(source.evaluate(&solution.source_config).unwrap(), Or(true));
     assert_eq!(
         reduction.extract_solution(&solution.target_config).unwrap(),
         solution.source_config

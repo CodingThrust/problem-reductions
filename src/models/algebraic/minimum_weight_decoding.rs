@@ -48,7 +48,7 @@ inventory::submit! {
 /// let target = vec![true, true, false];
 /// let problem = MinimumWeightDecoding::new(matrix, target);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ struct MinimumWeightDecodingCreateSpec {
 }
 
 impl TryFrom<MinimumWeightDecodingCreateSpec> for MinimumWeightDecoding {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightDecodingCreateSpec) -> Result<Self, Self::Error> {
         let first = spec
             .matrix
@@ -137,7 +137,7 @@ impl MinimumWeightDecoding {
 
 impl Problem for MinimumWeightDecoding {
     const NAME: &'static str = "MinimumWeightDecoding";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -147,30 +147,36 @@ impl Problem for MinimumWeightDecoding {
         vec![2; self.num_cols()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.num_cols() {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Check Hx ≡ s (mod 2) for each row
-        for (i, row) in self.matrix.iter().enumerate() {
-            let dot: usize = row
-                .iter()
-                .zip(config.iter())
-                .filter(|(&h, &x)| h && x == 1)
-                .count();
-            let syndrome_bit = dot % 2 == 1;
-            if syndrome_bit != self.target[i] {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_cols() {
+                return Ok(Min(None));
             }
-        }
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(Min(None));
+            }
 
-        // Feasible: return Hamming weight
-        let weight: usize = config.iter().filter(|&&v| v == 1).count();
-        Min(Some(weight))
+            // Check Hx ≡ s (mod 2) for each row
+            for (i, row) in self.matrix.iter().enumerate() {
+                let dot: usize = row
+                    .iter()
+                    .zip(config.iter())
+                    .filter(|(&h, &x)| h && x == 1)
+                    .count();
+                let syndrome_bit = dot % 2 == 1;
+                if syndrome_bit != self.target[i] {
+                    return Ok(Min(None));
+                }
+            }
+
+            // Feasible: return Hamming weight
+            let weight: usize = config.iter().filter(|&&v| v == 1).count();
+            Min(Some(i64::try_from(weight).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting Hamming weight to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

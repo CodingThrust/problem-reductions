@@ -17,7 +17,7 @@ fn issue_instance() -> HighlyConnectedDeletion<SimpleGraph> {
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_issue_structure() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 4 singletons + the triangle cluster {0,1,2}: 5 variables in total.
@@ -49,7 +49,7 @@ fn test_highlyconnecteddeletion_to_ilp_issue_structure() {
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_closed_loop() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_optimization_round_trip_from_optimization_target(
         &source,
         &reduction,
@@ -60,14 +60,14 @@ fn test_highlyconnecteddeletion_to_ilp_closed_loop() {
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_bf_vs_ilp() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_extract_solution_decode() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
 
     // ILP solution: pick triangle cluster {0,1,2} and singleton {3}.
     // The triangle cluster is the last variable (index 4); singleton {3} is
@@ -81,14 +81,14 @@ fn test_highlyconnecteddeletion_to_ilp_extract_solution_decode() {
     // Edges in input order: (0,1), (0,2), (1,2) all inside the triangle (kept);
     // (2,3) crosses clusters and is deleted.
     assert_eq!(extracted, vec![0, 0, 0, 1]);
-    assert_eq!(source.evaluate(&extracted), Min(Some(1)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
     assert!(source.is_valid_solution(&extracted));
 }
 
 #[test]
 fn test_highlyconnecteddeletion_to_ilp_rejects_unassigned_vertex() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars];
 
     assert_eq!(
@@ -119,7 +119,7 @@ fn test_highlyconnecteddeletion_to_ilp_disconnected_no_cluster() {
             (2, 3),
         ],
     ));
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // No cluster of size >= 3 may straddle the bridge (the only sets {2,3} or

@@ -55,11 +55,11 @@ fn reduce_is_to_clique<W: WeightElement>(
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
     }
 )]
-impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
-    type Result = ReductionISToClique<i32>;
+impl ReduceTo<MaximumClique<SimpleGraph, i64>> for MaximumIndependentSet<SimpleGraph, i64> {
+    type Result = ReductionISToClique<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
-        reduce_is_to_clique(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_is_to_clique(self))
     }
 }
 
@@ -72,8 +72,8 @@ impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleG
 impl ReduceTo<MaximumClique<SimpleGraph, One>> for MaximumIndependentSet<SimpleGraph, One> {
     type Result = ReductionISToClique<One>;
 
-    fn reduce_to(&self) -> Self::Result {
-        reduce_is_to_clique(self)
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(reduce_is_to_clique(self))
     }
 }
 
@@ -87,11 +87,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 let source = MaximumIndependentSet::new(
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-                    vec![1i32; 5],
+                    vec![1i64; 5],
                 );
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
-                    MaximumClique<SimpleGraph, i32>,
+                    MaximumClique<SimpleGraph, i64>,
                 >(
                     source,
                     SolutionPair {

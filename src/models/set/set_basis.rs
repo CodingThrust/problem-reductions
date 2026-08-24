@@ -48,7 +48,7 @@ struct SetBasisCreateSpec {
 }
 
 impl TryFrom<SetBasisCreateSpec> for SetBasis {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: SetBasisCreateSpec) -> Result<Self, Self::Error> {
         for (set_index, set) in spec.subsets.iter().enumerate() {
@@ -56,7 +56,8 @@ impl TryFrom<SetBasisCreateSpec> for SetBasis {
                 return Err(format!(
                     "subsets[{set_index}] contains element {element} outside universe of size {}",
                     spec.universe_size
-                ));
+                )
+                .into());
             }
         }
         Ok(Self::new(spec.universe_size, spec.subsets, spec.k))
@@ -118,8 +119,11 @@ impl SetBasis {
     }
 
     /// Check whether the configuration is a satisfying Set Basis solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 
     fn decode_basis(&self, config: &[usize]) -> Option<Vec<Vec<usize>>> {
@@ -176,15 +180,20 @@ impl Problem for SetBasis {
         vec![2; self.k * self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let Some(basis) = self.decode_basis(config) else {
-                return crate::types::Or(false);
-            };
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let Some(basis) = self.decode_basis(config) else {
+                    return Ok(crate::types::Or(false));
+                };
 
-            self.collection
-                .iter()
-                .all(|target| Self::can_represent_target(&basis, target, self.universe_size))
+                self.collection
+                    .iter()
+                    .all(|target| Self::can_represent_target(&basis, target, self.universe_size))
+            })
         })
     }
 

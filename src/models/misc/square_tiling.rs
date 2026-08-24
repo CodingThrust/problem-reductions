@@ -47,15 +47,21 @@ pub struct SquareTiling {
 }
 
 impl SquareTiling {
-    fn validate_inputs(num_colors: usize, tiles: &[Tile], grid_size: usize) -> Result<(), String> {
+    fn validate_inputs(
+        num_colors: usize,
+        tiles: &[Tile],
+        grid_size: usize,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if num_colors == 0 {
-            return Err("SquareTiling requires at least one color".to_string());
+            return Err("SquareTiling requires at least one color"
+                .to_string()
+                .into());
         }
         if tiles.is_empty() {
-            return Err("SquareTiling requires at least one tile".to_string());
+            return Err("SquareTiling requires at least one tile".to_string().into());
         }
         if grid_size == 0 {
-            return Err("SquareTiling requires grid_size >= 1".to_string());
+            return Err("SquareTiling requires grid_size >= 1".to_string().into());
         }
         for (i, &(top, right, bottom, left)) in tiles.iter().enumerate() {
             if top >= num_colors
@@ -63,17 +69,20 @@ impl SquareTiling {
                 || bottom >= num_colors
                 || left >= num_colors
             {
-                return Err(format!(
-                    "Tile {} has color(s) out of range 0..{}",
-                    i, num_colors
-                ));
+                return Err(
+                    format!("Tile {} has color(s) out of range 0..{}", i, num_colors).into(),
+                );
             }
         }
         Ok(())
     }
 
     /// Create a new `SquareTiling` instance, returning an error if inputs are invalid.
-    pub fn try_new(num_colors: usize, tiles: Vec<Tile>, grid_size: usize) -> Result<Self, String> {
+    pub fn try_new(
+        num_colors: usize,
+        tiles: Vec<Tile>,
+        grid_size: usize,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(num_colors, &tiles, grid_size)?;
         Ok(Self {
             num_colors,
@@ -185,8 +194,8 @@ impl Problem for SquareTiling {
         vec![self.tiles.len(); self.grid_size * self.grid_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(self.is_valid_tiling(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(self.is_valid_tiling(config)))
     }
 }
 

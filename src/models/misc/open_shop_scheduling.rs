@@ -55,16 +55,47 @@ inventory::submit! {
 /// let p = vec![vec![1, 2], vec![2, 1]];
 /// let problem = OpenShopScheduling::new(2, p);
 /// let solver = BruteForce::new();
-/// let value = Solver::solve(&solver, &problem);
+/// let value = Solver::solve(&solver, &problem).unwrap();
 /// assert_eq!(value, Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "OpenShopSchedulingSerde")]
 pub struct OpenShopScheduling {
     /// Number of machines m.
     num_machines: usize,
     /// Processing time matrix: `processing_times[j][i]` is the time to process
     /// job `j` on machine `i`. Dimensions: n jobs × m machines.
-    processing_times: Vec<Vec<usize>>,
+    processing_times: Vec<Vec<i64>>,
+}
+
+#[derive(Deserialize)]
+struct OpenShopSchedulingSerde {
+    num_machines: usize,
+    processing_times: Vec<Vec<i64>>,
+}
+
+impl TryFrom<OpenShopSchedulingSerde> for OpenShopScheduling {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: OpenShopSchedulingSerde) -> Result<Self, Self::Error> {
+        for (job, times) in value.processing_times.iter().enumerate() {
+            if times.len() != value.num_machines {
+                return Err(format!(
+                    "processing_times[{job}] has {} entries, expected {}",
+                    times.len(),
+                    value.num_machines
+                )
+                .into());
+            }
+            if times.iter().any(|&time| time < 0) {
+                return Err(format!("processing_times[{job}] contains a negative duration").into());
+            }
+        }
+        Ok(Self {
+            num_machines: value.num_machines,
+            processing_times: value.processing_times,
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -72,11 +103,11 @@ struct OpenShopSchedulingCreateSpec {
     /// Number of machines m.
     num_processors: usize,
     /// Processing time of each job on each machine (n x m).
-    processing_times: Vec<Vec<usize>>,
+    processing_times: Vec<Vec<i64>>,
 }
 
 impl TryFrom<OpenShopSchedulingCreateSpec> for OpenShopScheduling {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: OpenShopSchedulingCreateSpec) -> Result<Self, Self::Error> {
         for (job, times) in spec.processing_times.iter().enumerate() {
@@ -85,7 +116,11 @@ impl TryFrom<OpenShopSchedulingCreateSpec> for OpenShopScheduling {
                     "processing_times[{job}] has {} entries, expected {}",
                     times.len(),
                     spec.num_processors
-                ));
+                )
+                .into());
+            }
+            if times.iter().any(|&time| time < 0) {
+                return Err(format!("processing_times[{job}] contains a negative duration").into());
             }
         }
         Ok(Self::new(spec.num_processors, spec.processing_times))
@@ -102,7 +137,7 @@ impl OpenShopScheduling {
     ///
     /// # Panics
     /// Panics if any job does not have exactly `num_machines` processing times.
-    pub fn new(num_machines: usize, processing_times: Vec<Vec<usize>>) -> Self {
+    pub fn new(num_machines: usize, processing_times: Vec<Vec<i64>>) -> Self {
         for (j, times) in processing_times.iter().enumerate() {
             assert_eq!(
                 times.len(),
@@ -111,6 +146,10 @@ impl OpenShopScheduling {
                 j,
                 times.len(),
                 num_machines
+            );
+            assert!(
+                times.iter().all(|&time| time >= 0),
+                "Job {j} has a negative processing time"
             );
         }
         Self {
@@ -130,7 +169,7 @@ impl OpenShopScheduling {
     }
 
     /// Get the processing time matrix.
-    pub fn processing_times(&self) -> &[Vec<usize>] {
+    pub fn processing_times(&self) -> &[Vec<i64>] {
         &self.processing_times
     }
 
@@ -165,19 +204,22 @@ impl OpenShopScheduling {
     /// Uses a greedy simulation: at each step, among all machines whose next
     /// scheduled job can start (both machine and job are free), schedule the
     /// one with the earliest available start time.
-    pub fn compute_makespan(&self, orders: &[Vec<usize>]) -> usize {
+    pub fn compute_makespan(
+        &self,
+        orders: &[Vec<usize>],
+    ) -> Result<i64, crate::traits::EvaluationError> {
         let n = self.num_jobs();
         let m = self.num_machines;
 
         if n == 0 || m == 0 {
-            return 0;
+            return Ok(0);
         }
 
         // `machine_avail[i]` = next time machine i is free.
-        let mut machine_avail = vec![0usize; m];
+        let mut machine_avail = vec![0_i64; m];
         // `job_avail[j]` = next time job j is free (all its currently scheduled
         // tasks have finished).
-        let mut job_avail = vec![0usize; n];
+        let mut job_avail = vec![0_i64; n];
         // Pointer to next unscheduled position in each machine's ordering.
         let mut next_on_machine = vec![0usize; m];
 
@@ -187,7 +229,7 @@ impl OpenShopScheduling {
         while scheduled < total_tasks {
             // Find the (machine, earliest start time) among all machines that
             // still have unscheduled tasks.
-            let mut best_start = usize::MAX;
+            let mut best_start = i64::MAX;
             let mut best_machine = usize::MAX;
 
             for i in 0..m {
@@ -206,25 +248,31 @@ impl OpenShopScheduling {
             let i = best_machine;
             let j = orders[i][next_on_machine[i]];
             let start = machine_avail[i].max(job_avail[j]);
-            let finish = start + self.processing_times[j][i];
+            let finish = start
+                .checked_add(self.processing_times[j][i])
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing an open-shop task completion time".to_string(),
+                    )
+                })?;
             machine_avail[i] = finish;
             job_avail[j] = finish;
             next_on_machine[i] += 1;
             scheduled += 1;
         }
 
-        machine_avail
+        Ok(machine_avail
             .iter()
             .copied()
             .max()
             .unwrap_or(0)
-            .max(job_avail.iter().copied().max().unwrap_or(0))
+            .max(job_avail.iter().copied().max().unwrap_or(0)))
     }
 }
 
 impl Problem for OpenShopScheduling {
     const NAME: &'static str = "OpenShopScheduling";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -236,10 +284,10 @@ impl Problem for OpenShopScheduling {
         vec![n; n * m]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
         match self.decode_orders(config) {
-            Some(orders) => Min(Some(self.compute_makespan(&orders))),
-            None => Min(None),
+            Some(orders) => Ok(Min(Some(self.compute_makespan(&orders)?))),
+            None => Ok(Min(None)),
         }
     }
 }

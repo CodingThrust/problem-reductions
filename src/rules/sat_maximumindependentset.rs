@@ -32,7 +32,7 @@ impl BoolVar {
 
     /// Create a literal from a signed integer (1-indexed, as in DIMACS format).
     /// Positive means the variable, negative means its negation.
-    pub fn from_literal(lit: i32) -> Self {
+    pub fn from_literal(lit: i64) -> Self {
         let name = lit.unsigned_abs() as usize - 1; // Convert to 0-indexed
         let neg = lit < 0;
         Self { name, neg }
@@ -124,7 +124,7 @@ impl ReductionSATToIS {
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
     type Result = ReductionSATToIS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut literals: Vec<BoolVar> = Vec::new();
         let mut edges: Vec<(usize, usize)> = Vec::new();
         let mut vertex_count = 0;
@@ -164,12 +164,12 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
             vec![One; vertex_count],
         );
 
-        ReductionSATToIS {
+        Ok(ReductionSATToIS {
             target,
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-        }
+        })
     }
 }
 

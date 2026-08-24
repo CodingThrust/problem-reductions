@@ -18,14 +18,14 @@ use crate::variant::K3;
 
 #[derive(Debug, Clone)]
 struct ReductionPartitionToAcyclicPartition {
-    target: AcyclicPartition<i32>,
+    target: AcyclicPartition<i64>,
     source_num_elements: usize,
     source_vertex: usize,
     sink_vertex: usize,
 }
 
 impl ReductionPartitionToAcyclicPartition {
-    fn new(source: &Partition) -> Self {
+    fn new(source: &Partition) -> Result<Self, crate::rules::ReductionError> {
         let num_elements = source.num_elements();
         let source_vertex = num_elements;
         let sink_vertex = num_elements + 1;
@@ -35,61 +35,57 @@ impl ReductionPartitionToAcyclicPartition {
             .flat_map(|item| [(source_vertex, item), (item, sink_vertex)])
             .collect();
 
-        let mut vertex_weights: Vec<i32> = source
+        let map_overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<
+                KSatisfiability<K3>,
+                AcyclicPartition<i64>,
+            >(operation)
+        };
+        let mut vertex_weights: Vec<i64> = source
             .sizes()
             .iter()
             .copied()
             .map(|size| {
                 let doubled = size
                     .checked_mul(2)
-                    .expect("Partition -> AcyclicPartition item weight overflow");
-                u64_to_i32(
-                    doubled,
-                    "Partition -> AcyclicPartition requires doubled sizes to fit in i32",
-                )
+                    .ok_or_else(|| map_overflow("doubling an item weight"))?;
+                Ok(doubled)
             })
-            .collect();
+            .collect::<Result<_, _>>()?;
 
         let endpoint_weight = total_sum
             .checked_add(1)
-            .expect("Partition -> AcyclicPartition endpoint weight overflow");
+            .ok_or_else(|| map_overflow("computing the endpoint weight"))?;
         let even_prefix = total_sum - (total_sum % 2);
         let weight_bound = endpoint_weight
             .checked_add(even_prefix)
-            .expect("Partition -> AcyclicPartition weight bound overflow");
+            .ok_or_else(|| map_overflow("computing the weight bound"))?;
 
-        vertex_weights.push(u64_to_i32(
-            endpoint_weight,
-            "Partition -> AcyclicPartition requires endpoint weight to fit in i32",
-        ));
-        vertex_weights.push(u64_to_i32(
-            endpoint_weight,
-            "Partition -> AcyclicPartition requires endpoint weight to fit in i32",
-        ));
+        vertex_weights.push(endpoint_weight);
+        vertex_weights.push(endpoint_weight);
 
         let arc_costs = vec![1; arcs.len()];
         let target = AcyclicPartition::new(
             DirectedGraph::new(num_elements + 2, arcs),
             vertex_weights,
             arc_costs,
-            i64::try_from(weight_bound)
-                .expect("Partition -> AcyclicPartition weight bound must fit in i64"),
+            weight_bound,
             i64::try_from(num_elements)
-                .expect("Partition -> AcyclicPartition cost bound must fit in i64"),
+                .map_err(|_| map_overflow("converting the cost bound to i64"))?,
         );
 
-        Self {
+        Ok(Self {
             target,
             source_num_elements: num_elements,
             source_vertex,
             sink_vertex,
-        }
+        })
     }
 }
 
 impl ReductionResult for ReductionPartitionToAcyclicPartition {
     type Source = Partition;
-    type Target = AcyclicPartition<i32>;
+    type Target = AcyclicPartition<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -117,7 +113,7 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
     }
 }
 
-/// Result of reducing KSatisfiability<K3> to AcyclicPartition<i32>.
+/// Result of reducing KSatisfiability<K3> to AcyclicPartition<i64>.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToAcyclicPartition {
     sat_to_subset: Reduction3SATToSubsetSum,
@@ -127,7 +123,7 @@ pub struct Reduction3SATToAcyclicPartition {
 
 impl ReductionResult for Reduction3SATToAcyclicPartition {
     type Source = KSatisfiability<K3>;
-    type Target = AcyclicPartition<i32>;
+    type Target = AcyclicPartition<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         self.partition_to_acyclic.target_problem()
@@ -151,31 +147,27 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
     }
 }
 
-fn u64_to_i32(value: u64, context: &str) -> i32 {
-    i32::try_from(value).expect(context)
-}
-
 #[reduction(
     size = exact {
         num_vertices = "2 * num_vars + 2 * num_clauses + 3",
         num_arcs = "4 * num_vars + 4 * num_clauses + 2",
     }
 )]
-impl ReduceTo<AcyclicPartition<i32>> for KSatisfiability<K3> {
+impl ReduceTo<AcyclicPartition<i64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToAcyclicPartition;
 
-    fn reduce_to(&self) -> Self::Result {
-        let sat_to_subset = <KSatisfiability<K3> as ReduceTo<SubsetSum>>::reduce_to(self);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let sat_to_subset = <KSatisfiability<K3> as ReduceTo<SubsetSum>>::reduce_to(self)?;
         let subset_to_partition =
-            <SubsetSum as ReduceTo<Partition>>::reduce_to(sat_to_subset.target_problem());
+            <SubsetSum as ReduceTo<Partition>>::reduce_to(sat_to_subset.target_problem())?;
         let partition_to_acyclic =
-            ReductionPartitionToAcyclicPartition::new(subset_to_partition.target_problem());
+            ReductionPartitionToAcyclicPartition::new(subset_to_partition.target_problem())?;
 
-        Reduction3SATToAcyclicPartition {
+        Ok(Reduction3SATToAcyclicPartition {
             sat_to_subset,
             subset_to_partition,
             partition_to_acyclic,
-        }
+        })
     }
 }
 
@@ -187,7 +179,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "ksatisfiability_to_acyclicpartition",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, AcyclicPartition<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, AcyclicPartition<i64>>(
                 KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]),
                 SolutionPair {
                     source_config: vec![1],

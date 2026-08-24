@@ -42,7 +42,7 @@ fn test_minimum_weight_solution_evaluate_consistent() {
     let problem = example_instance();
     // Select columns 0,1: submatrix [[1,2],[2,1]], b=[5,4] → y=(1,2). Consistent.
     let config = vec![1, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(2)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_minimum_weight_solution_evaluate_inconsistent() {
     let problem = example_instance();
     // Select only column 0: [1;2]y=[5;4] → y=5, but 2*5=10 ≠ 4. Inconsistent.
     let config = vec![1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -58,7 +58,7 @@ fn test_minimum_weight_solution_evaluate_all_selected() {
     let problem = example_instance();
     // All 4 columns selected — system has solution, so feasible with value 4.
     let config = vec![1, 1, 1, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }
 
 #[test]
@@ -66,29 +66,32 @@ fn test_minimum_weight_solution_evaluate_none_selected() {
     let problem = example_instance();
     // No columns selected, b ≠ 0 → infeasible.
     let config = vec![0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_wrong_length() {
     let problem = example_instance();
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[1; 5]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[1; 5]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_solution_evaluate_invalid_variable() {
     let problem = example_instance();
     let config = vec![2, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_weight_solution_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    let val = problem.evaluate(&witness);
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    let val = problem.evaluate(&witness).unwrap();
     assert_eq!(val, Min(Some(2)));
 }
 
@@ -99,7 +102,7 @@ fn test_minimum_weight_solution_zero_rhs() {
     let rhs = vec![0, 0];
     let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs);
     let config = vec![0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(0)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }
 
 #[test]

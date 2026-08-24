@@ -9,7 +9,7 @@ use crate::types::Or;
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_closed_loop() {
     let problem =
         SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &problem,
@@ -22,25 +22,26 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_closed_loop() {
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_bf_vs_ilp() {
     let problem =
         SequencingWithReleaseTimesAndDeadlines::new(vec![1, 2, 1], vec![0, 0, 2], vec![3, 3, 4]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
         .find_witness(&problem)
+        .unwrap()
         .expect("should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
     // Two tasks that can't both fit: both need time 0-1, but overlap
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![2, 2]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible SWRTD should produce infeasible ILP"
@@ -50,10 +51,10 @@ fn test_sequencingwithreleasetimesanddeadlines_to_ilp_infeasible() {
 #[test]
 fn test_sequencingwithreleasetimesanddeadlines_to_ilp_single_task() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![3], vec![1], vec![5]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("single-task ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

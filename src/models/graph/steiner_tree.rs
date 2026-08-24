@@ -22,12 +22,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["One", "i32"]),
+            VariantDimension::new("weight", "i64", &["One", "i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find minimum weight tree connecting terminal vertices",
-        fields: SteinerTreeCreateSpec::<i32>::FIELDS,
+        fields: SteinerTreeCreateSpec::<i64>::FIELDS,
     }
 }
 
@@ -50,7 +50,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight type for edges (e.g., `i32`, `f64`)
+/// * `W` - The weight type for edges (e.g., `i64`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SteinerTree<G, W> {
     /// The underlying graph.
@@ -72,23 +72,24 @@ struct SteinerTreeCreateSpec<W> {
 }
 
 impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<SimpleGraph, W> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: SteinerTreeCreateSpec<W>) -> Result<Self, Self::Error> {
         if spec.edge_weights.len() != spec.graph.num_edges() {
             return Err(format!(
                 "edge_weights has {} entries, expected {}",
                 spec.edge_weights.len(),
                 spec.graph.num_edges()
-            ));
+            )
+            .into());
         }
         if spec.terminals.len() < 2 {
-            return Err("at least two terminals are required".to_string());
+            return Err("at least two terminals are required".to_string().into());
         }
         let mut distinct = spec.terminals.clone();
         distinct.sort_unstable();
         distinct.dedup();
         if distinct.len() != spec.terminals.len() {
-            return Err("terminals must be distinct".to_string());
+            return Err("terminals must be distinct".to_string().into());
         }
         if let Some(&terminal) = spec
             .terminals
@@ -98,7 +99,8 @@ impl<W: Clone + Default> TryFrom<SteinerTreeCreateSpec<W>> for SteinerTree<Simpl
             return Err(format!(
                 "terminal {terminal} is outside graph with {} vertices",
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(spec.graph, spec.edge_weights, spec.terminals))
     }
@@ -133,9 +135,9 @@ impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
     /// Create a SteinerTree problem with unit edge weights.
     pub fn unit_weights(graph: G, terminals: Vec<usize>) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
-        let edge_weights = vec![W::from(1); graph.num_edges()];
+        let edge_weights = vec![W::unit(); graph.num_edges()];
         Self::new(graph, edge_weights, terminals)
     }
 
@@ -271,32 +273,38 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
-            return Min(None);
-        }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing Steiner tree edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Min(Some(total))
+            Min(Some(total))
+        })
     }
 }
 
-crate::impl_random_generate!(SteinerTree<SimpleGraph, i32>, crate::random::SimpleGraphRandomSpec, |spec| {
+crate::impl_random_generate!(SteinerTree<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     if spec.num_vertices < 2 {
-        return Err("num_vertices must be at least 2".to_string());
+        return Err("num_vertices must be at least 2".to_string().into());
     }
-    let mut state = crate::random::lcg_init(spec.seed);
+    let mut state = crate::random::lcg_init(crate::random::seed_to_u64(spec.seed)?);
     let graph = spec.graph()?;
     for _ in 0..spec.num_vertices * spec.num_vertices {
         crate::random::lcg_step(&mut state);
     }
-    let weights = (0..graph.num_edges()).map(|_| (crate::random::lcg_step(&mut state) * 9.0) as i32 + 1).collect();
+    let weights = (0..graph.num_edges()).map(|_| (crate::random::lcg_step(&mut state) * 9.0) as i64 + 1).collect();
     let count = std::cmp::max(2, spec.num_vertices * 2 / 5);
     let terminals = crate::random::lcg_choose(&mut state, spec.num_vertices, count)
         .map_err(|error| error.to_string())?;
@@ -304,14 +312,14 @@ crate::impl_random_generate!(SteinerTree<SimpleGraph, i32>, crate::random::Simpl
 });
 
 crate::declare_variants! {
-    default SteinerTree<SimpleGraph, i32> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i32> random,
+    default SteinerTree<SimpleGraph, i64> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<i64> random,
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "steiner_tree_simplegraph_i32",
+        id: "steiner_tree_simplegraph_i64",
         instance: Box::new(SteinerTree::new(
             SimpleGraph::new(
                 5,

@@ -43,25 +43,27 @@ fn test_set_basis_creation() {
 fn test_set_basis_evaluation() {
     let problem = issue_example_problem(3);
 
-    assert!(problem.evaluate(&canonical_solution()));
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0]));
+    assert!(problem.evaluate(&canonical_solution()).unwrap());
+    assert!(!problem
+        .evaluate(&[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0])
+        .unwrap());
 }
 
 #[test]
 fn test_set_basis_no_solution_for_k_two() {
     let problem = issue_example_problem(2);
 
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 1, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 1, 0]).unwrap());
 
     let solver = BruteForce::new();
-    assert!(solver.find_all_witnesses(&problem).is_empty());
+    assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
 #[test]
 fn test_set_basis_solver() {
     let problem = issue_example_problem(3);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
 
     assert_eq!(solutions.len(), 12);
@@ -69,7 +71,7 @@ fn test_set_basis_solver() {
     assert!(solution_set.contains(&canonical_solution()));
     assert!(solutions
         .iter()
-        .all(|solution| problem.evaluate(solution).0));
+        .all(|solution| problem.evaluate(solution).unwrap().0));
 }
 
 #[test]
@@ -89,10 +91,10 @@ fn test_set_basis_paper_example() {
     let problem = issue_example_problem(3);
     let solution = canonical_solution();
 
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 12);
 }
 
@@ -101,14 +103,14 @@ fn test_set_basis_invalid_config_values() {
     let problem = issue_example_problem(3);
     let mut invalid = canonical_solution();
     invalid[0] = 2;
-    assert!(!problem.evaluate(&invalid));
+    assert!(!problem.evaluate(&invalid).unwrap());
 }
 
 #[test]
 fn test_set_basis_rejects_wrong_config_length() {
     let problem = issue_example_problem(3);
     let solution = canonical_solution();
-    assert!(!problem.evaluate(solution.get(..11).unwrap()));
+    assert!(!problem.evaluate(solution.get(..11).unwrap()).unwrap());
 }
 
 #[test]
@@ -120,7 +122,7 @@ fn test_set_basis_deserialized_invalid_target_returns_false() {
     }))
     .unwrap();
 
-    assert!(!problem.evaluate(&[1, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -132,7 +134,7 @@ fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
     }))
     .unwrap();
 
-    assert!(problem.evaluate(&[1, 1]));
+    assert!(problem.evaluate(&[1, 1]).unwrap());
 }
 
 #[test]
@@ -148,14 +150,14 @@ fn test_set_basis_basis_not_subset_of_target() {
     // so it should not be used, and the target cannot be covered.
     let problem = SetBasis::new(3, vec![vec![0, 1]], 1);
     // Config encodes basis set {0, 2}: bits [1, 0, 1]
-    assert!(!problem.evaluate(&[1, 0, 1]));
+    assert!(!problem.evaluate(&[1, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_set_basis_is_valid_solution() {
     let problem = issue_example_problem(3);
-    assert!(problem.is_valid_solution(&canonical_solution()));
-    assert!(!problem.is_valid_solution(&[0; 12]));
+    assert!(problem.is_valid_solution(&canonical_solution()).unwrap());
+    assert!(!problem.is_valid_solution(&[0; 12]).unwrap());
 }
 
 #[test]
@@ -163,7 +165,7 @@ fn test_set_basis_k_zero_empty_collection() {
     // k = 0 with empty collection: trivially satisfiable (no targets to cover).
     let problem = SetBasis::new(3, vec![], 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -171,7 +173,7 @@ fn test_set_basis_k_zero_nonempty_collection() {
     // k = 0 with non-empty collection: impossible (no basis sets to cover targets).
     let problem = SetBasis::new(3, vec![vec![0, 1]], 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(!problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -181,6 +183,6 @@ fn test_set_basis_empty_collection_with_k_positive() {
     assert_eq!(problem.basis_size(), 2);
     assert_eq!(problem.num_sets(), 0);
     // Any valid config of length k * universe_size = 4 should satisfy.
-    assert!(problem.evaluate(&[0, 0, 0, 0]));
-    assert!(problem.evaluate(&[1, 1, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(problem.evaluate(&[1, 1, 1, 1]).unwrap());
 }

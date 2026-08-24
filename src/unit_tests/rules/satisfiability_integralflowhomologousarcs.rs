@@ -34,7 +34,8 @@ fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
 #[test]
 fn test_satisfiability_to_integralflowhomologousarcs_closed_loop() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -46,7 +47,8 @@ fn test_satisfiability_to_integralflowhomologousarcs_closed_loop() {
 #[test]
 fn test_satisfiability_to_integralflowhomologousarcs_issue_example_structure() {
     let source = issue_example();
-    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 43);
@@ -59,12 +61,13 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_structure() {
 #[test]
 fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_encoding() {
     let source = issue_example();
-    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let satisfying_assignment = vec![1, 0, 1];
     let satisfying_flow = reduction.encode_assignment(&satisfying_assignment);
-    assert!(target.evaluate(&satisfying_flow).0);
+    assert!(target.evaluate(&satisfying_flow).unwrap().0);
     assert_eq!(
         reduction.extract_solution(&satisfying_flow).unwrap(),
         satisfying_assignment
@@ -72,20 +75,21 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_en
 
     let unsatisfying_assignment = vec![1, 1, 1];
     let unsatisfying_flow = reduction.encode_assignment(&unsatisfying_assignment);
-    assert!(!target.evaluate(&unsatisfying_flow).0);
+    assert!(!target.evaluate(&unsatisfying_flow).unwrap().0);
 }
 
 #[test]
 fn test_satisfiability_to_integralflowhomologousarcs_issue_example_truth_table_matches_flow() {
     let source = issue_example();
-    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     for assignment in all_assignments(source.num_vars()) {
         let flow = reduction.encode_assignment(&assignment);
         assert_eq!(
-            source.evaluate(&assignment).0,
-            target.evaluate(&flow).0,
+            source.evaluate(&assignment).unwrap().0,
+            target.evaluate(&flow).unwrap().0,
             "assignment {:?} should preserve satisfiability through the encoded flow",
             assignment
         );
@@ -95,10 +99,13 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_truth_table_m
 #[test]
 fn test_satisfiability_to_integralflowhomologousarcs_unsat_source_has_no_target_witness() {
     let source = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source);
+    let reduction = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(
-        BruteForce::new().find_witness(reduction.target_problem()),
+        BruteForce::new()
+            .find_witness(reduction.target_problem())
+            .unwrap(),
         None
     );
 }
@@ -139,8 +146,10 @@ fn test_satisfiability_to_integralflowhomologousarcs_canonical_example_spec() {
 
     assert!(source
         .evaluate(&example.solutions[0].source_config)
+        .unwrap()
         .is_valid());
     assert!(target
         .evaluate(&example.solutions[0].target_config)
+        .unwrap()
         .is_valid());
 }

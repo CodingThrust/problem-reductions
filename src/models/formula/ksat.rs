@@ -91,7 +91,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -132,15 +132,17 @@ impl<K: KValue> KSatisfiability<K> {
     }
 
     /// Create a K-SAT problem after validating its clauses.
-    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         if let Some(k) = K::K {
             for (i, clause) in clauses.iter().enumerate() {
                 if clause.len() != k {
-                    return Err(format!(
-                        "Clause {i} has {} literals, expected {k}",
-                        clause.len()
-                    ));
+                    return Err(
+                        format!("Clause {i} has {} literals, expected {k}", clause.len()).into(),
+                    );
                 }
             }
         }
@@ -165,7 +167,10 @@ impl<K: KValue> KSatisfiability<K> {
     }
 
     /// Create a K-SAT problem with shorter clauses after validation.
-    pub fn try_new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new_allow_less(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         if let Some(k) = K::K {
             for (i, clause) in clauses.iter().enumerate() {
@@ -173,7 +178,8 @@ impl<K: KValue> KSatisfiability<K> {
                     return Err(format!(
                         "Clause {i} has {} literals, expected at most {k}",
                         clause.len()
-                    ));
+                    )
+                    .into());
                 }
             }
         }
@@ -232,11 +238,20 @@ impl<K: KValue> KSatisfiability<K> {
     }
 
     /// Count satisfied clauses for an assignment.
-    pub fn count_satisfied(&self, assignment: &[bool]) -> usize {
-        self.clauses
+    pub fn count_satisfied(
+        &self,
+        assignment: &[bool],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let count = self
+            .clauses
             .iter()
             .filter(|c| c.is_satisfied(assignment))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting satisfied-clause count to i64".into(),
+            )
+        })
     }
 
     /// Check if an assignment satisfies all clauses.
@@ -253,10 +268,15 @@ impl<K: KValue> Problem for KSatisfiability<K> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_satisfying(&assignment)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let assignment = super::config_to_assignment(config);
+                self.is_satisfying(&assignment)
+            })
         })
     }
 

@@ -49,13 +49,13 @@ impl ReductionResult for ReductionPartitionToMPS {
 impl ReduceTo<MultiprocessorScheduling> for Partition {
     type Result = ReductionPartitionToMPS;
 
-    fn reduce_to(&self) -> Self::Result {
-        let lengths: Vec<u64> = self.sizes().to_vec();
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let lengths: Vec<i64> = self.sizes().to_vec();
         let deadline = self.total_sum() / 2;
 
-        ReductionPartitionToMPS {
+        Ok(ReductionPartitionToMPS {
             target: MultiprocessorScheduling::new(lengths, 2, deadline),
-        }
+        })
     }
 }
 
@@ -69,7 +69,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // sizes [1, 2, 3, 4], sum=10, target=5
             // partition: {1,4} on proc 0 and {2,3} on proc 1
             crate::example_db::specs::rule_example_with_witness::<_, MultiprocessorScheduling>(
-                Partition::new(vec![1, 2, 3, 4]),
+                Partition::new(vec![1, 2, 3, 4]).unwrap(),
                 SolutionPair {
                     source_config: vec![0, 1, 1, 0],
                     target_config: vec![0, 1, 1, 0],

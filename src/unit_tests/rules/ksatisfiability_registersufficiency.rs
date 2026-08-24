@@ -43,7 +43,8 @@ fn positions_from_order(order: &[usize], total_vertices: usize) -> Vec<usize> {
 #[test]
 fn test_ksatisfiability_to_register_sufficiency_structure_issue_example() {
     let source = issue_example();
-    let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<RegisterSufficiency>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = SethiRegisterLayout::new(source.num_vars(), source.num_clauses());
 
@@ -67,7 +68,8 @@ fn test_ksatisfiability_to_register_sufficiency_structure_issue_example() {
 #[test]
 fn test_ksatisfiability_to_register_sufficiency_extract_solution_uses_w_snapshot_and_x_pos_sign() {
     let source = repeated_positive_literal();
-    let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<RegisterSufficiency>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = SethiRegisterLayout::new(source.num_vars(), source.num_clauses());
 
@@ -97,19 +99,23 @@ fn test_ksatisfiability_to_register_sufficiency_extract_solution_uses_w_snapshot
 #[test]
 fn test_ksatisfiability_to_register_sufficiency_closed_loop_via_exact_solver() {
     let source = repeated_positive_literal();
-    let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<RegisterSufficiency>::reduce_to(&source).expect("reduction should succeed");
 
     let register_schedule = reduction
         .target_problem()
         .solve_exact()
         .expect("satisfiable source formula should yield a feasible register schedule");
     assert_eq!(
-        reduction.target_problem().evaluate(&register_schedule),
+        reduction
+            .target_problem()
+            .evaluate(&register_schedule)
+            .unwrap(),
         Or(true)
     );
 
     let extracted = reduction.extract_solution(&register_schedule).unwrap();
-    assert_eq!(source.evaluate(&extracted), Or(true));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     assert_eq!(extracted, vec![1]);
 }
 
@@ -120,12 +126,13 @@ fn test_ksatisfiability_to_register_sufficiency_unsatisfiable_instance() {
 
     let source = contradictory_single_variable();
     // Verify the source is indeed unsatisfiable via brute force
-    assert_eq!(BruteForce::new().solve(&source), Or(false));
+    assert_eq!(BruteForce::new().solve(&source).unwrap(), Or(false));
 
     // Verify the reduction produces a valid RS instance — we check that
     // the structure is correct (vertex/arc counts match Sethi layout) rather
     // than solving the 70-vertex RS instance, which would be too slow.
-    let reduction = ReduceTo::<RegisterSufficiency>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<RegisterSufficiency>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = SethiRegisterLayout::new(source.num_vars(), source.num_clauses());
     assert_eq!(target.num_vertices(), layout.total_vertices());

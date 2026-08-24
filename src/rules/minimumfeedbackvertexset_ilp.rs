@@ -10,10 +10,11 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumFeedbackVertexSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumFeedbackVertexSet to ILP.
 ///
-/// The ILP uses integer variables (`ILP<i32>`) because it needs both
+/// The ILP uses integer variables (`ILP<i64>`) because it needs both
 /// binary selection variables (x_i) and integer ordering variables (o_i).
 ///
 /// Variable layout:
@@ -21,16 +22,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// - `o_i` at index `n + i` for `i in 0..n`: integer in {0, ..., n-1}, topological order
 #[derive(Debug, Clone)]
 pub struct ReductionMFVSToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     /// Number of vertices in the source graph (needed for solution extraction).
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionMFVSToILP {
-    type Source = MinimumFeedbackVertexSet<i32>;
-    type Target = ILP<i32>;
+    type Source = MinimumFeedbackVertexSet<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -54,10 +55,10 @@ impl ReductionResult for ReductionMFVSToILP {
         num_constraints = "num_arcs + 2 * num_vertices",
     },
 )]
-impl ReduceTo<ILP<i32>> for MinimumFeedbackVertexSet<i32> {
+impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionMFVSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let arcs = self.graph().arcs();
         let num_vars = 2 * n;
@@ -97,15 +98,21 @@ impl ReduceTo<ILP<i32>> for MinimumFeedbackVertexSet<i32> {
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumFeedbackVertexSet<i64>,
+                    ILP<i64>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMFVSToILP {
+        Ok(ReductionMFVSToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -118,8 +125,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             // Simple cycle: 0 -> 1 -> 2 -> 0 (FVS = 1 vertex)
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-            let source = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            let source = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

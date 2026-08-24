@@ -39,7 +39,7 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreeMatroidIntersec
 impl ReduceTo<ThreeMatroidIntersection> for ThreeDimensionalMatching {
     type Result = ReductionThreeDimensionalMatchingToThreeMatroidIntersection;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut w_groups = vec![Vec::new(); self.universe_size()];
         let mut x_groups = vec![Vec::new(); self.universe_size()];
         let mut y_groups = vec![Vec::new(); self.universe_size()];
@@ -50,13 +50,15 @@ impl ReduceTo<ThreeMatroidIntersection> for ThreeDimensionalMatching {
             y_groups[y].push(triple_index);
         }
 
-        ReductionThreeDimensionalMatchingToThreeMatroidIntersection {
-            target: ThreeMatroidIntersection::new(
-                self.num_triples(),
-                vec![w_groups, x_groups, y_groups],
-                self.universe_size(),
-            ),
-        }
+        Ok(
+            ReductionThreeDimensionalMatchingToThreeMatroidIntersection {
+                target: ThreeMatroidIntersection::new(
+                    self.num_triples(),
+                    vec![w_groups, x_groups, y_groups],
+                    self.universe_size(),
+                ),
+            },
+        )
     }
 }
 

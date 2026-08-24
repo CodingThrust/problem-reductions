@@ -58,7 +58,7 @@ impl ReductionResult for ReductionKCliqueToILP {
 impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
         let k = self.k();
 
@@ -81,7 +81,7 @@ impl ReduceTo<ILP<bool>> for KClique<SimpleGraph> {
         // Objective: empty (feasibility problem — minimize 0)
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionKCliqueToILP { target }
+        Ok(ReductionKCliqueToILP { target })
     }
 }
 

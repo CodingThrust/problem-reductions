@@ -8,6 +8,7 @@ use crate::export::SolutionPair;
 use crate::models::algebraic::{ClosestVectorProblem, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 struct EncodingSpan {
@@ -23,7 +24,7 @@ pub struct ReductionCVPToQUBO {
 }
 
 impl ReductionResult for ReductionCVPToQUBO {
-    type Source = ClosestVectorProblem<i32>;
+    type Source = ClosestVectorProblem<i64>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -54,7 +55,7 @@ impl ReductionResult for ReductionCVPToQUBO {
 }
 
 #[cfg(feature = "example-db")]
-fn canonical_cvp_instance() -> ClosestVectorProblem<i32> {
+fn canonical_cvp_instance() -> ClosestVectorProblem<i64> {
     ClosestVectorProblem::new(
         vec![vec![2, 0], vec![1, 2]],
         vec![2.8, 1.5],
@@ -63,24 +64,44 @@ fn canonical_cvp_instance() -> ClosestVectorProblem<i32> {
             crate::models::algebraic::VarBounds::bounded(-2, 4),
         ],
     )
+    .expect("canonical closest-vector instance must be valid")
 }
 
-fn encoding_spans(problem: &ClosestVectorProblem<i32>) -> Vec<EncodingSpan> {
+fn encoding_spans(
+    problem: &ClosestVectorProblem<i64>,
+) -> Result<Vec<EncodingSpan>, crate::rules::ReductionError> {
     let mut start = 0usize;
     let mut spans = Vec::with_capacity(problem.num_basis_vectors());
     for bounds in problem.bounds() {
         let weights = bounds
             .exact_encoding_weights()
+            .map_err(
+                crate::rules::ReductionError::construction::<ClosestVectorProblem<i64>, QUBO<f64>>,
+            )?
             .into_iter()
-            .map(|weight| usize::try_from(weight).expect("encoding weights must be nonnegative"))
-            .collect::<Vec<_>>();
+            .map(|weight| {
+                usize::try_from(weight).map_err(|_| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >("converting a CVP encoding weight to usize")
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let next_start = start.checked_add(weights.len()).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<ClosestVectorProblem<i64>, QUBO<f64>>(
+                "computing CVP encoding offsets",
+            )
+        })?;
         spans.push(EncodingSpan { start, weights });
-        start += spans.last().expect("just pushed").weights.len();
+        start = next_start;
     }
-    spans
+    Ok(spans)
 }
 
-fn gram_matrix(problem: &ClosestVectorProblem<i32>) -> Vec<Vec<f64>> {
+fn gram_matrix(
+    problem: &ClosestVectorProblem<i64>,
+) -> Result<Vec<Vec<f64>>, crate::rules::ReductionError> {
     let basis = problem.basis();
     let n = basis.len();
     let mut gram = vec![vec![0.0; n]; n];
@@ -89,16 +110,36 @@ fn gram_matrix(problem: &ClosestVectorProblem<i32>) -> Vec<Vec<f64>> {
             let dot = basis[i]
                 .iter()
                 .zip(&basis[j])
-                .map(|(&lhs, &rhs)| lhs as f64 * rhs as f64)
-                .sum::<f64>();
+                .try_fold(0_i64, |total, (&lhs, &rhs)| {
+                    let product = lhs.checked_mul(rhs).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            ClosestVectorProblem<i64>,
+                            QUBO<f64>,
+                        >("multiplying closest-vector basis entries")
+                    })?;
+                    total.checked_add(product).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            ClosestVectorProblem<i64>,
+                            QUBO<f64>,
+                        >("summing a closest-vector Gram entry")
+                    })
+                })?;
+            let dot = i64_to_exact_f64(dot).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    ClosestVectorProblem<i64>,
+                    QUBO<f64>,
+                >(error)
+            })?;
             gram[i][j] = dot;
             gram[j][i] = dot;
         }
     }
-    gram
+    Ok(gram)
 }
 
-fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
+fn at_times_target(
+    problem: &ClosestVectorProblem<i64>,
+) -> Result<Vec<f64>, crate::rules::ReductionError> {
     problem
         .basis()
         .iter()
@@ -106,8 +147,25 @@ fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
             column
                 .iter()
                 .zip(problem.target())
-                .map(|(&entry, &target)| entry as f64 * target)
-                .sum()
+                .try_fold(0.0, |total, (&entry, &target)| {
+                    let entry = i64_to_exact_f64(entry).map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            ClosestVectorProblem<i64>,
+                            QUBO<f64>,
+                        >(error)
+                    })?;
+                    let result = total + entry * target;
+                    if result.is_finite() {
+                        Ok(result)
+                    } else {
+                        Err(crate::rules::ReductionError::non_finite_result::<
+                            ClosestVectorProblem<i64>,
+                            QUBO<f64>,
+                        >(
+                            "computing A^T times the target produced a non-finite value",
+                        ))
+                    }
+                })
         })
         .collect()
 }
@@ -115,11 +173,11 @@ fn at_times_target(problem: &ClosestVectorProblem<i32>) -> Vec<f64> {
 #[reduction(size = exact {
     num_vars = "num_encoding_bits",
 })]
-impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
+impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i64> {
     type Result = ReductionCVPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
-        let encodings = encoding_spans(self);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let encodings = encoding_spans(self)?;
         let total_bits = encodings
             .last()
             .map(|encoding| encoding.start + encoding.weights.len())
@@ -127,37 +185,81 @@ impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
         let mut matrix = vec![vec![0.0; total_bits]; total_bits];
 
         if total_bits == 0 {
-            return ReductionCVPToQUBO {
-                target: QUBO::from_matrix(matrix),
+            return Ok(ReductionCVPToQUBO {
+                target:
+                    QUBO::from_matrix(matrix).map_err(|message| {
+                        crate::rules::ReductionError::construction::<
+                            ClosestVectorProblem<i64>,
+                            QUBO<f64>,
+                        >(message)
+                    })?,
                 encodings,
-            };
+            });
         }
 
-        let gram = gram_matrix(self);
-        let h = at_times_target(self);
+        let gram = gram_matrix(self)?;
+        let h = at_times_target(self)?;
         let lowers = self
             .bounds()
             .iter()
             .map(|bounds| {
-                bounds
-                    .lower
-                    .expect("CVP QUBO reduction requires finite lower bounds")
+                bounds.lower.ok_or_else(|| {
+                    crate::rules::ReductionError::invalid_target::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >("QUBO encoding requires finite lower bounds")
+                })
             })
-            .map(|lower| lower as f64)
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(|lower| {
+                i64_to_exact_f64(lower).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >(error)
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let g_lo_minus_h = (0..self.num_basis_vectors())
             .map(|i| {
-                (0..self.num_basis_vectors())
+                let product_sum = (0..self.num_basis_vectors())
                     .map(|j| gram[i][j] * lowers[j])
-                    .sum::<f64>()
-                    - h[i]
+                    .try_fold(0.0, |total, value| {
+                        let result = total + value;
+                        result.is_finite().then_some(result).ok_or_else(|| {
+                            crate::rules::ReductionError::non_finite_result::<
+                                ClosestVectorProblem<i64>,
+                                QUBO<f64>,
+                            >("computing a closest-vector linear term")
+                        })
+                    })?;
+                let result = product_sum - h[i];
+                result.is_finite().then_some(result).ok_or_else(|| {
+                    crate::rules::ReductionError::non_finite_result::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >("computing a closest-vector linear term")
+                })
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, crate::rules::ReductionError>>()?;
 
         let mut bit_terms = Vec::with_capacity(total_bits);
         for (var_index, encoding) in encodings.iter().enumerate() {
             for &weight in &encoding.weights {
-                bit_terms.push((var_index, weight as f64));
+                let weight = i64::try_from(weight).map_err(|_| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >("converting a closest-vector encoding weight to i64")
+                })?;
+                let weight = i64_to_exact_f64(weight).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >(error)
+                })?;
+                bit_terms.push((var_index, weight));
             }
         }
 
@@ -165,16 +267,36 @@ impl ReduceTo<QUBO<f64>> for ClosestVectorProblem<i32> {
             let (var_u, weight_u) = bit_terms[u];
             matrix[u][u] =
                 gram[var_u][var_u] * weight_u * weight_u + 2.0 * weight_u * g_lo_minus_h[var_u];
+            if !matrix[u][u].is_finite() {
+                return Err(crate::rules::ReductionError::non_finite_result::<
+                    ClosestVectorProblem<i64>,
+                    QUBO<f64>,
+                >(
+                    "computing a closest-vector QUBO diagonal produced a non-finite value",
+                ));
+            }
 
             for (v, &(var_v, weight_v)) in bit_terms.iter().enumerate().skip(u + 1) {
                 matrix[u][v] = 2.0 * gram[var_u][var_v] * weight_u * weight_v;
+                if !matrix[u][v].is_finite() {
+                    return Err(crate::rules::ReductionError::non_finite_result::<
+                        ClosestVectorProblem<i64>,
+                        QUBO<f64>,
+                    >(
+                        "computing a closest-vector QUBO interaction produced a non-finite value",
+                    ));
+                }
             }
         }
 
-        ReductionCVPToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionCVPToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<ClosestVectorProblem<i64>, QUBO<f64>>(
+                    message,
+                )
+            })?,
             encodings,
-        }
+        })
     }
 }
 

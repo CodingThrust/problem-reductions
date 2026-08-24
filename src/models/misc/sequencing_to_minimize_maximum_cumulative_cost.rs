@@ -49,11 +49,11 @@ struct SequencingCumulativeCostCreateSpec {
 }
 
 impl TryFrom<SequencingCumulativeCostCreateSpec> for SequencingToMinimizeMaximumCumulativeCost {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: SequencingCumulativeCostCreateSpec) -> Result<Self, Self::Error> {
         let precedences = spec.precedences.unwrap_or_default();
         if let Some(message) = precedence_validation_error(&precedences, spec.costs.len()) {
-            return Err(message);
+            return Err(message.into());
         }
         Ok(Self {
             costs: spec.costs,
@@ -159,30 +159,39 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
         super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
-        let Some(schedule) = self.decode_schedule(config) else {
-            return crate::types::Min(None);
-        };
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let Some(schedule) = self.decode_schedule(config) else {
+                return Ok(crate::types::Min(None));
+            };
 
-        let mut positions = vec![0usize; self.num_tasks()];
-        for (position, &task) in schedule.iter().enumerate() {
-            positions[task] = position;
-        }
-        for &(pred, succ) in &self.precedences {
-            if positions[pred] >= positions[succ] {
-                return crate::types::Min(None);
+            let mut positions = vec![0usize; self.num_tasks()];
+            for (position, &task) in schedule.iter().enumerate() {
+                positions[task] = position;
             }
-        }
+            for &(pred, succ) in &self.precedences {
+                if positions[pred] >= positions[succ] {
+                    return Ok(crate::types::Min(None));
+                }
+            }
 
-        let mut cumulative = 0i64;
-        let mut max_cumulative = 0i64;
-        for &task in &schedule {
-            cumulative += self.costs[task];
-            if cumulative > max_cumulative {
-                max_cumulative = cumulative;
+            let mut cumulative = 0i64;
+            let mut max_cumulative = 0i64;
+            for &task in &schedule {
+                cumulative = cumulative.checked_add(self.costs[task]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing sequencing cumulative costs".into(),
+                    )
+                })?;
+                if cumulative > max_cumulative {
+                    max_cumulative = cumulative;
+                }
             }
-        }
-        crate::types::Min(Some(max_cumulative))
+            crate::types::Min(Some(max_cumulative))
+        })
     }
 }
 

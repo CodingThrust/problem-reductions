@@ -18,7 +18,7 @@ inventory::submit! {
         display_name: "Strong Connectivity Augmentation",
         aliases: &[],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -50,12 +50,12 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
         graph: DirectedGraph,
         candidate_arcs: Vec<(usize, usize, W)>,
         bound: W::Sum,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if !matches!(
             bound.partial_cmp(&W::Sum::zero()),
             Some(Ordering::Equal | Ordering::Greater)
         ) {
-            return Err("bound must be nonnegative".to_string());
+            return Err("bound must be nonnegative".to_string().into());
         }
 
         let num_vertices = graph.num_vertices();
@@ -66,25 +66,24 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
                 return Err(format!(
                     "candidate arc ({}, {}) references vertex >= num_vertices ({})",
                     u, v, num_vertices
-                ));
+                )
+                .into());
             }
             if !matches!(
                 weight.to_sum().partial_cmp(&W::Sum::zero()),
                 Some(Ordering::Greater)
             ) {
-                return Err(format!(
-                    "candidate arc ({}, {}) weight must be positive",
-                    u, v
-                ));
+                return Err(format!("candidate arc ({}, {}) weight must be positive", u, v).into());
             }
             if graph.has_arc(*u, *v) {
                 return Err(format!(
                     "candidate arc ({}, {}) already exists in the base graph",
                     u, v
-                ));
+                )
+                .into());
             }
             if !seen_pairs.insert((*u, *v)) {
-                return Err(format!("duplicate candidate arc ({}, {})", u, v));
+                return Err(format!("duplicate candidate arc ({}, {})", u, v).into());
             }
         }
 
@@ -146,13 +145,16 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     }
 
     /// Check whether a configuration is a satisfying augmentation.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         self.evaluate_config(config)
     }
 
-    fn evaluate_config(&self, config: &[usize]) -> bool {
+    fn evaluate_config(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.candidate_arcs.len() {
-            return false;
+            return Ok(false);
         }
 
         let mut total = W::Sum::zero();
@@ -160,18 +162,22 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
 
         for ((u, v, weight), &selected) in self.candidate_arcs.iter().zip(config.iter()) {
             if selected > 1 {
-                return false;
+                return Ok(false);
             }
             if selected == 1 {
-                total += weight.to_sum();
+                total = W::checked_add_to_sum(
+                    total,
+                    weight.to_sum(),
+                    "summing strong-connectivity augmentation weights",
+                )?;
                 if total > self.bound {
-                    return false;
+                    return Ok(false);
                 }
                 augmented_arcs.push((*u, *v));
             }
         }
 
-        DirectedGraph::new(self.graph.num_vertices(), augmented_arcs).is_strongly_connected()
+        Ok(DirectedGraph::new(self.graph.num_vertices(), augmented_arcs).is_strongly_connected())
     }
 }
 
@@ -190,13 +196,16 @@ where
         vec![2; self.candidate_arcs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.evaluate_config(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.evaluate_config(config)?))
     }
 }
 
 crate::declare_variants! {
-    default StrongConnectivityAugmentation<i32> => "2^num_potential_arcs",
+    default StrongConnectivityAugmentation<i64> => "2^num_potential_arcs",
 }
 
 #[derive(Deserialize)]
@@ -223,7 +232,7 @@ where
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "strong_connectivity_augmentation_i32",
+        id: "strong_connectivity_augmentation_i64",
         // Path digraph 0→1→2→3→4 (not strongly connected — no back-edges).
         // Nine candidate arcs are all individually affordable, but only the
         // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.

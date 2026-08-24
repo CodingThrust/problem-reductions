@@ -111,7 +111,7 @@ fn parse_cdft_frequency_tables(
                 pair_key.1
             );
 
-            let rows: Vec<Vec<usize>> = counts_str
+            let rows: Vec<Vec<i64>> = counts_str
                 .split('|')
                 .map(|row| util::parse_comma_list(row.trim()))
                 .collect::<Result<_>>()?;
@@ -132,9 +132,15 @@ fn parse_cdft_frequency_tables(
                 );
             }
 
-            let total: usize = rows.iter().flatten().copied().sum();
+            let total = rows.iter().flatten().try_fold(0_i64, |sum, &count| {
+                anyhow::ensure!(count >= 0, "Frequency table counts must be nonnegative");
+                sum.checked_add(count)
+                    .ok_or_else(|| anyhow::anyhow!("Frequency table count total overflows i64"))
+            })?;
+            let expected_total = i64::try_from(num_objects)
+                .map_err(|_| anyhow::anyhow!("num_objects cannot be represented as i64"))?;
             anyhow::ensure!(
-                total == num_objects,
+                total == expected_total,
                 "Frequency table '{entry}' sums to {total}, expected num_objects={num_objects}"
             );
 
@@ -251,7 +257,7 @@ fn resolve_rule_example(
         })
 }
 
-fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
+fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, i64)>>> {
     let raw = raw.trim();
     if raw.is_empty() {
         return Ok(vec![]);
@@ -283,9 +289,9 @@ fn parse_job_shop_jobs(raw: &str) -> Result<Vec<Vec<(usize, u64)>>> {
                             task_str
                         )
                     })?;
-                    let length = length.trim().parse::<u64>().map_err(|_| {
+                    let length = length.trim().parse::<i64>().map_err(|_| {
                         anyhow::anyhow!(
-                            "Invalid --jobs operation '{}': length must be a nonnegative integer",
+                            "Invalid --jobs operation '{}': length must be an integer",
                             task_str
                         )
                     })?;

@@ -16,7 +16,7 @@ fn test_sat_to_circuitsat_closed_loop() {
             CNFClause::new(vec![-1, 2, -3]),
         ],
     );
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &result,
@@ -28,9 +28,9 @@ fn test_sat_to_circuitsat_closed_loop() {
 fn test_sat_to_circuitsat_unsatisfiable() {
     // Unsatisfiable: (x1) & (!x1)
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_target = solver.find_all_witnesses(result.target_problem());
+    let best_target = solver.find_all_witnesses(result.target_problem()).unwrap();
     assert!(
         best_target.is_empty(),
         "Unsatisfiable SAT -> CircuitSAT should have no solutions"
@@ -41,7 +41,7 @@ fn test_sat_to_circuitsat_unsatisfiable() {
 fn test_sat_to_circuitsat_single_clause() {
     // Single clause: (x1 v x2)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &result,
@@ -53,7 +53,7 @@ fn test_sat_to_circuitsat_single_clause() {
 fn test_sat_to_circuitsat_single_literal_clause() {
     // Single literal clause: (x1) & (x2)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &result,
@@ -71,7 +71,7 @@ fn test_sat_to_circuitsat_unused_variables() {
     // 5 variables but only x1 and x2 appear in clauses; x3..x5 are unused.
     // Previously panicked because unused variables were missing from CircuitSAT.
     let sat = Satisfiability::new(5, vec![CNFClause::new(vec![1, 2])]);
-    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&sat).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &sat,
         &result,

@@ -27,28 +27,28 @@ fn test_closest_string_creation() {
 fn test_closest_string_evaluate_at_optimum() {
     let problem = issue_instance();
     // c = 000: d(000,000)=0, d(000,011)=2, d(000,101)=2, d(000,110)=2.
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(Some(2)));
 }
 
 #[test]
 fn test_closest_string_evaluate_at_100() {
     let problem = issue_instance();
     // c = 100: d(100,000)=1, d(100,011)=3, d(100,101)=1, d(100,110)=1.
-    assert_eq!(problem.evaluate(&[1, 0, 0]), Min(Some(3)));
+    assert_eq!(problem.evaluate(&[1, 0, 0]).unwrap(), Min(Some(3)));
 }
 
 #[test]
 fn test_closest_string_evaluate_at_111() {
     let problem = issue_instance();
     // c = 111: d(111,000)=3, d(111,011)=1, d(111,101)=1, d(111,110)=1.
-    assert_eq!(problem.evaluate(&[1, 1, 1]), Min(Some(3)));
+    assert_eq!(problem.evaluate(&[1, 1, 1]).unwrap(), Min(Some(3)));
 }
 
 #[test]
 fn test_closest_string_evaluate_invalid_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -56,11 +56,12 @@ fn test_closest_string_bruteforce_finds_optimum() {
     let problem = issue_instance();
     let solver = BruteForce::new();
     // The minimum achievable radius over all 8 binary length-3 centers is 2.
-    assert_eq!(solver.solve(&problem), Min(Some(2)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(2)));
     let witness = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("expected a witness for ClosestString");
-    assert_eq!(problem.evaluate(&witness), Min(Some(2)));
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn test_closest_string_larger_alphabet_smoke() {
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.string_length(), 2);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem), Min(Some(2)));
+    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -103,5 +104,8 @@ fn test_closest_string_serialization() {
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
     assert_eq!(restored.dims(), problem.dims());
-    assert_eq!(restored.evaluate(&[0, 0, 0]), problem.evaluate(&[0, 0, 0]));
+    assert_eq!(
+        restored.evaluate(&[0, 0, 0]).unwrap(),
+        problem.evaluate(&[0, 0, 0]).unwrap()
+    );
 }

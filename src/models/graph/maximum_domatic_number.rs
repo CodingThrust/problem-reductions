@@ -48,8 +48,8 @@ inventory::submit! {
 /// let problem = MaximumDomaticNumber::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&witness);
+/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&witness).unwrap();
 /// // Domatic number of P3 is 2
 /// assert_eq!(value, problemreductions::types::Max(Some(2)));
 /// ```
@@ -136,7 +136,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumDomaticNumber";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -147,11 +147,17 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        match self.evaluate_partition(config) {
-            Some(k) => Max(Some(k)),
-            None => Max(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.evaluate_partition(config) {
+                Some(k) => Max(Some(i64::try_from(k).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting domatic number to i64".into(),
+                    )
+                })?)),
+                None => Max(None),
+            }
+        })
     }
 }
 

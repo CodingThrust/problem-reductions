@@ -9,6 +9,7 @@ use crate::models::set::RootedTreeStorageAssignment;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 // Index helpers
 
@@ -59,15 +60,15 @@ fn total_vars(n: usize, r: usize) -> usize {
 
 #[derive(Debug, Clone)]
 pub struct ReductionRTSAToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     n: usize,
 }
 
 impl ReductionResult for ReductionRTSAToILP {
     type Source = RootedTreeStorageAssignment;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -88,10 +89,10 @@ impl ReductionResult for ReductionRTSAToILP {
         num_constraints = "4 * universe_size^3 + 6 * universe_size^2 + 5 * universe_size + 2 + num_subsets * (2 * universe_size^3 + 5 * universe_size^2 + 8 * universe_size + 8)",
     }
 )]
-impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
+impl ReduceTo<ILP<i64>> for RootedTreeStorageAssignment {
     type Result = ReductionRTSAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.universe_size();
         let subsets = self.subsets();
         let bound = self.bound();
@@ -103,10 +104,10 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
         let r = nontrivial.len();
 
         if n == 0 {
-            return ReductionRTSAToILP {
+            return Ok(ReductionRTSAToILP {
                 target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
                 n,
-            };
+            });
         }
 
         let nv = total_vars(n, r);
@@ -400,11 +401,17 @@ impl ReduceTo<ILP<i32>> for RootedTreeStorageAssignment {
         // Total cost bound: Σ c_s <= K
         if r > 0 {
             let cost_terms: Vec<(usize, f64)> = (0..r).map(|s| (idx_c(n, r, s), 1.0)).collect();
-            constraints.push(LinearConstraint::le(cost_terms, bound as f64));
+            let bound = i64_to_exact_f64(bound).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    RootedTreeStorageAssignment,
+                    ILP<i64>,
+                >(error)
+            })?;
+            constraints.push(LinearConstraint::le(cost_terms, bound));
         }
 
         let target = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionRTSAToILP { target, n }
+        Ok(ReductionRTSAToILP { target, n })
     }
 }
 
@@ -415,7 +422,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "rootedtreestorageassignment_to_ilp",
         build: || {
             let source = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
-            let reduction: ReductionRTSAToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
+            let reduction: ReductionRTSAToILP =
+                ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
             let target_config = {
                 let ilp_solver = crate::solvers::ILPSolver::new();
                 ilp_solver
@@ -423,7 +431,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .expect("ILP should be solvable")
             };
             let source_config = reduction.extract_solution(&target_config).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config,

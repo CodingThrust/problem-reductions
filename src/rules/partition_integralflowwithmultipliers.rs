@@ -53,16 +53,16 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
     type Result = ReductionPartitionToIntegralFlowWithMultipliers;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let total_sum = self.total_sum();
         let source_n = self.num_elements();
 
-        if !total_sum.is_multiple_of(2) {
+        if total_sum % 2 != 0 {
             let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
-            return ReductionPartitionToIntegralFlowWithMultipliers {
+            return Ok(ReductionPartitionToIntegralFlowWithMultipliers {
                 target: IntegralFlowWithMultipliers::new(graph, 0, 2, vec![1, 2, 1], vec![1, 1], 1),
                 item_arc_count: None,
-            };
+            });
         }
 
         let half_sum = total_sum / 2;
@@ -91,7 +91,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
         multipliers[relay] = 1;
 
         let graph = DirectedGraph::new(source_n + 3, arcs);
-        ReductionPartitionToIntegralFlowWithMultipliers {
+        Ok(ReductionPartitionToIntegralFlowWithMultipliers {
             target: IntegralFlowWithMultipliers::new(
                 graph,
                 0,
@@ -101,7 +101,7 @@ impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
                 half_sum,
             ),
             item_arc_count: Some(source_n),
-        }
+        })
     }
 }
 
@@ -113,7 +113,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partition_to_integralflowwithmultipliers",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowWithMultipliers>(
-                Partition::new(vec![2, 3, 4, 5, 6, 4]),
+                Partition::new(vec![2, 3, 4, 5, 6, 4]).unwrap(),
                 SolutionPair {
                     source_config: vec![1, 0, 1, 0, 1, 0],
                     target_config: vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12],

@@ -47,7 +47,7 @@ impl ReductionResult for ReductionILPToQUBO {
 impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars;
 
         // All variables are binary by type — no runtime check needed.
@@ -167,10 +167,12 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
             }
         }
 
-        ReductionILPToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionILPToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<ILP<bool>, QUBO<f64>>(message)
+            })?,
             num_original_vars: n,
-        }
+        })
     }
 }
 

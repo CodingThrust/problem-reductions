@@ -1,4 +1,4 @@
-//! Reduction from PrecedenceConstrainedScheduling to ILP<bool>.
+//! Reduction from PrecedenceConstrainedScheduling to `ILP<bool>`.
 //!
 //! Uses a time-indexed binary formulation:
 //! - Variables: Binary x_{j,t} where x_{j,t} = 1 iff task j is scheduled at time slot t.
@@ -15,7 +15,7 @@ use crate::models::misc::PrecedenceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing PrecedenceConstrainedScheduling to ILP<bool>.
+/// Result of reducing PrecedenceConstrainedScheduling to `ILP<bool>`.
 ///
 /// Variable layout: x_{j,t} at index j * deadline + t
 /// for j in 0..num_tasks, t in 0..deadline.
@@ -62,10 +62,15 @@ impl ReductionResult for ReductionPCSToILP {
 impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
     type Result = ReductionPCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let m = self.num_processors();
-        let d = self.deadline();
+        let d = usize::try_from(self.deadline()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                PrecedenceConstrainedScheduling,
+                ILP<bool>,
+            >("validated deadline must fit usize")
+        })?;
         let num_vars = n * d;
 
         // x_{j,t} variable index
@@ -96,11 +101,11 @@ impl ReduceTo<ILP<bool>> for PrecedenceConstrainedScheduling {
             constraints.push(LinearConstraint::ge(terms, 1.0));
         }
 
-        ReductionPCSToILP {
+        Ok(ReductionPCSToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_tasks: n,
             deadline: d,
-        }
+        })
     }
 }
 

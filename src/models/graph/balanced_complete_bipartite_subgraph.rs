@@ -40,7 +40,7 @@ struct BalancedCompleteBipartiteSubgraphCreateSpec {
 }
 
 impl TryFrom<BalancedCompleteBipartiteSubgraphCreateSpec> for BalancedCompleteBipartiteSubgraph {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BalancedCompleteBipartiteSubgraphCreateSpec) -> Result<Self, Self::Error> {
         for (index, &(left, right)) in spec.biedges.iter().enumerate() {
@@ -48,13 +48,13 @@ impl TryFrom<BalancedCompleteBipartiteSubgraphCreateSpec> for BalancedCompleteBi
                 return Err(format!(
                     "biedges[{index}] left vertex {left} is out of bounds for left partition size {}",
                     spec.left
-                ));
+                ).into());
             }
             if right >= spec.right {
                 return Err(format!(
                     "biedges[{index}] right vertex {right} is out of bounds for right partition size {}",
                     spec.right
-                ));
+                ).into());
             }
         }
         Ok(Self::new(
@@ -131,8 +131,11 @@ impl BalancedCompleteBipartiteSubgraph {
         self.edge_lookup.contains(&(left, right))
     }
 
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 }
 
@@ -144,20 +147,25 @@ impl Problem for BalancedCompleteBipartiteSubgraph {
         vec![2; self.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
-                return crate::types::Or(false);
-            };
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
+                    return Ok(crate::types::Or(false));
+                };
 
-            if selected_left.len() != self.k || selected_right.len() != self.k {
-                return crate::types::Or(false);
-            }
+                if selected_left.len() != self.k || selected_right.len() != self.k {
+                    return Ok(crate::types::Or(false));
+                }
 
-            selected_left.iter().all(|&left| {
-                selected_right
-                    .iter()
-                    .all(|&right| self.has_selected_edge(left, right))
+                selected_left.iter().all(|&left| {
+                    selected_right
+                        .iter()
+                        .all(|&right| self.has_selected_edge(left, right))
+                })
             })
         })
     }

@@ -8,18 +8,16 @@ use crate::rules::unitdiskmapping::{
 #[test]
 fn test_trace_centers_returns_correct_count() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
-    let centers = trace_centers(&result);
+    let result = triangular::map_weighted(3, &edges).unwrap();
+    let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), 3);
 }
 
 #[test]
 fn test_trace_centers_positive_coordinates() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
-    let centers = trace_centers(&result);
+    let result = triangular::map_weighted(3, &edges).unwrap();
+    let centers = trace_centers(&result).unwrap();
     for (i, &(row, col)) in centers.iter().enumerate() {
         assert!(row > 0, "Vertex {} center row should be positive", i);
         assert!(col > 0, "Vertex {} center col should be positive", i);
@@ -29,9 +27,8 @@ fn test_trace_centers_positive_coordinates() {
 #[test]
 fn test_trace_centers_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = triangular::map_weighted(1, &edges);
-
-    let centers = trace_centers(&result);
+    let result = triangular::map_weighted(1, &edges).unwrap();
+    let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), 1);
 }
 
@@ -40,11 +37,10 @@ fn test_trace_centers_single_vertex() {
 #[test]
 fn test_map_weights_uniform() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     // Use uniform weights (all 0.5)
     let weights = vec![0.5, 0.5, 0.5];
-    let mapped = map_weights(&result, &weights);
+    let mapped = map_weights(&result, &weights).unwrap();
 
     // Mapped weights should be non-negative
     assert!(
@@ -59,10 +55,9 @@ fn test_map_weights_uniform() {
 #[test]
 fn test_map_weights_zero() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     let weights = vec![0.0, 0.0, 0.0];
-    let mapped = map_weights(&result, &weights);
+    let mapped = map_weights(&result, &weights).unwrap();
 
     // With zero weights, the mapped weights should be positive
     // (because of the overhead structure)
@@ -72,10 +67,9 @@ fn test_map_weights_zero() {
 #[test]
 fn test_map_weights_one() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     let weights = vec![1.0, 1.0, 1.0];
-    let mapped = map_weights(&result, &weights);
+    let mapped = map_weights(&result, &weights).unwrap();
 
     // All weights should be positive
     assert!(mapped.iter().all(|&w| w > 0.0));
@@ -98,33 +92,27 @@ fn test_map_weights_one() {
 }
 
 #[test]
-#[should_panic]
 fn test_map_weights_invalid_negative() {
     let edges = vec![(0, 1)];
-    let result = triangular::map_weighted(2, &edges);
-
+    let result = triangular::map_weighted(2, &edges).unwrap();
     let weights = vec![-0.5, 0.5];
-    let _ = map_weights(&result, &weights);
+    assert!(map_weights(&result, &weights).is_err());
 }
 
 #[test]
-#[should_panic]
 fn test_map_weights_invalid_over_one() {
     let edges = vec![(0, 1)];
-    let result = triangular::map_weighted(2, &edges);
-
+    let result = triangular::map_weighted(2, &edges).unwrap();
     let weights = vec![1.5, 0.5];
-    let _ = map_weights(&result, &weights);
+    assert!(map_weights(&result, &weights).is_err());
 }
 
 #[test]
-#[should_panic]
 fn test_map_weights_wrong_length() {
     let edges = vec![(0, 1)];
-    let result = triangular::map_weighted(2, &edges);
-
+    let result = triangular::map_weighted(2, &edges).unwrap();
     let weights = vec![0.5]; // Wrong length
-    let _ = map_weights(&result, &weights);
+    assert!(map_weights(&result, &weights).is_err());
 }
 
 // === Weighted Interface Tests ===
@@ -134,11 +122,10 @@ fn test_triangular_weighted_interface() {
     use crate::topology::smallgraph;
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     // Test with uniform weights
     let ws = vec![0.5; n];
-    let grid_weights = map_weights(&result, &ws);
+    let grid_weights = map_weights(&result, &ws).unwrap();
 
     // Should produce valid weights for all grid nodes
     assert_eq!(grid_weights.len(), result.positions.len());
@@ -150,22 +137,21 @@ fn test_triangular_interface_full() {
     use crate::topology::smallgraph;
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     // Uniform weights in [0, 1]
     let ws = vec![0.3; n];
-    let grid_weights = map_weights(&result, &ws);
+    let grid_weights = map_weights(&result, &ws).unwrap();
 
     assert_eq!(grid_weights.len(), result.positions.len());
     assert!(grid_weights.iter().all(|&w| w >= 0.0));
 
     // Test map_config_back
     let config = vec![0; result.positions.len()];
-    let original_config = result.map_config_back(&config);
+    let original_config = result.map_config_back(&config).unwrap();
     assert_eq!(original_config.len(), n);
 
     // Verify trace_centers
-    let centers = trace_centers(&result);
+    let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), n);
 }
 
@@ -210,49 +196,6 @@ fn test_triangular_copyline_weight_invariant() {
     }
 }
 
-// === Weighted MIS Weight Sum Invariant Tests ===
-
-#[test]
-fn test_weighted_gadgets_weight_conservation() {
-    // For each weighted gadget, verify weight sums are consistent with MIS properties
-    let ruleset = triangular::weighted_ruleset();
-    for gadget in &ruleset {
-        let source_sum: i32 = gadget.source_weights().iter().sum();
-        let mapped_sum: i32 = gadget.mapped_weights().iter().sum();
-        let overhead = gadget.mis_overhead();
-
-        // Both sums should be positive (all gadgets have at least some nodes)
-        assert!(
-            source_sum > 0 && mapped_sum > 0,
-            "Both sums should be positive"
-        );
-
-        // MIS overhead can be negative for gadgets that reduce MIS
-        // The key invariant is: mapped_MIS = source_MIS + overhead
-        // So overhead = mapped_MIS - source_MIS (can be positive, zero, or negative)
-        assert!(
-            overhead.abs() <= source_sum.max(mapped_sum),
-            "Overhead magnitude {} should be bounded by max sum {}",
-            overhead.abs(),
-            source_sum.max(mapped_sum)
-        );
-    }
-}
-
-#[test]
-fn test_weighted_gadgets_positive_weights() {
-    // All individual weights should be positive
-    let ruleset = triangular::weighted_ruleset();
-    for gadget in &ruleset {
-        for &w in gadget.source_weights() {
-            assert!(w > 0, "Source weights should be positive, got {}", w);
-        }
-        for &w in gadget.mapped_weights() {
-            assert!(w > 0, "Mapped weights should be positive, got {}", w);
-        }
-    }
-}
-
 // === Solution Extraction Integration Tests ===
 
 #[test]
@@ -260,12 +203,10 @@ fn test_map_config_back_extracts_valid_is_triangular() {
     use crate::topology::smallgraph;
 
     let (n, edges) = smallgraph("bull").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     // Get all zeros config
     let config = vec![0; result.positions.len()];
-    let extracted = result.map_config_back(&config);
-
+    let extracted = triangular::map_config_back(&result, &config).unwrap();
     // All zeros should extract to all zeros
     assert_eq!(extracted.len(), n);
     assert!(extracted.iter().all(|&x| x == 0));
@@ -275,10 +216,9 @@ fn test_map_config_back_extracts_valid_is_triangular() {
 fn test_map_weights_preserves_total_weight() {
     // map_weights should add original weights to base weights
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = triangular::map_weighted(3, &edges);
-
+    let result = triangular::map_weighted(3, &edges).unwrap();
     let original_weights = vec![0.5, 0.3, 0.7];
-    let mapped = map_weights(&result, &original_weights);
+    let mapped = map_weights(&result, &original_weights).unwrap();
 
     // Sum of mapped weights should be base_sum + original_sum
     let base_sum: f64 = result.node_weights.iter().map(|&w| w as f64).sum();
@@ -301,10 +241,9 @@ fn test_trace_centers_consistency_with_config_back() {
     use crate::topology::smallgraph;
 
     let (n, edges) = smallgraph("diamond").unwrap();
-    let result = triangular::map_weighted(n, &edges);
-
+    let result = triangular::map_weighted(n, &edges).unwrap();
     // Get centers
-    let centers = trace_centers(&result);
+    let centers = trace_centers(&result).unwrap();
     assert_eq!(centers.len(), n);
 
     // Each center should be within grid bounds
@@ -687,13 +626,12 @@ fn test_weighted_map_config_back_standard_graphs() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = triangular::map_weighted(n, &edges);
-
+        let result = triangular::map_weighted(n, &edges).unwrap();
         // Follow Julia's approach: source weights of 0.2 for each vertex
         let source_weights: Vec<f64> = vec![0.2; n];
 
         // map_weights adds source weights at center locations (like Julia)
-        let mapped_weights = map_weights(&result, &source_weights);
+        let mapped_weights = map_weights(&result, &source_weights).unwrap();
 
         // Solve weighted MIS with ILP
         let grid_edges = result.edges();
@@ -715,7 +653,7 @@ fn test_weighted_map_config_back_standard_graphs() {
         let grid_config: Vec<usize> = solver
             .solve(&ilp)
             .map(|sol| sol.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect())
-            .unwrap_or_else(|_| vec![0; num_grid]);
+            .expect("weighted mapping test solver must return a solution");
 
         // Use triangular-specific trace_centers (not the KSG version)
         // Build position to node index map
@@ -728,7 +666,7 @@ fn test_weighted_map_config_back_standard_graphs() {
         }
 
         // Get traced center locations using triangular-specific trace_centers
-        let centers = trace_centers(&result);
+        let centers = trace_centers(&result).unwrap();
 
         // Extract config at centers
         let center_config: Vec<usize> = centers
@@ -737,7 +675,7 @@ fn test_weighted_map_config_back_standard_graphs() {
                 pos_to_idx
                     .get(&(row, col))
                     .and_then(|&idx| grid_config.get(idx).copied())
-                    .unwrap_or(0)
+                    .expect("every traced center must identify a mapped vertex")
             })
             .collect();
 

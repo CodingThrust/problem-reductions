@@ -60,33 +60,56 @@ fn test_sequencing_to_minimize_weighted_tardiness_basic() {
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_total_weighted_tardiness() {
     let problem = issue_example_yes();
-    assert_eq!(problem.total_weighted_tardiness(&[0, 0, 2, 1, 0]), Some(13));
+    assert_eq!(
+        problem.total_weighted_tardiness(&[0, 0, 2, 1, 0]).unwrap(),
+        Some(13)
+    );
+}
+
+#[test]
+fn test_sequencing_to_minimize_weighted_tardiness_reports_overflow() {
+    let problem = SequencingToMinimizeWeightedTardiness::new(
+        vec![i64::MAX, 1],
+        vec![1, 1],
+        vec![0, 0],
+        i64::MAX,
+    );
+    assert!(matches!(
+        problem.evaluate(&[0, 0]),
+        Err(crate::traits::EvaluationError::IntegerOverflow(_))
+    ));
 }
 
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_evaluate_yes() {
     let problem = issue_example_yes();
-    assert!(problem.evaluate(&[0, 0, 2, 1, 0]));
+    assert!(problem.evaluate(&[0, 0, 2, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_evaluate_no_with_tighter_bound() {
     let problem = issue_example_no();
-    assert!(!problem.evaluate(&[0, 0, 2, 1, 0]));
+    assert!(!problem.evaluate(&[0, 0, 2, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_invalid_lehmer_digit() {
     let problem = issue_example_yes();
-    assert_eq!(problem.total_weighted_tardiness(&[0, 0, 3, 0, 0]), None);
-    assert!(!problem.evaluate(&[0, 0, 3, 0, 0]));
+    assert_eq!(
+        problem.total_weighted_tardiness(&[0, 0, 3, 0, 0]).unwrap(),
+        None
+    );
+    assert!(!problem.evaluate(&[0, 0, 3, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_wrong_length() {
     let problem = issue_example_yes();
-    assert_eq!(problem.total_weighted_tardiness(&[0, 0, 2, 1]), None);
-    assert!(!problem.evaluate(&[0, 0, 2, 1]));
+    assert_eq!(
+        problem.total_weighted_tardiness(&[0, 0, 2, 1]).unwrap(),
+        None
+    );
+    assert!(!problem.evaluate(&[0, 0, 2, 1]).unwrap());
 }
 
 #[test]
@@ -95,17 +118,24 @@ fn test_sequencing_to_minimize_weighted_tardiness_solver_yes() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a schedule");
-    assert!(problem.evaluate(&solution));
-    assert!(problem.total_weighted_tardiness(&solution).unwrap() <= problem.bound());
+    assert!(problem.evaluate(&solution).unwrap());
+    assert!(
+        problem
+            .total_weighted_tardiness(&solution)
+            .unwrap()
+            .unwrap()
+            <= problem.bound()
+    );
 }
 
 #[test]
 fn test_sequencing_to_minimize_weighted_tardiness_solver_no() {
     let problem = issue_example_no();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
-    assert!(solver.find_all_witnesses(&problem).is_empty());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
 #[test]
@@ -115,13 +145,13 @@ fn test_sequencing_to_minimize_weighted_tardiness_paper_example() {
     let solver = BruteForce::new();
     let config = vec![0, 0, 2, 1, 0];
 
-    assert_eq!(yes.total_weighted_tardiness(&config), Some(13));
-    assert!(yes.evaluate(&config));
-    assert!(!no.evaluate(&config));
+    assert_eq!(yes.total_weighted_tardiness(&config).unwrap(), Some(13));
+    assert!(yes.evaluate(&config).unwrap());
+    assert!(!no.evaluate(&config).unwrap());
 
-    let satisfying = solver.find_all_witnesses(&yes);
+    let satisfying = solver.find_all_witnesses(&yes).unwrap();
     assert_eq!(satisfying, vec![config]);
-    assert!(solver.find_all_witnesses(&no).is_empty());
+    assert!(solver.find_all_witnesses(&no).unwrap().is_empty());
 }
 
 #[test]

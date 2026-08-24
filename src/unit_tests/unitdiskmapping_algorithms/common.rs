@@ -3,8 +3,9 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::solvers::ILPSolver;
+use crate::types::i64_to_exact_f64;
 
-fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> ILP<bool> {
+fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64]) -> ILP<bool> {
     let constraints: Vec<LinearConstraint> = edges
         .iter()
         .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
@@ -13,7 +14,12 @@ fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32])
     let objective: Vec<(usize, f64)> = weights
         .iter()
         .enumerate()
-        .map(|(i, &w)| (i, w as f64))
+        .map(|(i, &w)| {
+            (
+                i,
+                i64_to_exact_f64(w).expect("test MIS weight must be exactly representable as f64"),
+            )
+        })
         .collect();
 
     ILP::<bool>::new(
@@ -27,7 +33,7 @@ fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32])
 /// Check if a configuration is a valid independent set.
 pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
     for &(u, v) in edges {
-        if config.get(u).copied().unwrap_or(0) > 0 && config.get(v).copied().unwrap_or(0) > 0 {
+        if config[u] > 0 && config[v] > 0 {
             return false;
         }
     }
@@ -40,11 +46,12 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
     let weights = vec![1; num_vertices];
     let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Ok(solution) = solver.solve(&ilp) {
-        solution.iter().filter(|&&x| x > 0).count()
-    } else {
-        0
-    }
+    solver
+        .solve(&ilp)
+        .expect("test MIS solver must return a solution")
+        .iter()
+        .filter(|&&x| x > 0)
+        .count()
 }
 
 /// Solve MIS and return the binary configuration.
@@ -52,14 +59,12 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
     let weights = vec![1; num_vertices];
     let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Ok(solution) = solver.solve(&ilp) {
-        solution
-            .iter()
-            .map(|&x| if x > 0 { 1 } else { 0 })
-            .collect()
-    } else {
-        vec![0; num_vertices]
-    }
+    solver
+        .solve(&ilp)
+        .expect("test MIS solver must return a solution")
+        .iter()
+        .map(|&x| if x > 0 { 1 } else { 0 })
+        .collect()
 }
 
 /// Solve MIS on a Grid using ILPSolver (unweighted).
@@ -76,27 +81,28 @@ pub fn solve_weighted_grid_mis(result: &MappingResult) -> usize {
     let edges = result.edges();
     let num_vertices = result.positions.len();
 
-    let weights: Vec<i32> = (0..num_vertices)
-        .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
-        .collect();
+    assert_eq!(result.node_weights.len(), num_vertices);
 
-    solve_weighted_mis(num_vertices, &edges, &weights) as usize
+    usize::try_from(solve_weighted_mis(
+        num_vertices,
+        &edges,
+        &result.node_weights,
+    ))
+    .expect("test weighted MIS value must fit in usize")
 }
 
 /// Solve weighted MIS on a graph using ILP.
 /// Returns the maximum weighted independent set value.
-pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> i32 {
+pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64]) -> i64 {
     let ilp = build_mis_ilp(num_vertices, edges, weights);
     let solver = ILPSolver::new();
-    if let Ok(solution) = solver.solve(&ilp) {
-        solution
-            .iter()
-            .zip(weights.iter())
-            .map(|(&x, &w)| if x > 0 { w } else { 0 })
-            .sum()
-    } else {
-        0
-    }
+    solver
+        .solve(&ilp)
+        .expect("test weighted MIS solver must return a solution")
+        .iter()
+        .zip(weights.iter())
+        .map(|(&x, &w)| if x > 0 { w } else { 0 })
+        .sum()
 }
 
 /// Solve weighted MIS and return the binary configuration.
@@ -104,19 +110,17 @@ pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights
 pub fn solve_weighted_mis_config(
     num_vertices: usize,
     edges: &[(usize, usize)],
-    weights: &[i32],
+    weights: &[i64],
 ) -> Vec<usize> {
     let ilp = build_mis_ilp(num_vertices, edges, weights);
 
     let solver = ILPSolver::new();
-    if let Ok(solution) = solver.solve(&ilp) {
-        solution
-            .iter()
-            .map(|&x| if x > 0 { 1 } else { 0 })
-            .collect()
-    } else {
-        vec![0; num_vertices]
-    }
+    solver
+        .solve(&ilp)
+        .expect("test weighted MIS solver must return a solution")
+        .iter()
+        .map(|&x| if x > 0 { 1 } else { 0 })
+        .collect()
 }
 
 /// Generate edges for triangular lattice using proper triangular coordinates.
@@ -138,6 +142,19 @@ pub fn triangular_edges(locs: &[(usize, usize)], radius: f64) -> Vec<(usize, usi
                 if dist <= radius {
                     edges.push((i, j));
                 }
+            }
+        }
+    }
+    edges
+}
+
+/// Generate edges for the King's-subgraph topology.
+pub fn ksg_edges(locations: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let mut edges = Vec::new();
+    for (left, &(left_row, left_column)) in locations.iter().enumerate() {
+        for (right, &(right_row, right_column)) in locations.iter().enumerate().skip(left + 1) {
+            if left_row.abs_diff(right_row) <= 1 && left_column.abs_diff(right_column) <= 1 {
+                edges.push((left, right));
             }
         }
     }

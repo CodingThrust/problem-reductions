@@ -44,13 +44,13 @@
     edge(<ksg>, <udg>, "->"),
     edge(<tri>, <udg>, "->"),
 
-    // Weight hierarchy (chain: One → i32 → f64)
+    // Weight hierarchy (chain: One → i64 → f64)
     node((3.2, 0), [f64], fill: weight-fill, corner-radius: 5pt, inset: 6pt, name: <w-f64>),
-    node((3.2, 1), [i32], fill: weight-fill, corner-radius: 5pt, inset: 6pt, name: <w-i32>),
+    node((3.2, 1), [i64], fill: weight-fill, corner-radius: 5pt, inset: 6pt, name: <w-i64>),
     node((3.2, 2), [One], fill: weight-fill, corner-radius: 5pt, inset: 6pt, name: <w-one>),
 
-    edge(<w-one>, <w-i32>, "->"),
-    edge(<w-i32>, <w-f64>, "->"),
+    edge(<w-one>, <w-i64>, "->"),
+    edge(<w-i64>, <w-f64>, "->"),
 
     // K value hierarchy (flat star)
     node((5, 0), [KN], fill: k-fill, corner-radius: 5pt, inset: 6pt, name: <kn>),

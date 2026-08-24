@@ -1,40 +1,87 @@
 use super::*;
+use crate::traits::EvaluationError;
 use crate::types::Aggregate;
 
 #[test]
 fn test_max_identity_and_combine() {
-    assert_eq!(Max::<i32>::identity(), Max(None));
-    assert_eq!(Max(Some(7)).combine(Max(Some(3))), Max(Some(7)));
-    assert_eq!(Max(Some(3)).combine(Max(Some(7))), Max(Some(7)));
-    assert_eq!(Max::<i32>::identity().combine(Max(Some(5))), Max(Some(5)));
+    assert_eq!(Max::<i64>::identity(), Max(None));
+    assert_eq!(Max(Some(7)).combine(Max(Some(3))).unwrap(), Max(Some(7)));
+    assert_eq!(Max(Some(3)).combine(Max(Some(7))).unwrap(), Max(Some(7)));
+    assert_eq!(
+        Max::<i64>::identity().combine(Max(Some(5))).unwrap(),
+        Max(Some(5))
+    );
 }
 
 #[test]
 fn test_min_identity_and_combine() {
-    assert_eq!(Min::<i32>::identity(), Min(None));
-    assert_eq!(Min(Some(3)).combine(Min(Some(7))), Min(Some(3)));
-    assert_eq!(Min(Some(7)).combine(Min(Some(3))), Min(Some(3)));
-    assert_eq!(Min::<i32>::identity().combine(Min(Some(5))), Min(Some(5)));
+    assert_eq!(Min::<i64>::identity(), Min(None));
+    assert_eq!(Min(Some(3)).combine(Min(Some(7))).unwrap(), Min(Some(3)));
+    assert_eq!(Min(Some(7)).combine(Min(Some(3))).unwrap(), Min(Some(3)));
+    assert_eq!(
+        Min::<i64>::identity().combine(Min(Some(5))).unwrap(),
+        Min(Some(5))
+    );
+}
+
+#[test]
+fn test_max_and_min_report_unordered_comparisons() {
+    assert_eq!(
+        Max(Some(f64::NAN)).combine(Max(Some(1.0))),
+        Err(AggregationError::UnorderedComparison)
+    );
+    assert_eq!(
+        Min(Some(1.0)).combine(Min(Some(f64::NAN))),
+        Err(AggregationError::UnorderedComparison)
+    );
 }
 
 #[test]
 fn test_sum_identity_and_combine() {
     assert_eq!(Sum::<u64>::identity(), Sum(0));
-    assert_eq!(Sum(4_u64).combine(Sum(3_u64)), Sum(7));
+    assert_eq!(Sum(4_u64).combine(Sum(3_u64)).unwrap(), Sum(7));
+}
+
+#[test]
+fn test_sum_combine_reports_overflow() {
+    assert_eq!(
+        Sum(u64::MAX).combine(Sum(1)),
+        Err(AggregationError::ArithmeticOverflow)
+    );
+}
+
+#[test]
+fn test_weight_multiplication_reports_integer_overflow() {
+    assert!(matches!(
+        <i64 as WeightElement>::checked_mul_sum(i64::MAX, 2, "test multiplication"),
+        Err(EvaluationError::IntegerOverflow(_))
+    ));
+}
+
+#[test]
+fn test_weight_multiplication_reports_non_finite_float() {
+    assert!(matches!(
+        <f64 as WeightElement>::checked_mul_sum(f64::MAX, 2.0, "test multiplication"),
+        Err(EvaluationError::NonFiniteResult(_))
+    ));
 }
 
 #[test]
 fn test_or_identity_and_combine() {
     assert_eq!(Or::identity(), Or(false));
-    assert_eq!(Or(false).combine(Or(true)), Or(true));
-    assert_eq!(Or(false).combine(Or(false)), Or(false));
+    assert_eq!(Or(false).combine(Or(true)).unwrap(), Or(true));
+    assert_eq!(Or(false).combine(Or(false)).unwrap(), Or(false));
+    assert!(!Or(false).is_absorbing());
+    assert!(Or(true).is_absorbing());
 }
 
 #[test]
 fn test_and_identity_and_combine() {
     assert_eq!(And::identity(), And(true));
-    assert_eq!(And(true).combine(And(false)), And(false));
-    assert_eq!(And(true).combine(And(true)), And(true));
+    assert_eq!(And(true).combine(And(false)).unwrap(), And(false));
+    assert_eq!(And(true).combine(And(true)).unwrap(), And(true));
+    assert!(!And(true).is_absorbing());
+    assert!(And(false).is_absorbing());
 }
 
 #[test]
@@ -51,7 +98,7 @@ fn test_and_witness_defaults() {
 
 #[test]
 fn test_max_witness_hooks() {
-    assert!(Max::<i32>::supports_witnesses());
+    assert!(Max::<i64>::supports_witnesses());
     assert!(Max::contributes_to_witnesses(&Max(Some(7)), &Max(Some(7))));
     assert!(!Max::contributes_to_witnesses(&Max(Some(3)), &Max(Some(7))));
     assert!(!Max::contributes_to_witnesses(&Max(None), &Max(Some(7))));
@@ -59,7 +106,7 @@ fn test_max_witness_hooks() {
 
 #[test]
 fn test_min_witness_hooks() {
-    assert!(Min::<i32>::supports_witnesses());
+    assert!(Min::<i64>::supports_witnesses());
     assert!(Min::contributes_to_witnesses(&Min(Some(3)), &Min(Some(3))));
     assert!(!Min::contributes_to_witnesses(&Min(Some(7)), &Min(Some(3))));
     assert!(!Min::contributes_to_witnesses(&Min(None), &Min(Some(3))));
@@ -83,7 +130,7 @@ fn test_max_helpers() {
 
 #[test]
 fn test_max_invalid() {
-    let size = Max::<i32>(None);
+    let size = Max::<i64>(None);
     assert!(!size.is_valid());
     assert_eq!(size.size(), None);
 }
@@ -91,7 +138,7 @@ fn test_max_invalid() {
 #[test]
 #[should_panic(expected = "called unwrap on invalid Max value")]
 fn test_max_unwrap_panics() {
-    let invalid = Max::<i32>(None);
+    let invalid = Max::<i64>(None);
     invalid.unwrap();
 }
 
@@ -106,7 +153,7 @@ fn test_min_helpers() {
 #[test]
 #[should_panic(expected = "called unwrap on invalid Min value")]
 fn test_min_unwrap_panics() {
-    let invalid = Min::<i32>(None);
+    let invalid = Min::<i64>(None);
     invalid.unwrap();
 }
 
@@ -122,9 +169,21 @@ fn test_extremum_helpers() {
     assert_eq!(min.size(), Some(&5));
     assert_eq!(min.sense, ExtremumSense::Minimize);
 
-    let invalid = Extremum::<i32>::minimize(None);
+    let invalid = Extremum::<i64>::minimize(None);
     assert!(!invalid.is_valid());
     assert_eq!(invalid.size(), None);
+}
+
+#[test]
+fn test_extremum_reports_invalid_combinations() {
+    assert_eq!(
+        Extremum::maximize(Some(f64::NAN)).combine(Extremum::maximize(Some(1.0))),
+        Err(AggregationError::UnorderedComparison)
+    );
+    assert_eq!(
+        Extremum::maximize(Some(1)).combine(Extremum::minimize(Some(1))),
+        Err(AggregationError::IncompatibleExtremumSense)
+    );
 }
 
 #[test]
@@ -142,9 +201,7 @@ fn test_one() {
     // Test PartialEq
     assert_eq!(One, One);
 
-    // Test From<i32>
-    let from_int: One = One::from(42);
-    assert_eq!(from_int, One);
+    assert_eq!(One::unit(), One);
 }
 
 #[test]
@@ -179,7 +236,7 @@ fn test_problem_size_display() {
 #[test]
 fn test_numeric_size_blanket_impl() {
     fn assert_numeric_size<T: NumericSize>() {}
-    assert_numeric_size::<i32>();
+    assert_numeric_size::<i64>();
     assert_numeric_size::<i64>();
     assert_numeric_size::<f64>();
 }
@@ -195,14 +252,14 @@ fn test_weight_element_one() {
 }
 
 #[test]
-fn test_weight_element_i32() {
-    let w: i32 = 42;
+fn test_weight_element_i64() {
+    let w: i64 = 42;
     assert_eq!(w.to_sum(), 42);
 
-    let zero: i32 = 0;
+    let zero: i64 = 0;
     assert_eq!(zero.to_sum(), 0);
 
-    let neg: i32 = -5;
+    let neg: i64 = -5;
     assert_eq!(neg.to_sum(), -5);
 }
 
@@ -221,34 +278,46 @@ fn test_weight_element_f64() {
 #[test]
 fn test_extremum_aggregate_identity_and_combine() {
     // identity is Maximize(None)
-    let id = Extremum::<i32>::identity();
+    let id = Extremum::<i64>::identity();
     assert_eq!(id.sense, ExtremumSense::Maximize);
     assert_eq!(id.value, None);
 
     // None + Some => Some (takes rhs sense)
-    let combined = Extremum::<i32>::identity().combine(Extremum::maximize(Some(5)));
+    let combined = Extremum::<i64>::identity()
+        .combine(Extremum::maximize(Some(5)))
+        .unwrap();
     assert_eq!(combined, Extremum::maximize(Some(5)));
 
     // Some + None => Some (keeps lhs sense)
-    let combined = Extremum::minimize(Some(3)).combine(Extremum::<i32>::identity());
+    let combined = Extremum::minimize(Some(3))
+        .combine(Extremum::<i64>::identity())
+        .unwrap();
     assert_eq!(combined, Extremum::minimize(Some(3)));
 
     // Maximize: keeps the larger
-    let combined = Extremum::maximize(Some(3)).combine(Extremum::maximize(Some(7)));
+    let combined = Extremum::maximize(Some(3))
+        .combine(Extremum::maximize(Some(7)))
+        .unwrap();
     assert_eq!(combined, Extremum::maximize(Some(7)));
-    let combined = Extremum::maximize(Some(7)).combine(Extremum::maximize(Some(3)));
+    let combined = Extremum::maximize(Some(7))
+        .combine(Extremum::maximize(Some(3)))
+        .unwrap();
     assert_eq!(combined, Extremum::maximize(Some(7)));
 
     // Minimize: keeps the smaller
-    let combined = Extremum::minimize(Some(3)).combine(Extremum::minimize(Some(7)));
+    let combined = Extremum::minimize(Some(3))
+        .combine(Extremum::minimize(Some(7)))
+        .unwrap();
     assert_eq!(combined, Extremum::minimize(Some(3)));
-    let combined = Extremum::minimize(Some(7)).combine(Extremum::minimize(Some(3)));
+    let combined = Extremum::minimize(Some(7))
+        .combine(Extremum::minimize(Some(3)))
+        .unwrap();
     assert_eq!(combined, Extremum::minimize(Some(3)));
 }
 
 #[test]
 fn test_extremum_witness_hooks() {
-    assert!(Extremum::<i32>::supports_witnesses());
+    assert!(Extremum::<i64>::supports_witnesses());
 
     // Matching value and sense -> contributes
     assert!(Extremum::contributes_to_witnesses(
@@ -264,7 +333,7 @@ fn test_extremum_witness_hooks() {
 
     // None config -> does not contribute
     assert!(!Extremum::contributes_to_witnesses(
-        &Extremum::<i32>::maximize(None),
+        &Extremum::<i64>::maximize(None),
         &Extremum::maximize(Some(10)),
     ));
 }
@@ -272,27 +341,27 @@ fn test_extremum_witness_hooks() {
 #[test]
 fn test_extremum_display() {
     assert_eq!(format!("{}", Extremum::maximize(Some(42))), "Max(42)");
-    assert_eq!(format!("{}", Extremum::<i32>::maximize(None)), "Max(None)");
+    assert_eq!(format!("{}", Extremum::<i64>::maximize(None)), "Max(None)");
     assert_eq!(format!("{}", Extremum::minimize(Some(7))), "Min(7)");
-    assert_eq!(format!("{}", Extremum::<i32>::minimize(None)), "Min(None)");
+    assert_eq!(format!("{}", Extremum::<i64>::minimize(None)), "Min(None)");
 }
 
 #[test]
 #[should_panic(expected = "called unwrap on invalid Extremum value")]
 fn test_extremum_unwrap_panics() {
-    Extremum::<i32>::minimize(None).unwrap();
+    Extremum::<i64>::minimize(None).unwrap();
 }
 
 #[test]
 fn test_max_display() {
     assert_eq!(format!("{}", Max(Some(42))), "Max(42)");
-    assert_eq!(format!("{}", Max::<i32>(None)), "Max(None)");
+    assert_eq!(format!("{}", Max::<i64>(None)), "Max(None)");
 }
 
 #[test]
 fn test_min_display() {
     assert_eq!(format!("{}", Min(Some(7))), "Min(7)");
-    assert_eq!(format!("{}", Min::<i32>(None)), "Min(None)");
+    assert_eq!(format!("{}", Min::<i64>(None)), "Min(None)");
 }
 
 #[test]
@@ -310,4 +379,32 @@ fn test_or_display() {
 fn test_and_display() {
     assert_eq!(format!("{}", And(true)), "And(true)");
     assert_eq!(format!("{}", And(false)), "And(false)");
+}
+
+#[test]
+fn exact_i64_to_f64_accepts_range_endpoints() {
+    assert_eq!(
+        i64_to_exact_f64(MAX_EXACT_F64_INTEGER),
+        Ok(MAX_EXACT_F64_INTEGER as f64)
+    );
+    assert_eq!(
+        i64_to_exact_f64(-MAX_EXACT_F64_INTEGER),
+        Ok(-(MAX_EXACT_F64_INTEGER as f64))
+    );
+}
+
+#[test]
+fn exact_i64_to_f64_rejects_adjacent_integers() {
+    assert_eq!(
+        i64_to_exact_f64(MAX_EXACT_F64_INTEGER + 1),
+        Err(ExactI64ToF64Error {
+            value: MAX_EXACT_F64_INTEGER + 1,
+        })
+    );
+    assert_eq!(
+        i64_to_exact_f64(-MAX_EXACT_F64_INTEGER - 1),
+        Err(ExactI64ToF64Error {
+            value: -MAX_EXACT_F64_INTEGER - 1,
+        })
+    );
 }

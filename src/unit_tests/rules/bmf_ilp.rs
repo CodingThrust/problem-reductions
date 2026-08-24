@@ -7,7 +7,8 @@ use crate::rules::{ReduceTo, ReductionResult};
 fn test_bmf_to_ilp_structure() {
     // 2x2 identity matrix, rank 1
     let problem = BMF::new(vec![vec![true, false], vec![false, true]], 1);
-    let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionBMFToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // b: 2*1=2, c: 1*2=2, p: 2*1*2=4, w: 2*2=4 => 12 (no error variables)
     assert_eq!(ilp.num_vars, 12);
@@ -19,7 +20,8 @@ fn test_bmf_to_ilp_closed_loop() {
     // 2x2 identity, rank 2 — exact factorization exists.
     // Use ILP solver on target (fast) + brute force on source (tiny 2x2).
     let problem = BMF::new(vec![vec![true, false], vec![false, true]], 2);
-    let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionBMFToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -27,7 +29,8 @@ fn test_bmf_to_ilp_closed_loop() {
 fn test_bmf_to_ilp_bf_vs_ilp() {
     // All-ones 2x2 has an exact rank-1 factorization (boolean rank 1).
     let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
-    let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionBMFToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -35,7 +38,8 @@ fn test_bmf_to_ilp_bf_vs_ilp() {
 fn test_bmf_to_ilp_trivial() {
     // 1x1 matrix, rank 1
     let problem = BMF::new(vec![vec![true]], 1);
-    let reduction: ReductionBMFToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionBMFToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // b: 1, c: 1, p: 1, w: 1 => 4 (no error variables)
     assert_eq!(ilp.num_vars, 4);

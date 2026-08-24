@@ -86,16 +86,16 @@ fn test_cdft_dims_repeat_attribute_domains_for_each_object() {
 #[test]
 fn test_cdft_evaluate_issue_witness() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&issue_yes_witness()));
+    assert!(problem.evaluate(&issue_yes_witness()).unwrap());
 }
 
 #[test]
 fn test_cdft_evaluate_rejects_wrong_length() {
     let problem = issue_yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
     let mut too_long = issue_yes_witness();
     too_long.push(0);
-    assert!(!problem.evaluate(&too_long));
+    assert!(!problem.evaluate(&too_long).unwrap());
 }
 
 #[test]
@@ -103,7 +103,7 @@ fn test_cdft_evaluate_rejects_out_of_range_value() {
     let problem = issue_yes_instance();
     let mut bad = issue_yes_witness();
     bad[1] = 3;
-    assert!(!problem.evaluate(&bad));
+    assert!(!problem.evaluate(&bad).unwrap());
 }
 
 #[test]
@@ -111,7 +111,7 @@ fn test_cdft_evaluate_rejects_known_value_violation() {
     let problem = issue_yes_instance();
     let mut bad = issue_yes_witness();
     bad[0] = 1;
-    assert!(!problem.evaluate(&bad));
+    assert!(!problem.evaluate(&bad).unwrap());
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn test_cdft_evaluate_rejects_frequency_table_mismatch() {
     let problem = issue_yes_instance();
     let mut bad = issue_yes_witness();
     bad[17] = 1;
-    assert!(!problem.evaluate(&bad));
+    assert!(!problem.evaluate(&bad).unwrap());
 }
 
 #[test]
@@ -128,15 +128,16 @@ fn test_cdft_bruteforce_finds_small_satisfying_assignment() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("small instance should be satisfiable");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_cdft_bruteforce_detects_small_unsat_instance() {
     let problem = small_no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -148,13 +149,13 @@ fn test_cdft_serialization_round_trip() {
     assert_eq!(restored.attribute_domains(), problem.attribute_domains());
     assert_eq!(restored.frequency_tables(), problem.frequency_tables());
     assert_eq!(restored.known_values(), problem.known_values());
-    assert!(restored.evaluate(&issue_yes_witness()));
+    assert!(restored.evaluate(&issue_yes_witness()).unwrap());
 }
 
 #[test]
 fn test_cdft_paper_example_matches_issue_witness() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&issue_yes_witness()));
+    assert!(problem.evaluate(&issue_yes_witness()).unwrap());
 }
 
 #[test]

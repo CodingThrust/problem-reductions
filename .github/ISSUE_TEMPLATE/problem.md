@@ -50,6 +50,16 @@ Connect fields to the symbols defined above.
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
 | <!-- e.g. weights --> | <!-- e.g. list of W --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
+### Numeric domains and failures
+
+<!--
+At model/result/I/O boundaries use usize for structural integers, i64 for
+mathematical integers, bool for Boolean data, and finite f64 for real/rational
+data. Explain any mathematically required exception such as BigUint or One.
+State which invalid stored values are construction errors and which
+configuration-dependent arithmetic can fail during evaluate().
+-->
+
 ## Complexity
 
 - **Best known exact algorithm:** <!-- e.g. O(1.1996^n) by Xiao & Nagamochi (2017), where n = |V| -->

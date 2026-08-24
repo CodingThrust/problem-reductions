@@ -5,9 +5,10 @@ use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 use crate::types::Min;
 
-fn reduce_partition(sizes: &[u64]) -> (Partition, ReductionPartitionToSumOfSquaresPartition) {
-    let source = Partition::new(sizes.to_vec());
-    let reduction = ReduceTo::<SumOfSquaresPartition>::reduce_to(&source);
+fn reduce_partition(sizes: &[i64]) -> (Partition, ReductionPartitionToSumOfSquaresPartition) {
+    let source = Partition::new(sizes.to_vec()).unwrap();
+    let reduction =
+        ReduceTo::<SumOfSquaresPartition>::reduce_to(&source).expect("reduction should succeed");
     (source, reduction)
 }
 
@@ -27,33 +28,33 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
     let (source_no_even, reduction_no_even) = reduce_partition(&[1, 1, 1, 5]);
     let target_no_even = reduction_no_even.target_problem();
     let solver = BruteForce::new();
-    let target_witnesses = solver.find_all_witnesses(target_no_even);
+    let target_witnesses = solver.find_all_witnesses(target_no_even).unwrap();
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
         let extracted = reduction_no_even.extract_solution(witness).unwrap();
         assert_eq!(extracted.len(), source_no_even.num_elements());
         assert!(
-            !source_no_even.evaluate(&extracted).0,
+            !source_no_even.evaluate(&extracted).unwrap().0,
             "even-sum but unbalanced NO Partition: extracted witness {extracted:?} should not satisfy source"
         );
     }
     // Confirm the source is genuinely NO via direct solve.
-    let direct_witness = solver.find_witness(&source_no_even);
+    let direct_witness = solver.find_witness(&source_no_even).unwrap();
     assert!(direct_witness.is_none());
 
     // Odd-sum NO case: sizes [2, 4, 5], S = 11.
     let (source_no_odd, reduction_no_odd) = reduce_partition(&[2, 4, 5]);
     let target_no_odd = reduction_no_odd.target_problem();
-    let target_witnesses_odd = solver.find_all_witnesses(target_no_odd);
+    let target_witnesses_odd = solver.find_all_witnesses(target_no_odd).unwrap();
     assert!(!target_witnesses_odd.is_empty());
     for witness in &target_witnesses_odd {
         let extracted = reduction_no_odd.extract_solution(witness).unwrap();
         assert!(
-            !source_no_odd.evaluate(&extracted).0,
+            !source_no_odd.evaluate(&extracted).unwrap().0,
             "odd-sum NO Partition: extracted witness {extracted:?} should not satisfy source"
         );
     }
-    assert!(solver.find_witness(&source_no_odd).is_none());
+    assert!(solver.find_witness(&source_no_odd).unwrap().is_none());
 }
 
 #[test]
@@ -72,7 +73,7 @@ fn test_partition_to_sumofsquarespartition_optimal_value_yes() {
     let (_source, reduction) = reduce_partition(&[3, 1, 1, 2, 2, 1]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    let optimal = solver.solve(target);
+    let optimal = solver.solve(target).unwrap();
     assert_eq!(optimal, Min(Some(50)));
 }
 
@@ -82,7 +83,7 @@ fn test_partition_to_sumofsquarespartition_optimal_value_no_even() {
     let (_source, reduction) = reduce_partition(&[1, 1, 1, 5]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    let optimal = solver.solve(target);
+    let optimal = solver.solve(target).unwrap();
     assert_eq!(optimal, Min(Some(34)));
     // Strictly greater than S^2/2 = 32.
     assert!(optimal.0.unwrap() > 32);
@@ -100,7 +101,7 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     assert_eq!(target.num_elements(), 2);
 
     let solver = BruteForce::new();
-    let target_witnesses = solver.find_all_witnesses(target);
+    let target_witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!target_witnesses.is_empty());
 
     for witness in &target_witnesses {
@@ -108,13 +109,13 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
         assert_eq!(extracted.len(), source.num_elements());
         assert_eq!(extracted, witness[..source.num_elements()]);
         assert!(
-            !source.evaluate(&extracted).0,
+            !source.evaluate(&extracted).unwrap().0,
             "singleton Partition: extracted witness must yield Or(false)"
         );
     }
 
     // Direct solve confirms the source is NO.
-    assert!(solver.find_witness(&source).is_none());
+    assert!(solver.find_witness(&source).unwrap().is_none());
 }
 
 #[test]
@@ -125,9 +126,12 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let target_witnesses = solver.find_all_witnesses(target);
-    let source_witnesses: std::collections::HashSet<Vec<usize>> =
-        solver.find_all_witnesses(&source).into_iter().collect();
+    let target_witnesses = solver.find_all_witnesses(target).unwrap();
+    let source_witnesses: std::collections::HashSet<Vec<usize>> = solver
+        .find_all_witnesses(&source)
+        .unwrap()
+        .into_iter()
+        .collect();
 
     for witness in &target_witnesses {
         let extracted = reduction.extract_solution(witness).unwrap();

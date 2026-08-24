@@ -9,6 +9,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MaximumSetPacking to ILP.
 ///
@@ -22,7 +23,7 @@ pub struct ReductionSPToILP {
 }
 
 impl ReductionResult for ReductionSPToILP {
-    type Source = MaximumSetPacking<i32>;
+    type Source = MaximumSetPacking<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -45,10 +46,10 @@ impl ReductionResult for ReductionSPToILP {
         num_constraints = "universe_size",
     },
 )]
-impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
+impl ReduceTo<ILP<bool>> for MaximumSetPacking<i64> {
     type Result = ReductionSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_sets();
 
         // Build element-to-sets mapping, then create one constraint per element
@@ -73,12 +74,18 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
             .weights_ref()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(set, &weight)| Ok((set, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MaximumSetPacking<i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionSPToILP { target }
+        Ok(ReductionSPToILP { target })
     }
 }
 

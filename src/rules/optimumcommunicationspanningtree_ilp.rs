@@ -11,6 +11,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OptimumCommunicationSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing OptimumCommunicationSpanningTree to ILP.
 ///
@@ -52,7 +53,7 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
 impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
     type Result = ReductionOptimumCommunicationSpanningTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.edges();
@@ -135,10 +136,21 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
         // This equals sum_{s<t} r(s,t) * W_T(s,t) because flow routes exactly along the tree path.
         let mut objective: Vec<(usize, f64)> = Vec::new();
         for (k, &(s, t)) in commodities.iter().enumerate() {
-            let req = r[s][t] as f64;
             for (edge_idx, &(i, j)) in edges.iter().enumerate() {
-                let weight = w[i][j] as f64;
-                let coeff = req * weight;
+                let communication_cost = r[s][t].checked_mul(w[i][j]).ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        OptimumCommunicationSpanningTree,
+                        ILP<bool>,
+                    >(
+                        "multiplying a communication requirement by an edge weight"
+                    )
+                })?;
+                let coeff = i64_to_exact_f64(communication_cost).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        OptimumCommunicationSpanningTree,
+                        ILP<bool>,
+                    >(error)
+                })?;
                 if coeff != 0.0 {
                     objective.push((flow_var(k, edge_idx, 0), coeff));
                     objective.push((flow_var(k, edge_idx, 1), coeff));
@@ -148,10 +160,10 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionOptimumCommunicationSpanningTreeToILP {
+        Ok(ReductionOptimumCommunicationSpanningTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 

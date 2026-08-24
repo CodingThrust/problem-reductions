@@ -11,6 +11,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing TravelingSalesman to ILP.
 #[derive(Debug, Clone)]
@@ -23,7 +24,7 @@ pub struct ReductionTSPToILP {
 }
 
 impl ReductionResult for ReductionTSPToILP {
-    type Source = TravelingSalesman<SimpleGraph, i32>;
+    type Source = TravelingSalesman<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -71,10 +72,10 @@ impl ReductionResult for ReductionTSPToILP {
         num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",
     },
 )]
-impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
     type Result = ReductionTSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let graph = self.graph();
         let edges_with_weights = self.edges();
@@ -82,8 +83,15 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
             edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
         let edge_weights: Vec<f64> = edges_with_weights
             .iter()
-            .map(|&(_, _, w)| w as f64)
-            .collect();
+            .map(|&(_, _, w)| {
+                i64_to_exact_f64(w).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        TravelingSalesman<SimpleGraph, i64>,
+                        ILP<bool>,
+                    >(error)
+                })
+            })
+            .collect::<Result<_, _>>()?;
         let m = source_edges.len();
 
         // Variable layout:
@@ -183,11 +191,11 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionTSPToILP {
+        Ok(ReductionTSPToILP {
             target,
             num_vertices: n,
             source_edges,
-        }
+        })
     }
 }
 

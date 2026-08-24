@@ -49,7 +49,7 @@ impl ReductionResult for ReductionGraphPartitioningToILP {
 impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {
     type Result = ReductionGraphPartitioningToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let m = edges.len();
@@ -75,10 +75,10 @@ impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {
         let objective: Vec<(usize, f64)> = (0..m).map(|edge_idx| (n + edge_idx, 1.0)).collect();
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionGraphPartitioningToILP {
+        Ok(ReductionGraphPartitioningToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

@@ -47,11 +47,11 @@ inventory::submit! {
 /// let problem = HamiltonianCircuit::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify all solutions are valid Hamiltonian circuits
 /// for sol in &solutions {
-///     assert!(problem.evaluate(sol));
+///     assert!(problem.evaluate(sol).unwrap());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,8 +104,14 @@ where
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_valid_hamiltonian_circuit(&self.graph, config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(is_valid_hamiltonian_circuit(
+            &self.graph,
+            config,
+        )))
     }
 }
 

@@ -44,11 +44,11 @@ fn test_quadratic_congruences_creation_and_accessors() {
 #[test]
 fn test_quadratic_congruences_evaluate_yes() {
     let p = yes_problem();
-    assert_eq!(p.evaluate(&config_for_x(&p, 2)), Or(true));
-    assert_eq!(p.evaluate(&config_for_x(&p, 7)), Or(true));
-    assert_eq!(p.evaluate(&config_for_x(&p, 8)), Or(true));
-    assert_eq!(p.evaluate(&config_for_x(&p, 1)), Or(false));
-    assert_eq!(p.evaluate(&config_for_x(&p, 3)), Or(false));
+    assert_eq!(p.evaluate(&config_for_x(&p, 2)).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&config_for_x(&p, 7)).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&config_for_x(&p, 8)).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&config_for_x(&p, 1)).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&config_for_x(&p, 3)).unwrap(), Or(false));
 }
 
 #[test]
@@ -58,16 +58,16 @@ fn test_quadratic_congruences_evaluate_no() {
     assert_eq!(p.dims(), vec![2, 2, 2]);
     for x in 1..7 {
         // quadratic residues mod 7 are {0,1,2,4}; 3 is not one
-        assert_eq!(p.evaluate(&config_for_x(&p, x)), Or(false));
+        assert_eq!(p.evaluate(&config_for_x(&p, x)).unwrap(), Or(false));
     }
 }
 
 #[test]
 fn test_quadratic_congruences_evaluate_invalid_config() {
     let p = yes_problem();
-    assert_eq!(p.evaluate(&[]), Or(false));
-    assert_eq!(p.evaluate(&[0, 1]), Or(false));
-    assert_eq!(p.evaluate(&[0, 1, 0, 2]), Or(false));
+    assert_eq!(p.evaluate(&[]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&[0, 1]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&[0, 1, 0, 2]).unwrap(), Or(false));
 }
 
 #[test]
@@ -75,8 +75,8 @@ fn test_quadratic_congruences_c_le_1() {
     // c=1: search space {1..0} is empty
     let p = QuadraticCongruences::new(0, 5, 1);
     assert_eq!(p.dims(), Vec::<usize>::new());
-    assert_eq!(p.evaluate(&[0]), Or(false));
-    assert_eq!(p.evaluate(&[]), Or(false));
+    assert_eq!(p.evaluate(&[0]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&[]).unwrap(), Or(false));
 }
 
 #[test]
@@ -93,8 +93,8 @@ fn test_quadratic_congruences_bigint_witness_encoding_round_trip() {
 #[test]
 fn test_quadratic_congruences_brute_force_finds_witness() {
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&yes_problem()).unwrap();
-    assert_eq!(yes_problem().evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&yes_problem()).unwrap().unwrap();
+    assert_eq!(yes_problem().evaluate(&witness).unwrap(), Or(true));
     let x = yes_problem().decode_witness(&witness).unwrap();
     assert!(matches!(x, v if v == bu(2) || v == bu(7) || v == bu(8)));
 }
@@ -102,11 +102,11 @@ fn test_quadratic_congruences_brute_force_finds_witness() {
 #[test]
 fn test_quadratic_congruences_brute_force_finds_all_witnesses() {
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&yes_problem());
+    let all = solver.find_all_witnesses(&yes_problem()).unwrap();
     assert_eq!(all.len(), 3);
     assert!(all
         .iter()
-        .all(|sol| yes_problem().evaluate(sol) == Or(true)));
+        .all(|sol| yes_problem().evaluate(sol).unwrap() == Or(true)));
     let decoded = all
         .iter()
         .map(|sol| yes_problem().decode_witness(sol).unwrap())
@@ -120,7 +120,7 @@ fn test_quadratic_congruences_brute_force_finds_all_witnesses() {
 #[test]
 fn test_quadratic_congruences_brute_force_no_witness() {
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&no_problem()).is_none());
+    assert!(solver.find_witness(&no_problem()).unwrap().is_none());
 }
 
 #[test]
@@ -156,11 +156,11 @@ fn test_quadratic_congruences_paper_example() {
     // Canonical example: a=4, b=15, c=10; x=2 encodes to binary digits [0,1,0,0].
     let p = QuadraticCongruences::new(4, 15, 10);
     let config = config_for_x(&p, 2);
-    assert_eq!(p.evaluate(&config), Or(true));
+    assert_eq!(p.evaluate(&config).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]

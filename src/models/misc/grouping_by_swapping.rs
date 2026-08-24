@@ -45,7 +45,7 @@ struct GroupingBySwappingCreateSpec {
 }
 
 impl TryFrom<GroupingBySwappingCreateSpec> for GroupingBySwapping {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: GroupingBySwappingCreateSpec) -> Result<Self, Self::Error> {
         let inferred_alphabet_size = spec
@@ -64,13 +64,17 @@ impl TryFrom<GroupingBySwappingCreateSpec> for GroupingBySwapping {
         if alphabet_size < inferred_alphabet_size {
             return Err(format!(
                 "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ));
+            ).into());
         }
         if alphabet_size == 0 && !spec.string.is_empty() {
-            return Err("alphabet size must be positive for a non-empty string".to_string());
+            return Err("alphabet size must be positive for a non-empty string"
+                .to_string()
+                .into());
         }
         if spec.string.is_empty() && spec.bound != 0 {
-            return Err("bound must be zero when the string is empty".to_string());
+            return Err("bound must be zero when the string is empty"
+                .to_string()
+                .into());
         }
 
         Ok(Self {
@@ -192,10 +196,15 @@ impl Problem for GroupingBySwapping {
         vec![self.string_len(); self.budget]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.apply_swap_program(config)
-                .is_some_and(|candidate| self.is_grouped(&candidate))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                self.apply_swap_program(config)
+                    .is_some_and(|candidate| self.is_grouped(&candidate))
+            })
         })
     }
 

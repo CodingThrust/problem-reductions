@@ -42,7 +42,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToBottleneckTravelingSalesma
 impl ReduceTo<BottleneckTravelingSalesman> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToBottleneckTravelingSalesman;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let target_graph = SimpleGraph::complete(num_vertices);
         let weights = target_graph
@@ -52,7 +52,7 @@ impl ReduceTo<BottleneckTravelingSalesman> for HamiltonianCircuit<SimpleGraph> {
             .collect();
         let target = BottleneckTravelingSalesman::new(target_graph, weights);
 
-        ReductionHamiltonianCircuitToBottleneckTravelingSalesman { target }
+        Ok(ReductionHamiltonianCircuitToBottleneckTravelingSalesman { target })
     }
 }
 

@@ -73,7 +73,10 @@ fn test_ocst_evaluate_optimal() {
     //   W(0,1) = 1, W(0,2) = 2+1 = 3, W(0,3) = 2
     //   W(1,2) = 1+2+1 = 4, W(1,3) = 1+2 = 3, W(2,3) = 1
     // Total = 1*2 + 3*1 + 2*3 + 4*1 + 3*1 + 1*2 = 2+3+6+4+3+2 = 20
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0, 0, 1]), Min(Some(20)));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 1, 0, 0, 1]).unwrap(),
+        Min(Some(20))
+    );
 }
 
 #[test]
@@ -85,20 +88,23 @@ fn test_ocst_evaluate_suboptimal() {
     //   W(0,1) = 1, W(0,2) = 1+2 = 3, W(0,3) = 1+2+1 = 4
     //   W(1,2) = 2, W(1,3) = 2+1 = 3, W(2,3) = 1
     // Total = 1*2 + 3*1 + 4*3 + 2*1 + 3*1 + 1*2 = 2+3+12+2+3+2 = 24
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1, 0, 1]), Min(Some(24)));
+    assert_eq!(
+        problem.evaluate(&[1, 0, 0, 1, 0, 1]).unwrap(),
+        Min(Some(24))
+    );
 }
 
 #[test]
 fn test_ocst_evaluate_invalid() {
     let problem = k4_problem();
     // Wrong number of edges
-    assert_eq!(problem.evaluate(&[1, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(None));
     // Too many edges (not a tree)
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0, 1]).unwrap(), Min(None));
     // Not connected (two separate edges)
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0, 1]).unwrap(), Min(None));
     // Value > 1
-    assert_eq!(problem.evaluate(&[2, 0, 1, 0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[2, 0, 1, 0, 0, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -107,8 +113,9 @@ fn test_ocst_solver() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let value = problem.evaluate(&solution);
+    let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(20)));
 }
 
@@ -133,15 +140,15 @@ fn test_ocst_k3_equal_requirements() {
     assert_eq!(problem.num_edges(), 3);
 
     // Tree {(0,1), (0,2)}: W(0,1)=1, W(0,2)=2, W(1,2)=1+2=3, cost = 1+2+3 = 6
-    assert_eq!(problem.evaluate(&[1, 1, 0]), Min(Some(6)));
+    assert_eq!(problem.evaluate(&[1, 1, 0]).unwrap(), Min(Some(6)));
     // Tree {(0,1), (1,2)}: W(0,1)=1, W(0,2)=1+3=4, W(1,2)=3, cost = 1+4+3 = 8
-    assert_eq!(problem.evaluate(&[1, 0, 1]), Min(Some(8)));
+    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(Some(8)));
     // Tree {(0,2), (1,2)}: W(0,1)=2+3=5, W(0,2)=2, W(1,2)=3, cost = 5+2+3 = 10
-    assert_eq!(problem.evaluate(&[0, 1, 1]), Min(Some(10)));
+    assert_eq!(problem.evaluate(&[0, 1, 1]).unwrap(), Min(Some(10)));
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(6)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(6)));
 }
 
 #[test]

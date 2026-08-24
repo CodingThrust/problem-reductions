@@ -11,6 +11,7 @@ use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use num_bigint::BigUint;
 /// Result of reducing Factoring to CircuitSAT.
 ///
 /// This struct contains:
@@ -91,11 +92,11 @@ impl ReductionFactoringToCircuit {
 }
 
 /// Read the i-th bit (1-indexed) of a number (little-endian).
-fn read_bit(n: u64, i: usize) -> bool {
-    if i == 0 || i > 64 {
+fn read_bit(n: &BigUint, i: usize) -> bool {
+    if i == 0 {
         false
     } else {
-        ((n >> (i - 1)) & 1) == 1
+        n.bit(u64::try_from(i - 1).expect("bit index fits u64"))
     }
 }
 
@@ -176,14 +177,14 @@ fn build_multiplier_cell(
 }
 
 #[reduction(
-    size = exact {
-        num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-        num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
+    size = upper_bound {
+        num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1",
+        num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 2",
     })]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.m(); // bits for first factor
         let n2 = self.n(); // bits for second factor
         let target = self.target();
@@ -255,16 +256,27 @@ impl ReduceTo<CircuitSAT> for Factoring {
             ));
         }
 
+        // An m-bit by n-bit product cannot contain a set bit above position m+n-1.
+        // Encode an explicit contradiction instead of truncating an oversized target.
+        if target.bits() > u64::try_from(m_vars.len()).expect("product width fits u64") {
+            let overflow = "target_overflow".to_string();
+            assignments.push(Assignment::new(
+                vec![overflow.clone()],
+                BooleanExpr::constant(false),
+            ));
+            assignments.push(Assignment::new(vec![overflow], BooleanExpr::constant(true)));
+        }
+
         // Build the circuit
         let circuit = Circuit::new(assignments);
         let circuit_sat = CircuitSAT::new(circuit);
 
-        ReductionFactoringToCircuit {
+        Ok(ReductionFactoringToCircuit {
             target: circuit_sat,
             p_vars,
             q_vars,
             m_vars,
-        }
+        })
     }
 }
 

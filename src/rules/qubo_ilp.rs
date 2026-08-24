@@ -52,7 +52,7 @@ impl ReductionResult for ReductionQUBOToILP {
 impl ReduceTo<ILP<bool>> for QUBO<f64> {
     type Result = ReductionQUBOToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let matrix = self.matrix();
 
@@ -97,10 +97,10 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
         }
 
         let target = ILP::new(total_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionQUBOToILP {
+        Ok(ReductionQUBOToILP {
             target,
             num_original: n,
-        }
+        })
     }
 }
 
@@ -117,7 +117,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             matrix[0][1] = 1.0;
             matrix[1][2] = 2.0;
             matrix[2][3] = -1.0;
-            let source = QUBO::from_matrix(matrix);
+            let source = QUBO::from_matrix(matrix).unwrap();
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

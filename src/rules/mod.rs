@@ -40,7 +40,7 @@ pub(crate) mod hamiltoniancircuit_travelingsalesman;
 pub(crate) mod hamiltonianpath_degreeconstrainedspanningtree;
 pub(crate) mod hamiltonianpath_isomorphicspanningtree;
 pub(crate) mod hamiltonianpathbetweentwovertices_longestpath;
-pub(crate) mod ilp_i32_ilp_bool;
+pub(crate) mod ilp_i64_ilp_bool;
 pub(crate) mod integerknapsack_ilp;
 pub(crate) mod kclique_balancedcompletebipartitesubgraph;
 pub(crate) mod kclique_conjunctivebooleanquery;
@@ -182,7 +182,7 @@ pub(crate) mod flowshopscheduling_ilp;
 pub(crate) mod graphpartitioning_ilp;
 pub(crate) mod hamiltonianpath_ilp;
 pub(crate) mod highlyconnecteddeletion_ilp;
-mod ilp_bool_ilp_i32;
+mod ilp_bool_ilp_i64;
 pub(crate) mod ilp_helpers;
 pub(crate) mod ilp_qubo;
 pub(crate) mod integralflowbundles_ilp;
@@ -287,7 +287,7 @@ pub use graph::{
 pub(crate) use traits::{validate_target_solution, DynReductionResult};
 pub use traits::{
     AggregateReductionResult, ExtractionError, ExtractionResult, ReduceTo, ReduceToAggregate,
-    ReductionAutoCast, ReductionResult,
+    ReductionAutoCast, ReductionError, ReductionResult,
 };
 
 #[cfg(feature = "example-db")]
@@ -578,7 +578,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 /// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
 ///
 /// Variant casts convert a problem from one variant to another (e.g.,
-/// `MIS<KingsSubgraph, i32>` -> `MIS<UnitDiskGraph, i32>`). The solution
+/// `MIS<KingsSubgraph, i64>` -> `MIS<UnitDiskGraph, i64>`). The solution
 /// mapping is identity -- vertex/element indices are preserved.
 ///
 /// The problem name is specified once, followed by `<SourceParams> => <TargetParams>`.
@@ -589,7 +589,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 /// ```text
 /// impl_variant_reduction!(
 ///     MaximumIndependentSet,
-///     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
+///     <KingsSubgraph, i64> => <UnitDiskGraph, i64>,
 ///     fields: [num_vertices, num_edges],
 ///     |src| MaximumIndependentSet::new(
 ///         src.graph().cast_to_parent(), src.weights())
@@ -615,9 +615,9 @@ macro_rules! impl_variant_reduction {
                 $problem<$($src_param),+>,
                 $problem<$($dst_param),+>,
             >;
-            fn reduce_to(&self) -> Self::Result {
+            fn reduce_to(&self) -> Result<Self::Result, $crate::rules::ReductionError> {
                 let $src = self;
-                $crate::rules::ReductionAutoCast::new($body)
+                Ok($crate::rules::ReductionAutoCast::new($body))
             }
         }
     };

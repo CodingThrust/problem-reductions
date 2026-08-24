@@ -197,9 +197,12 @@ impl MaximumContactMapOverlap {
 
     /// Count contacts of `G_1` preserved by the alignment `config`. Returns
     /// `None` if `config` is infeasible.
-    pub fn preserved_contact_count(&self, config: &[usize]) -> Option<usize> {
+    pub fn preserved_contact_count(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if !self.is_valid_solution(config) {
-            return None;
+            return Ok(None);
         }
         let contacts_2_set: HashSet<(usize, usize)> = self.contacts_2.iter().copied().collect();
         let mut count = 0usize;
@@ -217,7 +220,11 @@ impl MaximumContactMapOverlap {
                 count += 1;
             }
         }
-        Some(count)
+        Ok(Some(i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting preserved-contact count to i64".into(),
+            )
+        })?))
     }
 }
 
@@ -233,11 +240,13 @@ impl Problem for MaximumContactMapOverlap {
         vec![self.num_vertices_2 + 1; self.num_vertices_1]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        match self.preserved_contact_count(config) {
-            Some(count) => Max(Some(count as i64)),
-            None => Max(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.preserved_contact_count(config)? {
+                Some(count) => Max(Some(count)),
+                None => Max(None),
+            }
+        })
     }
 }
 

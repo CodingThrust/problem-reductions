@@ -133,22 +133,34 @@ impl Problem for ClosestString {
         vec![self.alphabet_size; self.string_length()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let m = self.string_length();
-        if config.len() != m {
-            return Min(None);
-        }
-        if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
-            return Min(None);
-        }
-        // Maximum Hamming distance from the center to any input string.
-        let max_distance = self
-            .strings
-            .iter()
-            .map(|s| config.iter().zip(s.iter()).filter(|(c, t)| c != t).count() as i64)
-            .max()
-            .unwrap_or(0);
-        Min(Some(max_distance))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let m = self.string_length();
+            if config.len() != m {
+                return Ok(Min(None));
+            }
+            if config.iter().any(|&symbol| symbol >= self.alphabet_size) {
+                return Ok(Min(None));
+            }
+            // Maximum Hamming distance from the center to any input string.
+            let mut max_distance = 0_i64;
+            for string in &self.strings {
+                let distance = i64::try_from(
+                    config
+                        .iter()
+                        .zip(string.iter())
+                        .filter(|(center, target)| center != target)
+                        .count(),
+                )
+                .map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting Hamming distance to i64".into(),
+                    )
+                })?;
+                max_distance = max_distance.max(distance);
+            }
+            Min(Some(max_distance))
+        })
     }
 }
 

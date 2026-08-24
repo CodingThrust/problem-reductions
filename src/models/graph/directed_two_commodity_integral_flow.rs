@@ -22,13 +22,13 @@ inventory::submit! {
         description: "Two-commodity integral flow feasibility on a directed graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "DirectedGraph", description: "Directed graph G = (V, A)" },
-            FieldInfo { name: "capacities", type_name: "Vec<u64>", description: "Capacity c(a) for each arc" },
+            FieldInfo { name: "capacities", type_name: "Vec<i64>", description: "Capacity c(a) for each arc" },
             FieldInfo { name: "source_1", type_name: "usize", description: "Source vertex s_1 for commodity 1" },
             FieldInfo { name: "sink_1", type_name: "usize", description: "Sink vertex t_1 for commodity 1" },
             FieldInfo { name: "source_2", type_name: "usize", description: "Source vertex s_2 for commodity 2" },
             FieldInfo { name: "sink_2", type_name: "usize", description: "Sink vertex t_2 for commodity 2" },
-            FieldInfo { name: "requirement_1", type_name: "u64", description: "Flow requirement R_1 for commodity 1" },
-            FieldInfo { name: "requirement_2", type_name: "u64", description: "Flow requirement R_2 for commodity 2" },
+            FieldInfo { name: "requirement_1", type_name: "i64", description: "Flow requirement R_1 for commodity 1" },
+            FieldInfo { name: "requirement_2", type_name: "i64", description: "Flow requirement R_2 for commodity 2" },
         ],
     }
 }
@@ -65,14 +65,14 @@ inventory::submit! {
 ///     graph, vec![1; 8], 0, 4, 1, 5, 1, 1,
 /// );
 /// let solver = BruteForce::new();
-/// assert!(solver.find_witness(&problem).is_some());
+/// assert!(solver.find_witness(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectedTwoCommodityIntegralFlow {
     /// The directed graph G = (V, A).
     graph: DirectedGraph,
     /// Capacity c(a) for each arc.
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     /// Source vertex s_1 for commodity 1.
     source_1: usize,
     /// Sink vertex t_1 for commodity 1.
@@ -82,9 +82,9 @@ pub struct DirectedTwoCommodityIntegralFlow {
     /// Sink vertex t_2 for commodity 2.
     sink_2: usize,
     /// Flow requirement R_1 for commodity 1.
-    requirement_1: u64,
+    requirement_1: i64,
     /// Flow requirement R_2 for commodity 2.
-    requirement_2: u64,
+    requirement_2: i64,
 }
 
 impl DirectedTwoCommodityIntegralFlow {
@@ -98,19 +98,27 @@ impl DirectedTwoCommodityIntegralFlow {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         graph: DirectedGraph,
-        capacities: Vec<u64>,
+        capacities: Vec<i64>,
         source_1: usize,
         sink_1: usize,
         source_2: usize,
         sink_2: usize,
-        requirement_1: u64,
-        requirement_2: u64,
+        requirement_1: i64,
+        requirement_2: i64,
     ) -> Self {
         let n = graph.num_vertices();
         assert_eq!(
             capacities.len(),
             graph.num_arcs(),
             "capacities length must match graph num_arcs"
+        );
+        assert!(
+            capacities.iter().all(|&capacity| capacity >= 0),
+            "capacities must be nonnegative"
+        );
+        assert!(
+            requirement_1 >= 0 && requirement_2 >= 0,
+            "flow requirements must be nonnegative"
         );
         assert!(source_1 < n, "source_1 ({source_1}) >= num_vertices ({n})");
         assert!(sink_1 < n, "sink_1 ({sink_1}) >= num_vertices ({n})");
@@ -134,7 +142,7 @@ impl DirectedTwoCommodityIntegralFlow {
     }
 
     /// Get a reference to the capacities.
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
@@ -159,12 +167,12 @@ impl DirectedTwoCommodityIntegralFlow {
     }
 
     /// Get requirement for commodity 1.
-    pub fn requirement_1(&self) -> u64 {
+    pub fn requirement_1(&self) -> i64 {
         self.requirement_1
     }
 
     /// Get requirement for commodity 2.
-    pub fn requirement_2(&self) -> u64 {
+    pub fn requirement_2(&self) -> i64 {
         self.requirement_2
     }
 
@@ -179,39 +187,70 @@ impl DirectedTwoCommodityIntegralFlow {
     }
 
     /// Get the maximum capacity across all arcs.
-    pub fn max_capacity(&self) -> u64 {
+    pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 
     /// Check whether a flow assignment is feasible.
     ///
     /// `config` has 2*|A| entries: first |A| for commodity 1, next |A| for commodity 2.
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.graph.num_arcs();
         if config.len() != 2 * m {
-            return false;
+            return Ok(false);
         }
         let arcs = self.graph.arcs();
         // (1) Joint capacity constraint
         for a in 0..m {
-            let f1 = config[a] as u64;
-            let f2 = config[m + a] as u64;
-            if f1 + f2 > self.capacities[a] {
-                return false;
+            let f1 = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting first commodity flow to i64".into(),
+                )
+            })?;
+            let f2 = i64::try_from(config[m + a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting second commodity flow to i64".into(),
+                )
+            })?;
+            if f1.checked_add(f2).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing two-commodity arc flow".into(),
+                )
+            })? > self.capacities[a]
+            {
+                return Ok(false);
             }
         }
 
         // (2) Flow conservation for each commodity at non-terminal vertices
         let n = self.graph.num_vertices();
-        let mut balances = [vec![0_i128; n], vec![0_i128; n]];
+        let mut balances = [vec![0_i64; n], vec![0_i64; n]];
         for (a, &(u, w)) in arcs.iter().enumerate() {
-            let flow_1 = config[a] as i128;
-            let flow_2 = config[m + a] as i128;
+            let flow_1 = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting first commodity flow to i64".into(),
+                )
+            })?;
+            let flow_2 = i64::try_from(config[m + a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting second commodity flow to i64".into(),
+                )
+            })?;
 
-            balances[0][u] -= flow_1;
-            balances[0][w] += flow_1;
-            balances[1][u] -= flow_2;
-            balances[1][w] += flow_2;
+            for (commodity, flow) in [(0, flow_1), (1, flow_2)] {
+                balances[commodity][u] =
+                    balances[commodity][u].checked_sub(flow).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "subtracting outgoing commodity flow".into(),
+                        )
+                    })?;
+                balances[commodity][w] =
+                    balances[commodity][w].checked_add(flow).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "adding incoming commodity flow".into(),
+                        )
+                    })?;
+            }
         }
 
         for (commodity, commodity_balances) in balances.iter().enumerate() {
@@ -227,7 +266,7 @@ impl DirectedTwoCommodityIntegralFlow {
                     self.sink_2
                 };
                 if v != src && v != snk && balance != 0 {
-                    return false;
+                    return Ok(false);
                 }
             }
 
@@ -242,12 +281,12 @@ impl DirectedTwoCommodityIntegralFlow {
                 self.requirement_2
             };
 
-            if commodity_balances[snk] < i128::from(req) {
-                return false;
+            if commodity_balances[snk] < req {
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 }
 
@@ -263,8 +302,11 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_feasible(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

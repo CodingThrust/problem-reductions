@@ -62,25 +62,46 @@ impl ReductionResult for ReductionMCMFToMCC {
 impl ReduceTo<MinimumCostCirculation> for MinimumCostMaximumFlow {
     type Result = ReductionMCMFToMCC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_arcs();
         let source = self.source();
         let sink = self.sink();
 
         // U = sum of capacities of arcs leaving the source.
-        let u_bound: i64 = self
+        let u_bound = self
             .graph()
             .arcs()
             .iter()
             .zip(self.capacities().iter())
             .filter_map(|(&(u, _), &cap)| if u == source { Some(cap) } else { None })
-            .sum();
+            .try_fold(0_i64, |total, capacity| total.checked_add(capacity))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    MinimumCostMaximumFlow,
+                    MinimumCostCirculation,
+                >("summing capacities leaving the source")
+            })?;
 
         // B = 1 + sum of all original arc costs. Strictly exceeds any
         // simple s-t path cost, so the return arc's negative cost
         // dominates all positive original costs lexicographically.
-        let b_const: i64 = 1 + self.costs().iter().sum::<i64>();
+        let cost_sum = self
+            .costs()
+            .iter()
+            .try_fold(0_i64, |total, &cost| total.checked_add(cost))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    MinimumCostMaximumFlow,
+                    MinimumCostCirculation,
+                >("summing arc costs")
+            })?;
+        let b_const = cost_sum.checked_add(1).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                MinimumCostMaximumFlow,
+                MinimumCostCirculation,
+            >("adding one to the arc-cost sum")
+        })?;
 
         // Keep every original arc and append the return arc (t, s).
         let mut arcs = self.graph().arcs();
@@ -90,14 +111,19 @@ impl ReduceTo<MinimumCostCirculation> for MinimumCostMaximumFlow {
         capacities.push(u_bound);
 
         let mut costs = self.costs().to_vec();
-        costs.push(-b_const);
+        costs.push(b_const.checked_neg().ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                MinimumCostMaximumFlow,
+                MinimumCostCirculation,
+            >("negating the return-arc cost")
+        })?);
 
         let target = MinimumCostCirculation::new(DirectedGraph::new(n, arcs), capacities, costs);
 
-        ReductionMCMFToMCC {
+        Ok(ReductionMCMFToMCC {
             target,
             num_original_arcs: m,
-        }
+        })
     }
 }
 

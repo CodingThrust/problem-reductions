@@ -1,4 +1,4 @@
-//! Reduction from DirectedTwoCommodityIntegralFlow to ILP<i32>.
+//! Reduction from DirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 //!
 //! One non-negative integer variable per (commodity, arc):
 //!   f1_a = a             for a in 0..num_arcs  (commodity 1 flow on arc a)
@@ -16,23 +16,24 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing DirectedTwoCommodityIntegralFlow to ILP<i32>.
+/// Result of reducing DirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f1_a` at index a for a in 0..num_arcs (commodity 1)
 /// - `f2_a` at index num_arcs + a for a in 0..num_arcs (commodity 2)
 #[derive(Debug, Clone)]
 pub struct ReductionD2CIFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_arcs: usize,
 }
 
 impl ReductionResult for ReductionD2CIFToILP {
     type Source = DirectedTwoCommodityIntegralFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -53,14 +54,23 @@ impl ReductionResult for ReductionD2CIFToILP {
         num_constraints = "num_arcs + 2 * num_vertices + 2",
     }
 )]
-impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
+impl ReduceTo<ILP<i64>> for DirectedTwoCommodityIntegralFlow {
     type Result = ReductionD2CIFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
         let n = self.num_vertices();
         let num_vars = 2 * m;
+
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    DirectedTwoCommodityIntegralFlow,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         let f1 = |a: usize| a;
         let f2 = |a: usize| m + a;
@@ -71,7 +81,7 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
         for a in 0..m {
             constraints.push(LinearConstraint::le(
                 vec![(f1(a), 1.0), (f2(a), 1.0)],
-                self.capacities()[a] as f64,
+                exact_f64(self.capacities()[a])?,
             ));
         }
 
@@ -129,7 +139,7 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(
             sink1_terms,
-            self.requirement_1() as f64,
+            exact_f64(self.requirement_1())?,
         ));
 
         // Net flow into sink_2 ≥ requirement_2
@@ -144,13 +154,13 @@ impl ReduceTo<ILP<i32>> for DirectedTwoCommodityIntegralFlow {
         }
         constraints.push(LinearConstraint::ge(
             sink2_terms,
-            self.requirement_2() as f64,
+            exact_f64(self.requirement_2())?,
         ));
 
-        ReductionD2CIFToILP {
+        Ok(ReductionD2CIFToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -186,7 +196,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 1,
                 1,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

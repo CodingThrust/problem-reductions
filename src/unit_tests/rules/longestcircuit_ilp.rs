@@ -11,7 +11,8 @@ fn test_reduction_creates_valid_ilp() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1, 1, 1],
     );
-    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLongestCircuitToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // m=3, n=3, commodities=2, flow=2*3*2=12, total=3+3+12=18
     assert_eq!(ilp.num_vars, 18);
@@ -43,18 +44,20 @@ fn test_longestcircuit_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("brute-force should find a solution");
-    assert!(problem.evaluate(&bf_solution).0.is_some());
+    assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
 
     // Solve via ILP
-    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLongestCircuitToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert!(
-        problem.evaluate(&extracted).0.is_some(),
+        problem.evaluate(&extracted).unwrap().0.is_some(),
         "ILP solution should be a valid circuit"
     );
 }
@@ -66,7 +69,8 @@ fn test_longestcircuit_to_ilp_triangle() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1, 1, 1],
     );
-    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLongestCircuitToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &problem,
@@ -81,13 +85,14 @@ fn test_solution_extraction() {
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0), (0, 2), (1, 3)]),
         vec![1, 1, 1, 1, 2, 2],
     );
-    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLongestCircuitToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert!(problem.evaluate(&extracted).0.is_some());
+    assert!(problem.evaluate(&extracted).unwrap().0.is_some());
 }
 
 #[test]
@@ -96,6 +101,7 @@ fn test_longestcircuit_to_ilp_bf_vs_ilp() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1, 1, 1],
     );
-    let reduction: ReductionLongestCircuitToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLongestCircuitToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

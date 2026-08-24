@@ -11,6 +11,7 @@ use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumDominatingSet to ILP.
 ///
@@ -25,7 +26,7 @@ pub struct ReductionDSToILP {
 }
 
 impl ReductionResult for ReductionDSToILP {
-    type Source = MinimumDominatingSet<SimpleGraph, i32>;
+    type Source = MinimumDominatingSet<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -52,10 +53,10 @@ impl ReductionResult for ReductionDSToILP {
         num_constraints = "num_vertices",
     },
 )]
-impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
     type Result = ReductionDSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.graph().num_vertices();
 
         // Constraints: For each vertex v, x_v + sum_{u in N(v)} x_u >= 1
@@ -76,12 +77,18 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
             .weights()
             .iter()
             .enumerate()
-            .map(|(i, &w)| (i, w as f64))
-            .collect();
+            .map(|(vertex, &weight)| Ok((vertex, i64_to_exact_f64(weight)?)))
+            .collect::<Result<_, crate::types::ExactI64ToF64Error>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumDominatingSet<SimpleGraph, i64>,
+                    ILP<bool>,
+                >(error)
+            })?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionDSToILP { target }
+        Ok(ReductionDSToILP { target })
     }
 }
 
@@ -91,7 +98,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumdominatingset_to_ilp",
         build: || {
             let (n, edges) = crate::topology::small_graphs::petersen();
-            let source = MinimumDominatingSet::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
+            let source = MinimumDominatingSet::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
             crate::example_db::specs::rule_example_via_ilp::<_, bool>(source)
         },
     }]

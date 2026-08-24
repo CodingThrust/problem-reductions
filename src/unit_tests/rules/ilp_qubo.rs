@@ -17,11 +17,11 @@ fn test_ilp_to_qubo_closed_loop() {
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Maximize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
@@ -45,11 +45,11 @@ fn test_ilp_to_qubo_minimize() {
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Minimize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
@@ -75,11 +75,11 @@ fn test_ilp_to_qubo_equality() {
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Maximize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     // Should have exactly 3 optimal solutions (C(3,2))
     assert_eq!(qubo_solutions.len(), 3);
@@ -106,14 +106,14 @@ fn test_ilp_to_qubo_ge_with_slack() {
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Minimize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
     assert_eq!(qubo.num_variables(), 5);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
@@ -140,14 +140,14 @@ fn test_ilp_to_qubo_le_with_slack() {
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Maximize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
     assert_eq!(qubo.num_variables(), 5);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_witnesses(qubo);
+    let qubo_solutions = solver.find_all_witnesses(qubo).unwrap();
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
@@ -168,7 +168,7 @@ fn test_ilp_to_qubo_structure() {
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Maximize,
     );
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // Verify QUBO has appropriate structure

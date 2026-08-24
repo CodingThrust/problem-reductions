@@ -9,9 +9,10 @@ fn test_maximumindependentset_to_maximumclique_closed_loop() {
     // Path graph: 0-1-2-3-4
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-        vec![1i32; 5],
+        vec![1i64; 5],
     );
-    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Complement of path graph should have n*(n-1)/2 - m = 10 - 4 = 6 edges
@@ -32,7 +33,8 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![10, 20, 30],
     );
-    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Complement of K3 has 0 edges (empty graph)
@@ -42,10 +44,10 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
 
     // In empty graph, max clique is a single vertex. Best is vertex 2 (weight 30).
     let solver = BruteForce::new();
-    let best = solver.find_all_witnesses(target);
+    let best = solver.find_all_witnesses(target).unwrap();
     for sol in &best {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let metric = source.evaluate(&extracted);
+        let metric = source.evaluate(&extracted).unwrap();
         assert!(metric.is_valid());
     }
 }
@@ -53,8 +55,9 @@ fn test_maximumindependentset_to_maximumclique_weighted() {
 #[test]
 fn test_maximumindependentset_to_maximumclique_empty_graph() {
     // Empty graph (no edges) - complement is complete graph
-    let source = MaximumIndependentSet::new(SimpleGraph::new(4, vec![]), vec![1i32; 4]);
-    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+    let source = MaximumIndependentSet::new(SimpleGraph::new(4, vec![]), vec![1i64; 4]);
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Complement of empty graph is K4 with 6 edges
@@ -63,7 +66,7 @@ fn test_maximumindependentset_to_maximumclique_empty_graph() {
 
     // All 4 vertices form a clique in complement = all 4 are independent set in source
     let solver = BruteForce::new();
-    let best_target = solver.find_all_witnesses(target);
+    let best_target = solver.find_all_witnesses(target).unwrap();
     assert!(best_target.iter().all(|s| s.iter().sum::<usize>() == 4));
 }
 
@@ -74,7 +77,8 @@ fn test_maximumindependentset_to_maximumclique_one_weights_closed_loop() {
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![One; 5],
     );
-    let reduction = ReduceTo::<MaximumClique<SimpleGraph, One>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 5);
@@ -92,15 +96,16 @@ fn test_maximumindependentset_to_maximumclique_complete_graph() {
     // Complete graph K4 - complement is empty graph
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
-    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumClique<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_edges(), 0);
 
     // Max clique in empty graph is single vertex, max IS in K4 is also single vertex
     let solver = BruteForce::new();
-    let best = solver.find_all_witnesses(target);
+    let best = solver.find_all_witnesses(target).unwrap();
     assert!(best.iter().all(|s| s.iter().sum::<usize>() == 1));
 }

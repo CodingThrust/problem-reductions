@@ -18,7 +18,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -56,27 +56,28 @@ struct MinimumMultiwayCutCreateSpec {
     /// Terminal vertices that must be separated.
     terminals: Vec<usize>,
     /// Edge weights w: E -> R in graph edge order.
-    edge_weights: Vec<i32>,
+    edge_weights: Vec<i64>,
 }
 
-impl TryFrom<MinimumMultiwayCutCreateSpec> for MinimumMultiwayCut<SimpleGraph, i32> {
-    type Error = String;
+impl TryFrom<MinimumMultiwayCutCreateSpec> for MinimumMultiwayCut<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumMultiwayCutCreateSpec) -> Result<Self, Self::Error> {
         if spec.edge_weights.len() != spec.graph.num_edges() {
             return Err(format!(
                 "edge_weights has {} entries, expected {}",
                 spec.edge_weights.len(),
                 spec.graph.num_edges()
-            ));
+            )
+            .into());
         }
         if spec.terminals.len() < 2 {
-            return Err("at least two terminals are required".to_string());
+            return Err("at least two terminals are required".to_string().into());
         }
         let mut distinct = spec.terminals.clone();
         distinct.sort_unstable();
         distinct.dedup();
         if distinct.len() != spec.terminals.len() {
-            return Err("terminals must be distinct".to_string());
+            return Err("terminals must be distinct".to_string().into());
         }
         if let Some(&terminal) = spec
             .terminals
@@ -86,7 +87,8 @@ impl TryFrom<MinimumMultiwayCutCreateSpec> for MinimumMultiwayCut<SimpleGraph, i
             return Err(format!(
                 "terminal {terminal} is outside graph with {} vertices",
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(spec.graph, spec.terminals, spec.edge_weights))
     }
@@ -211,30 +213,36 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        if !terminals_separated(&self.graph, &self.terminals, config) {
-            return Min(None);
-        }
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !terminals_separated(&self.graph, &self.terminals, config) {
+                return Ok(Min(None));
+            }
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    if let Some(w) = self.edge_weights.get(idx) {
+                        total = W::checked_add_to_sum(
+                            total,
+                            w.to_sum(),
+                            "summing multiway cut edge weights",
+                        )?;
+                    }
                 }
             }
-        }
-        Min(Some(total))
+            Min(Some(total))
+        })
     }
 }
 
 crate::declare_variants! {
-    default MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3" create MinimumMultiwayCutCreateSpec,
+    default MinimumMultiwayCut<SimpleGraph, i64> => "1.84^num_terminals * num_vertices^3" create MinimumMultiwayCutCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_multiway_cut_simplegraph_i32",
+        id: "minimum_multiway_cut_simplegraph_i64",
         instance: Box::new(MinimumMultiwayCut::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]),
             vec![0, 2, 4],

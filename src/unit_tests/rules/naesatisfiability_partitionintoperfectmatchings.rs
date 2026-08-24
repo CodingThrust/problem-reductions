@@ -37,7 +37,8 @@ fn no_example_problem() -> NAESatisfiability {
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_closed_loop() {
     let source = NAESatisfiability::new(1, vec![]);
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().num_vertices(), 4);
     assert_eq!(reduction.target_problem().num_edges(), 3);
@@ -53,17 +54,20 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_closed_loop() {
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_unsat_small_instance() {
     let source = NAESatisfiability::new(1, vec![CNFClause::new(vec![1, 1])]);
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert!(BruteForce::new()
         .find_witness(reduction.target_problem())
+        .unwrap()
         .is_none());
 }
 
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_yes_example_structure() {
     let source = yes_example_problem();
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let mut expected_edges = vec![
@@ -130,7 +134,8 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_yes_example_structure
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_no_example_structure() {
     let source = no_example_problem();
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let mut expected_edges = vec![
@@ -240,11 +245,15 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_no_example_structure(
 fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_round_trips() {
     let source = yes_example_problem();
     let source_solution = vec![1, 1, 0];
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target_solution = reduction.construct_target_solution(&source_solution);
 
-    assert!(source.evaluate(&source_solution));
-    assert!(reduction.target_problem().evaluate(&target_solution));
+    assert!(source.evaluate(&source_solution).unwrap());
+    assert!(reduction
+        .target_problem()
+        .evaluate(&target_solution)
+        .unwrap());
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         source_solution
@@ -254,7 +263,8 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_r
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_normalization() {
     let source = NAESatisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let source_solution = vec![1, 1];
     let target_solution = reduction.construct_target_solution(&source_solution);
@@ -262,7 +272,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
     assert_eq!(target.num_vertices(), 24);
     assert_eq!(target.num_edges(), 27);
     assert_eq!(target.num_matchings(), 2);
-    assert!(target.evaluate(&target_solution));
+    assert!(target.evaluate(&target_solution).unwrap());
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         source_solution
@@ -270,12 +280,14 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
 }
 
 #[test]
-#[should_panic(
-    expected = "NAESatisfiability -> PartitionIntoPerfectMatchings expects clauses of size 2 or 3"
-)]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_rejects_long_clauses() {
     let source = NAESatisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
-    let _ = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source);
+    let error =
+        ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ReductionError::InvalidTarget { .. }
+    ));
 }
 
 #[cfg(feature = "example-db")]

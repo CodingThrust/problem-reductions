@@ -43,15 +43,15 @@ where
         num_edges = "num_edges",
     }
 )]
-impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
-    type Result = ReductionISToVC<i32>;
+impl ReduceTo<MinimumVertexCover<SimpleGraph, i64>> for MaximumIndependentSet<SimpleGraph, i64> {
+    type Result = ReductionISToVC<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = MinimumVertexCover::new(
             SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             self.weights().to_vec(),
         );
-        ReductionISToVC { target }
+        Ok(ReductionISToVC { target })
     }
 }
 
@@ -89,15 +89,15 @@ where
         num_edges = "num_edges",
     }
 )]
-impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<SimpleGraph, i32> {
-    type Result = ReductionVCToIS<i32>;
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, i64>> for MinimumVertexCover<SimpleGraph, i64> {
+    type Result = ReductionVCToIS<i64>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let target = MaximumIndependentSet::new(
             SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             self.weights().to_vec(),
         );
-        ReductionVCToIS { target }
+        Ok(ReductionVCToIS { target })
     }
 }
 
@@ -105,14 +105,14 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<Si
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
 
-    fn vc_petersen() -> MinimumVertexCover<SimpleGraph, i32> {
+    fn vc_petersen() -> MinimumVertexCover<SimpleGraph, i64> {
         let (n, edges) = crate::topology::small_graphs::petersen();
-        MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; 10])
+        MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; 10])
     }
 
-    fn mis_petersen() -> MaximumIndependentSet<SimpleGraph, i32> {
+    fn mis_petersen() -> MaximumIndependentSet<SimpleGraph, i64> {
         let (n, edges) = crate::topology::small_graphs::petersen();
-        MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; 10])
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; 10])
     }
 
     vec![
@@ -121,7 +121,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
-                    MinimumVertexCover<SimpleGraph, i32>,
+                    MinimumVertexCover<SimpleGraph, i64>,
                 >(
                     mis_petersen(),
                     SolutionPair {
@@ -136,7 +136,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             build: || {
                 crate::example_db::specs::rule_example_with_witness::<
                     _,
-                    MaximumIndependentSet<SimpleGraph, i32>,
+                    MaximumIndependentSet<SimpleGraph, i64>,
                 >(
                     vc_petersen(),
                     SolutionPair {

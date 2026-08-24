@@ -31,12 +31,12 @@ fn test_biconnectivity_augmentation_creation() {
     assert_eq!(problem.num_variables(), 2);
     assert!(problem.is_weighted());
     assert_eq!(
-        <BiconnectivityAugmentation<SimpleGraph, i32> as Problem>::NAME,
+        <BiconnectivityAugmentation<SimpleGraph, i64> as Problem>::NAME,
         "BiconnectivityAugmentation"
     );
     assert_eq!(
-        <BiconnectivityAugmentation<SimpleGraph, i32> as Problem>::variant(),
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        <BiconnectivityAugmentation<SimpleGraph, i64> as Problem>::variant(),
+        vec![("graph", "SimpleGraph"), ("weight", "i64")]
     );
 
     let unit_problem =
@@ -70,12 +70,12 @@ fn test_biconnectivity_augmentation_evaluation() {
         2,
     );
 
-    assert!(!problem.evaluate(&[0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 1, 0]));
-    assert!(problem.evaluate(&[0, 0, 1]));
-    assert!(!problem.evaluate(&[0, 1, 1]));
-    assert!(!problem.evaluate(&[2, 0, 0]));
-    assert!(!problem.evaluate(&[1, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
+    assert!(problem.evaluate(&[0, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&[0, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&[2, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 0]).unwrap());
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_biconnectivity_augmentation_serialization() {
         BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2), (1, 3, 1)], 2);
 
     let json = serde_json::to_value(&problem).unwrap();
-    let restored: BiconnectivityAugmentation<SimpleGraph, i32> =
+    let restored: BiconnectivityAugmentation<SimpleGraph, i64> =
         serde_json::from_value(json).unwrap();
 
     assert_eq!(restored.graph(), problem.graph());
@@ -103,10 +103,11 @@ fn test_biconnectivity_augmentation_solver() {
 
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("expected a satisfying augmentation");
     assert_eq!(solution, vec![0, 0, 1]);
 
-    let all_solutions = solver.find_all_witnesses(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all_solutions, vec![vec![0, 0, 1]]);
 }
 
@@ -115,8 +116,8 @@ fn test_biconnectivity_augmentation_no_solution() {
     let problem = BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 2, 1)], 1);
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&problem).is_none());
-    assert!(solver.find_all_witnesses(&problem).is_empty());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
 #[test]
@@ -124,9 +125,9 @@ fn test_biconnectivity_augmentation_paper_example() {
     let problem = example_instance();
     let solver = BruteForce::new();
     let satisfying_config = vec![1, 0, 0, 1, 0, 0, 1, 0, 1];
-    let satisfying_solutions = solver.find_all_witnesses(&problem);
+    let satisfying_solutions = solver.find_all_witnesses(&problem).unwrap();
 
-    assert!(problem.evaluate(&satisfying_config));
+    assert!(problem.evaluate(&satisfying_config).unwrap());
     assert!(satisfying_solutions.contains(&satisfying_config));
 
     let over_budget_problem = BiconnectivityAugmentation::new(
@@ -144,8 +145,8 @@ fn test_biconnectivity_augmentation_paper_example() {
         ],
         3,
     );
-    assert!(!over_budget_problem.evaluate(&satisfying_config));
-    assert!(solver.find_witness(&over_budget_problem).is_none());
+    assert!(!over_budget_problem.evaluate(&satisfying_config).unwrap());
+    assert!(solver.find_witness(&over_budget_problem).unwrap().is_none());
 }
 
 #[test]

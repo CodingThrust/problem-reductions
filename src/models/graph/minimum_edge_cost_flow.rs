@@ -62,8 +62,8 @@ inventory::submit! {
 ///     0, 4, 3,
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
-/// assert_eq!(problem.evaluate(&witness), problemreductions::types::Min(Some(3)));
+/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&witness).unwrap(), problemreductions::types::Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumEdgeCostFlow {
@@ -196,17 +196,22 @@ impl MinimumEdgeCostFlow {
     /// 1. Each arc's flow does not exceed its capacity
     /// 2. Flow is conserved at every non-terminal vertex
     /// 3. Net flow into the sink is at least the required flow
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         let m = self.graph.num_arcs();
         if config.len() != m {
-            return false;
+            return Ok(false);
         }
         let arcs = self.graph.arcs();
 
         // (1) Capacity constraints
         for (flow, cap) in config.iter().zip(self.capacities.iter()) {
-            if (*flow as i64) > *cap {
-                return false;
+            let flow = i64::try_from(*flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting edge-cost flow configuration value".to_string(),
+                )
+            })?;
+            if flow > *cap {
+                return Ok(false);
             }
         }
 
@@ -214,34 +219,51 @@ impl MinimumEdgeCostFlow {
         let n = self.graph.num_vertices();
         let mut balance = vec![0_i64; n];
         for (a, &(u, v)) in arcs.iter().enumerate() {
-            let flow = config[a] as i64;
-            balance[u] -= flow;
-            balance[v] += flow;
+            let flow = i64::try_from(config[a]).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting edge-cost flow configuration value".to_string(),
+                )
+            })?;
+            balance[u] = balance[u].checked_sub(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing edge-cost flow balance".to_string(),
+                )
+            })?;
+            balance[v] = balance[v].checked_add(flow).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing edge-cost flow balance".to_string(),
+                )
+            })?;
         }
 
         for (v, &bal) in balance.iter().enumerate() {
             if v != self.source && v != self.sink && bal != 0 {
-                return false;
+                return Ok(false);
             }
         }
 
         // (3) Flow requirement: net flow into sink >= R
         if balance[self.sink] < self.required_flow {
-            return false;
+            return Ok(false);
         }
 
-        true
+        Ok(true)
     }
 
     /// Compute the edge cost for a feasible flow: sum of prices of arcs with
     /// nonzero flow.
-    pub fn edge_cost(&self, config: &[usize]) -> i64 {
+    pub fn edge_cost(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
         config
             .iter()
             .enumerate()
-            .filter(|(_, &f)| f > 0)
-            .map(|(a, _)| self.prices[a])
-            .sum()
+            .filter(|(_, &flow)| flow > 0)
+            .try_fold(0_i64, |total, (arc, _)| {
+                total.checked_add(self.prices[arc]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing selected edge prices".to_string(),
+                    )
+                })
+            })
     }
 }
 
@@ -253,12 +275,17 @@ impl Problem for MinimumEdgeCostFlow {
         self.capacities.iter().map(|&c| (c as usize) + 1).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Min<i64> {
-        if self.is_feasible(config) {
-            crate::types::Min(Some(self.edge_cost(config)))
-        } else {
-            crate::types::Min(None)
-        }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if self.is_feasible(config)? {
+                crate::types::Min(Some(self.edge_cost(config)?))
+            } else {
+                crate::types::Min(None)
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

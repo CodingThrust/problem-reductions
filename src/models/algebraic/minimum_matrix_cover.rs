@@ -47,7 +47,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,27 +98,44 @@ impl Problem for MinimumMatrixCover {
         vec![2; self.num_rows()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        let n = self.num_rows();
-        if config.len() != n {
-            return Min(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Min(None);
-        }
-
-        // Map config to signs: 0 → -1, 1 → +1
-        let signs: Vec<i64> = config.iter().map(|&x| 2 * x as i64 - 1).collect();
-
-        // Compute Σ_{i,j} a_ij * f(i) * f(j)
-        let mut value: i64 = 0;
-        for i in 0..n {
-            for j in 0..n {
-                value += self.matrix[i][j] * signs[i] * signs[j];
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_rows();
+            if config.len() != n {
+                return Ok(Min(None));
             }
-        }
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(Min(None));
+            }
 
-        Min(Some(value))
+            // Map config to signs: 0 → -1, 1 → +1
+            let signs: Vec<i64> = config
+                .iter()
+                .map(|&value| if value == 0 { -1 } else { 1 })
+                .collect();
+
+            // Compute Σ_{i,j} a_ij * f(i) * f(j)
+            let mut value: i64 = 0;
+            for i in 0..n {
+                for j in 0..n {
+                    let term = self.matrix[i][j]
+                        .checked_mul(signs[i])
+                        .and_then(|term| term.checked_mul(signs[j]))
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "multiplying matrix-cover objective term".into(),
+                            )
+                        })?;
+                    value = value.checked_add(term).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing matrix-cover objective".into(),
+                        )
+                    })?;
+                }
+            }
+
+            Min(Some(value))
+        })
     }
 }
 

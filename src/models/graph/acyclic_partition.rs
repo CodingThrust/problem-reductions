@@ -19,7 +19,7 @@ inventory::submit! {
         display_name: "Acyclic Partition",
         aliases: &[],
         dimensions: &[
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -51,19 +51,21 @@ struct AcyclicPartitionCreateSpec {
     arcs: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    weights: Option<Vec<i32>>,
+    weights: Option<Vec<i64>>,
     #[create(name = "arc_costs", codec = "comma-separated")]
-    arc_weights: Option<Vec<i32>>,
+    arc_weights: Option<Vec<i64>>,
     weight_bound: i64,
     cost_bound: i64,
 }
 
-impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i32> {
-    type Error = String;
+impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i64> {
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: AcyclicPartitionCreateSpec) -> Result<Self, Self::Error> {
         if spec.arcs.is_empty() && spec.num_vertices.is_none() {
-            return Err("num_vertices is required for an empty arc list".to_string());
+            return Err("num_vertices is required for an empty arc list"
+                .to_string()
+                .into());
         }
         let inferred = spec
             .arcs
@@ -77,7 +79,7 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i32> {
         if num_vertices < inferred {
             return Err(format!(
                 "num_vertices {num_vertices} is too small for arc endpoints; need at least {inferred}"
-            ));
+            ).into());
         }
         let graph = DirectedGraph::new(num_vertices, spec.arcs);
         let vertex_weights = spec.weights.unwrap_or_else(|| vec![1; num_vertices]);
@@ -85,7 +87,8 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i32> {
             return Err(format!(
                 "weights has length {}, expected {num_vertices}",
                 vertex_weights.len()
-            ));
+            )
+            .into());
         }
         let arc_costs = spec
             .arc_weights
@@ -95,7 +98,8 @@ impl TryFrom<AcyclicPartitionCreateSpec> for AcyclicPartition<i32> {
                 "arc_weights has length {}, expected {}",
                 arc_costs.len(),
                 graph.num_arcs()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(
             graph,
@@ -196,7 +200,10 @@ impl<W: WeightElement> AcyclicPartition<W> {
     }
 
     /// Check whether a configuration is a valid solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         is_valid_acyclic_partition(
             &self.graph,
             &self.vertex_weights,
@@ -223,16 +230,21 @@ where
         vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            is_valid_acyclic_partition(
-                &self.graph,
-                &self.vertex_weights,
-                &self.arc_costs,
-                &self.weight_bound,
-                &self.cost_bound,
-                config,
-            )
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                is_valid_acyclic_partition(
+                    &self.graph,
+                    &self.vertex_weights,
+                    &self.arc_costs,
+                    &self.weight_bound,
+                    &self.cost_bound,
+                    config,
+                )?
+            })
         })
     }
 }
@@ -244,25 +256,29 @@ fn is_valid_acyclic_partition<W: WeightElement>(
     weight_bound: &W::Sum,
     cost_bound: &W::Sum,
     config: &[usize],
-) -> bool {
+) -> Result<bool, crate::traits::EvaluationError> {
     let num_vertices = graph.num_vertices();
     if config.len() != num_vertices {
-        return false;
+        return Ok(false);
     }
     if vertex_weights.len() != num_vertices || arc_costs.len() != graph.num_arcs() {
-        return false;
+        return Ok(false);
     }
     if config.iter().any(|&label| label >= num_vertices) {
-        return false;
+        return Ok(false);
     }
 
     let mut partition_weights = vec![W::Sum::zero(); num_vertices];
     let mut used_labels = vec![false; num_vertices];
     for (vertex, &label) in config.iter().enumerate() {
         used_labels[label] = true;
-        partition_weights[label] += vertex_weights[vertex].to_sum();
+        partition_weights[label] = W::checked_add_to_sum(
+            partition_weights[label].clone(),
+            vertex_weights[vertex].to_sum(),
+            "summing acyclic partition vertex weights",
+        )?;
         if partition_weights[label] > *weight_bound {
-            return false;
+            return Ok(false);
         }
     }
 
@@ -283,24 +299,28 @@ fn is_valid_acyclic_partition<W: WeightElement>(
         if source_label == target_label {
             continue;
         }
-        total_cost += cost.to_sum();
+        total_cost = W::checked_add_to_sum(
+            total_cost,
+            cost.to_sum(),
+            "summing acyclic partition arc costs",
+        )?;
         if total_cost > *cost_bound {
-            return false;
+            return Ok(false);
         }
         quotient_arcs.insert((dense_label[source_label], dense_label[target_label]));
     }
 
-    DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag()
+    Ok(DirectedGraph::new(next_dense, quotient_arcs.into_iter().collect()).is_dag())
 }
 
 crate::declare_variants! {
-    default AcyclicPartition<i32> => "num_vertices^num_vertices" create AcyclicPartitionCreateSpec,
+    default AcyclicPartition<i64> => "num_vertices^num_vertices" create AcyclicPartitionCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "acyclic_partition_i32",
+        id: "acyclic_partition_i64",
         instance: Box::new(AcyclicPartition::new(
             DirectedGraph::new(
                 6,

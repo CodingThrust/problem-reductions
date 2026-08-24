@@ -33,13 +33,13 @@ fn test_three_matroid_intersection_evaluate_valid() {
     // M1: 0 in {0,1,2}, 5 in {3,4,5} -> at most 1 per group
     // M2: 0 in {0,3}, 5 in {2,5} -> at most 1 per group
     // M3: 0 in {0,4}, 5 in {1,5} -> at most 1 per group
-    assert!(problem.evaluate(&[1, 0, 0, 0, 0, 1]));
+    assert!(problem.evaluate(&[1, 0, 0, 0, 0, 1]).unwrap());
 
     // {1, 3} is also valid
-    assert!(problem.evaluate(&[0, 1, 0, 1, 0, 0]));
+    assert!(problem.evaluate(&[0, 1, 0, 1, 0, 0]).unwrap());
 
     // {2, 4} is also valid
-    assert!(problem.evaluate(&[0, 0, 1, 0, 1, 0]));
+    assert!(problem.evaluate(&[0, 0, 1, 0, 1, 0]).unwrap());
 }
 
 #[test]
@@ -47,34 +47,34 @@ fn test_three_matroid_intersection_evaluate_invalid() {
     let problem = issue_instance();
 
     // {0, 3} fails M2: both in group {0, 3}
-    assert!(!problem.evaluate(&[1, 0, 0, 1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 1, 0, 0]).unwrap());
 
     // {0, 4} fails M3: both in group {0, 4}
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 1, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 1, 0]).unwrap());
 
     // {1, 2} fails M1: both in group {0, 1, 2}
-    assert!(!problem.evaluate(&[0, 1, 1, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 1, 1, 0, 0, 0]).unwrap());
 
     // Wrong size: only 1 element selected
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0]).unwrap());
 
     // Wrong size: 3 elements selected
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 1, 1]));
+    assert!(!problem.evaluate(&[1, 0, 0, 0, 1, 1]).unwrap());
 
     // All zeros
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_three_matroid_intersection_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
 
     // Exactly 3 valid solutions: {0,5}, {1,3}, {2,4}
     assert_eq!(solutions.len(), 3);
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
     assert!(solutions.contains(&vec![1, 0, 0, 0, 0, 1]));
     assert!(solutions.contains(&vec![0, 1, 0, 1, 0, 0]));
@@ -94,7 +94,7 @@ fn test_three_matroid_intersection_no_solution() {
         3,
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 
@@ -111,13 +111,13 @@ fn test_three_matroid_intersection_serialization() {
 #[test]
 fn test_three_matroid_intersection_rejects_wrong_config_length() {
     let problem = issue_instance();
-    assert!(!problem.evaluate(&[1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_three_matroid_intersection_rejects_non_binary_config() {
     let problem = issue_instance();
-    assert!(!problem.evaluate(&[2, 0, 0, 0, 0, 0]));
+    assert!(!problem.evaluate(&[2, 0, 0, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -160,10 +160,10 @@ fn test_three_matroid_intersection_paper_example() {
     let problem = issue_instance();
 
     // Valid: {0, 5}
-    assert!(problem.evaluate(&[1, 0, 0, 0, 0, 1]));
+    assert!(problem.evaluate(&[1, 0, 0, 0, 0, 1]).unwrap());
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Exactly 3 valid common independent sets of size 2
     assert_eq!(solutions.len(), 3);
     assert!(solutions.contains(&vec![1, 0, 0, 0, 0, 1])); // {0, 5}
@@ -180,6 +180,6 @@ fn test_three_matroid_intersection_paper_example() {
         ],
         3,
     );
-    let solutions_k3 = solver.find_all_witnesses(&problem_k3);
+    let solutions_k3 = solver.find_all_witnesses(&problem_k3).unwrap();
     assert!(solutions_k3.is_empty());
 }

@@ -19,7 +19,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -56,21 +56,21 @@ struct BiconnectivityAugmentationCreateSpec {
     #[create(codec = "edge-list")]
     graph: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-    potential_weights: Vec<(usize, usize, i32)>,
+    potential_weights: Vec<(usize, usize, i64)>,
     budget: i64,
 }
 
 impl TryFrom<BiconnectivityAugmentationCreateSpec>
-    for BiconnectivityAugmentation<SimpleGraph, i32>
+    for BiconnectivityAugmentation<SimpleGraph, i64>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: BiconnectivityAugmentationCreateSpec) -> Result<Self, Self::Error> {
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
         for &(u, v) in &spec.graph {
             if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed"));
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
             }
         }
         let inferred = spec
@@ -186,9 +186,12 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
         !W::IS_UNIT
     }
 
-    fn augmented_graph(&self, config: &[usize]) -> Option<SimpleGraph> {
+    fn augmented_graph(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<SimpleGraph>, crate::traits::EvaluationError> {
         if config.len() != self.num_potential_edges() || config.iter().any(|&value| value >= 2) {
-            return None;
+            return Ok(None);
         }
 
         let mut total = W::Sum::zero();
@@ -200,18 +203,22 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
 
         for (selected, &(u, v, ref weight)) in config.iter().zip(&self.potential_weights) {
             if *selected == 1 {
-                total += weight.to_sum();
+                total = W::checked_add_to_sum(
+                    total,
+                    weight.to_sum(),
+                    "summing biconnectivity augmentation weights",
+                )?;
                 if total > self.budget.clone() {
-                    return None;
+                    return Ok(None);
                 }
                 edges.insert(normalize_edge(u, v));
             }
         }
 
-        Some(SimpleGraph::new(
+        Ok(Some(SimpleGraph::new(
             self.num_vertices(),
             edges.into_iter().collect(),
-        ))
+        )))
     }
 }
 
@@ -231,10 +238,15 @@ where
         vec![2; self.num_potential_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.augmented_graph(config)
-                .is_some_and(|graph| is_biconnected(&graph))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                self.augmented_graph(config)?
+                    .is_some_and(|graph| is_biconnected(&graph))
+            })
         })
     }
 }
@@ -311,7 +323,7 @@ fn is_biconnected<G: Graph>(graph: &G) -> bool {
 }
 
 crate::declare_variants! {
-    default BiconnectivityAugmentation<SimpleGraph, i32> => "2^num_potential_edges" create BiconnectivityAugmentationCreateSpec,
+    default BiconnectivityAugmentation<SimpleGraph, i64> => "2^num_potential_edges" create BiconnectivityAugmentationCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
@@ -339,7 +351,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 #[cfg(test)]
-pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i32> {
+pub(crate) fn example_instance() -> BiconnectivityAugmentation<SimpleGraph, i64> {
     BiconnectivityAugmentation::new(
         SimpleGraph::path(6),
         vec![

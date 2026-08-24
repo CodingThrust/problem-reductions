@@ -84,8 +84,8 @@ struct MandersAdlemanConstruction {
     target: QuadraticCongruences,
     source_num_vars: usize,
     active_to_source: Vec<usize>,
-    remapped_clause_set: BTreeSet<Vec<i32>>,
-    standard_clauses: Vec<Vec<i32>>,
+    remapped_clause_set: BTreeSet<Vec<i64>>,
+    standard_clauses: Vec<Vec<i64>>,
     standard_clause_count: usize,
     active_var_count: usize,
     #[cfg_attr(not(test), allow(dead_code))]
@@ -170,7 +170,7 @@ fn modular_inverse(value: &BigUint, modulus: &BigUint) -> BigUint {
     t.to_biguint().expect("inverse must be nonnegative")
 }
 
-fn normalize_clause(clause: &[i32]) -> Option<Vec<i32>> {
+fn normalize_clause(clause: &[i64]) -> Option<Vec<i64>> {
     let mut lits = BTreeSet::new();
     for &lit in clause {
         if lits.contains(&-lit) {
@@ -181,7 +181,7 @@ fn normalize_clause(clause: &[i32]) -> Option<Vec<i32>> {
     Some(lits.into_iter().collect())
 }
 
-fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i32>>, Vec<usize>) {
+fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i64>>, Vec<usize>) {
     let mut seen = BTreeSet::new();
     let mut normalized_clauses = Vec::new();
     let mut active_vars = BTreeSet::new();
@@ -199,7 +199,10 @@ fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i32>>, Vec<usize
 
         let distinct_vars: BTreeSet<_> = normalized
             .iter()
-            .map(|lit| lit.unsigned_abs() as usize)
+            .map(|lit| {
+                usize::try_from(lit.unsigned_abs())
+                    .expect("SAT construction validates literal indices against usize")
+            })
             .collect();
         if distinct_vars.len() != 3 {
             panic!(
@@ -210,7 +213,10 @@ fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i32>>, Vec<usize
 
         if seen.insert(normalized.clone()) {
             for &lit in &normalized {
-                active_vars.insert(lit.unsigned_abs() as usize);
+                active_vars.insert(
+                    usize::try_from(lit.unsigned_abs())
+                        .expect("SAT construction validates literal indices against usize"),
+                );
             }
             normalized_clauses.push(normalized);
         }
@@ -219,7 +225,7 @@ fn preprocess_formula(source: &KSatisfiability<K3>) -> (Vec<Vec<i32>>, Vec<usize
     (normalized_clauses, active_vars.into_iter().collect())
 }
 
-fn build_standard_clauses(num_active_vars: usize) -> (Vec<Vec<i32>>, BTreeMap<Vec<i32>, usize>) {
+fn build_standard_clauses(num_active_vars: usize) -> (Vec<Vec<i64>>, BTreeMap<Vec<i64>, usize>) {
     let mut clauses = Vec::new();
     let mut index = BTreeMap::new();
 
@@ -230,10 +236,16 @@ fn build_standard_clauses(num_active_vars: usize) -> (Vec<Vec<i32>>, BTreeMap<Ve
     for i in 1..=num_active_vars - 2 {
         for j in i + 1..=num_active_vars - 1 {
             for k in j + 1..=num_active_vars {
-                for s1 in [1i32, -1] {
-                    for s2 in [1i32, -1] {
-                        for s3 in [1i32, -1] {
-                            let mut clause = vec![s1 * i as i32, s2 * j as i32, s3 * k as i32];
+                let i_literal =
+                    i64::try_from(i).expect("active SAT variable indices are bounded by i64");
+                let j_literal =
+                    i64::try_from(j).expect("active SAT variable indices are bounded by i64");
+                let k_literal =
+                    i64::try_from(k).expect("active SAT variable indices are bounded by i64");
+                for s1 in [1i64, -1] {
+                    for s2 in [1i64, -1] {
+                        for s3 in [1i64, -1] {
+                            let mut clause = vec![s1 * i_literal, s2 * j_literal, s3 * k_literal];
                             clause.sort_unstable();
                             index.insert(clause.clone(), clauses.len() + 1);
                             clauses.push(clause);
@@ -272,14 +284,17 @@ fn build_construction(source: &KSatisfiability<K3>) -> MandersAdlemanConstructio
             let mut remapped = clause
                 .iter()
                 .map(|&lit| {
-                    let var = lit.unsigned_abs() as usize;
+                    let var = usize::try_from(lit.unsigned_abs())
+                        .expect("SAT construction validates literal indices against usize");
                     let new_var = *var_map
                         .get(&var)
                         .expect("active variable must be present in the remapping");
+                    let new_var = i64::try_from(new_var)
+                        .expect("active SAT variable indices are bounded by i64");
                     if lit > 0 {
-                        new_var as i32
+                        new_var
                     } else {
-                        -(new_var as i32)
+                        -new_var
                     }
                 })
                 .collect::<Vec<_>>();
@@ -306,7 +321,8 @@ fn build_construction(source: &KSatisfiability<K3>) -> MandersAdlemanConstructio
     for (j, clause) in standard_clauses.iter().enumerate() {
         let weight = BigInt::from(pow8[j + 1].clone());
         for &lit in clause {
-            let var = lit.unsigned_abs() as usize;
+            let var = usize::try_from(lit.unsigned_abs())
+                .expect("standard clause literal indices fit usize");
             if lit > 0 {
                 positive_occurrences[var] += &weight;
             } else {
@@ -421,13 +437,14 @@ fn build_alphas(
 
     for k in 1..=construction.standard_clause_count {
         let clause = &construction.standard_clauses[k - 1];
-        let mut y = 0i32;
+        let mut y = 0i8;
         for &lit in clause {
-            let var = lit.unsigned_abs() as usize;
+            let var = usize::try_from(lit.unsigned_abs())
+                .expect("standard clause literal indices fit usize");
             if lit > 0 {
-                y += i32::from(active_assignment[var]);
+                y += active_assignment[var];
             } else {
-                y += 1 - i32::from(active_assignment[var]);
+                y += 1 - active_assignment[var];
             }
         }
         if construction.remapped_clause_set.contains(clause) {
@@ -524,16 +541,16 @@ fn exhaustive_alpha_solution(source: &KSatisfiability<K3>) -> Option<Vec<i8>> {
 impl ReduceTo<QuadraticCongruences> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticCongruences;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let construction = build_construction(self);
-        Reduction3SATToQuadraticCongruences {
+        Ok(Reduction3SATToQuadraticCongruences {
             target: construction.target,
             source_num_vars: construction.source_num_vars,
             active_to_source: construction.active_to_source,
             standard_clause_count: construction.standard_clause_count,
             h: construction.h,
             prime_powers: construction.prime_powers,
-        }
+        })
     }
 }
 

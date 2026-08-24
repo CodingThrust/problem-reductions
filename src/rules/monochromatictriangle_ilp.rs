@@ -43,7 +43,7 @@ impl ReductionResult for ReductionMonochromaticTriangleToILP {
 impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
     type Result = ReductionMonochromaticTriangleToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constraints = Vec::with_capacity(2 * self.num_triangles());
         for triangle in self.triangles() {
             let terms: Vec<(usize, f64)> =
@@ -52,14 +52,14 @@ impl ReduceTo<ILP<bool>> for MonochromaticTriangle<SimpleGraph> {
             constraints.push(LinearConstraint::le(terms, 2.0));
         }
 
-        ReductionMonochromaticTriangleToILP {
+        Ok(ReductionMonochromaticTriangleToILP {
             target: ILP::new(
                 self.num_edges(),
                 constraints,
                 vec![],
                 ObjectiveSense::Minimize,
             ),
-        }
+        })
     }
 }
 

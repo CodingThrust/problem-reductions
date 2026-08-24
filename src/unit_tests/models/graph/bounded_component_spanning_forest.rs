@@ -69,7 +69,7 @@ fn count_allocations<T>(f: impl FnOnce() -> T) -> (T, usize) {
     (result, allocations)
 }
 
-fn yes_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
+fn yes_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
     let graph = SimpleGraph::new(
         8,
         vec![
@@ -88,7 +88,7 @@ fn yes_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
     BoundedComponentSpanningForest::new(graph, vec![2, 3, 1, 2, 3, 1, 2, 1], 3, 6)
 }
 
-fn no_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
+fn no_instance() -> BoundedComponentSpanningForest<SimpleGraph, i64> {
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
     BoundedComponentSpanningForest::new(graph, vec![1, 1, 1, 1, 1, 1], 2, 2)
 }
@@ -110,32 +110,34 @@ fn test_bounded_component_spanning_forest_creation() {
 #[test]
 fn test_bounded_component_spanning_forest_yes_instance() {
     let problem = yes_instance();
-    assert!(problem.evaluate(&[0, 0, 1, 1, 1, 2, 2, 0]));
-    assert!(problem.is_valid_solution(&[0, 0, 1, 1, 1, 2, 2, 0]));
+    assert!(problem.evaluate(&[0, 0, 1, 1, 1, 2, 2, 0]).unwrap());
+    assert!(problem
+        .is_valid_solution(&[0, 0, 1, 1, 1, 2, 2, 0])
+        .unwrap());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_rejects_weight_overflow() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 1, 1, 2, 0]));
+    assert!(!problem.evaluate(&[0, 0, 1, 1, 1, 1, 2, 0]).unwrap());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_rejects_disconnected_component() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0, 1, 1, 2, 2, 0]));
+    assert!(!problem.evaluate(&[0, 1, 0, 1, 1, 2, 2, 0]).unwrap());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_rejects_out_of_range_component() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 1, 2, 2, 3]));
+    assert!(!problem.evaluate(&[0, 0, 1, 1, 1, 2, 2, 3]).unwrap());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_rejects_wrong_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -143,7 +145,7 @@ fn test_bounded_component_spanning_forest_evaluate_uses_fixed_allocation_budget(
     let problem = BoundedComponentSpanningForest::new(SimpleGraph::empty(16), vec![1; 16], 16, 1);
     let config: Vec<usize> = (0..16).collect();
 
-    let (is_valid, allocations) = count_allocations(|| problem.evaluate(&config));
+    let (is_valid, allocations) = count_allocations(|| problem.evaluate(&config).unwrap());
 
     assert!(is_valid);
     assert!(
@@ -156,7 +158,7 @@ fn test_bounded_component_spanning_forest_evaluate_uses_fixed_allocation_budget(
 fn test_bounded_component_spanning_forest_serialization() {
     let problem = yes_instance();
     let json = serde_json::to_string(&problem).unwrap();
-    let round_trip: BoundedComponentSpanningForest<SimpleGraph, i32> =
+    let round_trip: BoundedComponentSpanningForest<SimpleGraph, i64> =
         serde_json::from_str(&json).unwrap();
     assert_eq!(round_trip.graph().num_vertices(), 8);
     assert_eq!(round_trip.weights(), &[2, 3, 1, 2, 3, 1, 2, 1]);
@@ -169,22 +171,22 @@ fn test_bounded_component_spanning_forest_solver_yes_and_no_instances() {
     let solver = BruteForce::new();
 
     let yes_problem = yes_instance();
-    let solution = solver.find_witness(&yes_problem);
+    let solution = solver.find_witness(&yes_problem).unwrap();
     assert!(solution.is_some());
-    assert!(yes_problem.evaluate(solution.as_ref().unwrap()));
+    assert!(yes_problem.evaluate(solution.as_ref().unwrap()).unwrap());
 
     let no_problem = no_instance();
-    assert!(solver.find_witness(&no_problem).is_none());
+    assert!(solver.find_witness(&no_problem).unwrap().is_none());
 }
 
 #[test]
 fn test_bounded_component_spanning_forest_paper_example() {
     let problem = yes_instance();
     let config = vec![0, 0, 1, 1, 1, 2, 2, 0];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
     let solver = BruteForce::new();
-    let all_solutions = solver.find_all_witnesses(&problem);
+    let all_solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(all_solutions.iter().any(|solution| solution == &config));
 }
 
@@ -201,7 +203,7 @@ fn test_bounded_component_spanning_forest_accepts_k_larger_than_num_vertices() {
     let problem = BoundedComponentSpanningForest::new(graph, vec![1, 1], 5, 2);
     // K > |V| is mathematically harmless — just means fewer than K components possible
     assert_eq!(problem.max_components(), 5);
-    assert!(problem.evaluate(&[0, 0]));
+    assert!(problem.evaluate(&[0, 0]).unwrap());
 }
 
 #[test]

@@ -12,9 +12,10 @@ fn test_maximumclique_to_maximumindependentset_closed_loop() {
     // Complement has edges {(0,2),(0,3),(1,3)}, MIS of size 2.
     let source = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify complement graph structure
@@ -35,16 +36,17 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
     // MIS on empty graph = all vertices
     let source = MaximumClique::new(
         SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Complement of K3 has no edges
     assert_eq!(target.graph().num_edges(), 0);
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     // MIS on empty graph is all vertices selected
     assert!(target_solutions
@@ -53,13 +55,14 @@ fn test_maximumclique_to_maximumindependentset_triangle() {
 
     // Extract solution: should be the full clique {0,1,2}
     let source_sol = reduction.extract_solution(&target_solutions[0]).unwrap();
-    assert_eq!(source.evaluate(&source_sol).unwrap(), 3);
+    assert_eq!(source.evaluate(&source_sol).unwrap().unwrap(), 3);
 }
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_weights_preserved() {
     let source = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.weights().to_vec(), vec![10, 20, 30]);
@@ -69,15 +72,16 @@ fn test_maximumclique_to_maximumindependentset_weights_preserved() {
 fn test_maximumclique_to_maximumindependentset_empty_graph() {
     // Empty graph (no edges): complement is complete graph
     // Max clique in empty graph = any single vertex
-    let source = MaximumClique::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let source = MaximumClique::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Complement of empty graph is K3
     assert_eq!(target.graph().num_edges(), 3);
 
     let solver = BruteForce::new();
-    let target_solutions = solver.find_all_witnesses(target);
+    let target_solutions = solver.find_all_witnesses(target).unwrap();
 
     // MIS on K3 is any single vertex
     assert!(target_solutions
@@ -87,13 +91,14 @@ fn test_maximumclique_to_maximumindependentset_empty_graph() {
 
 #[test]
 fn test_maximumclique_to_maximumindependentset_one_weights_closed_loop() {
-    // Same P4 as the i32 closed-loop test, but with unit weights so the
-    // reduction stays on the <SimpleGraph, One> endpoint (no i32 detour).
+    // Same P4 as the i64 closed-loop test, but with unit weights so the
+    // reduction stays on the <SimpleGraph, One> endpoint (no i64 detour).
     let source = MaximumClique::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![One; 4],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), 4);
@@ -111,9 +116,10 @@ fn test_maximumclique_to_maximumindependentset_overhead() {
     // Verify exact size formula: complement edges = n*(n-1)/2 - m
     let source = MaximumClique::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-        vec![1i32; 5],
+        vec![1i64; 5],
     );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), 5);

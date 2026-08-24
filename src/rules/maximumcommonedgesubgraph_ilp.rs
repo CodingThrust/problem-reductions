@@ -75,7 +75,7 @@ impl ReductionResult for ReductionMCESToILP {
 impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
     type Result = ReductionMCESToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n1 = self.num_vertices_1();
         let n2 = self.num_vertices_2();
         let arcs_1 = self.graph_1().arcs();
@@ -129,11 +129,11 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionMCESToILP {
+        Ok(ReductionMCESToILP {
             target,
             num_vertices_1: n1,
             num_vertices_2: n2,
-        }
+        })
     }
 }
 

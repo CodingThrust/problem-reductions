@@ -41,9 +41,9 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR_END: step2
 
     // ANCHOR: step3
-    // Factoring reduces to ILP<i32>, so we manually reduce, solve, and extract
+    // Factoring reduces to ILP<i64>, so we manually reduce, solve, and extract
     let solver = ILPSolver::new();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&factoring).expect("reduction should succeed");
     let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
     let solution = reduction.extract_solution(&ilp_solution).unwrap();
     // ANCHOR_END: step3
@@ -51,7 +51,7 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR: step4
     let (p, q) = factoring.read_factors(&solution); // decode bit assignments → integers
     println!("{} = {} × {}", factoring.target(), p, q);
-    assert_eq!(p * q, 6, "Factors should multiply to 6");
+    assert_eq!(p * q, 6u32.into(), "Factors should multiply to 6");
     // ANCHOR_END: step4
 
     // ANCHOR_END: example

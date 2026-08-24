@@ -22,11 +22,11 @@ fn test_minimum_covering_by_cliques_triangle() {
     let problem = MinimumCoveringByCliques::new(graph);
 
     // All edges in group 0 -> valid, 1 clique
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(Some(1)));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(Some(1)));
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    let value = problem.evaluate(&solution);
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(1)));
 }
 
@@ -38,14 +38,14 @@ fn test_minimum_covering_by_cliques_path() {
     let problem = MinimumCoveringByCliques::new(graph);
 
     // Both edges in the same group -> invalid (0 and 2 not adjacent)
-    assert_eq!(problem.evaluate(&[0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(None));
 
     // Two separate groups -> valid, 2 cliques
-    assert_eq!(problem.evaluate(&[0, 1]), Min(Some(2)));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(Some(2)));
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(2)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -56,10 +56,10 @@ fn test_minimum_covering_by_cliques_invalid_group() {
     let problem = MinimumCoveringByCliques::new(graph);
 
     // Edges (0,1) and (2,3) in same group: vertices {0,1,2,3}, not a clique
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1]).unwrap(), Min(None));
 
     // Each edge in its own group -> valid, 4 cliques
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]), Min(Some(4)));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Min(Some(4)));
 }
 
 #[test]
@@ -67,14 +67,14 @@ fn test_minimum_covering_by_cliques_empty_graph() {
     // No edges: 0 cliques needed
     let graph = SimpleGraph::new(3, vec![]);
     let problem = MinimumCoveringByCliques::new(graph);
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_minimum_covering_by_cliques_wrong_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumCoveringByCliques::new(graph);
-    assert_eq!(problem.evaluate(&[0]), Min(None));
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -85,8 +85,8 @@ fn test_minimum_covering_by_cliques_solver() {
     let problem = MinimumCoveringByCliques::new(graph);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    let value = problem.evaluate(&solution);
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&solution).unwrap();
     // Two triangles: {0,1,2} and {0,2,3} cover all 5 edges
     assert_eq!(value, Min(Some(2)));
 }
@@ -126,7 +126,7 @@ fn test_minimum_covering_by_cliques_paper_example() {
 
     // The given optimal config
     let config = vec![0, 0, 1, 1, 0, 2, 2, 3, 3];
-    let result = problem.evaluate(&config);
+    let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 4);
 }

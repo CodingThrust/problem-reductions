@@ -45,22 +45,24 @@ impl CyclicOrdering {
     fn validate_inputs(
         num_elements: usize,
         triples: &[(usize, usize, usize)],
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::registry::ConstructionError> {
         if num_elements == 0 {
-            return Err("CyclicOrdering requires at least one element".to_string());
+            return Err("CyclicOrdering requires at least one element"
+                .to_string()
+                .into());
         }
         for (i, &(a, b, c)) in triples.iter().enumerate() {
             if a >= num_elements || b >= num_elements || c >= num_elements {
                 return Err(format!(
                     "Triple {} has element(s) out of range 0..{}",
                     i, num_elements
-                ));
+                )
+                .into());
             }
             if a == b || b == c || a == c {
-                return Err(format!(
-                    "Triple {} has duplicate elements ({}, {}, {})",
-                    i, a, b, c
-                ));
+                return Err(
+                    format!("Triple {} has duplicate elements ({}, {}, {})", i, a, b, c).into(),
+                );
             }
         }
         Ok(())
@@ -69,7 +71,7 @@ impl CyclicOrdering {
     pub fn try_new(
         num_elements: usize,
         triples: Vec<(usize, usize, usize)>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(num_elements, &triples)?;
         Ok(Self {
             num_elements,
@@ -165,8 +167,8 @@ impl Problem for CyclicOrdering {
         vec![self.num_elements; self.num_elements]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(self.is_valid_solution(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(self.is_valid_solution(config)))
     }
 }
 

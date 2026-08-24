@@ -56,43 +56,43 @@ fn test_scheduling_with_individual_deadlines_basic() {
 fn test_scheduling_with_individual_deadlines_evaluate_issue_example() {
     let problem = issue_example_problem();
 
-    assert!(problem.evaluate(&[0, 0, 0, 1, 2, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 2, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_rejects_wrong_length() {
     let problem = issue_example_problem();
 
-    assert!(!problem.evaluate(&[0, 0, 0]));
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 2, 1, 1, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 0, 1, 2, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_rejects_deadline_violation() {
     let problem = issue_example_problem();
 
-    assert!(!problem.evaluate(&[0, 1, 0, 1, 2, 1, 1]));
+    assert!(!problem.evaluate(&[0, 1, 0, 1, 2, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_rejects_precedence_violation() {
     let problem = issue_example_problem();
 
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 2, 1, 1]));
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 2, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_rejects_capacity_violation() {
     let problem = issue_example_problem();
 
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 2, 1, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0, 1, 2, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_scheduling_with_individual_deadlines_evaluate_handles_huge_sparse_deadline() {
-    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![usize::MAX], vec![]);
+    let problem = SchedulingWithIndividualDeadlines::new(1, 1, vec![i64::MAX], vec![]);
 
-    let result = std::panic::catch_unwind(|| problem.evaluate(&[0]));
+    let result = std::panic::catch_unwind(|| problem.evaluate(&[0]).unwrap());
 
     assert!(matches!(result, Ok(crate::types::Or(true))));
 }
@@ -102,8 +102,11 @@ fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
     let problem = SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.find_all_witnesses(&problem), vec![vec![0, 0, 1]]);
-    assert_eq!(solver.find_witness(&problem), Some(vec![0, 0, 1]));
+    assert_eq!(
+        solver.find_all_witnesses(&problem).unwrap(),
+        vec![vec![0, 0, 1]]
+    );
+    assert_eq!(solver.find_witness(&problem).unwrap(), Some(vec![0, 0, 1]));
 }
 
 #[test]
@@ -111,7 +114,7 @@ fn test_scheduling_with_individual_deadlines_brute_force_unsatisfiable() {
     let problem = SchedulingWithIndividualDeadlines::new(3, 1, vec![1, 1, 1], vec![]);
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -131,11 +134,14 @@ fn test_scheduling_with_individual_deadlines_paper_example() {
     let problem = issue_example_problem();
     let solver = BruteForce::new();
 
-    let satisfying = solver.find_all_witnesses(&problem);
+    let satisfying = solver.find_all_witnesses(&problem).unwrap();
 
-    assert!(problem.evaluate(&[0, 0, 0, 1, 2, 1, 1]));
+    assert!(problem.evaluate(&[0, 0, 0, 1, 2, 1, 1]).unwrap());
     assert!(satisfying.contains(&vec![0, 0, 0, 1, 2, 1, 1]));
-    assert_eq!(solver.find_witness(&problem), satisfying.into_iter().next());
+    assert_eq!(
+        solver.find_witness(&problem).unwrap(),
+        satisfying.into_iter().next()
+    );
 }
 
 #[test]

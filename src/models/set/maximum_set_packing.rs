@@ -3,7 +3,7 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
 use num_traits::Zero;
@@ -15,7 +15,7 @@ inventory::submit! {
         name: "MaximumSetPacking",
         display_name: "Maximum Set Packing",
         aliases: &[],
-        dimensions: &[VariantDimension::new("weight", "One", &["One", "i32", "f64"])],
+        dimensions: &[VariantDimension::new("weight", "One", &["One", "i64", "f64"])],
         category: crate::registry::ProblemCategory::Set,
         module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
@@ -36,7 +36,7 @@ inventory::submit! {
 ///
 /// // Sets: S0={0,1}, S1={1,2}, S2={2,3}, S3={3,4}
 /// // S0 and S1 overlap, S2 and S3 are disjoint from S0
-/// let problem = MaximumSetPacking::<i32>::new(vec![
+/// let problem = MaximumSetPacking::<i64>::new(vec![
 ///     vec![0, 1],
 ///     vec![1, 2],
 ///     vec![2, 3],
@@ -44,19 +44,38 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify solutions are pairwise disjoint
 /// for sol in solutions {
-///     assert!(problem.evaluate(&sol).is_valid());
+///     assert!(problem.evaluate(&sol).unwrap().is_valid());
 /// }
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MaximumSetPacking<W = i32> {
+#[derive(Debug, Clone, Serialize)]
+pub struct MaximumSetPacking<W = i64> {
     /// Collection of sets.
     sets: Vec<Vec<usize>>,
     /// Weights for each set.
     weights: Vec<W>,
+}
+
+#[derive(Deserialize)]
+struct MaximumSetPackingData<W> {
+    sets: Vec<Vec<usize>>,
+    weights: Vec<W>,
+}
+
+impl<'de, W> Deserialize<'de> for MaximumSetPacking<W>
+where
+    W: WeightElement + Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data = MaximumSetPackingData::deserialize(deserializer)?;
+        Self::with_weights(data.sets, data.weights).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -67,18 +86,11 @@ struct MaximumSetPackingCreateSpec<W> {
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> TryFrom<MaximumSetPackingCreateSpec<W>> for MaximumSetPacking<W> {
-    type Error = String;
+impl<W: WeightElement> TryFrom<MaximumSetPackingCreateSpec<W>> for MaximumSetPacking<W> {
+    type Error = ConstructionError;
 
     fn try_from(spec: MaximumSetPackingCreateSpec<W>) -> Result<Self, Self::Error> {
-        if spec.subsets.len() != spec.weights.len() {
-            return Err(format!(
-                "weights has {} entries, expected one for each of {} subsets",
-                spec.weights.len(),
-                spec.subsets.len()
-            ));
-        }
-        Ok(Self::with_weights(spec.subsets, spec.weights))
+        Self::with_weights(spec.subsets, spec.weights)
     }
 }
 
@@ -86,17 +98,27 @@ impl<W: Clone + Default> MaximumSetPacking<W> {
     /// Create a new Set Packing problem with unit weights.
     pub fn new(sets: Vec<Vec<usize>>) -> Self
     where
-        W: From<i32>,
+        W: WeightElement,
     {
         let num_sets = sets.len();
-        let weights = vec![W::from(1); num_sets];
+        let weights = vec![W::unit(); num_sets];
         Self { sets, weights }
     }
 
     /// Create a new Set Packing problem with custom weights.
-    pub fn with_weights(sets: Vec<Vec<usize>>, weights: Vec<W>) -> Self {
-        assert_eq!(sets.len(), weights.len());
-        Self { sets, weights }
+    pub fn with_weights(sets: Vec<Vec<usize>>, weights: Vec<W>) -> Result<Self, ConstructionError>
+    where
+        W: WeightElement,
+    {
+        if sets.len() != weights.len() {
+            return Err(ConstructionError::Conversion(
+                "weights length must match number of sets".into(),
+            ));
+        }
+        for (index, weight) in weights.iter().enumerate() {
+            weight.validate_element(&format!("set weight at index {index}"))?;
+        }
+        Ok(Self { sets, weights })
     }
 
     /// Get the number of sets.
@@ -168,17 +190,23 @@ where
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !is_valid_packing(&self.sets, config) {
-            return Max(None);
-        }
-        let mut total = W::Sum::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !is_valid_packing(&self.sets, config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+            let mut total = W::Sum::zero();
+            for (i, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.weights[i].to_sum(),
+                        "summing selected set-packing weights",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -188,7 +216,7 @@ where
 
 crate::declare_variants! {
     default MaximumSetPacking<One> => "2^num_sets" create MaximumSetPackingCreateSpec<One>,
-    MaximumSetPacking<i32> => "2^num_sets" create MaximumSetPackingCreateSpec<i32>,
+    MaximumSetPacking<i64> => "2^num_sets" create MaximumSetPackingCreateSpec<i64>,
     MaximumSetPacking<f64> => "2^num_sets" create MaximumSetPackingCreateSpec<f64>,
 }
 
@@ -227,8 +255,8 @@ pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_set_packing_i32",
-        instance: Box::new(MaximumSetPacking::<i32>::new(vec![
+        id: "maximum_set_packing_i64",
+        instance: Box::new(MaximumSetPacking::<i64>::new(vec![
             vec![0, 1],
             vec![1, 2],
             vec![2, 3],

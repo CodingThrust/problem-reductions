@@ -34,9 +34,9 @@ pub struct IntegralFlowWithMultipliers {
     graph: DirectedGraph,
     source: usize,
     sink: usize,
-    multipliers: Vec<u64>,
-    capacities: Vec<u64>,
-    requirement: u64,
+    multipliers: Vec<i64>,
+    capacities: Vec<i64>,
+    requirement: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -45,17 +45,19 @@ struct IntegralFlowWithMultipliersCreateSpec {
     arcs: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
     #[create(codec = "comma-separated")]
-    capacities: Vec<u64>,
+    capacities: Vec<i64>,
     source: usize,
     sink: usize,
     #[create(codec = "comma-separated")]
-    multipliers: Vec<u64>,
-    requirement: u64,
+    multipliers: Vec<i64>,
+    requirement: i64,
 }
 
 impl TryFrom<IntegralFlowWithMultipliersCreateSpec> for IntegralFlowWithMultipliers {
-    type Error = String;
-    fn try_from(spec: IntegralFlowWithMultipliersCreateSpec) -> Result<Self, String> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(
+        spec: IntegralFlowWithMultipliersCreateSpec,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if spec.arcs.is_empty() {
             return Err("arcs must be non-empty".into());
         }
@@ -113,9 +115,9 @@ impl IntegralFlowWithMultipliers {
         graph: DirectedGraph,
         source: usize,
         sink: usize,
-        multipliers: Vec<u64>,
-        capacities: Vec<u64>,
-        requirement: u64,
+        multipliers: Vec<i64>,
+        capacities: Vec<i64>,
+        requirement: i64,
     ) -> Self {
         assert_eq!(
             capacities.len(),
@@ -177,15 +179,15 @@ impl IntegralFlowWithMultipliers {
         self.sink
     }
 
-    pub fn multipliers(&self) -> &[u64] {
+    pub fn multipliers(&self) -> &[i64] {
         &self.multipliers
     }
 
-    pub fn capacities(&self) -> &[u64] {
+    pub fn capacities(&self) -> &[i64] {
         &self.capacities
     }
 
-    pub fn requirement(&self) -> u64 {
+    pub fn requirement(&self) -> i64 {
         self.requirement
     }
 
@@ -197,25 +199,25 @@ impl IntegralFlowWithMultipliers {
         self.graph.num_arcs()
     }
 
-    pub fn max_capacity(&self) -> u64 {
+    pub fn max_capacity(&self) -> i64 {
         self.capacities.iter().copied().max().unwrap_or(0)
     }
 
-    fn domain_size(capacity: u64) -> usize {
+    fn domain_size(capacity: i64) -> usize {
         usize::try_from(capacity)
             .ok()
             .and_then(|value| value.checked_add(1))
             .expect("capacity already validated to fit into usize")
     }
 
-    pub fn is_feasible(&self, config: &[usize]) -> bool {
+    pub fn is_feasible(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.num_arcs() {
-            return false;
+            return Ok(false);
         }
 
         let num_vertices = self.num_vertices();
-        let mut inflow = vec![0_i128; num_vertices];
-        let mut outflow = vec![0_i128; num_vertices];
+        let mut inflow = vec![0_i64; num_vertices];
+        let mut outflow = vec![0_i64; num_vertices];
 
         for (arc_index, ((u, v), &capacity)) in self
             .graph
@@ -225,34 +227,50 @@ impl IntegralFlowWithMultipliers {
             .enumerate()
         {
             let Some(flow_usize) = config.get(arc_index).copied() else {
-                return false;
+                return Ok(false);
             };
-            let Ok(flow_u64) = u64::try_from(flow_usize) else {
-                return false;
+            let Ok(flow_u64) = i64::try_from(flow_usize) else {
+                return Ok(false);
             };
             if flow_u64 > capacity {
-                return false;
+                return Ok(false);
             }
-            let flow = i128::from(flow_u64);
-            outflow[u] += flow;
-            inflow[v] += flow;
+            outflow[u] = outflow[u].checked_add(flow_u64).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing outgoing multiplied flow".into(),
+                )
+            })?;
+            inflow[v] = inflow[v].checked_add(flow_u64).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing incoming multiplied flow".into(),
+                )
+            })?;
         }
 
         for vertex in 0..num_vertices {
             if vertex == self.source || vertex == self.sink {
                 continue;
             }
-            let multiplier = i128::from(self.multipliers[vertex]);
-            let Some(expected_outflow) = inflow[vertex].checked_mul(multiplier) else {
-                return false;
-            };
+            let expected_outflow = inflow[vertex]
+                .checked_mul(self.multipliers[vertex])
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "multiplying incoming flow by vertex multiplier".into(),
+                    )
+                })?;
             if expected_outflow != outflow[vertex] {
-                return false;
+                return Ok(false);
             }
         }
 
-        let sink_net_flow = inflow[self.sink] - outflow[self.sink];
-        sink_net_flow >= i128::from(self.requirement)
+        let sink_net_flow = inflow[self.sink]
+            .checked_sub(outflow[self.sink])
+            .ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "computing net flow into sink".into(),
+                )
+            })?;
+        Ok(sink_net_flow >= self.requirement)
     }
 }
 
@@ -267,8 +285,11 @@ impl Problem for IntegralFlowWithMultipliers {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_feasible(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

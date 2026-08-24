@@ -17,15 +17,15 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionFeasibleRegisterAssignmentToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_vertices: usize,
 }
 
 impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
     type Source = FeasibleRegisterAssignment;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -44,10 +44,10 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
         num_vars = "2 * num_vertices + num_vertices * (num_vertices - 1) / 2",
         num_constraints = "3 * num_vertices * (num_vertices - 1) / 2 + 3 * num_vertices + 2 * num_arcs + 2 * num_same_register_pairs",
     },)]
-impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
+impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
     type Result = ReductionFeasibleRegisterAssignmentToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let pair_list: Vec<(usize, usize)> = (0..n)
             .flat_map(|u| ((u + 1)..n).map(move |v| (u, v)))
@@ -131,10 +131,10 @@ impl ReduceTo<ILP<i32>> for FeasibleRegisterAssignment {
             ));
         }
 
-        ReductionFeasibleRegisterAssignmentToILP {
+        Ok(ReductionFeasibleRegisterAssignmentToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_vertices: n,
-        }
+        })
     }
 }
 
@@ -149,7 +149,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![0, 1, 0, 0],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

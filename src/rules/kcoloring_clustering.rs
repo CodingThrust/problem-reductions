@@ -38,7 +38,7 @@ impl ReductionResult for ReductionKColoringToClustering {
     }
 }
 
-fn build_distances(graph: &SimpleGraph) -> Vec<Vec<u64>> {
+fn build_distances(graph: &SimpleGraph) -> Vec<Vec<i64>> {
     let n = graph.num_vertices();
     if n == 0 {
         return vec![vec![0]];
@@ -59,11 +59,11 @@ fn build_distances(graph: &SimpleGraph) -> Vec<Vec<u64>> {
 impl ReduceTo<Clustering> for KColoring<K3, SimpleGraph> {
     type Result = ReductionKColoringToClustering;
 
-    fn reduce_to(&self) -> Self::Result {
-        ReductionKColoringToClustering {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(ReductionKColoringToClustering {
             target: Clustering::new(build_distances(self.graph()), self.num_colors(), 0),
             source_num_vertices: self.graph().num_vertices(),
-        }
+        })
     }
 }
 

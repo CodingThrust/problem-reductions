@@ -155,7 +155,7 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
             if <PartitionIntoCliques<SimpleGraph> as crate::traits::Problem>::evaluate(
                 &source_problem,
                 &extracted,
-            )
+            )?
             .0
             {
                 extracted
@@ -177,7 +177,7 @@ impl ReductionResult for ReductionPartitionIntoCliquesToMinimumCoveringByCliques
 impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<SimpleGraph> {
     type Result = ReductionPartitionIntoCliquesToMinimumCoveringByCliques;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let layout = OrlinLayout::new(self.graph());
         let left_vertices = layout.left_vertices();
         let right_vertices = layout.right_vertices();
@@ -211,11 +211,11 @@ impl ReduceTo<MinimumCoveringByCliques<SimpleGraph>> for PartitionIntoCliques<Si
         let target_graph = SimpleGraph::new(layout.total_vertices(), edges);
         let target = MinimumCoveringByCliques::new(target_graph);
 
-        ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
+        Ok(ReductionPartitionIntoCliquesToMinimumCoveringByCliques {
             target,
             source_graph: self.graph().clone(),
             source_num_cliques: self.num_cliques(),
-        }
+        })
     }
 }
 
@@ -251,7 +251,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "partitionintocliques_to_minimumcoveringbycliques",
         build: || {
             let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-            let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+            let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+                .expect("reduction should succeed");
             let layout = OrlinLayout::new(source.graph());
 
             let target_config = edge_labels_from_clique_cover(

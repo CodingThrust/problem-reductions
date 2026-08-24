@@ -88,14 +88,14 @@ fn translate_congruence(source: &QuadraticCongruences) -> QuadraticDiophantineEq
 impl ReduceTo<QuadraticDiophantineEquations> for KSatisfiability<K3> {
     type Result = Reduction3SATToQuadraticDiophantineEquations;
 
-    fn reduce_to(&self) -> Self::Result {
-        let congruence_reduction = ReduceTo::<QuadraticCongruences>::reduce_to(self);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let congruence_reduction = ReduceTo::<QuadraticCongruences>::reduce_to(self)?;
         let target = translate_congruence(congruence_reduction.target_problem());
 
-        Reduction3SATToQuadraticDiophantineEquations {
+        Ok(Reduction3SATToQuadraticDiophantineEquations {
             target,
             congruence_reduction,
-        }
+        })
     }
 }
 
@@ -124,7 +124,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "ksatisfiability_to_quadraticdiophantineequations",
         build: || {
             let source = canonical_source();
-            let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source);
+            let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source)
+                .expect("reduction should succeed");
             let target_config = reduction
                 .target_problem()
                 .encode_witness(&canonical_witness())

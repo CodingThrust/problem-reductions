@@ -4,7 +4,7 @@ use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
 
-fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
+fn k4_tsp() -> TravelingSalesman<SimpleGraph, i64> {
     TravelingSalesman::new(
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         vec![10, 15, 20, 35, 25, 30],
@@ -14,11 +14,12 @@ fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
 #[test]
 fn test_reduction_creates_valid_ilp_c4() {
     // C4 cycle: 4 vertices, 4 edges. Unique Hamiltonian cycle (the cycle itself).
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 16 + 2*4*4 = 48
@@ -29,11 +30,12 @@ fn test_reduction_creates_valid_ilp_c4() {
 #[test]
 fn test_reduction_c4_closed_loop() {
     // C4 cycle with unit weights: optimal tour cost = 4
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -41,7 +43,7 @@ fn test_reduction_c4_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Verify extracted solution is valid on source problem
-    let metric = problem.evaluate(&extracted);
+    let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid(), "Extracted solution must be valid");
     assert_eq!(metric, Min(Some(4)));
 }
@@ -52,7 +54,8 @@ fn test_reduction_k4_weighted_closed_loop() {
     let problem = k4_tsp();
 
     // Solve via ILP reduction
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -60,9 +63,9 @@ fn test_reduction_k4_weighted_closed_loop() {
 
     // Solve via brute force for cross-check
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_metric = problem.evaluate(&bf_solutions[0]);
-    let ilp_metric = problem.evaluate(&extracted);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_metric = problem.evaluate(&bf_solutions[0]).unwrap();
+    let ilp_metric = problem.evaluate(&extracted).unwrap();
 
     assert!(ilp_metric.is_valid());
     assert_eq!(
@@ -74,18 +77,19 @@ fn test_reduction_k4_weighted_closed_loop() {
 #[test]
 fn test_reduction_c5_unweighted_closed_loop() {
     // C5 cycle with unit weights
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
 
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let metric = problem.evaluate(&extracted);
+    let metric = problem.evaluate(&extracted).unwrap();
     assert!(metric.is_valid());
     assert_eq!(metric, Min(Some(5)));
 }
@@ -93,12 +97,13 @@ fn test_reduction_c5_unweighted_closed_loop() {
 #[test]
 fn test_no_hamiltonian_cycle_infeasible() {
     // Path graph 0-1-2-3: no Hamiltonian cycle exists
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3)],
     ));
 
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
@@ -112,11 +117,12 @@ fn test_no_hamiltonian_cycle_infeasible() {
 #[test]
 fn test_solution_extraction_structure() {
     // C4 cycle: verify extraction produces correct edge selection format
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -139,21 +145,22 @@ fn test_solve_reduced() {
         .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
-    let metric = problem.evaluate(&solution);
+    let metric = problem.evaluate(&solution).unwrap();
     assert!(metric.is_valid());
 
     // Cross-check with brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    assert_eq!(metric, problem.evaluate(&bf_solutions[0]));
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    assert_eq!(metric, problem.evaluate(&bf_solutions[0]).unwrap());
 }
 
 #[test]
 fn test_travelingsalesman_to_ilp_bf_vs_ilp() {
-    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+    let problem = TravelingSalesman::<_, i64>::unit_weights(SimpleGraph::new(
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

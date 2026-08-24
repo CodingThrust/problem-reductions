@@ -14,8 +14,8 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone)]
 pub struct ReductionN3DMToNMTS {
     target: NumericalMatchingWithTargetSums,
-    source_sizes_w: Vec<u64>,
-    source_bound: u64,
+    source_sizes_w: Vec<i64>,
+    source_bound: i64,
 }
 
 impl ReductionResult for ReductionN3DMToNMTS {
@@ -51,7 +51,8 @@ impl ReductionResult for ReductionN3DMToNMTS {
             let mut x_perm = Vec::with_capacity(self.source_sizes_w.len());
             let mut y_perm = Vec::with_capacity(self.source_sizes_w.len());
             for &w_size in &self.source_sizes_w {
-                let target_sum = checked_target_sum_to_i64(self.source_bound, w_size);
+                let target_sum = checked_target_sum(self.source_bound, w_size)
+                    .map_err(crate::rules::ExtractionError::invalid)?;
                 let x_index = x_indices_by_pair_sum
                     .get_mut(&target_sum)
                     .and_then(Vec::pop)
@@ -70,19 +71,10 @@ impl ReductionResult for ReductionN3DMToNMTS {
     }
 }
 
-fn checked_size_to_i64(size: u64) -> i64 {
-    i64::try_from(size).expect(
-        "Numerical3DimensionalMatching -> NumericalMatchingWithTargetSums requires X/Y sizes to fit in i64",
-    )
-}
-
-fn checked_target_sum_to_i64(bound: u64, w_size: u64) -> i64 {
-    let target_sum = bound
+fn checked_target_sum(bound: i64, w_size: i64) -> Result<i64, &'static str> {
+    bound
         .checked_sub(w_size)
-        .expect("N3DM invariants require each w_i to be strictly smaller than B");
-    i64::try_from(target_sum).expect(
-        "Numerical3DimensionalMatching -> NumericalMatchingWithTargetSums requires each complement B - s(w_i) to fit in i64",
-    )
+        .ok_or("computing a derived target sum overflowed")
 }
 
 #[reduction(
@@ -92,30 +84,29 @@ fn checked_target_sum_to_i64(bound: u64, w_size: u64) -> i64 {
 impl ReduceTo<NumericalMatchingWithTargetSums> for Numerical3DimensionalMatching {
     type Result = ReductionN3DMToNMTS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let map_error = |message| {
+            crate::rules::ReductionError::invalid_target::<
+                Numerical3DimensionalMatching,
+                NumericalMatchingWithTargetSums,
+            >(message)
+        };
         let target = NumericalMatchingWithTargetSums::new(
-            self.sizes_x()
-                .iter()
-                .copied()
-                .map(checked_size_to_i64)
-                .collect(),
-            self.sizes_y()
-                .iter()
-                .copied()
-                .map(checked_size_to_i64)
-                .collect(),
+            self.sizes_x().to_vec(),
+            self.sizes_y().to_vec(),
             self.sizes_w()
                 .iter()
                 .copied()
-                .map(|w_size| checked_target_sum_to_i64(self.bound(), w_size))
-                .collect(),
+                .map(|w_size| checked_target_sum(self.bound(), w_size))
+                .collect::<Result<_, _>>()
+                .map_err(map_error)?,
         );
 
-        ReductionN3DMToNMTS {
+        Ok(ReductionN3DMToNMTS {
             target,
             source_sizes_w: self.sizes_w().to_vec(),
             source_bound: self.bound(),
-        }
+        })
     }
 }
 

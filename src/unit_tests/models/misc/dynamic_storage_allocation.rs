@@ -32,28 +32,28 @@ fn test_dynamic_storage_allocation_basic() {
 fn test_dynamic_storage_allocation_evaluate_feasible() {
     let problem = example_problem();
     // Solution from the issue: σ = [0, 2, 5, 2, 0] (0-indexed)
-    assert_eq!(problem.evaluate(&[0, 2, 5, 2, 0]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 2, 5, 2, 0]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_dynamic_storage_allocation_evaluate_infeasible() {
     let problem = example_problem();
     // All items at address 0 - should overlap
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_dynamic_storage_allocation_rejects_invalid_config_length() {
     let problem = example_problem();
-    assert_eq!(problem.evaluate(&[0, 2, 5]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 2, 5, 2, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 2, 5]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 2, 5, 2, 0, 1]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_dynamic_storage_allocation_rejects_out_of_bounds() {
     let problem = example_problem();
     // Item 0 has size 2, so max start is 4 (0..=4). Start at 5 => 5+2=7 > 6
-    assert_eq!(problem.evaluate(&[5, 0, 0, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[5, 0, 0, 0, 0]).unwrap(), Or(false));
 }
 
 #[test]
@@ -61,8 +61,8 @@ fn test_dynamic_storage_allocation_solver_finds_witness() {
     // Use a small instance for brute-force
     let problem = DynamicStorageAllocation::new(vec![(0, 2, 1), (1, 3, 1)], 2);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn test_dynamic_storage_allocation_unsatisfiable_instance() {
     // Two items overlap in time, both size 3, memory = 4: can't fit without overlap
     let problem = DynamicStorageAllocation::new(vec![(0, 2, 3), (0, 2, 3)], 4);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -148,5 +148,5 @@ fn test_dynamic_storage_allocation_non_overlapping_time_any_address() {
     // Two items that don't overlap in time can share any addresses
     let problem = DynamicStorageAllocation::new(vec![(0, 2, 3), (2, 4, 3)], 3);
     // Both at address 0, but they don't overlap in time (d(a)=2 <= r(a')=2)
-    assert_eq!(problem.evaluate(&[0, 0]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Or(true));
 }

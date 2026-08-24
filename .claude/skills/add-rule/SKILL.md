@@ -24,8 +24,8 @@ Before any implementation, collect all required information. If called from `iss
 
 | # | Item | Description | Example |
 |---|------|-------------|---------|
-| 1 | **Source problem** | The problem being reduced FROM (must already exist) | `MinimumVertexCover<SimpleGraph, i32>` |
-| 2 | **Target problem** | The problem being reduced TO (must already exist) | `MaximumIndependentSet<SimpleGraph, i32>` |
+| 1 | **Source problem** | The problem being reduced FROM (must already exist) | `MinimumVertexCover<SimpleGraph, i64>` |
+| 2 | **Target problem** | The problem being reduced TO (must already exist) | `MaximumIndependentSet<SimpleGraph, i64>` |
 | 3 | **Reduction algorithm** | How to transform source instance to target | "Copy graph and weights; IS on same graph as VC" |
 | 4 | **Solution extraction** | How to map target solution back to source | "Complement: `1 - x` for each variable" |
 | 5 | **Correctness argument** | Why the reduction preserves optimality | "S is independent set iff V\S is vertex cover" |
@@ -60,11 +60,22 @@ If incompatible, STOP and comment on the issue explaining the type mismatch and 
 
 Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
 types, supported ranges, and checked conversions from the mathematical source,
-target, and reduction algorithm. Ask the contributor only when a mathematical
-domain or constraint is ambiguous; do not ask them to choose Rust types. Do not
-use `as` for range/sign changes. Check target-size arithmetic and auxiliary
-identifiers before constructing the target, verify serde/CLI uses the same
-ranges, and add focused boundary tests.
+target, and reduction algorithm. At source/result/target/I/O boundaries, use
+`usize` for structural integers, `i64` for mathematical integers, `bool` for
+Boolean data, and finite `f64` for real or rational data. Another format needs
+mathematical or target-schema justification; there is no `i32` boundary format.
+Temporary reduction calculations are outside this format contract, but fields
+written into the target must use the target model's format.
+
+Ask the contributor only when a mathematical domain or constraint is ambiguous;
+do not ask them to choose Rust types. Do not use `as` for range/sign changes.
+Check target-size arithmetic and auxiliary identifiers before constructing the
+target, verify serde/CLI uses the same ranges, and add focused boundary tests.
+The public reduction returns `ReductionError`: preserve a target constructor's
+`ConstructionError` as `ReductionError::Construction`, and report reduction
+arithmetic directly as the corresponding `ReductionError`; do not stringify or
+silently handle either error. Convert model-derived `i64` values to `f64` only
+through `i64_to_exact_f64`.
 
 ## Reference Implementations
 

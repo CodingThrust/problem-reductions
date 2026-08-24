@@ -88,7 +88,7 @@ impl ReductionResult for ReductionLCSToIS {
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubsequence {
     type Result = ReductionLCSToIS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let strings = self.strings();
         let k = self.num_strings();
 
@@ -140,13 +140,13 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
             vec![One; num_vertices],
         );
 
-        ReductionLCSToIS {
+        Ok(ReductionLCSToIS {
             target,
             match_nodes,
             match_chars,
             max_length: self.max_length(),
             alphabet_size: self.alphabet_size(),
-        }
+        })
     }
 }
 

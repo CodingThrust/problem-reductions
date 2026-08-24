@@ -14,6 +14,7 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to QUBO.
@@ -47,7 +48,7 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 /// Helper function implementing the KColoring to QUBO reduction logic.
 fn reduce_kcoloring_to_qubo<K: KValue>(
     problem: &KColoring<K, SimpleGraph>,
-) -> ReductionKColoringToQUBO<K> {
+) -> Result<ReductionKColoringToQUBO<K>, crate::rules::ReductionError> {
     let k = problem.num_colors();
     let n = problem.graph().num_vertices();
     let edges = problem.graph().edges();
@@ -55,7 +56,17 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
     // Penalty must be large enough to enforce one-hot constraints
     // P1 for one-hot, P2 for edge conflicts; use same penalty
-    let penalty = 1.0 + n as f64;
+    let n_i64 = i64::try_from(n).map_err(|_| {
+        crate::rules::ReductionError::integer_overflow::<KColoring<K, SimpleGraph>, QUBO<f64>>(
+            "converting the vertex count to a QUBO coefficient",
+        )
+    })?;
+    let penalty = 1.0
+        + i64_to_exact_f64(n_i64).map_err(|error| {
+            crate::rules::ReductionError::invalid_target::<KColoring<K, SimpleGraph>, QUBO<f64>>(
+                format!("converting the vertex count to a QUBO coefficient: {error}"),
+            )
+        })?;
 
     let mut matrix = vec![vec![0.0; nq]; nq];
 
@@ -94,12 +105,16 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
         }
     }
 
-    ReductionKColoringToQUBO {
-        target: QUBO::from_matrix(matrix),
+    Ok(ReductionKColoringToQUBO {
+        target: QUBO::from_matrix(matrix).map_err(|message| {
+            crate::rules::ReductionError::construction::<KColoring<K, SimpleGraph>, QUBO<f64>>(
+                message,
+            )
+        })?,
         num_vertices: n,
         num_colors: k,
         _phantom: std::marker::PhantomData,
-    }
+    })
 }
 
 // Register only the KN variant in the reduction graph
@@ -111,7 +126,7 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<KN>;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         reduce_kcoloring_to_qubo(self)
     }
 }
@@ -121,7 +136,9 @@ macro_rules! impl_kcoloring_to_qubo {
     ($($ktype:ty),+) => {$(
         impl ReduceTo<QUBO<f64>> for KColoring<$ktype, SimpleGraph> {
             type Result = ReductionKColoringToQUBO<$ktype>;
-            fn reduce_to(&self) -> Self::Result { reduce_kcoloring_to_qubo(self) }
+            fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+                reduce_kcoloring_to_qubo(self)
+            }
         }
     )+};
 }

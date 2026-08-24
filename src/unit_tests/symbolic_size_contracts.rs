@@ -10,24 +10,25 @@ use num_bigint::BigUint;
 
 #[test]
 fn exact_rule_formula_matches_the_constructed_target() {
-    let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
+    let source = MaximumIndependentSet::<SimpleGraph, i64>::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1; 5],
     );
-    let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<
-        MaximumClique<SimpleGraph, i32>,
-    >>::reduce_to(&source);
+    let reduction = <MaximumIndependentSet<SimpleGraph, i64> as ReduceTo<
+        MaximumClique<SimpleGraph, i64>,
+    >>::reduce_to(&source)
+    .expect("reduction should succeed");
     let target = reduction.target_problem();
     let graph = ReductionGraph::new();
     let source_variant =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let target_variant =
-        ReductionGraph::variant_to_map(&MaximumClique::<SimpleGraph, i32>::variant());
+        ReductionGraph::variant_to_map(&MaximumClique::<SimpleGraph, i64>::variant());
     let path = graph
         .find_all_paths(
-            MaximumIndependentSet::<SimpleGraph, i32>::NAME,
+            MaximumIndependentSet::<SimpleGraph, i64>::NAME,
             &source_variant,
-            MaximumClique::<SimpleGraph, i32>::NAME,
+            MaximumClique::<SimpleGraph, i64>::NAME,
             &target_variant,
         )
         .into_iter()
@@ -54,7 +55,8 @@ fn exact_rule_formula_matches_the_constructed_target() {
 #[test]
 fn incoming_rule_measures_every_declared_field_on_a_sink_variant() {
     let source = ExactCoverBy3Sets::new(3, vec![[0, 1, 2]]);
-    let reduction = <ExactCoverBy3Sets as ReduceTo<AlgebraicEquationsOverGF2>>::reduce_to(&source);
+    let reduction = <ExactCoverBy3Sets as ReduceTo<AlgebraicEquationsOverGF2>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let target_variant = ReductionGraph::variant_to_map(&AlgebraicEquationsOverGF2::variant());
 

@@ -41,14 +41,14 @@ struct KCliqueCreateSpec {
 }
 
 impl TryFrom<KCliqueCreateSpec> for KClique<SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: KCliqueCreateSpec) -> Result<Self, Self::Error> {
         if spec.graph.is_empty() && spec.num_vertices.is_none() {
             return Err("num_vertices is required for an empty graph".into());
         }
         for &(u, v) in &spec.graph {
             if u == v {
-                return Err(format!("self-loop {u}-{v} is not allowed"));
+                return Err(format!("self-loop {u}-{v} is not allowed").into());
             }
         }
         let inferred = spec
@@ -139,8 +139,15 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(is_kclique_config(&self.graph, config, self.k))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(is_kclique_config(
+            &self.graph,
+            config,
+            self.k,
+        )))
     }
 }
 
@@ -185,7 +192,8 @@ crate::impl_random_generate!(
             return Err(format!(
                 "k must be between 1 and num_vertices ({})",
                 spec.num_vertices
-            ));
+            )
+            .into());
         }
         Ok(KClique::new(spec.graph()?, spec.k))
     }

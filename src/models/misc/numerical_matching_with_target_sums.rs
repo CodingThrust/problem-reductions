@@ -44,23 +44,27 @@ pub struct NumericalMatchingWithTargetSums {
 }
 
 impl NumericalMatchingWithTargetSums {
-    fn validate_inputs(sizes_x: &[i64], sizes_y: &[i64], targets: &[i64]) -> Result<(), String> {
+    fn validate_inputs(
+        sizes_x: &[i64],
+        sizes_y: &[i64],
+        targets: &[i64],
+    ) -> Result<(), crate::registry::ConstructionError> {
         let m = sizes_x.len();
         if m == 0 {
             return Err(
-                "NumericalMatchingWithTargetSums requires at least one element per set".to_string(),
+                "NumericalMatchingWithTargetSums requires at least one element per set".into(),
             );
         }
         if sizes_y.len() != m {
             return Err(
                 "NumericalMatchingWithTargetSums requires sizes_x and sizes_y to have the same length"
-                    .to_string(),
+                    .into(),
             );
         }
         if targets.len() != m {
             return Err(
                 "NumericalMatchingWithTargetSums requires targets to have the same length as sizes_x"
-                    .to_string(),
+                    .into(),
             );
         }
         Ok(())
@@ -70,7 +74,7 @@ impl NumericalMatchingWithTargetSums {
         sizes_x: Vec<i64>,
         sizes_y: Vec<i64>,
         targets: Vec<i64>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes_x, &sizes_y, &targets)?;
         Ok(Self {
             sizes_x,
@@ -139,30 +143,32 @@ impl Problem for NumericalMatchingWithTargetSums {
         vec![m; m]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            let m = self.num_pairs();
-            if config.len() != m {
-                return Or(false);
-            }
-
-            // Check config is valid permutation of 0..m
-            let mut used = vec![false; m];
-            for &idx in config {
-                if idx >= m || used[idx] {
-                    return Or(false);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                let m = self.num_pairs();
+                if config.len() != m {
+                    return Ok(Or(false));
                 }
-                used[idx] = true;
-            }
 
-            // Compute pair sums and compare multisets
-            let mut pair_sums: Vec<i64> = (0..m)
-                .map(|i| self.sizes_x[i] + self.sizes_y[config[i]])
-                .collect();
-            let mut sorted_targets = self.targets.clone();
-            pair_sums.sort();
-            sorted_targets.sort();
-            pair_sums == sorted_targets
+                // Check config is valid permutation of 0..m
+                let mut used = vec![false; m];
+                for &idx in config {
+                    if idx >= m || used[idx] {
+                        return Ok(Or(false));
+                    }
+                    used[idx] = true;
+                }
+
+                // Compute pair sums and compare multisets
+                let mut pair_sums: Vec<i64> = (0..m)
+                    .map(|i| self.sizes_x[i] + self.sizes_y[config[i]])
+                    .collect();
+                let mut sorted_targets = self.targets.clone();
+                pair_sums.sort();
+                sorted_targets.sort();
+                pair_sums == sorted_targets
+            })
         })
     }
 }

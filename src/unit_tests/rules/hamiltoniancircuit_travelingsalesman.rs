@@ -14,7 +14,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_travelingsalesman_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -26,7 +27,8 @@ fn test_hamiltoniancircuit_to_travelingsalesman_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_travelingsalesman_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), 4);
@@ -41,13 +43,15 @@ fn test_hamiltoniancircuit_to_travelingsalesman_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_travelingsalesman_nonhamiltonian_cost_gap() {
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("complete weighted graph should always admit a tour");
 
-    let metric = target.evaluate(&best);
+    let metric = target.evaluate(&best).unwrap();
     assert!(metric.is_valid(), "best TSP solution evaluated as invalid");
     assert!(metric.unwrap() > 4, "expected cost > 4");
 }
@@ -55,7 +59,8 @@ fn test_hamiltoniancircuit_to_travelingsalesman_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<TravelingSalesman<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let cycle_edges = [(0usize, 1usize), (1, 2), (2, 3), (0, 3)];
     let target_solution: Vec<usize> = target
@@ -67,7 +72,7 @@ fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-    assert_eq!(target.evaluate(&target_solution), Min(Some(4)));
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(4)));
     assert_eq!(extracted.len(), 4);
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }

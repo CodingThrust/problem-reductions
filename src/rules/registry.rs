@@ -132,10 +132,12 @@ impl From<SizeTransformError> for SizeContractError {
 }
 
 /// Witness/config reduction executor stored in the inventory.
-pub type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
+pub type ReduceFn =
+    fn(&dyn Any) -> Result<Box<dyn DynReductionResult>, crate::rules::ReductionError>;
 
 /// Aggregate/value reduction executor stored in the inventory.
-pub type AggregateReduceFn = fn(&dyn Any) -> Box<dyn DynAggregateReductionResult>;
+pub type AggregateReduceFn =
+    fn(&dyn Any) -> Result<Box<dyn DynAggregateReductionResult>, crate::rules::ReductionError>;
 
 /// Execution capabilities carried by a reduction edge.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -179,12 +181,12 @@ pub struct ReductionEntry {
     pub module_path: &'static str,
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
-    /// and returns the result as a boxed `DynReductionResult`.
+    /// and returns either a boxed `DynReductionResult` or the edge's `ReductionError`.
     pub reduce_fn: Option<ReduceFn>,
     /// Type-erased aggregate reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls
-    /// `ReduceToAggregate::reduce_to_aggregate()`, and returns the result as a
-    /// boxed `DynAggregateReductionResult`.
+    /// `ReduceToAggregate::reduce_to_aggregate()`, and returns either a boxed
+    /// `DynAggregateReductionResult` or the edge's `ReductionError`.
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,

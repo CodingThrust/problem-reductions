@@ -47,7 +47,7 @@ inventory::submit! {
 ///
 /// let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,18 +70,20 @@ struct KnapsackCreateSpec {
     capacity: i64,
 }
 impl TryFrom<KnapsackCreateSpec> for Knapsack {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: KnapsackCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.values.len();
         let weights = spec.weights.unwrap_or_else(|| vec![1; count]);
         if weights.len() != count {
-            return Err("weights length must equal values length".to_string());
+            return Err("weights length must equal values length".to_string().into());
         }
         if weights.iter().any(|&value| value < 0)
             || spec.values.iter().any(|&value| value < 0)
             || spec.capacity < 0
         {
-            return Err("weights, values, and capacity must be nonnegative".to_string());
+            return Err("weights, values, and capacity must be nonnegative"
+                .to_string()
+                .into());
         }
         Ok(Self::new(weights, spec.values, spec.capacity))
     }
@@ -143,7 +145,7 @@ impl Knapsack {
         if self.capacity == 0 {
             1
         } else {
-            (u64::BITS - (self.capacity as u64).leading_zeros()) as usize
+            self.capacity.ilog2() as usize + 1
         }
     }
 }
@@ -160,29 +162,43 @@ impl Problem for Knapsack {
         vec![2; self.num_items()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        if config.len() != self.num_items() {
-            return Max(None);
-        }
-        if config.iter().any(|&v| v >= 2) {
-            return Max(None);
-        }
-        let total_weight: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.weights[i])
-            .sum();
-        if total_weight > self.capacity {
-            return Max(None);
-        }
-        let total_value: i64 = config
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| self.values[i])
-            .sum();
-        Max(Some(total_value))
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_items() {
+                return Ok(Max(None));
+            }
+            if config.iter().any(|&v| v >= 2) {
+                return Ok(Max(None));
+            }
+            let total_weight = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x == 1)
+                .map(|(i, _)| self.weights[i])
+                .try_fold(0_i64, |total, weight| {
+                    total.checked_add(weight).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected knapsack weights".into(),
+                        )
+                    })
+                })?;
+            if total_weight > self.capacity {
+                return Ok(Max(None));
+            }
+            let total_value = config
+                .iter()
+                .enumerate()
+                .filter(|(_, &x)| x == 1)
+                .map(|(i, _)| self.values[i])
+                .try_fold(0_i64, |total, value| {
+                    total.checked_add(value).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected knapsack values".into(),
+                        )
+                    })
+                })?;
+            Max(Some(total_value))
+        })
     }
 }
 

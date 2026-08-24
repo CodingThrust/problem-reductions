@@ -70,7 +70,7 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
 impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
     type Result = ReductionMinimumCoveringByCliquesToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let num_vertices = graph.num_vertices();
         let edges = graph.edges();
@@ -133,11 +133,11 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
             ObjectiveSense::Minimize,
         );
 
-        ReductionMinimumCoveringByCliquesToILP {
+        Ok(ReductionMinimumCoveringByCliquesToILP {
             target,
             num_edges,
             y_offset,
-        }
+        })
     }
 }
 

@@ -61,7 +61,7 @@ impl ReductionResult for ReductionPITToILP {
 impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
     type Result = ReductionPITToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let q = num_vertices / 3; // number of groups
         let num_vars = num_vertices * q;
@@ -98,11 +98,11 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionPITToILP {
+        Ok(ReductionPITToILP {
             target,
             num_vertices,
             num_groups: q,
-        }
+        })
     }
 }
 

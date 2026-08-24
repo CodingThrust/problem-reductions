@@ -25,8 +25,8 @@ fn test_minimumvertexcover_to_minimummaximalmatching_c5_gap() {
     let mmm = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.solve(&mvc), Min(Some(3)));
-    assert_eq!(solver.solve(&mmm), Min(Some(2)));
+    assert_eq!(solver.solve(&mvc).unwrap(), Min(Some(3)));
+    assert_eq!(solver.solve(&mmm).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -39,8 +39,8 @@ fn test_minimumvertexcover_to_minimummaximalmatching_forward_bound_on_small_grap
             let graph = graph_from_mask(n, mask);
             let mvc = MinimumVertexCover::new(graph.clone(), vec![One; n]);
             let mmm = MinimumMaximalMatching::new(graph);
-            let mvc_value = solver.solve(&mvc);
-            let mmm_value = solver.solve(&mmm);
+            let mvc_value = solver.solve(&mvc).unwrap();
+            let mmm_value = solver.solve(&mmm).unwrap();
 
             let Min(Some(mvc_size)) = mvc_value else {
                 panic!("MinimumVertexCover should always have an optimal solution");
@@ -48,10 +48,6 @@ fn test_minimumvertexcover_to_minimummaximalmatching_forward_bound_on_small_grap
             let Min(Some(mmm_size)) = mmm_value else {
                 panic!("MinimumMaximalMatching should always have an optimal solution");
             };
-            let mvc_size: usize = mvc_size
-                .try_into()
-                .expect("unit-weight MVC optimum should fit into usize");
-
             assert!(
                 mmm_size <= mvc_size,
                 "expected mmm(G) <= mvc(G) for n={n}, mask={mask:#b}, got {mmm_size} > {mvc_size}",

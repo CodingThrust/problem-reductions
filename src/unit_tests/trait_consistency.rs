@@ -25,15 +25,15 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
-        &MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
+        &MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]),
         "MaximumIndependentSet",
     );
     check_problem_trait(
-        &MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
+        &MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]),
         "MinimumVertexCover",
     );
     check_problem_trait(
-        &MaxCut::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
+        &MaxCut::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64]),
         "MaxCut",
     );
     check_problem_trait(
@@ -41,15 +41,15 @@ fn test_all_problems_implement_trait_correctly() {
         "KColoring",
     );
     check_problem_trait(
-        &MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
+        &MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]),
         "MinimumDominatingSet",
     );
     check_problem_trait(
-        &MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
+        &MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]),
         "MaximalIS",
     );
     check_problem_trait(
-        &MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
+        &MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64]),
         "MaximumMatching",
     );
     check_problem_trait(
@@ -61,16 +61,19 @@ fn test_all_problems_implement_trait_correctly() {
         "SAT",
     );
     check_problem_trait(
-        &SpinGlass::new(3, vec![((0, 1), 1.0)], vec![0.0; 3]),
+        &SpinGlass::new(3, vec![((0, 1), 1.0)], vec![0.0; 3]).unwrap(),
         "SpinGlass",
     );
-    check_problem_trait(&QUBO::from_matrix(vec![vec![1.0; 3]; 3]), "QUBO");
     check_problem_trait(
-        &MinimumSetCovering::<i32>::new(3, vec![vec![0, 1]]),
+        &QUBO::from_matrix(vec![vec![1.0; 3]; 3]).unwrap(),
+        "QUBO",
+    );
+    check_problem_trait(
+        &MinimumSetCovering::new(3, vec![vec![0, 1]]),
         "MinimumSetCovering",
     );
     check_problem_trait(
-        &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
+        &MaximumSetPacking::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
@@ -91,7 +94,7 @@ fn test_all_problems_implement_trait_correctly() {
         "BalancedCompleteBipartiteSubgraph",
     );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
-    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition");
+    check_problem_trait(&Partition::new(vec![3, 1, 1, 2, 2, 1]), "Partition").unwrap();
     check_problem_trait(
         &QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 1], vec![1, 0]]),
         "QuadraticAssignment",
@@ -126,8 +129,8 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &MinMaxMulticenter::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 3],
-            vec![1i32; 2],
+            vec![1i64; 3],
+            vec![1i64; 2],
             1,
         ),
         "MinMaxMulticenter",
@@ -143,8 +146,8 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &ShortestWeightConstrainedPath::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-            vec![1i32; 2],
-            vec![1i32; 2],
+            vec![1i64; 2],
+            vec![1i64; 2],
             0,
             2,
             2,
@@ -222,7 +225,8 @@ fn test_all_problems_implement_trait_correctly() {
         "PartitionIntoPathsOfLength2",
     );
     check_problem_trait(
-        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2),
+        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2)
+            .unwrap(),
         "ResourceConstrainedScheduling",
     );
     check_problem_trait(

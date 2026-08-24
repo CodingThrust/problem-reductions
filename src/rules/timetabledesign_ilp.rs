@@ -1,4 +1,4 @@
-//! Reduction from TimetableDesign to ILP<bool>.
+//! Reduction from TimetableDesign to `ILP<bool>`.
 //!
 //! The source witness is a binary craftsman-task-period incidence table,
 //! and all feasibility conditions are already linear: availability forcing,
@@ -8,8 +8,9 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing TimetableDesign to ILP<bool>.
+/// Result of reducing TimetableDesign to `ILP<bool>`.
 ///
 /// Variable layout: x_{c,t,h} at index `((c * num_tasks) + t) * num_periods + h`
 /// exactly matching the source configuration layout.
@@ -46,10 +47,26 @@ impl ReductionResult for ReductionTDToILP {
 impl ReduceTo<ILP<bool>> for TimetableDesign {
     type Result = ReductionTDToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let nc = self.num_craftsmen();
         let nt = self.num_tasks();
         let nh = self.num_periods();
+        let requirements =
+            self.requirements()
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .copied()
+                        .map(i64_to_exact_f64)
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        TimetableDesign,
+                        ILP<bool>,
+                    >(error)
+                })?;
         let num_vars = nc * nt * nh;
 
         let var = |c: usize, t: usize, h: usize| -> usize { ((c * nt) + t) * nh + h };
@@ -84,19 +101,16 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         }
 
         // 4. Exact requirements: Σ_h x_{c,t,h} = r_{c,t} for all c, t
-        for c in 0..nc {
-            for t in 0..nt {
+        for (c, row) in requirements.iter().enumerate() {
+            for (t, &requirement) in row.iter().enumerate() {
                 let terms: Vec<(usize, f64)> = (0..nh).map(|h| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::eq(
-                    terms,
-                    self.requirements()[c][t] as f64,
-                ));
+                constraints.push(LinearConstraint::eq(terms, requirement));
             }
         }
 
-        ReductionTDToILP {
+        Ok(ReductionTDToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        })
     }
 }
 

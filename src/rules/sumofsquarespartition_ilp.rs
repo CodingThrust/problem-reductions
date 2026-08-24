@@ -20,6 +20,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SumOfSquaresPartition;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing SumOfSquaresPartition to ILP.
 ///
@@ -80,7 +81,7 @@ impl ReductionResult for ReductionSSPToILP {
 impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
     type Result = ReductionSSPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_elements();
         let k = self.num_groups();
         let num_vars = n * k + n * n * k;
@@ -126,7 +127,18 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
         for i in 0..n {
             for j in 0..n {
                 for g in 0..k {
-                    let coeff = sizes[i] as f64 * sizes[j] as f64;
+                    let product = sizes[i].checked_mul(sizes[j]).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            SumOfSquaresPartition,
+                            ILP<bool>,
+                        >("multiplying two partition element sizes")
+                    })?;
+                    let coeff = i64_to_exact_f64(product).map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            SumOfSquaresPartition,
+                            ILP<bool>,
+                        >(error)
+                    })?;
                     if coeff.abs() > 0.0 {
                         objective.push((result.z_var(i, j, g), coeff));
                     }
@@ -136,11 +148,11 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionSSPToILP {
+        Ok(ReductionSSPToILP {
             target,
             num_elements: n,
             num_groups: k,
-        }
+        })
     }
 }
 

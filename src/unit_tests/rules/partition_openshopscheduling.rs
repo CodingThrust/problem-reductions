@@ -7,8 +7,9 @@ use crate::types::Min;
 
 #[test]
 fn test_partition_to_open_shop_scheduling_closed_loop() {
-    let source = Partition::new(vec![1, 2, 3]);
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source);
+    let source = Partition::new(vec![1, 2, 3]).unwrap();
+    let reduction =
+        ReduceTo::<OpenShopScheduling>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -19,8 +20,9 @@ fn test_partition_to_open_shop_scheduling_closed_loop() {
 
 #[test]
 fn test_partition_to_open_shop_scheduling_structure() {
-    let source = Partition::new(vec![1, 2, 3]);
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source);
+    let source = Partition::new(vec![1, 2, 3]).unwrap();
+    let reduction =
+        ReduceTo::<OpenShopScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_jobs(), 4);
@@ -33,13 +35,15 @@ fn test_partition_to_open_shop_scheduling_structure() {
 
 #[test]
 fn test_partition_to_open_shop_scheduling_extract_solution() {
-    let source = Partition::new(vec![1, 2, 3]);
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source);
+    let source = Partition::new(vec![1, 2, 3]).unwrap();
+    let reduction =
+        ReduceTo::<OpenShopScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Use the solver to get a valid optimal target config
     let target_solution = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("target should have an optimal solution");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
@@ -47,18 +51,22 @@ fn test_partition_to_open_shop_scheduling_extract_solution() {
     assert_eq!(extracted.len(), 3);
     assert!(extracted.iter().all(|&v| v <= 1));
     // Since total=6 is even, a satisfying partition exists
-    assert!(source.evaluate(&extracted));
+    assert!(source.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_partition_to_open_shop_scheduling_odd_total_is_not_satisfying() {
-    let source = Partition::new(vec![2, 4, 5]);
-    let reduction = ReduceTo::<OpenShopScheduling>::reduce_to(&source);
+    let source = Partition::new(vec![2, 4, 5]).unwrap();
+    let reduction =
+        ReduceTo::<OpenShopScheduling>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("open-shop target should always have an optimal solution");
 
-    assert_eq!(target.evaluate(&best), Min(Some(16)));
-    assert!(!source.evaluate(&reduction.extract_solution(&best).unwrap()));
+    assert_eq!(target.evaluate(&best).unwrap(), Min(Some(16)));
+    assert!(!source
+        .evaluate(&reduction.extract_solution(&best).unwrap())
+        .unwrap());
 }

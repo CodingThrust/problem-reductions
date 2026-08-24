@@ -74,7 +74,7 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
 impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
     type Result = ReductionMinimumDiscretePlanarInverseKinematicsToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let block_sizes: Vec<usize> = self.orientation_samples().iter().map(Vec::len).collect();
         let block_offsets = block_offsets(&block_sizes);
         let total_vars: usize = block_sizes.iter().sum();
@@ -155,11 +155,16 @@ impl ReduceTo<QUBO<f64>> for MinimumDiscretePlanarInverseKinematics {
             }
         }
 
-        ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<
+                    MinimumDiscretePlanarInverseKinematics,
+                    QUBO<f64>,
+                >(message)
+            })?,
             block_offsets,
             block_sizes,
-        }
+        })
     }
 }
 
@@ -177,7 +182,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     (2.0, 1.0),
                     vec![vec![0.0, FRAC_PI_2], vec![0.0, FRAC_PI_2]],
                     vec![vec![(0, 0), (0, 1), (1, 1)]],
-                ),
+                )
+                .unwrap(),
                 SolutionPair {
                     source_config: vec![0, 1],
                     target_config: vec![1, 0, 0, 1],

@@ -4,7 +4,7 @@
 //! unit-length tasks must be assigned to identical processors under both a
 //! processor capacity limit and resource usage constraints per time slot.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
@@ -19,9 +19,9 @@ inventory::submit! {
         description: "Schedule unit-length tasks on m processors with resource constraints and a deadline",
         fields: &[
             FieldInfo { name: "num_processors", type_name: "usize", description: "Number of identical processors m" },
-            FieldInfo { name: "resource_bounds", type_name: "Vec<u64>", description: "Resource bound B_i for each resource i" },
-            FieldInfo { name: "resource_requirements", type_name: "Vec<Vec<u64>>", description: "R_i(t) for each task t and resource i (n x r matrix)" },
-            FieldInfo { name: "deadline", type_name: "u64", description: "Overall deadline D" },
+            FieldInfo { name: "resource_bounds", type_name: "Vec<i64>", description: "Resource bound B_i for each resource i" },
+            FieldInfo { name: "resource_requirements", type_name: "Vec<Vec<i64>>", description: "R_i(t) for each task t and resource i (n x r matrix)" },
+            FieldInfo { name: "deadline", type_name: "i64", description: "Overall deadline D" },
         ],
     }
 }
@@ -52,21 +52,21 @@ inventory::submit! {
 ///     vec![20],
 ///     vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
 ///     2,
-/// );
+/// ).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ResourceConstrainedScheduling {
     /// Number of identical processors.
     num_processors: usize,
     /// Resource bounds B_i for each resource.
-    resource_bounds: Vec<u64>,
+    resource_bounds: Vec<i64>,
     /// Resource requirements R_i(t) for each task t and resource i (n x r matrix).
-    resource_requirements: Vec<Vec<u64>>,
+    resource_requirements: Vec<Vec<i64>>,
     /// Overall deadline D.
-    deadline: u64,
+    deadline: i64,
 }
 
 impl ResourceConstrainedScheduling {
@@ -79,26 +79,43 @@ impl ResourceConstrainedScheduling {
     /// * `deadline` - Overall deadline `D`
     pub fn new(
         num_processors: usize,
-        resource_bounds: Vec<u64>,
-        resource_requirements: Vec<Vec<u64>>,
-        deadline: u64,
-    ) -> Self {
-        assert!(deadline > 0, "deadline must be positive");
+        resource_bounds: Vec<i64>,
+        resource_requirements: Vec<Vec<i64>>,
+        deadline: i64,
+    ) -> Result<Self, ConstructionError> {
+        if deadline <= 0 {
+            return Err(ConstructionError::Conversion(
+                "deadline must be positive".into(),
+            ));
+        }
+        usize::try_from(deadline).map_err(|_| {
+            ConstructionError::IntegerOverflow("deadline does not fit usize".into())
+        })?;
+        if resource_bounds.iter().any(|&bound| bound < 0) {
+            return Err(ConstructionError::Conversion(
+                "resource bounds must be nonnegative".into(),
+            ));
+        }
         let r = resource_bounds.len();
         for (t, row) in resource_requirements.iter().enumerate() {
-            assert_eq!(
-                row.len(),
-                r,
-                "task {t} has {} resource requirements, expected {r}",
-                row.len()
-            );
+            if row.len() != r {
+                return Err(ConstructionError::Conversion(format!(
+                    "task {t} has {} resource requirements, expected {r}",
+                    row.len()
+                )));
+            }
+            if row.iter().any(|&requirement| requirement < 0) {
+                return Err(ConstructionError::Conversion(format!(
+                    "task {t} resource requirements must be nonnegative"
+                )));
+            }
         }
-        Self {
+        Ok(Self {
             num_processors,
             resource_bounds,
             resource_requirements,
             deadline,
-        }
+        })
     }
 
     /// Get the number of tasks.
@@ -112,23 +129,47 @@ impl ResourceConstrainedScheduling {
     }
 
     /// Get the resource bounds.
-    pub fn resource_bounds(&self) -> &[u64] {
+    pub fn resource_bounds(&self) -> &[i64] {
         &self.resource_bounds
     }
 
     /// Get the resource requirements matrix.
-    pub fn resource_requirements(&self) -> &[Vec<u64>] {
+    pub fn resource_requirements(&self) -> &[Vec<i64>] {
         &self.resource_requirements
     }
 
     /// Get the deadline.
-    pub fn deadline(&self) -> u64 {
+    pub fn deadline(&self) -> i64 {
         self.deadline
     }
 
     /// Get the number of resources.
     pub fn num_resources(&self) -> usize {
         self.resource_bounds.len()
+    }
+}
+
+impl<'de> Deserialize<'de> for ResourceConstrainedScheduling {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        struct Raw {
+            num_processors: usize,
+            resource_bounds: Vec<i64>,
+            resource_requirements: Vec<Vec<i64>>,
+            deadline: i64,
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        Self::new(
+            raw.num_processors,
+            raw.resource_bounds,
+            raw.resource_requirements,
+            raw.deadline,
+        )
+        .map_err(serde::de::Error::custom)
     }
 }
 
@@ -144,55 +185,64 @@ impl Problem for ResourceConstrainedScheduling {
         vec![self.deadline as usize; self.num_tasks()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let n = self.num_tasks();
-            let d = self.deadline as usize;
-            let r = self.num_resources();
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let n = self.num_tasks();
+                let d = self.deadline as usize;
+                let r = self.num_resources();
 
-            // Check config length
-            if config.len() != n {
-                return crate::types::Or(false);
-            }
+                // Check config length
+                if config.len() != n {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check all time slots are in range
-            if config.iter().any(|&slot| slot >= d) {
-                return crate::types::Or(false);
-            }
+                // Check all time slots are in range
+                if config.iter().any(|&slot| slot >= d) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check processor capacity and resource constraints at each time slot
-            for u in 0..d {
-                // Collect tasks scheduled at time slot u
-                let mut task_count = 0usize;
-                let mut resource_usage = vec![0u64; r];
+                // Check processor capacity and resource constraints at each time slot
+                for u in 0..d {
+                    // Collect tasks scheduled at time slot u
+                    let mut task_count = 0usize;
+                    let mut resource_usage = vec![0i64; r];
 
-                for (t, &slot) in config.iter().enumerate() {
-                    if slot == u {
-                        task_count += 1;
-                        // Accumulate resource usage
-                        for (usage, &req) in resource_usage
-                            .iter_mut()
-                            .zip(self.resource_requirements[t].iter())
-                        {
-                            *usage = usage.saturating_add(req);
+                    for (t, &slot) in config.iter().enumerate() {
+                        if slot == u {
+                            task_count += 1;
+                            // Accumulate resource usage
+                            for (usage, &req) in resource_usage
+                                .iter_mut()
+                                .zip(self.resource_requirements[t].iter())
+                            {
+                                *usage = usage.checked_add(req).ok_or_else(|| {
+                                    crate::traits::EvaluationError::IntegerOverflow(
+                                        "summing scheduled resource usage".to_string(),
+                                    )
+                                })?;
+                            }
+                        }
+                    }
+
+                    // Check processor capacity
+                    if task_count > self.num_processors {
+                        return Ok(crate::types::Or(false));
+                    }
+
+                    // Check resource bounds
+                    for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
+                        if usage > bound {
+                            return Ok(crate::types::Or(false));
                         }
                     }
                 }
 
-                // Check processor capacity
-                if task_count > self.num_processors {
-                    return crate::types::Or(false);
-                }
-
-                // Check resource bounds
-                for (usage, bound) in resource_usage.iter().zip(self.resource_bounds.iter()) {
-                    if usage > bound {
-                        return crate::types::Or(false);
-                    }
-                }
-            }
-
-            true
+                true
+            })
         })
     }
 }
@@ -206,12 +256,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "resource_constrained_scheduling",
         // 6 tasks, 3 processors, 1 resource B_1=20, deadline 2
-        instance: Box::new(ResourceConstrainedScheduling::new(
-            3,
-            vec![20],
-            vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
-            2,
-        )),
+        instance: Box::new(
+            ResourceConstrainedScheduling::new(
+                3,
+                vec![20],
+                vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
+                2,
+            )
+            .expect("canonical resource-constrained-scheduling instance must be valid"),
+        ),
         optimal_config: vec![0, 0, 0, 1, 1, 1],
         optimal_value: serde_json::json!(true),
     }]

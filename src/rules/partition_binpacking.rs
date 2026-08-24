@@ -2,7 +2,7 @@
 //!
 //! Given a Partition instance with sizes A = {a_1, ..., a_n} and total sum S,
 //! construct a BinPacking instance with:
-//! - Items: same sizes (cast from u64 to i32)
+//! - Items: same sizes (cast from u64 to i64)
 //! - Bin capacity: floor(S / 2)
 //!
 //! A valid partition (two subsets of equal sum) exists iff all items can be
@@ -19,12 +19,12 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing Partition to BinPacking.
 #[derive(Debug, Clone)]
 pub struct ReductionPartitionToBinPacking {
-    target: BinPacking<i32>,
+    target: BinPacking<i64>,
 }
 
 impl ReductionResult for ReductionPartitionToBinPacking {
     type Source = Partition;
-    type Target = BinPacking<i32>;
+    type Target = BinPacking<i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -49,30 +49,22 @@ impl ReductionResult for ReductionPartitionToBinPacking {
     }
 }
 
-fn partition_size_to_i32(value: u64) -> i32 {
-    i32::try_from(value)
-        .expect("Partition -> BinPacking requires all sizes and total_sum / 2 to fit in i32")
-}
-
 #[reduction(
     size = exact {
         num_items = "num_elements",
     })]
-impl ReduceTo<BinPacking<i32>> for Partition {
+impl ReduceTo<BinPacking<i64>> for Partition {
     type Result = ReductionPartitionToBinPacking;
 
-    fn reduce_to(&self) -> Self::Result {
-        let sizes: Vec<i32> = self
-            .sizes()
-            .iter()
-            .copied()
-            .map(partition_size_to_i32)
-            .collect();
-        let capacity = partition_size_to_i32(self.total_sum() / 2);
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        let sizes = self.sizes().to_vec();
+        let capacity = self.total_sum() / 2;
 
-        ReductionPartitionToBinPacking {
-            target: BinPacking::new(sizes, capacity),
-        }
+        Ok(ReductionPartitionToBinPacking {
+            target: BinPacking::new(sizes, capacity).map_err(|cause| {
+                crate::rules::ReductionError::construction::<Partition, BinPacking<i64>>(cause)
+            })?,
+        })
     }
 }
 
@@ -83,8 +75,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     vec![crate::example_db::specs::RuleExampleSpec {
         id: "partition_to_binpacking",
         build: || {
-            crate::example_db::specs::rule_example_with_witness::<_, BinPacking<i32>>(
-                Partition::new(vec![3, 1, 1, 2, 2, 1]),
+            crate::example_db::specs::rule_example_with_witness::<_, BinPacking<i64>>(
+                Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
                     source_config: vec![0, 1, 1, 0, 1, 1],
                     target_config: vec![0, 1, 1, 0, 1, 1],

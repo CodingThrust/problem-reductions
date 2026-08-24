@@ -44,7 +44,7 @@ impl ReductionResult for ReductionXC3SToMinimumFaultDetectionTestSet {
 impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
     type Result = ReductionXC3SToMinimumFaultDetectionTestSet;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_inputs = self.num_subsets();
         let element_offset = num_inputs;
         let output = element_offset + self.universe_size();
@@ -59,14 +59,14 @@ impl ReduceTo<MinimumFaultDetectionTestSet> for ExactCoverBy3Sets {
             arcs.push((element_offset + element, output));
         }
 
-        ReductionXC3SToMinimumFaultDetectionTestSet {
+        Ok(ReductionXC3SToMinimumFaultDetectionTestSet {
             target: MinimumFaultDetectionTestSet::new(
                 output + 1,
                 arcs,
                 (0..num_inputs).collect(),
                 vec![output],
             ),
-        }
+        })
     }
 }
 

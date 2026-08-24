@@ -5,7 +5,7 @@
 //! - Flow on each edge is bounded by the capacity constraint
 //! - Flow-edge linking ensures flow only travels on selected edges
 //!
-//! Variable layout (all non-negative integers, ILP<i32>):
+//! Variable layout (all non-negative integers, `ILP<i64>`):
 //! - `y_e` for each undirected edge `e` (indices `0..m`): edge selector (binary)
 //! - `f_{2e}`, `f_{2e+1}` for each edge `e=(u,v)` (indices `m..3m`):
 //!   directed flow from u to v and v to u respectively
@@ -25,20 +25,20 @@ use crate::models::graph::MinimumCapacitatedSpanningTree;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{i64_to_exact_f64, WeightElement};
 
 /// Result of reducing MinimumCapacitatedSpanningTree to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumCapacitatedSpanningTreeToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
-    type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = MinimumCapacitatedSpanningTree<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -61,16 +61,24 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
         num_constraints = "5 * num_edges + num_vertices + 1",
     }
 )]
-impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
     type Result = ReductionMinimumCapacitatedSpanningTreeToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.graph().edges();
         let root = self.root();
         let requirements = self.requirements();
-        let cap = *self.capacity() as f64;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
+                    ILP<i64>,
+                >(error)
+            })
+        };
+        let cap = exact_f64(*self.capacity())?;
 
         let num_vars = 3 * m;
 
@@ -79,7 +87,15 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
         let flow_var = |e: usize, dir: usize| m + 2 * e + dir; // f: m..3m
 
         // Total requirement (flow from all non-root vertices to root)
-        let total_req: f64 = requirements.iter().map(|r| r.to_sum() as f64).sum();
+        let total_req_i64 = requirements.iter().try_fold(0_i64, |total, requirement| {
+            total.checked_add(requirement.to_sum()).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
+                    ILP<i64>,
+                >("summing vertex requirements")
+            })
+        })?;
+        let total_req = exact_f64(total_req_i64)?;
 
         let mut constraints = Vec::new();
 
@@ -120,7 +136,7 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
             } else {
                 // Non-root vertex generates r(v) units toward root:
                 // net inflow = -r(v)
-                -(req.to_sum() as f64)
+                -exact_f64(req.to_sum())?
             };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
@@ -154,15 +170,15 @@ impl ReduceTo<ILP<i32>> for MinimumCapacitatedSpanningTree<SimpleGraph, i32> {
             .weights()
             .iter()
             .enumerate()
-            .map(|(edge_idx, w)| (edge_var(edge_idx), w.to_sum() as f64))
-            .collect();
+            .map(|(edge_idx, w)| exact_f64(w.to_sum()).map(|weight| (edge_var(edge_idx), weight)))
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMinimumCapacitatedSpanningTreeToILP {
+        Ok(ReductionMinimumCapacitatedSpanningTreeToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -178,7 +194,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![0, 1, 1, 1],    // requirements
                 2,                   // capacity
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

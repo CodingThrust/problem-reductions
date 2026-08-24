@@ -126,8 +126,8 @@ Problem (core trait — all problems must implement)
 ├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
 ├── type Value: Clone                  // aggregate value: Max/Min/Sum/Or/And/Extremum/...
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
-├── fn evaluate(&self, config) -> Value
-├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
+├── fn evaluate(&self, config) -> Result<Value, EvaluationError>
+├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i64")]
 ├── fn num_variables(&self) -> usize   // default: dims().len()
 └── fn problem_type() -> ProblemType   // catalog bridge: registry lookup by NAME
 ```
@@ -150,6 +150,7 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - `Max<V>`: meets bound when value ≥ bound
 
 ### Key Patterns
+- Keep failure phases typed and separate: public construction paths return `ConstructionError`, `Problem::evaluate()` returns `EvaluationError`, and reduction paths return `ReductionError`. A reduction preserves target construction failures as `ReductionError::Construction`; none of these paths returns or creates an error as a bare `String`.
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
 - `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed load/serialize/value-solve/witness-solve metadata. One entry per problem may be marked `default`, and variable names in complexity strings are validated at compile time against actual getter methods. Ordinary models are constructed directly from their construction schema. When user-facing construction differs from persisted JSON, define a model-local `#[derive(CreateSpec)]` DTO plus `TryFrom<CreateSpec>`, use its generated `FIELDS` in `ProblemSchemaEntry`, and register it with `create LocalSpec`; never add model-name branches in CLI or MCP code.
 - `decision_problem_meta!` macro registers `DecisionProblemMeta` for a concrete inner type, providing the `DECISION_NAME` constant.
@@ -162,7 +163,7 @@ Max<V>, Min<V>, Sum<W>, Or, And, Extremum<V>, ExtremumSense
 - Decode only the reduction's defined mathematical mapping. Reject malformed structure with `ExtractionError`; never panic, truncate, clamp, invent defaults, or add recovery branches. Explicit mathematical alternatives and sentinels are allowed. Test successful decoding and every rejected representation.
 - CLI-facing dynamic formatting uses aggregate wrapper names directly (for example `Max(2)`, `Min(None)`, `Or(true)`, or `Sum(56)`)
 - Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
-- Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
+- Weight types: `One` (unit weight marker), `i64`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)

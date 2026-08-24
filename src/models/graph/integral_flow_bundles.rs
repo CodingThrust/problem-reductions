@@ -36,8 +36,8 @@ pub struct IntegralFlowBundles {
     source: usize,
     sink: usize,
     bundles: Vec<Vec<usize>>,
-    bundle_capacities: Vec<u64>,
-    requirement: u64,
+    bundle_capacities: Vec<i64>,
+    requirement: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
@@ -48,15 +48,17 @@ struct IntegralFlowBundlesCreateSpec {
     #[create(codec = "semicolon-separated")]
     bundles: Vec<Vec<usize>>,
     #[create(codec = "comma-separated")]
-    bundle_capacities: Vec<u64>,
+    bundle_capacities: Vec<i64>,
     source: usize,
     sink: usize,
-    requirement: u64,
+    requirement: i64,
 }
 
 impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
-    type Error = String;
-    fn try_from(spec: IntegralFlowBundlesCreateSpec) -> Result<Self, String> {
+    type Error = crate::registry::ConstructionError;
+    fn try_from(
+        spec: IntegralFlowBundlesCreateSpec,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         if spec.arcs.is_empty() {
             return Err("arcs must be non-empty".into());
         }
@@ -85,19 +87,19 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
             return Err("requirement must be positive".into());
         }
         let mut covered = vec![false; spec.arcs.len()];
-        let mut upper = vec![u64::MAX; spec.arcs.len()];
+        let mut upper = vec![i64::MAX; spec.arcs.len()];
         for (i, (bundle, &capacity)) in spec.bundles.iter().zip(&spec.bundle_capacities).enumerate()
         {
             if capacity == 0 {
-                return Err(format!("bundle capacity {i} must be positive"));
+                return Err(format!("bundle capacity {i} must be positive").into());
             }
             let mut seen = BTreeSet::new();
             for &arc in bundle {
                 if arc >= spec.arcs.len() {
-                    return Err(format!("bundle {i} arc is out of range"));
+                    return Err(format!("bundle {i} arc is out of range").into());
                 }
                 if !seen.insert(arc) {
-                    return Err(format!("bundle {i} contains duplicate arc"));
+                    return Err(format!("bundle {i} contains duplicate arc").into());
                 }
                 covered[arc] = true;
                 upper[arc] = upper[arc].min(capacity);
@@ -105,14 +107,14 @@ impl TryFrom<IntegralFlowBundlesCreateSpec> for IntegralFlowBundles {
         }
         for (arc, &is_covered) in covered.iter().enumerate() {
             if !is_covered {
-                return Err(format!("arc {arc} must belong to a bundle"));
+                return Err(format!("arc {arc} must belong to a bundle").into());
             }
             if usize::try_from(upper[arc])
                 .ok()
                 .and_then(|v| v.checked_add(1))
                 .is_none()
             {
-                return Err(format!("arc {arc} upper bound is too large"));
+                return Err(format!("arc {arc} upper bound is too large").into());
             }
         }
         Ok(Self {
@@ -133,8 +135,8 @@ impl IntegralFlowBundles {
         source: usize,
         sink: usize,
         bundles: Vec<Vec<usize>>,
-        bundle_capacities: Vec<u64>,
-        requirement: u64,
+        bundle_capacities: Vec<i64>,
+        requirement: i64,
     ) -> Self {
         let num_vertices = graph.num_vertices();
         let num_arcs = graph.num_arcs();
@@ -156,7 +158,7 @@ impl IntegralFlowBundles {
         assert!(requirement > 0, "requirement must be positive");
 
         let mut arc_covered = vec![false; num_arcs];
-        let mut arc_upper_bounds = vec![u64::MAX; num_arcs];
+        let mut arc_upper_bounds = vec![i64::MAX; num_arcs];
 
         for (bundle_index, (bundle, &capacity)) in
             bundles.iter().zip(&bundle_capacities).enumerate()
@@ -226,12 +228,12 @@ impl IntegralFlowBundles {
     }
 
     /// Get the bundle capacities.
-    pub fn bundle_capacities(&self) -> &[u64] {
+    pub fn bundle_capacities(&self) -> &[i64] {
         &self.bundle_capacities
     }
 
     /// Get the required net inflow at the sink.
-    pub fn requirement(&self) -> u64 {
+    pub fn requirement(&self) -> i64 {
         self.requirement
     }
 
@@ -251,12 +253,15 @@ impl IntegralFlowBundles {
     }
 
     /// Check whether a configuration is feasible.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 
-    fn arc_upper_bounds(&self) -> Vec<u64> {
-        let mut upper_bounds = vec![u64::MAX; self.num_arcs()];
+    fn arc_upper_bounds(&self) -> Vec<i64> {
+        let mut upper_bounds = vec![i64::MAX; self.num_arcs()];
         for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
             for &arc_index in bundle {
                 upper_bounds[arc_index] = upper_bounds[arc_index].min(capacity);
@@ -265,18 +270,37 @@ impl IntegralFlowBundles {
         upper_bounds
     }
 
-    fn vertex_balance(&self, config: &[usize], vertex: usize) -> Option<i128> {
-        let mut balance = 0i128;
+    fn vertex_balance(
+        &self,
+        config: &[usize],
+        vertex: usize,
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
+        let mut balance = 0_i64;
         for (arc_index, (u, v)) in self.graph.arcs().into_iter().enumerate() {
-            let flow = i128::from(u64::try_from(*config.get(arc_index)?).ok()?);
+            let Some(&raw_flow) = config.get(arc_index) else {
+                return Ok(None);
+            };
+            let flow = i64::try_from(raw_flow).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting bundled arc flow to i64".into(),
+                )
+            })?;
             if vertex == u {
-                balance -= flow;
+                balance = balance.checked_sub(flow).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "subtracting outgoing bundled flow".into(),
+                    )
+                })?;
             }
             if vertex == v {
-                balance += flow;
+                balance = balance.checked_add(flow).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "adding incoming bundled flow".into(),
+                    )
+                })?;
             }
         }
-        Some(balance)
+        Ok(Some(balance))
     }
 }
 
@@ -296,48 +320,53 @@ impl Problem for IntegralFlowBundles {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_arcs() {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_arcs() {
+                    return Ok(crate::types::Or(false));
+                }
 
-            let upper_bounds = self.arc_upper_bounds();
-            for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
-                if u64::try_from(value).map_or(true, |value| value > upper_bound) {
-                    return crate::types::Or(false);
+                let upper_bounds = self.arc_upper_bounds();
+                for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
+                    if i64::try_from(value).map_or(true, |value| value > upper_bound) {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-            }
 
-            for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
-                let mut total = 0u64;
-                for &arc_index in bundle {
-                    let Ok(flow) = u64::try_from(config[arc_index]) else {
-                        return crate::types::Or(false);
-                    };
-                    let Some(next_total) = total.checked_add(flow) else {
-                        return crate::types::Or(false);
-                    };
-                    total = next_total;
+                for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
+                    let mut total = 0i64;
+                    for &arc_index in bundle {
+                        let Ok(flow) = i64::try_from(config[arc_index]) else {
+                            return Ok(crate::types::Or(false));
+                        };
+                        let Some(next_total) = total.checked_add(flow) else {
+                            return Ok(crate::types::Or(false));
+                        };
+                        total = next_total;
+                    }
+                    if total > capacity {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-                if total > capacity {
-                    return crate::types::Or(false);
-                }
-            }
 
-            for vertex in 0..self.num_vertices() {
-                if vertex == self.source || vertex == self.sink {
-                    continue;
+                for vertex in 0..self.num_vertices() {
+                    if vertex == self.source || vertex == self.sink {
+                        continue;
+                    }
+                    if self.vertex_balance(config, vertex)? != Some(0) {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
-                if self.vertex_balance(config, vertex) != Some(0) {
-                    return crate::types::Or(false);
-                }
-            }
 
-            matches!(
-                self.vertex_balance(config, self.sink),
-                Some(balance) if balance >= i128::from(self.requirement)
-            )
+                matches!(
+                    self.vertex_balance(config, self.sink)?,
+                    Some(balance) if balance >= self.requirement
+                )
+            })
         })
     }
 

@@ -25,7 +25,7 @@ pub struct ReductionFVSToCodeGen {
 }
 
 impl ReductionResult for ReductionFVSToCodeGen {
-    type Source = MinimumFeedbackVertexSet<i32>;
+    type Source = MinimumFeedbackVertexSet<i64>;
     type Target = MinimumCodeGenerationUnlimitedRegisters;
 
     fn target_problem(&self) -> &Self::Target {
@@ -79,10 +79,10 @@ impl ReductionResult for ReductionFVSToCodeGen {
         num_vertices = "num_vertices + num_arcs",
     }
 )]
-impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<i32> {
+impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertexSet<i64> {
     type Result = ReductionFVSToCodeGen;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let m = self.graph().num_arcs();
 
@@ -131,22 +131,22 @@ impl ReduceTo<MinimumCodeGenerationUnlimitedRegisters> for MinimumFeedbackVertex
 
         let target = MinimumCodeGenerationUnlimitedRegisters::new(n + m, left_arcs, right_arcs);
 
-        ReductionFVSToCodeGen {
+        Ok(ReductionFVSToCodeGen {
             target,
             num_source_vertices: n,
             chain_start,
             right_child_users,
-        }
+        })
     }
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_source() -> MinimumFeedbackVertexSet<i32> {
+fn issue_example_source() -> MinimumFeedbackVertexSet<i64> {
     use crate::topology::DirectedGraph;
     // 3-cycle: a→b→c→a (vertices 0,1,2)
     MinimumFeedbackVertexSet::new(
         DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     )
 }
 
@@ -159,12 +159,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimumfeedbackvertexset_to_minimumcodegenerationunlimitedregisters",
         build: || {
             let source = issue_example_source();
-            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source);
+            let reduction = ReduceTo::<MinimumCodeGenerationUnlimitedRegisters>::reduce_to(&source)
+                .expect("reduction should succeed");
 
             // Find a target witness whose extracted source solution matches an optimal FVS
             let solver = BruteForce::new();
-            let source_witnesses = solver.find_all_witnesses(&source);
-            let target_witnesses = solver.find_all_witnesses(reduction.target_problem());
+            let source_witnesses = solver
+                .find_all_witnesses(&source)
+                .expect("canonical source evaluation must succeed");
+            let target_witnesses = solver
+                .find_all_witnesses(reduction.target_problem())
+                .expect("canonical target evaluation must succeed");
 
             let (source_config, target_config) = target_witnesses
                 .iter()

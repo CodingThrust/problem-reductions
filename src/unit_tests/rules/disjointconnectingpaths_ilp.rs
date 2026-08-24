@@ -13,7 +13,7 @@ fn test_disjointconnectingpaths_to_ilp_closed_loop() {
         SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
         vec![(0, 2), (3, 5)],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
@@ -27,6 +27,6 @@ fn test_disjointconnectingpaths_to_ilp_bf_vs_ilp() {
         SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]),
         vec![(0, 2), (3, 5)],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

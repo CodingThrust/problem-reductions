@@ -28,31 +28,31 @@ fn test_exact_cover_by_3_sets_evaluation() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
 
     // S0 + S1 = exact cover
-    assert!(problem.evaluate(&[1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 0]).unwrap());
 
     // S0 + S2 overlap at element 0
-    assert!(!problem.evaluate(&[1, 0, 1]));
+    assert!(!problem.evaluate(&[1, 0, 1]).unwrap());
 
     // Only S0 selected (need q=2 subsets)
-    assert!(!problem.evaluate(&[1, 0, 0]));
+    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
 
     // All selected (too many, and overlapping)
-    assert!(!problem.evaluate(&[1, 1, 1]));
+    assert!(!problem.evaluate(&[1, 1, 1]).unwrap());
 
     // None selected
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_exact_cover_by_3_sets_rejects_wrong_config_length() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
-    assert!(!problem.evaluate(&[1, 1, 0]));
+    assert!(!problem.evaluate(&[1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_exact_cover_by_3_sets_rejects_non_binary_config_values() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
-    assert!(!problem.evaluate(&[1, 1, 2]));
+    assert!(!problem.evaluate(&[1, 1, 2]).unwrap());
 }
 
 #[test]
@@ -74,12 +74,12 @@ fn test_exact_cover_by_3_sets_solver() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
 
     // S0={0,1,2}, S2={3,4,5}, S4={6,7,8} is an exact cover
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
     // Verify the known solution is in there
     assert!(solutions.contains(&vec![1, 0, 1, 0, 1, 0, 0]));
@@ -93,7 +93,7 @@ fn test_exact_cover_by_3_sets_no_solution() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [0, 3, 4], [0, 4, 5]]);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(solutions.is_empty());
 }
 
@@ -112,8 +112,8 @@ fn test_exact_cover_by_3_sets_serialization() {
 #[test]
 fn test_exact_cover_by_3_sets_is_valid_solution() {
     let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
-    assert!(problem.is_valid_solution(&[1, 1]));
-    assert!(!problem.is_valid_solution(&[1, 0]));
+    assert!(problem.is_valid_solution(&[1, 1]).unwrap());
+    assert!(!problem.is_valid_solution(&[1, 0]).unwrap());
 }
 
 #[test]
@@ -138,9 +138,9 @@ fn test_exact_cover_by_3_sets_get_subset() {
 fn test_exact_cover_by_3_sets_empty() {
     // Empty universe with no subsets -- trivially satisfiable
     let problem = ExactCoverBy3Sets::new(0, vec![]);
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions, vec![Vec::<usize>::new()]);
 }
 

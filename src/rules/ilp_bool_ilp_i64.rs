@@ -13,14 +13,14 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 #[derive(Debug, Clone)]
 pub struct ReductionBinaryILPToIntILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
 }
 
 impl ReductionResult for ReductionBinaryILPToIntILP {
     type Source = ILP<bool>;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -39,26 +39,26 @@ impl ReductionResult for ReductionBinaryILPToIntILP {
         num_vars = "num_vars",
         num_constraints = "num_constraints + num_vars",
     },)]
-impl ReduceTo<ILP<i32>> for ILP<bool> {
+impl ReduceTo<ILP<i64>> for ILP<bool> {
     type Result = ReductionBinaryILPToIntILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constraints = self.constraints.clone();
         // Add x_i <= 1 for each variable to preserve binary domain
         for i in 0..self.num_vars {
             constraints.push(LinearConstraint::le(vec![(i, 1.0)], 1.0));
         }
-        ReductionBinaryILPToIntILP {
-            target: ILP::<i32>::new(
+        Ok(ReductionBinaryILPToIntILP {
+            target: ILP::<i64>::new(
                 self.num_vars,
                 constraints,
                 self.objective.clone(),
                 self.sense,
             ),
-        }
+        })
     }
 }
 
 #[cfg(test)]
-#[path = "../unit_tests/rules/ilp_bool_ilp_i32.rs"]
+#[path = "../unit_tests/rules/ilp_bool_ilp_i64.rs"]
 mod tests;

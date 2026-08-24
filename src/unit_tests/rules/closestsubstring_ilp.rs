@@ -18,12 +18,13 @@ fn issue_instance() -> ClosestSubstring {
         ],
         3,
     )
+    .unwrap()
 }
 
 #[test]
 fn test_closestsubstring_to_ilp_structure() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // q = 2, ell = 3, total windows W = 3 + 3 + 3 = 9.
@@ -73,7 +74,7 @@ fn test_closestsubstring_to_ilp_structure() {
 #[test]
 fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![0; reduction.target_problem().num_vars];
 
     assert_eq!(
@@ -88,9 +89,9 @@ fn test_closestsubstring_to_ilp_rejects_missing_one_hot_symbol() {
 #[test]
 fn test_closestsubstring_to_ilp_closed_loop() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&source);
+    let bf_value = BruteForce::new().solve(&source).unwrap();
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
@@ -99,7 +100,7 @@ fn test_closestsubstring_to_ilp_closed_loop() {
     // Extracted config must be syntactically valid (length ell + n = 6) and
     // match the brute-force optimum.
     assert_eq!(extracted.len(), 6);
-    let extracted_value = source.evaluate(&extracted);
+    let extracted_value = source.evaluate(&extracted).unwrap();
     assert!(extracted_value.is_valid());
     assert_eq!(extracted_value, bf_value);
     // Sanity: the canonical instance has optimum radius 1.
@@ -109,7 +110,7 @@ fn test_closestsubstring_to_ilp_closed_loop() {
 #[test]
 fn test_closestsubstring_to_ilp_bf_vs_ilp() {
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     assert_bf_vs_ilp(&source, &reduction);
 }
 
@@ -121,15 +122,16 @@ fn test_closestsubstring_to_ilp_zero_radius_when_common_substring_exists() {
         2,
         vec![vec![0, 1, 0, 0], vec![1, 0, 1, 0], vec![0, 0, 1, 0]],
         3,
-    );
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    )
+    .unwrap();
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let extracted_value = source.evaluate(&extracted);
+    let extracted_value = source.evaluate(&extracted).unwrap();
     assert!(extracted_value.is_valid());
     assert_eq!(extracted_value, Min(Some(0)));
 }
@@ -138,8 +140,9 @@ fn test_closestsubstring_to_ilp_zero_radius_when_common_substring_exists() {
 fn test_closestsubstring_to_ilp_ternary_alphabet() {
     // q = 3, ell = 2, three length-3 strings. Brute-force optimum is small
     // enough to cross-check via the closed loop.
-    let source = ClosestSubstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]], 2);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let source =
+        ClosestSubstring::new(3, vec![vec![0, 1, 2], vec![1, 2, 0], vec![2, 0, 1]], 2).unwrap();
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // q*ell + W + 1 with W = 2 + 2 + 2 = 6: num_vars = 6 + 6 + 1 = 13.
@@ -157,7 +160,7 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
     // y_{1,0}=y_{2,1}=y_{3,0}=1, R = 1. Then verify the extracted source
     // config matches and gives radius 1.
     let source = issue_instance();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let mut target_solution = vec![0usize; ilp.num_vars];
@@ -174,5 +177,5 @@ fn test_closestsubstring_to_ilp_extract_known_solution() {
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0, 0, 1, 0]);
-    assert_eq!(source.evaluate(&extracted), Min(Some(1)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
 }

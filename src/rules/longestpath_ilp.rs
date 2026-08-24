@@ -10,10 +10,11 @@ use crate::models::graph::LongestPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionLongestPathToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
@@ -24,10 +25,10 @@ impl ReductionLongestPathToILP {
 }
 
 impl ReductionResult for ReductionLongestPathToILP {
-    type Source = LongestPath<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = LongestPath<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -55,10 +56,10 @@ impl ReductionResult for ReductionLongestPathToILP {
         num_vars = "2 * num_edges + num_vertices",
         num_constraints = "5 * num_edges + 4 * num_vertices + 1",
     },)]
-impl ReduceTo<ILP<i32>> for LongestPath<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
     type Result = ReductionLongestPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vertices = self.num_vertices();
         let num_edges = self.num_edges();
@@ -83,7 +84,7 @@ impl ReduceTo<ILP<i32>> for LongestPath<SimpleGraph, i32> {
 
         let mut constraints = Vec::new();
 
-        // Directed arc variables are binary within ILP<i32>.
+        // Directed arc variables are binary within `ILP<i64>`.
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
                 vec![(ReductionLongestPathToILP::arc_var(edge_idx, 0), 1.0)],
@@ -161,15 +162,20 @@ impl ReduceTo<ILP<i32>> for LongestPath<SimpleGraph, i32> {
 
         let mut objective = Vec::with_capacity(2 * num_edges);
         for (edge_idx, length) in self.edge_lengths().iter().enumerate() {
-            let coeff = f64::from(*length);
+            let coeff = i64_to_exact_f64(*length).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    LongestPath<SimpleGraph, i64>,
+                    ILP<i64>,
+                >(error)
+            })?;
             objective.push((ReductionLongestPathToILP::arc_var(edge_idx, 0), coeff));
             objective.push((ReductionLongestPathToILP::arc_var(edge_idx, 1), coeff));
         }
 
-        ReductionLongestPathToILP {
+        Ok(ReductionLongestPathToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize),
             num_edges,
-        }
+        })
     }
 }
 
@@ -180,7 +186,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         build: || {
             let source =
                 LongestPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![2, 3], 0, 2);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

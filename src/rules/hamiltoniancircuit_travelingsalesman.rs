@@ -12,12 +12,12 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to TravelingSalesman.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToTravelingSalesman {
-    target: TravelingSalesman<SimpleGraph, i32>,
+    target: TravelingSalesman<SimpleGraph, i64>,
 }
 
 impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = TravelingSalesman<SimpleGraph, i32>;
+    type Target = TravelingSalesman<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -39,10 +39,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
         num_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
-impl ReduceTo<TravelingSalesman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<TravelingSalesman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToTravelingSalesman;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vertices = self.num_vertices();
         let target_graph = SimpleGraph::complete(num_vertices);
         let weights = target_graph
@@ -52,7 +52,7 @@ impl ReduceTo<TravelingSalesman<SimpleGraph, i32>> for HamiltonianCircuit<Simple
             .collect();
         let target = TravelingSalesman::new(target_graph, weights);
 
-        ReductionHamiltonianCircuitToTravelingSalesman { target }
+        Ok(ReductionHamiltonianCircuitToTravelingSalesman { target })
     }
 }
 
@@ -66,7 +66,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = HamiltonianCircuit::new(SimpleGraph::cycle(4));
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                TravelingSalesman<SimpleGraph, i32>,
+                TravelingSalesman<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {

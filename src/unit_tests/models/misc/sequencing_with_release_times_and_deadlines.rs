@@ -35,7 +35,7 @@ fn test_sequencing_rtd_evaluate_feasible() {
         vec![5, 6, 10, 3, 12],
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Exactly one feasible schedule exists: Lehmer code [3, 0, 0, 0, 0]
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![3, 0, 0, 0, 0]);
@@ -49,16 +49,16 @@ fn test_sequencing_rtd_evaluate_infeasible_deadline() {
         vec![2, 4], // task 0 needs 3 time units but deadline is 2
     );
     // Order [0, 1]: t0 start=0, finish=3 > 2 -> infeasible
-    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[0, 0]).unwrap());
     // Order [1, 0]: t1 start=0, finish=2; t0 start=2, finish=5 > 2 -> infeasible
-    assert!(!problem.evaluate(&[1, 0]));
+    assert!(!problem.evaluate(&[1, 0]).unwrap());
 }
 
 #[test]
 fn test_sequencing_rtd_evaluate_wrong_config_length() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]);
-    assert!(!problem.evaluate(&[0]));
-    assert!(!problem.evaluate(&[0, 0, 0]));
+    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_sequencing_rtd_empty_instance() {
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.time_horizon(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]));
+    assert!(problem.evaluate(&[]).unwrap());
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_sequencing_rtd_single_task() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2], vec![1], vec![5]);
     assert_eq!(problem.dims(), vec![1]);
     // Only one permutation: task 0 starts at max(1,0)=1, finish=3 <= 5
-    assert!(problem.evaluate(&[0]));
+    assert!(problem.evaluate(&[0]).unwrap());
 }
 
 #[test]
@@ -86,18 +86,19 @@ fn test_sequencing_rtd_brute_force() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    assert!(problem.evaluate(&solution));
+    assert!(problem.evaluate(&solution).unwrap());
 }
 
 #[test]
 fn test_sequencing_rtd_brute_force_all() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![3, 3]);
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert!(problem.evaluate(sol));
+        assert!(problem.evaluate(sol).unwrap());
     }
 }
 
@@ -106,7 +107,7 @@ fn test_sequencing_rtd_unsatisfiable() {
     // Two tasks each need 2 time units but only 3 total time available
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![3, 3]);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -126,14 +127,14 @@ fn test_sequencing_rtd_tight_schedule() {
     // Tasks that can only be scheduled in one specific order
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 2], vec![2, 4]);
     // Order [0, 1]: t0 start=max(0,0)=0, finish=2<=2; t1 start=max(2,2)=2, finish=4<=4 ✓
-    assert!(problem.evaluate(&[0, 0]));
+    assert!(problem.evaluate(&[0, 0]).unwrap());
     // Order [1, 0]: t1 start=max(2,0)=2, finish=4<=4; t0 start=max(0,4)=4, finish=6>2 ✗
-    assert!(!problem.evaluate(&[1, 0]));
+    assert!(!problem.evaluate(&[1, 0]).unwrap());
 }
 
 #[test]
 fn test_sequencing_rtd_invalid_lehmer_index() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]);
     // config[0]=2 is out of range for available.len()=2
-    assert!(!problem.evaluate(&[2, 0]));
+    assert!(!problem.evaluate(&[2, 0]).unwrap());
 }

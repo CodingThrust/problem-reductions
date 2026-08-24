@@ -57,7 +57,7 @@ impl ReductionResult for ReductionKCliqueToSubIso {
 impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToSubIso;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
 
@@ -66,10 +66,10 @@ impl ReduceTo<SubgraphIsomorphism> for KClique<SimpleGraph> {
 
         let target = SubgraphIsomorphism::new(host, pattern);
 
-        ReductionKCliqueToSubIso {
+        Ok(ReductionKCliqueToSubIso {
             target,
             num_source_vertices: n,
-        }
+        })
     }
 }
 

@@ -50,7 +50,7 @@ struct MinimumDummyActivitiesPertCreateSpec {
     num_vertices: Option<usize>,
 }
 impl TryFrom<MinimumDummyActivitiesPertCreateSpec> for MinimumDummyActivitiesPert {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumDummyActivitiesPertCreateSpec) -> Result<Self, Self::Error> {
         let inferred = spec
             .arcs
@@ -70,7 +70,7 @@ impl TryFrom<MinimumDummyActivitiesPertCreateSpec> for MinimumDummyActivitiesPer
 
 impl MinimumDummyActivitiesPert {
     /// Fallible constructor used by CLI validation and deserialization.
-    pub fn try_new(graph: DirectedGraph) -> Result<Self, String> {
+    pub fn try_new(graph: DirectedGraph) -> Result<Self, crate::registry::ConstructionError> {
         if !graph.is_dag() {
             return Err("MinimumDummyActivitiesPert requires the input graph to be a DAG".into());
         }
@@ -102,8 +102,11 @@ impl MinimumDummyActivitiesPert {
     }
 
     /// Check whether the merge-selection config encodes a valid PERT network.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).is_valid()
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.is_valid())
     }
 
     fn precedence_arcs(&self) -> Vec<(usize, usize)> {
@@ -186,7 +189,7 @@ impl MinimumDummyActivitiesPert {
 
 impl Problem for MinimumDummyActivitiesPert {
     const NAME: &'static str = "MinimumDummyActivitiesPert";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -196,29 +199,32 @@ impl Problem for MinimumDummyActivitiesPert {
         vec![2; self.graph.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        let Some(candidate) = self.build_candidate_network(config) else {
-            return Min(None);
-        };
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let Some(candidate) = self.build_candidate_network(config) else {
+                return Ok(Min(None));
+            };
 
-        let source_reachability = reachability_matrix(&self.graph);
-        let event_reachability = reachability_matrix(&candidate.event_graph);
+            let source_reachability = reachability_matrix(&self.graph);
+            let event_reachability = reachability_matrix(&candidate.event_graph);
 
-        for source in 0..self.num_vertices() {
-            for target in 0..self.num_vertices() {
-                let pert_reachable = candidate.finish_events[source]
-                    == candidate.start_events[target]
-                    || event_reachability[candidate.finish_events[source]]
-                        [candidate.start_events[target]];
-                if source_reachability[source][target] != pert_reachable {
-                    return Min(None);
+            for source in 0..self.num_vertices() {
+                for target in 0..self.num_vertices() {
+                    let pert_reachable = candidate.finish_events[source]
+                        == candidate.start_events[target]
+                        || event_reachability[candidate.finish_events[source]]
+                            [candidate.start_events[target]];
+                    if source_reachability[source][target] != pert_reachable {
+                        return Ok(Min(None));
+                    }
                 }
             }
-        }
 
-        Min(Some(
-            i32::try_from(candidate.num_dummy_arcs).expect("dummy activity count must fit in i32"),
-        ))
+            Min(Some(
+                i64::try_from(candidate.num_dummy_arcs)
+                    .expect("dummy activity count must fit in i64"),
+            ))
+        })
     }
 }
 

@@ -5,8 +5,9 @@ use crate::types::Max;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = MaximumSetPacking::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 3, "Should have one variable per set");
@@ -26,8 +27,10 @@ fn test_reduction_creates_valid_ilp() {
 
 #[test]
 fn test_reduction_weighted() {
-    let problem = MaximumSetPacking::with_weights(vec![vec![0, 1], vec![2, 3]], vec![5, 10]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem =
+        MaximumSetPacking::with_weights(vec![vec![0, 1], vec![2, 3]], vec![5, 10]).unwrap();
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let mut coeffs: Vec<f64> = vec![0.0; 2];
@@ -40,14 +43,15 @@ fn test_reduction_weighted() {
 
 #[test]
 fn test_maximumsetpacking_to_ilp_closed_loop() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = MaximumSetPacking::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_witnesses(&problem);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
@@ -57,7 +61,7 @@ fn test_maximumsetpacking_to_ilp_closed_loop() {
     assert_eq!(ilp_size, 2);
 
     assert!(
-        problem.evaluate(&extracted).is_valid(),
+        problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
     );
 }
@@ -67,19 +71,21 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let problem = MaximumSetPacking::with_weights(
         vec![vec![0, 1, 2, 3], vec![0, 1], vec![2, 3]],
         vec![5, 3, 3],
-    );
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    )
+    .unwrap();
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_obj = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_obj = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_obj = problem.evaluate(&extracted);
+    let ilp_obj = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_obj, Max(Some(6)));
     assert_eq!(ilp_obj, Max(Some(6)));
@@ -88,20 +94,21 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem =
-        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = MaximumSetPacking::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let ilp_solution = vec![1, 0, 1, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![1, 0, 1, 0]);
-    assert!(problem.evaluate(&extracted).is_valid());
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
 #[test]
 fn test_disjoint_sets() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0], vec![1], vec![2], vec![3]]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = MaximumSetPacking::new(vec![vec![0], vec![1], vec![2], vec![3]]);
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.constraints.len(), 0);
@@ -111,26 +118,27 @@ fn test_disjoint_sets() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1, 1]);
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Max(Some(4)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
 }
 
 #[test]
 fn test_solve_reduced() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let problem = MaximumSetPacking::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
         .solve_reduced::<bool, _>(&problem)
         .expect("solve_reduced should work");
 
-    assert!(problem.evaluate(&solution).is_valid());
-    assert_eq!(problem.evaluate(&solution), Max(Some(2)));
+    assert!(problem.evaluate(&solution).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&solution).unwrap(), Max(Some(2)));
 }
 
 #[test]
 fn test_maximumsetpacking_to_ilp_bf_vs_ilp() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let reduction: ReductionSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = MaximumSetPacking::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let reduction: ReductionSPToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

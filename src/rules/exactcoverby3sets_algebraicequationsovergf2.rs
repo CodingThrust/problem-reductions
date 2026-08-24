@@ -35,7 +35,7 @@ impl ReductionResult for ReductionX3CToAlgebraicEquationsOverGF2 {
 impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
     type Result = ReductionX3CToAlgebraicEquationsOverGF2;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut sets_per_element = vec![Vec::new(); self.universe_size()];
         for (set_index, set) in self.sets().iter().enumerate() {
             for &element in set {
@@ -59,10 +59,13 @@ impl ReduceTo<AlgebraicEquationsOverGF2> for ExactCoverBy3Sets {
             }
         }
 
-        ReductionX3CToAlgebraicEquationsOverGF2 {
-            target: AlgebraicEquationsOverGF2::new(self.num_sets(), equations)
-                .expect("reduction produces valid equations"),
-        }
+        let target = AlgebraicEquationsOverGF2::new(self.num_sets(), equations).map_err(
+            crate::rules::ReductionError::construction::<
+                ExactCoverBy3Sets,
+                AlgebraicEquationsOverGF2,
+            >,
+        )?;
+        Ok(ReductionX3CToAlgebraicEquationsOverGF2 { target })
     }
 }
 

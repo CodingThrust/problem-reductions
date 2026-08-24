@@ -18,12 +18,12 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32", "One"]),
+            VariantDimension::new("weight", "i64", &["i64", "One"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
         description: "Find a simple s-t path of maximum total edge length",
-        fields: LongestPathI32CreateSpec::FIELDS,
+        fields: LongestPathI64CreateSpec::FIELDS,
     }
 }
 
@@ -62,8 +62,8 @@ macro_rules! longest_path_create_spec {
             target_vertex: usize,
         }
         impl TryFrom<$name> for LongestPath<SimpleGraph, $weight> {
-            type Error = String;
-            fn try_from(spec: $name) -> Result<Self, String> {
+            type Error = crate::registry::ConstructionError;
+            fn try_from(spec: $name) -> Result<Self, crate::registry::ConstructionError> {
                 if spec.graph.is_empty() && spec.num_vertices.is_none() {
                     return Err("num_vertices is required for an empty graph".into());
                 }
@@ -103,7 +103,7 @@ macro_rules! longest_path_create_spec {
         }
     };
 }
-longest_path_create_spec!(LongestPathI32CreateSpec, i32);
+longest_path_create_spec!(LongestPathI64CreateSpec, i64);
 longest_path_create_spec!(LongestPathOneCreateSpec, One);
 
 impl<G: Graph, W: WeightElement> LongestPath<G, W> {
@@ -213,18 +213,24 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<W::Sum> {
-        if !self.is_valid_solution(config) {
-            return Max(None);
-        }
-
-        let mut total = W::Sum::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.edge_lengths[idx].to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            if !self.is_valid_solution(config) {
+                return Ok(Max(None));
             }
-        }
-        Max(Some(total))
+
+            let mut total = W::Sum::zero();
+            for (idx, &selected) in config.iter().enumerate() {
+                if selected == 1 {
+                    total = W::checked_add_to_sum(
+                        total,
+                        self.edge_lengths[idx].to_sum(),
+                        "summing path edge lengths",
+                    )?;
+                }
+            }
+            Max(Some(total))
+        })
     }
 }
 
@@ -306,14 +312,14 @@ fn is_simple_st_path<G: Graph>(
 }
 
 crate::declare_variants! {
-    default LongestPath<SimpleGraph, i32> => "num_vertices * 2^num_vertices" create LongestPathI32CreateSpec,
+    default LongestPath<SimpleGraph, i64> => "num_vertices * 2^num_vertices" create LongestPathI64CreateSpec,
     LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices" create LongestPathOneCreateSpec,
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "longest_path_simplegraph_i32",
+        id: "longest_path_simplegraph_i64",
         instance: Box::new(LongestPath::new(
             SimpleGraph::new(
                 7,

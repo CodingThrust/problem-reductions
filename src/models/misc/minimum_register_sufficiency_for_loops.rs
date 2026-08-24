@@ -56,9 +56,9 @@ inventory::submit! {
 ///     vec![(0, 3), (2, 3), (4, 3)],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
-/// let val = problem.evaluate(&solution.unwrap());
+/// let val = problem.evaluate(&solution.unwrap()).unwrap();
 /// assert_eq!(val, Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,7 +154,7 @@ impl MinimumRegisterSufficiencyForLoops {
 
 impl Problem for MinimumRegisterSufficiencyForLoops {
     const NAME: &'static str = "MinimumRegisterSufficiencyForLoops";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -165,36 +165,42 @@ impl Problem for MinimumRegisterSufficiencyForLoops {
         vec![n; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.variables.len();
-        if config.len() != n {
-            return Min(None);
-        }
-        // Check all register indices are in valid range
-        if config.iter().any(|&r| r >= n) {
-            return Min(None);
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.variables.len();
+            if config.len() != n {
+                return Ok(Min(None));
+            }
+            // Check all register indices are in valid range
+            if config.iter().any(|&r| r >= n) {
+                return Ok(Min(None));
+            }
 
-        // Check for conflicts: no two overlapping variables share a register
-        for i in 0..n {
-            for j in (i + 1)..n {
-                if config[i] == config[j] {
-                    let (s1, l1) = self.variables[i];
-                    let (s2, l2) = self.variables[j];
-                    if Self::arcs_overlap(s1, l1, s2, l2, self.loop_length) {
-                        return Min(None);
+            // Check for conflicts: no two overlapping variables share a register
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    if config[i] == config[j] {
+                        let (s1, l1) = self.variables[i];
+                        let (s2, l2) = self.variables[j];
+                        if Self::arcs_overlap(s1, l1, s2, l2, self.loop_length) {
+                            return Ok(Min(None));
+                        }
                     }
                 }
             }
-        }
 
-        // Count distinct registers used
-        let mut used = vec![false; n];
-        for &r in config {
-            used[r] = true;
-        }
-        let count = used.iter().filter(|&&u| u).count();
-        Min(Some(count))
+            // Count distinct registers used
+            let mut used = vec![false; n];
+            for &r in config {
+                used[r] = true;
+            }
+            let count = used.iter().filter(|&&u| u).count();
+            Min(Some(i64::try_from(count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting register count to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

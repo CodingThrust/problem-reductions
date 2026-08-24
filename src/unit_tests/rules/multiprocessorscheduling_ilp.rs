@@ -7,7 +7,8 @@ use crate::types::Or;
 fn test_reduction_creates_valid_ilp() {
     // 3 tasks, 2 processors, deadline 5
     let problem = MultiprocessorScheduling::new(vec![2, 3, 2], 2, 5);
-    let reduction: ReductionMSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // num_vars = 3 tasks * 2 processors = 6
@@ -33,7 +34,8 @@ fn test_reduction_creates_valid_ilp() {
 fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
     // 4 tasks [2, 2, 2, 2], 2 processors, deadline 4 → feasible (2+2 per proc)
     let problem = MultiprocessorScheduling::new(vec![2, 2, 2, 2], 2, 4);
-    let reduction: ReductionMSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -41,13 +43,14 @@ fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
 
     let bf_witness = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("BF should find a solution");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "Extracted ILP solution should be valid"
     );
@@ -57,7 +60,8 @@ fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
 fn test_solution_extraction() {
     // 3 tasks, 2 processors
     let problem = MultiprocessorScheduling::new(vec![1, 2, 3], 2, 5);
-    let reduction: ReductionMSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Manually set: task 0 → proc 0, task 1 → proc 1, task 2 → proc 0
     // Variables: x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1, x_{2,0}=1, x_{2,1}=0
@@ -65,14 +69,15 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 1, 0]);
     // loads: proc 0 = 1+3=4 ≤ 5, proc 1 = 2 ≤ 5
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_multiprocessorscheduling_to_ilp_trivial() {
     // Single task on single processor
     let problem = MultiprocessorScheduling::new(vec![5], 1, 5);
-    let reduction: ReductionMSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // num_vars = 1 task * 1 processor = 1
@@ -83,5 +88,5 @@ fn test_multiprocessorscheduling_to_ilp_trivial() {
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

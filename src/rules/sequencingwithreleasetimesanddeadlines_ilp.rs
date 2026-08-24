@@ -1,4 +1,4 @@
-//! Reduction from SequencingWithReleaseTimesAndDeadlines to ILP<bool>.
+//! Reduction from SequencingWithReleaseTimesAndDeadlines to `ILP<bool>`.
 //!
 //! Time-indexed formulation: binary x_{j,t} = 1 iff task j starts at time t.
 //! Each task starts within its admissible window [r_j, d_j - p_j].
@@ -9,7 +9,7 @@ use crate::models::misc::SequencingWithReleaseTimesAndDeadlines;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing SequencingWithReleaseTimesAndDeadlines to ILP<bool>.
+/// Result of reducing SequencingWithReleaseTimesAndDeadlines to `ILP<bool>`.
 ///
 /// Variable layout: x_{j,t} at index `j * T + t` for j in 0..n, t in 0..T,
 /// where T = time_horizon (max deadline).
@@ -74,7 +74,7 @@ impl ReductionResult for ReductionSWRTDToILP {
 impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
     type Result = ReductionSWRTDToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let horizon = self.time_horizon() as usize;
         let num_vars = n * horizon;
@@ -131,11 +131,11 @@ impl ReduceTo<ILP<bool>> for SequencingWithReleaseTimesAndDeadlines {
             constraints.push(LinearConstraint::le(terms, 1.0));
         }
 
-        ReductionSWRTDToILP {
+        Ok(ReductionSWRTDToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_tasks: n,
             time_horizon: horizon,
-        }
+        })
     }
 }
 

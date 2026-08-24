@@ -29,7 +29,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// vertex pairs for solution extraction.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToBiconnectivityAugmentation {
-    target: BiconnectivityAugmentation<SimpleGraph, i32>,
+    target: BiconnectivityAugmentation<SimpleGraph, i64>,
     /// Number of vertices in the original graph.
     num_vertices: usize,
     /// Potential edges as (u, v) pairs, in the same order as the target's potential_weights.
@@ -38,7 +38,7 @@ pub struct ReductionHamiltonianCircuitToBiconnectivityAugmentation {
 
 impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = BiconnectivityAugmentation<SimpleGraph, i32>;
+    type Target = BiconnectivityAugmentation<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -115,10 +115,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToBiconnectivityAugmentation
         num_potential_edges = "num_vertices * (num_vertices - 1) / 2",
     }
 )]
-impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToBiconnectivityAugmentation;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let graph = self.graph();
 
@@ -137,16 +137,20 @@ impl ReduceTo<BiconnectivityAugmentation<SimpleGraph, i32>> for HamiltonianCircu
         }
 
         // Budget = n (exactly enough for n weight-1 edges)
-        let budget = i64::try_from(n)
-            .expect("HamiltonianCircuit -> BiconnectivityAugmentation budget must fit i64");
+        let budget = i64::try_from(n).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                HamiltonianCircuit<SimpleGraph>,
+                BiconnectivityAugmentation<SimpleGraph, i64>,
+            >("converting the vertex count to the target budget")
+        })?;
 
         let target = BiconnectivityAugmentation::new(initial_graph, potential_weights, budget);
 
-        ReductionHamiltonianCircuitToBiconnectivityAugmentation {
+        Ok(ReductionHamiltonianCircuitToBiconnectivityAugmentation {
             target,
             num_vertices: n,
             potential_edges,
-        }
+        })
     }
 }
 
@@ -166,7 +170,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Config: [1, 0, 1, 1, 0, 1]
             crate::example_db::specs::rule_example_with_witness::<
                 _,
-                BiconnectivityAugmentation<SimpleGraph, i32>,
+                BiconnectivityAugmentation<SimpleGraph, i64>,
             >(
                 source,
                 SolutionPair {

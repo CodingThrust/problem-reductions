@@ -8,7 +8,7 @@ use crate::variant::K3;
 #[test]
 fn test_ksatisfiability_to_kernel_structure() {
     let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, -2, 1])]);
-    let reduction = ReduceTo::<Kernel>::reduce_to(&source);
+    let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 7);
@@ -39,7 +39,7 @@ fn test_ksatisfiability_to_kernel_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<Kernel>::reduce_to(&source);
+    let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -57,17 +57,18 @@ fn test_ksatisfiability_to_kernel_unsatisfiable_instance_has_no_kernel() {
             CNFClause::new(vec![-1, -1, -1]),
         ],
     );
-    let reduction = ReduceTo::<Kernel>::reduce_to(&source);
+    let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(BruteForce::new()
         .find_witness(reduction.target_problem())
+        .unwrap()
         .is_none());
 }
 
 #[test]
 fn test_ksatisfiability_to_kernel_extract_solution_reads_variable_gadgets() {
     let source = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, -2, 1])]);
-    let reduction = ReduceTo::<Kernel>::reduce_to(&source);
+    let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&[1, 0, 0, 1, 0, 0, 0]).unwrap(),

@@ -14,7 +14,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_closed_loop() {
         vec![0, 1, 0],
         vec![0, 1],
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &problem,
@@ -35,15 +35,16 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_feasible_paper_example() {
     let bf = BruteForce::new();
     let bf_witness = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("paper example should be feasible");
-    assert_eq!(problem.evaluate(&bf_witness), Or(true));
+    assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -51,7 +52,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_infeasible() {
     // All tasks have deadline 1 but each takes 2 — clearly impossible.
     let problem =
         SequencingWithDeadlinesAndSetUpTimes::new(vec![2, 2], vec![1, 1], vec![0, 0], vec![0]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
@@ -66,12 +67,12 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_setup_time_respected() {
     // Order [1,0]: elapsed=1≤4 ✓, then switch s=0, elapsed=1+0+1=2≤1 ✗ → infeasible
     let problem =
         SequencingWithDeadlinesAndSetUpTimes::new(vec![1, 1], vec![1, 4], vec![0, 1], vec![0, 2]);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
@@ -85,10 +86,10 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_bf_vs_ilp_small() {
     );
 
     let bf = BruteForce::new();
-    let bf_result = bf.find_witness(&problem);
+    let bf_result = bf.find_witness(&problem).unwrap();
     let bf_feasible = bf_result.is_some();
 
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_result = ILPSolver::new().solve(reduction.target_problem());
     let ilp_feasible = ilp_result.is_ok();
 
@@ -98,7 +99,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_bf_vs_ilp_small() {
     );
     if let Ok(ilp_solution) = ilp_result {
         let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-        assert_eq!(problem.evaluate(&extracted), Or(true));
+        assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     }
 }
 
@@ -112,10 +113,10 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_no_setup_same_compiler() {
         vec![0, 0, 0],
         vec![100], // large setup time, but never triggered
     );
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("should be feasible with no switches");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }

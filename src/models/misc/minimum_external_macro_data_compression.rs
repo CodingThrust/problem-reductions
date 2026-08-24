@@ -31,7 +31,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet (symbols indexed 0..alphabet_size)" },
             FieldInfo { name: "string", type_name: "Vec<usize>", description: "Source string as symbol indices" },
-            FieldInfo { name: "pointer_cost", type_name: "usize", description: "Pointer cost h (each pointer contributes h to the cost)" },
+            FieldInfo { name: "pointer_cost", type_name: "i64", description: "Pointer cost h (each pointer contributes h to the cost)" },
         ],
     }
 }
@@ -65,14 +65,51 @@ inventory::submit! {
 /// // Alphabet {a, b}, string "abab", pointer cost h=2
 /// let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumExternalMacroDataCompressionSerde")]
 pub struct MinimumExternalMacroDataCompression {
     alphabet_size: usize,
     string: Vec<usize>,
-    pointer_cost: usize,
+    pointer_cost: i64,
+}
+
+#[derive(Deserialize)]
+struct MinimumExternalMacroDataCompressionSerde {
+    alphabet_size: usize,
+    string: Vec<usize>,
+    pointer_cost: i64,
+}
+
+impl TryFrom<MinimumExternalMacroDataCompressionSerde> for MinimumExternalMacroDataCompression {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: MinimumExternalMacroDataCompressionSerde) -> Result<Self, Self::Error> {
+        if value.alphabet_size == 0 && !value.string.is_empty() {
+            return Err("alphabet_size must be > 0 when the string is non-empty"
+                .to_string()
+                .into());
+        }
+        if value
+            .string
+            .iter()
+            .any(|&symbol| symbol >= value.alphabet_size)
+        {
+            return Err("all symbols must be less than alphabet_size"
+                .to_string()
+                .into());
+        }
+        if value.pointer_cost <= 0 {
+            return Err("pointer_cost must be positive".to_string().into());
+        }
+        Ok(Self {
+            alphabet_size: value.alphabet_size,
+            string: value.string,
+            pointer_cost: value.pointer_cost,
+        })
+    }
 }
 
 impl MinimumExternalMacroDataCompression {
@@ -82,7 +119,7 @@ impl MinimumExternalMacroDataCompression {
     ///
     /// Panics if `alphabet_size` is 0 and the string is non-empty, or if
     /// any symbol in the string is >= `alphabet_size`, or if `pointer_cost` is 0.
-    pub fn new(alphabet_size: usize, string: Vec<usize>, pointer_cost: usize) -> Self {
+    pub fn new(alphabet_size: usize, string: Vec<usize>, pointer_cost: i64) -> Self {
         assert!(
             alphabet_size > 0 || string.is_empty(),
             "alphabet_size must be > 0 when the string is non-empty"
@@ -112,7 +149,7 @@ impl MinimumExternalMacroDataCompression {
     }
 
     /// Returns the pointer cost h.
-    pub fn pointer_cost(&self) -> usize {
+    pub fn pointer_cost(&self) -> i64 {
         self.pointer_cost
     }
 
@@ -154,7 +191,7 @@ impl MinimumExternalMacroDataCompression {
 
 impl Problem for MinimumExternalMacroDataCompression {
     const NAME: &'static str = "MinimumExternalMacroDataCompression";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -169,83 +206,116 @@ impl Problem for MinimumExternalMacroDataCompression {
         dims
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.string.len();
-        if config.len() != 2 * n {
-            return Min(None);
-        }
-
-        // Handle empty string case
-        if n == 0 {
-            return Min(Some(0));
-        }
-
-        let empty_d = self.alphabet_size; // empty marker for D-slots
-        let empty_c = self.alphabet_size; // empty marker for C-slots
-
-        // Decode D: prefix of non-empty D-slots
-        let d_slots = &config[..n];
-        let d_len = d_slots.iter().position(|&v| v == empty_d).unwrap_or(n);
-
-        // Verify contiguous: all after first empty must be empty
-        for &v in &d_slots[d_len..] {
-            if v != empty_d {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.string.len();
+            if config.len() != 2 * n {
+                return Ok(Min(None));
             }
-        }
 
-        // Verify D symbols are valid alphabet symbols
-        let d_str: Vec<usize> = d_slots[..d_len].to_vec();
-        if d_str.iter().any(|&v| v >= self.alphabet_size) {
-            return Min(None);
-        }
-
-        // Decode C: prefix of non-empty C-slots
-        let c_slots = &config[n..];
-        let c_len = c_slots.iter().position(|&v| v == empty_c).unwrap_or(n);
-
-        // Verify contiguous: all after first empty must be empty
-        for &v in &c_slots[c_len..] {
-            if v != empty_c {
-                return Min(None);
+            // Handle empty string case
+            if n == 0 {
+                return Ok(Min(Some(0)));
             }
-        }
 
-        // Decode C into a sequence of symbols, counting pointers
-        let mut decoded = Vec::new();
-        let mut pointer_count: usize = 0;
+            let empty_d = self.alphabet_size; // empty marker for D-slots
+            let empty_c = self.alphabet_size; // empty marker for C-slots
 
-        for &v in &c_slots[..c_len] {
-            if v < self.alphabet_size {
-                // Literal symbol
-                decoded.push(v);
-            } else if v > self.alphabet_size {
-                // Pointer into D
-                let ptr_idx = v - (self.alphabet_size + 1);
-                if let Some((start, len)) = self.decode_pointer(ptr_idx) {
-                    // Pointer must reference valid portion of D
-                    if start + len > d_len {
-                        return Min(None);
-                    }
-                    decoded.extend_from_slice(&d_str[start..start + len]);
-                    pointer_count += 1;
-                } else {
-                    return Min(None);
+            // Decode D: prefix of non-empty D-slots
+            let d_slots = &config[..n];
+            let d_len = d_slots.iter().position(|&v| v == empty_d).unwrap_or(n);
+
+            // Verify contiguous: all after first empty must be empty
+            for &v in &d_slots[d_len..] {
+                if v != empty_d {
+                    return Ok(Min(None));
                 }
-            } else {
-                // v == empty_c, but we already filtered those out
-                return Min(None);
             }
-        }
 
-        // Check decoded string matches the source string
-        if decoded != self.string {
-            return Min(None);
-        }
+            // Verify D symbols are valid alphabet symbols
+            let d_str: Vec<usize> = d_slots[..d_len].to_vec();
+            if d_str.iter().any(|&v| v >= self.alphabet_size) {
+                return Ok(Min(None));
+            }
 
-        // Compute cost: |D| + |C| + (h-1) * pointer_count
-        let cost = d_len + c_len + (self.pointer_cost - 1) * pointer_count;
-        Min(Some(cost))
+            // Decode C: prefix of non-empty C-slots
+            let c_slots = &config[n..];
+            let c_len = c_slots.iter().position(|&v| v == empty_c).unwrap_or(n);
+
+            // Verify contiguous: all after first empty must be empty
+            for &v in &c_slots[c_len..] {
+                if v != empty_c {
+                    return Ok(Min(None));
+                }
+            }
+
+            // Decode C into a sequence of symbols, counting pointers
+            let mut decoded = Vec::new();
+            let mut pointer_count: usize = 0;
+
+            for &v in &c_slots[..c_len] {
+                if v < self.alphabet_size {
+                    // Literal symbol
+                    decoded.push(v);
+                } else if v > self.alphabet_size {
+                    // Pointer into D
+                    let ptr_idx = v - (self.alphabet_size + 1);
+                    if let Some((start, len)) = self.decode_pointer(ptr_idx) {
+                        // Pointer must reference valid portion of D
+                        if start + len > d_len {
+                            return Ok(Min(None));
+                        }
+                        decoded.extend_from_slice(&d_str[start..start + len]);
+                        pointer_count += 1;
+                    } else {
+                        return Ok(Min(None));
+                    }
+                } else {
+                    // v == empty_c, but we already filtered those out
+                    return Ok(Min(None));
+                }
+            }
+
+            // Check decoded string matches the source string
+            if decoded != self.string {
+                return Ok(Min(None));
+            }
+
+            // Compute cost: |D| + |C| + (h-1) * pointer_count
+            let d_len = i64::try_from(d_len).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting the dictionary length to i64".to_string(),
+                )
+            })?;
+            let c_len = i64::try_from(c_len).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting the compressed-string length to i64".to_string(),
+                )
+            })?;
+            let pointer_count = i64::try_from(pointer_count).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting the pointer count to i64".to_string(),
+                )
+            })?;
+            let pointer_cost = self
+                .pointer_cost
+                .checked_sub(1)
+                .and_then(|cost| cost.checked_mul(pointer_count))
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing the external macro pointer cost".to_string(),
+                    )
+                })?;
+            let cost = d_len
+                .checked_add(c_len)
+                .and_then(|cost| cost.checked_add(pointer_cost))
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing the external macro compression cost".to_string(),
+                    )
+                })?;
+            Min(Some(cost))
+        })
     }
 }
 

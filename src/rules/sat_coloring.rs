@@ -137,7 +137,7 @@ impl SATColoringConstructor {
     /// Add a clause to the graph.
     /// For a single-literal clause, just set the literal to TRUE.
     /// For multi-literal clauses, build OR-gadgets recursively.
-    fn add_clause(&mut self, literals: &[i32]) {
+    fn add_clause(&mut self, literals: &[i64]) {
         assert!(
             !literals.is_empty(),
             "Clause must have at least one literal"
@@ -307,7 +307,7 @@ impl ReductionSATToColoring {
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
     type Result = ReductionSATToColoring;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut constructor = SATColoringConstructor::new(self.num_vars());
 
         // Add each clause to the graph
@@ -317,13 +317,13 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
 
         let target = constructor.build_coloring();
 
-        ReductionSATToColoring {
+        Ok(ReductionSATToColoring {
             target,
             pos_vertices: constructor.pos_vertices,
             neg_vertices: constructor.neg_vertices,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-        }
+        })
     }
 }
 

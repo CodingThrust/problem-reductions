@@ -57,14 +57,14 @@ pub struct LabelledArc {
     /// Source vertex index.
     pub src: usize,
     /// Edge label.
-    pub label: u32,
+    pub label: usize,
     /// Destination vertex index.
     pub dst: usize,
 }
 
 impl LabelledArc {
     /// Construct a new labelled arc.
-    pub fn new(src: usize, label: u32, dst: usize) -> Self {
+    pub fn new(src: usize, label: usize, dst: usize) -> Self {
         Self { src, label, dst }
     }
 }
@@ -226,13 +226,16 @@ impl MaximumCommonEdgeSubgraph {
 
     /// Count the labelled arcs in `G1` that are preserved by the partial
     /// injective map `config`. Returns `None` if `config` is infeasible.
-    pub fn preserved_arc_count(&self, config: &[usize]) -> Option<usize> {
+    pub fn preserved_arc_count(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         if !self.is_valid_solution(config) {
-            return None;
+            return Ok(None);
         }
         let bottom = self.bottom_index();
         // Build a lookup set of arcs in G2 for O(1) membership checks.
-        let arcs_2: std::collections::HashSet<(usize, u32, usize)> = self
+        let arcs_2: std::collections::HashSet<(usize, usize, usize)> = self
             .graph_2
             .arcs()
             .iter()
@@ -249,7 +252,11 @@ impl MaximumCommonEdgeSubgraph {
                 count += 1;
             }
         }
-        Some(count)
+        Ok(Some(i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting preserved-arc count to i64".into(),
+            )
+        })?))
     }
 }
 
@@ -265,11 +272,13 @@ impl Problem for MaximumCommonEdgeSubgraph {
         vec![self.graph_2.num_vertices() + 1; self.graph_1.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<i64> {
-        match self.preserved_arc_count(config) {
-            Some(count) => Max(Some(count as i64)),
-            None => Max(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.preserved_arc_count(config)? {
+                Some(count) => Max(Some(count)),
+                None => Max(None),
+            }
+        })
     }
 }
 

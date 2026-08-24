@@ -22,10 +22,10 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Partition W∪X∪Y into m triples (one from each set) each summing to B",
         fields: &[
-            FieldInfo { name: "sizes_w", type_name: "Vec<u64>", description: "Positive integer sizes for each element of W" },
-            FieldInfo { name: "sizes_x", type_name: "Vec<u64>", description: "Positive integer sizes for each element of X" },
-            FieldInfo { name: "sizes_y", type_name: "Vec<u64>", description: "Positive integer sizes for each element of Y" },
-            FieldInfo { name: "bound", type_name: "u64", description: "Target sum B for each triple" },
+            FieldInfo { name: "sizes_w", type_name: "Vec<i64>", description: "Positive integer sizes for each element of W" },
+            FieldInfo { name: "sizes_x", type_name: "Vec<i64>", description: "Positive integer sizes for each element of X" },
+            FieldInfo { name: "sizes_y", type_name: "Vec<i64>", description: "Positive integer sizes for each element of Y" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Target sum B for each triple" },
         ],
     }
 }
@@ -39,69 +39,78 @@ inventory::submit! {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Numerical3DimensionalMatching {
-    sizes_w: Vec<u64>,
-    sizes_x: Vec<u64>,
-    sizes_y: Vec<u64>,
-    bound: u64,
+    sizes_w: Vec<i64>,
+    sizes_x: Vec<i64>,
+    sizes_y: Vec<i64>,
+    bound: i64,
 }
 
 impl Numerical3DimensionalMatching {
     fn validate_inputs(
-        sizes_w: &[u64],
-        sizes_x: &[u64],
-        sizes_y: &[u64],
-        bound: u64,
-    ) -> Result<(), String> {
+        sizes_w: &[i64],
+        sizes_x: &[i64],
+        sizes_y: &[i64],
+        bound: i64,
+    ) -> Result<(), crate::registry::ConstructionError> {
         let m = sizes_w.len();
         if m == 0 {
             return Err(
-                "Numerical3DimensionalMatching requires at least one element per set".to_string(),
+                "Numerical3DimensionalMatching requires at least one element per set".into(),
             );
         }
         if sizes_x.len() != m || sizes_y.len() != m {
             return Err(
                 "Numerical3DimensionalMatching requires all three sets to have the same size"
-                    .to_string(),
+                    .into(),
             );
         }
         if bound == 0 {
-            return Err("Numerical3DimensionalMatching requires a positive bound".to_string());
+            return Err("Numerical3DimensionalMatching requires a positive bound"
+                .to_string()
+                .into());
         }
 
-        let bound128 = u128::from(bound);
         for &size in sizes_w.iter().chain(sizes_x.iter()).chain(sizes_y.iter()) {
             if size == 0 {
-                return Err("All sizes must be positive (> 0)".to_string());
+                return Err("All sizes must be positive (> 0)".to_string().into());
             }
-            let size128 = u128::from(size);
-            if !(4 * size128 > bound128 && 2 * size128 < bound128) {
-                return Err("Every size must lie strictly between B/4 and B/2".to_string());
+            let four_times_size = size
+                .checked_mul(4)
+                .ok_or("four times a size exceeds i64 range")?;
+            let two_times_size = size
+                .checked_mul(2)
+                .ok_or("two times a size exceeds i64 range")?;
+            if !(four_times_size > bound && two_times_size < bound) {
+                return Err("Every size must lie strictly between B/4 and B/2"
+                    .to_string()
+                    .into());
             }
         }
 
-        let total_sum: u128 = sizes_w
+        let total_sum = sizes_w
             .iter()
             .chain(sizes_x.iter())
             .chain(sizes_y.iter())
-            .map(|&s| u128::from(s))
-            .sum();
-        let expected_sum = bound128 * (m as u128);
+            .try_fold(0_i64, |total, &size| total.checked_add(size))
+            .ok_or("total size sum exceeds i64 range")?;
+        let group_count = i64::try_from(m).map_err(|_| "group count exceeds i64 range")?;
+        let expected_sum = bound
+            .checked_mul(group_count)
+            .ok_or("m * bound exceeds i64 range")?;
         if total_sum != expected_sum {
-            return Err("Total sum of all sizes must equal m * bound".to_string());
+            return Err("Total sum of all sizes must equal m * bound"
+                .to_string()
+                .into());
         }
-        if total_sum > u128::from(u64::MAX) {
-            return Err("Total sum exceeds u64 range".to_string());
-        }
-
         Ok(())
     }
 
     pub fn try_new(
-        sizes_w: Vec<u64>,
-        sizes_x: Vec<u64>,
-        sizes_y: Vec<u64>,
-        bound: u64,
-    ) -> Result<Self, String> {
+        sizes_w: Vec<i64>,
+        sizes_x: Vec<i64>,
+        sizes_y: Vec<i64>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes_w, &sizes_x, &sizes_y, bound)?;
         Ok(Self {
             sizes_w,
@@ -116,24 +125,24 @@ impl Numerical3DimensionalMatching {
     /// # Panics
     ///
     /// Panics if the input violates the N3DM invariants.
-    pub fn new(sizes_w: Vec<u64>, sizes_x: Vec<u64>, sizes_y: Vec<u64>, bound: u64) -> Self {
+    pub fn new(sizes_w: Vec<i64>, sizes_x: Vec<i64>, sizes_y: Vec<i64>, bound: i64) -> Self {
         Self::try_new(sizes_w, sizes_x, sizes_y, bound)
             .unwrap_or_else(|message| panic!("{message}"))
     }
 
-    pub fn sizes_w(&self) -> &[u64] {
+    pub fn sizes_w(&self) -> &[i64] {
         &self.sizes_w
     }
 
-    pub fn sizes_x(&self) -> &[u64] {
+    pub fn sizes_x(&self) -> &[i64] {
         &self.sizes_x
     }
 
-    pub fn sizes_y(&self) -> &[u64] {
+    pub fn sizes_y(&self) -> &[i64] {
         &self.sizes_y
     }
 
-    pub fn bound(&self) -> u64 {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -144,10 +153,10 @@ impl Numerical3DimensionalMatching {
 
 #[derive(Deserialize)]
 struct Numerical3DimensionalMatchingData {
-    sizes_w: Vec<u64>,
-    sizes_x: Vec<u64>,
-    sizes_y: Vec<u64>,
-    bound: u64,
+    sizes_w: Vec<i64>,
+    sizes_x: Vec<i64>,
+    sizes_y: Vec<i64>,
+    bound: i64,
 }
 
 impl<'de> Deserialize<'de> for Numerical3DimensionalMatching {
@@ -173,40 +182,49 @@ impl Problem for Numerical3DimensionalMatching {
         vec![self.num_groups(); 2 * self.num_groups()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            let m = self.num_groups();
-            if config.len() != 2 * m {
-                return Or(false);
-            }
-
-            // First m values: assignment of X-elements to W-elements (must be a permutation)
-            let x_perm = &config[..m];
-            // Second m values: assignment of Y-elements to W-elements (must be a permutation)
-            let y_perm = &config[m..];
-
-            // Check that both are valid permutations of 0..m
-            let mut x_used = vec![false; m];
-            let mut y_used = vec![false; m];
-
-            for i in 0..m {
-                if x_perm[i] >= m || y_perm[i] >= m {
-                    return Or(false);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                let m = self.num_groups();
+                if config.len() != 2 * m {
+                    return Ok(Or(false));
                 }
-                if x_used[x_perm[i]] || y_used[y_perm[i]] {
-                    return Or(false);
-                }
-                x_used[x_perm[i]] = true;
-                y_used[y_perm[i]] = true;
-            }
 
-            // Check that each triple sums to B
-            let target = u128::from(self.bound);
-            (0..m).all(|i| {
-                let sum = u128::from(self.sizes_w[i])
-                    + u128::from(self.sizes_x[x_perm[i]])
-                    + u128::from(self.sizes_y[y_perm[i]]);
-                sum == target
+                // First m values: assignment of X-elements to W-elements (must be a permutation)
+                let x_perm = &config[..m];
+                // Second m values: assignment of Y-elements to W-elements (must be a permutation)
+                let y_perm = &config[m..];
+
+                // Check that both are valid permutations of 0..m
+                let mut x_used = vec![false; m];
+                let mut y_used = vec![false; m];
+
+                for i in 0..m {
+                    if x_perm[i] >= m || y_perm[i] >= m {
+                        return Ok(Or(false));
+                    }
+                    if x_used[x_perm[i]] || y_used[y_perm[i]] {
+                        return Ok(Or(false));
+                    }
+                    x_used[x_perm[i]] = true;
+                    y_used[y_perm[i]] = true;
+                }
+
+                // Check that each triple sums to B
+                for i in 0..m {
+                    let sum = self.sizes_w[i]
+                        .checked_add(self.sizes_x[x_perm[i]])
+                        .and_then(|sum| sum.checked_add(self.sizes_y[y_perm[i]]))
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "summing numerical three-dimensional matching triple".into(),
+                            )
+                        })?;
+                    if sum != self.bound {
+                        return Ok(Or(false));
+                    }
+                }
+                true
             })
         })
     }

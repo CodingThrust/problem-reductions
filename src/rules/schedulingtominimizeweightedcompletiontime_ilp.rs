@@ -10,6 +10,7 @@ use crate::models::misc::SchedulingToMinimizeWeightedCompletionTime;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 
 /// Result of reducing SchedulingToMinimizeWeightedCompletionTime to ILP.
 ///
@@ -22,7 +23,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total variables: n*m + n + n*(n-1)/2
 #[derive(Debug, Clone)]
 pub struct ReductionSMWCTToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_tasks: usize,
     num_processors: usize,
 }
@@ -45,9 +46,9 @@ impl ReductionSMWCTToILP {
 
 impl ReductionResult for ReductionSMWCTToILP {
     type Source = SchedulingToMinimizeWeightedCompletionTime;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -68,15 +69,80 @@ impl ReductionResult for ReductionSMWCTToILP {
         num_constraints = "num_tasks + num_tasks * num_processors + 2 * num_tasks + 2 * num_tasks * (num_tasks - 1) / 2 * num_processors + num_tasks * (num_tasks - 1) / 2",
     },
 )]
-impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
+impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
     type Result = ReductionSMWCTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let m = self.num_processors();
 
-        let total_processing_time: u64 = self.lengths().iter().sum();
-        let big_m = total_processing_time as f64;
+        let total_processing_time = self
+            .lengths()
+            .iter()
+            .try_fold(0_i64, |total, &length| total.checked_add(length))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SchedulingToMinimizeWeightedCompletionTime,
+                    ILP<i64>,
+                >("summing task processing times")
+            })?;
+        let total_weight = self
+            .weights()
+            .iter()
+            .try_fold(0_i64, |total, &weight| total.checked_add(weight))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SchedulingToMinimizeWeightedCompletionTime,
+                    ILP<i64>,
+                >("summing task weights")
+            })?;
+        let maximum_objective =
+            total_processing_time
+                .checked_mul(total_weight)
+                .ok_or_else(|| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        SchedulingToMinimizeWeightedCompletionTime,
+                        ILP<i64>,
+                    >("bounding the weighted completion objective")
+                })?;
+        if maximum_objective > MAX_EXACT_F64_INTEGER {
+            return Err(crate::rules::ReductionError::invalid_target::<
+                SchedulingToMinimizeWeightedCompletionTime,
+                ILP<i64>,
+            >(
+                "weighted completion objective is not exactly representable by the ILP backend",
+            ));
+        }
+        let lengths = self
+            .lengths()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SchedulingToMinimizeWeightedCompletionTime,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let weights = self
+            .weights()
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SchedulingToMinimizeWeightedCompletionTime,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let big_m = i64_to_exact_f64(total_processing_time).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                SchedulingToMinimizeWeightedCompletionTime,
+                ILP<i64>,
+            >(error)
+        })?;
 
         let num_pairs = n * n.saturating_sub(1) / 2;
         let num_vars = n * m + n + num_pairs;
@@ -104,11 +170,8 @@ impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
         }
 
         // 3. Completion time bounds: l_t <= C_t <= M
-        for t in 0..n {
-            constraints.push(LinearConstraint::ge(
-                vec![(result.c_var(t), 1.0)],
-                self.lengths()[t] as f64,
-            ));
+        for (t, &length) in lengths.iter().enumerate() {
+            constraints.push(LinearConstraint::ge(vec![(result.c_var(t), 1.0)], length));
             constraints.push(LinearConstraint::le(vec![(result.c_var(t), 1.0)], big_m));
         }
 
@@ -129,8 +192,8 @@ impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
                 let y = result.y_var(i, j);
                 let ci = result.c_var(i);
                 let cj = result.c_var(j);
-                let li = self.lengths()[i] as f64;
-                let lj = self.lengths()[j] as f64;
+                let li = lengths[i];
+                let lj = lengths[j];
 
                 for p in 0..m {
                     let xip = result.x_var(i, p);
@@ -171,15 +234,17 @@ impl ReduceTo<ILP<i32>> for SchedulingToMinimizeWeightedCompletionTime {
         }
 
         // Objective: minimize sum_t w_t * C_t
-        let objective: Vec<(usize, f64)> = (0..n)
-            .map(|t| (result.c_var(t), self.weights()[t] as f64))
+        let objective: Vec<(usize, f64)> = weights
+            .into_iter()
+            .enumerate()
+            .map(|(task, weight)| (result.c_var(task), weight))
             .collect();
 
-        ReductionSMWCTToILP {
+        Ok(ReductionSMWCTToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
             num_processors: m,
-        }
+        })
     }
 }
 
@@ -191,7 +256,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 3 tasks, 2 processors: simple instance for canonical example
             let source =
                 SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2, 3], vec![4, 2, 1], 2);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

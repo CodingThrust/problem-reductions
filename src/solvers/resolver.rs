@@ -62,6 +62,12 @@ pub enum DeterministicSolveError {
         #[source]
         source: super::ILPSolveError,
     },
+    #[error("solving {problem} failed: {source}")]
+    Solve {
+        problem: String,
+        #[source]
+        source: super::SolveError,
+    },
 }
 
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
@@ -74,7 +80,12 @@ fn solve_customized(
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let outcome = match (registration.solve_fn)(problem.as_any()) {
         Some(config) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&config),
+            evaluation: problem.evaluate_dyn(&config).map_err(|source| {
+                DeterministicSolveError::Solve {
+                    problem: problem_key(problem).label(),
+                    source: source.into(),
+                }
+            })?,
             config: Some(config),
         },
         None => SolveOutcome::Infeasible,
@@ -93,7 +104,12 @@ fn solve_ilp(
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
         Ok(config) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&config),
+            evaluation: problem.evaluate_dyn(&config).map_err(|source| {
+                DeterministicSolveError::Solve {
+                    problem: problem_key(problem).label(),
+                    source: source.into(),
+                }
+            })?,
             config: Some(config),
         },
         Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
@@ -112,8 +128,15 @@ fn solve_ilp(
     })
 }
 
-fn solve_brute_force(problem: &LoadedDynProblem) -> DeterministicSolveResult {
-    let outcome = match problem.solve_brute_force_witness() {
+fn solve_brute_force(
+    problem: &LoadedDynProblem,
+) -> Result<DeterministicSolveResult, DeterministicSolveError> {
+    let outcome = match problem.solve_brute_force_witness().map_err(|source| {
+        DeterministicSolveError::Solve {
+            problem: problem_key(problem).label(),
+            source,
+        }
+    })? {
         Some((config, evaluation)) => SolveOutcome::Optimal {
             config: Some(config),
             evaluation,
@@ -121,13 +144,18 @@ fn solve_brute_force(problem: &LoadedDynProblem) -> DeterministicSolveResult {
         None if problem.supports_witnesses_dyn() => SolveOutcome::Infeasible,
         None => SolveOutcome::Optimal {
             config: None,
-            evaluation: problem.solve_brute_force_value(),
+            evaluation: problem.solve_brute_force_value().map_err(|source| {
+                DeterministicSolveError::Solve {
+                    problem: problem_key(problem).label(),
+                    source,
+                }
+            })?,
         },
     };
-    DeterministicSolveResult {
+    Ok(DeterministicSolveResult {
         solver: SolverExecution::BruteForce,
         outcome,
-    }
+    })
 }
 
 /// Solve a loaded problem using deterministic exact-variant dispatch.
@@ -139,7 +167,7 @@ pub fn solve_deterministically(
     request: SolverRequest,
 ) -> Result<DeterministicSolveResult, DeterministicSolveError> {
     if request == SolverRequest::BruteForce {
-        return Ok(solve_brute_force(problem));
+        return solve_brute_force(problem);
     }
 
     let registry =
@@ -168,7 +196,7 @@ pub fn solve_deterministically(
             if let Some(pipeline) = capabilities.ilp {
                 return solve_ilp(problem, pipeline);
             }
-            Ok(solve_brute_force(problem))
+            solve_brute_force(problem)
         }
     }
 }

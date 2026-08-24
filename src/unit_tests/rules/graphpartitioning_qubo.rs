@@ -23,7 +23,7 @@ fn example_problem() -> GraphPartitioning<SimpleGraph> {
 #[test]
 fn test_graphpartitioning_to_qubo_closed_loop() {
     let source = example_problem();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &source,
@@ -35,7 +35,7 @@ fn test_graphpartitioning_to_qubo_closed_loop() {
 #[test]
 fn test_graphpartitioning_to_qubo_matrix_matches_issue_example() {
     let source = example_problem();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 6);

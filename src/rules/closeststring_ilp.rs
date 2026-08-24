@@ -28,22 +28,22 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing ClosestString to ILP.
 ///
-/// Variable layout (`ILP<i32>`, all non-negative):
+/// Variable layout (`ILP<i64>`, all non-negative):
 /// - `x_{j, a}` at index `j * alphabet_size + a` for `j in [0, m)` and
 ///   `a in [0, q)`, bounded to `{0, 1}`.
 /// - `R` (radius) at index `m * q`, an integer in `[0, m]`.
 #[derive(Debug, Clone)]
 pub struct ReductionClosestStringToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     alphabet_size: usize,
     string_length: usize,
 }
 
 impl ReductionResult for ReductionClosestStringToILP {
     type Source = ClosestString;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -84,10 +84,10 @@ impl ReductionResult for ReductionClosestStringToILP {
         num_constraints = "string_length + num_strings",
     },
 )]
-impl ReduceTo<ILP<i32>> for ClosestString {
+impl ReduceTo<ILP<i64>> for ClosestString {
     type Result = ReductionClosestStringToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let q = self.alphabet_size();
         let m = self.string_length();
         let strings = self.strings();
@@ -100,7 +100,7 @@ impl ReduceTo<ILP<i32>> for ClosestString {
         let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(m + n);
 
         // Assignment constraints: exactly one symbol per center position.
-        // Together with the non-negativity built into ILP<i32>, this also
+        // Together with the non-negativity built into `ILP<i64>`, this also
         // forces every x_{j, a} to lie in {0, 1}.
         for j in 0..m {
             let terms: Vec<(usize, f64)> = (0..q).map(|a| (x_idx(j, a), 1.0)).collect();
@@ -123,11 +123,11 @@ impl ReduceTo<ILP<i32>> for ClosestString {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionClosestStringToILP {
+        Ok(ReductionClosestStringToILP {
             target,
             alphabet_size: q,
             string_length: m,
-        }
+        })
     }
 }
 
@@ -143,7 +143,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 vec![vec![0, 0, 0], vec![0, 1, 1], vec![1, 0, 1], vec![1, 1, 0]],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

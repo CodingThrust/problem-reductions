@@ -124,19 +124,25 @@ impl Problem for MinimumCardinalityKey {
         vec![2; self.num_attributes]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i64> {
-        if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-            return Min(None);
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
+                return Ok(Min(None));
+            }
 
-        let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
+            let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
 
-        if self.is_key(&selected) {
-            let count = selected.iter().filter(|&&v| v).count();
-            Min(Some(count as i64))
-        } else {
-            Min(None)
-        }
+            if self.is_key(&selected) {
+                let count = selected.iter().filter(|&&v| v).count();
+                Min(Some(i64::try_from(count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting selected-attribute count to i64".into(),
+                    )
+                })?))
+            } else {
+                Min(None)
+            }
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

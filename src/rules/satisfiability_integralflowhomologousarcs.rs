@@ -125,18 +125,18 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
 impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
     type Result = ReductionSATToIntegralFlowHomologousArcs;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let indexer = NodeIndexer {
             num_vars: self.num_vars(),
             num_clauses: self.num_clauses(),
         };
 
         let mut arcs = Vec::<(usize, usize)>::new();
-        let mut capacities = Vec::<u64>::new();
+        let mut capacities = Vec::<i64>::new();
         let mut homologous_pairs = Vec::<(usize, usize)>::new();
         let mut variable_paths = Vec::<VariablePaths>::with_capacity(self.num_vars());
 
-        let mut add_arc = |u: usize, v: usize, capacity: u64| -> usize {
+        let mut add_arc = |u: usize, v: usize, capacity: i64| -> usize {
             arcs.push((u, v));
             capacities.push(capacity);
             arcs.len() - 1
@@ -165,11 +165,14 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
         for (clause_idx, clause) in self.clauses().iter().enumerate() {
             let collector = indexer.collector(clause_idx);
             let distributor = indexer.distributor(clause_idx);
-            let bottleneck = add_arc(
-                collector,
-                distributor,
-                clause.literals.len().saturating_sub(1) as u64,
-            );
+            let bottleneck_capacity = i64::try_from(clause.literals.len().saturating_sub(1))
+                .map_err(|_| {
+                    crate::rules::ReductionError::integer_overflow::<
+                        Satisfiability,
+                        IntegralFlowHomologousArcs,
+                    >("converting a clause bottleneck capacity to i64")
+                })?;
+            let bottleneck = add_arc(collector, distributor, bottleneck_capacity);
 
             let mut has_positive = vec![false; self.num_vars()];
             let mut has_negative = vec![false; self.num_vars()];
@@ -229,12 +232,22 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
             paths.false_path.push(false_sink);
         }
 
-        let mut requirement = self.num_vars() as u64;
+        let mut requirement = i64::try_from(self.num_vars()).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                Satisfiability,
+                IntegralFlowHomologousArcs,
+            >("converting the SAT variable count to an i64 flow requirement")
+        })?;
         if self.clauses().iter().any(|clause| clause.is_empty()) {
-            requirement += 1;
+            requirement = requirement.checked_add(1).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    Satisfiability,
+                    IntegralFlowHomologousArcs,
+                >("including the empty-clause flow requirement")
+            })?;
         }
 
-        ReductionSATToIntegralFlowHomologousArcs {
+        Ok(ReductionSATToIntegralFlowHomologousArcs {
             target: IntegralFlowHomologousArcs::new(
                 DirectedGraph::new(indexer.total_vertices(), arcs),
                 capacities,
@@ -244,7 +257,7 @@ impl ReduceTo<IntegralFlowHomologousArcs> for Satisfiability {
                 homologous_pairs,
             ),
             variable_paths,
-        }
+        })
     }
 }
 
@@ -271,6 +284,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = issue_example();
             let source_config = vec![1, 0, 1];
             let target_config = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
+                .expect("reduction should succeed")
                 .encode_assignment(&source_config);
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowHomologousArcs>(
                 source,

@@ -21,7 +21,7 @@ fn test_minimum_maximal_matching_evaluate_valid() {
     // Edge (2,3): shares vertex 2 with (1,2) ✓ blocked
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = MinimumMaximalMatching::new(graph);
-    assert_eq!(problem.evaluate(&[0, 1, 0]), Min(Some(1)));
+    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn test_minimum_maximal_matching_evaluate_not_maximal() {
     // config [1,0,0]: select only (0,1). Edge (2,3) is not blocked — not maximal.
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let problem = MinimumMaximalMatching::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn test_minimum_maximal_matching_evaluate_not_matching() {
     // config [1,1,0]: select (0,1) and (1,2) — vertex 1 shared → not a matching.
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = MinimumMaximalMatching::new(graph);
-    assert_eq!(problem.evaluate(&[1, 1, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 1, 0]).unwrap(), Min(None));
 }
 
 #[test]
@@ -47,7 +47,7 @@ fn test_minimum_maximal_matching_evaluate_wrong_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumMaximalMatching::new(graph);
     // Provide config of wrong length
-    assert_eq!(problem.evaluate(&[1]), Min(None));
+    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(None));
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_minimum_maximal_matching_empty_graph() {
     // No edges: empty config is a valid (vacuously maximal) matching of size 0.
     let graph = SimpleGraph::new(3, vec![]);
     let problem = MinimumMaximalMatching::new(graph);
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -65,8 +65,8 @@ fn test_minimum_maximal_matching_path_p6_solver() {
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
     let problem = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(2)));
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -75,7 +75,7 @@ fn test_minimum_maximal_matching_canonical_example() {
     let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]);
     let problem = MinimumMaximalMatching::new(graph);
     let config = vec![0, 1, 0, 1, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(2)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -84,8 +84,8 @@ fn test_minimum_maximal_matching_triangle() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(1)));
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -95,8 +95,8 @@ fn test_minimum_maximal_matching_star() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
     let problem = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best), Min(Some(1)));
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), Min(Some(1)));
 }
 
 #[test]

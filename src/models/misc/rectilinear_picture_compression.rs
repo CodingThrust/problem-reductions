@@ -56,7 +56,7 @@ inventory::submit! {
 /// ];
 /// let problem = RectilinearPictureCompression::new(matrix, 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -245,46 +245,56 @@ impl Problem for RectilinearPictureCompression {
         vec![2; self.maximal_rects.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let rects = &self.maximal_rects;
-            if config.len() != rects.len() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let rects = &self.maximal_rects;
+                if config.len() != rects.len() {
+                    return Ok(crate::types::Or(false));
+                }
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Count selected rectangles.
-            let selected_count: usize = config.iter().sum();
-            if (selected_count as i64) > self.bound {
-                return crate::types::Or(false);
-            }
+                // Count selected rectangles.
+                let selected_count: usize = config.iter().sum();
+                let selected_count = i64::try_from(selected_count).map_err(|_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting selected-rectangle count to i64".into(),
+                    )
+                })?;
+                if selected_count > self.bound {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check that all 1-entries are covered.
-            let m = self.num_rows();
-            let n = self.num_cols();
-            let mut covered = vec![vec![false; n]; m];
-            for (i, &x) in config.iter().enumerate() {
-                if x == 1 {
-                    let (r1, c1, r2, c2) = rects[i];
-                    for row in &mut covered[r1..=r2] {
-                        for cell in &mut row[c1..=c2] {
-                            *cell = true;
+                // Check that all 1-entries are covered.
+                let m = self.num_rows();
+                let n = self.num_cols();
+                let mut covered = vec![vec![false; n]; m];
+                for (i, &x) in config.iter().enumerate() {
+                    if x == 1 {
+                        let (r1, c1, r2, c2) = rects[i];
+                        for row in &mut covered[r1..=r2] {
+                            for cell in &mut row[c1..=c2] {
+                                *cell = true;
+                            }
                         }
                     }
                 }
-            }
 
-            for (row_m, row_c) in self.matrix.iter().zip(covered.iter()) {
-                for (&entry, &cov) in row_m.iter().zip(row_c.iter()) {
-                    if entry && !cov {
-                        return crate::types::Or(false);
+                for (row_m, row_c) in self.matrix.iter().zip(covered.iter()) {
+                    for (&entry, &cov) in row_m.iter().zip(row_c.iter()) {
+                        if entry && !cov {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 }

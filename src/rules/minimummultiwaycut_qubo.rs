@@ -16,6 +16,7 @@ use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMultiwayCut to QUBO.
 #[derive(Debug, Clone)]
@@ -27,7 +28,7 @@ pub struct ReductionMinimumMultiwayCutToQUBO {
 }
 
 impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
-    type Source = MinimumMultiwayCut<SimpleGraph, i32>;
+    type Source = MinimumMultiwayCut<SimpleGraph, i64>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -68,19 +69,34 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
 #[reduction(size = exact {
     num_vars = "num_terminals * num_vertices",
 })]
-impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
+impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMinimumMultiwayCutToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.num_terminals();
         let edges = self.graph().edges();
         let edge_weights = self.edge_weights();
         let terminals = self.terminals();
         let nq = n * k;
+        let edge_weights_f64 = edge_weights
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumMultiwayCut<SimpleGraph, i64>,
+                    QUBO<f64>,
+                >(error)
+            })?;
 
         // Penalty: sum of all edge weights + 1
-        let alpha: f64 = edge_weights.iter().map(|&w| (w as f64).abs()).sum::<f64>() + 1.0;
+        let alpha = edge_weights_f64
+            .iter()
+            .map(|weight| weight.abs())
+            .sum::<f64>()
+            + 1.0;
 
         let mut matrix = vec![vec![0.0f64; nq]; nq];
 
@@ -120,7 +136,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
         // For each edge (u,v) with weight w, for each pair of distinct
         // terminal positions s != t: add w to Q[u*k+s, v*k+t]
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            let w = edge_weights[edge_idx] as f64;
+            let w = edge_weights_f64[edge_idx];
             for s in 0..k {
                 for t in 0..k {
                     if s != t {
@@ -130,12 +146,17 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i32> {
             }
         }
 
-        ReductionMinimumMultiwayCutToQUBO {
-            target: QUBO::from_matrix(matrix),
+        Ok(ReductionMinimumMultiwayCutToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<
+                    MinimumMultiwayCut<SimpleGraph, i64>,
+                    QUBO<f64>,
+                >(message)
+            })?,
             num_vertices: n,
             num_terminals: k,
             edges,
-        }
+        })
     }
 }
 

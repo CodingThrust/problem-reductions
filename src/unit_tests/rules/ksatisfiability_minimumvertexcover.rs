@@ -17,7 +17,8 @@ fn test_ksatisfiability_to_minimumvertexcover_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]), // ~x1 v ~x2 v x3
         ],
     );
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify structure: 2*3 + 3*2 = 12 vertices
@@ -44,7 +45,8 @@ fn test_ksatisfiability_to_minimumvertexcover_unsatisfiable() {
             CNFClause::new(vec![1, 1, 1]),
         ],
     );
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // n=1, m=3 -> 2 + 9 = 11 vertices, minimum VC should be > n + 2m = 7
@@ -52,7 +54,7 @@ fn test_ksatisfiability_to_minimumvertexcover_unsatisfiable() {
     // for graphs with edges, but any superset works). The key property is:
     // SAT is satisfiable iff MVC has size <= n + 2m.
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target);
+    let witness = solver.find_witness(target).unwrap();
     assert!(witness.is_some());
     let vc_config = witness.unwrap();
     let vc_size: usize = vc_config.iter().sum();
@@ -64,7 +66,8 @@ fn test_ksatisfiability_to_minimumvertexcover_unsatisfiable() {
 fn test_ksatisfiability_to_minimumvertexcover_single_clause() {
     // Single clause: (x1 v x2 v x3) — 7 out of 8 assignments satisfy it
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // 2*3 + 3*1 = 9 vertices, 3 + 6 = 9 edges
@@ -88,7 +91,8 @@ fn test_ksatisfiability_to_minimumvertexcover_extract_solution() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
 
     // Literal vertices: u1(0), ~u1(1), u2(2), ~u2(3), u3(4), ~u3(5)
     // Clause 0 triangle: v6, v7, v8
@@ -107,14 +111,15 @@ fn test_ksatisfiability_to_minimumvertexcover_extract_solution() {
 
     let extracted = reduction.extract_solution(&vc_config).unwrap();
     assert_eq!(extracted, vec![0, 0, 1]); // x1=F, x2=F, x3=T
-    assert!(ksat.evaluate(&extracted));
+    assert!(ksat.evaluate(&extracted).unwrap());
 }
 
 #[test]
 fn test_ksatisfiability_to_minimumvertexcover_all_negated() {
     // (~x1 v ~x2 v ~x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &ksat,
@@ -127,7 +132,8 @@ fn test_ksatisfiability_to_minimumvertexcover_all_negated() {
 fn test_ksatisfiability_to_minimumvertexcover_structure() {
     // Verify edge structure for a simple case
     let ksat = KSatisfiability::<K3>::new(2, vec![CNFClause::new(vec![1, -1, 2])]);
-    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&ksat);
+    let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&ksat)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // n=2, m=1 -> 4 + 3 = 7 vertices
@@ -137,7 +143,7 @@ fn test_ksatisfiability_to_minimumvertexcover_structure() {
 
     // Minimum cover size for satisfiable formula = n + 2m = 2 + 2 = 4
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target);
+    let witness = solver.find_witness(target).unwrap();
     assert!(witness.is_some());
     let vc_size: usize = witness.unwrap().iter().sum();
     assert_eq!(vc_size, 4);

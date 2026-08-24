@@ -7,9 +7,10 @@ fn test_maximumindependentset_to_integralflowbundles_closed_loop() {
     // Path graph: 0-1-2-3-4
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
-        vec![1i32; 5],
+        vec![1i64; 5],
     );
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // n + 2 = 7 vertices, 2n = 10 arcs, m + n = 4 + 5 = 9 bundles
@@ -20,11 +21,11 @@ fn test_maximumindependentset_to_integralflowbundles_closed_loop() {
 
     // Every feasible flow witness maps back to a valid independent set
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!witnesses.is_empty());
     for w in &witnesses {
         let source_config = reduction.extract_solution(w).unwrap();
-        let value = source.evaluate(&source_config);
+        let value = source.evaluate(&source_config).unwrap();
         assert!(value.is_valid(), "Extracted config should be a valid IS");
     }
 }
@@ -34,9 +35,10 @@ fn test_maximumindependentset_to_integralflowbundles_triangle() {
     // Triangle: 0-1-2-0, unit weights. Any single vertex is an IS.
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 5);
@@ -45,11 +47,11 @@ fn test_maximumindependentset_to_integralflowbundles_triangle() {
     assert_eq!(target.requirement(), 1);
 
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!witnesses.is_empty());
     for w in &witnesses {
         let source_config = reduction.extract_solution(w).unwrap();
-        let value = source.evaluate(&source_config);
+        let value = source.evaluate(&source_config).unwrap();
         assert!(value.is_valid());
     }
 }
@@ -59,9 +61,10 @@ fn test_maximumindependentset_to_integralflowbundles_cycle5() {
     // C5 (5-cycle): 5 vertices, 5 edges, unit weights.
     let source = MaximumIndependentSet::new(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
-        vec![1i32; 5],
+        vec![1i64; 5],
     );
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 7);
@@ -70,11 +73,11 @@ fn test_maximumindependentset_to_integralflowbundles_cycle5() {
     assert_eq!(target.requirement(), 1);
 
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!witnesses.is_empty());
     for w in &witnesses {
         let source_config = reduction.extract_solution(w).unwrap();
-        let value = source.evaluate(&source_config);
+        let value = source.evaluate(&source_config).unwrap();
         assert!(value.is_valid());
     }
 }
@@ -82,8 +85,9 @@ fn test_maximumindependentset_to_integralflowbundles_cycle5() {
 #[test]
 fn test_maximumindependentset_to_integralflowbundles_empty_graph() {
     // Empty graph (no edges): all vertices form an IS.
-    let source = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let source = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i64; 3]);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 5);
@@ -92,11 +96,11 @@ fn test_maximumindependentset_to_integralflowbundles_empty_graph() {
     assert_eq!(target.requirement(), 1);
 
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!witnesses.is_empty());
     for w in &witnesses {
         let source_config = reduction.extract_solution(w).unwrap();
-        let value = source.evaluate(&source_config);
+        let value = source.evaluate(&source_config).unwrap();
         assert!(value.is_valid());
     }
 }
@@ -104,8 +108,9 @@ fn test_maximumindependentset_to_integralflowbundles_empty_graph() {
 #[test]
 fn test_maximumindependentset_to_integralflowbundles_single_vertex() {
     // Single vertex, no edges. Optimal MIS = 1.
-    let source = MaximumIndependentSet::new(SimpleGraph::new(1, vec![]), vec![1i32]);
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let source = MaximumIndependentSet::new(SimpleGraph::new(1, vec![]), vec![1i64]);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 3);
@@ -114,11 +119,11 @@ fn test_maximumindependentset_to_integralflowbundles_single_vertex() {
     assert_eq!(target.requirement(), 1);
 
     let solver = BruteForce::new();
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(!witnesses.is_empty());
     for w in &witnesses {
         let source_config = reduction.extract_solution(w).unwrap();
-        let value = source.evaluate(&source_config);
+        let value = source.evaluate(&source_config).unwrap();
         assert!(value.is_valid());
         assert_eq!(value.unwrap(), 1);
     }
@@ -127,8 +132,9 @@ fn test_maximumindependentset_to_integralflowbundles_single_vertex() {
 #[test]
 fn test_maximumindependentset_to_integralflowbundles_structure() {
     // Verify the graph structure of the reduction for K2
-    let source = MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
-    let reduction = ReduceTo::<IntegralFlowBundles>::reduce_to(&source);
+    let source = MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64; 2]);
+    let reduction =
+        ReduceTo::<IntegralFlowBundles>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 4);

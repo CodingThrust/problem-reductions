@@ -26,7 +26,8 @@ fn unsatisfiable_instance() -> KSatisfiability<K3> {
 #[test]
 fn test_ksatisfiability_to_timetabledesign_structure() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_periods(), 12);
@@ -45,21 +46,29 @@ fn test_ksatisfiability_to_timetabledesign_structure() {
 #[test]
 fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_timetable() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
     let target_solution =
         construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
             .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
     let target_solution =
         construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
@@ -67,28 +76,36 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted, vec![1, 1, 0]);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_timetabledesign_closed_loop() {
     let source = satisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
     let target_solution = ILPSolver::new()
         .solve_reduced::<bool, _>(reduction.target_problem())
         .expect("satisfiable source instance should produce a feasible timetable");
 
-    assert!(reduction.target_problem().evaluate(&target_solution).0);
+    assert!(
+        reduction
+            .target_problem()
+            .evaluate(&target_solution)
+            .unwrap()
+            .0
+    );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_ksatisfiability_to_timetabledesign_unsatisfiable() {
     let source = unsatisfiable_instance();
-    let reduction = ReduceTo::<TimetableDesign>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
         ILPSolver::new()

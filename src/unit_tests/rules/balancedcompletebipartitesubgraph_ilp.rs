@@ -19,7 +19,8 @@ fn small_instance() -> BalancedCompleteBipartiteSubgraph {
 #[test]
 fn test_balancedcompletebipartitesubgraph_to_ilp_closed_loop() {
     let source = small_instance();
-    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionBCBSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
         &reduction,
@@ -30,7 +31,8 @@ fn test_balancedcompletebipartitesubgraph_to_ilp_closed_loop() {
 #[test]
 fn test_reduction_shape() {
     let source = small_instance();
-    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionBCBSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // 6 variables (3 left + 3 right)
     assert_eq!(ilp.num_vars, 6);
@@ -43,7 +45,8 @@ fn test_infeasible_instance() {
         BipartiteGraph::new(3, 3, vec![(0, 0), (0, 1), (1, 0), (1, 1)]),
         3,
     );
-    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionBCBSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let solver = crate::solvers::ILPSolver::new();
     assert!(solver.solve(ilp).is_err());
@@ -52,16 +55,18 @@ fn test_infeasible_instance() {
 #[test]
 fn test_extract_solution_identity() {
     let source = small_instance();
-    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionBCBSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![1, 1, 0, 1, 1, 0];
     let extracted = reduction.extract_solution(&target_sol).unwrap();
     assert_eq!(extracted, vec![1, 1, 0, 1, 1, 0]);
-    assert!(source.evaluate(&extracted).0);
+    assert!(source.evaluate(&extracted).unwrap().0);
 }
 
 #[test]
 fn test_balancedcompletebipartitesubgraph_to_ilp_bf_vs_ilp() {
     let source = small_instance();
-    let reduction: ReductionBCBSToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+    let reduction: ReductionBCBSToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&source, &reduction);
 }

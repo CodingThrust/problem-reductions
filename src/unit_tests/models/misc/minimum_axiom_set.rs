@@ -35,7 +35,7 @@ fn test_minimum_axiom_set_creation() {
 fn test_minimum_axiom_set_evaluate_optimal() {
     let problem = canonical_instance();
     // Select a and b (indices 0, 1): closure = all 8 sentences
-    let result = problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0]);
+    let result = problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 }
@@ -44,7 +44,7 @@ fn test_minimum_axiom_set_evaluate_optimal() {
 fn test_minimum_axiom_set_evaluate_insufficient() {
     let problem = canonical_instance();
     // Select only a (index 0): closure = {a, c, d} — missing b, e, f, g, h
-    let result = problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]);
+    let result = problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -52,7 +52,7 @@ fn test_minimum_axiom_set_evaluate_insufficient() {
 fn test_minimum_axiom_set_evaluate_all_selected() {
     let problem = canonical_instance();
     // Select all 8 sentences: closure = all 8 trivially
-    let result = problem.evaluate(&[1, 1, 1, 1, 1, 1, 1, 1]);
+    let result = problem.evaluate(&[1, 1, 1, 1, 1, 1, 1, 1]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 8);
 }
@@ -61,21 +61,21 @@ fn test_minimum_axiom_set_evaluate_all_selected() {
 fn test_minimum_axiom_set_evaluate_none_selected() {
     let problem = canonical_instance();
     // Select nothing: closure = empty
-    let result = problem.evaluate(&[0, 0, 0, 0, 0, 0, 0, 0]);
+    let result = problem.evaluate(&[0, 0, 0, 0, 0, 0, 0, 0]).unwrap();
     assert!(!result.is_valid());
 }
 
 #[test]
 fn test_minimum_axiom_set_evaluate_wrong_length() {
     let problem = canonical_instance();
-    let result = problem.evaluate(&[1, 0]);
+    let result = problem.evaluate(&[1, 0]).unwrap();
     assert!(!result.is_valid());
 }
 
 #[test]
 fn test_minimum_axiom_set_evaluate_out_of_range() {
     let problem = canonical_instance();
-    let result = problem.evaluate(&[2, 0, 0, 0, 0, 0, 0, 0]);
+    let result = problem.evaluate(&[2, 0, 0, 0, 0, 0, 0, 0]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -85,8 +85,9 @@ fn test_minimum_axiom_set_solver() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let metric = problem.evaluate(&solution);
+    let metric = problem.evaluate(&solution).unwrap();
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 2);
 }
@@ -111,12 +112,12 @@ fn test_minimum_axiom_set_partial_true_sentences() {
     assert_eq!(problem.dims(), vec![2; 3]);
 
     // Select sentence 0 only
-    let result = problem.evaluate(&[1, 0, 0]);
+    let result = problem.evaluate(&[1, 0, 0]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 1);
 
     // Select sentence 2 only — cannot derive 0 or 1
-    let result = problem.evaluate(&[0, 0, 1]);
+    let result = problem.evaluate(&[0, 0, 1]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -125,12 +126,12 @@ fn test_minimum_axiom_set_no_implications() {
     // 3 sentences, all true, no implications
     // Only way to cover T is to select all of them
     let problem = MinimumAxiomSet::new(3, vec![0, 1, 2], vec![]);
-    let result = problem.evaluate(&[1, 1, 1]);
+    let result = problem.evaluate(&[1, 1, 1]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 3);
 
     // Selecting only 2 leaves one uncovered
-    let result = problem.evaluate(&[1, 1, 0]);
+    let result = problem.evaluate(&[1, 1, 0]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -140,7 +141,7 @@ fn test_minimum_axiom_set_paper_example() {
     let problem = canonical_instance();
 
     // Verify the issue's expected outcome: config [1,1,0,0,0,0,0,0] → Min(2)
-    let result = problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0]);
+    let result = problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
@@ -148,8 +149,9 @@ fn test_minimum_axiom_set_paper_example() {
     let solver = BruteForce::new();
     let solution = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should find a solution");
-    let metric = problem.evaluate(&solution);
+    let metric = problem.evaluate(&solution).unwrap();
     assert!(metric.is_valid());
     assert_eq!(metric.unwrap(), 2);
 }

@@ -49,39 +49,43 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// assert!(solver.find_witness(&problem).is_some());
+/// assert!(solver.find_witness(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencingToMinimizeWeightedTardiness {
-    lengths: Vec<u64>,
-    weights: Vec<u64>,
-    deadlines: Vec<u64>,
-    bound: u64,
+    lengths: Vec<i64>,
+    weights: Vec<i64>,
+    deadlines: Vec<i64>,
+    bound: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct SequencingToMinimizeWeightedTardinessCreateSpec {
     /// Processing times for each job.
-    lengths: Vec<u64>,
+    lengths: Vec<i64>,
     /// Tardiness weights for each job.
-    weights: Vec<u64>,
+    weights: Vec<i64>,
     /// Deadlines for each job.
-    deadlines: Vec<u64>,
+    deadlines: Vec<i64>,
     /// Upper bound on total weighted tardiness.
-    bound: u64,
+    bound: i64,
 }
 impl TryFrom<SequencingToMinimizeWeightedTardinessCreateSpec>
     for SequencingToMinimizeWeightedTardiness
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(
         spec: SequencingToMinimizeWeightedTardinessCreateSpec,
     ) -> Result<Self, Self::Error> {
         if spec.lengths.len() != spec.weights.len() {
-            return Err("weights length must equal lengths length".to_string());
+            return Err("weights length must equal lengths length"
+                .to_string()
+                .into());
         }
         if spec.lengths.len() != spec.deadlines.len() {
-            return Err("deadlines length must equal lengths length".to_string());
+            return Err("deadlines length must equal lengths length"
+                .to_string()
+                .into());
         }
         Ok(Self::new(
             spec.lengths,
@@ -98,7 +102,7 @@ impl SequencingToMinimizeWeightedTardiness {
     /// # Panics
     ///
     /// Panics if the input vectors do not have the same length.
-    pub fn new(lengths: Vec<u64>, weights: Vec<u64>, deadlines: Vec<u64>, bound: u64) -> Self {
+    pub fn new(lengths: Vec<i64>, weights: Vec<i64>, deadlines: Vec<i64>, bound: i64) -> Self {
         assert_eq!(
             lengths.len(),
             weights.len(),
@@ -109,6 +113,19 @@ impl SequencingToMinimizeWeightedTardiness {
             deadlines.len(),
             "deadlines length must equal lengths length"
         );
+        assert!(
+            lengths.iter().all(|&length| length >= 0),
+            "task lengths must be nonnegative"
+        );
+        assert!(
+            weights.iter().all(|&weight| weight >= 0),
+            "task weights must be nonnegative"
+        );
+        assert!(
+            deadlines.iter().all(|&deadline| deadline >= 0),
+            "deadlines must be nonnegative"
+        );
+        assert!(bound >= 0, "bound must be nonnegative");
         Self {
             lengths,
             weights,
@@ -118,22 +135,22 @@ impl SequencingToMinimizeWeightedTardiness {
     }
 
     /// Returns the job lengths.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
     /// Returns the tardiness weights.
-    pub fn weights(&self) -> &[u64] {
+    pub fn weights(&self) -> &[i64] {
         &self.weights
     }
 
     /// Returns the deadlines.
-    pub fn deadlines(&self) -> &[u64] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
     /// Returns the weighted tardiness bound.
-    pub fn bound(&self) -> u64 {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -146,24 +163,53 @@ impl SequencingToMinimizeWeightedTardiness {
         super::decode_lehmer(config, self.num_tasks())
     }
 
-    fn schedule_weighted_tardiness(&self, schedule: &[usize]) -> Option<u64> {
-        let mut completion_time = 0u128;
-        let mut total = 0u128;
+    fn schedule_weighted_tardiness(
+        &self,
+        schedule: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let mut completion_time = 0i64;
+        let mut total = 0i64;
         for &job in schedule {
-            completion_time += u128::from(self.lengths[job]);
-            let tardiness = completion_time.saturating_sub(u128::from(self.deadlines[job]));
-            total += tardiness * u128::from(self.weights[job]);
+            completion_time = completion_time
+                .checked_add(self.lengths[job])
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing weighted-tardiness completion times".to_string(),
+                    )
+                })?;
+            let tardiness = completion_time
+                .checked_sub(self.deadlines[job])
+                .ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "computing job tardiness".to_string(),
+                    )
+                })?
+                .max(0);
+            let weighted_tardiness = tardiness.checked_mul(self.weights[job]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying tardiness by job weight".to_string(),
+                )
+            })?;
+            total = total.checked_add(weighted_tardiness).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing weighted job tardiness".to_string(),
+                )
+            })?;
         }
-        u64::try_from(total).ok()
+        Ok(total)
     }
 
     /// Compute the total weighted tardiness of a Lehmer-encoded schedule.
     ///
-    /// Returns `None` if the configuration is not a valid Lehmer code or if
-    /// the accumulated objective does not fit in `u64`.
-    pub fn total_weighted_tardiness(&self, config: &[usize]) -> Option<u64> {
-        let schedule = self.decode_schedule(config)?;
-        self.schedule_weighted_tardiness(&schedule)
+    /// Returns `Ok(None)` if the configuration is not a valid Lehmer code.
+    pub fn total_weighted_tardiness(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
+        let Some(schedule) = self.decode_schedule(config) else {
+            return Ok(None);
+        };
+        Ok(Some(self.schedule_weighted_tardiness(&schedule)?))
     }
 }
 
@@ -179,10 +225,15 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
         super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            self.total_weighted_tardiness(config)
-                .is_some_and(|total| total <= self.bound)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                self.total_weighted_tardiness(config)?
+                    .is_some_and(|total| total <= self.bound)
+            })
         })
     }
 }

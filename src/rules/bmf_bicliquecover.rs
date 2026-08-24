@@ -95,7 +95,7 @@ impl ReductionResult for ReductionBMFToBicliqueCover {
 impl ReduceTo<BicliqueCover> for BMF {
     type Result = ReductionBMFToBicliqueCover;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.rows();
         let n = self.cols();
         let k = self.rank();
@@ -108,7 +108,7 @@ impl ReduceTo<BicliqueCover> for BMF {
             }
         }
         let target = BicliqueCover::new(BipartiteGraph::new(m, n, edges), k);
-        ReductionBMFToBicliqueCover { target, m, n, k }
+        Ok(ReductionBMFToBicliqueCover { target, m, n, k })
     }
 }
 

@@ -45,7 +45,7 @@ impl ReductionResult for ReductionQUBOToSG {
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
     type Result = ReductionQUBOToSG;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vars();
         let matrix = self.matrix();
 
@@ -87,9 +87,16 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
             }
         }
 
-        let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite);
+        let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite).map_err(
+            |cause| {
+                crate::rules::ReductionError::construction::<
+                    QUBO<f64>,
+                    SpinGlass<SimpleGraph, f64>,
+                >(cause)
+            },
+        )?;
 
-        ReductionQUBOToSG { target }
+        Ok(ReductionQUBOToSG { target })
     }
 }
 
@@ -125,7 +132,7 @@ impl ReductionResult for ReductionSGToQUBO {
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     type Result = ReductionSGToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_spins();
         let mut matrix = vec![vec![0.0; n]; n];
 
@@ -151,9 +158,13 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
             matrix[i][i] += 2.0 * h;
         }
 
-        let target = QUBO::from_matrix(matrix);
+        let target = QUBO::from_matrix(matrix).map_err(|message| {
+            crate::rules::ReductionError::construction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>(
+                message,
+            )
+        })?;
 
-        ReductionSGToQUBO { target }
+        Ok(ReductionSGToQUBO { target })
     }
 }
 
@@ -174,7 +185,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     let (i, j) = if u < v { (u, v) } else { (v, u) };
                     matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
                 }
-                let source = QUBO::from_matrix(matrix);
+                let source = QUBO::from_matrix(matrix).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, SpinGlass<SimpleGraph, f64>>(
                     source,
                     SolutionPair {
@@ -193,7 +204,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .enumerate()
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
                     .collect();
-                let source = SpinGlass::new(n, couplings, vec![0.0; n]);
+                let source = SpinGlass::new(n, couplings, vec![0.0; n]).unwrap();
                 crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                     source,
                     SolutionPair {

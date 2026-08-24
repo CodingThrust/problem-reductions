@@ -10,6 +10,7 @@ use crate::models::algebraic::{
 use crate::reduction;
 use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionCOMAToILP {
@@ -44,7 +45,7 @@ impl ReductionResult for ReductionCOMAToILP {
 impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
     type Result = ReductionCOMAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_rows();
         let n = self.num_cols();
 
@@ -163,13 +164,19 @@ impl ReduceTo<ILP<bool>> for ConsecutiveOnesMatrixAugmentation {
                 budget_terms.push((f_off + r * n + p, 1.0));
             }
         }
-        constraints.push(LinearConstraint::le(budget_terms, self.bound() as f64));
+        let bound = i64_to_exact_f64(self.bound()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                ConsecutiveOnesMatrixAugmentation,
+                ILP<bool>,
+            >(error)
+        })?;
+        constraints.push(LinearConstraint::le(budget_terms, bound));
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
-        ReductionCOMAToILP {
+        Ok(ReductionCOMAToILP {
             target,
             num_cols: n,
-        }
+        })
     }
 }
 
@@ -187,7 +194,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Row 0: [1,0,1] needs 1 flip (the middle 0), cost=1
             // Row 1: [0,1,1] needs 0 flips, cost=0
             // Total = 1 <= 1
-            let reduction: ReductionCOMAToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction: ReductionCOMAToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let ilp_solver = crate::solvers::ILPSolver::new();
             let target_config = ilp_solver
                 .solve(reduction.target_problem())

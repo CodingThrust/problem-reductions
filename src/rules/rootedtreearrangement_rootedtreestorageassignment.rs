@@ -63,7 +63,7 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
 impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph> {
     type Result = ReductionRootedTreeArrangementToRootedTreeStorageAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let edges = self.graph().edges();
         let num_edges = edges.len();
@@ -75,7 +75,13 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
         // is infeasible (each edge contributes at least 1 to the arrangement
         // cost). In that case, return a fixed gadget instance that is
         // guaranteed infeasible for the target problem as well.
-        let bound = match self.bound().checked_sub(num_edges) {
+        let num_edges_i64 = i64::try_from(num_edges).map_err(|_| {
+            crate::rules::ReductionError::integer_overflow::<
+                RootedTreeArrangement<SimpleGraph>,
+                RootedTreeStorageAssignment,
+            >("converting the number of edges to i64")
+        })?;
+        let bound = match self.bound().checked_sub(num_edges_i64) {
             Some(b) => b,
             None => {
                 // Gadget: universe {0,1,2} with all 2-element subsets and bound 0.
@@ -87,19 +93,23 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
                 let gadget_subsets = vec![vec![0, 1], vec![1, 2], vec![0, 2]];
                 let target = RootedTreeStorageAssignment::new(gadget_n, gadget_subsets, 0);
 
-                return ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
-                    target,
-                    num_vertices: gadget_n,
-                };
+                return Ok(
+                    ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+                        target,
+                        num_vertices: gadget_n,
+                    },
+                );
             }
         };
 
         let target = RootedTreeStorageAssignment::new(n, subsets, bound);
 
-        ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
-            target,
-            num_vertices: n,
-        }
+        Ok(
+            ReductionRootedTreeArrangementToRootedTreeStorageAssignment {
+                target,
+                num_vertices: n,
+            },
+        )
     }
 }
 

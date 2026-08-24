@@ -11,6 +11,7 @@ use crate::models::misc::BinPacking;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing BinPacking to ILP.
 ///
@@ -27,7 +28,7 @@ pub struct ReductionBPToILP {
 }
 
 impl ReductionResult for ReductionBPToILP {
-    type Source = BinPacking<i32>;
+    type Source = BinPacking<i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -53,10 +54,10 @@ impl ReductionResult for ReductionBPToILP {
         num_constraints = "2 * num_items",
     },
 )]
-impl ReduceTo<ILP<bool>> for BinPacking<i32> {
+impl ReduceTo<ILP<bool>> for BinPacking<i64> {
     type Result = ReductionBPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_items();
         let num_vars = n * n + n;
 
@@ -70,13 +71,23 @@ impl ReduceTo<ILP<bool>> for BinPacking<i32> {
 
         // Capacity + linking constraints: for each bin j,
         // sum_i w_i * x_{ij} - C * y_j <= 0
-        let cap = *self.capacity() as f64;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+crate::rules::ReductionError::inexact_float_conversion::<BinPacking<i64>, ILP<bool>>(error)
+            })
+        };
+        let cap = exact_f64(*self.capacity())?;
+        let sizes = self
+            .sizes()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
         for j in 0..n {
-            let mut terms: Vec<(usize, f64)> = self
-                .sizes()
+            let mut terms: Vec<(usize, f64)> = sizes
                 .iter()
                 .enumerate()
-                .map(|(i, w)| (i * n + j, *w as f64))
+                .map(|(i, &weight)| (i * n + j, weight))
                 .collect();
             // Subtract C * y_j
             terms.push((n * n + j, -cap));
@@ -88,7 +99,7 @@ impl ReduceTo<ILP<bool>> for BinPacking<i32> {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionBPToILP { target, n }
+        Ok(ReductionBPToILP { target, n })
     }
 }
 
@@ -100,7 +111,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "binpacking_to_ilp",
         build: || {
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
-                BinPacking::new(vec![6, 5, 5, 4, 3], 10),
+                BinPacking::new(vec![6, 5, 5, 4, 3], 10).unwrap(),
                 SolutionPair {
                     source_config: vec![2, 1, 0, 0, 2],
                     target_config: vec![

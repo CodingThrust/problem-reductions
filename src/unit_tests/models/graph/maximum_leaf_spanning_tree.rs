@@ -45,7 +45,7 @@ fn test_maximum_leaf_spanning_tree_evaluate_optimal() {
     // Tree: {(0,1),(0,2),(0,3),(2,4),(2,5)} = indices 0,1,2,4,5
     // Degrees: 0->3, 1->1, 2->3, 3->1, 4->1, 5->1 => 4 leaves
     let config = vec![1, 1, 1, 0, 1, 1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Max(Some(4)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(4)));
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn test_maximum_leaf_spanning_tree_evaluate_valid_suboptimal() {
     // Wait, edge 8 is (1,3). So: indices 0,1,4,7,8 = [1,1,0,0,1,0,0,1,1]
     // Degrees: 0->2, 1->2, 2->2, 3->1, 4->2, 5->1 => 2 leaves
     let config = vec![1, 1, 0, 0, 1, 0, 0, 1, 1];
-    assert_eq!(problem.evaluate(&config), Max(Some(2)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn test_maximum_leaf_spanning_tree_evaluate_invalid_too_few_edges() {
     let problem = example_instance();
     // Only 3 edges (need 5 for spanning tree of 6 vertices)
     let config = vec![1, 1, 1, 0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Max(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn test_maximum_leaf_spanning_tree_evaluate_invalid_too_many_edges() {
     let problem = example_instance();
     // 6 edges selected = cycle
     let config = vec![1, 1, 1, 1, 1, 1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Max(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
 #[test]
@@ -80,25 +80,25 @@ fn test_maximum_leaf_spanning_tree_evaluate_disconnected() {
     // 5 edges but disconnected: (0,1),(0,2),(0,3),(4,5),(1,3) = indices 0,1,2,7,8
     // Vertices {0,1,2,3} and {4,5} are separate => not spanning
     let config = vec![1, 1, 1, 0, 0, 0, 0, 1, 1];
-    assert_eq!(problem.evaluate(&config), Max(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
 #[test]
 fn test_maximum_leaf_spanning_tree_evaluate_empty() {
     let problem = example_instance();
     let config = vec![0; 9];
-    assert_eq!(problem.evaluate(&config), Max(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
 }
 
 #[test]
 fn test_maximum_leaf_spanning_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());
     // All optimal solutions should have 4 leaves
     for sol in &solutions {
-        assert_eq!(problem.evaluate(sol), Max(Some(4)));
+        assert_eq!(problem.evaluate(sol).unwrap(), Max(Some(4)));
     }
 }
 
@@ -127,7 +127,7 @@ fn test_maximum_leaf_spanning_tree_small_path() {
     let problem = MaximumLeafSpanningTree::new(graph);
     assert_eq!(problem.dims(), vec![2, 2]);
     let config = vec![1, 1];
-    assert_eq!(problem.evaluate(&config), Max(Some(2)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(2)));
 }
 
 #[test]
@@ -138,10 +138,10 @@ fn test_maximum_leaf_spanning_tree_star() {
     let problem = MaximumLeafSpanningTree::new(graph);
     // Only one spanning tree: all 3 edges
     let config = vec![1, 1, 1];
-    assert_eq!(problem.evaluate(&config), Max(Some(3)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(3)));
     // This is optimal (3 leaves out of 4 vertices)
     let solver = BruteForce::new();
-    let solutions = solver.find_all_witnesses(&problem);
+    let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1]);
 }

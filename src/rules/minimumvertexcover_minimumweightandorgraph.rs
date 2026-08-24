@@ -16,7 +16,7 @@ pub struct ReductionVCToAndOrGraph {
 }
 
 impl ReductionResult for ReductionVCToAndOrGraph {
-    type Source = MinimumVertexCover<SimpleGraph, i32>;
+    type Source = MinimumVertexCover<SimpleGraph, i64>;
     type Target = MinimumWeightAndOrGraph;
 
     fn target_problem(&self) -> &Self::Target {
@@ -43,10 +43,10 @@ impl ReductionResult for ReductionVCToAndOrGraph {
         num_arcs = "3 * num_edges + num_vertices",
     }
 )]
-impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i32> {
+impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i64> {
     type Result = ReductionVCToAndOrGraph;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let edges = self.graph().edges();
         let m = edges.len();
@@ -86,17 +86,17 @@ impl ReduceTo<MinimumWeightAndOrGraph> for MinimumVertexCover<SimpleGraph, i32> 
         let target =
             MinimumWeightAndOrGraph::new(num_target_vertices, arcs, 0, gate_types, arc_weights);
 
-        ReductionVCToAndOrGraph {
+        Ok(ReductionVCToAndOrGraph {
             target,
             sink_arc_start,
             num_source_vertices: n,
-        }
+        })
     }
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_source() -> MinimumVertexCover<SimpleGraph, i32> {
-    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3])
+fn issue_example_source() -> MinimumVertexCover<SimpleGraph, i64> {
+    MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3])
 }
 
 #[cfg(feature = "example-db")]

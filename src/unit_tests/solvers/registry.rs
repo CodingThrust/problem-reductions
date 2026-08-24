@@ -2,7 +2,7 @@ use super::*;
 use std::collections::BTreeMap;
 
 const BOOL_VARIANT: &[(&str, &str)] = &[("variable", "bool")];
-const I32_VARIANT: &[(&str, &str)] = &[("variable", "i32")];
+const I64_VARIANT: &[(&str, &str)] = &[("variable", "i64")];
 const NO_VARIANT: &[(&str, &str)] = &[];
 
 static DIRECT_BOOL_A: IlpPipelineRegistration = IlpPipelineRegistration {
@@ -37,7 +37,7 @@ static CONTINUES_AFTER_ILP: IlpPipelineRegistration = IlpPipelineRegistration {
         },
         StaticProblemStep {
             name: "ILP",
-            variant: I32_VARIANT,
+            variant: I64_VARIANT,
         },
     ],
 };
@@ -172,7 +172,7 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
         ),
         ExactProblemKey::new(
             "ILP",
-            BTreeMap::from([("variable".to_string(), "i32".to_string())]),
+            BTreeMap::from([("variable".to_string(), "i64".to_string())]),
         ),
     ]);
     let error =
@@ -208,13 +208,13 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let direct_ilp = solver_capabilities(&key(
         "MaximumClique",
-        &[("graph", "SimpleGraph"), ("weight", "i32")],
+        &[("graph", "SimpleGraph"), ("weight", "i64")],
     ))
     .unwrap();
     assert!(direct_ilp.customized.is_none());
     assert_eq!(
         direct_ilp.ilp.unwrap().path_labels(),
-        ["MaximumClique<SimpleGraph, i32>", "ILP<bool>"]
+        ["MaximumClique<SimpleGraph, i64>", "ILP<bool>"]
     );
 
     let multihop_ilp = solver_capabilities(&key(
@@ -231,7 +231,7 @@ fn solver_capability_registry_exposes_representative_capability_classes() {
 
     let brute_force_only = solver_capabilities(&key(
         "MaxCut",
-        &[("graph", "SimpleGraph"), ("weight", "i32")],
+        &[("graph", "SimpleGraph"), ("weight", "i64")],
     ))
     .unwrap();
     assert!(brute_force_only.customized.is_none());

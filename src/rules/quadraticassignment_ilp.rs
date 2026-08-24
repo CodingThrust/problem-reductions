@@ -12,6 +12,7 @@ use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::ilp_helpers::{mccormick_product, one_hot_assignment_constraints};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing QuadraticAssignment to ILP.
 ///
@@ -58,7 +59,7 @@ impl ReductionResult for ReductionQAPToILP {
 impl ReduceTo<ILP<bool>> for QuadraticAssignment {
     type Result = ReductionQAPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_facilities();
         let loc = self.num_locations();
         let cost = self.cost_matrix();
@@ -101,7 +102,17 @@ impl ReduceTo<ILP<bool>> for QuadraticAssignment {
         // Objective: minimize sum_{i!=j,p,q} C[i][j] * D[p][q] * z_{(i,p),(j,q)}
         let mut objective = Vec::new();
         for (z_seq, &(i, p, j, q)) in z_pairs.iter().enumerate() {
-            let coeff = cost[i][j] as f64 * dist[p][q] as f64;
+            let coefficient = cost[i][j].checked_mul(dist[p][q]).ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<QuadraticAssignment, ILP<bool>>(
+                    "multiplying a quadratic-assignment cost by a distance",
+                )
+            })?;
+            let coeff = i64_to_exact_f64(coefficient).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    QuadraticAssignment,
+                    ILP<bool>,
+                >(error)
+            })?;
             if coeff != 0.0 {
                 objective.push((z_idx(z_seq), coeff));
             }
@@ -109,11 +120,11 @@ impl ReduceTo<ILP<bool>> for QuadraticAssignment {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionQAPToILP {
+        Ok(ReductionQAPToILP {
             target,
             num_facilities: n,
             num_locations: loc,
-        }
+        })
     }
 }
 

@@ -11,18 +11,18 @@ use crate::models::graph::ShortestWeightConstrainedPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{i64_to_exact_f64, WeightElement};
 
 /// Result of reducing ShortestWeightConstrainedPath to ILP.
 ///
-/// Variable layout (within `ILP<i32>`):
+/// Variable layout (within `ILP<i64>`):
 /// - Arc variables: `a_{e,0}` and `a_{e,1}` for each undirected edge `e`
 ///   (indices `0..2m`), bounded to {0, 1}
 /// - Order variables: `o_v` for each vertex `v` (indices `2m..2m+n`),
 ///   bounded to `[0, n-1]`
 #[derive(Debug, Clone)]
 pub struct ReductionSWCPToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
@@ -33,10 +33,10 @@ impl ReductionSWCPToILP {
 }
 
 impl ReductionResult for ReductionSWCPToILP {
-    type Source = ShortestWeightConstrainedPath<SimpleGraph, i32>;
-    type Target = ILP<i32>;
+    type Source = ShortestWeightConstrainedPath<SimpleGraph, i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -64,10 +64,10 @@ impl ReductionResult for ReductionSWCPToILP {
         num_vars = "2 * num_edges + num_vertices",
         num_constraints = "5 * num_edges + 4 * num_vertices + 2",
     },)]
-impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
+impl ReduceTo<ILP<i64>> for ShortestWeightConstrainedPath<SimpleGraph, i64> {
     type Result = ReductionSWCPToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vertices = self.num_vertices();
         let num_edges = self.num_edges();
@@ -94,7 +94,7 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
 
         let mut constraints = Vec::new();
 
-        // --- Arc variables are binary within ILP<i32>: 0 <= a_{e,d} <= 1 ---
+        // --- Arc variables are binary within `ILP<i64>`: 0 <= a_{e,d} <= 1 ---
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
                 vec![(ReductionSWCPToILP::arc_var(edge_idx, 0), 1.0)],
@@ -107,10 +107,26 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
         }
 
         // --- Order variables stay within [0, |V|-1] ---
+        let max_order = if num_vertices == 0 {
+            0.0
+        } else {
+            let max_order = i64::try_from(num_vertices - 1).map_err(|_| {
+                crate::rules::ReductionError::integer_overflow::<
+                    ShortestWeightConstrainedPath<SimpleGraph, i64>,
+                    ILP<i64>,
+                >("converting the maximum order variable bound to i64")
+            })?;
+            i64_to_exact_f64(max_order).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    ShortestWeightConstrainedPath<SimpleGraph, i64>,
+                    ILP<i64>,
+                >(error)
+            })?
+        };
         for vertex in 0..num_vertices {
             constraints.push(LinearConstraint::le(
                 vec![(order_var(vertex), 1.0)],
-                num_vertices.saturating_sub(1) as f64,
+                max_order,
             ));
         }
 
@@ -175,28 +191,55 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
         constraints.push(LinearConstraint::eq(vec![(order_var(source), 1.0)], 0.0));
 
         // --- Weight bound: Σ wt_e * (a_{e,0} + a_{e,1}) <= weight_bound ---
+        let edge_weights: Vec<f64> = self
+            .edge_weights()
+            .iter()
+            .map(|weight| {
+                i64_to_exact_f64(weight.to_sum()).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        ShortestWeightConstrainedPath<SimpleGraph, i64>,
+                        ILP<i64>,
+                    >(error)
+                })
+            })
+            .collect::<Result<_, _>>()?;
         let weight_terms: Vec<(usize, f64)> = edges
             .iter()
             .enumerate()
             .flat_map(|(edge_idx, _)| {
-                let coeff = self.edge_weights()[edge_idx].to_sum() as f64;
+                let coeff = edge_weights[edge_idx];
                 [
                     (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
                     (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
                 ]
             })
             .collect();
-        constraints.push(LinearConstraint::le(
-            weight_terms,
-            *self.weight_bound() as f64,
-        ));
+        let weight_bound = i64_to_exact_f64(*self.weight_bound()).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                ShortestWeightConstrainedPath<SimpleGraph, i64>,
+                ILP<i64>,
+            >(error)
+        })?;
+        constraints.push(LinearConstraint::le(weight_terms, weight_bound));
 
         // --- Objective: minimize total path length ---
+        let edge_lengths: Vec<f64> = self
+            .edge_lengths()
+            .iter()
+            .map(|length| {
+                i64_to_exact_f64(length.to_sum()).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        ShortestWeightConstrainedPath<SimpleGraph, i64>,
+                        ILP<i64>,
+                    >(error)
+                })
+            })
+            .collect::<Result<_, _>>()?;
         let objective: Vec<(usize, f64)> = edges
             .iter()
             .enumerate()
             .flat_map(|(edge_idx, _)| {
-                let coeff = self.edge_lengths()[edge_idx].to_sum() as f64;
+                let coeff = edge_lengths[edge_idx];
                 [
                     (ReductionSWCPToILP::arc_var(edge_idx, 0), coeff),
                     (ReductionSWCPToILP::arc_var(edge_idx, 1), coeff),
@@ -205,10 +248,10 @@ impl ReduceTo<ILP<i32>> for ShortestWeightConstrainedPath<SimpleGraph, i32> {
             .collect();
         let target_ilp = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionSWCPToILP {
+        Ok(ReductionSWCPToILP {
             target: target_ilp,
             num_edges,
-        }
+        })
     }
 }
 
@@ -229,7 +272,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
                 4,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

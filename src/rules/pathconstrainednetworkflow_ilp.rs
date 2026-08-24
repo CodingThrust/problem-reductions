@@ -7,18 +7,19 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::PathConstrainedNetworkFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing PathConstrainedNetworkFlow to ILP.
 #[derive(Debug, Clone)]
 pub struct ReductionPCNFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
 }
 
 impl ReductionResult for ReductionPCNFToILP {
     type Source = PathConstrainedNetworkFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -38,12 +39,20 @@ impl ReductionResult for ReductionPCNFToILP {
         num_constraints = "num_arcs + 1",
     },
 )]
-impl ReduceTo<ILP<i32>> for PathConstrainedNetworkFlow {
+impl ReduceTo<ILP<i64>> for PathConstrainedNetworkFlow {
     type Result = ReductionPCNFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_paths = self.num_paths();
         let num_arcs = self.num_arcs();
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    PathConstrainedNetworkFlow,
+                    ILP<i64>,
+                >(error)
+            })
+        };
         let mut constraints = Vec::new();
 
         // Arc capacity: sum_{i : a in P_i} f_i <= c_a for all a
@@ -58,18 +67,21 @@ impl ReduceTo<ILP<i32>> for PathConstrainedNetworkFlow {
             if !terms.is_empty() {
                 constraints.push(LinearConstraint::le(
                     terms,
-                    self.capacities()[arc_idx] as f64,
+                    exact_f64(self.capacities()[arc_idx])?,
                 ));
             }
         }
 
         // Total flow requirement: sum_i f_i >= R
         let total_terms: Vec<(usize, f64)> = (0..num_paths).map(|i| (i, 1.0)).collect();
-        constraints.push(LinearConstraint::ge(total_terms, self.requirement() as f64));
+        constraints.push(LinearConstraint::ge(
+            total_terms,
+            exact_f64(self.requirement())?,
+        ));
 
-        ReductionPCNFToILP {
+        Ok(ReductionPCNFToILP {
             target: ILP::new(num_paths, constraints, vec![], ObjectiveSense::Minimize),
-        }
+        })
     }
 }
 
@@ -90,7 +102,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![vec![0, 1], vec![2]],
                 2,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

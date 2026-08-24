@@ -55,7 +55,7 @@ inventory::submit! {
 /// ];
 /// let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ impl ConsecutiveOnesSubmatrix {
             assert_eq!(row.len(), n, "All rows must have the same length");
         }
         assert!(
-            bound <= n as i64,
+            bound < 0 || usize::try_from(bound).is_ok_and(|bound| bound <= n),
             "bound ({bound}) must be <= number of columns ({n})"
         );
         Self { matrix, bound }
@@ -184,25 +184,30 @@ impl Problem for ConsecutiveOnesSubmatrix {
         vec![2; self.num_cols()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.num_cols() {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-            // Collect selected column indices
-            let selected: Vec<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v == 1)
-                .map(|(i, _)| i)
-                .collect();
-            if (selected.len() as i64) != self.bound {
-                return crate::types::Or(false);
-            }
-            self.any_permutation_has_c1p(&selected)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.num_cols() {
+                    return Ok(crate::types::Or(false));
+                }
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
+                // Collect selected column indices
+                let selected: Vec<usize> = config
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &v)| v == 1)
+                    .map(|(i, _)| i)
+                    .collect();
+                if usize::try_from(self.bound) != Ok(selected.len()) {
+                    return Ok(crate::types::Or(false));
+                }
+                self.any_permutation_has_c1p(&selected)
+            })
         })
     }
 }

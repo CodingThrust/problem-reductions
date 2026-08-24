@@ -13,6 +13,7 @@ use crate::models::graph::LongestCircuit;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing LongestCircuit to ILP.
 ///
@@ -27,7 +28,7 @@ pub struct ReductionLongestCircuitToILP {
 }
 
 impl ReductionResult for ReductionLongestCircuitToILP {
-    type Source = LongestCircuit<SimpleGraph, i32>;
+    type Source = LongestCircuit<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -51,10 +52,10 @@ impl ReductionResult for ReductionLongestCircuitToILP {
         num_constraints = "1 + num_vertices^2 + 2 * num_edges * (num_vertices - 1)",
     },
 )]
-impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
     type Result = ReductionLongestCircuitToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let edges = self.graph().edges();
@@ -141,14 +142,23 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i32> {
         let objective: Vec<(usize, f64)> = lengths
             .iter()
             .enumerate()
-            .map(|(e, &l)| (y_idx(e), l as f64))
-            .collect();
+            .map(|(e, &l)| {
+                i64_to_exact_f64(l)
+                    .map(|length| (y_idx(e), length))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            LongestCircuit<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionLongestCircuitToILP {
+        Ok(ReductionLongestCircuitToILP {
             target,
             num_edges: m,
-        }
+        })
     }
 }
 

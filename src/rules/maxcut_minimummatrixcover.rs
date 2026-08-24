@@ -33,7 +33,7 @@ pub struct ReductionMaxCutToMMC {
 }
 
 impl ReductionResult for ReductionMaxCutToMMC {
-    type Source = MaxCut<SimpleGraph, i32>;
+    type Source = MaxCut<SimpleGraph, i64>;
     type Target = MinimumMatrixCover;
 
     fn target_problem(&self) -> &Self::Target {
@@ -63,26 +63,30 @@ impl ReductionResult for ReductionMaxCutToMMC {
         num_rows = "num_vertices",
     }
 )]
-impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i32> {
+impl ReduceTo<MinimumMatrixCover> for MaxCut<SimpleGraph, i64> {
     type Result = ReductionMaxCutToMMC;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let mut matrix: Vec<Vec<i64>> = vec![vec![0i64; n]; n];
 
         for (u, v, w) in self.edges() {
-            assert!(
-                w >= 0,
-                "MaxCut -> MinimumMatrixCover requires nonnegative edge weights, got w({u},{v}) = {w}"
-            );
-            let w64 = w as i64;
+            if w < 0 {
+                return Err(crate::rules::ReductionError::invalid_target::<
+                    MaxCut<SimpleGraph, i64>,
+                    MinimumMatrixCover,
+                >(format!(
+                    "edge ({u}, {v}) has negative weight {w}"
+                )));
+            }
+            let w64 = w;
             matrix[u][v] = w64;
             matrix[v][u] = w64;
         }
 
-        ReductionMaxCutToMMC {
+        Ok(ReductionMaxCutToMMC {
             target: MinimumMatrixCover::new(matrix),
-        }
+        })
     }
 }
 
@@ -96,7 +100,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Canonical example: C_4 (4-cycle) with unit weights.
             // W = 4, max cut = 4 (partition {0,2} vs {1,3} cuts all edges).
             // The target's minimum quadratic form value is 2W - 4 * cut = 8 - 16 = -8.
-            let source = MaxCut::<SimpleGraph, i32>::new(
+            let source = MaxCut::<SimpleGraph, i64>::new(
                 SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
                 vec![1, 1, 1, 1],
             );

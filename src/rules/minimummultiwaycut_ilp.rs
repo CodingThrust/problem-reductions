@@ -11,6 +11,7 @@ use crate::models::graph::MinimumMultiwayCut;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinimumMultiwayCut to ILP.
 ///
@@ -32,7 +33,7 @@ pub struct ReductionMMCToILP {
 }
 
 impl ReductionResult for ReductionMMCToILP {
-    type Source = MinimumMultiwayCut<SimpleGraph, i32>;
+    type Source = MinimumMultiwayCut<SimpleGraph, i64>;
     type Target = ILP<bool>;
 
     fn target_problem(&self) -> &ILP<bool> {
@@ -61,10 +62,10 @@ impl ReductionResult for ReductionMMCToILP {
         num_constraints = "num_vertices + 2 * num_terminals * num_edges + num_terminals * num_terminals",
     },
 )]
-impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
     type Result = ReductionMMCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let m = self.num_edges();
         let k = self.num_terminals();
@@ -125,12 +126,21 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i32> {
         let objective: Vec<(usize, f64)> = weights
             .iter()
             .enumerate()
-            .map(|(e_idx, w)| (k * n + e_idx, *w as f64))
-            .collect();
+            .map(|(e_idx, &w)| {
+                i64_to_exact_f64(w)
+                    .map(|weight| (k * n + e_idx, weight))
+                    .map_err(|error| {
+                        crate::rules::ReductionError::inexact_float_conversion::<
+                            MinimumMultiwayCut<SimpleGraph, i64>,
+                            ILP<bool>,
+                        >(error)
+                    })
+            })
+            .collect::<Result<_, _>>()?;
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionMMCToILP { target, n, m, k }
+        Ok(ReductionMMCToILP { target, n, m, k })
     }
 }
 

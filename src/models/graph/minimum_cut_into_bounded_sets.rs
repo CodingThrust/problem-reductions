@@ -18,7 +18,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -39,7 +39,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`)
-/// * `W` - The weight type for edges (e.g., `i32`)
+/// * `W` - The weight type for edges (e.g., `i64`)
 ///
 /// # Example
 ///
@@ -53,7 +53,7 @@ inventory::submit! {
 /// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3);
 ///
 /// // Partition {0,1} vs {2,3}: cut edge (1,2) with weight 1
-/// let val = problem.evaluate(&[0, 0, 1, 1]);
+/// let val = problem.evaluate(&[0, 0, 1, 1]).unwrap();
 /// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +75,7 @@ struct MinimumCutIntoBoundedSetsCreateSpec {
     /// The undirected graph.
     graph: SimpleGraph,
     /// Edge weights; defaults to one per edge.
-    edge_weights: Option<Vec<i32>>,
+    edge_weights: Option<Vec<i64>>,
     /// Source vertex.
     source: usize,
     /// Sink vertex.
@@ -83,8 +83,8 @@ struct MinimumCutIntoBoundedSetsCreateSpec {
     /// Maximum size for each partition set.
     size_bound: usize,
 }
-impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<SimpleGraph, i32> {
-    type Error = String;
+impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<SimpleGraph, i64> {
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumCutIntoBoundedSetsCreateSpec) -> Result<Self, Self::Error> {
         let count = spec.graph.num_edges();
         let edge_weights = spec.edge_weights.unwrap_or_else(|| vec![1; count]);
@@ -92,11 +92,14 @@ impl TryFrom<MinimumCutIntoBoundedSetsCreateSpec> for MinimumCutIntoBoundedSets<
             return Err(format!(
                 "edge_weights has {} entries, expected {count}",
                 edge_weights.len()
-            ));
+            )
+            .into());
         }
         let vertices = spec.graph.num_vertices();
         if spec.source >= vertices || spec.sink >= vertices || spec.source == spec.sink {
-            return Err("source and sink must be distinct valid graph vertices".to_string());
+            return Err("source and sink must be distinct valid graph vertices"
+                .to_string()
+                .into());
         }
         Ok(Self::new(
             spec.graph,
@@ -197,40 +200,46 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<W::Sum> {
-        let n = self.graph.num_vertices();
-        if config.len() != n {
-            return Min(None);
-        }
-
-        // Check source is in V1 (config=0) and sink is in V2 (config=1)
-        if config[self.source] != 0 || config[self.sink] != 1 {
-            return Min(None);
-        }
-
-        // Check size bounds
-        let count_v1 = config.iter().filter(|&&x| x == 0).count();
-        let count_v2 = config.iter().filter(|&&x| x == 1).count();
-        if count_v1 > self.size_bound || count_v2 > self.size_bound {
-            return Min(None);
-        }
-
-        // Compute cut weight
-        let mut cut_weight = W::Sum::zero();
-        for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
-            if config[*u] != config[*v] {
-                cut_weight += weight.to_sum();
+    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.graph.num_vertices();
+            if config.len() != n {
+                return Ok(Min(None));
             }
-        }
 
-        Min(Some(cut_weight))
+            // Check source is in V1 (config=0) and sink is in V2 (config=1)
+            if config[self.source] != 0 || config[self.sink] != 1 {
+                return Ok(Min(None));
+            }
+
+            // Check size bounds
+            let count_v1 = config.iter().filter(|&&x| x == 0).count();
+            let count_v2 = config.iter().filter(|&&x| x == 1).count();
+            if count_v1 > self.size_bound || count_v2 > self.size_bound {
+                return Ok(Min(None));
+            }
+
+            // Compute cut weight
+            let mut cut_weight = W::Sum::zero();
+            for ((u, v), weight) in self.graph.edges().iter().zip(self.edge_weights.iter()) {
+                if config[*u] != config[*v] {
+                    cut_weight = W::checked_add_to_sum(
+                        cut_weight,
+                        weight.to_sum(),
+                        "summing bounded-set cut weights",
+                    )?;
+                }
+            }
+
+            Min(Some(cut_weight))
+        })
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_cut_into_bounded_sets_i32",
+        id: "minimum_cut_into_bounded_sets_i64",
         instance: Box::new(MinimumCutIntoBoundedSets::new(
             SimpleGraph::new(
                 8,
@@ -260,7 +269,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     }]
 }
 
-crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i32>, crate::random::EndpointRandomSpec, |spec| {
+crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i64>, crate::random::EndpointRandomSpec, |spec| {
     let (source, sink) = spec.endpoints()?;
     let graph = spec.graph()?;
     let edge_weights = vec![1; graph.num_edges()];
@@ -268,7 +277,7 @@ crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i32>, crate:
 });
 
 crate::declare_variants! {
-    default MinimumCutIntoBoundedSets<SimpleGraph, i32> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec random,
+    default MinimumCutIntoBoundedSets<SimpleGraph, i64> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec random,
 }
 
 #[cfg(test)]

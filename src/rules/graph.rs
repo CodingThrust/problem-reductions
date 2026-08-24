@@ -161,6 +161,12 @@ pub enum ExecutePathsError {
         source_problem: String,
         target_problem: String,
     },
+    #[error("concrete path {path_index} failed during reduction: {cause}")]
+    Reduction {
+        path_index: usize,
+        #[source]
+        cause: crate::rules::ReductionError,
+    },
 }
 
 /// Why symbolic size propagation could not be completed for a path.
@@ -271,7 +277,7 @@ impl std::fmt::Display for ReductionPath {
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
-    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
+    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i64"}).
     pub variant: BTreeMap<String, String>,
 }
 
@@ -988,7 +994,7 @@ impl ReductionGraph {
     /// Get all variant maps registered for a problem name.
     ///
     /// Returns variants sorted deterministically: the "default" variant
-    /// (SimpleGraph, i32, etc.) comes first, then remaining variants
+    /// (SimpleGraph, i64, etc.) comes first, then remaining variants
     /// in lexicographic order.
     pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
         let mut variants: Vec<BTreeMap<String, String>> = self
@@ -1682,13 +1688,16 @@ impl ReductionGraph {
         &self,
         edge_idx: EdgeIndex,
         input: &dyn Any,
-    ) -> Option<Box<dyn DynAggregateReductionResult>> {
+    ) -> Result<Option<Box<dyn DynAggregateReductionResult>>, crate::rules::ReductionError> {
         let edge = &self.graph[edge_idx];
         if !Self::edge_supports_mode(edge, ReductionMode::Aggregate) {
-            return None;
+            return Ok(None);
         }
 
-        Some(edge.reduce_aggregate_fn?(input))
+        let Some(reduce) = edge.reduce_aggregate_fn else {
+            return Ok(None);
+        };
+        reduce(input).map(Some)
     }
 
     /// Execute a reduction path on a source problem instance.
@@ -1700,7 +1709,9 @@ impl ReductionGraph {
     /// # Example
     ///
     /// ```text
-    /// let chain = graph.reduce_along_path(&path, &source_problem)?;
+    /// let Some(chain) = graph.reduce_along_path(&path, &source_problem)? else {
+    ///     return Err("path is not witness-executable".into());
+    /// };
     /// let target: &QUBO<f64> = chain.target_problem();
     /// let source_solution = chain.extract_solution(&target_solution);
     /// ```
@@ -1708,33 +1719,42 @@ impl ReductionGraph {
         &self,
         path: &ReductionPath,
         source: &dyn Any,
-    ) -> Option<ReductionChain> {
+    ) -> Result<Option<ReductionChain>, crate::rules::ReductionError> {
         if path.steps.len() < 2 {
-            return None;
+            return Ok(None);
         }
         // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         for window in path.steps.windows(2) {
-            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
-            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
+            let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
+                return Ok(None);
+            };
+            let Some(dst) = self.lookup_node(&window[1].name, &window[1].variant) else {
+                return Ok(None);
+            };
+            let Some(edge_idx) = self.graph.find_edge(src, dst) else {
+                return Ok(None);
+            };
             if !Self::edge_supports_mode(&self.graph[edge_idx], ReductionMode::Witness) {
-                return None;
+                return Ok(None);
             }
-            edge_fns.push(self.graph[edge_idx].reduce_fn?);
+            let Some(reduce) = self.graph[edge_idx].reduce_fn else {
+                return Ok(None);
+            };
+            edge_fns.push(reduce);
         }
         // Execute the chain
         let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (edge_fns[0])(source);
+        let step = (edge_fns[0])(source)?;
         steps.push(step);
         for edge_fn in &edge_fns[1..] {
             let step = {
                 let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)
+                edge_fn(prev_target)?
             };
             steps.push(step);
         }
-        Some(ReductionChain { steps })
+        Ok(Some(ReductionChain { steps }))
     }
 
     /// Execute an aggregate-value reduction path on a source problem instance.
@@ -1742,30 +1762,41 @@ impl ReductionGraph {
         &self,
         path: &ReductionPath,
         source: &dyn Any,
-    ) -> Option<AggregateReductionChain> {
+    ) -> Result<Option<AggregateReductionChain>, crate::rules::ReductionError> {
         if path.steps.len() < 2 {
-            return None;
+            return Ok(None);
         }
 
         let mut edge_indices = Vec::new();
         for window in path.steps.windows(2) {
-            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
-            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
-            let edge_idx = self.graph.find_edge(src, dst)?;
+            let Some(src) = self.lookup_node(&window[0].name, &window[0].variant) else {
+                return Ok(None);
+            };
+            let Some(dst) = self.lookup_node(&window[1].name, &window[1].variant) else {
+                return Ok(None);
+            };
+            let Some(edge_idx) = self.graph.find_edge(src, dst) else {
+                return Ok(None);
+            };
             edge_indices.push(edge_idx);
         }
 
         let mut steps: Vec<Box<dyn DynAggregateReductionResult>> = Vec::new();
-        let step = self.execute_aggregate_edge(edge_indices[0], source)?;
+        let Some(step) = self.execute_aggregate_edge(edge_indices[0], source)? else {
+            return Ok(None);
+        };
         steps.push(step);
         for &edge_idx in &edge_indices[1..] {
             let step = {
                 let prev_target = steps.last().unwrap().target_problem_any();
-                self.execute_aggregate_edge(edge_idx, prev_target)?
+                let Some(step) = self.execute_aggregate_edge(edge_idx, prev_target)? else {
+                    return Ok(None);
+                };
+                step
             };
             steps.push(step);
         }
-        Some(AggregateReductionChain { steps })
+        Ok(Some(AggregateReductionChain { steps }))
     }
 }
 
@@ -1887,7 +1918,9 @@ impl ReductionGraph {
                     .last()
                     .map(|step| step.target_problem_any())
                     .unwrap_or(source_instance);
-                chain.push(Rc::from(reduce_fn(current)));
+                let result = reduce_fn(current)
+                    .map_err(|cause| ExecutePathsError::Reduction { path_index, cause })?;
+                chain.push(Rc::from(result));
                 prefixes.insert(prefix.clone(), chain.clone());
             }
             executed.push(ExecutedPath {

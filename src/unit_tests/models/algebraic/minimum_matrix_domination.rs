@@ -55,7 +55,7 @@ fn test_minimum_matrix_domination_evaluate_optimal() {
     // Unselected: (1,2) row 1 covered, (2,1) col 1 covered, (2,3) col 3 covered,
     //             (3,2) row 3 covered, (4,5) row 4 covered, (5,4) col 4 covered
     let config = vec![1, 1, 0, 0, 0, 0, 1, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(4)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }
 
 #[test]
@@ -64,21 +64,21 @@ fn test_minimum_matrix_domination_evaluate_infeasible() {
     // Select only entry 0: (0,1) — covers row 0, col 1
     // Entry (2,3) at index 4: row 2 not covered, col 3 not covered → infeasible
     let config = vec![1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_matrix_domination_evaluate_all_selected() {
     let problem = MinimumMatrixDomination::new(p6_adjacency_matrix());
     let config = vec![1; 10];
-    assert_eq!(problem.evaluate(&config), Min(Some(10)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(10)));
 }
 
 #[test]
 fn test_minimum_matrix_domination_evaluate_wrong_length() {
     let problem = MinimumMatrixDomination::new(p6_adjacency_matrix());
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[1; 11]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[1; 11]).unwrap(), Min(None));
 }
 
 #[test]
@@ -86,15 +86,18 @@ fn test_minimum_matrix_domination_evaluate_invalid_variable() {
     let problem = MinimumMatrixDomination::new(p6_adjacency_matrix());
     let mut config = vec![0; 10];
     config[0] = 2;
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_matrix_domination_brute_force() {
     let problem = MinimumMatrixDomination::new(p6_adjacency_matrix());
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    let val = problem.evaluate(&witness);
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    let val = problem.evaluate(&witness).unwrap();
     assert_eq!(val, Min(Some(4)));
 }
 
@@ -110,8 +113,11 @@ fn test_minimum_matrix_domination_identity_matrix() {
     let problem = MinimumMatrixDomination::new(matrix);
     assert_eq!(problem.num_ones(), 3);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    assert_eq!(problem.evaluate(&witness), Min(Some(3)));
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(3)));
     assert_eq!(witness, vec![1, 1, 1]);
 }
 
@@ -122,8 +128,11 @@ fn test_minimum_matrix_domination_single_row() {
     let problem = MinimumMatrixDomination::new(matrix);
     assert_eq!(problem.num_ones(), 3);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).expect("should find optimal");
-    assert_eq!(problem.evaluate(&witness), Min(Some(1)));
+    let witness = solver
+        .find_witness(&problem)
+        .unwrap()
+        .expect("should find optimal");
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -132,7 +141,7 @@ fn test_minimum_matrix_domination_empty_matrix() {
     assert_eq!(problem.num_ones(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
     // Empty config: vacuously valid with 0 selected
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -140,7 +149,7 @@ fn test_minimum_matrix_domination_no_ones() {
     let matrix = vec![vec![false, false], vec![false, false]];
     let problem = MinimumMatrixDomination::new(matrix);
     assert_eq!(problem.num_ones(), 0);
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]

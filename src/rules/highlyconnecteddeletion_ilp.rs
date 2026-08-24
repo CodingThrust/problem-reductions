@@ -161,7 +161,7 @@ fn enumerate_feasible_clusters(graph: &SimpleGraph) -> Vec<Vec<usize>> {
 impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
     type Result = ReductionHighlyConnectedDeletionToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let graph = self.graph();
         let n = graph.num_vertices();
         let clusters = enumerate_feasible_clusters(graph);
@@ -196,11 +196,11 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionHighlyConnectedDeletionToILP {
+        Ok(ReductionHighlyConnectedDeletionToILP {
             target,
             clusters,
             edges: graph.edges(),
-        }
+        })
     }
 }
 

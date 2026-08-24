@@ -7,14 +7,14 @@ use std::collections::HashMap;
 #[test]
 fn typed_problem_ref_fills_declared_defaults() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["i64"]).unwrap();
     assert_eq!(
         problem_ref.variant().get("graph").map(|s| s.as_str()),
         Some("SimpleGraph")
     );
     assert_eq!(
         problem_ref.variant().get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
 }
 
@@ -23,7 +23,7 @@ fn catalog_rejects_unknown_dimension_values() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
     let err = ProblemRef::from_values(&problem, ["HyperGraph"]).unwrap_err();
     assert!(
-        err.contains("Known variants"),
+        err.to_string().contains("Known variants"),
         "error should mention known variants: {err}"
     );
 }
@@ -120,14 +120,14 @@ fn problem_ref_from_values_no_values_uses_all_defaults() {
 #[test]
 fn problem_ref_from_values_graph_override() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["UnitDiskGraph", "i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["UnitDiskGraph", "i64"]).unwrap();
     assert_eq!(
         problem_ref.variant().get("graph").map(|s| s.as_str()),
         Some("UnitDiskGraph")
     );
     assert_eq!(
         problem_ref.variant().get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
 }
 
@@ -155,18 +155,18 @@ fn parse_catalog_problem_ref_with_value() {
 #[test]
 fn parse_catalog_problem_ref_rejects_unknown() {
     let err = parse_catalog_problem_ref("NonExistent").unwrap_err();
-    assert!(err.contains("Unknown problem type"));
+    assert!(err.to_string().contains("Unknown problem type"));
 }
 
 #[test]
 fn problem_ref_to_export_ref() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref = ProblemRef::from_values(&problem, ["i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["i64"]).unwrap();
     let export_ref = problem_ref.to_export_ref();
     assert_eq!(export_ref.name, "MaximumIndependentSet");
     assert_eq!(
         export_ref.variant.get("weight").map(|s| s.as_str()),
-        Some("i32")
+        Some("i64")
     );
 }
 

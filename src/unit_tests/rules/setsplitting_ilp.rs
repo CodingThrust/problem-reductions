@@ -7,7 +7,8 @@ use crate::types::Or;
 fn test_reduction_creates_valid_ilp() {
     // Universe {0,1,2}, subset {0,1,2}
     let problem = SetSplitting::new(3, vec![vec![0, 1, 2]]);
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 3, "one ILP var per universe element");
@@ -24,7 +25,8 @@ fn test_reduction_creates_valid_ilp() {
 fn test_reduction_constraint_structure() {
     // Subset {0,1,2}: need sum >= 1 and sum <= 2
     let problem = SetSplitting::new(3, vec![vec![0, 1, 2]]);
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // One ge constraint (rhs=1) and one le constraint (rhs=2)
@@ -41,7 +43,8 @@ fn test_setsplitting_to_ilp_closed_loop() {
         6,
         vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4, 5], vec![1, 3, 5]],
     );
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -49,7 +52,7 @@ fn test_setsplitting_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(
-        problem.evaluate(&extracted),
+        problem.evaluate(&extracted).unwrap(),
         Or(true),
         "extracted solution must split all subsets"
     );
@@ -59,7 +62,8 @@ fn test_setsplitting_to_ilp_closed_loop() {
 fn test_setsplitting_to_ilp_infeasible() {
     // Single-element universe, subset {0,0}: sum(x_0) >= 1 and sum(x_0) <= 0 — contradiction
     let problem = SetSplitting::new(1, vec![vec![0, 0]]);
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -75,16 +79,17 @@ fn test_setsplitting_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem);
+    let bf_witness = bf.find_witness(&problem).unwrap();
     assert!(bf_witness.is_some());
-    let bf_result = problem.evaluate(&bf_witness.unwrap());
+    let bf_result = problem.evaluate(&bf_witness.unwrap()).unwrap();
 
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ilp_solver
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_result = problem.evaluate(&extracted);
+    let ilp_result = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_result, ilp_result, "BruteForce and ILP must agree");
     assert_eq!(ilp_result, Or(true));
@@ -94,7 +99,8 @@ fn test_setsplitting_bf_vs_ilp() {
 fn test_overhead_dimensions() {
     // 5 elements, 3 subsets → 5 vars, 6 constraints
     let problem = SetSplitting::new(5, vec![vec![0, 1], vec![2, 3], vec![0, 4]]);
-    let reduction: ReductionSetSplittingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionSetSplittingToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     assert_eq!(ilp.num_vars, 5);
     assert_eq!(ilp.constraints.len(), 6); // 2 per subset

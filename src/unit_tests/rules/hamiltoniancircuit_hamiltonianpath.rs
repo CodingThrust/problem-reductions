@@ -13,7 +13,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -25,7 +26,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Original: 4 vertices, 4 edges (cycle)
@@ -53,7 +55,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // HP solution: s=5, 0, 1, 2, 3, v'=4, t=6
     let hp_config = vec![5, 0, 1, 2, 3, 4, 6];
@@ -61,7 +64,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_solution() {
 
     assert_eq!(extracted.len(), 4);
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution must be a valid HC"
     );
 }
@@ -69,7 +72,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_solution() {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_extract_reversed() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // HP solution reversed: t=6, v'=4, 3, 2, 1, 0, s=5
     let hp_config = vec![6, 4, 3, 2, 1, 0, 5];
@@ -77,7 +81,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_reversed() {
 
     assert_eq!(extracted.len(), 4);
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted reversed solution must be a valid HC"
     );
 }
@@ -86,12 +90,13 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_extract_reversed() {
 fn test_hamiltoniancircuit_to_hamiltonianpath_no_circuit() {
     // Path graph 0-1-2-3: no Hamiltonian circuit (vertices 0 and 3 have degree 1)
     let source = HamiltonianCircuit::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The target should have no Hamiltonian path (since source has no HC)
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target);
+    let witness = solver.find_witness(target).unwrap();
     assert!(
         witness.is_none(),
         "target should have no HP when source has no HC"
@@ -102,7 +107,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_no_circuit() {
 fn test_hamiltoniancircuit_to_hamiltonianpath_triangle() {
     // Triangle graph: 3 vertices, 3 edges, has HC
     let source = HamiltonianCircuit::new(SimpleGraph::cycle(3));
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -114,7 +120,8 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_triangle() {
 #[test]
 fn test_hamiltoniancircuit_to_hamiltonianpath_two_vertex_special_case_is_unsatisfiable() {
     let source = HamiltonianCircuit::new(SimpleGraph::new(2, vec![(0, 1)]));
-    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<HamiltonianPath<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.graph().num_vertices(), 5);
@@ -122,7 +129,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_two_vertex_special_case_is_unsatis
 
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(target).is_none(),
+        solver.find_witness(target).unwrap().is_none(),
         "2-vertex source should reduce to an unsatisfiable HamiltonianPath instance"
     );
 }

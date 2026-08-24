@@ -186,7 +186,7 @@ impl ILPBuilder {
 impl ReduceTo<ILP<bool>> for CircuitSAT {
     type Result = ReductionCircuitToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let mut builder = ILPBuilder::new();
 
         // Pre-register all circuit variables to preserve ordering
@@ -219,11 +219,11 @@ impl ReduceTo<ILP<bool>> for CircuitSAT {
             ObjectiveSense::Minimize,
         );
 
-        ReductionCircuitToILP {
+        Ok(ReductionCircuitToILP {
             target,
             source_variables: self.variable_names().to_vec(),
             variable_map: builder.variable_map,
-        }
+        })
     }
 }
 

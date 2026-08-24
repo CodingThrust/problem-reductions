@@ -52,7 +52,7 @@ inventory::submit! {
 ///
 /// // Partition: X0={0}, X1={1,5}, X2={2,3}, X3={4}
 /// // config[i] = group index of symbol i
-/// assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]));
+/// assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct TwoDimensionalConsecutiveSets {
@@ -68,9 +68,12 @@ struct TwoDimensionalConsecutiveSetsUnchecked {
     subsets: Vec<Vec<usize>>,
 }
 
-fn validate(alphabet_size: usize, subsets: &[Vec<usize>]) -> Result<(), String> {
+fn validate(
+    alphabet_size: usize,
+    subsets: &[Vec<usize>],
+) -> Result<(), crate::registry::ConstructionError> {
     if alphabet_size == 0 {
-        return Err("Alphabet size must be positive".to_string());
+        return Err("Alphabet size must be positive".to_string().into());
     }
 
     for (i, subset) in subsets.iter().enumerate() {
@@ -80,10 +83,11 @@ fn validate(alphabet_size: usize, subsets: &[Vec<usize>]) -> Result<(), String> 
                 return Err(format!(
                     "Subset {} contains element {} which is outside alphabet of size {}",
                     i, elem, alphabet_size
-                ));
+                )
+                .into());
             }
             if !seen.insert(elem) {
-                return Err(format!("Subset {} contains duplicate element {}", i, elem));
+                return Err(format!("Subset {} contains duplicate element {}", i, elem).into());
             }
         }
     }
@@ -103,7 +107,10 @@ impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
 
 impl TwoDimensionalConsecutiveSets {
     /// Create a new 2-Dimensional Consecutive Sets instance, returning validation errors.
-    pub fn try_new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
+    pub fn try_new(
+        alphabet_size: usize,
+        subsets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate(alphabet_size, &subsets)?;
         let subsets = subsets
             .into_iter()
@@ -152,50 +159,56 @@ impl Problem for TwoDimensionalConsecutiveSets {
         vec![self.alphabet_size; self.alphabet_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.alphabet_size {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&v| v >= self.alphabet_size) {
-                return crate::types::Or(false);
-            }
-
-            // Empty labels do not create gaps in the partition order, so compress used labels first.
-            let mut used = vec![false; self.alphabet_size];
-            for &group in config {
-                used[group] = true;
-            }
-            let mut dense_labels = vec![0; self.alphabet_size];
-            let mut next_label = 0;
-            for (label, is_used) in used.into_iter().enumerate() {
-                if is_used {
-                    dense_labels[label] = next_label;
-                    next_label += 1;
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.alphabet_size {
+                    return Ok(crate::types::Or(false));
                 }
-            }
-
-            for subset in &self.subsets {
-                if subset.is_empty() {
-                    continue;
-                }
-                let groups: Vec<usize> = subset.iter().map(|&s| dense_labels[config[s]]).collect();
-
-                // Intersection constraint: all group indices must be distinct
-                let unique: HashSet<usize> = groups.iter().copied().collect();
-                if unique.len() != subset.len() {
-                    return crate::types::Or(false);
+                if config.iter().any(|&v| v >= self.alphabet_size) {
+                    return Ok(crate::types::Or(false));
                 }
 
-                // Consecutiveness: group indices must form a contiguous range
-                let min_g = *unique.iter().min().unwrap();
-                let max_g = *unique.iter().max().unwrap();
-                if max_g - min_g + 1 != subset.len() {
-                    return crate::types::Or(false);
+                // Empty labels do not create gaps in the partition order, so compress used labels first.
+                let mut used = vec![false; self.alphabet_size];
+                for &group in config {
+                    used[group] = true;
                 }
-            }
+                let mut dense_labels = vec![0; self.alphabet_size];
+                let mut next_label = 0;
+                for (label, is_used) in used.into_iter().enumerate() {
+                    if is_used {
+                        dense_labels[label] = next_label;
+                        next_label += 1;
+                    }
+                }
 
-            true
+                for subset in &self.subsets {
+                    if subset.is_empty() {
+                        continue;
+                    }
+                    let groups: Vec<usize> =
+                        subset.iter().map(|&s| dense_labels[config[s]]).collect();
+
+                    // Intersection constraint: all group indices must be distinct
+                    let unique: HashSet<usize> = groups.iter().copied().collect();
+                    if unique.len() != subset.len() {
+                        return Ok(crate::types::Or(false));
+                    }
+
+                    // Consecutiveness: group indices must form a contiguous range
+                    let min_g = *unique.iter().min().unwrap();
+                    let max_g = *unique.iter().max().unwrap();
+                    if max_g - min_g + 1 != subset.len() {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 

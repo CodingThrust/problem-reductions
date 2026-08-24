@@ -49,11 +49,11 @@ inventory::submit! {
 /// let problem = GraphPartitioning::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Minimum bisection of a 4-cycle: cut = 2
 /// for sol in solutions {
-///     let size = problem.evaluate(&sol);
+///     let size = problem.evaluate(&sol).unwrap();
 ///     assert_eq!(size, Min(Some(2)));
 /// }
 /// ```
@@ -93,7 +93,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "GraphPartitioning";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -103,31 +103,33 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        let n = self.graph.num_vertices();
-        if config.len() != n {
-            return Min(None);
-        }
-        if config.iter().any(|&part| part >= 2) {
-            return Min(None);
-        }
-        // Balanced bisection requires even n
-        if !n.is_multiple_of(2) {
-            return Min(None);
-        }
-        // Check balanced: exactly n/2 vertices in partition 1
-        let count_ones = config.iter().filter(|&&x| x == 1).count();
-        if count_ones != n / 2 {
-            return Min(None);
-        }
-        // Count crossing edges
-        let mut cut = 0i32;
-        for (u, v) in self.graph.edges() {
-            if config[u] != config[v] {
-                cut += 1;
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.graph.num_vertices();
+            if config.len() != n {
+                return Ok(Min(None));
             }
-        }
-        Min(Some(cut))
+            if config.iter().any(|&part| part >= 2) {
+                return Ok(Min(None));
+            }
+            // Balanced bisection requires even n
+            if !n.is_multiple_of(2) {
+                return Ok(Min(None));
+            }
+            // Check balanced: exactly n/2 vertices in partition 1
+            let count_ones = config.iter().filter(|&&x| x == 1).count();
+            if count_ones != n / 2 {
+                return Ok(Min(None));
+            }
+            // Count crossing edges
+            let mut cut = 0i64;
+            for (u, v) in self.graph.edges() {
+                if config[u] != config[v] {
+                    cut += 1;
+                }
+            }
+            Min(Some(cut))
+        })
     }
 }
 

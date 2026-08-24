@@ -19,8 +19,8 @@ inventory::submit! {
         description: "Determine if a flow-shop schedule for jobs on m processors meets a deadline",
         fields: &[
             FieldInfo { name: "num_processors", type_name: "usize", description: "Number of machines m" },
-            FieldInfo { name: "task_lengths", type_name: "Vec<Vec<u64>>", description: "task_lengths[j][i] = length of job j's task on machine i" },
-            FieldInfo { name: "deadline", type_name: "u64", description: "Global deadline D" },
+            FieldInfo { name: "task_lengths", type_name: "Vec<Vec<i64>>", description: "task_lengths[j][i] = length of job j's task on machine i" },
+            FieldInfo { name: "deadline", type_name: "i64", description: "Global deadline D" },
         ],
     }
 }
@@ -54,7 +54,7 @@ inventory::submit! {
 /// // 2 machines, 3 jobs, deadline 10
 /// let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,9 +62,9 @@ pub struct FlowShopScheduling {
     /// Number of processors (machines).
     num_processors: usize,
     /// Task lengths: `task_lengths[j][i]` is the processing time of job `j` on machine `i`.
-    task_lengths: Vec<Vec<u64>>,
+    task_lengths: Vec<Vec<i64>>,
     /// Global deadline.
-    deadline: u64,
+    deadline: i64,
 }
 
 impl FlowShopScheduling {
@@ -72,13 +72,13 @@ impl FlowShopScheduling {
     ///
     /// # Arguments
     /// * `num_processors` - Number of machines m
-    /// * `task_lengths` - task_lengths[j][i] = processing time of job j on machine i.
+    /// * `task_lengths` - `task_lengths[j][i]` = processing time of job j on machine i.
     ///   Each inner Vec must have length `num_processors`.
     /// * `deadline` - Global deadline D
     ///
     /// # Panics
     /// Panics if any job does not have exactly `num_processors` tasks.
-    pub fn new(num_processors: usize, task_lengths: Vec<Vec<u64>>, deadline: u64) -> Self {
+    pub fn new(num_processors: usize, task_lengths: Vec<Vec<i64>>, deadline: i64) -> Self {
         for (j, tasks) in task_lengths.iter().enumerate() {
             assert_eq!(
                 tasks.len(),
@@ -89,6 +89,11 @@ impl FlowShopScheduling {
                 num_processors
             );
         }
+        assert!(
+            task_lengths.iter().flatten().all(|&length| length >= 0),
+            "task lengths must be nonnegative"
+        );
+        assert!(deadline >= 0, "deadline must be nonnegative");
         Self {
             num_processors,
             task_lengths,
@@ -102,12 +107,12 @@ impl FlowShopScheduling {
     }
 
     /// Get the task lengths matrix.
-    pub fn task_lengths(&self) -> &[Vec<u64>] {
+    pub fn task_lengths(&self) -> &[Vec<i64>] {
         &self.task_lengths
     }
 
     /// Get the deadline.
-    pub fn deadline(&self) -> u64 {
+    pub fn deadline(&self) -> i64 {
         self.deadline
     }
 
@@ -120,7 +125,10 @@ impl FlowShopScheduling {
     ///
     /// The job_order slice must be a permutation of `0..num_jobs`.
     /// Returns the completion time of the last job on the last machine.
-    pub fn compute_makespan(&self, job_order: &[usize]) -> u64 {
+    pub fn compute_makespan(
+        &self,
+        job_order: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
         let n = job_order.len();
         let m = self.num_processors;
         assert_eq!(
@@ -140,22 +148,29 @@ impl FlowShopScheduling {
             );
         }
         if n == 0 || m == 0 {
-            return 0;
+            return Ok(0);
         }
 
         // completion[k][i] = completion time of the k-th job in sequence on machine i
-        let mut completion = vec![vec![0u64; m]; n];
+        let mut completion = vec![vec![0i64; m]; n];
 
         for (k, &job) in job_order.iter().enumerate() {
             for i in 0..m {
                 let prev_machine = if i == 0 { 0 } else { completion[k][i - 1] };
                 let prev_job = if k == 0 { 0 } else { completion[k - 1][i] };
                 let start = prev_machine.max(prev_job);
-                completion[k][i] = start + self.task_lengths[job][i];
+                completion[k][i] =
+                    start
+                        .checked_add(self.task_lengths[job][i])
+                        .ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "computing flow-shop completion time".to_string(),
+                            )
+                        })?;
             }
         }
 
-        completion[n - 1][m - 1]
+        Ok(completion[n - 1][m - 1])
     }
 }
 
@@ -171,14 +186,19 @@ impl Problem for FlowShopScheduling {
         super::lehmer_dims(self.num_jobs())
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let Some(job_order) = super::decode_lehmer(config, self.num_jobs()) else {
-                return crate::types::Or(false);
-            };
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let Some(job_order) = super::decode_lehmer(config, self.num_jobs()) else {
+                    return Ok(crate::types::Or(false));
+                };
 
-            let makespan = self.compute_makespan(&job_order);
-            makespan <= self.deadline
+                let makespan = self.compute_makespan(&job_order)?;
+                makespan <= self.deadline
+            })
         })
     }
 }

@@ -97,7 +97,7 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
 impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
     type Result = Reduction3SATToFeasibleRegisterAssignment;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let num_vertices = 2 * num_vars + 12 * num_clauses;
@@ -156,10 +156,10 @@ impl ReduceTo<FeasibleRegisterAssignment> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SATToFeasibleRegisterAssignment {
+        Ok(Reduction3SATToFeasibleRegisterAssignment {
             target: FeasibleRegisterAssignment::new(num_vertices, arcs, num_registers, assignment),
             num_vars,
-        }
+        })
     }
 }
 
@@ -181,10 +181,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
             );
             let to_fra =
-                <KSatisfiability<K3> as ReduceTo<FeasibleRegisterAssignment>>::reduce_to(&source);
-            let to_ilp = <FeasibleRegisterAssignment as ReduceTo<ILP<i32>>>::reduce_to(
+                <KSatisfiability<K3> as ReduceTo<FeasibleRegisterAssignment>>::reduce_to(&source)
+                    .expect("reduction should succeed");
+            let to_ilp = <FeasibleRegisterAssignment as ReduceTo<ILP<i64>>>::reduce_to(
                 to_fra.target_problem(),
-            );
+            )
+            .expect("reduction should succeed");
             let ilp_solution = ILPSolver::new()
                 .solve(to_ilp.target_problem())
                 .expect("canonical FRA example must reduce to a feasible ILP");

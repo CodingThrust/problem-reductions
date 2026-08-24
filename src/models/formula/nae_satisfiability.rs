@@ -50,7 +50,10 @@ impl NAESatisfiability {
 
     /// Create a new NAE-SAT problem, returning an error instead of panicking
     /// when a clause has fewer than two literals.
-    pub fn try_new(num_vars: usize, clauses: Vec<CNFClause>) -> Result<Self, String> {
+    pub fn try_new(
+        num_vars: usize,
+        clauses: Vec<CNFClause>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         validate_cnf_literals(num_vars, &clauses)?;
         validate_clause_lengths(&clauses)?;
         Ok(Self { num_vars, clauses })
@@ -92,11 +95,20 @@ impl NAESatisfiability {
     }
 
     /// Count how many clauses satisfy the NAE condition under an assignment.
-    pub fn count_nae_satisfied(&self, assignment: &[bool]) -> usize {
-        self.clauses
+    pub fn count_nae_satisfied(
+        &self,
+        assignment: &[bool],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let count = self
+            .clauses
             .iter()
             .filter(|clause| Self::clause_is_nae_satisfied(clause, assignment))
-            .count()
+            .count();
+        i64::try_from(count).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting NAE-satisfied-clause count to i64".into(),
+            )
+        })
     }
 
     /// Check whether all clauses satisfy the NAE condition under an assignment.
@@ -107,11 +119,14 @@ impl NAESatisfiability {
     }
 
     /// Check if a solution (config) is valid.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 
-    fn literal_value(lit: i32, assignment: &[bool]) -> bool {
+    fn literal_value(lit: i64, assignment: &[bool]) -> bool {
         let var = lit.unsigned_abs() as usize - 1;
         let value = assignment.get(var).copied().unwrap_or(false);
         if lit > 0 {
@@ -149,10 +164,15 @@ impl Problem for NAESatisfiability {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let assignment = super::config_to_assignment(config);
-            self.is_nae_satisfying(&assignment)
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let assignment = super::config_to_assignment(config);
+                self.is_nae_satisfying(&assignment)
+            })
         })
     }
 
@@ -172,21 +192,24 @@ struct NAESatisfiabilityDef {
 }
 
 impl TryFrom<NAESatisfiabilityDef> for NAESatisfiability {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: NAESatisfiabilityDef) -> Result<Self, Self::Error> {
         Self::try_new(value.num_vars, value.clauses)
     }
 }
 
-fn validate_clause_lengths(clauses: &[CNFClause]) -> Result<(), String> {
+fn validate_clause_lengths(
+    clauses: &[CNFClause],
+) -> Result<(), crate::registry::ConstructionError> {
     for (index, clause) in clauses.iter().enumerate() {
         if clause.len() < 2 {
             return Err(format!(
                 "Clause {} has {} literals, expected at least 2",
                 index,
                 clause.len()
-            ));
+            )
+            .into());
         }
     }
     Ok(())

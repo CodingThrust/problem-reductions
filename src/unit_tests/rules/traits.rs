@@ -18,29 +18,29 @@ struct TargetProblem;
 
 impl Problem for SourceProblem {
     const NAME: &'static str = "Source";
-    type Value = i32;
+    type Value = i64;
     fn dims(&self) -> Vec<usize> {
         vec![2, 2]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        (config[0] + config[1]) as i32
+    fn evaluate(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
+        Ok((config[0] + config[1]) as i64)
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![("graph", "SimpleGraph"), ("weight", "i64")]
     }
 }
 
 impl Problem for TargetProblem {
     const NAME: &'static str = "Target";
-    type Value = i32;
+    type Value = i64;
     fn dims(&self) -> Vec<usize> {
         vec![2, 2]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        (config[0] + config[1]) as i32
+    fn evaluate(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
+        Ok((config[0] + config[1]) as i64)
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![("graph", "SimpleGraph"), ("weight", "i64")]
     }
 }
 
@@ -65,19 +65,20 @@ impl ReductionResult for TestReduction {
 
 impl ReduceTo<TargetProblem> for SourceProblem {
     type Result = TestReduction;
-    fn reduce_to(&self) -> TestReduction {
-        TestReduction {
+    fn reduce_to(&self) -> Result<TestReduction, crate::rules::ReductionError> {
+        Ok(TestReduction {
             target: TargetProblem,
-        }
+        })
     }
 }
 
 #[test]
 fn test_reduction() {
     let source = SourceProblem;
-    let result = <SourceProblem as ReduceTo<TargetProblem>>::reduce_to(&source);
+    let result = <SourceProblem as ReduceTo<TargetProblem>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = result.target_problem();
-    assert_eq!(target.evaluate(&[1, 1]), 2);
+    assert_eq!(target.evaluate(&[1, 1]).unwrap(), 2);
     assert_eq!(result.extract_solution(&[1, 0]).unwrap(), vec![1, 0]);
 }
 
@@ -105,8 +106,8 @@ impl Problem for AggregateSourceProblem {
         vec![2]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -122,8 +123,8 @@ impl Problem for AggregateTargetProblem {
         vec![2]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Self::Value {
-        Sum(config.iter().sum::<usize>() as u64)
+    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+        Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -152,11 +153,11 @@ impl AggregateReductionResult for TestAggregateReduction {
 impl ReduceToAggregate<AggregateTargetProblem> for AggregateSourceProblem {
     type Result = TestAggregateReduction;
 
-    fn reduce_to_aggregate(&self) -> Self::Result {
-        TestAggregateReduction {
+    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(TestAggregateReduction {
             target: AggregateTargetProblem,
             offset: 3,
-        }
+        })
     }
 }
 
@@ -166,7 +167,8 @@ fn test_aggregate_reduction_extracts_value() {
     let result =
         <AggregateSourceProblem as ReduceToAggregate<AggregateTargetProblem>>::reduce_to_aggregate(
             &source,
-        );
+        )
+        .expect("reduction should succeed");
 
     assert_eq!(result.extract_value(Sum(7)), Sum(10));
 }

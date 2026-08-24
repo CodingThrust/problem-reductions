@@ -50,8 +50,8 @@ inventory::submit! {
 /// let problem = BMF::new(a, 2);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
-/// assert!(problem.is_exact(&witness));
+/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// assert!(problem.is_exact(&witness).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BMF {
@@ -158,10 +158,13 @@ impl BMF {
     }
 
     /// Compute the Hamming distance between the target and the product.
-    pub fn hamming_distance(&self, config: &[usize]) -> usize {
+    pub fn hamming_distance(
+        &self,
+        config: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
         let (b, c) = self.extract_factors(config);
 
-        (0..self.m)
+        let distance = (0..self.m)
             .map(|i| {
                 (0..self.n)
                     .filter(|&j| {
@@ -170,17 +173,30 @@ impl BMF {
                     })
                     .count()
             })
-            .sum()
+            .sum::<usize>();
+        i64::try_from(distance).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting Boolean-matrix Hamming distance to i64".into(),
+            )
+        })
     }
 
     /// Check if the factorization is exact (Hamming distance = 0).
-    pub fn is_exact(&self, config: &[usize]) -> bool {
-        self.hamming_distance(config) == 0
+    pub fn is_exact(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.hamming_distance(config)? == 0)
     }
 
     /// Total number of 1s in B and C (the factor size to be minimized when exact).
-    pub fn total_factor_size(&self, config: &[usize]) -> usize {
-        config.iter().filter(|&&x| x == 1).count()
+    pub fn total_factor_size(
+        &self,
+        config: &[usize],
+    ) -> Result<i64, crate::traits::EvaluationError> {
+        let size = config.iter().filter(|&&x| x == 1).count();
+        i64::try_from(size).map_err(|_| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "converting Boolean factor size to i64".into(),
+            )
+        })
     }
 }
 
@@ -207,19 +223,24 @@ pub(crate) fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn dims(&self) -> Vec<usize> {
         // B: m*k + C: k*n binary variables
         vec![2; self.m * self.k + self.k * self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        // Feasible iff B*C = A exactly; objective is total factor size (|B| + |C| in 1s).
-        if self.hamming_distance(config) != 0 {
-            return Min(None);
-        }
-        Min(Some(self.total_factor_size(config) as i32))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.dims().len() || config.iter().any(|&value| value > 1) {
+                return Ok(Min(None));
+            }
+            // Feasible iff B*C = A exactly; objective is total factor size (|B| + |C| in 1s).
+            if self.hamming_distance(config)? != 0 {
+                return Ok(Min(None));
+            }
+            Min(Some(self.total_factor_size(config)?))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

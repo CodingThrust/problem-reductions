@@ -15,16 +15,17 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
     );
     let direct = BruteForce::new()
         .find_witness(&source)
+        .unwrap()
         .expect("source instance should have an optimal solution");
-    assert!(source.evaluate(&direct).0.is_some());
+    assert!(source.evaluate(&direct).unwrap().0.is_some());
 
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(source.evaluate(&extracted).0.is_some());
+    assert!(source.evaluate(&extracted).unwrap().0.is_some());
 }
 
 #[test]
@@ -36,14 +37,14 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
         vec![1, 1],
     );
 
-    let bf_value = BruteForce::new().solve(&source);
+    let bf_value = BruteForce::new().solve(&source).unwrap();
 
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = source.evaluate(&extracted);
+    let ilp_value = source.evaluate(&extracted).unwrap();
 
     assert_eq!(
         ilp_value, bf_value,
@@ -60,14 +61,14 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
         vec![3, 1],
     );
 
-    let bf_value = BruteForce::new().solve(&source);
+    let bf_value = BruteForce::new().solve(&source).unwrap();
 
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = source.evaluate(&extracted);
+    let ilp_value = source.evaluate(&extracted).unwrap();
 
     assert_eq!(
         ilp_value, bf_value,

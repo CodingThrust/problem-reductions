@@ -19,7 +19,8 @@ fn no_instance_simple() -> ExactCoverBy3Sets {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_closed_loop() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -31,7 +32,8 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_closed_loop() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let m = source.num_subsets();
@@ -66,7 +68,8 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_structure() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
     let source = yes_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     // Build a target config that selects both root-to-set edges (indices 2 and 3).
     // The remaining selections do not matter for extraction.
@@ -86,7 +89,8 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
 #[test]
 fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     let source = no_instance_simple();
-    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i32>>::reduce_to(&source);
+    let reduction = ReduceTo::<BoundedDiameterSpanningTree<SimpleGraph, i64>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The target should be infeasible: no spanning tree satisfies both weight
@@ -95,6 +99,6 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
     // returns None (witnesses are configs that evaluate to Or(true), and none
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
-    assert!(BruteForce::new().find_witness(target).is_none());
-    assert_eq!(BruteForce::new().solve(target), Or(false));
+    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert_eq!(BruteForce::new().solve(target).unwrap(), Or(false));
 }

@@ -52,8 +52,8 @@ inventory::submit! {
 /// let problem = MinimumCoveringByCliques::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
-/// let value = problem.evaluate(&solution);
+/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let value = problem.evaluate(&solution).unwrap();
 /// assert_eq!(value, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,7 +129,7 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCoveringByCliques";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
@@ -139,18 +139,26 @@ where
         vec![self.graph.num_edges(); self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.graph.num_edges() {
-            return Min(None);
-        }
-        if self.graph.num_edges() == 0 {
-            return Min(Some(0));
-        }
-        if !self.is_valid_cover(config) {
-            return Min(None);
-        }
-        let distinct_groups: HashSet<usize> = config.iter().copied().collect();
-        Min(Some(distinct_groups.len()))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.graph.num_edges() {
+                return Ok(Min(None));
+            }
+            if self.graph.num_edges() == 0 {
+                return Ok(Min(Some(0)));
+            }
+            if !self.is_valid_cover(config) {
+                return Ok(Min(None));
+            }
+            let distinct_groups: HashSet<usize> = config.iter().copied().collect();
+            Min(Some(i64::try_from(distinct_groups.len()).map_err(
+                |_| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "converting clique-cover size to i64".into(),
+                    )
+                },
+            )?))
+        })
     }
 }
 

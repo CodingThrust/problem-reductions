@@ -16,7 +16,7 @@ use crate::traits::Problem;
 #[test]
 fn test_jl_parity_maxcut_to_spinglass_path() {
     let graph = ReductionGraph::new();
-    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
+    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i64>::variant());
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
     let rpath = graph
         .find_all_paths("MaxCut", &src_var, "SpinGlass", &dst_var)
@@ -42,9 +42,10 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
+    let source = MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges));
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
+        .expect("MaxCut -> SpinGlass reduction should not fail")
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
@@ -52,11 +53,11 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap();
+    let target_solution = solver.find_witness(target).unwrap().unwrap();
     let source_solution = chain.extract_solution(&target_solution).unwrap();
 
     // Source solution should be valid
-    let metric = source.evaluate(&source_solution);
+    let metric = source.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
 }
 
@@ -65,7 +66,7 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
 #[test]
 fn test_jl_parity_maxcut_to_qubo_path() {
     let graph = ReductionGraph::new();
-    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
+    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i64>::variant());
     let dst_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
     let rpath = graph
         .find_all_paths("MaxCut", &src_var, "QUBO", &dst_var)
@@ -91,11 +92,12 @@ fn test_jl_parity_maxcut_to_qubo_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
+    let source = MaxCut::<SimpleGraph, i64>::unweighted(SimpleGraph::new(10, petersen_edges));
     let chain = graph
         .reduce_along_path(&rpath, &source as &dyn std::any::Any)
+        .expect("MaxCut -> QUBO reduction should not fail")
         .expect("Should reduce along path");
-    assert_optimization_round_trip_chain::<MaxCut<SimpleGraph, i32>, QUBO<f64>>(
+    assert_optimization_round_trip_chain::<MaxCut<SimpleGraph, i64>, QUBO<f64>>(
         &source,
         &chain,
         "MaxCut->QUBO path parity",
@@ -122,6 +124,7 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let factoring = Factoring::new(2, 1, 3);
     let chain = graph
         .reduce_along_path(&rpath, &factoring as &dyn std::any::Any)
+        .expect("Factoring -> SpinGlass reduction should not fail")
         .expect("Should reduce along path");
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
@@ -135,16 +138,12 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     use crate::models::algebraic::ILP;
     use crate::rules::traits::{ReduceTo, ReductionResult};
     let ilp_solver = ILPSolver::new();
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&factoring).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     let ilp_solution = ilp_solver
         .solve(ilp)
         .expect("ILP solver should find factoring solution");
     let factoring_solution = reduction.extract_solution(&ilp_solution).unwrap();
-    let metric = factoring.evaluate(&factoring_solution);
-    assert_eq!(
-        metric.unwrap(),
-        0,
-        "Factoring->ILP: ILP solution should yield distance 0"
-    );
+    let metric = factoring.evaluate(&factoring_solution).unwrap();
+    assert!(metric.unwrap(), "Factoring->ILP solution must be valid");
 }

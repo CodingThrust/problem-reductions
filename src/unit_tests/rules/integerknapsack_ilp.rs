@@ -8,8 +8,8 @@ use crate::solvers::ILPSolver;
 
 #[test]
 fn test_integerknapsack_to_ilp_closed_loop() {
-    let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_bf_vs_ilp(&source, &reduction);
 
@@ -22,8 +22,8 @@ fn test_integerknapsack_to_ilp_closed_loop() {
 
 #[test]
 fn test_integerknapsack_to_ilp_structure() {
-    let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let source = IntegerKnapsack::new(vec![3, 4, 5], vec![4, 5, 7], 10).unwrap();
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 3);
@@ -52,23 +52,14 @@ fn test_integerknapsack_to_ilp_structure() {
 
 #[test]
 fn test_integerknapsack_to_ilp_zero_capacity() {
-    let source = IntegerKnapsack::new(vec![1, 2], vec![10, 20], 0);
-    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&source);
+    let source = IntegerKnapsack::new(vec![1, 2], vec![10, 20], 0).unwrap();
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, vec![0, 0]);
-}
-
-#[test]
-#[should_panic(
-    expected = "IntegerKnapsack -> ILP requires multiplicity bounds to fit in ILP<i32> variable bounds"
-)]
-fn test_integerknapsack_to_ilp_rejects_too_large_multiplicity_bounds() {
-    let source = IntegerKnapsack::new(vec![1], vec![1], i32::MAX as i64 + 1);
-    let _: super::ReductionIntegerKnapsackToILP = ReduceTo::<ILP<i32>>::reduce_to(&source);
 }
 
 #[cfg(feature = "example-db")]

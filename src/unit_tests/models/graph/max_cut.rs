@@ -18,7 +18,7 @@ fn test_maxcut_creation() {
 
 #[test]
 fn test_maxcut_unweighted() {
-    let problem = MaxCut::<_, i32>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_edges(), 2);
 }
 
@@ -29,13 +29,19 @@ fn test_cut_size_function() {
     let weights = vec![1, 2, 3];
 
     // Partition {0} vs {1, 2}
-    assert_eq!(cut_size(&graph, &weights, &[false, true, true]), 4); // 1 + 3
+    assert_eq!(cut_size(&graph, &weights, &[false, true, true]).unwrap(), 4); // 1 + 3
 
     // Partition {0, 1} vs {2}
-    assert_eq!(cut_size(&graph, &weights, &[false, false, true]), 5); // 2 + 3
+    assert_eq!(
+        cut_size(&graph, &weights, &[false, false, true]).unwrap(),
+        5
+    ); // 2 + 3
 
     // All same partition
-    assert_eq!(cut_size(&graph, &weights, &[false, false, false]), 0);
+    assert_eq!(
+        cut_size(&graph, &weights, &[false, false, false]).unwrap(),
+        0
+    );
 }
 
 #[test]
@@ -63,7 +69,7 @@ fn test_new() {
 
 #[test]
 fn test_unweighted() {
-    let problem = MaxCut::<_, i32>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.edge_weights(), vec![1, 1]);
@@ -71,7 +77,7 @@ fn test_unweighted() {
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MaxCut::<_, i32>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem = MaxCut::<_, i64>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 2);
@@ -99,11 +105,11 @@ fn test_jl_parity_evaluation() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let weighted_edges = jl_parse_weighted_edges(&instance["instance"]);
         let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
-        let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+        let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let problem = MaxCut::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
-            let result = problem.evaluate(&config);
+            let result = problem.evaluate(&config).unwrap();
             let jl_size = eval["size"].as_i64().unwrap();
             assert!(result.is_valid(), "MaxCut should always be valid");
             assert_eq!(
@@ -113,7 +119,7 @@ fn test_jl_parity_evaluation() {
                 config
             );
         }
-        let best = BruteForce::new().find_all_witnesses(&problem);
+        let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "MaxCut best solutions mismatch");
@@ -127,14 +133,14 @@ fn test_cut_size_method() {
         vec![1, 2, 3],
     );
     // Partition {0} vs {1, 2}: cuts edges (0,1)=1 and (0,2)=3
-    assert_eq!(problem.cut_size(&[0, 1, 1]), 4);
+    assert_eq!(problem.cut_size(&[0, 1, 1]).unwrap(), 4);
     // All same partition: no edges cut
-    assert_eq!(problem.cut_size(&[0, 0, 0]), 0);
+    assert_eq!(problem.cut_size(&[0, 0, 0]).unwrap(), 0);
 }
 
 #[test]
 fn test_size_getters() {
-    let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 2]);
+    let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 2]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
 }
@@ -144,19 +150,19 @@ fn test_maxcut_paper_example() {
     use crate::traits::Problem;
     // Paper: house graph, S = {v_0, v_3}, cut = 5
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
-    let problem = MaxCut::<_, i32>::unweighted(graph);
+    let problem = MaxCut::<_, i64>::unweighted(graph);
     let config = vec![1, 0, 0, 1, 0]; // S = {v_0, v_3}
-    let result = problem.evaluate(&config);
+    let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 5);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&best).unwrap(), 5);
+    let best = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 5);
 }
 #[test]
 fn create_specs_use_edge_weights_for_both_weight_variants() {
-    let weighted = MaxCut::try_from(MaxCutI32CreateSpec {
+    let weighted = MaxCut::try_from(MaxCutI64CreateSpec {
         graph: vec![(0, 1)],
         num_vertices: None,
         edge_weights: None,
@@ -170,5 +176,5 @@ fn create_specs_use_edge_weights_for_both_weight_variants() {
     .unwrap();
     assert_eq!(weighted.edge_weights(), vec![1]);
     assert_eq!(unit.edge_weights(), vec![One]);
-    assert_eq!(MaxCutI32CreateSpec::FIELDS[2].name, "edge_weights");
+    assert_eq!(MaxCutI64CreateSpec::FIELDS[2].name, "edge_weights");
 }

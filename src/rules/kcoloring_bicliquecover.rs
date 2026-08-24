@@ -127,7 +127,7 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
 impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToBicliqueCover;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.graph().num_vertices();
         let q = self.num_colors();
 
@@ -195,11 +195,11 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
         let right_size = 2 * n;
         let target = BicliqueCover::new(BipartiteGraph::new(left_size, right_size, edges), n + q);
 
-        ReductionKColoringToBicliqueCover {
+        Ok(ReductionKColoringToBicliqueCover {
             target,
             num_vertices: n,
             num_colors: q,
-        }
+        })
     }
 }
 

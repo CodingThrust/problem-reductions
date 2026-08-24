@@ -49,7 +49,8 @@ fn infeasible_instance() -> DirectedTwoCommodityIntegralFlow {
 #[test]
 fn test_directedtwocommodityintegralflow_to_ilp_structure() {
     let problem = feasible_instance();
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 8 arcs → 2*8 = 16 variables
@@ -71,20 +72,22 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("feasible instance has a witness");
     assert!(
-        problem.evaluate(&bf_solution).0,
+        problem.evaluate(&bf_solution).unwrap().0,
         "brute force solution is valid"
     );
 
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "ILP extracted solution should be a valid flow"
     );
 }
@@ -92,7 +95,8 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
 #[test]
 fn test_directedtwocommodityintegralflow_to_ilp_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible flow instance should produce infeasible ILP"
@@ -104,7 +108,8 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
     let graph = DirectedGraph::new(4, vec![(2, 3), (3, 1)]);
     let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1, 1], 0, 1, 2, 3, 1, 0);
 
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "commodity 1 must conserve flow at commodity 2's source in the ILP reduction"
@@ -114,7 +119,8 @@ fn test_directedtwocommodityintegralflow_to_ilp_disallows_using_other_commodity_
 #[test]
 fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
     let problem = feasible_instance();
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // f1 routes via (0,2),(2,4): arcs 0,4 = 1; rest 0 for commodity 1
     // f2 routes via (1,3),(3,5): arcs 3,7 = 1; rest 0 for commodity 2
@@ -127,7 +133,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), 16);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "manually extracted solution should be valid"
     );
 }
@@ -135,6 +141,27 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
 #[test]
 fn test_directedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
-    let reduction: ReductionD2CIFToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionD2CIFToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
+}
+
+#[test]
+fn test_directedtwocommodityintegralflow_to_ilp_rejects_inexact_capacity() {
+    let problem = DirectedTwoCommodityIntegralFlow::new(
+        DirectedGraph::new(2, vec![(0, 1)]),
+        vec![crate::types::MAX_EXACT_F64_INTEGER + 1],
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+    );
+
+    let error = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ReductionError::InexactFloatConversion { .. }
+    ));
 }

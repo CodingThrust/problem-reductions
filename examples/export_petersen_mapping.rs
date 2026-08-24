@@ -47,7 +47,7 @@ struct SourceGraph {
 struct GridVisualization {
     nodes: Vec<NodeData>,
     edges: Vec<(usize, usize)>,
-    mis_overhead: i32,
+    mis_overhead: i64,
     padding: usize,
     spacing: usize,
     weighted: bool,
@@ -55,9 +55,9 @@ struct GridVisualization {
 
 #[derive(Serialize)]
 struct NodeData {
-    row: i32,
-    col: i32,
-    weight: i32,
+    row: i64,
+    col: i64,
+    weight: i64,
 }
 
 impl GridVisualization {
@@ -139,7 +139,7 @@ pub fn run(output_dir: &Path) {
 
     // Map to weighted King's subgraph (square lattice)
     println!("1. King's Subgraph (Weighted)");
-    let square_weighted_result = ksg::map_weighted(num_vertices, &petersen_edges);
+    let square_weighted_result = ksg::map_weighted(num_vertices, &petersen_edges).unwrap();
     let square_weighted_viz = GridVisualization::from_result(&square_weighted_result, true);
     println!(
         "   Vertices: {}, Edges: {}",
@@ -151,7 +151,7 @@ pub fn run(output_dir: &Path) {
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
         square_weighted_result.mis_overhead,
-        petersen_mis as i32 + square_weighted_result.mis_overhead
+        petersen_mis as i64 + square_weighted_result.mis_overhead
     );
     write_json(
         &square_weighted_viz,
@@ -160,7 +160,7 @@ pub fn run(output_dir: &Path) {
 
     // Map to unweighted King's subgraph (square lattice)
     println!("\n2. King's Subgraph (Unweighted)");
-    let square_unweighted_result = ksg::map_unweighted(num_vertices, &petersen_edges);
+    let square_unweighted_result = ksg::map_unweighted(num_vertices, &petersen_edges).unwrap();
     let square_unweighted_viz = GridVisualization::from_result(&square_unweighted_result, false);
     println!(
         "   Vertices: {}, Edges: {}",
@@ -175,7 +175,7 @@ pub fn run(output_dir: &Path) {
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
         square_unweighted_result.mis_overhead,
-        petersen_mis as i32 + square_unweighted_result.mis_overhead
+        petersen_mis as i64 + square_unweighted_result.mis_overhead
     );
     write_json(
         &square_unweighted_viz,
@@ -184,7 +184,7 @@ pub fn run(output_dir: &Path) {
 
     // Map to weighted triangular lattice
     println!("\n3. Triangular Lattice (Weighted)");
-    let triangular_result = triangular::map_weighted(num_vertices, &petersen_edges);
+    let triangular_result = triangular::map_weighted(num_vertices, &petersen_edges).unwrap();
     let triangular_viz = GridVisualization::from_result(&triangular_result, true);
     println!(
         "   Vertices: {}, Edges: {}",
@@ -196,7 +196,7 @@ pub fn run(output_dir: &Path) {
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
         triangular_result.mis_overhead,
-        petersen_mis as i32 + triangular_result.mis_overhead
+        petersen_mis as i64 + triangular_result.mis_overhead
     );
     write_json(
         &triangular_viz,
@@ -209,19 +209,19 @@ pub fn run(output_dir: &Path) {
     println!(
         "King's subgraph (weighted):   {} vertices, MIS = {} (overhead Δ = {})",
         square_weighted_viz.nodes.len(),
-        petersen_mis as i32 + square_weighted_result.mis_overhead,
+        petersen_mis as i64 + square_weighted_result.mis_overhead,
         square_weighted_result.mis_overhead
     );
     println!(
         "King's subgraph (unweighted): {} vertices, MIS = {} (overhead Δ = {})",
         square_unweighted_viz.nodes.len(),
-        petersen_mis as i32 + square_unweighted_result.mis_overhead,
+        petersen_mis as i64 + square_unweighted_result.mis_overhead,
         square_unweighted_result.mis_overhead
     );
     println!(
         "Triangular lattice (weighted): {} vertices, MIS = {} (overhead Δ = {})",
         triangular_viz.nodes.len(),
-        petersen_mis as i32 + triangular_result.mis_overhead,
+        petersen_mis as i64 + triangular_result.mis_overhead,
         triangular_result.mis_overhead
     );
 

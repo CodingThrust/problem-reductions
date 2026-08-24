@@ -113,7 +113,7 @@ pub struct SolveParams {
     )]
     pub solver: Option<String>,
     #[schemars(description = "Timeout in seconds (0 = no limit, default: 0)")]
-    pub timeout: Option<u64>,
+    pub timeout: Option<i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ impl McpServer {
             );
         }
 
-        let result = problem.evaluate_dyn(config);
+        let result = problem.evaluate_dyn(config)?;
         let json = serde_json::json!({
             "problem": problem.problem_name(),
             "config": config,
@@ -453,12 +453,13 @@ impl McpServer {
         &self,
         problem_json: &str,
         solver: Option<&str>,
-        timeout: Option<u64>,
+        timeout: Option<i64>,
     ) -> anyhow::Result<String> {
         let request = solver_request(solver)?;
 
         let json: serde_json::Value = serde_json::from_str(problem_json)?;
-        let timeout_secs = timeout.unwrap_or(0);
+        let timeout_secs = u64::try_from(timeout.unwrap_or(0))
+            .map_err(|_| anyhow::anyhow!("timeout must be a nonnegative i64"))?;
 
         // Detect if it's a bundle or a problem
         let is_bundle = json.get("source").is_some()

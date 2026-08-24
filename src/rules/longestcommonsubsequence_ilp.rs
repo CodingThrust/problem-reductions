@@ -55,7 +55,7 @@ impl ReductionResult for ReductionLCSToILP {
 impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     type Result = ReductionLCSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let alphabet_size = self.alphabet_size();
         let max_length = self.max_length();
         let strings = self.strings();
@@ -154,11 +154,11 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
 
         let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
-        ReductionLCSToILP {
+        Ok(ReductionLCSToILP {
             target,
             alphabet_size,
             max_length,
-        }
+        })
     }
 }
 

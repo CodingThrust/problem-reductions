@@ -52,7 +52,7 @@ inventory::submit! {
 /// ]);
 /// let problem = Kernel::new(graph);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -94,37 +94,42 @@ impl Problem for Kernel {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        let n = self.graph.num_vertices();
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.graph.num_vertices();
 
-        // Collect selected vertices
-        let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
+            // Collect selected vertices
+            let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
 
-        // Independence: no arc between any two selected vertices
-        for u in 0..n {
-            if !selected[u] {
-                continue;
-            }
-            // Check that no successor of u is also selected
-            for &v in &self.graph.successors(u) {
-                if selected[v] {
-                    return crate::types::Or(false);
+            // Independence: no arc between any two selected vertices
+            for u in 0..n {
+                if !selected[u] {
+                    continue;
+                }
+                // Check that no successor of u is also selected
+                for &v in &self.graph.successors(u) {
+                    if selected[v] {
+                        return Ok(crate::types::Or(false));
+                    }
                 }
             }
-        }
 
-        // Absorption: every unselected vertex must have an arc to some selected vertex
-        for u in 0..n {
-            if selected[u] {
-                continue;
+            // Absorption: every unselected vertex must have an arc to some selected vertex
+            for u in 0..n {
+                if selected[u] {
+                    continue;
+                }
+                let has_arc_to_selected = self.graph.successors(u).iter().any(|&v| selected[v]);
+                if !has_arc_to_selected {
+                    return Ok(crate::types::Or(false));
+                }
             }
-            let has_arc_to_selected = self.graph.successors(u).iter().any(|&v| selected[v]);
-            if !has_arc_to_selected {
-                return crate::types::Or(false);
-            }
-        }
 
-        crate::types::Or(true)
+            crate::types::Or(true)
+        })
     }
 }
 

@@ -40,7 +40,7 @@ fn constraint_signature(constraint: &(Comparison, f64, Vec<(usize, f64)>)) -> St
 fn test_threedimensionalmatching_to_ilp_structure() {
     let problem = canonical_problem();
     let reduction: ReductionThreeDimensionalMatchingToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 5);
@@ -88,10 +88,11 @@ fn test_threedimensionalmatching_to_ilp_structure() {
 fn test_threedimensionalmatching_to_ilp_closed_loop() {
     let problem = canonical_problem();
     let reduction: ReductionThreeDimensionalMatchingToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
         .find_witness(&problem)
+        .unwrap()
         .expect("canonical 3DM instance should be feasible");
     assert_eq!(bf_witness, vec![1, 1, 1, 0, 0]);
 
@@ -101,17 +102,17 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(extracted, vec![1, 1, 1, 0, 0]);
-    assert_eq!(problem.evaluate(&extracted), Or(true));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
 #[test]
 fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
     let problem = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1)]);
     let reduction: ReductionThreeDimensionalMatchingToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert!(
-        BruteForce::new().find_witness(&problem).is_none(),
+        BruteForce::new().find_witness(&problem).unwrap().is_none(),
         "source instance should be infeasible"
     );
     assert!(
@@ -123,12 +124,15 @@ fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
 #[test]
 fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
     let problem = singleton_problem();
-    let direct = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let direct = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let to_three_partition = ReduceTo::<ThreePartition>::reduce_to(&problem);
+    let to_three_partition =
+        ReduceTo::<ThreePartition>::reduce_to(&problem).expect("reduction should succeed");
     let to_resource_constrained =
-        ReduceTo::<ResourceConstrainedScheduling>::reduce_to(to_three_partition.target_problem());
-    let indirect = ReduceTo::<ILP<bool>>::reduce_to(to_resource_constrained.target_problem());
+        ReduceTo::<ResourceConstrainedScheduling>::reduce_to(to_three_partition.target_problem())
+            .expect("reduction should succeed");
+    let indirect = ReduceTo::<ILP<bool>>::reduce_to(to_resource_constrained.target_problem())
+        .expect("reduction should succeed");
 
     let solver = ILPSolver::new();
     let direct_solution = solver
@@ -136,7 +140,7 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
         .expect("direct ILP should solve");
     let direct_source = direct.extract_solution(&direct_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&direct_source), Or(true));
+    assert_eq!(problem.evaluate(&direct_source).unwrap(), Or(true));
     let indirect_solution = solver.solve(indirect.target_problem());
     assert!(
         matches!(indirect_solution, Err(ILPSolveError::InvalidSolution(_))),

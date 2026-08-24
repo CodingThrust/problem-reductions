@@ -47,32 +47,47 @@ fn test_quadratic_diophantine_equations_creation_and_accessors() {
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_yes() {
     let problem = yes_problem();
-    assert_eq!(problem.evaluate(&config_for_x(&problem, 1)), Or(true));
-    assert_eq!(problem.evaluate(&config_for_x(&problem, 2)), Or(false));
-    assert_eq!(problem.evaluate(&config_for_x(&problem, 3)), Or(false));
-    assert_eq!(problem.evaluate(&config_for_x(&problem, 4)), Or(true));
+    assert_eq!(
+        problem.evaluate(&config_for_x(&problem, 1)).unwrap(),
+        Or(true)
+    );
+    assert_eq!(
+        problem.evaluate(&config_for_x(&problem, 2)).unwrap(),
+        Or(false)
+    );
+    assert_eq!(
+        problem.evaluate(&config_for_x(&problem, 3)).unwrap(),
+        Or(false)
+    );
+    assert_eq!(
+        problem.evaluate(&config_for_x(&problem, 4)).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_no() {
     let problem = no_problem();
     assert_eq!(problem.dims(), vec![2]);
-    assert_eq!(problem.evaluate(&config_for_x(&problem, 1)), Or(false));
+    assert_eq!(
+        problem.evaluate(&config_for_x(&problem, 1)).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_invalid_config() {
     let problem = yes_problem();
-    assert_eq!(problem.evaluate(&[]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Or(false));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_c_le_a() {
     let problem = QuadraticDiophantineEquations::new(10, 1, 5);
     assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert_eq!(problem.evaluate(&[]), Or(false));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Or(false));
 }
 
 #[test]
@@ -90,8 +105,8 @@ fn test_quadratic_diophantine_equations_bigint_witness_encoding_round_trip() {
 fn test_quadratic_diophantine_equations_solver_finds_witness() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
     let x = problem.decode_witness(&witness).unwrap();
     assert!(matches!(x, v if v == bu(1) || v == bu(4)));
 }
@@ -100,9 +115,11 @@ fn test_quadratic_diophantine_equations_solver_finds_witness() {
 fn test_quadratic_diophantine_equations_solver_finds_all_witnesses() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 2);
-    assert!(all.iter().all(|sol| problem.evaluate(sol) == Or(true)));
+    assert!(all
+        .iter()
+        .all(|sol| problem.evaluate(sol).unwrap() == Or(true)));
     let decoded = all
         .iter()
         .map(|sol| problem.decode_witness(sol).unwrap())
@@ -114,7 +131,7 @@ fn test_quadratic_diophantine_equations_solver_finds_all_witnesses() {
 fn test_quadratic_diophantine_equations_solver_no_witness() {
     let problem = no_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -159,11 +176,11 @@ fn test_quadratic_diophantine_equations_check_x() {
 fn test_quadratic_diophantine_equations_paper_example() {
     let problem = QuadraticDiophantineEquations::new(3, 5, 53);
     let config = config_for_x(&problem, 1);
-    assert_eq!(problem.evaluate(&config), Or(true));
+    assert_eq!(problem.evaluate(&config).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]

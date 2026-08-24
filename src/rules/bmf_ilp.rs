@@ -48,7 +48,7 @@ impl ReductionResult for ReductionBMFToILP {
 impl ReduceTo<ILP<bool>> for BMF {
     type Result = ReductionBMFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.rows();
         let n = self.cols();
         let k = self.rank();
@@ -105,7 +105,7 @@ impl ReduceTo<ILP<bool>> for BMF {
         objective.extend((0..k * n).map(|idx| (c_offset + idx, 1.0)));
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionBMFToILP { target, m, n, k }
+        Ok(ReductionBMFToILP { target, m, n, k })
     }
 }
 

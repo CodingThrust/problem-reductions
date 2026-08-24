@@ -31,7 +31,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// Result of reducing HamiltonianCircuit to RuralPostman.
 #[derive(Debug, Clone)]
 pub struct ReductionHamiltonianCircuitToRuralPostman {
-    target: RuralPostman<SimpleGraph, i32>,
+    target: RuralPostman<SimpleGraph, i64>,
     /// Number of vertices in the original graph.
     n: usize,
     /// Edges of the original graph (for solution extraction).
@@ -40,7 +40,7 @@ pub struct ReductionHamiltonianCircuitToRuralPostman {
 
 impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
     type Source = HamiltonianCircuit<SimpleGraph>;
-    type Target = RuralPostman<SimpleGraph, i32>;
+    type Target = RuralPostman<SimpleGraph, i64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -110,10 +110,10 @@ impl ReductionResult for ReductionHamiltonianCircuitToRuralPostman {
         num_required_edges = "num_vertices",
     }
 )]
-impl ReduceTo<RuralPostman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph> {
+impl ReduceTo<RuralPostman<SimpleGraph, i64>> for HamiltonianCircuit<SimpleGraph> {
     type Result = ReductionHamiltonianCircuitToRuralPostman;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let source_edges: Vec<(usize, usize)> = self.graph().edges();
         let m = source_edges.len();
@@ -144,11 +144,11 @@ impl ReduceTo<RuralPostman<SimpleGraph, i32>> for HamiltonianCircuit<SimpleGraph
         let target_graph = SimpleGraph::new(2 * n, target_edges);
         let target = RuralPostman::new(target_graph, edge_weights, required_edges);
 
-        ReductionHamiltonianCircuitToRuralPostman {
+        Ok(ReductionHamiltonianCircuitToRuralPostman {
             target,
             n,
             source_edges,
-        }
+        })
     }
 }
 
@@ -169,7 +169,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   2->0: bwd edge of source edge 2=(0,2), idx=8
             // Required edges all have multiplicity 1.
             // target_config = [1, 1, 1, 1, 0, 1, 0, 0, 1]
-            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, RuralPostman<SimpleGraph, i64>>(
                 source,
                 SolutionPair {
                     source_config: vec![0, 1, 2],

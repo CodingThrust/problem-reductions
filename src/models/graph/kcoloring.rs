@@ -48,11 +48,11 @@ inventory::submit! {
 /// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Verify all solutions are valid colorings
 /// for sol in &solutions {
-///     assert!(problem.evaluate(sol));
+///     assert!(problem.evaluate(sol).unwrap());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,13 +90,15 @@ struct RuntimeKColoringCreateSpec {
 fn simple_graph_from_create(
     edges: Vec<(usize, usize)>,
     num_vertices: Option<usize>,
-) -> Result<SimpleGraph, String> {
+) -> Result<SimpleGraph, crate::registry::ConstructionError> {
     if edges.is_empty() && num_vertices.is_none() {
-        return Err("num_vertices is required for an empty graph".to_string());
+        return Err("num_vertices is required for an empty graph"
+            .to_string()
+            .into());
     }
     for (index, &(u, v)) in edges.iter().enumerate() {
         if u == v {
-            return Err(format!("graph edge {index} is a self-loop at vertex {u}"));
+            return Err(format!("graph edge {index} is a self-loop at vertex {u}").into());
         }
     }
     let inferred = edges
@@ -110,13 +112,14 @@ fn simple_graph_from_create(
     if count < inferred {
         return Err(format!(
             "num_vertices {count} is too small for graph endpoints; need at least {inferred}"
-        ));
+        )
+        .into());
     }
     Ok(SimpleGraph::new(count, edges))
 }
 
 impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: FixedKColoringCreateSpec) -> Result<Self, Self::Error> {
         let num_colors = K::K.ok_or("runtime KColoring requires k")?;
@@ -129,11 +132,11 @@ impl<K: KValue> TryFrom<FixedKColoringCreateSpec> for KColoring<K, SimpleGraph> 
 }
 
 impl TryFrom<RuntimeKColoringCreateSpec> for KColoring<KN, SimpleGraph> {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: RuntimeKColoringCreateSpec) -> Result<Self, Self::Error> {
         if spec.k == 0 {
-            return Err("k must be positive".to_string());
+            return Err("k must be positive".to_string().into());
         }
         Ok(Self::with_k(
             simple_graph_from_create(spec.graph, spec.num_vertices)?,
@@ -229,8 +232,11 @@ where
         vec![self.num_colors; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_coloring(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_coloring(config)))
     }
 }
 
@@ -277,24 +283,24 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 crate::impl_random_generate!(KColoring<KN, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
     let k = spec.k.unwrap_or(3);
     if k == 0 {
-        return Err("k must be positive".to_string());
+        return Err("k must be positive".to_string().into());
     }
     Ok(KColoring::with_k(spec.graph()?, k))
 });
 crate::impl_random_generate!(KColoring<K2, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 2) { return Err("k must match the selected K2 variant".to_string()); }
+    if spec.k.is_some_and(|k| k != 2) { return Err("k must match the selected K2 variant".to_string().into()); }
     Ok(KColoring::new(spec.graph()?))
 });
 crate::impl_random_generate!(KColoring<K3, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 3) { return Err("k must match the selected K3 variant".to_string()); }
+    if spec.k.is_some_and(|k| k != 3) { return Err("k must match the selected K3 variant".to_string().into()); }
     Ok(KColoring::new(spec.graph()?))
 });
 crate::impl_random_generate!(KColoring<K4, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 4) { return Err("k must match the selected K4 variant".to_string()); }
+    if spec.k.is_some_and(|k| k != 4) { return Err("k must match the selected K4 variant".to_string().into()); }
     Ok(KColoring::new(spec.graph()?))
 });
 crate::impl_random_generate!(KColoring<K5, SimpleGraph>, crate::random::ColoringRandomSpec, |spec| {
-    if spec.k.is_some_and(|k| k != 5) { return Err("k must match the selected K5 variant".to_string()); }
+    if spec.k.is_some_and(|k| k != 5) { return Err("k must match the selected K5 variant".to_string().into()); }
     Ok(KColoring::new(spec.graph()?))
 });
 

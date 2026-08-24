@@ -74,7 +74,7 @@ inventory::submit! {
 /// let range_sets = vec![vec![0,1], vec![0,1], vec![0,1]];
 /// let problem = EquilibriumPoint::new(polynomials, range_sets).unwrap();
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -90,17 +90,18 @@ impl EquilibriumPoint {
     fn validate_inputs(
         polynomials: &[Vec<Vec<i64>>],
         range_sets: &[Vec<i64>],
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::registry::ConstructionError> {
         let n = polynomials.len();
         if range_sets.len() != n {
             return Err(format!(
                 "polynomials has {n} entries but range_sets has {} entries; lengths must match",
                 range_sets.len()
-            ));
+            )
+            .into());
         }
         for (i, m) in range_sets.iter().enumerate() {
             if m.is_empty() {
-                return Err(format!("range_sets[{i}] must be non-empty"));
+                return Err(format!("range_sets[{i}] must be non-empty").into());
             }
         }
         // Each factor must have length n+1 (constant + one coefficient per player).
@@ -111,7 +112,7 @@ impl EquilibriumPoint {
                     return Err(format!(
                         "polynomials[{i}][{j}] has {} coefficients but expected {expected_factor_len} (1 + num_players)",
                         factor.len()
-                    ));
+                    ).into());
                 }
             }
         }
@@ -119,7 +120,10 @@ impl EquilibriumPoint {
     }
 
     /// Create a new `EquilibriumPoint` instance, returning an error on invalid input.
-    pub fn new(polynomials: Vec<Vec<Vec<i64>>>, range_sets: Vec<Vec<i64>>) -> Result<Self, String> {
+    pub fn new(
+        polynomials: Vec<Vec<Vec<i64>>>,
+        range_sets: Vec<Vec<i64>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&polynomials, &range_sets)?;
         Ok(Self {
             polynomials,
@@ -145,21 +149,37 @@ impl EquilibriumPoint {
     /// Evaluate F_i at a given assignment y (as i64 slice).
     ///
     /// Returns the product of all affine factors for player i.
-    fn eval_payoff(&self, player: usize, assignment: &[i64]) -> i64 {
+    fn eval_payoff(
+        &self,
+        player: usize,
+        assignment: &[i64],
+    ) -> Result<i64, crate::traits::EvaluationError> {
         let factors = &self.polynomials[player];
         if factors.is_empty() {
-            return 0;
+            return Ok(0);
         }
-        factors.iter().fold(1i64, |prod, coeffs| {
-            // coeffs[0] + coeffs[1]*y_1 + ... + coeffs[n]*y_n
-            let val: i64 = coeffs[0]
-                + coeffs[1..]
-                    .iter()
-                    .zip(assignment.iter())
-                    .map(|(&c, &y)| c * y)
-                    .sum::<i64>();
-            prod * val
-        })
+        let mut product = 1_i64;
+        for coeffs in factors {
+            let mut value = coeffs[0];
+            for (&coefficient, &strategy) in coeffs[1..].iter().zip(assignment.iter()) {
+                let term = coefficient.checked_mul(strategy).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "multiplying equilibrium payoff coefficient by strategy".to_string(),
+                    )
+                })?;
+                value = value.checked_add(term).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing equilibrium payoff factor".to_string(),
+                    )
+                })?;
+            }
+            product = product.checked_mul(value).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "multiplying equilibrium payoff factors".to_string(),
+                )
+            })?;
+        }
+        Ok(product)
     }
 }
 
@@ -191,48 +211,50 @@ impl Problem for EquilibriumPoint {
         self.range_sets.iter().map(|m| m.len()).collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        let n = self.num_players();
-        if config.len() != n {
-            return Or(false);
-        }
-        // Validate config indices are in-bounds.
-        for (i, &idx) in config.iter().enumerate() {
-            if idx >= self.range_sets[i].len() {
-                return Or(false);
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.num_players();
+            if config.len() != n {
+                return Ok(Or(false));
             }
-        }
-
-        // Extract assignment y_i = range_sets[i][config[i]].
-        let assignment: Vec<i64> = config
-            .iter()
-            .enumerate()
-            .map(|(i, &idx)| self.range_sets[i][idx])
-            .collect();
-
-        // Check best-response condition for each player.
-        for i in 0..n {
-            let current_payoff = self.eval_payoff(i, &assignment);
-            // Try every y' in M_i for player i.
-            let mut best_response_satisfied = true;
-            for &alt in &self.range_sets[i] {
-                if alt == assignment[i] {
-                    continue;
-                }
-                // Build alternative assignment with player i using alt.
-                let mut alt_assignment = assignment.clone();
-                alt_assignment[i] = alt;
-                let alt_payoff = self.eval_payoff(i, &alt_assignment);
-                if alt_payoff > current_payoff {
-                    best_response_satisfied = false;
-                    break;
+            // Validate config indices are in-bounds.
+            for (i, &idx) in config.iter().enumerate() {
+                if idx >= self.range_sets[i].len() {
+                    return Ok(Or(false));
                 }
             }
-            if !best_response_satisfied {
-                return Or(false);
+
+            // Extract assignment y_i = range_sets[i][config[i]].
+            let assignment: Vec<i64> = config
+                .iter()
+                .enumerate()
+                .map(|(i, &idx)| self.range_sets[i][idx])
+                .collect();
+
+            // Check best-response condition for each player.
+            for i in 0..n {
+                let current_payoff = self.eval_payoff(i, &assignment)?;
+                // Try every y' in M_i for player i.
+                let mut best_response_satisfied = true;
+                for &alt in &self.range_sets[i] {
+                    if alt == assignment[i] {
+                        continue;
+                    }
+                    // Build alternative assignment with player i using alt.
+                    let mut alt_assignment = assignment.clone();
+                    alt_assignment[i] = alt;
+                    let alt_payoff = self.eval_payoff(i, &alt_assignment)?;
+                    if alt_payoff > current_payoff {
+                        best_response_satisfied = false;
+                        break;
+                    }
+                }
+                if !best_response_satisfied {
+                    return Ok(Or(false));
+                }
             }
-        }
-        Or(true)
+            Or(true)
+        })
     }
 }
 

@@ -7,7 +7,8 @@ use crate::types::Min;
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(1, vec![]), 1);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -19,7 +20,8 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_closed_loop() {
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1)]), 2);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = OrlinLayout::new(source.graph());
 
@@ -67,7 +69,7 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
             },
         ],
     );
-    assert_eq!(target.evaluate(&target_solution), Min(Some(6)));
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(6)));
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
         vec![0, 0, 1]
@@ -77,7 +79,8 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_orlin_example_structure
 #[test]
 fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_source() {
     let source = PartitionIntoCliques::new(SimpleGraph::new(2, vec![]), 1);
-    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source);
+    let reduction = ReduceTo::<MinimumCoveringByCliques<SimpleGraph>>::reduce_to(&source)
+        .expect("reduction should succeed");
     let target = reduction.target_problem();
     let layout = OrlinLayout::new(source.graph());
 
@@ -98,7 +101,7 @@ fn test_partitionintocliques_to_minimumcoveringbycliques_unsat_extracts_invalid_
             vec![layout.x(1), layout.y(1)],
         ],
     );
-    assert_eq!(target.evaluate(&target_solution), Min(Some(4)));
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(4)));
 
     assert_eq!(
         reduction

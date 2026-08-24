@@ -19,7 +19,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("weight", "i32", &["i32"]),
+            VariantDimension::new("weight", "i64", &["i64"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -51,7 +51,7 @@ struct BoundedComponentSpanningForestCreateSpec {
     /// The underlying graph G=(V,E).
     graph: SimpleGraph,
     /// Vertex weights w(v) for each vertex v in V.
-    weights: Vec<i32>,
+    weights: Vec<i64>,
     /// Upper bound K on the number of connected components.
     k: usize,
     /// Upper bound B on the total weight of each component.
@@ -59,9 +59,9 @@ struct BoundedComponentSpanningForestCreateSpec {
 }
 
 impl TryFrom<BoundedComponentSpanningForestCreateSpec>
-    for BoundedComponentSpanningForest<SimpleGraph, i32>
+    for BoundedComponentSpanningForest<SimpleGraph, i64>
 {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: BoundedComponentSpanningForestCreateSpec) -> Result<Self, Self::Error> {
         if spec.weights.len() != spec.graph.num_vertices() {
@@ -69,16 +69,17 @@ impl TryFrom<BoundedComponentSpanningForestCreateSpec>
                 "weights has {} entries, expected {}",
                 spec.weights.len(),
                 spec.graph.num_vertices()
-            ));
+            )
+            .into());
         }
         if spec.weights.iter().any(|&weight| weight < 0) {
-            return Err("weights must be nonnegative".to_string());
+            return Err("weights must be nonnegative".to_string().into());
         }
         if spec.k == 0 {
-            return Err("k must be at least 1".to_string());
+            return Err("k must be at least 1".to_string().into());
         }
         if spec.max_weight <= 0 {
-            return Err("max_weight must be positive".to_string());
+            return Err("max_weight must be positive".to_string().into());
         }
         Ok(Self::new(spec.graph, spec.weights, spec.k, spec.max_weight))
     }
@@ -144,10 +145,13 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
     }
 
     /// Check if a configuration is a valid bounded-component partition.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
         let num_vertices = self.graph.num_vertices();
         if config.len() != num_vertices {
-            return false;
+            return Ok(false);
         }
 
         let mut component_weights = vec![W::Sum::zero(); self.max_components];
@@ -157,7 +161,7 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
 
         for (vertex, &component) in config.iter().enumerate() {
             if component >= self.max_components {
-                return false;
+                return Ok(false);
             }
 
             if component_sizes[component] == 0 {
@@ -166,9 +170,13 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
             }
 
             component_sizes[component] += 1;
-            component_weights[component] += self.weights[vertex].to_sum();
+            component_weights[component] = W::checked_add_to_sum(
+                component_weights[component].clone(),
+                self.weights[vertex].to_sum(),
+                "summing bounded forest component weights",
+            )?;
             if component_weights[component] > self.max_weight {
-                return false;
+                return Ok(false);
             }
         }
 
@@ -176,7 +184,7 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
             .iter()
             .all(|&component| component_sizes[component] <= 1)
         {
-            return true;
+            return Ok(true);
         }
 
         let mut visited_marks = vec![0usize; num_vertices];
@@ -205,11 +213,11 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
             }
 
             if visited_count != component_size {
-                return false;
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 }
 
@@ -229,15 +237,18 @@ where
         vec![self.max_components; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.is_valid_solution(config))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "bounded_component_spanning_forest_simplegraph_i32",
+        id: "bounded_component_spanning_forest_simplegraph_i64",
         instance: Box::new(BoundedComponentSpanningForest::new(
             SimpleGraph::new(
                 8,
@@ -264,7 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default BoundedComponentSpanningForest<SimpleGraph, i32> => "3^num_vertices" create BoundedComponentSpanningForestCreateSpec,
+    default BoundedComponentSpanningForest<SimpleGraph, i64> => "3^num_vertices" create BoundedComponentSpanningForestCreateSpec,
 }
 
 #[cfg(test)]

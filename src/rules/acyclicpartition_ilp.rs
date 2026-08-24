@@ -1,4 +1,4 @@
-//! Reduction from AcyclicPartition to ILP<i32>.
+//! Reduction from AcyclicPartition to `ILP<i64>`.
 //!
 //! One-hot assignment x_{v,c}, McCormick same-class indicators s_{t,c},
 //! crossing flags y_t, class ordering o_c, vertex-order copies p_v.
@@ -9,18 +9,19 @@ use crate::models::graph::AcyclicPartition;
 use crate::reduction;
 use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionAcyclicPartitionToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     n: usize,
 }
 
 impl ReductionResult for ReductionAcyclicPartitionToILP {
-    type Source = AcyclicPartition<i32>;
-    type Target = ILP<i32>;
+    type Source = AcyclicPartition<i64>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -41,10 +42,10 @@ impl ReductionResult for ReductionAcyclicPartitionToILP {
         num_constraints = "2 * num_vertices^2 + 3 * num_arcs * num_vertices + 6 * num_vertices + 2 * num_arcs + 1",
     }
 )]
-impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {
+impl ReduceTo<ILP<i64>> for AcyclicPartition<i64> {
     type Result = ReductionAcyclicPartitionToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let arcs = self.graph().arcs();
         let m = arcs.len();
@@ -64,6 +65,28 @@ impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {
         let num_vars = n * n + m * n + m + 2 * n;
         let mut constraints = Vec::new();
         let big_m = n as f64;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    AcyclicPartition<i64>,
+                    ILP<i64>,
+                >(error)
+            })
+        };
+        let vertex_weights = self
+            .vertex_weights()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
+        let arc_costs = self
+            .arc_costs()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
+        let weight_bound = exact_f64(*self.weight_bound())?;
+        let cost_bound = exact_f64(*self.cost_bound())?;
 
         // 1) Assignment: Σ_c x_{v,c} = 1  for each vertex v
         for v in 0..n {
@@ -73,13 +96,12 @@ impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {
 
         // 2) Weight bound: Σ_v w_v * x_{v,c} ≤ B  for each class c
         for c in 0..n {
-            let terms: Vec<(usize, f64)> = self
-                .vertex_weights()
+            let terms: Vec<(usize, f64)> = vertex_weights
                 .iter()
                 .enumerate()
-                .map(|(v, &w)| (x_idx(v, c), w as f64))
+                .map(|(vertex, &weight)| (x_idx(vertex, c), weight))
                 .collect();
-            constraints.push(LinearConstraint::le(terms, *self.weight_bound() as f64));
+            constraints.push(LinearConstraint::le(terms, weight_bound));
         }
 
         // 3) McCormick: s_{t,c} = x_{u_t,c} * x_{v_t,c}
@@ -99,13 +121,12 @@ impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {
         }
 
         // 5) Cost bound: Σ_t cost(a_t) * y_t ≤ K
-        let cost_terms: Vec<(usize, f64)> = self
-            .arc_costs()
+        let cost_terms: Vec<(usize, f64)> = arc_costs
             .iter()
             .enumerate()
-            .map(|(t, &c)| (y_idx(t), c as f64))
+            .map(|(arc, &cost)| (y_idx(arc), cost))
             .collect();
-        constraints.push(LinearConstraint::le(cost_terms, *self.cost_bound() as f64));
+        constraints.push(LinearConstraint::le(cost_terms, cost_bound));
 
         // 6) Order bounds: 0 ≤ o_c ≤ n-1, 0 ≤ p_v ≤ n-1
         for c in 0..n {
@@ -153,7 +174,7 @@ impl ReduceTo<ILP<i32>> for AcyclicPartition<i32> {
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionAcyclicPartitionToILP { target, n }
+        Ok(ReductionAcyclicPartitionToILP { target, n })
     }
 }
 
@@ -172,12 +193,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 2,
             );
             let reduction: ReductionAcyclicPartitionToILP =
-                crate::rules::ReduceTo::<ILP<i32>>::reduce_to(&source);
+                crate::rules::ReduceTo::<ILP<i64>>::reduce_to(&source)
+                    .expect("reduction should succeed");
             let ilp_sol = crate::solvers::ILPSolver::new()
                 .solve(reduction.target_problem())
                 .expect("ILP should be solvable");
             let extracted = reduction.extract_solution(&ilp_sol).unwrap();
-            crate::example_db::specs::rule_example_with_witness::<_, ILP<i32>>(
+            crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
                     source_config: extracted,

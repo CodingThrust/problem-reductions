@@ -33,7 +33,8 @@ fn infeasible_instance() -> UndirectedFlowLowerBounds {
 #[test]
 fn test_undirectedflowlowerbounds_to_ilp_structure() {
     let problem = feasible_instance();
-    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionUFLBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // 2 edges → 3*2 = 6 variables
@@ -48,13 +49,15 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let bf_solution = bf
         .find_witness(&problem)
+        .unwrap()
         .expect("feasible instance has a witness");
     assert!(
-        problem.evaluate(&bf_solution).0,
+        problem.evaluate(&bf_solution).unwrap().0,
         "brute force solution is valid"
     );
 
-    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionUFLBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be feasible");
@@ -63,7 +66,7 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     // extract_solution returns edge orientations z_e
     assert_eq!(extracted.len(), 2);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "ILP extracted orientation should be a valid flow"
     );
 }
@@ -71,7 +74,8 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
 #[test]
 fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
     let problem = infeasible_instance();
-    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionUFLBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert!(
         ILPSolver::new().solve(reduction.target_problem()).is_err(),
         "infeasible instance should produce infeasible ILP"
@@ -81,7 +85,8 @@ fn test_undirectedflowlowerbounds_to_ilp_infeasible() {
 #[test]
 fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     let problem = feasible_instance();
-    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionUFLBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     // f_{01}=1, f_{10}=0, f_{12}=1, f_{21}=0, z_0=1, z_1=1
     // z_e=1 means u→v direction; model expects config[e]=0 for u→v → extract returns 1-z_e
@@ -90,7 +95,7 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     // z_0=1, z_1=1 → extracted = [1-1, 1-1] = [0, 0] (both u→v = 0→1 and 1→2)
     assert_eq!(extracted, vec![0, 0]);
     assert!(
-        problem.evaluate(&extracted).0,
+        problem.evaluate(&extracted).unwrap().0,
         "manually extracted orientation should be valid"
     );
 }
@@ -98,6 +103,7 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
 #[test]
 fn test_undirectedflowlowerbounds_to_ilp_bf_vs_ilp() {
     let problem = feasible_instance();
-    let reduction: ReductionUFLBToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let reduction: ReductionUFLBToILP =
+        ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }

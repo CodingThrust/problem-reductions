@@ -29,7 +29,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet (symbols indexed 0..alphabet_size)" },
             FieldInfo { name: "string", type_name: "Vec<usize>", description: "Source string as symbol indices" },
-            FieldInfo { name: "pointer_cost", type_name: "usize", description: "Pointer cost h (each pointer adds h−1 extra to the cost)" },
+            FieldInfo { name: "pointer_cost", type_name: "i64", description: "Pointer cost h (each pointer adds h−1 extra to the cost)" },
         ],
     }
 }
@@ -62,14 +62,51 @@ inventory::submit! {
 /// // Alphabet {a, b}, string "abab", pointer cost h=2
 /// let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MinimumInternalMacroDataCompressionSerde")]
 pub struct MinimumInternalMacroDataCompression {
     alphabet_size: usize,
     string: Vec<usize>,
-    pointer_cost: usize,
+    pointer_cost: i64,
+}
+
+#[derive(Deserialize)]
+struct MinimumInternalMacroDataCompressionSerde {
+    alphabet_size: usize,
+    string: Vec<usize>,
+    pointer_cost: i64,
+}
+
+impl TryFrom<MinimumInternalMacroDataCompressionSerde> for MinimumInternalMacroDataCompression {
+    type Error = crate::registry::ConstructionError;
+
+    fn try_from(value: MinimumInternalMacroDataCompressionSerde) -> Result<Self, Self::Error> {
+        if value.alphabet_size == 0 && !value.string.is_empty() {
+            return Err("alphabet_size must be > 0 when the string is non-empty"
+                .to_string()
+                .into());
+        }
+        if value
+            .string
+            .iter()
+            .any(|&symbol| symbol >= value.alphabet_size)
+        {
+            return Err("all symbols must be less than alphabet_size"
+                .to_string()
+                .into());
+        }
+        if value.pointer_cost <= 0 {
+            return Err("pointer_cost must be positive".to_string().into());
+        }
+        Ok(Self {
+            alphabet_size: value.alphabet_size,
+            string: value.string,
+            pointer_cost: value.pointer_cost,
+        })
+    }
 }
 
 impl MinimumInternalMacroDataCompression {
@@ -79,7 +116,7 @@ impl MinimumInternalMacroDataCompression {
     ///
     /// Panics if `alphabet_size` is 0 and the string is non-empty, or if
     /// any symbol in the string is >= `alphabet_size`, or if `pointer_cost` is 0.
-    pub fn new(alphabet_size: usize, string: Vec<usize>, pointer_cost: usize) -> Self {
+    pub fn new(alphabet_size: usize, string: Vec<usize>, pointer_cost: i64) -> Self {
         assert!(
             alphabet_size > 0 || string.is_empty(),
             "alphabet_size must be > 0 when the string is non-empty"
@@ -109,7 +146,7 @@ impl MinimumInternalMacroDataCompression {
     }
 
     /// Returns the pointer cost h.
-    pub fn pointer_cost(&self) -> usize {
+    pub fn pointer_cost(&self) -> i64 {
         self.pointer_cost
     }
 
@@ -183,7 +220,7 @@ impl MinimumInternalMacroDataCompression {
 
 impl Problem for MinimumInternalMacroDataCompression {
     const NAME: &'static str = "MinimumInternalMacroDataCompression";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -195,28 +232,53 @@ impl Problem for MinimumInternalMacroDataCompression {
         vec![domain; n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        let n = self.string.len();
-        if config.len() != n {
-            return Min(None);
-        }
-
-        // Handle empty string
-        if n == 0 {
-            return Min(Some(0));
-        }
-
-        match self.decode(config) {
-            Some((decoded, active_len, pointer_count)) => {
-                if decoded != self.string {
-                    Min(None)
-                } else {
-                    let cost = active_len + (self.pointer_cost - 1) * pointer_count;
-                    Min(Some(cost))
-                }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            let n = self.string.len();
+            if config.len() != n {
+                return Ok(Min(None));
             }
-            None => Min(None),
-        }
+
+            // Handle empty string
+            if n == 0 {
+                return Ok(Min(Some(0)));
+            }
+
+            match self.decode(config) {
+                Some((decoded, active_len, pointer_count)) => {
+                    if decoded != self.string {
+                        Min(None)
+                    } else {
+                        let active_len = i64::try_from(active_len).map_err(|_| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "converting the active encoding length to i64".to_string(),
+                            )
+                        })?;
+                        let pointer_count = i64::try_from(pointer_count).map_err(|_| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "converting the pointer count to i64".to_string(),
+                            )
+                        })?;
+                        let pointer_cost = self
+                            .pointer_cost
+                            .checked_sub(1)
+                            .and_then(|cost| cost.checked_mul(pointer_count))
+                            .ok_or_else(|| {
+                                crate::traits::EvaluationError::IntegerOverflow(
+                                    "computing the internal macro pointer cost".to_string(),
+                                )
+                            })?;
+                        let cost = active_len.checked_add(pointer_cost).ok_or_else(|| {
+                            crate::traits::EvaluationError::IntegerOverflow(
+                                "computing the internal macro compression cost".to_string(),
+                            )
+                        })?;
+                        Min(Some(cost))
+                    }
+                }
+                None => Min(None),
+            }
+        })
     }
 }
 

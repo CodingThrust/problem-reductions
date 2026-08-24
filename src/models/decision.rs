@@ -88,18 +88,24 @@ macro_rules! register_decision_variant {
                 reduce_fn: Some(|any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .expect(concat!($name, " witness reduction source type mismatch"));
-                    Box::new(
-                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceTo<$inner>>::reduce_to(source),
-                    )
+                        .ok_or_else($crate::rules::ReductionError::source_type_mismatch::<
+                            $crate::models::decision::Decision<$inner>,
+                            $inner,
+                        >)?;
+                    let result =
+                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceTo<$inner>>::reduce_to(source)?;
+                    Ok(Box::new(result))
                 }),
                 reduce_aggregate_fn: Some(|any| {
                     let source = any
                         .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .expect(concat!($name, " aggregate reduction source type mismatch"));
-                    Box::new(
-                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source),
-                    )
+                        .ok_or_else($crate::rules::ReductionError::source_type_mismatch::<
+                            $crate::models::decision::Decision<$inner>,
+                            $inner,
+                        >)?;
+                    let result =
+                        <$crate::models::decision::Decision<$inner> as $crate::rules::ReduceToAggregate<$inner>>::reduce_to_aggregate(source)?;
+                    Ok(Box::new(result))
                 }),
                 turing: false,
                 source_size_measure_fn: |any| {
@@ -272,11 +278,13 @@ where
         self.inner.dims()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(<P::Value as OptimizationValue>::meets_bound(
-            &self.inner.evaluate(config),
-            &self.bound,
-        ))
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or(<P::Value as OptimizationValue>::meets_bound(
+                &self.inner.evaluate(config)?,
+                &self.bound,
+            ))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -322,11 +330,11 @@ where
 {
     type Result = DecisionToOptimizationResult<P>;
 
-    fn reduce_to_aggregate(&self) -> Self::Result {
-        DecisionToOptimizationResult {
+    fn reduce_to_aggregate(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(DecisionToOptimizationResult {
             target: self.inner.clone(),
             bound: self.bound.clone(),
-        }
+        })
     }
 }
 
@@ -373,10 +381,10 @@ where
 {
     type Result = DecisionToOptimizationWitnessResult<P>;
 
-    fn reduce_to(&self) -> Self::Result {
-        DecisionToOptimizationWitnessResult {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(DecisionToOptimizationWitnessResult {
             target: self.inner.clone(),
-        }
+        })
     }
 }
 

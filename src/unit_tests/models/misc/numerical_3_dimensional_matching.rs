@@ -33,47 +33,47 @@ fn test_numerical_3dm_creation() {
 fn test_numerical_3dm_evaluate_valid() {
     let problem = yes_problem();
     // config [0, 1, 1, 0]: w0↔x0,y1 (4+4+7=15), w1↔x1,y0 (5+5+5=15)
-    assert_eq!(problem.evaluate(&[0, 1, 1, 0]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 1, 1, 0]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_numerical_3dm_evaluate_invalid_sums() {
     let problem = yes_problem();
     // config [0, 1, 0, 1]: w0↔x0,y0 (4+4+5=13≠15)
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1]).unwrap(), Or(false));
     // config [1, 0, 0, 1]: w0↔x1,y0 (4+5+5=14≠15)
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[1, 0, 0, 1]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_numerical_3dm_evaluate_invalid_permutation() {
     let problem = yes_problem();
     // Both X assignments point to 0 — not a permutation
-    assert_eq!(problem.evaluate(&[0, 0, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 0, 1]).unwrap(), Or(false));
     // Both Y assignments point to 1 — not a permutation
-    assert_eq!(problem.evaluate(&[0, 1, 1, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 1, 1]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_numerical_3dm_evaluate_wrong_length() {
     let problem = yes_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 1, 0, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 1]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 1, 0, 0]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_numerical_3dm_evaluate_out_of_range() {
     let problem = yes_problem();
     // Index 2 is out of range for m=2
-    assert_eq!(problem.evaluate(&[0, 2, 1, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 0]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_numerical_3dm_solver_finds_witness() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Or(true));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn test_numerical_3dm_solver_unsatisfiable() {
     // No valid matching exists!
     let problem = Numerical3DimensionalMatching::new(vec![4, 6], vec![4, 6], vec![4, 6], 15);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]

@@ -53,7 +53,7 @@ inventory::submit! {
 ///     vec![(0,1),(0,2),(1,3),(1,4),(2,3),(2,5),(3,5),(3,6)],
 ///     3,
 /// );
-/// let result = BruteForce::new().solve(&problem);
+/// let result = BruteForce::new().solve(&problem).unwrap();
 /// assert_eq!(result, Min(Some(8)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,11 +165,14 @@ impl MinimumCodeGenerationOneRegister {
     /// Simulate the one-register machine for a given evaluation order of
     /// internal vertices and return the instruction count, or `None` if the
     /// ordering is invalid (not a permutation or violates dependencies).
-    pub fn simulate(&self, config: &[usize]) -> Option<usize> {
+    pub fn simulate(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let internal = self.internal_vertices();
         let n_internal = internal.len();
         if config.len() != n_internal {
-            return None;
+            return Ok(None);
         }
 
         // config[i] = evaluation position for internal vertex index i
@@ -179,10 +182,10 @@ impl MinimumCodeGenerationOneRegister {
         let mut used = vec![false; n_internal];
         for (i, &pos) in config.iter().enumerate() {
             if pos >= n_internal {
-                return None;
+                return Ok(None);
             }
             if used[pos] {
-                return None;
+                return Ok(None);
             }
             used[pos] = true;
             order[pos] = i;
@@ -219,7 +222,7 @@ impl MinimumCodeGenerationOneRegister {
             }
         }
 
-        let mut instructions = 0usize;
+        let mut instructions = 0_i64;
 
         for step in 0..n_internal {
             let v = internal[order[step]];
@@ -228,7 +231,7 @@ impl MinimumCodeGenerationOneRegister {
             for &c in &children[v] {
                 let available = in_memory[c] || register == Some(c);
                 if !available {
-                    return None; // child was computed but lost (not stored, overwritten)
+                    return Ok(None); // child was computed but lost (not stored, overwritten)
                 }
             }
 
@@ -246,7 +249,11 @@ impl MinimumCodeGenerationOneRegister {
             // 3. That value is not already in memory
             if let Some(r) = register {
                 if !in_memory[r] && future_uses[r] > 0 {
-                    instructions += 1; // STORE
+                    instructions = instructions.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting one-register instructions".to_string(),
+                        )
+                    })?; // STORE
                     in_memory[r] = true;
                 }
             }
@@ -258,32 +265,46 @@ impl MinimumCodeGenerationOneRegister {
                 let one_in_register = (register == Some(c0) && in_memory[c1])
                     || (register == Some(c1) && in_memory[c0]);
                 if one_in_register {
-                    instructions += 1; // OP v (one operand in register, other in memory)
+                    instructions = instructions.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting one-register instructions".to_string(),
+                        )
+                    })?; // OP v
                 } else {
                     // Need to LOAD one operand, OP with the other from memory
-                    instructions += 1; // LOAD
-                    instructions += 1; // OP
+                    instructions = instructions.checked_add(2).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting one-register instructions".to_string(),
+                        )
+                    })?; // LOAD + OP
                 }
             } else if operands.len() == 1 {
                 let c0 = operands[0];
                 if register == Some(c0) {
-                    instructions += 1; // OP v (unary)
+                    instructions = instructions.checked_add(1).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting one-register instructions".to_string(),
+                        )
+                    })?; // OP v
                 } else {
-                    instructions += 1; // LOAD
-                    instructions += 1; // OP
+                    instructions = instructions.checked_add(2).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "counting one-register instructions".to_string(),
+                        )
+                    })?; // LOAD + OP
                 }
             }
 
             register = Some(v);
         }
 
-        Some(instructions)
+        Ok(Some(instructions))
     }
 }
 
 impl Problem for MinimumCodeGenerationOneRegister {
     const NAME: &'static str = "MinimumCodeGenerationOneRegister";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -294,8 +315,8 @@ impl Problem for MinimumCodeGenerationOneRegister {
         vec![n_internal; n_internal]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        Min(self.simulate(config))
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok(Min(self.simulate(config)?))
     }
 }
 

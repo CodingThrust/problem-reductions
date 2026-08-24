@@ -60,7 +60,7 @@ inventory::submit! {
 /// // Alphabet {0, 1}, strings [0,1] and [1,0]
 /// let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,7 +135,7 @@ fn is_substring(needle: &[usize], haystack: &[usize]) -> bool {
 
 impl Problem for ShortestCommonSuperstring {
     const NAME: &'static str = "ShortestCommonSuperstring";
-    type Value = Min<usize>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -145,38 +145,44 @@ impl Problem for ShortestCommonSuperstring {
         vec![self.alphabet_size + 1; self.max_length]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<usize> {
-        if config.len() != self.max_length {
-            return Min(None);
-        }
-
-        let pad = self.alphabet_size;
-
-        // Find effective length = index of first padding symbol
-        let effective_length = config
-            .iter()
-            .position(|&v| v == pad)
-            .unwrap_or(self.max_length);
-
-        // Verify all positions after first padding are also padding (no interleaved padding)
-        for &v in &config[effective_length..] {
-            if v != pad {
-                return Min(None);
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.max_length {
+                return Ok(Min(None));
             }
-        }
 
-        // Check all symbols in the prefix are valid (0..alphabet_size)
-        let prefix = &config[..effective_length];
-        if prefix.iter().any(|&v| v >= self.alphabet_size) {
-            return Min(None);
-        }
+            let pad = self.alphabet_size;
 
-        // Check every input string appears as a contiguous substring of the prefix
-        if !self.strings.iter().all(|s| is_substring(s, prefix)) {
-            return Min(None);
-        }
+            // Find effective length = index of first padding symbol
+            let effective_length = config
+                .iter()
+                .position(|&v| v == pad)
+                .unwrap_or(self.max_length);
 
-        Min(Some(effective_length))
+            // Verify all positions after first padding are also padding (no interleaved padding)
+            for &v in &config[effective_length..] {
+                if v != pad {
+                    return Ok(Min(None));
+                }
+            }
+
+            // Check all symbols in the prefix are valid (0..alphabet_size)
+            let prefix = &config[..effective_length];
+            if prefix.iter().any(|&v| v >= self.alphabet_size) {
+                return Ok(Min(None));
+            }
+
+            // Check every input string appears as a contiguous substring of the prefix
+            if !self.strings.iter().all(|s| is_substring(s, prefix)) {
+                return Ok(Min(None));
+            }
+
+            Min(Some(i64::try_from(effective_length).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting superstring length to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

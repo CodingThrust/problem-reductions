@@ -7,7 +7,7 @@ use crate::traits::Problem;
 #[test]
 fn test_knapsack_to_ilp_closed_loop() {
     let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
     assert_optimization_round_trip_from_optimization_target(
         &knapsack,
@@ -25,16 +25,16 @@ fn test_knapsack_to_ilp_closed_loop() {
 #[test]
 fn test_knapsack_to_ilp_bf_vs_ilp() {
     let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
-    let bf_solutions = BruteForce::new().find_all_witnesses(&knapsack);
-    let bf_value = knapsack.evaluate(&bf_solutions[0]);
+    let bf_solutions = BruteForce::new().find_all_witnesses(&knapsack).unwrap();
+    let bf_value = knapsack.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_value = knapsack.evaluate(&extracted);
+    let ilp_value = knapsack.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_value, ilp_value);
     assert!(ilp_value.is_valid());
@@ -43,7 +43,7 @@ fn test_knapsack_to_ilp_bf_vs_ilp() {
 #[test]
 fn test_knapsack_to_ilp_structure() {
     let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 4);
@@ -63,7 +63,7 @@ fn test_knapsack_to_ilp_structure() {
 #[test]
 fn test_knapsack_to_ilp_zero_capacity() {
     let knapsack = Knapsack::new(vec![2, 3], vec![5, 7], 0);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -75,7 +75,7 @@ fn test_knapsack_to_ilp_zero_capacity() {
 #[test]
 fn test_knapsack_to_ilp_empty_instance() {
     let knapsack = Knapsack::new(vec![], vec![], 0);
-    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 0);
@@ -90,6 +90,21 @@ fn test_knapsack_to_ilp_empty_instance() {
         .expect("empty Knapsack ILP should still be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted, Vec::<usize>::new());
+}
+
+#[test]
+fn test_knapsack_to_ilp_rejects_inexact_weight() {
+    let knapsack = Knapsack::new(
+        vec![crate::types::MAX_EXACT_F64_INTEGER + 1],
+        vec![1],
+        crate::types::MAX_EXACT_F64_INTEGER + 1,
+    );
+
+    let error = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::rules::ReductionError::InexactFloatConversion { .. }
+    ));
 }
 
 #[cfg(feature = "example-db")]

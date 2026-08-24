@@ -52,11 +52,13 @@ struct LongestCommonSubsequenceCreateSpec {
 }
 
 impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: LongestCommonSubsequenceCreateSpec) -> Result<Self, Self::Error> {
         if !spec.strings.iter().any(|string| !string.is_empty()) {
-            return Err("at least one input string must be non-empty".to_string());
+            return Err("at least one input string must be non-empty"
+                .to_string()
+                .into());
         }
         let inferred_alphabet_size = spec
             .strings
@@ -75,10 +77,10 @@ impl TryFrom<LongestCommonSubsequenceCreateSpec> for LongestCommonSubsequence {
         if alphabet_size < inferred_alphabet_size {
             return Err(format!(
                 "alphabet size {alphabet_size} is smaller than inferred alphabet size {inferred_alphabet_size}"
-            ));
+            ).into());
         }
         if alphabet_size == 0 {
-            return Err("alphabet size must be positive".to_string());
+            return Err("alphabet size must be positive".to_string().into());
         }
         let max_length = spec.strings.iter().map(Vec::len).min().unwrap_or(0);
 
@@ -202,7 +204,7 @@ fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
 
 impl Problem for LongestCommonSubsequence {
     const NAME: &'static str = "LongestCommonSubsequence";
-    type Value = Max<usize>;
+    type Value = Max<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -212,38 +214,44 @@ impl Problem for LongestCommonSubsequence {
         vec![self.alphabet_size + 1; self.max_length]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Max<usize> {
-        if config.len() != self.max_length {
-            return Max(None);
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.max_length {
+                return Ok(Max(None));
+            }
 
-        let padding = self.alphabet_size;
+            let padding = self.alphabet_size;
 
-        // Find effective length = index of first padding symbol (or max_length if no padding).
-        let effective_length = config
-            .iter()
-            .position(|&s| s == padding)
-            .unwrap_or(self.max_length);
+            // Find effective length = index of first padding symbol (or max_length if no padding).
+            let effective_length = config
+                .iter()
+                .position(|&s| s == padding)
+                .unwrap_or(self.max_length);
 
-        // Verify all positions after the first padding are also padding (no interleaved padding).
-        if config[effective_length..].iter().any(|&s| s != padding) {
-            return Max(None);
-        }
+            // Verify all positions after the first padding are also padding (no interleaved padding).
+            if config[effective_length..].iter().any(|&s| s != padding) {
+                return Ok(Max(None));
+            }
 
-        // Extract the non-padding prefix as the candidate subsequence.
-        let prefix = &config[..effective_length];
+            // Extract the non-padding prefix as the candidate subsequence.
+            let prefix = &config[..effective_length];
 
-        // Check all symbols in prefix are valid (0..alphabet_size).
-        if prefix.iter().any(|&s| s >= self.alphabet_size) {
-            return Max(None);
-        }
+            // Check all symbols in prefix are valid (0..alphabet_size).
+            if prefix.iter().any(|&s| s >= self.alphabet_size) {
+                return Ok(Max(None));
+            }
 
-        // Check the prefix is a subsequence of every input string.
-        if !self.strings.iter().all(|s| is_subsequence(prefix, s)) {
-            return Max(None);
-        }
+            // Check the prefix is a subsequence of every input string.
+            if !self.strings.iter().all(|s| is_subsequence(prefix, s)) {
+                return Ok(Max(None));
+            }
 
-        Max(Some(effective_length))
+            Max(Some(i64::try_from(effective_length).map_err(|_| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "converting subsequence length to i64".into(),
+                )
+            })?))
+        })
     }
 }
 

@@ -56,7 +56,7 @@ impl ReductionResult for ReductionBicliqueCoverToBMF {
 impl ReduceTo<BMF> for BicliqueCover {
     type Result = ReductionBicliqueCoverToBMF;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.left_size();
         let n = self.right_size();
         let k = self.k();
@@ -65,7 +65,7 @@ impl ReduceTo<BMF> for BicliqueCover {
             matrix[i][j] = true;
         }
         let target = BMF::new(matrix, k);
-        ReductionBicliqueCoverToBMF { target, m, n, k }
+        Ok(ReductionBicliqueCoverToBMF { target, m, n, k })
     }
 }
 

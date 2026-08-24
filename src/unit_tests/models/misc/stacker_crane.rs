@@ -48,16 +48,16 @@ fn test_stacker_crane_creation_and_metadata() {
 fn test_stacker_crane_rejects_non_permutations_and_wrong_lengths() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 4]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 5]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 2, 1, 4]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 3, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 4]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 5]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 4]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 3, 0]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_stacker_crane_issue_witness_value() {
     let problem = issue_problem();
-    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 3]), Min(Some(20)));
+    assert_eq!(problem.evaluate(&[0, 2, 1, 4, 3]).unwrap(), Min(Some(20)));
 }
 
 #[test]
@@ -66,13 +66,14 @@ fn test_stacker_crane_paper_example() {
     let witness = vec![0, 2, 1, 4, 3];
 
     assert_eq!(problem.closed_walk_length(&witness), Some(20));
-    assert_eq!(problem.evaluate(&witness), Min(Some(20)));
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(20)));
 
     let solver = BruteForce::new();
     let optimal = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("should have a witness");
-    let optimal_value = problem.evaluate(&optimal);
+    let optimal_value = problem.evaluate(&optimal).unwrap();
     assert_eq!(optimal_value, Min(Some(20)));
 }
 
@@ -83,11 +84,12 @@ fn test_stacker_crane_small_solver_instance() {
 
     let optimal = solver
         .find_witness(&problem)
+        .unwrap()
         .expect("small instance should have a witness");
     let mut sorted = optimal.clone();
     sorted.sort_unstable();
     assert_eq!(sorted, vec![0, 1]);
-    assert!(problem.evaluate(&optimal).0.is_some());
+    assert!(problem.evaluate(&optimal).unwrap().0.is_some());
 }
 
 #[test]
@@ -99,7 +101,10 @@ fn test_stacker_crane_serialization_round_trip() {
     assert_eq!(round_trip.num_vertices(), 6);
     assert_eq!(round_trip.num_arcs(), 5);
     assert_eq!(round_trip.num_edges(), 7);
-    assert_eq!(round_trip.evaluate(&[0, 2, 1, 4, 3]), Min(Some(20)));
+    assert_eq!(
+        round_trip.evaluate(&[0, 2, 1, 4, 3]).unwrap(),
+        Min(Some(20))
+    );
 }
 
 #[test]
@@ -131,8 +136,8 @@ fn test_stacker_crane_unreachable_connector() {
     // No permutation can find a connector path from vertex 1 to vertex 2 (or 3 to 0).
     assert_eq!(problem.closed_walk_length(&[0, 1]), None);
     assert_eq!(problem.closed_walk_length(&[1, 0]), None);
-    assert_eq!(problem.evaluate(&[0, 1]), Min(None));
-    assert_eq!(problem.evaluate(&[1, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
 }
 
 #[test]

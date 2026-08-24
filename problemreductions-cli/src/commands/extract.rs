@@ -58,7 +58,7 @@ pub fn extract(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()>
             );
         }
     }
-    let target_eval = replay.target.evaluate_dyn(&target_config);
+    let target_eval = replay.target.evaluate_dyn(&target_config)?;
 
     let (source_config, source_eval) = replay.extract(&target_config)?;
 

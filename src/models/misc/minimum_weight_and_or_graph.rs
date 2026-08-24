@@ -53,7 +53,7 @@ inventory::submit! {
 /// );
 /// let solver = BruteForce::new();
 /// use problemreductions::solvers::Solver as _;
-/// let optimal = solver.solve(&problem);
+/// let optimal = solver.solve(&problem).unwrap();
 /// assert_eq!(optimal, problemreductions::types::Min(Some(6)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -67,7 +67,7 @@ pub struct MinimumWeightAndOrGraph {
     /// Gate type per vertex: Some(true)=AND, Some(false)=OR, None=leaf.
     gate_types: Vec<Option<bool>>,
     /// Weight of each arc.
-    arc_weights: Vec<i32>,
+    arc_weights: Vec<i64>,
     /// Precomputed: outgoing arcs for each vertex (arc indices).
     #[serde(skip)]
     outgoing: Vec<Vec<usize>>,
@@ -84,26 +84,28 @@ struct MinimumWeightAndOrGraphCreateSpec {
     /// Gate type per vertex.
     gate_types: Vec<Option<bool>>,
     /// Arc weights; defaults to one per arc.
-    arc_weights: Option<Vec<i32>>,
+    arc_weights: Option<Vec<i64>>,
 }
 impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(spec: MinimumWeightAndOrGraphCreateSpec) -> Result<Self, Self::Error> {
         if spec.source >= spec.num_vertices {
-            return Err("source is outside the graph".to_string());
+            return Err("source is outside the graph".to_string().into());
         }
         if spec.gate_types.len() != spec.num_vertices {
-            return Err("gate_types length must equal num_vertices".to_string());
+            return Err("gate_types length must equal num_vertices"
+                .to_string()
+                .into());
         }
         if spec.gate_types[spec.source].is_none() {
-            return Err("source must be an AND or OR gate".to_string());
+            return Err("source must be an AND or OR gate".to_string().into());
         }
         if let Some(&(u, v)) = spec
             .arcs
             .iter()
             .find(|&&(u, v)| u >= spec.num_vertices || v >= spec.num_vertices)
         {
-            return Err(format!("arc ({u}, {v}) is out of bounds"));
+            return Err(format!("arc ({u}, {v}) is out of bounds").into());
         }
         let count = spec.arcs.len();
         let arc_weights = spec.arc_weights.unwrap_or_else(|| vec![1; count]);
@@ -111,7 +113,8 @@ impl TryFrom<MinimumWeightAndOrGraphCreateSpec> for MinimumWeightAndOrGraph {
             return Err(format!(
                 "arc_weights has {} entries, expected {count}",
                 arc_weights.len()
-            ));
+            )
+            .into());
         }
         Ok(Self::new(
             spec.num_vertices,
@@ -129,7 +132,7 @@ struct MinimumWeightAndOrGraphData {
     arcs: Vec<(usize, usize)>,
     source: usize,
     gate_types: Vec<Option<bool>>,
-    arc_weights: Vec<i32>,
+    arc_weights: Vec<i64>,
 }
 
 impl<'de> Deserialize<'de> for MinimumWeightAndOrGraph {
@@ -163,7 +166,7 @@ impl MinimumWeightAndOrGraph {
         arcs: Vec<(usize, usize)>,
         source: usize,
         gate_types: Vec<Option<bool>>,
-        arc_weights: Vec<i32>,
+        arc_weights: Vec<i64>,
     ) -> Self {
         assert!(
             source < num_vertices,
@@ -245,14 +248,14 @@ impl MinimumWeightAndOrGraph {
     }
 
     /// Get the arc weights.
-    pub fn arc_weights(&self) -> &[i32] {
+    pub fn arc_weights(&self) -> &[i64] {
         &self.arc_weights
     }
 }
 
 impl Problem for MinimumWeightAndOrGraph {
     const NAME: &'static str = "MinimumWeightAndOrGraph";
-    type Value = Min<i32>;
+    type Value = Min<i64>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
@@ -262,80 +265,88 @@ impl Problem for MinimumWeightAndOrGraph {
         vec![2; self.arcs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<i32> {
-        if config.len() != self.arcs.len() {
-            return Min(None);
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        Ok({
+            if config.len() != self.arcs.len() {
+                return Ok(Min(None));
+            }
 
-        // Check all config values are 0 or 1
-        if config.iter().any(|&c| c > 1) {
-            return Min(None);
-        }
+            // Check all config values are 0 or 1
+            if config.iter().any(|&c| c > 1) {
+                return Ok(Min(None));
+            }
 
-        // Determine which arcs are selected
-        let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
+            // Determine which arcs are selected
+            let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
 
-        // Propagate "solved" status top-down from source
-        let mut solved = vec![false; self.num_vertices];
-        let mut stack = vec![self.source];
-        solved[self.source] = true;
+            // Propagate "solved" status top-down from source
+            let mut solved = vec![false; self.num_vertices];
+            let mut stack = vec![self.source];
+            solved[self.source] = true;
 
-        while let Some(v) = stack.pop() {
-            match self.gate_types[v] {
-                None => {
-                    // Leaf vertex: trivially solved, no outgoing arcs needed
-                }
-                Some(is_and) => {
-                    let out_arcs = &self.outgoing[v];
-                    let selected_out: Vec<usize> = out_arcs
-                        .iter()
-                        .copied()
-                        .filter(|&ai| selected[ai])
-                        .collect();
-
-                    if is_and {
-                        // AND gate: all outgoing arcs must be selected
-                        if selected_out.len() != out_arcs.len() {
-                            return Min(None);
-                        }
-                    } else {
-                        // OR gate: at least one outgoing arc must be selected
-                        if selected_out.is_empty() {
-                            return Min(None);
-                        }
+            while let Some(v) = stack.pop() {
+                match self.gate_types[v] {
+                    None => {
+                        // Leaf vertex: trivially solved, no outgoing arcs needed
                     }
+                    Some(is_and) => {
+                        let out_arcs = &self.outgoing[v];
+                        let selected_out: Vec<usize> = out_arcs
+                            .iter()
+                            .copied()
+                            .filter(|&ai| selected[ai])
+                            .collect();
 
-                    // Mark children of selected arcs as solved
-                    for &ai in &selected_out {
-                        let (_u, child) = self.arcs[ai];
-                        if !solved[child] {
-                            solved[child] = true;
-                            stack.push(child);
+                        if is_and {
+                            // AND gate: all outgoing arcs must be selected
+                            if selected_out.len() != out_arcs.len() {
+                                return Ok(Min(None));
+                            }
+                        } else {
+                            // OR gate: at least one outgoing arc must be selected
+                            if selected_out.is_empty() {
+                                return Ok(Min(None));
+                            }
+                        }
+
+                        // Mark children of selected arcs as solved
+                        for &ai in &selected_out {
+                            let (_u, child) = self.arcs[ai];
+                            if !solved[child] {
+                                solved[child] = true;
+                                stack.push(child);
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Check no selected arcs come from non-solved vertices (no dangling arcs)
-        for (ai, &sel) in selected.iter().enumerate() {
-            if sel {
-                let (u, _v) = self.arcs[ai];
-                if !solved[u] {
-                    return Min(None);
+            // Check no selected arcs come from non-solved vertices (no dangling arcs)
+            for (ai, &sel) in selected.iter().enumerate() {
+                if sel {
+                    let (u, _v) = self.arcs[ai];
+                    if !solved[u] {
+                        return Ok(Min(None));
+                    }
                 }
             }
-        }
 
-        // Compute total weight of selected arcs
-        let total_weight: i32 = selected
-            .iter()
-            .enumerate()
-            .filter(|(_, &sel)| sel)
-            .map(|(i, _)| self.arc_weights[i])
-            .sum();
+            // Compute total weight of selected arcs
+            let total_weight = selected
+                .iter()
+                .enumerate()
+                .filter(|(_, &sel)| sel)
+                .map(|(i, _)| self.arc_weights[i])
+                .try_fold(0_i64, |total, weight| {
+                    total.checked_add(weight).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing selected AND/OR graph arc weights".into(),
+                        )
+                    })
+                })?;
 
-        Min(Some(total_weight))
+            Min(Some(total_weight))
+        })
     }
 }
 

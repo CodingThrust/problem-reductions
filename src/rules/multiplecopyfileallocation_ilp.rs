@@ -19,6 +19,7 @@ use crate::models::graph::MultipleCopyFileAllocation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::types::i64_to_exact_f64;
 use std::collections::VecDeque;
 
 /// Result of reducing MultipleCopyFileAllocation to ILP.
@@ -74,14 +75,31 @@ fn bfs_distances(graph: &SimpleGraph, source: usize, n: usize) -> Vec<i64> {
 impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
     type Result = ReductionMCFAToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let num_vars = n + n * n;
         // Big-M penalty for unreachable pairs: use a value larger than any feasible
         // total cost to make unreachable assignments infeasible.
-        let total_storage: i64 = self.storage().iter().sum();
-        let total_usage: i64 = self.usage().iter().sum();
-        let big_m = total_storage + total_usage * n as i64 + 1;
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(operation)
+        };
+        let total_storage = self.storage().iter().try_fold(0_i64, |total, &value| {
+            total
+                .checked_add(value)
+                .ok_or_else(|| overflow("summing storage costs for big-M"))
+        })?;
+        let total_usage = self.usage().iter().try_fold(0_i64, |total, &value| {
+            total
+                .checked_add(value)
+                .ok_or_else(|| overflow("summing usage values for big-M"))
+        })?;
+        let vertex_count =
+            i64::try_from(n).map_err(|_| overflow("converting the vertex count for big-M"))?;
+        let big_m = total_usage
+            .checked_mul(vertex_count)
+            .and_then(|usage| total_storage.checked_add(usage))
+            .and_then(|total| total.checked_add(1))
+            .ok_or_else(|| overflow("computing big-M"))?;
 
         // Precompute all-pairs shortest-path distances using BFS.
         let all_dist: Vec<Vec<i64>> = (0..n).map(|s| bfs_distances(self.graph(), s, n)).collect();
@@ -121,15 +139,31 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
         // Objective: minimize Σ_v s(v)·x_v + Σ_{v,u} usage(v)·dist(v,u)·y_{v,u}
         let mut objective: Vec<(usize, f64)> = Vec::with_capacity(num_vars);
         for v in 0..n {
-            let sc = self.storage()[v] as f64;
+            let sc = i64_to_exact_f64(self.storage()[v]).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MultipleCopyFileAllocation,
+                    ILP<bool>,
+                >(error)
+            })?;
             if sc != 0.0 {
                 objective.push((x_var(v), sc));
             }
         }
         for v in 0..n {
-            let u_v = self.usage()[v] as f64;
             for u in 0..n {
-                let coeff = u_v * eff_dist(v, u) as f64;
+                let service_cost =
+                    self.usage()[v].checked_mul(eff_dist(v, u)).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            MultipleCopyFileAllocation,
+                            ILP<bool>,
+                        >("multiplying usage by service distance")
+                    })?;
+                let coeff = i64_to_exact_f64(service_cost).map_err(|error| {
+                    crate::rules::ReductionError::inexact_float_conversion::<
+                        MultipleCopyFileAllocation,
+                        ILP<bool>,
+                    >(error)
+                })?;
                 if coeff != 0.0 {
                     objective.push((y_var(v, u), coeff));
                 }
@@ -137,10 +171,10 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMCFAToILP {
+        Ok(ReductionMCFAToILP {
             target,
             num_vertices: n,
-        }
+        })
     }
 }
 

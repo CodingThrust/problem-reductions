@@ -7,10 +7,10 @@ use crate::traits::Problem;
 use crate::types::Min;
 
 fn reduce_vc_to_ilp(
-    problem: &MinimumVertexCover<SimpleGraph, i32>,
+    problem: &MinimumVertexCover<SimpleGraph, i64>,
 ) -> (ReductionPath, ReductionChain) {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
         .find_all_paths("MinimumVertexCover", &src, "ILP", &dst)
@@ -19,6 +19,7 @@ fn reduce_vc_to_ilp(
         .expect("expected explicit MinimumSetCovering route");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
+        .expect("MinimumVertexCover -> ILP reduction should not fail")
         .expect("Should reduce MinimumVertexCover to ILP along path");
     (path, chain)
 }
@@ -27,7 +28,7 @@ fn reduce_vc_to_ilp(
 fn test_minimumvertexcover_to_ilp_via_path_structure() {
     let problem = MinimumVertexCover::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
-        vec![1i32; 3],
+        vec![1i64; 3],
     );
     let (path, chain) = reduce_vc_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
@@ -49,7 +50,7 @@ fn test_minimumvertexcover_to_ilp_via_path_structure() {
 fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
     let problem = MinimumVertexCover::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
     let (_, chain) = reduce_vc_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
@@ -60,7 +61,7 @@ fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
 
     let ilp_size: usize = extracted.iter().sum();
     assert_eq!(ilp_size, 2);
-    assert!(problem.evaluate(&extracted).is_valid());
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
 #[test]
@@ -74,7 +75,7 @@ fn test_minimumvertexcover_to_ilp_via_path_weighted() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
     assert_eq!(extracted, vec![0, 1, 0]);
 }
 
@@ -82,13 +83,13 @@ fn test_minimumvertexcover_to_ilp_via_path_weighted() {
 fn test_minimumvertexcover_to_ilp_bf_vs_ilp() {
     let problem = MinimumVertexCover::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
-        vec![1i32; 4],
+        vec![1i64; 4],
     );
     let (_, chain) = reduce_vc_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
-    let bf_solutions = BruteForce::new().find_all_witnesses(&problem);
-    let bf_value = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = BruteForce::new().find_all_witnesses(&problem).unwrap();
+    let bf_value = problem.evaluate(&bf_solutions[0]).unwrap();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(problem.evaluate(&extracted), bf_value);
+    assert_eq!(problem.evaluate(&extracted).unwrap(), bf_value);
 }

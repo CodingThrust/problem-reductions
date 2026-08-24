@@ -14,7 +14,8 @@ fn feasible_problem() -> ThreeDimensionalMatching {
 #[test]
 fn test_threedimensionalmatching_to_threematroidintersection_structure() {
     let source = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0)]);
-    let reduction = ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.ground_set_size(), source.num_triples());
@@ -33,7 +34,8 @@ fn test_threedimensionalmatching_to_threematroidintersection_structure() {
 #[test]
 fn test_threedimensionalmatching_to_threematroidintersection_closed_loop() {
     let source = feasible_problem();
-    let reduction = ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -45,15 +47,17 @@ fn test_threedimensionalmatching_to_threematroidintersection_closed_loop() {
 #[test]
 fn test_threedimensionalmatching_to_threematroidintersection_issue_no_instance() {
     let source = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (0, 1, 1), (1, 0, 1), (1, 1, 0)]);
-    let reduction = ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
-        BruteForce::new().find_witness(&source).is_none(),
+        BruteForce::new().find_witness(&source).unwrap().is_none(),
         "issue example should have no perfect matching"
     );
     assert!(
         BruteForce::new()
             .find_witness(reduction.target_problem())
+            .unwrap()
             .is_none(),
         "reduced 3-matroid intersection instance should be infeasible"
     );
@@ -63,12 +67,13 @@ fn test_threedimensionalmatching_to_threematroidintersection_issue_no_instance()
 fn test_threedimensionalmatching_to_threematroidintersection_missing_coordinate_creates_empty_group(
 ) {
     let source = ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 0, 1)]);
-    let reduction = ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.partitions()[1], vec![vec![0, 1], vec![]]);
     assert!(
-        BruteForce::new().find_witness(target).is_none(),
+        BruteForce::new().find_witness(target).unwrap().is_none(),
         "an empty coordinate group makes size-q independence impossible"
     );
 }

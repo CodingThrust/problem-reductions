@@ -42,12 +42,6 @@ fn test_staff_scheduling_creation() {
 }
 
 #[test]
-#[should_panic(expected = "num_workers must fit in usize so dims() can encode 0..=num_workers")]
-fn test_staff_scheduling_new_panics_when_num_workers_exceeds_usize() {
-    let _ = StaffScheduling::new(1, vec![vec![true]], vec![1], u64::MAX);
-}
-
-#[test]
 #[should_panic(expected = "schedule 1 has 2 periods, expected 3")]
 fn test_staff_scheduling_new_panics_on_schedule_length_mismatch() {
     let _ = StaffScheduling::new(
@@ -72,31 +66,31 @@ fn test_staff_scheduling_new_panics_on_wrong_active_period_count() {
 #[test]
 fn test_staff_scheduling_evaluate_feasible_issue_example() {
     let problem = issue_example_problem();
-    assert!(problem.evaluate(&[1, 1, 1, 1, 0]));
+    assert!(problem.evaluate(&[1, 1, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_rejects_invalid_configs() {
     let problem = issue_example_problem();
-    assert!(!problem.evaluate(&[1, 1, 1, 1]));
-    assert!(!problem.evaluate(&[5, 0, 0, 0, 0]));
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1]));
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 4]));
+    assert!(!problem.evaluate(&[1, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&[5, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&[1, 1, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&[0, 0, 0, 0, 4]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_bruteforce_solver_finds_solution() {
     let problem = issue_example_problem();
-    let solution = BruteForce::new().find_witness(&problem);
+    let solution = BruteForce::new().find_witness(&problem).unwrap();
     assert!(solution.is_some());
-    assert!(problem.evaluate(&solution.unwrap()));
+    assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_bruteforce_solver_detects_unsat() {
     let problem =
         StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1);
-    assert!(BruteForce::new().find_witness(&problem).is_none());
+    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -117,9 +111,9 @@ fn test_staff_scheduling_serialization_round_trip() {
 fn test_staff_scheduling_paper_example() {
     let problem = issue_example_problem();
     let config = vec![1, 1, 1, 1, 0];
-    assert!(problem.evaluate(&config));
+    assert!(problem.evaluate(&config).unwrap());
 
-    let satisfying = BruteForce::new().find_all_witnesses(&problem);
+    let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
     assert!(satisfying.contains(&config));
 }
 

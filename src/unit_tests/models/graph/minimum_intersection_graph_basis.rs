@@ -24,12 +24,12 @@ fn test_minimum_intersection_graph_basis_p3() {
 
     // Valid config: S[0]={0}, S[1]={0,1}, S[2]={1} -> [1,0, 1,1, 0,1]
     let config = vec![1, 0, 1, 1, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(Some(2)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
 
     // Brute force should find optimal = 2
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(2)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -40,14 +40,14 @@ fn test_minimum_intersection_graph_basis_single_edge() {
     let problem = MinimumIntersectionGraphBasis::new(graph);
 
     // Valid: S[0]={0}, S[1]={0} -> [1, 1]
-    assert_eq!(problem.evaluate(&[1, 1]), Min(Some(1)));
+    assert_eq!(problem.evaluate(&[1, 1]).unwrap(), Min(Some(1)));
 
     // Invalid: S[0]={}, S[1]={0} -> edge not covered
-    assert_eq!(problem.evaluate(&[0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(None));
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(1)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -64,11 +64,11 @@ fn test_minimum_intersection_graph_basis_triangle() {
     // Valid: S[0]={0}, S[1]={0}, S[2]={0}
     // config: v0: [1,0,0], v1: [1,0,0], v2: [1,0,0]
     let config = vec![1, 0, 0, 1, 0, 0, 1, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(1)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(1)));
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Min(Some(1)));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -76,14 +76,14 @@ fn test_minimum_intersection_graph_basis_empty_graph() {
     // No edges: universe size 0
     let graph = SimpleGraph::new(3, vec![]);
     let problem = MinimumIntersectionGraphBasis::new(graph);
-    assert_eq!(problem.evaluate(&[]), Min(Some(0)));
+    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
 }
 
 #[test]
 fn test_minimum_intersection_graph_basis_wrong_length() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumIntersectionGraphBasis::new(graph);
-    assert_eq!(problem.evaluate(&[1, 0, 1]), Min(None));
+    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(None));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_minimum_intersection_graph_basis_invalid_nonadjacent_intersect() {
 
     // S[0]={0,1}, S[1]={0,1}, S[2]={0,1} -> 0 and 2 share elements -> invalid
     let config = vec![1, 1, 1, 1, 1, 1];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
@@ -106,5 +106,5 @@ fn test_minimum_intersection_graph_basis_invalid_edge_not_covered() {
     let problem = MinimumIntersectionGraphBasis::new(graph);
 
     let config = vec![1, 0, 0, 1, 0, 1];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }

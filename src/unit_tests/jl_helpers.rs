@@ -21,13 +21,13 @@ fn jl_parse_edges(instance: &serde_json::Value) -> Vec<(usize, usize)> {
 }
 
 #[allow(dead_code)]
-fn jl_parse_weighted_edges(instance: &serde_json::Value) -> Vec<(usize, usize, i32)> {
+fn jl_parse_weighted_edges(instance: &serde_json::Value) -> Vec<(usize, usize, i64)> {
     let edges = jl_parse_edges(instance);
-    let weights: Vec<i32> = instance["weights"]
+    let weights: Vec<i64> = instance["weights"]
         .as_array()
         .expect("weights should be an array")
         .iter()
-        .map(|w| w.as_i64().expect("weight should be i64") as i32)
+        .map(|w| w.as_i64().expect("weight should be i64"))
         .collect();
     edges
         .into_iter()
@@ -55,11 +55,11 @@ fn jl_parse_configs_set(val: &serde_json::Value) -> HashSet<Vec<usize>> {
 }
 
 #[allow(dead_code)]
-fn jl_parse_i32_vec(val: &serde_json::Value) -> Vec<i32> {
+fn jl_parse_i64_vec(val: &serde_json::Value) -> Vec<i64> {
     val.as_array()
         .expect("should be an array of integers")
         .iter()
-        .map(|v| v.as_i64().expect("element should be i64") as i32)
+        .map(|v| v.as_i64().expect("element should be i64"))
         .collect()
 }
 
@@ -90,14 +90,14 @@ fn jl_parse_sat_clauses(
         .expect("clauses should be an array")
         .iter()
         .map(|clause| {
-            let literals: Vec<i32> = clause["literals"]
+            let literals: Vec<i64> = clause["literals"]
                 .as_array()
                 .expect("clause.literals should be an array")
                 .iter()
                 .map(|lit| {
                     let var = lit["variable"]
                         .as_u64()
-                        .expect("literal.variable should be a u64") as i32
+                        .expect("literal.variable should be a u64") as i64
                         + 1;
                     let negated = lit["negated"]
                         .as_bool()

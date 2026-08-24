@@ -19,6 +19,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MinimumInternalMacroDataCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Index layout for ILP variables.
 #[derive(Debug, Clone)]
@@ -168,22 +169,28 @@ impl ReductionResult for ReductionIMDCToILP {
 impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
     type Result = ReductionIMDCToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.string_len();
         let k = self.alphabet_size();
         let h = self.pointer_cost();
+        let h_f64 = i64_to_exact_f64(h).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                MinimumInternalMacroDataCompression,
+                ILP<i64>,
+            >(error)
+        })?;
         let s = self.string();
 
         // Handle empty string
         if n == 0 {
             let layout = VarLayout::new(0, s);
             let target = ILP::new(0, vec![], vec![], ObjectiveSense::Minimize);
-            return ReductionIMDCToILP {
+            return Ok(ReductionIMDCToILP {
                 target,
                 layout,
                 source_string: vec![],
                 alphabet_size: k,
-            };
+            });
         }
 
         let layout = VarLayout::new(n, s);
@@ -262,17 +269,17 @@ impl ReduceTo<ILP<bool>> for MinimumInternalMacroDataCompression {
             objective.push((layout.lit_var(i), 1.0));
         }
         for (idx, _) in layout.ptr_triples.iter().enumerate() {
-            objective.push((layout.ptr_offset + idx, h as f64));
+            objective.push((layout.ptr_offset + idx, h_f64));
         }
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
-        ReductionIMDCToILP {
+        Ok(ReductionIMDCToILP {
             target,
             layout,
             source_string: s.to_vec(),
             alphabet_size: k,
-        }
+        })
     }
 }
 
@@ -287,7 +294,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "minimuminternalmacrodatacompression_to_ilp",
         build: || {
             let source = MinimumInternalMacroDataCompression::new(2, vec![0, 1], 2);
-            let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let reduction =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let layout = &reduction.layout;
 
             let mut target_config = vec![0usize; layout.total_vars];

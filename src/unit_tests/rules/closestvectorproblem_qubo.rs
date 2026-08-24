@@ -2,13 +2,15 @@ use super::*;
 use crate::models::algebraic::VarBounds;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
 
-fn canonical_cvp() -> ClosestVectorProblem<i32> {
+fn canonical_cvp() -> ClosestVectorProblem<i64> {
     ClosestVectorProblem::new(
         vec![vec![2, 0], vec![1, 2]],
         vec![2.8, 1.5],
         vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
     )
+    .unwrap()
 }
 
 fn assert_close(actual: f64, expected: f64) {
@@ -21,7 +23,7 @@ fn assert_close(actual: f64, expected: f64) {
 #[test]
 fn test_closestvectorproblem_to_qubo_closed_loop() {
     let source = canonical_cvp();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(reduction.target_problem().num_vars(), 6);
     assert_optimization_round_trip_from_optimization_target(
@@ -34,7 +36,7 @@ fn test_closestvectorproblem_to_qubo_closed_loop() {
 #[test]
 fn test_closestvectorproblem_to_qubo_example_matrix_coefficients() {
     let source = canonical_cvp();
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&source).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     assert_eq!(qubo.num_vars(), 6);
@@ -48,7 +50,8 @@ fn test_closestvectorproblem_to_qubo_example_matrix_coefficients() {
 
 #[test]
 fn test_extract_solution_ignores_duplicate_exact_range_encodings() {
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp());
+    let reduction =
+        ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp()).expect("reduction should succeed");
 
     assert_eq!(
         reduction.extract_solution(&[1, 1, 0, 1, 1, 0]).unwrap(),
@@ -78,14 +81,15 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
 
 #[test]
 fn test_duplicate_target_encodings_have_equal_qubo_value() {
-    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp());
+    let reduction =
+        ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp()).expect("reduction should succeed");
     let qubo = reduction.target_problem();
     let solver = BruteForce::new();
-    let best = solver.find_all_witnesses(qubo);
+    let best = solver.find_all_witnesses(qubo).unwrap();
 
     assert!(best.contains(&vec![0, 0, 1, 0, 0, 1]) || best.contains(&vec![1, 1, 0, 1, 1, 0]));
     assert_close(
-        qubo.evaluate(&[0, 0, 1, 0, 0, 1]),
-        qubo.evaluate(&[1, 1, 0, 1, 1, 0]),
+        qubo.evaluate(&[0, 0, 1, 0, 0, 1]).unwrap().unwrap(),
+        qubo.evaluate(&[1, 1, 0, 1, 1, 0]).unwrap().unwrap(),
     );
 }

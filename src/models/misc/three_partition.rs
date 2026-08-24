@@ -31,48 +31,66 @@ inventory::submit! {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ThreePartition {
-    sizes: Vec<u64>,
-    bound: u64,
+    sizes: Vec<i64>,
+    bound: i64,
 }
 
+type GroupCountsAndSums = (Vec<usize>, Vec<i64>);
+
 impl ThreePartition {
-    fn validate_inputs(sizes: &[u64], bound: u64) -> Result<(), String> {
+    fn validate_inputs(
+        sizes: &[i64],
+        bound: i64,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if sizes.is_empty() {
-            return Err("ThreePartition requires at least one element".to_string());
+            return Err("ThreePartition requires at least one element"
+                .to_string()
+                .into());
         }
         if !sizes.len().is_multiple_of(3) {
             return Err(
-                "ThreePartition requires the number of elements to be a multiple of 3".to_string(),
+                "ThreePartition requires the number of elements to be a multiple of 3".into(),
             );
         }
-        if bound == 0 {
-            return Err("ThreePartition requires a positive bound".to_string());
+        if bound <= 0 {
+            return Err("ThreePartition requires a positive bound"
+                .to_string()
+                .into());
         }
-        if sizes.contains(&0) {
-            return Err("All sizes must be positive (> 0)".to_string());
+        if sizes.iter().any(|&size| size <= 0) {
+            return Err("All sizes must be positive (> 0)".to_string().into());
         }
 
-        let bound128 = u128::from(bound);
         for &size in sizes {
-            let size = u128::from(size);
-            if !(4 * size > bound128 && 2 * size < bound128) {
-                return Err("Every size must lie strictly between B/4 and B/2".to_string());
+            let four_times_size = i128::from(size) * 4;
+            let two_times_size = i128::from(size) * 2;
+            let bound = i128::from(bound);
+            if !(four_times_size > bound && two_times_size < bound) {
+                return Err("Every size must lie strictly between B/4 and B/2"
+                    .to_string()
+                    .into());
             }
         }
 
-        let total_sum: u128 = sizes.iter().map(|&size| u128::from(size)).sum();
-        let expected_sum = u128::from(bound) * (sizes.len() as u128 / 3);
+        let total_sum = sizes
+            .iter()
+            .try_fold(0_i64, |total, &size| total.checked_add(size))
+            .ok_or("total size sum exceeds i64 range")?;
+        let group_count =
+            i64::try_from(sizes.len() / 3).map_err(|_| "group count exceeds i64 range")?;
+        let expected_sum = bound
+            .checked_mul(group_count)
+            .ok_or("group count times bound exceeds i64 range")?;
         if total_sum != expected_sum {
-            return Err("Total sum of sizes must equal m * bound".to_string());
+            return Err("Total sum of sizes must equal m * bound".to_string().into());
         }
-        if total_sum > u128::from(u64::MAX) {
-            return Err("Total sum exceeds u64 range".to_string());
-        }
-
         Ok(())
     }
 
-    pub fn try_new(sizes: Vec<u64>, bound: u64) -> Result<Self, String> {
+    pub fn try_new(
+        sizes: Vec<i64>,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate_inputs(&sizes, bound)?;
         Ok(Self { sizes, bound })
     }
@@ -82,15 +100,15 @@ impl ThreePartition {
     /// # Panics
     ///
     /// Panics if the input violates the classical 3-Partition invariants.
-    pub fn new(sizes: Vec<u64>, bound: u64) -> Self {
+    pub fn new(sizes: Vec<i64>, bound: i64) -> Self {
         Self::try_new(sizes, bound).unwrap_or_else(|message| panic!("{message}"))
     }
 
-    pub fn sizes(&self) -> &[u64] {
+    pub fn sizes(&self) -> &[i64] {
         &self.sizes
     }
 
-    pub fn bound(&self) -> u64 {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -102,34 +120,41 @@ impl ThreePartition {
         self.sizes.len() / 3
     }
 
-    pub fn total_sum(&self) -> u64 {
+    pub fn total_sum(&self) -> i64 {
         self.sizes
             .iter()
             .copied()
             .reduce(|acc, value| {
                 acc.checked_add(value)
-                    .expect("validated sum must fit in u64")
+                    .expect("validated sum must fit in i64")
             })
             .unwrap_or(0)
     }
 
-    fn group_counts_and_sums(&self, config: &[usize]) -> Option<(Vec<usize>, Vec<u128>)> {
+    fn group_counts_and_sums(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<GroupCountsAndSums>, crate::traits::EvaluationError> {
         if config.len() != self.num_elements() {
-            return None;
+            return Ok(None);
         }
 
         let mut counts = vec![0usize; self.num_groups()];
-        let mut sums = vec![0u128; self.num_groups()];
+        let mut sums = vec![0_i64; self.num_groups()];
 
         for (index, &group) in config.iter().enumerate() {
             if group >= self.num_groups() {
-                return None;
+                return Ok(None);
             }
             counts[group] += 1;
-            sums[group] += u128::from(self.sizes[index]);
+            sums[group] = sums[group].checked_add(self.sizes[index]).ok_or_else(|| {
+                crate::traits::EvaluationError::IntegerOverflow(
+                    "summing three-partition group".into(),
+                )
+            })?;
         }
 
-        Some((counts, sums))
+        Ok(Some((counts, sums)))
     }
 }
 
@@ -137,13 +162,13 @@ impl ThreePartition {
 struct ThreePartitionCreateSpec {
     /// Positive integer sizes for the elements to partition.
     #[create(codec = "comma-separated")]
-    sizes: Vec<u64>,
+    sizes: Vec<i64>,
     /// Target sum for each triple.
-    bound: u64,
+    bound: i64,
 }
 
 impl TryFrom<ThreePartitionCreateSpec> for ThreePartition {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: ThreePartitionCreateSpec) -> Result<Self, Self::Error> {
         Self::try_new(spec.sizes, spec.bound)
@@ -172,14 +197,16 @@ impl Problem for ThreePartition {
         vec![self.num_groups(); self.num_elements()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or({
-            let Some((counts, sums)) = self.group_counts_and_sums(config) else {
-                return Or(false);
-            };
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            Or({
+                let Some((counts, sums)) = self.group_counts_and_sums(config)? else {
+                    return Ok(Or(false));
+                };
 
-            let target = u128::from(self.bound);
-            counts.into_iter().all(|count| count == 3) && sums.into_iter().all(|sum| sum == target)
+                counts.into_iter().all(|count| count == 3)
+                    && sums.into_iter().all(|sum| sum == self.bound)
+            })
         })
     }
 }

@@ -11,7 +11,7 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::collections::VecDeque;
 
-/// Result of reducing MinimumFaultDetectionTestSet to ILP<bool>.
+/// Result of reducing MinimumFaultDetectionTestSet to `ILP<bool>`.
 #[derive(Debug, Clone)]
 pub struct ReductionMFDTSToILP {
     target: ILP<bool>,
@@ -43,7 +43,7 @@ impl ReductionResult for ReductionMFDTSToILP {
 impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
     type Result = ReductionMFDTSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         fn reachable(adj: &[Vec<usize>], start: usize) -> Vec<bool> {
             let mut seen = vec![false; adj.len()];
             let mut queue = VecDeque::new();
@@ -111,9 +111,9 @@ impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
 
         let objective = (0..num_pairs).map(|pair_idx| (pair_idx, 1.0)).collect();
 
-        ReductionMFDTSToILP {
+        Ok(ReductionMFDTSToILP {
             target: ILP::new(num_pairs, constraints, objective, ObjectiveSense::Minimize),
-        }
+        })
     }
 }
 

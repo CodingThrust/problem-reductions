@@ -45,11 +45,11 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // S0 and S1 form an exact cover
 /// assert_eq!(solutions.len(), 1);
-/// assert!(problem.evaluate(&solutions[0]));
+/// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExactCoverBy3Sets {
@@ -67,22 +67,22 @@ struct ExactCoverBy3SetsCreateSpec {
 }
 
 impl TryFrom<ExactCoverBy3SetsCreateSpec> for ExactCoverBy3Sets {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
     fn try_from(mut spec: ExactCoverBy3SetsCreateSpec) -> Result<Self, Self::Error> {
         if !spec.universe_size.is_multiple_of(3) {
             return Err("universe_size must be divisible by 3".into());
         }
         for (index, subset) in spec.subsets.iter_mut().enumerate() {
             if subset[0] == subset[1] || subset[0] == subset[2] || subset[1] == subset[2] {
-                return Err(format!("subset {index} contains duplicate elements"));
+                return Err(format!("subset {index} contains duplicate elements").into());
             }
             if let Some(&element) = subset
                 .iter()
                 .find(|&&element| element >= spec.universe_size)
             {
-                return Err(format!(
-                    "subset {index} contains out-of-range element {element}"
-                ));
+                return Err(
+                    format!("subset {index} contains out-of-range element {element}").into(),
+                );
             }
             subset.sort();
         }
@@ -173,8 +173,11 @@ impl ExactCoverBy3Sets {
     ///
     /// A valid exact cover selects exactly q = universe_size/3 subsets
     /// that are pairwise disjoint and whose union equals the universe.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 
     /// Get the elements covered by the selected subsets.
@@ -199,37 +202,42 @@ impl Problem for ExactCoverBy3Sets {
         vec![2; self.subsets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.subsets.len() || config.iter().any(|&value| value > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.subsets.len() || config.iter().any(|&value| value > 1) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            let q = self.universe_size / 3;
+                let q = self.universe_size / 3;
 
-            // Count selected subsets
-            let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
-            if selected_count != q {
-                return crate::types::Or(false);
-            }
+                // Count selected subsets
+                let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
+                if selected_count != q {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check that selected subsets are pairwise disjoint and cover everything
-            let mut covered = HashSet::with_capacity(self.universe_size);
-            for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
-                    if let Some(subset) = self.subsets.get(i) {
-                        for &elem in subset {
-                            if !covered.insert(elem) {
-                                // Element already covered -- not disjoint
-                                return crate::types::Or(false);
+                // Check that selected subsets are pairwise disjoint and cover everything
+                let mut covered = HashSet::with_capacity(self.universe_size);
+                for (i, &selected) in config.iter().enumerate() {
+                    if selected == 1 {
+                        if let Some(subset) = self.subsets.get(i) {
+                            for &elem in subset {
+                                if !covered.insert(elem) {
+                                    // Element already covered -- not disjoint
+                                    return Ok(crate::types::Or(false));
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            // Check all elements are covered
-            covered.len() == self.universe_size
+                // Check all elements are covered
+                covered.len() == self.universe_size
+            })
         })
     }
 

@@ -71,7 +71,7 @@ impl ReductionResult for ReductionNMTSToILP {
 impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
     type Result = ReductionNMTSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_pairs();
         let sx = self.sizes_x();
         let sy = self.sizes_y();
@@ -127,7 +127,7 @@ impl ReduceTo<ILP<bool>> for NumericalMatchingWithTargetSums {
 
         let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
 
-        ReductionNMTSToILP { target, triples, m }
+        Ok(ReductionNMTSToILP { target, triples, m })
     }
 }
 

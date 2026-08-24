@@ -57,7 +57,7 @@ inventory::submit! {
 ///     vec![],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,56 +203,61 @@ impl Problem for AdditionalKey {
         vec![2; self.relation_attrs.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            // Check config length
-            if config.len() != self.relation_attrs.len() {
-                return crate::types::Or(false);
-            }
-            // Check all values are 0 or 1
-            if config.iter().any(|&v| v >= 2) {
-                return crate::types::Or(false);
-            }
-
-            // Build selected attribute set
-            let selected: Vec<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &v)| v == 1)
-                .map(|(i, _)| self.relation_attrs[i])
-                .collect();
-
-            // Empty selection is not a key
-            if selected.is_empty() {
-                return crate::types::Or(false);
-            }
-
-            // Compute closure of selected attributes
-            let mut attr_set = vec![false; self.num_attributes];
-            for &a in &selected {
-                attr_set[a] = true;
-            }
-            let closure = self.compute_closure(&attr_set);
-
-            // Check closure covers all relation_attrs
-            if !self.relation_attrs.iter().all(|&a| closure[a]) {
-                return crate::types::Or(false);
-            }
-
-            // Check minimality: removing any single selected attribute should break coverage
-            for &a in &selected {
-                let mut reduced = attr_set.clone();
-                reduced[a] = false;
-                let reduced_closure = self.compute_closure(&reduced);
-                if self.relation_attrs.iter().all(|&ra| reduced_closure[ra]) {
-                    return crate::types::Or(false); // Not minimal
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                // Check config length
+                if config.len() != self.relation_attrs.len() {
+                    return Ok(crate::types::Or(false));
                 }
-            }
+                // Check all values are 0 or 1
+                if config.iter().any(|&v| v >= 2) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Build sorted selected vec and check it's not in known_keys
-            let mut sorted_selected = selected;
-            sorted_selected.sort_unstable();
-            !self.known_keys.contains(&sorted_selected)
+                // Build selected attribute set
+                let selected: Vec<usize> = config
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &v)| v == 1)
+                    .map(|(i, _)| self.relation_attrs[i])
+                    .collect();
+
+                // Empty selection is not a key
+                if selected.is_empty() {
+                    return Ok(crate::types::Or(false));
+                }
+
+                // Compute closure of selected attributes
+                let mut attr_set = vec![false; self.num_attributes];
+                for &a in &selected {
+                    attr_set[a] = true;
+                }
+                let closure = self.compute_closure(&attr_set);
+
+                // Check closure covers all relation_attrs
+                if !self.relation_attrs.iter().all(|&a| closure[a]) {
+                    return Ok(crate::types::Or(false));
+                }
+
+                // Check minimality: removing any single selected attribute should break coverage
+                for &a in &selected {
+                    let mut reduced = attr_set.clone();
+                    reduced[a] = false;
+                    let reduced_closure = self.compute_closure(&reduced);
+                    if self.relation_attrs.iter().all(|&ra| reduced_closure[ra]) {
+                        return Ok(crate::types::Or(false)); // Not minimal
+                    }
+                }
+
+                // Build sorted selected vec and check it's not in known_keys
+                let mut sorted_selected = selected;
+                sorted_selected.sort_unstable();
+                !self.known_keys.contains(&sorted_selected)
+            })
         })
     }
 }

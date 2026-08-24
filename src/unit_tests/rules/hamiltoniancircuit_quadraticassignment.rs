@@ -15,7 +15,8 @@ fn cycle4_hc() -> HamiltonianCircuit<SimpleGraph> {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_optimization_target(
         &source,
@@ -27,7 +28,8 @@ fn test_hamiltoniancircuit_to_quadraticassignment_closed_loop() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.num_facilities(), 4);
@@ -61,15 +63,17 @@ fn test_hamiltoniancircuit_to_quadraticassignment_structure() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_equals_n() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // The identity permutation [0,1,2,3] is a valid HC on a 4-cycle,
     // so the QAP optimum should be exactly n = 4.
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("QAP should have an optimal solution");
-    let value = target.evaluate(&best);
+    let value = target.evaluate(&best).unwrap();
     assert_eq!(value, Min(Some(4)), "optimal QAP cost should be n=4");
 }
 
@@ -77,14 +81,16 @@ fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_equals_n() {
 fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
     // Star graph on 4 vertices has no Hamiltonian circuit
     let source = HamiltonianCircuit::new(SimpleGraph::star(4));
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let n = source.num_vertices();
 
     let best = BruteForce::new()
         .find_witness(target)
+        .unwrap()
         .expect("QAP always has a solution");
-    let value = target.evaluate(&best);
+    let value = target.evaluate(&best).unwrap();
     assert!(
         value.is_valid(),
         "QAP solution should have a valid objective"
@@ -99,14 +105,15 @@ fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
 #[test]
 fn test_hamiltoniancircuit_to_quadraticassignment_extract_solution() {
     let source = cycle4_hc();
-    let reduction = ReduceTo::<QuadraticAssignment>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<QuadraticAssignment>::reduce_to(&source).expect("reduction should succeed");
 
     // Permutation [0,1,2,3] visits 0->1->2->3->0 on cycle4
     let target_config = vec![0, 1, 2, 3];
     let extracted = reduction.extract_solution(&target_config).unwrap();
     assert_eq!(extracted, vec![0, 1, 2, 3]);
     assert!(
-        source.evaluate(&extracted).0,
+        source.evaluate(&extracted).unwrap().0,
         "extracted solution should be a valid HC"
     );
 }
@@ -131,8 +138,9 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     let hc = HamiltonianCircuit::new(SimpleGraph::new(6, edges));
 
     // HC → QAP → ILP → solve → extract back
-    let r1 = ReduceTo::<QuadraticAssignment>::reduce_to(&hc);
-    let r2 = ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem());
+    let r1 = ReduceTo::<QuadraticAssignment>::reduce_to(&hc).expect("reduction should succeed");
+    let r2 =
+        ReduceTo::<ILP<bool>>::reduce_to(r1.target_problem()).expect("reduction should succeed");
     let ilp_sol = ILPSolver::new()
         .solve(r2.target_problem())
         .expect("ILP should be feasible");
@@ -140,7 +148,7 @@ fn test_prism_graph_hc_via_qap_ilp_roundtrip() {
     let hc_sol = r1.extract_solution(&qap_sol).unwrap();
 
     assert!(
-        hc.evaluate(&hc_sol).0,
+        hc.evaluate(&hc_sol).unwrap().0,
         "prism graph HC via QAP→ILP should produce a valid Hamiltonian circuit, got {:?}",
         hc_sol
     );

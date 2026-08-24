@@ -238,7 +238,7 @@ impl Circuit {
 ///
 /// let problem = CircuitSAT::new(circuit);
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Multiple satisfying assignments exist
 /// assert!(!solutions.is_empty());
@@ -333,8 +333,13 @@ impl Problem for CircuitSAT {
         vec![2; self.variables.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.count_satisfied(config) == self.circuit.num_assignments())
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(
+            self.count_satisfied(config) == self.circuit.num_assignments(),
+        ))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

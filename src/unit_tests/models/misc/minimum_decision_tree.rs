@@ -41,7 +41,7 @@ fn test_minimum_decision_tree_evaluate_optimal() {
     let problem = issue_instance();
     // Balanced tree: T0 at root, T2 left, T1 right, rest leaves
     let config = vec![0, 2, 1, 3, 3, 3, 3];
-    assert_eq!(problem.evaluate(&config), Min(Some(8)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(8)));
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn test_minimum_decision_tree_evaluate_suboptimal() {
     // T0 at node 1: o1 goes right (T0=1→leaf at depth 2), o2,o3 go left (T0=0)
     // T2 at node 3: o2 goes left (T2=0→leaf at depth 3), o3 goes right (T2=1→leaf at depth 3)
     let config = vec![1, 0, 3, 2, 3, 3, 3];
-    assert_eq!(problem.evaluate(&config), Min(Some(9)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(9)));
 }
 
 #[test]
@@ -61,20 +61,20 @@ fn test_minimum_decision_tree_evaluate_invalid_duplicate_leaf() {
     // All leaves immediately — no tests applied, all objects reach same leaf
     let config = vec![3, 3, 3, 3, 3, 3, 3];
     // Root is a leaf, all objects land at root — duplicates
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_decision_tree_evaluate_wrong_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Min(None));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_minimum_decision_tree_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let value = solver.solve(&problem);
+    let value = solver.solve(&problem).unwrap();
     assert_eq!(value, Min(Some(8)));
 }
 
@@ -82,9 +82,9 @@ fn test_minimum_decision_tree_solver() {
 fn test_minimum_decision_tree_witness() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem);
+    let witness = solver.find_witness(&problem).unwrap();
     assert!(witness.is_some());
-    assert_eq!(problem.evaluate(&witness.unwrap()), Min(Some(8)));
+    assert_eq!(problem.evaluate(&witness.unwrap()).unwrap(), Min(Some(8)));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_minimum_decision_tree_serialization() {
     assert_eq!(restored.num_objects(), 4);
     assert_eq!(restored.num_tests(), 3);
     let config = vec![0, 2, 1, 3, 3, 3, 3];
-    assert_eq!(restored.evaluate(&config), Min(Some(8)));
+    assert_eq!(restored.evaluate(&config).unwrap(), Min(Some(8)));
 }
 
 #[test]
@@ -108,8 +108,8 @@ fn test_minimum_decision_tree_two_objects() {
     );
     assert_eq!(problem.dims().len(), 1); // 2^(2-1) - 1 = 1 slot
                                          // Test at root, both objects go to leaves at depth 1
-    assert_eq!(problem.evaluate(&[0]), Min(Some(2))); // depth 1 + depth 1
-    assert_eq!(problem.evaluate(&[1]), Min(None)); // sentinel=1 is leaf at root, both objects at same leaf
+    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(2))); // depth 1 + depth 1
+    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(None)); // sentinel=1 is leaf at root, both objects at same leaf
 }
 
 #[test]

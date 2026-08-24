@@ -6,6 +6,126 @@ use serde::Serialize;
 use std::any::Any;
 use std::marker::PhantomData;
 
+/// Failure to construct a target instance for a registered reduction edge.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ReductionError {
+    #[error("{source_problem} -> {target_problem}: target construction failed: {cause}")]
+    Construction {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        #[source]
+        cause: crate::registry::ConstructionError,
+    },
+    #[error("{source_problem} -> {target_problem}: integer overflow while {operation}")]
+    IntegerOverflow {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        operation: String,
+    },
+    #[error("{source_problem} -> {target_problem}: non-finite value while {operation}")]
+    NonFiniteResult {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        operation: String,
+    },
+    #[error("{source_problem} -> {target_problem}: {cause}")]
+    InexactFloatConversion {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        #[source]
+        cause: crate::types::ExactI64ToF64Error,
+    },
+    #[error("{source_problem} -> {target_problem}: {message}")]
+    InvalidTarget {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        message: String,
+    },
+    #[error(
+        "{source_problem} -> {target_problem}: reduction executor expected source type `{expected}`"
+    )]
+    SourceTypeMismatch {
+        source_problem: &'static str,
+        target_problem: &'static str,
+        expected: &'static str,
+    },
+}
+
+impl ReductionError {
+    pub(crate) fn for_reduction<S: Problem, T: Problem>(self) -> Self {
+        match self {
+            Self::Construction { cause, .. } => Self::construction::<S, T>(cause),
+            Self::IntegerOverflow { operation, .. } => Self::integer_overflow::<S, T>(operation),
+            Self::NonFiniteResult { operation, .. } => Self::non_finite_result::<S, T>(operation),
+            Self::InexactFloatConversion { cause, .. } => {
+                Self::inexact_float_conversion::<S, T>(cause)
+            }
+            Self::InvalidTarget { message, .. } => Self::invalid_target::<S, T>(message),
+            Self::SourceTypeMismatch { expected, .. } => Self::SourceTypeMismatch {
+                source_problem: S::NAME,
+                target_problem: T::NAME,
+                expected,
+            },
+        }
+    }
+
+    /// Report that a type-erased executor received the wrong source problem type.
+    pub fn source_type_mismatch<S: Problem, T: Problem>() -> Self {
+        Self::SourceTypeMismatch {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            expected: std::any::type_name::<S>(),
+        }
+    }
+
+    /// Report integer overflow while constructing a reduction target.
+    pub fn integer_overflow<S: Problem, T: Problem>(operation: impl Into<String>) -> Self {
+        Self::IntegerOverflow {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            operation: operation.into(),
+        }
+    }
+
+    /// Report that an exact integer cannot be represented in a floating-point target field.
+    pub fn inexact_float_conversion<S: Problem, T: Problem>(
+        cause: crate::types::ExactI64ToF64Error,
+    ) -> Self {
+        Self::InexactFloatConversion {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            cause,
+        }
+    }
+
+    /// Report non-finite arithmetic while constructing a reduction target.
+    pub fn non_finite_result<S: Problem, T: Problem>(operation: impl Into<String>) -> Self {
+        Self::NonFiniteResult {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            operation: operation.into(),
+        }
+    }
+
+    /// Report that derived data cannot form a valid reduction target.
+    pub fn invalid_target<S: Problem, T: Problem>(message: impl Into<String>) -> Self {
+        Self::InvalidTarget {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            message: message.into(),
+        }
+    }
+
+    /// Preserve a target constructor's validation error with edge context.
+    pub fn construction<S: Problem, T: Problem>(cause: crate::registry::ConstructionError) -> Self {
+        Self::Construction {
+            source_problem: S::NAME,
+            target_problem: T::NAME,
+            cause,
+        }
+    }
+}
+
 /// Failure to map a target witness back into the source configuration space.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum ExtractionError {
@@ -17,6 +137,8 @@ pub enum ExtractionError {
         target_problem: &'static str,
         message: String,
     },
+    #[error("target evaluation failed during extraction: {0}")]
+    Evaluation(#[from] crate::traits::EvaluationError),
 }
 
 impl ExtractionError {
@@ -106,12 +228,12 @@ pub trait ReductionResult {
 /// );
 ///
 /// // Reduce to Independent Set
-/// let reduction = sat_problem.reduce_to();
+/// let reduction = sat_problem.reduce_to().expect("reduction should succeed");
 /// let is_problem = reduction.target_problem();
 ///
 /// // Solve and extract solutions
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(is_problem);
+/// let solutions = solver.find_all_witnesses(is_problem).unwrap();
 /// let sat_solutions: Vec<_> = solutions.iter()
 ///     .map(|s| reduction.extract_solution(s))
 ///     .collect();
@@ -121,7 +243,7 @@ pub trait ReduceTo<T: Problem>: Problem {
     type Result: ReductionResult<Source = Self, Target = T>;
 
     /// Reduce this problem to the target problem type.
-    fn reduce_to(&self) -> Self::Result;
+    fn reduce_to(&self) -> Result<Self::Result, ReductionError>;
 }
 
 /// Result of reducing a source problem to a target problem for aggregate values.
@@ -151,7 +273,7 @@ pub trait ReduceToAggregate<T: Problem>: Problem {
     type Result: AggregateReductionResult<Source = Self, Target = T>;
 
     /// Reduce this problem to the target problem type.
-    fn reduce_to_aggregate(&self) -> Self::Result;
+    fn reduce_to_aggregate(&self) -> Result<Self::Result, ReductionError>;
 }
 
 /// Generic reduction result for natural-edge (subtype) reductions.

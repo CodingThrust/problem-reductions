@@ -26,7 +26,8 @@ fn no_bipartite() -> BipartiteGraph {
 #[test]
 fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
     let source = MinimumMaximalMatching::new(yes_bipartite());
-    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumMatrixDomination>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // N = m + n = 2 + 3 = 5; |1-entries| = |F| = 5.
@@ -37,14 +38,14 @@ fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
     let solver = BruteForce::new();
 
     // Source mmm(B) = 2 on this bipartite graph (two-edge maximal matching).
-    assert_eq!(solver.solve(&source), Min(Some(2)));
+    assert_eq!(solver.solve(&source).unwrap(), Min(Some(2)));
 
     // Target minimum matrix domination = 2 by the Yannakakis-Gavril identity.
-    assert_eq!(solver.solve(target), Min(Some(2)));
+    assert_eq!(solver.solve(target).unwrap(), Min(Some(2)));
 
     // Closed-loop: every optimal target witness must extract to a valid
     // maximal matching of size mm(B) = 2.
-    let target_witnesses = solver.find_all_witnesses(target);
+    let target_witnesses = solver.find_all_witnesses(target).unwrap();
     assert!(
         !target_witnesses.is_empty(),
         "matrix domination has at least one optimum"
@@ -52,7 +53,7 @@ fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
     for witness in &target_witnesses {
         let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(
-            source.evaluate(&extracted),
+            source.evaluate(&extracted).unwrap(),
             Min(Some(2)),
             "extracted matching must be maximal of size 2"
         );
@@ -62,7 +63,8 @@ fn test_minimummaximalmatching_to_minimummatrixdomination_closed_loop() {
 #[test]
 fn test_target_matrix_structure() {
     let source = MinimumMaximalMatching::new(yes_bipartite());
-    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumMatrixDomination>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Upper-right m x n block is B*. m = 2, n = 3, so 1-entries should be
@@ -93,12 +95,14 @@ fn test_extract_solution_returns_maximal_matching() {
     // Verify that for an arbitrary optimal target witness, extract_solution
     // returns some maximal matching whose value matches mm(B).
     let source = MinimumMaximalMatching::new(yes_bipartite());
-    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumMatrixDomination>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
     let target_witness = solver
         .find_witness(target)
+        .unwrap()
         .expect("matrix domination has an optimum");
     let extracted = reduction.extract_solution(&target_witness).unwrap();
 
@@ -116,16 +120,17 @@ fn test_no_instance_unreachable_threshold() {
     // has 3 pairwise non-attacking 1-entries (different rows and different
     // columns), so its minimum matrix domination is also 3.
     let source = MinimumMaximalMatching::new(no_bipartite());
-    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumMatrixDomination>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&source), Min(Some(3)));
-    assert_eq!(solver.solve(target), Min(Some(3)));
+    assert_eq!(solver.solve(&source).unwrap(), Min(Some(3)));
+    assert_eq!(solver.solve(target).unwrap(), Min(Some(3)));
 
     // The target value never drops below the source value: in particular, no
     // matrix-domination subset of size 2 exists.
-    let target_value = solver.solve(target);
+    let target_value = solver.solve(target).unwrap();
     if let Min(Some(value)) = target_value {
         assert!(value > 2, "matrix domination value must exceed 2");
     } else {
@@ -152,7 +157,8 @@ fn test_extract_solution_yg_transform_on_non_matching_eds() {
     // maximal matching of size <= 2, e.g. {(l0, r0), (l1, r1)} or
     // {(l0, r1), (l1, r2)}.
     let source = MinimumMaximalMatching::new(yes_bipartite());
-    let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<MinimumMatrixDomination>::reduce_to(&source).expect("reduction should succeed");
 
     // Construct the non-matching EDS witness explicitly. ones() ordering on
     // this instance is [(0,2),(0,3),(0,4),(1,3),(1,4)]; indices 1 and 2
@@ -161,7 +167,7 @@ fn test_extract_solution_yg_transform_on_non_matching_eds() {
 
     // Sanity-check: this is actually a feasible MMD witness on the target.
     let target = reduction.target_problem();
-    assert_eq!(target.evaluate(&target_witness), Min(Some(2)));
+    assert_eq!(target.evaluate(&target_witness).unwrap(), Min(Some(2)));
 
     let extracted = reduction.extract_solution(&target_witness).unwrap();
 
@@ -181,7 +187,7 @@ fn test_extract_solution_yg_transform_on_non_matching_eds() {
         !(extracted[1] == 1 && extracted[2] == 1),
         "transform must break the (l0,r1)-(l0,r2) adjacency"
     );
-    assert_eq!(source.evaluate(&extracted), Min(Some(2)));
+    assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(2)));
 }
 
 #[test]
@@ -206,7 +212,8 @@ fn test_identity_on_random_bipartite_instances() {
         let n_right = graph.right_size();
         let num_edges = graph.num_edges();
         let source = MinimumMaximalMatching::new(graph);
-        let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source);
+        let reduction = ReduceTo::<MinimumMatrixDomination>::reduce_to(&source)
+            .expect("reduction should succeed");
         let target = reduction.target_problem();
 
         // Structural checks: the matrix is square of side m + n and has |F|
@@ -215,10 +222,10 @@ fn test_identity_on_random_bipartite_instances() {
         assert_eq!(target.num_cols(), m_left + n_right);
         assert_eq!(target.num_ones(), num_edges);
 
-        let Min(Some(mm)) = solver.solve(&source) else {
+        let Min(Some(mm)) = solver.solve(&source).unwrap() else {
             panic!("MinimumMaximalMatching always has a feasible optimum");
         };
-        let Min(Some(md)) = solver.solve(target) else {
+        let Min(Some(md)) = solver.solve(target).unwrap() else {
             panic!("MinimumMatrixDomination always has a feasible optimum");
         };
 

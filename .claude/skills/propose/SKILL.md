@@ -830,7 +830,7 @@ Print all issue URLs when done.
 - **Don't skip confirmation for textbook reductions.** Even if SubsetSum → Knapsack is in Garey & Johnson, still present each brainstorming step with pre-filled answers for the user to confirm or revise. Never jump straight to the draft.
 - **Don't rebuild `pred` unnecessarily.** Use `command -v pred` to check if it's installed before running `make cli` (which takes >1 minute).
 - **Don't ask all questions at once.** One `AskUserQuestion` call per message.
-- **Don't use programming jargon.** Say "list of weights" not "Vec<W>". Say "graph" not "SimpleGraph". Say "integer" not "i32".
+- **Don't use programming jargon.** Say "list of weights" not "Vec<W>". Say "graph" not "SimpleGraph". Say "integer" not "i64".
 - **Don't skip the reduction crossref.** An orphan model will be rejected.
 - **Don't file without user approval.** Always show the draft first.
 - **Don't implement anything.** The output is issues, not code.

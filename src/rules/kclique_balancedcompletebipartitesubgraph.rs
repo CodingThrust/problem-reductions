@@ -58,7 +58,7 @@ impl ReductionResult for ReductionKCliqueToBCBS {
 impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
     type Result = ReductionKCliqueToBCBS;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
         let k = self.k();
         let edges: Vec<(usize, usize)> = self.graph().edges();
@@ -99,10 +99,10 @@ impl ReduceTo<BalancedCompleteBipartiteSubgraph> for KClique<SimpleGraph> {
         let graph = BipartiteGraph::new(left_size, right_size, bip_edges);
         let target = BalancedCompleteBipartiteSubgraph::new(graph, target_k);
 
-        ReductionKCliqueToBCBS {
+        Ok(ReductionKCliqueToBCBS {
             target,
             num_original_vertices: n,
-        }
+        })
     }
 }
 

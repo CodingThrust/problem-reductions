@@ -1,4 +1,4 @@
-//! Reduction from MinimumEdgeCostFlow to ILP<i32>.
+//! Reduction from MinimumEdgeCostFlow to `ILP<i64>`.
 //!
 //! Variables (2m total):
 //!   f_a  (a = 0..m-1)  — integer flow on arc a, domain {0, ..., c(a)}
@@ -22,23 +22,24 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumEdgeCostFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing MinimumEdgeCostFlow to ILP<i32>.
+/// Result of reducing MinimumEdgeCostFlow to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `f_a` at index a for a in 0..num_edges (flow on arc a)
 /// - `y_a` at index num_edges + a for a in 0..num_edges (binary indicator)
 #[derive(Debug, Clone)]
 pub struct ReductionMECFToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_edges: usize,
 }
 
 impl ReductionResult for ReductionMECFToILP {
     type Source = MinimumEdgeCostFlow;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -59,14 +60,22 @@ impl ReductionResult for ReductionMECFToILP {
         num_constraints = "2 * num_edges + num_vertices - 1",
     },
 )]
-impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
+impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
     type Result = ReductionMECFToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
         let n = self.num_vertices();
         let num_vars = 2 * m;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    MinimumEdgeCostFlow,
+                    ILP<i64>,
+                >(error)
+            })
+        };
 
         let f = |a: usize| a; // flow variable index
         let y = |a: usize| m + a; // indicator variable index
@@ -76,7 +85,7 @@ impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
         // 1. Linking: f_a - c(a) * y_a ≤ 0  (forces y_a = 1 when f_a > 0)
         for a in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(f(a), 1.0), (y(a), -(self.capacities()[a] as f64))],
+                vec![(f(a), 1.0), (y(a), -exact_f64(self.capacities()[a])?)],
                 0.0,
             ));
         }
@@ -118,17 +127,18 @@ impl ReduceTo<ILP<i32>> for MinimumEdgeCostFlow {
         }
         constraints.push(LinearConstraint::ge(
             sink_terms,
-            self.required_flow() as f64,
+            exact_f64(self.required_flow())?,
         ));
 
         // Objective: minimize Σ p(a) · y_a
-        let objective: Vec<(usize, f64)> =
-            (0..m).map(|a| (y(a), self.prices()[a] as f64)).collect();
+        let objective: Vec<(usize, f64)> = (0..m)
+            .map(|a| Ok((y(a), exact_f64(self.prices()[a])?)))
+            .collect::<Result<_, crate::rules::ReductionError>>()?;
 
-        ReductionMECFToILP {
+        Ok(ReductionMECFToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_edges: m,
-        }
+        })
     }
 }
 
@@ -147,7 +157,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 4,
                 3,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

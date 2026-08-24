@@ -32,40 +32,40 @@ fn test_nmts_creation() {
 fn test_nmts_evaluate_valid() {
     let problem = yes_problem();
     // config [0,2,1] → sums: 1+2=3, 4+3=7, 7+5=12 → multiset {3,7,12} = targets
-    assert_eq!(problem.evaluate(&[0, 2, 1]), Or(true));
+    assert_eq!(problem.evaluate(&[0, 2, 1]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_nmts_evaluate_invalid_sums() {
     let problem = yes_problem();
     // config [0,1,2] → sums: 1+2=3, 4+5=9, 7+3=10 → multiset {3,9,10} ≠ {3,7,12}
-    assert_eq!(problem.evaluate(&[0, 1, 2]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
     // config [1,0,2] → sums: 1+5=6, 4+2=6, 7+3=10 → multiset {6,6,10} ≠ {3,7,12}
-    assert_eq!(problem.evaluate(&[1, 0, 2]), Or(false));
+    assert_eq!(problem.evaluate(&[1, 0, 2]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_nmts_evaluate_invalid_permutation() {
     let problem = yes_problem();
     // Duplicate index — not a permutation
-    assert_eq!(problem.evaluate(&[0, 0, 1]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 0, 1]).unwrap(), Or(false));
     // Index out of range
-    assert_eq!(problem.evaluate(&[0, 1, 3]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 3]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_nmts_evaluate_wrong_length() {
     let problem = yes_problem();
-    assert_eq!(problem.evaluate(&[0, 1]), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 0]), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&[0, 1, 2, 0]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_nmts_solver_finds_witness() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&solution), Or(true));
+    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&solution).unwrap(), Or(true));
 }
 
 #[test]
@@ -74,7 +74,7 @@ fn test_nmts_solver_unsatisfiable() {
     // Possible sums: {1+3,2+4}={4,6} or {1+4,2+3}={5,5}, neither is {10,20}
     let problem = NumericalMatchingWithTargetSums::new(vec![1, 2], vec![3, 4], vec![10, 20]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).is_none());
+    assert!(solver.find_witness(&problem).unwrap().is_none());
 }
 
 #[test]

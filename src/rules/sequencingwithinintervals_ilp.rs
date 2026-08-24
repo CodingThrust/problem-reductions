@@ -1,4 +1,4 @@
-//! Reduction from SequencingWithinIntervals to ILP<bool>.
+//! Reduction from SequencingWithinIntervals to `ILP<bool>`.
 //!
 //! Uses a time-indexed binary formulation:
 //! - Variables: Binary x_{j,k} where x_{j,k} = 1 iff task j starts at offset k
@@ -20,7 +20,7 @@ use crate::models::misc::SequencingWithinIntervals;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing SequencingWithinIntervals to ILP<bool>.
+/// Result of reducing SequencingWithinIntervals to `ILP<bool>`.
 ///
 /// Variable layout: task j occupies variables at offsets [base_j, base_j + slot_count_j).
 /// where base_j = Σ_{i<j} slot_count_i and slot_count_j = d_j - r_j - l_j + 1.
@@ -77,23 +77,40 @@ impl ReductionResult for ReductionSWIToILP {
 impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
     type Result = ReductionSWIToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let release = self.release_times();
         let deadlines = self.deadlines();
         let lengths = self.lengths();
 
         // Compute per-task variable layout: how many start slots each task has
+        let overflow = |operation| {
+            crate::rules::ReductionError::integer_overflow::<Self, ILP<bool>>(operation)
+        };
         let slot_counts: Vec<usize> = (0..n)
-            .map(|j| (deadlines[j] - release[j] - lengths[j] + 1) as usize)
-            .collect();
+            .map(|j| {
+                let count = deadlines[j]
+                    .checked_sub(release[j])
+                    .and_then(|value| value.checked_sub(lengths[j]))
+                    .and_then(|value| value.checked_add(1))
+                    .ok_or_else(|| overflow("computing a task's start-slot count"))?;
+                usize::try_from(count)
+                    .map_err(|_| overflow("converting a task's start-slot count to usize"))
+            })
+            .collect::<Result<_, _>>()?;
 
         let mut bases = vec![0usize; n];
         for j in 1..n {
-            bases[j] = bases[j - 1] + slot_counts[j - 1];
+            bases[j] = bases[j - 1]
+                .checked_add(slot_counts[j - 1])
+                .ok_or_else(|| overflow("computing task variable offsets"))?;
         }
-        let num_vars =
-            bases.last().copied().unwrap_or(0) + slot_counts.last().copied().unwrap_or(0);
+        let num_vars = bases
+            .last()
+            .copied()
+            .unwrap_or(0)
+            .checked_add(slot_counts.last().copied().unwrap_or(0))
+            .ok_or_else(|| overflow("computing the ILP variable count"))?;
 
         let task_layout: Vec<(usize, usize)> = (0..n).map(|j| (bases[j], slot_counts[j])).collect();
 
@@ -112,11 +129,23 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
         for i in 0..n {
             for j in (i + 1)..n {
                 for k1 in 0..slot_counts[i] {
-                    let start_i = release[i] + k1 as u64;
-                    let end_i = start_i + lengths[i];
+                    let offset_i = i64::try_from(k1)
+                        .map_err(|_| overflow("converting a task start offset to i64"))?;
+                    let start_i = release[i]
+                        .checked_add(offset_i)
+                        .ok_or_else(|| overflow("computing a task start time"))?;
+                    let end_i = start_i
+                        .checked_add(lengths[i])
+                        .ok_or_else(|| overflow("computing a task end time"))?;
                     for k2 in 0..slot_counts[j] {
-                        let start_j = release[j] + k2 as u64;
-                        let end_j = start_j + lengths[j];
+                        let offset_j = i64::try_from(k2)
+                            .map_err(|_| overflow("converting a task start offset to i64"))?;
+                        let start_j = release[j]
+                            .checked_add(offset_j)
+                            .ok_or_else(|| overflow("computing a task start time"))?;
+                        let end_j = start_j
+                            .checked_add(lengths[j])
+                            .ok_or_else(|| overflow("computing a task end time"))?;
                         // Overlap if neither ends before the other starts
                         if !(end_i <= start_j || end_j <= start_i) {
                             constraints.push(LinearConstraint::le(
@@ -129,10 +158,10 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
             }
         }
 
-        ReductionSWIToILP {
+        Ok(ReductionSWIToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             task_layout,
-        }
+        })
     }
 }
 
@@ -146,8 +175,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 2 tasks: task 0 [r=0, d=3, l=2], task 1 [r=2, d=5, l=2]
             // Task 0 can start at offset 0 or 1, task 1 can start at offset 0 or 1
             // No overlap when both at offset 0: [0,2) and [2,4)
-            let source = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]);
-            let reduction: ReductionSWIToILP = ReduceTo::<ILP<bool>>::reduce_to(&source);
+            let source =
+                SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]).unwrap();
+            let reduction: ReductionSWIToILP =
+                ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
             let solver = crate::solvers::ILPSolver::new();
             let target_config = solver
                 .solve(reduction.target_problem())

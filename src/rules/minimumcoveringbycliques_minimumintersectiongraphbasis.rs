@@ -87,7 +87,7 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            if !self.target.evaluate(target_solution).is_valid() {
+            if !self.target.evaluate(target_solution)?.is_valid() {
                 return Err(crate::rules::ExtractionError::invalid(
                     "target configuration is not a valid intersection graph basis",
                 ));
@@ -113,10 +113,10 @@ impl ReduceTo<MinimumIntersectionGraphBasis<SimpleGraph>>
 {
     type Result = ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis;
 
-    fn reduce_to(&self) -> Self::Result {
-        Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
+        Ok(Self::Result {
             target: MinimumIntersectionGraphBasis::new(self.graph().clone()),
-        }
+        })
     }
 }
 

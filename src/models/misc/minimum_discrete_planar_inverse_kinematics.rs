@@ -62,7 +62,7 @@ inventory::submit! {
 /// for every `j = 2, ..., n`, minimizing
 ///
 /// `|| Σ_{j=1}^n l_j (cos(phi_{j,a_j}), sin(phi_{j,a_j})) - g ||_2^2`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct MinimumDiscretePlanarInverseKinematics {
     link_lengths: Vec<f64>,
     target_point: (f64, f64),
@@ -70,75 +70,96 @@ pub struct MinimumDiscretePlanarInverseKinematics {
     allowed_pairs: Vec<Vec<(usize, usize)>>,
 }
 
+#[derive(Deserialize)]
+struct MinimumDiscretePlanarInverseKinematicsData {
+    link_lengths: Vec<f64>,
+    target_point: (f64, f64),
+    orientation_samples: Vec<Vec<f64>>,
+    allowed_pairs: Vec<Vec<(usize, usize)>>,
+}
+
+impl<'de> Deserialize<'de> for MinimumDiscretePlanarInverseKinematics {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let data = MinimumDiscretePlanarInverseKinematicsData::deserialize(deserializer)?;
+        Self::new(
+            data.link_lengths,
+            data.target_point,
+            data.orientation_samples,
+            data.allowed_pairs,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}
+
 impl MinimumDiscretePlanarInverseKinematics {
     /// Construct a new instance.
     ///
-    /// # Panics
-    /// Panics if the input fields are not mutually consistent (see the
-    /// validation rules in the source).
     pub fn new(
         link_lengths: Vec<f64>,
         target_point: (f64, f64),
         orientation_samples: Vec<Vec<f64>>,
         allowed_pairs: Vec<Vec<(usize, usize)>>,
-    ) -> Self {
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let n = link_lengths.len();
-        assert!(
-            n >= 1,
-            "MinimumDiscretePlanarInverseKinematics requires at least one link"
-        );
-        for &length in &link_lengths {
-            assert!(
-                length.is_finite() && length > 0.0,
-                "link lengths must be positive finite reals"
-            );
+        if n == 0 {
+            return Err("MinimumDiscretePlanarInverseKinematics requires at least one link".into());
         }
-        assert!(
-            target_point.0.is_finite() && target_point.1.is_finite(),
-            "target point coordinates must be finite reals"
-        );
-        assert_eq!(
-            orientation_samples.len(),
-            n,
-            "orientation_samples must have one entry per link"
-        );
-        for samples in &orientation_samples {
-            assert!(
-                !samples.is_empty(),
-                "each link must have at least one candidate orientation"
-            );
-            for &angle in samples {
-                assert!(
-                    angle.is_finite(),
-                    "orientation samples must be finite real numbers"
+        for (index, &length) in link_lengths.iter().enumerate() {
+            if !length.is_finite() || length <= 0.0 {
+                return Err(
+                    format!("link length at index {index} must be positive and finite").into(),
                 );
             }
         }
-        assert_eq!(
-            allowed_pairs.len(),
-            n.saturating_sub(1),
-            "allowed_pairs must have one entry per junction (n - 1 entries)"
-        );
+        if !target_point.0.is_finite() || !target_point.1.is_finite() {
+            return Err("target point coordinates must be finite".into());
+        }
+        if orientation_samples.len() != n {
+            return Err("orientation_samples must have one entry per link".into());
+        }
+        let mut total_configurations = 1_usize;
+        for (link, samples) in orientation_samples.iter().enumerate() {
+            if samples.is_empty() {
+                return Err(
+                    format!("link {link} must have at least one candidate orientation").into(),
+                );
+            }
+            total_configurations = total_configurations
+                .checked_mul(samples.len())
+                .ok_or("orientation configuration count exceeds usize")?;
+            for (sample, &angle) in samples.iter().enumerate() {
+                if !angle.is_finite() {
+                    return Err(format!(
+                        "orientation sample {sample} for link {link} must be finite"
+                    )
+                    .into());
+                }
+            }
+        }
+        if allowed_pairs.len() != n - 1 {
+            return Err("allowed_pairs must have one entry per junction".into());
+        }
         for (j_minus_1, pairs) in allowed_pairs.iter().enumerate() {
             let m_prev = orientation_samples[j_minus_1].len();
             let m_curr = orientation_samples[j_minus_1 + 1].len();
             for &(a_prev, a_curr) in pairs {
-                assert!(
-                    a_prev < m_prev,
-                    "allowed_pair index out of range for previous link"
-                );
-                assert!(
-                    a_curr < m_curr,
-                    "allowed_pair index out of range for current link"
-                );
+                if a_prev >= m_prev || a_curr >= m_curr {
+                    return Err(format!(
+                        "allowed pair ({a_prev}, {a_curr}) at junction {j_minus_1} is out of range"
+                    )
+                    .into());
+                }
             }
         }
-        Self {
+        Ok(Self {
             link_lengths,
             target_point,
             orientation_samples,
             allowed_pairs,
-        }
+        })
     }
 
     /// Get the link lengths.
@@ -169,7 +190,11 @@ impl MinimumDiscretePlanarInverseKinematics {
     /// Total number of configurations (product of per-link sample counts):
     /// `prod_{j=1}^n m_j`. This is the size of the brute-force search space.
     pub fn total_configurations(&self) -> usize {
-        self.orientation_samples.iter().map(|s| s.len()).product()
+        self.orientation_samples
+            .iter()
+            .map(|samples| samples.len())
+            .try_fold(1_usize, usize::checked_mul)
+            .expect("validated orientation configuration count must fit usize")
     }
 
     /// Total number of sampled orientations across all links:
@@ -202,27 +227,48 @@ impl MinimumDiscretePlanarInverseKinematics {
 
     /// Compute the end-effector position for a configuration.
     /// Returns `None` if the configuration is infeasible.
-    pub fn end_effector(&self, config: &[usize]) -> Option<(f64, f64)> {
+    pub fn end_effector(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<(f64, f64)>, crate::traits::EvaluationError> {
         if !self.is_feasible(config) {
-            return None;
+            return Ok(None);
         }
         let mut x = 0.0_f64;
         let mut y = 0.0_f64;
         for (j, &a) in config.iter().enumerate() {
             let phi = self.orientation_samples[j][a];
-            x += self.link_lengths[j] * phi.cos();
-            y += self.link_lengths[j] * phi.sin();
+            let next_x = x + self.link_lengths[j] * phi.cos();
+            let next_y = y + self.link_lengths[j] * phi.sin();
+            if !next_x.is_finite() || !next_y.is_finite() {
+                return Err(crate::traits::EvaluationError::NonFiniteResult(
+                    "computing the inverse-kinematics end-effector position".into(),
+                ));
+            }
+            x = next_x;
+            y = next_y;
         }
-        Some((x, y))
+        Ok(Some((x, y)))
     }
 
     /// Compute the squared end-effector distance to the target.
     /// Returns `None` if the configuration is infeasible.
-    pub fn squared_distance(&self, config: &[usize]) -> Option<f64> {
-        let (x, y) = self.end_effector(config)?;
+    pub fn squared_distance(
+        &self,
+        config: &[usize],
+    ) -> Result<Option<f64>, crate::traits::EvaluationError> {
+        let Some((x, y)) = self.end_effector(config)? else {
+            return Ok(None);
+        };
         let dx = x - self.target_point.0;
         let dy = y - self.target_point.1;
-        Some(dx * dx + dy * dy)
+        let squared_distance = dx * dx + dy * dy;
+        if !squared_distance.is_finite() {
+            return Err(crate::traits::EvaluationError::NonFiniteResult(
+                "computing the inverse-kinematics squared distance".into(),
+            ));
+        }
+        Ok(Some(squared_distance))
     }
 
     /// Whether the configuration represents a valid feasible solution.
@@ -246,11 +292,13 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Min<f64> {
-        match self.squared_distance(config) {
-            Some(value) => Min(Some(value)),
-            None => Min(None),
-        }
+    fn evaluate(&self, config: &[usize]) -> Result<Min<f64>, crate::traits::EvaluationError> {
+        Ok({
+            match self.squared_distance(config)? {
+                Some(value) => Min(Some(value)),
+                None => Min(None),
+            }
+        })
     }
 }
 
@@ -263,12 +311,15 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     use std::f64::consts::FRAC_PI_2;
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_discrete_planar_inverse_kinematics",
-        instance: Box::new(MinimumDiscretePlanarInverseKinematics::new(
-            vec![2.0, 1.0],
-            (2.0, 1.0),
-            vec![vec![0.0, FRAC_PI_2], vec![0.0, FRAC_PI_2]],
-            vec![vec![(0, 0), (0, 1), (1, 1)]],
-        )),
+        instance: Box::new(
+            MinimumDiscretePlanarInverseKinematics::new(
+                vec![2.0, 1.0],
+                (2.0, 1.0),
+                vec![vec![0.0, FRAC_PI_2], vec![0.0, FRAC_PI_2]],
+                vec![vec![(0, 0), (0, 1), (1, 1)]],
+            )
+            .unwrap(),
+        ),
         optimal_config: vec![0, 1],
         optimal_value: serde_json::json!(0.0),
     }]

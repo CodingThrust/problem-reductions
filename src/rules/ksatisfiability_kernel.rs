@@ -39,7 +39,7 @@ impl ReductionResult for Reduction3SatToKernel {
     }
 }
 
-fn literal_vertex(literal: i32) -> usize {
+fn literal_vertex(literal: i64) -> usize {
     let variable = literal.unsigned_abs() as usize - 1;
     if literal > 0 {
         2 * variable
@@ -57,7 +57,7 @@ fn literal_vertex(literal: i32) -> usize {
 impl ReduceTo<Kernel> for KSatisfiability<K3> {
     type Result = Reduction3SatToKernel;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_vars();
         let num_clauses = self.num_clauses();
         let mut arcs = Vec::with_capacity(2 * num_vars + 6 * num_clauses);
@@ -80,10 +80,10 @@ impl ReduceTo<Kernel> for KSatisfiability<K3> {
             }
         }
 
-        Reduction3SatToKernel {
+        Ok(Reduction3SatToKernel {
             target: Kernel::new(DirectedGraph::new(2 * num_vars + 3 * num_clauses, arcs)),
             source_num_vars: num_vars,
-        }
+        })
     }
 }
 

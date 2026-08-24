@@ -10,20 +10,21 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
     ));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_size = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_size = problem.evaluate(&extracted);
+    let ilp_size = problem.evaluate(&extracted).unwrap();
 
     // Both should find optimal size = 2
     assert_eq!(bf_size, Min(Some(2)));
@@ -31,7 +32,7 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
 
     // Verify the ILP solution is valid for the original problem
     assert!(
-        problem.evaluate(&extracted).is_valid(),
+        problem.evaluate(&extracted).unwrap().is_valid(),
         "Extracted solution should be valid"
     );
 }
@@ -40,7 +41,8 @@ fn test_minimummetricdimension_to_ilp_closed_loop() {
 fn test_minimummetricdimension_to_ilp_structure() {
     // Path graph P3: 3 vertices
     let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     // Check ILP structure
@@ -67,7 +69,8 @@ fn test_minimummetricdimension_to_ilp_bf_vs_ilp() {
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
     ));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     crate::rules::test_helpers::assert_bf_vs_ilp(&problem, &reduction);
 }
 
@@ -75,15 +78,16 @@ fn test_minimummetricdimension_to_ilp_bf_vs_ilp() {
 fn test_minimummetricdimension_to_ilp_path_graph() {
     // Path P4: 0-1-2-3, metric dimension = 1 (any endpoint resolves)
     let problem = MinimumMetricDimension::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Min(Some(1)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
 #[test]
@@ -93,18 +97,19 @@ fn test_minimummetricdimension_to_ilp_complete_graph() {
         4,
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_all_witnesses(&problem);
-    let bf_size = problem.evaluate(&bf_solutions[0]);
+    let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
+    let bf_size = problem.evaluate(&bf_solutions[0]).unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    let ilp_size = problem.evaluate(&extracted);
+    let ilp_size = problem.evaluate(&extracted).unwrap();
 
     assert_eq!(bf_size, Min(Some(3)));
     assert_eq!(ilp_size, Min(Some(3)));
@@ -113,7 +118,8 @@ fn test_minimummetricdimension_to_ilp_complete_graph() {
 #[test]
 fn test_minimummetricdimension_to_ilp_solution_extraction() {
     let problem = MinimumMetricDimension::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 0];
@@ -121,7 +127,7 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
     assert_eq!(extracted, vec![1, 0, 0]);
 
     // Verify this is a valid resolving set
-    assert!(problem.evaluate(&extracted).is_valid());
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
 #[test]
@@ -131,13 +137,14 @@ fn test_minimummetricdimension_to_ilp_cycle() {
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
-    let reduction: ReductionMDToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionMDToILP =
+        ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert!(problem.evaluate(&extracted).is_valid());
-    assert_eq!(problem.evaluate(&extracted), Min(Some(2)));
+    assert!(problem.evaluate(&extracted).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
 }

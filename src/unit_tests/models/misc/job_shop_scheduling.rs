@@ -33,7 +33,7 @@ fn test_job_shop_scheduling_creation_and_dims() {
 fn test_job_shop_scheduling_evaluate_issue_example() {
     let problem = issue_example();
     let config = vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0];
-    assert_eq!(problem.evaluate(&config), Min(Some(19)));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(19)));
 }
 
 #[test]
@@ -61,14 +61,14 @@ fn test_job_shop_scheduling_paper_example_schedule() {
 fn test_job_shop_scheduling_rejects_cyclic_machine_orders() {
     let problem = small_two_job_instance();
     let config = vec![1, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), Min(None));
+    assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_job_shop_scheduling_invalid_config_and_serialization() {
     let problem = small_two_job_instance();
-    assert_eq!(problem.evaluate(&[2, 0, 0, 0]), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0]), Min(None));
+    assert_eq!(problem.evaluate(&[2, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(None));
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: JobShopScheduling = serde_json::from_value(json).unwrap();
@@ -86,10 +86,10 @@ fn test_job_shop_scheduling_problem_name_and_variant() {
 fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let problem = small_two_job_instance();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &problem);
+    let value = Solver::solve(&solver, &problem).unwrap();
     assert_eq!(value, Min(Some(2)));
-    let witness = solver.find_witness(&problem).unwrap();
-    assert_eq!(problem.evaluate(&witness), Min(Some(2)));
+    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(2)));
 }
 
 #[test]

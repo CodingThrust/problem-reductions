@@ -38,9 +38,9 @@ fn test_simultaneous_incongruences_creation_and_accessors() {
 fn test_simultaneous_incongruences_evaluate_yes() {
     let p = example_problem();
     // x=5: 5%2=1≠0(=2%2), 5%3=2≠1, 5%5=0≠2, 5%7=5≠3 ✓
-    assert_eq!(p.evaluate(&[5]), Or(true));
+    assert_eq!(p.evaluate(&[5]).unwrap(), Or(true));
     // x=1: 1%2=1≠0(=2%2), 1%3=1=1 — fails for pair (1,3)
-    assert_eq!(p.evaluate(&[1]), Or(false));
+    assert_eq!(p.evaluate(&[1]).unwrap(), Or(false));
 }
 
 #[test]
@@ -52,15 +52,19 @@ fn test_simultaneous_incongruences_evaluate_no() {
     assert_eq!(lcm, 2);
     // All x in {0,1} should fail
     for x in 0..lcm as usize {
-        assert_eq!(p.evaluate(&[x]), Or(false), "expected false for x={x}");
+        assert_eq!(
+            p.evaluate(&[x]).unwrap(),
+            Or(false),
+            "expected false for x={x}"
+        );
     }
 }
 
 #[test]
 fn test_simultaneous_incongruences_evaluate_invalid_config() {
     let p = example_problem();
-    assert_eq!(p.evaluate(&[]), Or(false));
-    assert_eq!(p.evaluate(&[0, 1]), Or(false));
+    assert_eq!(p.evaluate(&[]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&[0, 1]).unwrap(), Or(false));
 }
 
 #[test]
@@ -70,22 +74,22 @@ fn test_simultaneous_incongruences_empty_pairs() {
     assert_eq!(p.lcm_moduli(), 1);
     assert_eq!(p.dims(), vec![1]);
     // Any x (here x=0) satisfies vacuously
-    assert_eq!(p.evaluate(&[0]), Or(true));
+    assert_eq!(p.evaluate(&[0]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_simultaneous_incongruences_brute_force_finds_witness() {
     let p = example_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
 fn test_simultaneous_incongruences_brute_force_no_witness() {
     let p = covering_system();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&p).is_none());
+    assert!(solver.find_witness(&p).unwrap().is_none());
 }
 
 #[test]
@@ -120,9 +124,9 @@ fn test_simultaneous_incongruences_deserialization_rejects_invalid() {
 fn test_simultaneous_incongruences_paper_example() {
     // Canonical paper example: pairs [(2,2),(1,3),(2,5),(3,7)], x=5 is a solution
     let p = SimultaneousIncongruences::new(vec![(2, 2), (1, 3), (2, 5), (3, 7)]).unwrap();
-    assert_eq!(p.evaluate(&[5]), Or(true));
+    assert_eq!(p.evaluate(&[5]).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap();
-    assert_eq!(p.evaluate(&witness), Or(true));
+    let witness = solver.find_witness(&p).unwrap().unwrap();
+    assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }

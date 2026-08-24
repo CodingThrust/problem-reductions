@@ -33,12 +33,12 @@ fn deterministic_solver_dispatch_unregistered_customized_override_is_a_capabilit
     use crate::models::graph::MaxCut;
     use crate::topology::SimpleGraph;
 
-    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]);
+    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64]);
     let loaded = crate::registry::load_dyn(
-        MaxCut::<SimpleGraph, i32>::NAME,
+        MaxCut::<SimpleGraph, i64>::NAME,
         &BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -57,15 +57,15 @@ fn deterministic_solver_dispatch_unregistered_ilp_override_is_a_capability_error
     use crate::models::graph::MaxCut;
     use crate::topology::SimpleGraph;
 
-    // MaxCut<i32> has a discoverable graph route toward ILP, but that route is
+    // MaxCut<i64> has a discoverable graph route toward ILP, but that route is
     // partial for valid negative-weight instances and is intentionally not a
     // registered solver pipeline.
-    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]);
+    let problem = MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i64]);
     let loaded = crate::registry::load_dyn(
-        MaxCut::<SimpleGraph, i32>::NAME,
+        MaxCut::<SimpleGraph, i64>::NAME,
         &BTreeMap::from([
             ("graph".to_string(), "SimpleGraph".to_string()),
-            ("weight".to_string(), "i32".to_string()),
+            ("weight".to_string(), "i64".to_string()),
         ]),
         serde_json::to_value(problem).unwrap(),
     )
@@ -233,8 +233,8 @@ fn deterministic_solver_dispatch_fixed_multihop_pipeline_is_repeatable() {
         reduction_path,
         vec![
             "MaximumIndependentSet<SimpleGraph, One>",
-            "MaximumIndependentSet<SimpleGraph, i32>",
-            "MaximumSetPacking<i32>",
+            "MaximumIndependentSet<SimpleGraph, i64>",
+            "MaximumSetPacking<i64>",
             "ILP<bool>",
         ]
     );

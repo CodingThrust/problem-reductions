@@ -1,4 +1,4 @@
-//! Reduction from MinimumWeightDecoding to ILP<i32>.
+//! Reduction from MinimumWeightDecoding to `ILP<i64>`.
 //!
 //! The GF(2) constraint Hx ≡ s (mod 2) is linearized by introducing integer
 //! slack variables k_i for each row:
@@ -20,22 +20,22 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing MinimumWeightDecoding to ILP<i32>.
+/// Result of reducing MinimumWeightDecoding to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - x_j at index j for j in 0..num_cols (binary codeword bits)
 /// - k_i at index num_cols + i for i in 0..num_rows (integer slack)
 #[derive(Debug, Clone)]
 pub struct ReductionMinimumWeightDecodingToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_cols: usize,
 }
 
 impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     type Source = MinimumWeightDecoding;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -56,10 +56,10 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
         num_constraints = "num_rows + num_cols",
     },
 )]
-impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
+impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
     type Result = ReductionMinimumWeightDecodingToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let m = self.num_cols();
         let n = self.num_rows();
         let num_vars = m + n;
@@ -90,10 +90,10 @@ impl ReduceTo<ILP<i32>> for MinimumWeightDecoding {
         // Objective: minimize Σ x_j
         let objective: Vec<(usize, f64)> = (0..m).map(|j| (x(j), 1.0)).collect();
 
-        ReductionMinimumWeightDecodingToILP {
+        Ok(ReductionMinimumWeightDecodingToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_cols: m,
-        }
+        })
     }
 }
 
@@ -110,7 +110,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ],
                 vec![true, true, false],
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

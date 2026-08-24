@@ -4,8 +4,8 @@ use crate::solvers::BruteForce;
 
 #[test]
 fn test_partition_to_subsetsum_closed_loop() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -16,8 +16,8 @@ fn test_partition_to_subsetsum_closed_loop() {
 
 #[test]
 fn test_partition_to_subsetsum_structure() {
-    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+    let source = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Same number of elements
@@ -35,8 +35,8 @@ fn test_partition_to_subsetsum_structure() {
 #[test]
 fn test_partition_to_subsetsum_odd_total() {
     // Odd total sum: 2 + 4 + 5 = 11, no balanced partition possible
-    let source = Partition::new(vec![2, 4, 5]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+    let source = Partition::new(vec![2, 4, 5]).unwrap();
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Trivially infeasible: empty sizes, target = 1
@@ -44,7 +44,7 @@ fn test_partition_to_subsetsum_odd_total() {
     assert_eq!(*target.target(), num_bigint::BigUint::from(1u32));
 
     // No witness should exist for the target
-    let witness = BruteForce::new().find_witness(target);
+    let witness = BruteForce::new().find_witness(target).unwrap();
     assert!(witness.is_none());
 
     let error = reduction.extract_solution(&[]).unwrap_err();
@@ -57,8 +57,8 @@ fn test_partition_to_subsetsum_odd_total() {
 #[test]
 fn test_partition_to_subsetsum_equal_elements() {
     // All equal: [2, 2, 2, 2], total = 8, target = 4
-    let source = Partition::new(vec![2, 2, 2, 2]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+    let source = Partition::new(vec![2, 2, 2, 2]).unwrap();
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
     assert_satisfaction_round_trip_from_satisfaction_target(
         &source,
@@ -69,8 +69,8 @@ fn test_partition_to_subsetsum_equal_elements() {
 
 #[test]
 fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
-    let source = Partition::new(vec![1, 1, 2, 2]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source);
+    let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
 }

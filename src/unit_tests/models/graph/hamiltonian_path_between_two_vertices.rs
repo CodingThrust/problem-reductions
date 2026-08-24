@@ -19,15 +19,15 @@ fn test_hamiltonian_path_between_two_vertices_basic() {
     assert_eq!(problem.dims(), vec![4, 4, 4, 4]);
 
     // Valid path: 0->1->2->3
-    assert!(problem.evaluate(&[0, 1, 2, 3]));
+    assert!(problem.evaluate(&[0, 1, 2, 3]).unwrap());
     // Reversed path fails (wrong source/target)
-    assert!(!problem.evaluate(&[3, 2, 1, 0]));
+    assert!(!problem.evaluate(&[3, 2, 1, 0]).unwrap());
     // Invalid: wrong start vertex
-    assert!(!problem.evaluate(&[1, 0, 2, 3]));
+    assert!(!problem.evaluate(&[1, 0, 2, 3]).unwrap());
     // Invalid: wrong end vertex
-    assert!(!problem.evaluate(&[0, 1, 3, 2]));
+    assert!(!problem.evaluate(&[0, 1, 3, 2]).unwrap());
     // Invalid: not a permutation
-    assert!(!problem.evaluate(&[0, 1, 1, 3]));
+    assert!(!problem.evaluate(&[0, 1, 1, 3]).unwrap());
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn test_hamiltonian_path_between_two_vertices_no_solution() {
         2,
     );
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(
         solution.is_none(),
         "C5 with s=0, t=2 has no Hamiltonian s-t path"
@@ -70,18 +70,18 @@ fn test_hamiltonian_path_between_two_vertices_brute_force() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem);
+    let solution = solver.find_witness(&problem).unwrap();
     assert!(solution.is_some());
     let sol = solution.unwrap();
-    assert!(problem.evaluate(&sol));
+    assert!(problem.evaluate(&sol).unwrap());
     assert_eq!(sol[0], 0, "Path must start at source vertex 0");
     assert_eq!(sol[5], 5, "Path must end at target vertex 5");
 
     // Issue says there are exactly 4 distinct Hamiltonian s-t paths
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4);
     for path in &all {
-        assert!(problem.evaluate(path));
+        assert!(problem.evaluate(path).unwrap());
         assert_eq!(path[0], 0);
         assert_eq!(path[5], 5);
     }
@@ -148,7 +148,7 @@ fn test_hamiltonian_path_between_two_vertices_paper_example() {
     );
 
     // Issue-specified solution: 0 -> 3 -> 2 -> 1 -> 4 -> 5
-    assert!(problem.evaluate(&[0, 3, 2, 1, 4, 5]));
+    assert!(problem.evaluate(&[0, 3, 2, 1, 4, 5]).unwrap());
 
     // Verify edge-by-edge
     let path = [0usize, 3, 2, 1, 4, 5];
@@ -157,7 +157,7 @@ fn test_hamiltonian_path_between_two_vertices_paper_example() {
 
     // Verify brute force confirms the problem
     let solver = BruteForce::new();
-    let all = solver.find_all_witnesses(&problem);
+    let all = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(all.len(), 4, "issue says 4 Hamiltonian s-t paths exist");
     assert!(all.contains(&vec![0, 3, 2, 1, 4, 5]));
 }

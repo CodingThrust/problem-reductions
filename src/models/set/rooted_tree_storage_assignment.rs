@@ -17,7 +17,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the ground set X" },
             FieldInfo { name: "subsets", type_name: "Vec<Vec<usize>>", description: "Collection of subsets of X" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Upper bound K on the total extension cost" },
+            FieldInfo { name: "bound", type_name: "i64", description: "Upper bound K on the total extension cost" },
         ],
     }
 }
@@ -27,26 +27,26 @@ inventory::submit! {
 pub struct RootedTreeStorageAssignment {
     universe_size: usize,
     subsets: Vec<Vec<usize>>,
-    bound: usize,
+    bound: i64,
 }
 
 #[derive(Debug, Deserialize)]
 struct RootedTreeStorageAssignmentDef {
     universe_size: usize,
     subsets: Vec<Vec<usize>>,
-    bound: usize,
+    bound: i64,
 }
 
 impl RootedTreeStorageAssignment {
-    pub fn new(universe_size: usize, subsets: Vec<Vec<usize>>, bound: usize) -> Self {
+    pub fn new(universe_size: usize, subsets: Vec<Vec<usize>>, bound: i64) -> Self {
         Self::try_new(universe_size, subsets, bound).unwrap_or_else(|err| panic!("{err}"))
     }
 
     pub fn try_new(
         universe_size: usize,
         subsets: Vec<Vec<usize>>,
-        bound: usize,
-    ) -> Result<Self, String> {
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         let subsets = subsets
             .into_iter()
             .enumerate()
@@ -54,14 +54,14 @@ impl RootedTreeStorageAssignment {
                 let mut seen = HashSet::with_capacity(subset.len());
                 for &element in &subset {
                     if element >= universe_size {
-                        return Err(format!(
+                        return Err::<Vec<usize>, crate::registry::ConstructionError>(format!(
                             "subset {subset_index} contains element {element} outside universe of size {universe_size}"
-                        ));
+                        ).into());
                     }
                     if !seen.insert(element) {
-                        return Err(format!(
+                        return Err::<Vec<usize>, crate::registry::ConstructionError>(format!(
                             "subset {subset_index} contains duplicate element {element}"
-                        ));
+                        ).into());
                     }
                 }
                 subset.sort_unstable();
@@ -88,7 +88,7 @@ impl RootedTreeStorageAssignment {
         &self.subsets
     }
 
-    pub fn bound(&self) -> usize {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -181,34 +181,48 @@ impl Problem for RootedTreeStorageAssignment {
         vec![self.universe_size; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.universe_size {
-                return crate::types::Or(false);
-            }
-            if config.iter().any(|&parent| parent >= self.universe_size) {
-                return crate::types::Or(false);
-            }
-            if self.universe_size == 0 {
-                return crate::types::Or(self.subsets.is_empty());
-            }
-
-            let Some(depth) = Self::analyze_tree(config) else {
-                return crate::types::Or(false);
-            };
-
-            let mut total_cost = 0usize;
-            for subset in &self.subsets {
-                let Some(cost) = self.subset_extension_cost(subset, config, &depth) else {
-                    return crate::types::Or(false);
-                };
-                total_cost += cost;
-                if total_cost > self.bound {
-                    return crate::types::Or(false);
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.universe_size {
+                    return Ok(crate::types::Or(false));
                 }
-            }
+                if config.iter().any(|&parent| parent >= self.universe_size) {
+                    return Ok(crate::types::Or(false));
+                }
+                if self.universe_size == 0 {
+                    return Ok(crate::types::Or(self.subsets.is_empty()));
+                }
 
-            true
+                let Some(depth) = Self::analyze_tree(config) else {
+                    return Ok(crate::types::Or(false));
+                };
+
+                let mut total_cost = 0_i64;
+                for subset in &self.subsets {
+                    let Some(cost) = self.subset_extension_cost(subset, config, &depth) else {
+                        return Ok(crate::types::Or(false));
+                    };
+                    let cost = i64::try_from(cost).map_err(|_| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "converting a rooted-tree storage assignment cost to i64".to_string(),
+                        )
+                    })?;
+                    total_cost = total_cost.checked_add(cost).ok_or_else(|| {
+                        crate::traits::EvaluationError::IntegerOverflow(
+                            "summing rooted-tree storage assignment costs".to_string(),
+                        )
+                    })?;
+                    if total_cost > self.bound {
+                        return Ok(crate::types::Or(false));
+                    }
+                }
+
+                true
+            })
         })
     }
 
@@ -236,7 +250,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 impl TryFrom<RootedTreeStorageAssignmentDef> for RootedTreeStorageAssignment {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: RootedTreeStorageAssignmentDef) -> Result<Self, Self::Error> {
         Self::try_new(value.universe_size, value.subsets, value.bound)

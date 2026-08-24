@@ -43,7 +43,7 @@ impl ReductionResult for ReductionSPToQUBO {
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_sets();
         let weights = self.weights_ref();
         let total_weight: f64 = weights.iter().sum();
@@ -62,9 +62,13 @@ impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
             matrix[a][b] += penalty;
         }
 
-        ReductionSPToQUBO {
-            target: QUBO::from_matrix(matrix),
-        }
+        Ok(ReductionSPToQUBO {
+            target: QUBO::from_matrix(matrix).map_err(|message| {
+                crate::rules::ReductionError::construction::<MaximumSetPacking<f64>, QUBO<f64>>(
+                    message,
+                )
+            })?,
+        })
     }
 }
 

@@ -57,7 +57,7 @@ impl ReductionResult for ReductionMMMToILP {
 impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
     type Result = ReductionMMMToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let edges = self.graph().edges();
         let num_vars = edges.len();
         let mut constraints = Vec::new();
@@ -96,7 +96,7 @@ impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
         let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
 
         let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
-        ReductionMMMToILP { target }
+        Ok(ReductionMMMToILP { target })
     }
 }
 

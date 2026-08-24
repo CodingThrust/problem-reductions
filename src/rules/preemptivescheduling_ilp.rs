@@ -1,4 +1,4 @@
-//! Reduction from PreemptiveScheduling to ILP<i32>.
+//! Reduction from PreemptiveScheduling to `ILP<i64>`.
 //!
 //! Time-indexed formulation with an auxiliary integer makespan variable:
 //! - Variables: binary x_{t,u} for t in 0..n, u in 0..D_max (task t processed at slot u),
@@ -15,18 +15,19 @@
 //!   4. Makespan lower bound: M ≥ (u+1) when x_{t,u}=1:
 //!      `M - (u+1)*x_{t,u} ≥ 0` for all t,u
 //!   5. Binary bounds: x_{t,u} ≤ 1 for each t,u
-//!      (since ILP<i32> uses non-negative integer domain)
+//!      (since `ILP<i64>` uses non-negative integer domain)
 //! - Objective: Minimize M.
 //!
-//! Note: ILP<i32> treats all variables as non-negative integers. Binary constraints
+//! Note: `ILP<i64>` treats all variables as non-negative integers. Binary constraints
 //! on x_{t,u} are enforced by x_{t,u} ≤ 1.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::PreemptiveScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing PreemptiveScheduling to ILP<i32>.
+/// Result of reducing PreemptiveScheduling to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - x_{t,u} at index t * D_max + u for t in 0..n, u in 0..D_max  (n*D_max vars)
@@ -35,16 +36,16 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n * D_max + 1 variables.
 #[derive(Debug, Clone)]
 pub struct ReductionPSToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_tasks: usize,
     d_max: usize,
 }
 
 impl ReductionResult for ReductionPSToILP {
     type Source = PreemptiveScheduling;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -70,25 +71,39 @@ impl ReductionResult for ReductionPSToILP {
         num_constraints = "num_tasks + d_max + num_precedences * d_max + 2 * num_tasks * d_max",
     },
 )]
-impl ReduceTo<ILP<i32>> for PreemptiveScheduling {
+impl ReduceTo<ILP<i64>> for PreemptiveScheduling {
     type Result = ReductionPSToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let m = self.num_processors();
         let d = self.d_max();
         let num_task_vars = n * d;
         let m_var = num_task_vars; // index of the makespan variable M
         let num_vars = num_task_vars + 1;
+        let exact_f64 = |value| {
+            i64_to_exact_f64(value).map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    PreemptiveScheduling,
+                    ILP<i64>,
+                >(error)
+            })
+        };
+        let lengths = self
+            .lengths()
+            .iter()
+            .copied()
+            .map(exact_f64)
+            .collect::<Result<Vec<_>, _>>()?;
 
         let x = |t: usize, u: usize| t * d + u;
 
         let mut constraints = Vec::new();
 
         // 1. Work constraints: Σ_u x_{t,u} = l(t) for each task t
-        for t in 0..n {
+        for (t, &length) in lengths.iter().enumerate() {
             let terms: Vec<(usize, f64)> = (0..d).map(|u| (x(t, u), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, self.lengths()[t] as f64));
+            constraints.push(LinearConstraint::eq(terms, length));
         }
 
         // 2. Capacity constraints: Σ_t x_{t,u} ≤ m for each time slot u
@@ -104,7 +119,7 @@ impl ReduceTo<ILP<i32>> for PreemptiveScheduling {
         //    Interpretation: succ can only be active at slot u once pred has
         //    accumulated all l(pred) units of work in strictly earlier slots.
         for &(pred, succ) in self.precedences() {
-            let l_pred = self.lengths()[pred] as f64;
+            let l_pred = lengths[pred];
             for u in 0..d {
                 // Σ_{v=0}^{u-1} x_{pred,v} - l(pred)*x_{succ,u} ≥ 0
                 // i.e. l(pred)*x_{succ,u} - Σ_{v<u} x_{pred,v} ≤ 0
@@ -122,7 +137,18 @@ impl ReduceTo<ILP<i32>> for PreemptiveScheduling {
         for t in 0..n {
             for u in 0..d {
                 constraints.push(LinearConstraint::ge(
-                    vec![(m_var, 1.0), (x(t, u), -((u + 1) as f64))],
+                    vec![
+                        (m_var, 1.0),
+                        (
+                            x(t, u),
+                            -exact_f64(i64::try_from(u + 1).map_err(|_| {
+                                crate::rules::ReductionError::invalid_target::<
+                                    PreemptiveScheduling,
+                                    ILP<i64>,
+                                >("time-slot index does not fit i64")
+                            })?)?,
+                        ),
+                    ],
                     0.0,
                 ));
             }
@@ -138,11 +164,11 @@ impl ReduceTo<ILP<i32>> for PreemptiveScheduling {
         // Objective: minimize M
         let objective = vec![(m_var, 1.0)];
 
-        ReductionPSToILP {
+        Ok(ReductionPSToILP {
             target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
             num_tasks: n,
             d_max: d,
-        }
+        })
     }
 }
 
@@ -152,8 +178,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "preemptivescheduling_to_ilp",
         build: || {
             // 3 tasks, lengths [2,1,2], 2 processors, precedence (0,2)
-            let source = PreemptiveScheduling::new(vec![2, 1, 2], 2, vec![(0, 2)]);
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            let source = PreemptiveScheduling::new(vec![2, 1, 2], 2, vec![(0, 2)]).unwrap();
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

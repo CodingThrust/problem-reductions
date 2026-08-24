@@ -19,9 +19,9 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Single-machine scheduling feasibility: can all tasks be scheduled within their release-deadline windows without overlap?",
         fields: &[
-            FieldInfo { name: "lengths", type_name: "Vec<u64>", description: "Processing time l(t) for each task (positive)" },
-            FieldInfo { name: "release_times", type_name: "Vec<u64>", description: "Release time r(t) for each task (non-negative)" },
-            FieldInfo { name: "deadlines", type_name: "Vec<u64>", description: "Deadline d(t) for each task (positive)" },
+            FieldInfo { name: "lengths", type_name: "Vec<i64>", description: "Processing time l(t) for each task (positive)" },
+            FieldInfo { name: "release_times", type_name: "Vec<i64>", description: "Release time r(t) for each task (non-negative)" },
+            FieldInfo { name: "deadlines", type_name: "Vec<i64>", description: "Deadline d(t) for each task (positive)" },
         ],
     }
 }
@@ -53,14 +53,14 @@ inventory::submit! {
 ///     vec![3, 3, 4],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem);
+/// let solution = solver.find_witness(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencingWithReleaseTimesAndDeadlines {
-    lengths: Vec<u64>,
-    release_times: Vec<u64>,
-    deadlines: Vec<u64>,
+    lengths: Vec<i64>,
+    release_times: Vec<i64>,
+    deadlines: Vec<i64>,
 }
 
 impl SequencingWithReleaseTimesAndDeadlines {
@@ -69,9 +69,21 @@ impl SequencingWithReleaseTimesAndDeadlines {
     /// # Panics
     ///
     /// Panics if the three vectors have different lengths.
-    pub fn new(lengths: Vec<u64>, release_times: Vec<u64>, deadlines: Vec<u64>) -> Self {
+    pub fn new(lengths: Vec<i64>, release_times: Vec<i64>, deadlines: Vec<i64>) -> Self {
         assert_eq!(lengths.len(), release_times.len());
         assert_eq!(lengths.len(), deadlines.len());
+        assert!(
+            lengths.iter().all(|&length| length >= 0),
+            "task lengths must be nonnegative"
+        );
+        assert!(
+            release_times.iter().all(|&release| release >= 0),
+            "release times must be nonnegative"
+        );
+        assert!(
+            deadlines.iter().all(|&deadline| deadline >= 0),
+            "deadlines must be nonnegative"
+        );
         Self {
             lengths,
             release_times,
@@ -80,17 +92,17 @@ impl SequencingWithReleaseTimesAndDeadlines {
     }
 
     /// Returns the processing times.
-    pub fn lengths(&self) -> &[u64] {
+    pub fn lengths(&self) -> &[i64] {
         &self.lengths
     }
 
     /// Returns the release times.
-    pub fn release_times(&self) -> &[u64] {
+    pub fn release_times(&self) -> &[i64] {
         &self.release_times
     }
 
     /// Returns the deadlines.
-    pub fn deadlines(&self) -> &[u64] {
+    pub fn deadlines(&self) -> &[i64] {
         &self.deadlines
     }
 
@@ -100,7 +112,7 @@ impl SequencingWithReleaseTimesAndDeadlines {
     }
 
     /// Returns the time horizon (maximum deadline).
-    pub fn time_horizon(&self) -> u64 {
+    pub fn time_horizon(&self) -> i64 {
         self.deadlines.iter().copied().max().unwrap_or(0)
     }
 }
@@ -117,24 +129,29 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
         super::lehmer_dims(self.num_tasks())
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            let Some(schedule) = super::decode_lehmer(config, self.num_tasks()) else {
-                return crate::types::Or(false);
-            };
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                let Some(schedule) = super::decode_lehmer(config, self.num_tasks()) else {
+                    return Ok(crate::types::Or(false));
+                };
 
-            // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
-            let mut current_time: u64 = 0;
-            for &task in &schedule {
-                let start = current_time.max(self.release_times[task]);
-                let finish = start + self.lengths[task];
-                if finish > self.deadlines[task] {
-                    return crate::types::Or(false);
+                // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
+                let mut current_time: i64 = 0;
+                for &task in &schedule {
+                    let start = current_time.max(self.release_times[task]);
+                    let finish = start + self.lengths[task];
+                    if finish > self.deadlines[task] {
+                        return Ok(crate::types::Or(false));
+                    }
+                    current_time = finish;
                 }
-                current_time = finish;
-            }
 
-            true
+                true
+            })
         })
     }
 }

@@ -10,6 +10,7 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ConsistencyOfDatabaseFrequencyTables;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing ConsistencyOfDatabaseFrequencyTables to ILP.
 #[derive(Debug, Clone)]
@@ -135,7 +136,7 @@ impl ReductionResult for ReductionCDFTToILP {
 impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
     type Result = ReductionCDFTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let source = self.clone();
         let helper = ReductionCDFTToILP {
             target: ILP::empty(),
@@ -186,10 +187,14 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
                             )
                         })
                         .collect();
-                    constraints.push(LinearConstraint::eq(
-                        count_terms,
-                        table.counts()[value_a][value_b] as f64,
-                    ));
+                    let count =
+                        i64_to_exact_f64(table.counts()[value_a][value_b]).map_err(|error| {
+                            crate::rules::ReductionError::inexact_float_conversion::<
+                                ConsistencyOfDatabaseFrequencyTables,
+                                ILP<bool>,
+                            >(error)
+                        })?;
+                    constraints.push(LinearConstraint::eq(count_terms, count));
 
                     for object in 0..source.num_objects() {
                         let z = helper.auxiliary_var_index(table_index, object, value_a, value_b);
@@ -214,7 +219,7 @@ impl ReduceTo<ILP<bool>> for ConsistencyOfDatabaseFrequencyTables {
             ObjectiveSense::Minimize,
         );
 
-        ReductionCDFTToILP { target, source }
+        Ok(ReductionCDFTToILP { target, source })
     }
 }
 

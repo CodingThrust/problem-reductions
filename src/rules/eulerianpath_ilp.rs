@@ -28,7 +28,7 @@ use crate::models::graph::EulerianPath;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing EulerianPath to `ILP<i32>`.
+/// Result of reducing EulerianPath to `ILP<i64>`.
 ///
 /// Variable layout (all in the non-negative integer domain, with explicit
 /// upper bounds enforcing the intended `0/1` and `0..m-1` ranges):
@@ -42,7 +42,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// where `p = pairs.len()` is the number of compatible ordered pairs.
 #[derive(Debug, Clone)]
 pub struct ReductionEulerianPathToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     /// Compatible ordered pairs `(a, b)` in the order their `y_{a,b}` variables
     /// appear in the ILP, for `m > 0`. Empty when `m = 0`.
     pairs: Vec<(usize, usize)>,
@@ -58,9 +58,9 @@ impl ReductionEulerianPathToILP {
 
 impl ReductionResult for ReductionEulerianPathToILP {
     type Source = EulerianPath;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -145,21 +145,21 @@ fn compatible_pairs(arcs: &[(usize, usize)]) -> Vec<(usize, usize)> {
         num_constraints = "5 * num_arcs + 2 * num_arcs * num_arcs + 2",
     }
 )]
-impl ReduceTo<ILP<i32>> for EulerianPath {
+impl ReduceTo<ILP<i64>> for EulerianPath {
     type Result = ReductionEulerianPathToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
         let m = arcs.len();
 
         // Empty-arc instance: vacuously feasible empty ILP.
         if m == 0 {
             let target = ILP::new(0, Vec::new(), Vec::new(), ObjectiveSense::Minimize);
-            return ReductionEulerianPathToILP {
+            return Ok(ReductionEulerianPathToILP {
                 target,
                 pairs: Vec::new(),
                 num_arcs: 0,
-            };
+            });
         }
 
         let pairs = compatible_pairs(&arcs);
@@ -231,11 +231,11 @@ impl ReduceTo<ILP<i32>> for EulerianPath {
 
         let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize);
 
-        ReductionEulerianPathToILP {
+        Ok(ReductionEulerianPathToILP {
             target,
             pairs,
             num_arcs: m,
-        }
+        })
     }
 }
 
@@ -250,7 +250,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Witness ordering (a_0, a_2, a_3, a_1) traces 0->1->2->0->1.
             let source =
                 EulerianPath::new(DirectedGraph::new(3, vec![(0, 1), (0, 1), (1, 2), (2, 0)]));
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

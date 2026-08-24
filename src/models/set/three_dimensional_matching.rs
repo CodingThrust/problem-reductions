@@ -49,11 +49,11 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_all_witnesses(&problem);
+/// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // First three triples form a valid matching
 /// assert!(!solutions.is_empty());
-/// assert!(problem.evaluate(&solutions[0]));
+/// assert!(problem.evaluate(&solutions[0]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThreeDimensionalMatching {
@@ -128,39 +128,44 @@ impl Problem for ThreeDimensionalMatching {
         vec![2; self.triples.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or({
-            if config.len() != self.triples.len() || config.iter().any(|&value| value > 1) {
-                return crate::types::Or(false);
-            }
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or({
+                if config.len() != self.triples.len() || config.iter().any(|&value| value > 1) {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Count selected triples
-            let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
-            if selected_count != self.universe_size {
-                return crate::types::Or(false);
-            }
+                // Count selected triples
+                let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
+                if selected_count != self.universe_size {
+                    return Ok(crate::types::Or(false));
+                }
 
-            // Check that selected triples have all distinct coordinates
-            let mut used_w = HashSet::with_capacity(self.universe_size);
-            let mut used_x = HashSet::with_capacity(self.universe_size);
-            let mut used_y = HashSet::with_capacity(self.universe_size);
+                // Check that selected triples have all distinct coordinates
+                let mut used_w = HashSet::with_capacity(self.universe_size);
+                let mut used_x = HashSet::with_capacity(self.universe_size);
+                let mut used_y = HashSet::with_capacity(self.universe_size);
 
-            for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
-                    let (w, x, y) = self.triples[i];
-                    if !used_w.insert(w) {
-                        return crate::types::Or(false);
-                    }
-                    if !used_x.insert(x) {
-                        return crate::types::Or(false);
-                    }
-                    if !used_y.insert(y) {
-                        return crate::types::Or(false);
+                for (i, &selected) in config.iter().enumerate() {
+                    if selected == 1 {
+                        let (w, x, y) = self.triples[i];
+                        if !used_w.insert(w) {
+                            return Ok(crate::types::Or(false));
+                        }
+                        if !used_x.insert(x) {
+                            return Ok(crate::types::Or(false));
+                        }
+                        if !used_y.insert(y) {
+                            return Ok(crate::types::Or(false));
+                        }
                     }
                 }
-            }
 
-            true
+                true
+            })
         })
     }
 

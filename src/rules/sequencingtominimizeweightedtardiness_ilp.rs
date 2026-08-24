@@ -1,4 +1,4 @@
-//! Reduction from SequencingToMinimizeWeightedTardiness to ILP<i32>.
+//! Reduction from SequencingToMinimizeWeightedTardiness to `ILP<i64>`.
 //!
 //! Pairwise order variables y_{i,j}, integer completion times C_j,
 //! and nonnegative tardiness variables T_j. Big-M disjunctive constraints
@@ -8,8 +8,9 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SequencingToMinimizeWeightedTardiness;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
-/// Result of reducing SequencingToMinimizeWeightedTardiness to ILP<i32>.
+/// Result of reducing SequencingToMinimizeWeightedTardiness to `ILP<i64>`.
 ///
 /// Variable layout:
 /// - `y_{i,j}` for i < j: pairwise order bits (n*(n-1)/2 vars)
@@ -19,7 +20,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Total: n*(n-1)/2 + 2*n variables.
 #[derive(Debug, Clone)]
 pub struct ReductionSTMWTToILP {
-    target: ILP<i32>,
+    target: ILP<i64>,
     num_tasks: usize,
     num_order_vars: usize,
 }
@@ -42,9 +43,9 @@ impl ReductionSTMWTToILP {
 
 impl ReductionResult for ReductionSTMWTToILP {
     type Source = SequencingToMinimizeWeightedTardiness;
-    type Target = ILP<i32>;
+    type Target = ILP<i64>;
 
-    fn target_problem(&self) -> &ILP<i32> {
+    fn target_problem(&self) -> &ILP<i64> {
         &self.target
     }
 
@@ -69,10 +70,10 @@ impl ReductionResult for ReductionSTMWTToILP {
     num_vars = "num_tasks^2 + 2 * num_tasks",
     num_constraints = "2 * num_tasks^2 + 3 * num_tasks + 1",
 })]
-impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
+impl ReduceTo<ILP<i64>> for SequencingToMinimizeWeightedTardiness {
     type Result = ReductionSTMWTToILP;
 
-    fn reduce_to(&self) -> Self::Result {
+    fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
         let num_order_vars = n * n.saturating_sub(1) / 2;
         let num_vars = num_order_vars + 2 * n;
@@ -89,8 +90,62 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
         let weights = self.weights();
         let bound = self.bound();
 
+        let lengths_f64 = lengths
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SequencingToMinimizeWeightedTardiness,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let deadlines_f64 = deadlines
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SequencingToMinimizeWeightedTardiness,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let weights_f64 = weights
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<
+                    SequencingToMinimizeWeightedTardiness,
+                    ILP<i64>,
+                >(error)
+            })?;
+        let bound_f64 = i64_to_exact_f64(bound).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                SequencingToMinimizeWeightedTardiness,
+                ILP<i64>,
+            >(error)
+        })?;
+
         // M = sum of all lengths (valid schedule-horizon bound)
-        let big_m: f64 = lengths.iter().sum::<u64>() as f64;
+        let horizon = lengths
+            .iter()
+            .try_fold(0_i64, |total, &length| total.checked_add(length))
+            .ok_or_else(|| {
+                crate::rules::ReductionError::integer_overflow::<
+                    SequencingToMinimizeWeightedTardiness,
+                    ILP<i64>,
+                >("summing task processing times")
+            })?;
+        let big_m = i64_to_exact_f64(horizon).map_err(|error| {
+            crate::rules::ReductionError::inexact_float_conversion::<
+                SequencingToMinimizeWeightedTardiness,
+                ILP<i64>,
+            >(error)
+        })?;
 
         let mut constraints = Vec::new();
 
@@ -103,13 +158,13 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
         }
 
         // 2. C_j >= l_j for all j
-        for (j, &l_j) in lengths.iter().enumerate() {
-            constraints.push(LinearConstraint::ge(vec![(c_var(j), 1.0)], l_j as f64));
+        for (j, &l_j) in lengths_f64.iter().enumerate() {
+            constraints.push(LinearConstraint::ge(vec![(c_var(j), 1.0)], l_j));
         }
 
         // 3. Disjunctive: C_j >= C_i + l_j - M*(1 - y_{i,j}) for i != j
         for i in 0..n {
-            for (j, &l_j) in lengths.iter().enumerate() {
+            for (j, &l_j) in lengths_f64.iter().enumerate() {
                 if i == j {
                     continue;
                 }
@@ -119,7 +174,7 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
                     // => C_j - C_i - M*y_{i,j} >= l_j - M
                     constraints.push(LinearConstraint::ge(
                         vec![(c_var(j), 1.0), (c_var(i), -1.0), (order_var(i, j), -big_m)],
-                        l_j as f64 - big_m,
+                        l_j - big_m,
                     ));
                 } else {
                     // i > j: y_{j,i} is stored, y_{i,j} = 1 - y_{j,i}
@@ -127,17 +182,17 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
                     // C_j - C_i + M*y_{j,i} >= l_j
                     constraints.push(LinearConstraint::ge(
                         vec![(c_var(j), 1.0), (c_var(i), -1.0), (order_var(j, i), big_m)],
-                        l_j as f64,
+                        l_j,
                     ));
                 }
             }
         }
 
         // 4. T_j >= C_j - d_j for all j
-        for (j, &d_j) in deadlines.iter().enumerate() {
+        for (j, &d_j) in deadlines_f64.iter().enumerate() {
             constraints.push(LinearConstraint::ge(
                 vec![(t_var(j), 1.0), (c_var(j), -1.0)],
-                -(d_j as f64),
+                -d_j,
             ));
         }
 
@@ -147,14 +202,14 @@ impl ReduceTo<ILP<i32>> for SequencingToMinimizeWeightedTardiness {
         }
 
         // 6. Σ_j w_j * T_j <= K
-        let terms: Vec<(usize, f64)> = (0..n).map(|j| (t_var(j), weights[j] as f64)).collect();
-        constraints.push(LinearConstraint::le(terms, bound as f64));
+        let terms: Vec<(usize, f64)> = (0..n).map(|j| (t_var(j), weights_f64[j])).collect();
+        constraints.push(LinearConstraint::le(terms, bound_f64));
 
-        ReductionSTMWTToILP {
+        Ok(ReductionSTMWTToILP {
             target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
             num_tasks: n,
             num_order_vars,
-        }
+        })
     }
 }
 
@@ -169,7 +224,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![5, 8, 4],
                 10,
             );
-            crate::example_db::specs::rule_example_via_ilp::<_, i32>(source)
+            crate::example_db::specs::rule_example_via_ilp::<_, i64>(source)
         },
     }]
 }

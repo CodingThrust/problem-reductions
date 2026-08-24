@@ -54,29 +54,29 @@ inventory::submit! {
 ///     12,
 /// );
 /// let solver = BruteForce::new();
-/// let answer = solver.solve(&problem);
+/// let answer = solver.solve(&problem).unwrap();
 /// // 14 of the 18 tuples have sum >= 12, so count >= K.
 /// assert_eq!(answer, problemreductions::types::Or(true));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct KthLargestMTuple {
-    sets: Vec<Vec<u64>>,
-    k: u64,
-    bound: u64,
+    sets: Vec<Vec<i64>>,
+    k: i64,
+    bound: i64,
 }
 
 #[derive(Debug, Deserialize, crate::CreateSpec)]
 struct KthLargestMTupleCreateSpec {
     /// m sets, each containing positive integer sizes.
-    subsets: Vec<Vec<u64>>,
+    subsets: Vec<Vec<i64>>,
     /// Threshold K (answer YES iff count >= K).
-    k: u64,
+    k: i64,
     /// Lower bound B on tuple sum.
-    bound: u64,
+    bound: i64,
 }
 
 impl TryFrom<KthLargestMTupleCreateSpec> for KthLargestMTuple {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(spec: KthLargestMTupleCreateSpec) -> Result<Self, Self::Error> {
         Self::try_new(spec.subsets, spec.k, spec.bound)
@@ -84,27 +84,37 @@ impl TryFrom<KthLargestMTupleCreateSpec> for KthLargestMTuple {
 }
 
 impl KthLargestMTuple {
-    fn validate(sets: &[Vec<u64>], k: u64, bound: u64) -> Result<(), String> {
+    fn validate(
+        sets: &[Vec<i64>],
+        k: i64,
+        bound: i64,
+    ) -> Result<(), crate::registry::ConstructionError> {
         if sets.is_empty() {
-            return Err("KthLargestMTuple requires at least one set".to_string());
+            return Err("KthLargestMTuple requires at least one set"
+                .to_string()
+                .into());
         }
         if sets.iter().any(|s| s.is_empty()) {
-            return Err("Every set must be non-empty".to_string());
+            return Err("Every set must be non-empty".to_string().into());
         }
-        if sets.iter().any(|s| s.contains(&0)) {
-            return Err("All sizes must be positive (> 0)".to_string());
+        if sets.iter().flatten().any(|&size| size <= 0) {
+            return Err("All sizes must be positive (> 0)".to_string().into());
         }
-        if k == 0 {
-            return Err("Threshold K must be positive".to_string());
+        if k <= 0 {
+            return Err("Threshold K must be positive".to_string().into());
         }
-        if bound == 0 {
-            return Err("Bound B must be positive".to_string());
+        if bound <= 0 {
+            return Err("Bound B must be positive".to_string().into());
         }
         Ok(())
     }
 
     /// Try to create a new KthLargestMTuple instance.
-    pub fn try_new(sets: Vec<Vec<u64>>, k: u64, bound: u64) -> Result<Self, String> {
+    pub fn try_new(
+        sets: Vec<Vec<i64>>,
+        k: i64,
+        bound: i64,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         Self::validate(&sets, k, bound)?;
         Ok(Self { sets, k, bound })
     }
@@ -114,22 +124,22 @@ impl KthLargestMTuple {
     /// # Panics
     ///
     /// Panics if the inputs are invalid.
-    pub fn new(sets: Vec<Vec<u64>>, k: u64, bound: u64) -> Self {
+    pub fn new(sets: Vec<Vec<i64>>, k: i64, bound: i64) -> Self {
         Self::try_new(sets, k, bound).unwrap_or_else(|msg| panic!("{msg}"))
     }
 
     /// Returns the sets.
-    pub fn sets(&self) -> &[Vec<u64>] {
+    pub fn sets(&self) -> &[Vec<i64>] {
         &self.sets
     }
 
     /// Returns the threshold K.
-    pub fn k(&self) -> u64 {
+    pub fn k(&self) -> i64 {
         self.k
     }
 
     /// Returns the bound B.
-    pub fn bound(&self) -> u64 {
+    pub fn bound(&self) -> i64 {
         self.bound
     }
 
@@ -146,19 +156,23 @@ impl KthLargestMTuple {
             .expect("KthLargestMTuple total tuple count exceeds usize")
     }
 
-    fn has_at_least_k_qualifying_tuples(&self) -> bool {
+    fn has_at_least_k_qualifying_tuples(&self) -> Result<bool, crate::traits::EvaluationError> {
         let mut choices = vec![0; self.sets.len()];
         let mut qualifying = 0;
 
         loop {
-            let mut remaining_bound = self.bound;
+            let mut sum = 0i64;
             for (set, &choice) in self.sets.iter().zip(&choices) {
-                remaining_bound = remaining_bound.saturating_sub(set[choice]);
+                sum = sum.checked_add(set[choice]).ok_or_else(|| {
+                    crate::traits::EvaluationError::IntegerOverflow(
+                        "summing a KthLargestMTuple tuple".to_string(),
+                    )
+                })?;
             }
-            if remaining_bound == 0 {
+            if sum >= self.bound {
                 qualifying += 1;
                 if qualifying == self.k {
-                    return true;
+                    return Ok(true);
                 }
             }
 
@@ -173,7 +187,7 @@ impl KthLargestMTuple {
                 }
             }
             if !advanced {
-                return false;
+                return Ok(false);
             }
         }
     }
@@ -181,9 +195,9 @@ impl KthLargestMTuple {
 
 #[derive(Deserialize)]
 struct KthLargestMTupleDef {
-    sets: Vec<Vec<u64>>,
-    k: u64,
-    bound: u64,
+    sets: Vec<Vec<i64>>,
+    k: i64,
+    bound: i64,
 }
 
 impl<'de> Deserialize<'de> for KthLargestMTuple {
@@ -208,8 +222,10 @@ impl Problem for KthLargestMTuple {
         vec![]
     }
 
-    fn evaluate(&self, config: &[usize]) -> Or {
-        Or(config.is_empty() && self.has_at_least_k_qualifying_tuples())
+    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(
+            config.is_empty() && self.has_at_least_k_qualifying_tuples()?
+        ))
     }
 }
 

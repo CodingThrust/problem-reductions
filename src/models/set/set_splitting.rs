@@ -46,7 +46,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem);
+/// let witness = solver.find_witness(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,21 +99,26 @@ impl SetSplitting {
     }
 
     /// Create a new Set Splitting problem, returning an error instead of panicking.
-    pub fn try_new(universe_size: usize, subsets: Vec<Vec<usize>>) -> Result<Self, String> {
+    pub fn try_new(
+        universe_size: usize,
+        subsets: Vec<Vec<usize>>,
+    ) -> Result<Self, crate::registry::ConstructionError> {
         for (i, subset) in subsets.iter().enumerate() {
             if subset.len() < 2 {
                 return Err(format!(
                     "Subset {} has {} element(s), expected at least 2",
                     i,
                     subset.len()
-                ));
+                )
+                .into());
             }
             for &elem in subset {
                 if elem >= universe_size {
                     return Err(format!(
                         "Subset {} contains element {} which is outside universe of size {}",
                         i, elem, universe_size
-                    ));
+                    )
+                    .into());
                 }
             }
         }
@@ -165,8 +170,11 @@ impl SetSplitting {
     }
 
     /// Check if a coloring (config) splits all subsets.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.evaluate(config).0
+    pub fn is_valid_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.evaluate(config)?.0)
     }
 }
 
@@ -178,12 +186,17 @@ impl Problem for SetSplitting {
         vec![2; self.universe_size]
     }
 
-    fn evaluate(&self, config: &[usize]) -> crate::types::Or {
-        crate::types::Or(self.subsets.iter().all(|subset| {
-            let has_zero = subset.iter().any(|&e| config[e] == 0);
-            let has_one = subset.iter().any(|&e| config[e] == 1);
-            has_zero && has_one
-        }))
+    fn evaluate(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok({
+            crate::types::Or(self.subsets.iter().all(|subset| {
+                let has_zero = subset.iter().any(|&e| config[e] == 0);
+                let has_one = subset.iter().any(|&e| config[e] == 1);
+                has_zero && has_one
+            }))
+        })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -202,7 +215,7 @@ struct SetSplittingDef {
 }
 
 impl TryFrom<SetSplittingDef> for SetSplitting {
-    type Error = String;
+    type Error = crate::registry::ConstructionError;
 
     fn try_from(value: SetSplittingDef) -> Result<Self, Self::Error> {
         Self::try_new(value.universe_size, value.subsets)

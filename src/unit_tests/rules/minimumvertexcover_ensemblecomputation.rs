@@ -23,7 +23,8 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     // K* = 1, optimal EC length = K* + |E| = 2
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
     let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify target structure
@@ -34,11 +35,11 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     // Solve target with brute force — optimal value should be 2 (K*=1 + |E|=1)
     use crate::solvers::Solver;
     let solver = BruteForce::new();
-    let optimal = solver.solve(target);
+    let optimal = solver.solve(target).unwrap();
     assert_eq!(optimal, Min(Some(2)));
 
     // Every extracted solution must be a valid vertex cover
-    let witnesses = solver.find_all_witnesses(target);
+    let witnesses = solver.find_all_witnesses(target).unwrap();
     for witness in &witnesses {
         let source_config = reduction.extract_solution(witness).unwrap();
         assert_eq!(source_config.len(), 2);
@@ -56,7 +57,8 @@ fn test_reduction_structure_triangle() {
     // Triangle K₃: 3 vertices, 3 edges
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let source = MinimumVertexCover::new(graph, vec![One; 3]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     // Verify sizes
@@ -77,7 +79,8 @@ fn test_reduction_structure_path() {
     // Path P₃: 3 vertices {0,1,2}, 2 edges
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let source = MinimumVertexCover::new(graph, vec![One; 3]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.universe_size(), 4);
@@ -90,7 +93,8 @@ fn test_extract_solution_correctness() {
     // Single edge: vertices {0,1}, edge (0,1), a₀ = 2
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
     let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
 
     // Step 0: {a₀=2} ∪ {0} → z₀ = {0,2}   operands: (2, 0)
     // Step 1: {1} ∪ z₀ → z₁ = {0,1,2}      operands: (1, 3)
@@ -98,7 +102,7 @@ fn test_extract_solution_correctness() {
     let config = vec![2, 0, 1, 3, 2, 1];
 
     let target = reduction.target_problem();
-    assert_eq!(target.evaluate(&config), Min(Some(2)));
+    assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
     let cover = reduction.extract_solution(&config).unwrap();
     assert_eq!(cover, vec![1, 1]);
@@ -109,13 +113,14 @@ fn test_extract_solution_correctness() {
 fn test_extract_from_non_normalized_witness() {
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
     let source = MinimumVertexCover::new(graph.clone(), vec![One; 2]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
 
     // Non-normalized: {0} ∪ {1} first, then {a₀} ∪ z₀
     let config = vec![0, 1, 2, 3, 2, 0];
 
     let target = reduction.target_problem();
-    assert_eq!(target.evaluate(&config), Min(Some(2)));
+    assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
     let cover = reduction.extract_solution(&config).unwrap();
     assert_eq!(cover, vec![1, 1]);
@@ -126,7 +131,8 @@ fn test_extract_from_non_normalized_witness() {
 fn test_empty_graph() {
     let graph = SimpleGraph::new(3, vec![]);
     let source = MinimumVertexCover::new(graph.clone(), vec![One; 3]);
-    let reduction = ReduceTo::<EnsembleComputation>::reduce_to(&source);
+    let reduction =
+        ReduceTo::<EnsembleComputation>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
     assert_eq!(target.universe_size(), 4);
@@ -136,6 +142,6 @@ fn test_empty_graph() {
     // No subsets → optimal value is 0
     use crate::solvers::Solver;
     let solver = BruteForce::new();
-    let optimal = solver.solve(target);
+    let optimal = solver.solve(target).unwrap();
     assert_eq!(optimal, Min(Some(0)));
 }
