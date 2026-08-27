@@ -61,7 +61,9 @@ impl ReductionResult for ReductionSATToDS {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let assignment = target_solution[..3 * self.num_literals]
-            .chunks_exact(3)
+            .as_chunks::<3>()
+            .0
+            .iter()
             .enumerate()
             .map(|(variable, gadget)| match gadget {
                 [true, false, false] => Ok(true),

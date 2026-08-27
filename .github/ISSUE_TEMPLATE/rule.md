@@ -45,15 +45,6 @@ Use the symbols defined in the Reduction Algorithm above. -->
 | <!-- e.g. number of variables --> | <!-- e.g. n = |V| --> |
 | <!-- e.g. number of edges --> | <!-- e.g. m = |E| --> |
 
-## Numeric conversions and failure boundaries
-
-<!--
-List source-to-target numeric conversions, exact supported ranges, and checked
-target-size/coefficient arithmetic. Target constructor failures belong to the
-construction cause of ReductionError; reduction calculations fail as
-ReductionError. Model-derived i64 to f64 conversion must be exact and checked.
--->
-
 ## Validation Method
 
 <!-- How to verify the reduction is correct beyond closed-loop testing?
