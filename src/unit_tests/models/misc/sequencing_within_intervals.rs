@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_empty_window() {
@@ -37,7 +38,7 @@ fn test_sequencing_within_intervals_creation() {
     // Task 2: 9 - 3 - 2 + 1 = 5
     // Task 3: 12 - 6 - 3 + 1 = 4
     // Task 4: 12 - 0 - 2 + 1 = 11
-    assert_eq!(problem.dims(), vec![4, 6, 5, 4, 11]);
+    assert_eq!(problem.dimensions(), vec![4, 6, 5, 4, 11]);
 }
 
 #[test]
@@ -54,7 +55,7 @@ fn test_sequencing_within_intervals_evaluation_feasible() {
     // Task 3: config=0 -> start=6, runs [6,9)
     // Task 4: config=9 -> start=9, runs [9,11)
     // No overlaps.
-    assert!(problem.evaluate(&[0, 1, 1, 0, 9]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 1, 0, 9]).unwrap());
 }
 
 #[test]
@@ -67,14 +68,20 @@ fn test_sequencing_within_intervals_evaluation_infeasible_overlap() {
     .unwrap();
     // Task 0: config=0 -> start=0, runs [0,2)
     // Task 1: config=0 -> start=1, runs [1,3) -- overlaps with task 0
-    assert!(!problem.evaluate(&[0, 0, 1, 0, 9]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1, 0, 9]).unwrap());
 }
 
 #[test]
 fn test_sequencing_within_intervals_evaluation_wrong_length() {
     let problem = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]).unwrap();
-    assert!(!problem.evaluate(&[0]).unwrap());
-    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -82,7 +89,10 @@ fn test_sequencing_within_intervals_evaluation_out_of_range() {
     let problem = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]).unwrap();
     // Task 0: dims = 3 - 0 - 2 + 1 = 2, so config must be 0 or 1
     // Task 1: dims = 5 - 2 - 2 + 1 = 2, so config must be 0 or 1
-    assert!(!problem.evaluate(&[2, 0]).unwrap()); // out of range for task 0
+    assert!(matches!(
+        problem.evaluate(&vec![2, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -91,7 +101,7 @@ fn test_sequencing_within_intervals_solver() {
     let problem =
         SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]).unwrap();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config).unwrap());
@@ -107,7 +117,7 @@ fn test_sequencing_within_intervals_solver_canonical() {
     )
     .unwrap();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config).unwrap());
@@ -120,9 +130,9 @@ fn test_sequencing_within_intervals_no_solution() {
     // Each task has dims = 2 - 0 - 2 + 1 = 1, so config can only be [0, 0]
     // Task 0: start=0, runs [0,2)
     // Task 1: start=0, runs [0,2) -> overlap
-    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0]).unwrap());
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -143,8 +153,8 @@ fn test_sequencing_within_intervals_empty() {
     let problem = SequencingWithinIntervals::new(vec![], vec![], vec![]).unwrap();
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.num_start_slots(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]).unwrap());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
@@ -165,11 +175,11 @@ fn test_sequencing_within_intervals_variant() {
 fn test_sequencing_within_intervals_single_task() {
     let problem = SequencingWithinIntervals::new(vec![0], vec![5], vec![3]).unwrap();
     // dims = 5 - 0 - 3 + 1 = 3
-    assert_eq!(problem.dims(), vec![3]);
+    assert_eq!(problem.dimensions(), vec![3]);
     // Any valid config should be feasible (only one task, no overlaps possible)
-    assert!(problem.evaluate(&[0]).unwrap());
-    assert!(problem.evaluate(&[1]).unwrap());
-    assert!(problem.evaluate(&[2]).unwrap());
+    assert!(problem.evaluate(&vec![0]).unwrap());
+    assert!(problem.evaluate(&vec![1]).unwrap());
+    assert!(problem.evaluate(&vec![2]).unwrap());
 }
 
 #[test]

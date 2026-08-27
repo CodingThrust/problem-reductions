@@ -34,17 +34,15 @@ impl ReductionResult for ReductionLongestPathToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             (0..self.num_edges)
                 .map(|edge_idx| {
-                    usize::from(
-                        target_solution[Self::arc_var(edge_idx, 0)] > 0
-                            || target_solution[Self::arc_var(edge_idx, 1)] > 0,
-                    )
+                    target_solution[Self::arc_var(edge_idx, 0)] > 0
+                        || target_solution[Self::arc_var(edge_idx, 1)] > 0
                 })
                 .collect()
         })
@@ -66,7 +64,11 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
         let num_vars = 2 * num_edges + num_vertices;
         let source = self.source_vertex();
         let target = self.target_vertex();
-        let big_m = num_vertices as f64;
+        let big_m = Self::exact_i64(num_vertices, "encoding the vertex order")?;
+        let max_order = Self::exact_i64(
+            num_vertices.saturating_sub(1),
+            "encoding the maximum vertex order",
+        )?;
 
         let order_var = |vertex: usize| 2 * num_edges + vertex;
 
@@ -76,10 +78,10 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             let forward = ReductionLongestPathToILP::arc_var(edge_idx, 0);
             let reverse = ReductionLongestPathToILP::arc_var(edge_idx, 1);
-            outgoing[u].push((forward, 1.0));
-            incoming[v].push((forward, 1.0));
-            outgoing[v].push((reverse, 1.0));
-            incoming[u].push((reverse, 1.0));
+            outgoing[u].push((forward, 1));
+            incoming[v].push((forward, 1));
+            outgoing[v].push((reverse, 1));
+            incoming[u].push((reverse, 1));
         }
 
         let mut constraints = Vec::new();
@@ -87,20 +89,20 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
         // Directed arc variables are binary within `ILP<i64>`.
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
-                vec![(ReductionLongestPathToILP::arc_var(edge_idx, 0), 1.0)],
-                1.0,
+                vec![(ReductionLongestPathToILP::arc_var(edge_idx, 0), 1)],
+                1,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(ReductionLongestPathToILP::arc_var(edge_idx, 1), 1.0)],
-                1.0,
+                vec![(ReductionLongestPathToILP::arc_var(edge_idx, 1), 1)],
+                1,
             ));
         }
 
         // Order variables stay within [0, |V|-1].
         for vertex in 0..num_vertices {
             constraints.push(LinearConstraint::le(
-                vec![(order_var(vertex), 1.0)],
-                num_vertices.saturating_sub(1) as f64,
+                vec![(order_var(vertex), 1)],
+                max_order,
             ));
         }
 
@@ -113,28 +115,28 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
 
             let rhs = if source != target {
                 if vertex == source {
-                    1.0
+                    1
                 } else if vertex == target {
-                    -1.0
+                    -1
                 } else {
-                    0.0
+                    0
                 }
             } else {
-                0.0
+                0
             };
             constraints.push(LinearConstraint::eq(balance_terms, rhs));
-            constraints.push(LinearConstraint::le(outgoing[vertex].clone(), 1.0));
-            constraints.push(LinearConstraint::le(incoming[vertex].clone(), 1.0));
+            constraints.push(LinearConstraint::le(outgoing[vertex].clone(), 1));
+            constraints.push(LinearConstraint::le(incoming[vertex].clone(), 1));
         }
 
         // An undirected edge can be used in at most one direction.
         for edge_idx in 0..num_edges {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (ReductionLongestPathToILP::arc_var(edge_idx, 0), 1.0),
-                    (ReductionLongestPathToILP::arc_var(edge_idx, 1), 1.0),
+                    (ReductionLongestPathToILP::arc_var(edge_idx, 0), 1),
+                    (ReductionLongestPathToILP::arc_var(edge_idx, 1), 1),
                 ],
-                1.0,
+                1,
             ));
         }
 
@@ -142,23 +144,23 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (order_var(v), 1.0),
-                    (order_var(u), -1.0),
+                    (order_var(v), 1),
+                    (order_var(u), -1),
                     (ReductionLongestPathToILP::arc_var(edge_idx, 0), -big_m),
                 ],
-                1.0 - big_m,
+                1 - big_m,
             ));
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (order_var(u), 1.0),
-                    (order_var(v), -1.0),
+                    (order_var(u), 1),
+                    (order_var(v), -1),
                     (ReductionLongestPathToILP::arc_var(edge_idx, 1), -big_m),
                 ],
-                1.0 - big_m,
+                1 - big_m,
             ));
         }
 
-        constraints.push(LinearConstraint::eq(vec![(order_var(source), 1.0)], 0.0));
+        constraints.push(LinearConstraint::eq(vec![(order_var(source), 1)], 0));
 
         let mut objective = Vec::with_capacity(2 * num_edges);
         for (edge_idx, length) in self.edge_lengths().iter().enumerate() {
@@ -173,7 +175,8 @@ impl ReduceTo<ILP<i64>> for LongestPath<SimpleGraph, i64> {
         }
 
         Ok(ReductionLongestPathToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+                .map_err(Self::target_construction)?,
             num_edges,
         })
     }

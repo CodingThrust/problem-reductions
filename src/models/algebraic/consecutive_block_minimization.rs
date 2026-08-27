@@ -36,7 +36,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::ConsecutiveBlockMinimization;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 2x3 binary matrix
 /// let problem = ConsecutiveBlockMinimization::new(
@@ -187,16 +187,25 @@ impl ConsecutiveBlockMinimization {
 
 impl Problem for ConsecutiveBlockMinimization {
     const NAME: &'static str = "ConsecutiveBlockMinimization";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_cols; self.num_cols]
-    }
+    crate::problem_size![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_cols {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering length does not match the matrix".into(),
+            ));
+        }
+        if config.iter().any(|&column| column >= self.num_cols) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering contains an out-of-range column".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 match self.count_consecutive_blocks(config)? {
@@ -210,14 +219,20 @@ impl Problem for ConsecutiveBlockMinimization {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+}
 
-    fn num_variables(&self) -> usize {
-        self.num_cols
+impl crate::solvers::BruteForceProblem for ConsecutiveBlockMinimization {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_cols; self.num_cols]
     }
 }
 
 crate::declare_variants! {
     default ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveBlockMinimizationCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConsecutiveBlockMinimization,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,7 +290,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             6,
         )),
-        optimal_config: vec![0, 2, 4, 1, 3, 5],
+        optimal_config: serde_json::json!(vec![0, 2, 4, 1, 3, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }

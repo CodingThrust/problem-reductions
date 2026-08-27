@@ -208,20 +208,28 @@ impl<'de> Deserialize<'de> for SequencingWithDeadlinesAndSetUpTimes {
 
 impl Problem for SequencingWithDeadlinesAndSetUpTimes {
     const NAME: &'static str = "SequencingWithDeadlinesAndSetUpTimes";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_size![("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         let n = self.num_tasks();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
-            let n = self.num_tasks();
             let Some(schedule) = super::decode_permutation(config, n) else {
                 return Ok(Or(false));
             };
@@ -230,8 +238,19 @@ impl Problem for SequencingWithDeadlinesAndSetUpTimes {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingWithDeadlinesAndSetUpTimes {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.num_tasks();
+        vec![n; n]
+    }
+}
+
 crate::declare_variants! {
     default SequencingWithDeadlinesAndSetUpTimes => "factorial(num_tasks)",
+}
+
+crate::register_brute_force! {
+    SequencingWithDeadlinesAndSetUpTimes,
 }
 
 #[cfg(feature = "example-db")]
@@ -252,7 +271,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 0, 1, 0],
             vec![1, 2],
         )),
-        optimal_config: vec![2, 0, 4, 1, 3],
+        optimal_config: serde_json::json!(vec![2, 0, 4, 1, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

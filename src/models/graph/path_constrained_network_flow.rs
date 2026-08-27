@@ -300,19 +300,24 @@ impl PathConstrainedNetworkFlow {
 
 impl Problem for PathConstrainedNetworkFlow {
     const NAME: &'static str = "PathConstrainedNetworkFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        self.paths
-            .iter()
-            .map(|path| (self.path_bottleneck(path) as usize) + 1)
-            .collect()
-    }
+    crate::problem_size![
+        ("max_capacity", max_capacity),
+        ("num_arcs", num_arcs),
+        ("num_paths", num_paths),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.paths.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path-flow vector length does not match the candidate paths".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
@@ -321,8 +326,21 @@ impl Problem for PathConstrainedNetworkFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PathConstrainedNetworkFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.paths
+            .iter()
+            .map(|path| (self.path_bottleneck(path) as usize) + 1)
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default PathConstrainedNetworkFlow => "(max_capacity + 1)^num_paths" create PathConstrainedNetworkFlowCreateSpec,
+}
+
+crate::register_brute_force! {
+    PathConstrainedNetworkFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -357,7 +375,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             3,
         )),
-        optimal_config: vec![1, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![1, 1, 0, 0, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

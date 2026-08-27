@@ -176,17 +176,17 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     }
 
     /// Check if a configuration is a valid Hamiltonian cycle.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         self.is_valid_hamiltonian_cycle(config)
     }
 
     /// Check if a configuration forms a valid Hamiltonian cycle.
-    fn is_valid_hamiltonian_cycle(&self, config: &[usize]) -> bool {
+    fn is_valid_hamiltonian_cycle(&self, config: &[bool]) -> bool {
         if config.len() != self.graph.num_edges() {
             return false;
         }
-        let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-        is_hamiltonian_cycle(&self.graph, &selected)
+        let selected = config;
+        is_hamiltonian_cycle(&self.graph, selected)
     }
 }
 
@@ -208,24 +208,31 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "TravelingSalesman";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !self.is_valid_hamiltonian_cycle(config) {
                 return Ok(Min(None));
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     if let Some(w) = self.edge_weights.get(idx) {
                         total = W::checked_add_to_sum(
                             total,
@@ -237,6 +244,16 @@ where
             }
             Min(Some(total))
         })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for TravelingSalesman<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -313,12 +330,12 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "traveling_salesman_simplegraph_i64",
+        id: "traveling_salesman_simplegraph",
         instance: Box::new(TravelingSalesman::new(
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
             vec![1, 3, 2, 2, 3, 1],
         )),
-        optimal_config: vec![1, 0, 1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }
@@ -331,6 +348,10 @@ crate::impl_random_generate!(TravelingSalesman<SimpleGraph, i64>, crate::random:
 
 crate::declare_variants! {
     default TravelingSalesman<SimpleGraph, i64> => "2^num_vertices" create TravelingSalesmanCreateSpec random,
+}
+
+crate::register_brute_force! {
+    TravelingSalesman<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

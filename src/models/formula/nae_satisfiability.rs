@@ -121,9 +121,14 @@ impl NAESatisfiability {
     /// Check if a solution (config) is valid.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(self.is_nae_satisfying(config))
     }
 
     fn literal_value(lit: i64, assignment: &[bool]) -> bool {
@@ -158,22 +163,21 @@ impl NAESatisfiability {
 
 impl Problem for NAESatisfiability {
     const NAME: &'static str = "NAESatisfiability";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![
+        ("num_clauses", num_clauses),
+        ("num_literal_pairs", num_literal_pairs),
+        ("num_literals", num_literals),
+        ("num_vars", num_vars),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let assignment = super::config_to_assignment(config);
-                self.is_nae_satisfying(&assignment)
-            })
-        })
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -181,8 +185,18 @@ impl Problem for NAESatisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for NAESatisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default NAESatisfiability => "2^num_variables",
+    default NAESatisfiability => "2^num_vars",
+}
+
+crate::register_brute_force! {
+    NAESatisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -229,7 +243,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![1, -3, 5]),
             ],
         )),
-        optimal_config: vec![0, 0, 0, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, false, true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

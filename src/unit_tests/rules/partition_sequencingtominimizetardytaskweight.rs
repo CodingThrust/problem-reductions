@@ -41,8 +41,8 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_extract_solution()
         .expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 2, 4, 5, 0, 3]).unwrap(),
-        vec![1, 0, 0, 1, 0, 0]
+        reduction.extract_solution(&vec![1, 2, 4, 5, 0, 3]).unwrap(),
+        vec![true, false, false, true, false, false]
     );
 }
 
@@ -53,7 +53,7 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_odd_total_is_unsat
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target should always have an optimal schedule");
 
@@ -90,8 +90,14 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
         serde_json::json!([5, 5, 5, 5, 5, 5])
     );
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![1, 0, 0, 1, 0, 0]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 2, 4, 5, 0, 3]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, false, false, true, false, false])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([1, 2, 4, 5, 0, 3])
+    );
 
     let source: Partition = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");
@@ -99,12 +105,10 @@ fn test_partition_to_sequencing_to_minimize_tardy_task_weight_canonical_example_
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
-    assert!(source
-        .evaluate(&example.solutions[0].source_config)
-        .unwrap()
-        .is_valid());
-    assert!(target
-        .evaluate(&example.solutions[0].target_config)
-        .unwrap()
-        .is_valid());
+    let source_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].source_config.clone()).unwrap();
+    let target_config: Vec<usize> =
+        serde_json::from_value(example.solutions[0].target_config.clone()).unwrap();
+    assert!(source.evaluate(&source_config).unwrap().is_valid());
+    assert!(target.evaluate(&target_config).unwrap().is_valid());
 }

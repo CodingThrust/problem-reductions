@@ -33,25 +33,21 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let mut source_assignment = vec![0; self.source_num_vars];
-            let Some(x) = self.target.decode_witness(target_solution) else {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target configuration does not encode a quadratic-congruence witness",
-                ));
-            };
-            if x > self.h {
+            let mut source_assignment = vec![false; self.source_num_vars];
+            let x = target_solution;
+            if x > &self.h {
                 return Err(crate::rules::ExtractionError::invalid(
                     "decoded quadratic-congruence witness exceeds the construction bound",
                 ));
             }
 
-            let h_minus_x = &self.h - &x;
-            let h_plus_x = &self.h + &x;
+            let h_minus_x = &self.h - x;
+            let h_plus_x = &self.h + x;
             let mut alpha = vec![0i8; self.prime_powers.len()];
 
             for (j, prime_power) in self.prime_powers.iter().enumerate() {
@@ -65,8 +61,8 @@ impl ReductionResult for Reduction3SATToQuadraticCongruences {
             for (active_index, &source_index) in self.active_to_source.iter().enumerate() {
                 let alpha_index = 2 * self.standard_clause_count + active_index + 1;
                 source_assignment[source_index] = match alpha[alpha_index] {
-                    1 => 0,
-                    -1 => 1,
+                    1 => false,
+                    -1 => true,
                     sign => return Err(crate::rules::ExtractionError::invalid(format!(
                         "target witness encodes invalid sign {sign} for source variable {source_index}"
                     ))),
@@ -414,17 +410,14 @@ fn build_construction(source: &KSatisfiability<K3>) -> MandersAdlemanConstructio
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn build_alphas(
-    construction: &MandersAdlemanConstruction,
-    assignment: &[usize],
-) -> Option<Vec<i8>> {
+fn build_alphas(construction: &MandersAdlemanConstruction, assignment: &[bool]) -> Option<Vec<i8>> {
     if assignment.len() != construction.source_num_vars {
         return None;
     }
 
     let mut active_assignment = vec![0i8; construction.active_var_count + 1];
     for (active_index, &source_index) in construction.active_to_source.iter().enumerate() {
-        active_assignment[active_index + 1] = if assignment[source_index] == 0 { 0 } else { 1 };
+        active_assignment[active_index + 1] = i8::from(assignment[source_index]);
     }
 
     let mut alphas =
@@ -496,12 +489,12 @@ fn witness_value_from_alphas(alphas: &[i8], thetas: &[BigUint]) -> BigUint {
 #[cfg(any(test, feature = "example-db"))]
 fn witness_config_for_assignment(
     source: &KSatisfiability<K3>,
-    assignment: &[usize],
-) -> Option<Vec<usize>> {
+    assignment: &[bool],
+) -> Option<BigUint> {
     let construction = build_construction(source);
     let alphas = build_alphas(&construction, assignment)?;
     let witness = witness_value_from_alphas(&alphas, &construction.thetas);
-    construction.target.encode_witness(&witness)
+    (witness > BigUint::zero() && witness < *construction.target.c()).then_some(witness)
 }
 
 #[cfg(test)]
@@ -565,13 +558,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 3,
                 vec![crate::models::formula::CNFClause::new(vec![1, 2, 3])],
             );
-            let target_config = witness_config_for_assignment(&source, &[1, 0, 0])
+            let target_config = witness_config_for_assignment(&source, &[true, false, false])
                 .expect("canonical satisfying assignment should lift to a QC witness");
             crate::example_db::specs::rule_example_with_witness::<_, QuadraticCongruences>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0],
-                    target_config,
+                    source_config: serde_json::json!(vec![true, false, false]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

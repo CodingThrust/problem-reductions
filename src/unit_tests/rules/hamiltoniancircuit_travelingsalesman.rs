@@ -47,7 +47,7 @@ fn test_hamiltoniancircuit_to_travelingsalesman_nonhamiltonian_cost_gap() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("complete weighted graph should always admit a tour");
 
@@ -63,11 +63,11 @@ fn test_hamiltoniancircuit_to_travelingsalesman_extract_solution_cycle() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let cycle_edges = [(0usize, 1usize), (1, 2), (2, 3), (0, 3)];
-    let target_solution: Vec<usize> = target
+    let target_solution: Vec<bool> = target
         .graph()
         .edges()
         .into_iter()
-        .map(|(u, v)| usize::from(cycle_edges.contains(&(u, v)) || cycle_edges.contains(&(v, u))))
+        .map(|(u, v)| cycle_edges.contains(&(u, v)) || cycle_edges.contains(&(v, u)))
         .collect();
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();

@@ -3,7 +3,7 @@
 //! The Multiple Copy File Allocation problem asks for a placement of file copies
 //! on graph vertices that minimizes the combined storage and access cost.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -20,13 +20,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Place file copies on graph vertices to minimize total storage plus access cost",
         fields: MultipleCopyFileAllocationCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MultipleCopyFileAllocation",
-        fields: &["num_vertices", "num_edges"],
     }
 }
 
@@ -143,17 +136,15 @@ impl MultipleCopyFileAllocation {
         self.graph.num_edges()
     }
 
-    fn selected_vertices(&self, config: &[usize]) -> Option<Vec<usize>> {
+    fn selected_vertices(&self, config: &[bool]) -> Option<Vec<usize>> {
         if config.len() != self.graph.num_vertices() {
             return None;
         }
 
         let mut selected = Vec::new();
-        for (vertex, &value) in config.iter().enumerate() {
-            match value {
-                0 => {}
-                1 => selected.push(vertex),
-                _ => return None,
+        for (vertex, &selected_here) in config.iter().enumerate() {
+            if selected_here {
+                selected.push(vertex);
             }
         }
 
@@ -197,7 +188,7 @@ impl MultipleCopyFileAllocation {
     /// selects no copy vertices, or leaves some vertex unreachable from every copy.
     pub fn total_cost(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<Option<i64>, crate::traits::EvaluationError> {
         let Some(selected) = self.selected_vertices(config) else {
             return Ok(None);
@@ -248,7 +239,7 @@ impl MultipleCopyFileAllocation {
     /// Check whether a configuration is a valid placement (at least one copy, all reachable).
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
         Ok(self.total_cost(config)?.is_some())
     }
@@ -256,18 +247,31 @@ impl MultipleCopyFileAllocation {
 
 impl Problem for MultipleCopyFileAllocation {
     const NAME: &'static str = "MultipleCopyFileAllocation";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "copy-selection length does not match the graph vertices".into(),
+            ));
+        }
         Ok(Min(self.total_cost(config)?))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MultipleCopyFileAllocation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
@@ -280,13 +284,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![5, 1, 1, 1, 1, 5],
             vec![6, 2, 6, 6, 2, 6],
         )),
-        optimal_config: vec![0, 1, 0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![false, true, false, false, true, false]),
         optimal_value: serde_json::json!(16),
     }]
 }
 
 crate::declare_variants! {
     default MultipleCopyFileAllocation => "2^num_vertices" create MultipleCopyFileAllocationCreateSpec,
+}
+
+crate::register_brute_force! {
+    MultipleCopyFileAllocation decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

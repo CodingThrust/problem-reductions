@@ -31,11 +31,11 @@ impl ReductionResult for ReductionFeasibleRegisterAssignmentToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_vertices])
     }
 }
 
@@ -62,7 +62,9 @@ impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
 
         let num_pair_vars = pair_list.len();
         let num_vars = 2 * n + num_pair_vars;
-        let big_m = n as f64;
+        let big_m = Self::exact_i64(n, "encoding the schedule order")?;
+        let last_position =
+            Self::exact_i64(n.saturating_sub(1), "encoding the final schedule position")?;
 
         let time_idx = |vertex: usize| -> usize { vertex };
         let latest_idx = |vertex: usize| -> usize { n + vertex };
@@ -74,65 +76,58 @@ impl ReduceTo<ILP<i64>> for FeasibleRegisterAssignment {
 
         for vertex in 0..n {
             constraints.push(LinearConstraint::le(
-                vec![(time_idx(vertex), 1.0)],
-                (n.saturating_sub(1)) as f64,
+                vec![(time_idx(vertex), 1)],
+                last_position,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(latest_idx(vertex), 1.0)],
-                (n.saturating_sub(1)) as f64,
+                vec![(latest_idx(vertex), 1)],
+                last_position,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(vertex), 1.0), (time_idx(vertex), -1.0)],
-                0.0,
+                vec![(latest_idx(vertex), 1), (time_idx(vertex), -1)],
+                0,
             ));
         }
 
         for &(dependent, dependency) in self.arcs() {
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(dependent), 1.0), (time_idx(dependency), -1.0)],
-                1.0,
+                vec![(time_idx(dependent), 1), (time_idx(dependency), -1)],
+                1,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(dependency), 1.0), (time_idx(dependent), -1.0)],
-                0.0,
+                vec![(latest_idx(dependency), 1), (time_idx(dependent), -1)],
+                0,
             ));
         }
 
         for (pair_idx, &(u, v)) in pair_list.iter().enumerate() {
             let order_var = order_idx(pair_idx);
-            constraints.push(LinearConstraint::le(vec![(order_var, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(order_var, 1)], 1));
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(v), 1.0), (time_idx(u), -1.0), (order_var, -big_m)],
-                1.0 - big_m,
+                vec![(time_idx(v), 1), (time_idx(u), -1), (order_var, -big_m)],
+                1 - big_m,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(u), 1.0), (time_idx(v), -1.0), (order_var, big_m)],
-                1.0,
+                vec![(time_idx(u), 1), (time_idx(v), -1), (order_var, big_m)],
+                1,
             ));
         }
 
         for &(u, v, pair_idx) in &same_register_pairs {
             let order_var = order_idx(pair_idx);
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (time_idx(v), 1.0),
-                    (latest_idx(u), -1.0),
-                    (order_var, -big_m),
-                ],
+                vec![(time_idx(v), 1), (latest_idx(u), -1), (order_var, -big_m)],
                 -big_m,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (time_idx(u), 1.0),
-                    (latest_idx(v), -1.0),
-                    (order_var, big_m),
-                ],
-                0.0,
+                vec![(time_idx(u), 1), (latest_idx(v), -1), (order_var, big_m)],
+                0,
             ));
         }
 
         Ok(ReductionFeasibleRegisterAssignmentToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_vertices: n,
         })
     }

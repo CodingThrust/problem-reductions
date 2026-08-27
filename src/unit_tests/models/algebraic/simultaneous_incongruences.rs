@@ -1,5 +1,6 @@
 use crate::models::algebraic::SimultaneousIncongruences;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -25,7 +26,7 @@ fn test_simultaneous_incongruences_creation_and_accessors() {
     assert_eq!(p.pairs(), &[(2, 2), (1, 3), (2, 5), (3, 7)]);
     // lcm(2,3,5,7) = 210
     assert_eq!(p.lcm_moduli(), 210);
-    assert_eq!(p.dims(), vec![210]);
+    assert_eq!(p.dimensions(), vec![210]);
     assert_eq!(p.num_variables(), 1);
     assert_eq!(
         <SimultaneousIncongruences as Problem>::NAME,
@@ -38,9 +39,9 @@ fn test_simultaneous_incongruences_creation_and_accessors() {
 fn test_simultaneous_incongruences_evaluate_yes() {
     let p = example_problem();
     // x=5: 5%2=1≠0(=2%2), 5%3=2≠1, 5%5=0≠2, 5%7=5≠3 ✓
-    assert_eq!(p.evaluate(&[5]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&5).unwrap(), Or(true));
     // x=1: 1%2=1≠0(=2%2), 1%3=1=1 — fails for pair (1,3)
-    assert_eq!(p.evaluate(&[1]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&1).unwrap(), Or(false));
 }
 
 #[test]
@@ -51,9 +52,9 @@ fn test_simultaneous_incongruences_evaluate_no() {
     let lcm = p.lcm_moduli();
     assert_eq!(lcm, 2);
     // All x in {0,1} should fail
-    for x in 0..lcm as usize {
+    for x in 0..lcm {
         assert_eq!(
-            p.evaluate(&[x]).unwrap(),
+            p.evaluate(&x).unwrap(),
             Or(false),
             "expected false for x={x}"
         );
@@ -63,8 +64,8 @@ fn test_simultaneous_incongruences_evaluate_no() {
 #[test]
 fn test_simultaneous_incongruences_evaluate_invalid_config() {
     let p = example_problem();
-    assert_eq!(p.evaluate(&[]).unwrap(), Or(false));
-    assert_eq!(p.evaluate(&[0, 1]).unwrap(), Or(false));
+    assert!(crate::registry::DynProblem::evaluate_dyn(&p, &serde_json::json!([])).is_err());
+    assert!(crate::registry::DynProblem::evaluate_dyn(&p, &serde_json::json!([0, 1])).is_err());
 }
 
 #[test]
@@ -72,16 +73,16 @@ fn test_simultaneous_incongruences_empty_pairs() {
     let p = SimultaneousIncongruences::new(vec![]).unwrap();
     assert_eq!(p.num_pairs(), 0);
     assert_eq!(p.lcm_moduli(), 1);
-    assert_eq!(p.dims(), vec![1]);
+    assert_eq!(p.dimensions(), vec![1]);
     // Any x (here x=0) satisfies vacuously
-    assert_eq!(p.evaluate(&[0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&0).unwrap(), Or(true));
 }
 
 #[test]
 fn test_simultaneous_incongruences_brute_force_finds_witness() {
     let p = example_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
@@ -89,7 +90,7 @@ fn test_simultaneous_incongruences_brute_force_finds_witness() {
 fn test_simultaneous_incongruences_brute_force_no_witness() {
     let p = covering_system();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&p).unwrap().is_none());
+    assert!(solver.solve(&p).unwrap().is_none());
 }
 
 #[test]
@@ -124,9 +125,9 @@ fn test_simultaneous_incongruences_deserialization_rejects_invalid() {
 fn test_simultaneous_incongruences_paper_example() {
     // Canonical paper example: pairs [(2,2),(1,3),(2,5),(3,7)], x=5 is a solution
     let p = SimultaneousIncongruences::new(vec![(2, 2), (1, 3), (2, 5), (3, 7)]).unwrap();
-    assert_eq!(p.evaluate(&[5]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&5).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }

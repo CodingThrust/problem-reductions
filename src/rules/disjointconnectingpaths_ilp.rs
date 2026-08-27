@@ -36,20 +36,20 @@ impl ReductionResult for ReductionDCPToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             // Mark an edge selected iff some orientation carries flow for some commodity.
             let m = self.edges.len();
-            let mut result = vec![0usize; m];
+            let mut result = vec![false; m];
             for k in 0..self.num_commodities {
                 for e in 0..m {
                     let fwd = target_solution[k * self.num_edge_vars_per_commodity + 2 * e];
                     let rev = target_solution[k * self.num_edge_vars_per_commodity + 2 * e + 1];
                     if fwd == 1 || rev == 1 {
-                        result[e] = 1;
+                        result[e] = true;
                     }
                 }
             }
@@ -105,21 +105,21 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
                     let (eu, _ev) = edges[e];
                     if vertex == eu {
                         // vertex is first endpoint: dir=0 is outgoing, dir=1 is incoming
-                        terms.push((flow_var(k, e, 0), 1.0));
-                        terms.push((flow_var(k, e, 1), -1.0));
+                        terms.push((flow_var(k, e, 0), 1));
+                        terms.push((flow_var(k, e, 1), -1));
                     } else {
                         // vertex is second endpoint: dir=1 is outgoing, dir=0 is incoming
-                        terms.push((flow_var(k, e, 1), 1.0));
-                        terms.push((flow_var(k, e, 0), -1.0));
+                        terms.push((flow_var(k, e, 1), 1));
+                        terms.push((flow_var(k, e, 0), -1));
                     }
                 }
 
                 let demand = if vertex == s_k {
-                    1.0
+                    1
                 } else if vertex == t_k {
-                    -1.0
+                    -1
                 } else {
-                    0.0
+                    0
                 };
                 constraints.push(LinearConstraint::eq(terms, demand));
             }
@@ -127,8 +127,8 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
             // Anti-parallel: f^k_{e,0} + f^k_{e,1} <= 1 for each edge
             for e in 0..m {
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, e, 0), 1.0), (flow_var(k, e, 1), 1.0)],
-                    1.0,
+                    vec![(flow_var(k, e, 0), 1), (flow_var(k, e, 1), 1)],
+                    1,
                 ));
             }
         }
@@ -138,10 +138,10 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
         for e in 0..m {
             let mut terms = Vec::new();
             for k in 0..k_count {
-                terms.push((flow_var(k, e, 0), 1.0));
-                terms.push((flow_var(k, e, 1), 1.0));
+                terms.push((flow_var(k, e, 0), 1));
+                terms.push((flow_var(k, e, 1), 1));
             }
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Vertex disjointness: for each non-terminal vertex v,
@@ -155,16 +155,17 @@ impl ReduceTo<ILP<bool>> for DisjointConnectingPaths<SimpleGraph> {
                 for &e in &vertex_edges[v] {
                     let (eu, _ev) = edges[e];
                     if v == eu {
-                        terms.push((flow_var(k, e, 0), 1.0));
+                        terms.push((flow_var(k, e, 0), 1));
                     } else {
-                        terms.push((flow_var(k, e, 1), 1.0));
+                        terms.push((flow_var(k, e, 1), 1));
                     }
                 }
             }
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionDCPToILP {
             target,

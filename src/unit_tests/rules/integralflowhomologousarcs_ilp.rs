@@ -18,7 +18,7 @@ fn test_integralflowhomologousarcs_to_ilp_closed_loop() {
     );
     // Verify source is satisfiable via brute force
     let direct = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source instance should be satisfiable");
     assert!(source.evaluate(&direct).unwrap());

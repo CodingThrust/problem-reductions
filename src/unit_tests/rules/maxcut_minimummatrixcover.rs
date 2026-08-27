@@ -3,7 +3,7 @@ use crate::models::algebraic::MinimumMatrixCover;
 use crate::models::graph::MaxCut;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::rules::traits::ReduceTo;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{Max, Min};
@@ -19,7 +19,7 @@ fn verify_identity(source: &MaxCut<SimpleGraph, i64>) {
     let total_weight: i64 = source.edge_weights().iter().copied().sum();
 
     for bits in 0..(1u32 << n) {
-        let config: Vec<usize> = (0..n).map(|i| ((bits >> i) & 1) as usize).collect();
+        let config: Vec<bool> = (0..n).map(|i| ((bits >> i) & 1) == 1).collect();
 
         // qf(f) = Σ_{i,j} a_ij f(i) f(j)
         let signs: Vec<i64> = config.iter().map(|&x| 2 * x as i64 - 1).collect();
@@ -75,7 +75,12 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_c4() {
 
     // Verify target's minimum value matches 2W - 4*MaxCut: 2*4 - 4*4 = -8.
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(Some(-8)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(-8))
+    );
 }
 
 #[test]
@@ -94,7 +99,12 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_p3_weighted() {
     let target = reduction.target_problem();
     // W = 5, max cut = 5, so min qf = 2*5 - 4*5 = -10.
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(Some(-10)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(-10))
+    );
 
     // Verify the adjacency matrix is symmetric with zero diagonal.
     let expected: Vec<Vec<i64>> = vec![vec![0, 2, 0], vec![2, 0, 3], vec![0, 3, 0]];
@@ -119,7 +129,12 @@ fn test_maxcut_to_minimummatrixcover_closed_loop_triangle() {
     let target = reduction.target_problem();
     // W = 3, max cut = 2, so min qf = 2*3 - 4*2 = -2.
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(Some(-2)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(-2))
+    );
 }
 
 #[test]
@@ -187,7 +202,7 @@ fn test_extract_solution_is_identity() {
         MaxCut::<SimpleGraph, i64>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1]);
     let reduction =
         ReduceTo::<MinimumMatrixCover>::reduce_to(&source).expect("reduction should succeed");
-    let target_sol = vec![1, 0, 1];
+    let target_sol = vec![true, false, true];
     assert_eq!(reduction.extract_solution(&target_sol).unwrap(), target_sol);
 }
 
@@ -204,7 +219,12 @@ fn test_empty_graph() {
     assert_eq!(target.matrix(), expected.as_slice());
 
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(Some(0)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(0))
+    );
 }
 
 #[test]

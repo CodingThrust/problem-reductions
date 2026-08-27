@@ -29,16 +29,19 @@ impl ReductionResult for ReductionSCSToILP {
     /// Uses alphabet_size + 1 symbols (last = padding).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        crate::rules::ilp_helpers::one_hot_decode_rows(
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.max_length,
             self.alphabet_size + 1,
             0,
-        )
+        )?
+        .into_iter()
+        .map(|symbol| (symbol < self.alphabet_size).then_some(symbol))
+        .collect())
     }
 }
 
@@ -80,14 +83,14 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
 
         // 1. One-hot symbol at each position: Σ_a x_{p,a} = 1  ∀ p
         for p in 0..b {
-            let terms: Vec<(usize, f64)> = (0..k).map(|a| (p * k + a, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|a| (p * k + a, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Each character matched to exactly one position: Σ_p m_{gc,p} = 1
         for gc in 0..total_chars {
-            let terms: Vec<(usize, f64)> = (0..b).map(|p| (m_offset + gc * b + p, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..b).map(|p| (m_offset + gc * b + p, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 3. Symbol consistency: m_{gc,p} <= x_{p,a} where a is the symbol at gc
@@ -97,8 +100,8 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
                 for p in 0..b {
                     // m_{gc,p} <= x_{p,sym}
                     constraints.push(LinearConstraint::le(
-                        vec![(m_offset + gc * b + p, 1.0), (p * k + sym, -1.0)],
-                        0.0,
+                        vec![(m_offset + gc * b + p, 1), (p * k + sym, -1)],
+                        0,
                     ));
                 }
             }
@@ -114,10 +117,11 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
                 let gc_next = char_offsets[s_idx] + j + 1;
                 let mut terms = Vec::new();
                 for p in 0..b {
-                    terms.push((m_offset + gc_next * b + p, p as f64));
-                    terms.push((m_offset + gc_j * b + p, -(p as f64)));
+                    let p_i64 = Self::exact_i64(p, "encoding a sequence position")?;
+                    terms.push((m_offset + gc_next * b + p, p_i64));
+                    terms.push((m_offset + gc_j * b + p, -p_i64));
                 }
-                constraints.push(LinearConstraint::ge(terms, 1.0));
+                constraints.push(LinearConstraint::ge(terms, 1));
             }
         }
 
@@ -125,14 +129,15 @@ impl ReduceTo<ILP<bool>> for ShortestCommonSupersequence {
         //    x_{p,pad} <= x_{p+1,pad}  for p in 0..b-1
         for p in 0..b.saturating_sub(1) {
             constraints.push(LinearConstraint::le(
-                vec![(p * k + pad, 1.0), ((p + 1) * k + pad, -1.0)],
-                0.0,
+                vec![(p * k + pad, 1), ((p + 1) * k + pad, -1)],
+                0,
             ));
         }
 
         // Objective: minimize non-padding positions = maximize padding positions
         let objective: Vec<(usize, f64)> = (0..b).map(|p| (p * k + pad, 1.0)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionSCSToILP {
             target,
             max_length: b,
@@ -161,8 +166,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

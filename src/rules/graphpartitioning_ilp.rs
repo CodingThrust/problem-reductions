@@ -32,11 +32,14 @@ impl ReductionResult for ReductionGraphPartitioningToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -57,23 +60,21 @@ impl ReduceTo<ILP<bool>> for GraphPartitioning<SimpleGraph> {
 
         let mut constraints = Vec::with_capacity(2 * m + 1);
 
-        let balance_terms: Vec<(usize, f64)> = (0..n).map(|v| (v, 1.0)).collect();
-        constraints.push(LinearConstraint::eq(balance_terms, n as f64 / 2.0));
+        let balance_terms: Vec<(usize, i64)> = (0..n).map(|v| (v, 2)).collect();
+        constraints.push(LinearConstraint::eq(
+            balance_terms,
+            <Self as ReduceTo<ILP<bool>>>::exact_i64(n, "encoding the partition cardinality")?,
+        ));
 
         for (edge_idx, (u, v)) in edges.iter().enumerate() {
             let y_var = n + edge_idx;
-            constraints.push(LinearConstraint::ge(
-                vec![(y_var, 1.0), (*u, -1.0), (*v, 1.0)],
-                0.0,
-            ));
-            constraints.push(LinearConstraint::ge(
-                vec![(y_var, 1.0), (*u, 1.0), (*v, -1.0)],
-                0.0,
-            ));
+            constraints.push(LinearConstraint::ge(vec![(y_var, 1), (*u, -1), (*v, 1)], 0));
+            constraints.push(LinearConstraint::ge(vec![(y_var, 1), (*u, 1), (*v, -1)], 0));
         }
 
         let objective: Vec<(usize, f64)> = (0..m).map(|edge_idx| (n + edge_idx, 1.0)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionGraphPartitioningToILP {
             target,
@@ -106,8 +107,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0],
+                    source_config: serde_json::json!(vec![false, false, false, true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0
+                    ]),
                 },
             )
         },

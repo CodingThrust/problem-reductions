@@ -3,7 +3,6 @@
 use crate::expr::Expr;
 use crate::rules::traits::{DynAggregateReductionResult, DynReductionResult};
 use crate::size::{SizeRelation, SizeTransform, SizeTransformError};
-use crate::types::ProblemSize;
 use std::any::Any;
 use std::collections::HashSet;
 
@@ -190,10 +189,6 @@ pub struct ReductionEntry {
     pub reduce_aggregate_fn: Option<AggregateReduceFn>,
     /// Whether this is a Turing (multi-query) reduction.
     pub turing: bool,
-    /// Measure the source fields referenced by this rule's size formulas.
-    pub source_size_measure_fn: fn(&dyn Any) -> ProblemSize,
-    /// Measure the target fields declared by this rule's size contract.
-    pub target_size_measure_fn: fn(&dyn Any) -> ProblemSize,
 }
 
 impl ReductionEntry {
@@ -254,6 +249,78 @@ inventory::collect!(ReductionEntry);
 /// Return all registered reduction entries.
 pub fn reduction_entries() -> Vec<&'static ReductionEntry> {
     inventory::iter::<ReductionEntry>().collect()
+}
+
+/// Validate reduction size expressions against problem-owned endpoint schemas.
+pub fn validate_reduction_size_schemas() -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+
+    for entry in inventory::iter::<ReductionEntry> {
+        let source_variant = crate::export::variant_to_map(entry.source_variant());
+        let target_variant = crate::export::variant_to_map(entry.target_variant());
+        let Some(source) = crate::registry::find_variant_entry(entry.source_name, &source_variant)
+        else {
+            errors.push(format!(
+                "{} -> {} references an unregistered source variant {source_variant:?}",
+                entry.source_name, entry.target_name
+            ));
+            continue;
+        };
+        let Some(target) = crate::registry::find_variant_entry(entry.target_name, &target_variant)
+        else {
+            errors.push(format!(
+                "{} -> {} references an unregistered target variant {target_variant:?}",
+                entry.source_name, entry.target_name
+            ));
+            continue;
+        };
+
+        let source_fields = source
+            .size_parameter_names()
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        let target_fields = target
+            .size_parameter_names()
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        let declarations = (entry.size_declarations_fn)();
+
+        for field in declarations
+            .fields
+            .iter()
+            .flat_map(|(_, expression)| expression.variables())
+        {
+            if !source_fields.contains(field) {
+                errors.push(format!(
+                    "{} -> {} references unknown source size parameter `{field}`; declared: {source_fields:?}",
+                    entry.source_name, entry.target_name
+                ));
+            }
+        }
+
+        for field in declarations
+            .fields
+            .iter()
+            .map(|(field, _)| *field)
+            .chain(declarations.unavailable.iter().map(|field| field.field))
+        {
+            if !target_fields.contains(field) {
+                errors.push(format!(
+                    "{} -> {} declares unknown target size parameter `{field}`; declared: {target_fields:?}",
+                    entry.source_name, entry.target_name
+                ));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        errors.sort();
+        Err(errors)
+    }
 }
 
 #[cfg(test)]

@@ -92,7 +92,10 @@ fn test_mis_simple_one_to_kings_one_closed_loop() {
 
     let original_solution = result.extract_solution(&grid_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 5);
-    let size: usize = original_solution.iter().sum();
+    let size: usize = original_solution
+        .iter()
+        .filter(|&&selected| selected)
+        .count();
     assert_eq!(size, 3, "Max IS in path of 5 should be 3");
 }
 
@@ -116,14 +119,15 @@ fn test_mis_simple_one_to_kings_one_all_four_vertex_graphs() {
         let target = reduction.target_problem();
         let target_solution =
             solve_mis_config(target.graph().num_vertices(), &target.graph().edges());
+        let target_solution = crate::config::config_to_bits(&target_solution);
         let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
         assert!(
-            is_independent_set(&edges, &source_solution),
+            is_independent_set(&edges, &crate::config::bits_to_config(&source_solution),),
             "graph mask {mask:#08b} extracted a non-independent set"
         );
         assert_eq!(
-            source_solution.iter().filter(|&&value| value > 0).count(),
+            source_solution.iter().filter(|&&value| value).count(),
             solve_mis(4, &edges),
             "graph mask {mask:#08b} did not preserve the optimum"
         );

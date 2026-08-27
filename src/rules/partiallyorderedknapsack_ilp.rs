@@ -24,11 +24,11 @@ impl ReductionResult for ReductionPOKToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -44,18 +44,7 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_items();
         let mut constraints = Vec::new();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    PartiallyOrderedKnapsack,
-                    ILP<bool>,
-                >(error)
-            })?;
+        let weights = self.weights();
         let values = self
             .values()
             .iter()
@@ -68,15 +57,10 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
                     ILP<bool>,
                 >(error)
             })?;
-        let capacity = i64_to_exact_f64(self.capacity()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<
-                PartiallyOrderedKnapsack,
-                ILP<bool>,
-            >(error)
-        })?;
+        let capacity = self.capacity();
 
         // Capacity constraint: Σ w_i·x_i ≤ capacity
-        let cap_terms: Vec<(usize, f64)> = weights
+        let cap_terms: Vec<(usize, i64)> = weights
             .iter()
             .enumerate()
             .map(|(item, &weight)| (item, weight))
@@ -85,13 +69,14 @@ impl ReduceTo<ILP<bool>> for PartiallyOrderedKnapsack {
 
         // Precedence constraints: ∀ (a,b): x_b - x_a ≤ 0
         for &(a, b) in self.precedences() {
-            constraints.push(LinearConstraint::le(vec![(b, 1.0), (a, -1.0)], 0.0));
+            constraints.push(LinearConstraint::le(vec![(b, 1), (a, -1)], 0));
         }
 
         // Objective: Maximize Σ v_i·x_i
         let objective = values.into_iter().enumerate().collect();
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionPOKToILP { target })
     }
 }

@@ -39,14 +39,14 @@ fn test_minimumweightdecoding_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 4 cols + 3 rows = 7 variables
-    assert_eq!(ilp.num_vars, 7);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 7);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Objective: 4 terms (one per x_j)
-    assert_eq!(ilp.objective.len(), 4);
+    assert_eq!(ilp.objective().len(), 4);
 
     // Constraints: 3 equality + 4 binary bounds = 7
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn test_minimumweightdecoding_to_ilp_closed_loop() {
     let problem = issue_instance();
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("issue instance has optimal");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -76,7 +76,7 @@ fn test_minimumweightdecoding_to_ilp_small_closed_loop() {
     let problem = small_instance();
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("small instance has optimal");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -124,6 +124,6 @@ fn test_minimumweightdecoding_to_ilp_extract_solution() {
     let target_solution = vec![0, 0, 1, 0, 0, 0, 0];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     assert_eq!(extracted.len(), 4);
-    assert_eq!(extracted, vec![0, 0, 1, 0]);
+    assert_eq!(extracted, vec![false, false, true, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }

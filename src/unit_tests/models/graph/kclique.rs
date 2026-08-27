@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_k_above_vertex_count() {
     assert!(KClique::try_from(KCliqueCreateSpec {
@@ -16,8 +17,8 @@ fn issue_graph() -> SimpleGraph {
     SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)])
 }
 
-fn issue_witness() -> Vec<usize> {
-    vec![0, 0, 1, 1, 1]
+fn issue_witness() -> Vec<bool> {
+    vec![false, false, true, true, true]
 }
 
 #[test]
@@ -29,7 +30,7 @@ fn test_kclique_creation() {
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
 }
 
 #[test]
@@ -44,16 +45,22 @@ fn test_kclique_evaluate_yes_instance() {
 fn test_kclique_evaluate_rejects_non_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem.evaluate(&[1, 0, 1, 1, 0]).unwrap());
-    assert!(!problem.is_valid_solution(&[1, 0, 1, 1, 0]));
+    assert!(!problem
+        .evaluate(&vec![true, false, true, true, false])
+        .unwrap());
+    assert!(!problem.is_valid_solution(&[true, false, true, true, false]));
 }
 
 #[test]
 fn test_kclique_evaluate_rejects_too_small_clique() {
     let problem = KClique::new(issue_graph(), 3);
 
-    assert!(!problem.evaluate(&[1, 0, 1, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, false, true, false, false])
+        .unwrap());
+    assert!(!problem
+        .evaluate(&vec![false, false, true, true, false])
+        .unwrap());
 }
 
 #[test]
@@ -61,10 +68,7 @@ fn test_kclique_solver_finds_unique_witness() {
     let problem = KClique::new(issue_graph(), 3);
     let solver = BruteForce::new();
 
-    assert_eq!(
-        solver.find_witness(&problem).unwrap(),
-        Some(issue_witness())
-    );
+    assert_eq!(solver.solve(&problem).unwrap(), Some(issue_witness()));
     assert_eq!(
         solver.find_all_witnesses(&problem).unwrap(),
         vec![issue_witness()]
@@ -104,6 +108,6 @@ fn test_kclique_config_from_selected_vertices() {
     );
     assert_eq!(
         problem.config_from_selected_vertices(&[4, 2, 4]),
-        vec![0, 0, 1, 0, 1]
+        vec![false, false, true, false, true]
     );
 }

@@ -1,8 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
-use crate::rules::test_helpers::{
-    assert_satisfaction_round_trip_from_optimization_target, solve_optimization_problem,
-};
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::traits::Problem;
@@ -76,7 +74,7 @@ fn test_two_clause_sat_to_is() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(is_problem).unwrap();
     for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
+        assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
     }
 }
 
@@ -88,14 +86,14 @@ fn test_extract_solution_basic() {
         .expect("reduction should succeed");
 
     // Select vertex 0 (literal x1)
-    let is_sol = vec![1, 0];
+    let is_sol = vec![true, false];
     let sat_sol = reduction.extract_solution(&is_sol).unwrap();
-    assert_eq!(sat_sol, vec![1, 0]); // x1=true, x2=false
+    assert_eq!(sat_sol, vec![true, false]); // x1=true, x2=false
 
     // Select vertex 1 (literal x2)
-    let is_sol = vec![0, 1];
+    let is_sol = vec![false, true];
     let sat_sol = reduction.extract_solution(&is_sol).unwrap();
-    assert_eq!(sat_sol, vec![0, 1]); // x1=false, x2=true
+    assert_eq!(sat_sol, vec![false, true]); // x1=false, x2=true
 }
 
 #[test]
@@ -105,9 +103,9 @@ fn test_extract_solution_with_negation() {
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
-    let is_sol = vec![1];
+    let is_sol = vec![true];
     let sat_sol = reduction.extract_solution(&is_sol).unwrap();
-    assert_eq!(sat_sol, vec![0]); // x1=false (so NOT x1 is true)
+    assert_eq!(sat_sol, vec![false]); // x1=false (so NOT x1 is true)
 }
 
 #[test]
@@ -221,14 +219,16 @@ fn test_jl_parity_sat_to_independentset() {
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&source)
             .expect("reduction should succeed");
         let solver = BruteForce::new();
-        let sat_solutions: HashSet<Vec<usize>> = solver
+        let sat_solutions: HashSet<Vec<bool>> = solver
             .find_all_witnesses(&source)
             .unwrap()
             .into_iter()
             .collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
-                let target_solution = solve_optimization_problem(result.target_problem())
+                let target_solution = BruteForce::new()
+                    .solve(result.target_problem())
+                    .unwrap()
                     .expect("SAT->IS: target should have an optimal solution");
                 let extracted = result.extract_solution(&target_solution).unwrap();
                 assert!(
@@ -243,7 +243,7 @@ fn test_jl_parity_sat_to_independentset() {
                 );
                 assert_eq!(
                     sat_solutions,
-                    jl_parse_configs_set(&case["best_source"]),
+                    jl_parse_bool_configs_set(&case["best_source"]),
                     "SAT->IS [{label}]: best source mismatch"
                 );
             }

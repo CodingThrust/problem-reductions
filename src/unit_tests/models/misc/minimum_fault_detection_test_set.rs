@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -35,7 +36,7 @@ fn test_minimum_fault_detection_test_set_creation() {
     assert_eq!(problem.num_outputs(), 2);
     // 2 inputs * 2 outputs = 4 pairs
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
     assert_eq!(
         <MinimumFaultDetectionTestSet as Problem>::NAME,
         "MinimumFaultDetectionTestSet"
@@ -50,7 +51,12 @@ fn test_minimum_fault_detection_test_set_evaluate_optimal() {
     // Config [1,0,0,1]: select pairs (0,5) and (1,6)
     // (0,5) covers {0,2,3,5}, (1,6) covers {1,3,4,6}
     // Internal vertices are {2,3,4}; both pairs together cover all three.
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false], vec![false, true]])
+            .unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -59,11 +65,21 @@ fn test_minimum_fault_detection_test_set_evaluate_insufficient() {
 
     // Config [1,0,0,0]: select only pair (0,5)
     // (0,5) covers internal vertices {2,3} -> missing {4} -> Min(None)
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false], vec![false, false]])
+            .unwrap(),
+        Min(None)
+    );
 
     // Config [0,0,0,1]: select only pair (1,6)
     // (1,6) covers internal vertices {3,4} -> missing {2} -> Min(None)
-    assert_eq!(problem.evaluate(&[0, 0, 0, 1]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![false, false], vec![false, true]])
+            .unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -72,7 +88,10 @@ fn test_minimum_fault_detection_test_set_evaluate_all_pairs() {
 
     // Config [1,1,1,1]: select all 4 pairs
     // Union covers all internal vertices -> Min(4)
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1]).unwrap(), Min(Some(4)));
+    assert_eq!(
+        problem.evaluate(&vec![vec![true; 2]; 2]).unwrap(),
+        Min(Some(4))
+    );
 }
 
 #[test]
@@ -80,7 +99,10 @@ fn test_minimum_fault_detection_test_set_evaluate_no_selection() {
     let problem = issue_problem();
 
     // No pairs selected -> nothing covered -> Min(None)
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![vec![false; 2]; 2]).unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -88,19 +110,23 @@ fn test_minimum_fault_detection_test_set_counts_only_internal_vertices() {
     let problem = MinimumFaultDetectionTestSet::new(2, vec![(0, 1)], vec![0], vec![1]);
 
     // With only an input and an output, there are no internal vertices to cover.
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(0)));
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(Some(1)));
+    assert_eq!(problem.evaluate(&vec![vec![false]]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![vec![true]]).unwrap(), Min(Some(1)));
 
     let solver = BruteForce::new();
-    use crate::solvers::Solver;
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(0)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(0))
+    );
 }
 
 #[test]
 fn test_minimum_fault_detection_test_set_wrong_config_length() {
     let problem = issue_problem();
 
-    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
+    assert!(problem.evaluate(&vec![vec![true, false]]).is_err());
 }
 
 #[test]
@@ -108,11 +134,12 @@ fn test_minimum_fault_detection_test_set_solver() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    use crate::solvers::Solver;
-    let optimal = solver.solve(&problem).unwrap();
+    let optimal_solution = solver.solve(&problem).unwrap().unwrap();
+
+    let optimal = problem.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(2)));
 
-    let witness = solver.find_witness(&problem).unwrap();
+    let witness = solver.solve(&problem).unwrap();
     assert!(witness.is_some());
     let w = witness.unwrap();
     assert_eq!(problem.evaluate(&w).unwrap(), Min(Some(2)));
@@ -128,7 +155,12 @@ fn test_minimum_fault_detection_test_set_serialization() {
     assert_eq!(round_trip.num_arcs(), 8);
     assert_eq!(round_trip.inputs(), &[0, 1]);
     assert_eq!(round_trip.outputs(), &[5, 6]);
-    assert_eq!(round_trip.evaluate(&[1, 0, 0, 1]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        round_trip
+            .evaluate(&vec![vec![true, false], vec![false, true]])
+            .unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -136,12 +168,17 @@ fn test_minimum_fault_detection_test_set_paper_example() {
     let problem = issue_problem();
 
     // Verify the paper example: optimal config [1,0,0,1] with value 2
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false], vec![false, true]])
+            .unwrap(),
+        Min(Some(2))
+    );
 
     // Confirm optimality via brute force
     let solver = BruteForce::new();
-    use crate::solvers::Solver;
-    let optimal = solver.solve(&problem).unwrap();
+    let optimal_solution = solver.solve(&problem).unwrap().unwrap();
+    let optimal = problem.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(2)));
 
     // Verify there is exactly one optimal witness
@@ -151,5 +188,8 @@ fn test_minimum_fault_detection_test_set_paper_example() {
         .filter(|w| problem.evaluate(w).unwrap() == Min(Some(2)))
         .collect();
     assert_eq!(optimal_witnesses.len(), 1);
-    assert_eq!(optimal_witnesses[0], vec![1, 0, 0, 1]);
+    assert_eq!(
+        optimal_witnesses[0],
+        vec![vec![true, false], vec![false, true]]
+    );
 }

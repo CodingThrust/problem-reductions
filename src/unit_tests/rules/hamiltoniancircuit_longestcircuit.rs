@@ -48,7 +48,7 @@ fn test_hamiltoniancircuit_to_longestcircuit_nonhamiltonian() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
 
     match witness {
         Some(sol) => {
@@ -73,7 +73,7 @@ fn test_hamiltoniancircuit_to_longestcircuit_extract_solution() {
     let target = reduction.target_problem();
 
     // All edges selected forms a Hamiltonian circuit on the cycle graph
-    let target_solution = vec![1, 1, 1, 1];
+    let target_solution = vec![true, true, true, true];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
     assert_eq!(target.evaluate(&target_solution).unwrap(), Max(Some(4)));

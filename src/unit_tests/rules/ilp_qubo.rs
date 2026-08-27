@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
 use crate::solvers::BruteForce;
-use crate::traits::Problem;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn test_ilp_to_qubo_closed_loop() {
@@ -11,12 +11,13 @@ fn test_ilp_to_qubo_closed_loop() {
     let ilp = ILP::<bool>::new(
         3,
         vec![
-            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
-            LinearConstraint::le(vec![(1, 1.0), (2, 1.0)], 1.0),
+            LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
+            LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -25,8 +26,7 @@ fn test_ilp_to_qubo_closed_loop() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
-        assert!(ilp.is_feasible(&values));
+        assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal should be [1, 0, 1]
@@ -41,10 +41,11 @@ fn test_ilp_to_qubo_minimize() {
     // Optimal: x = [1, 0, 0] with obj = 1
     let ilp = ILP::<bool>::new(
         3,
-        vec![LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![LinearConstraint::ge(vec![(0, 1), (1, 1)], 1)],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Minimize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -53,8 +54,7 @@ fn test_ilp_to_qubo_minimize() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
-        assert!(ilp.is_feasible(&values));
+        assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
@@ -68,13 +68,11 @@ fn test_ilp_to_qubo_equality() {
     // Optimal: any 2 of 3 variables = 1
     let ilp = ILP::<bool>::new(
         3,
-        vec![LinearConstraint::eq(
-            vec![(0, 1.0), (1, 1.0), (2, 1.0)],
-            2.0,
-        )],
+        vec![LinearConstraint::eq(vec![(0, 1), (1, 1), (2, 1)], 2)],
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -86,8 +84,7 @@ fn test_ilp_to_qubo_equality() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
-        assert!(ilp.is_feasible(&values));
+        assert!(ilp.is_feasible(&extracted).unwrap());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -99,13 +96,11 @@ fn test_ilp_to_qubo_ge_with_slack() {
     // s.t. x0 + x1 + x2 >= 1 (max_lhs=3, b=1, slack_range=2, ns=ceil(log2(3))=2)
     let ilp = ILP::<bool>::new(
         3,
-        vec![LinearConstraint::ge(
-            vec![(0, 1.0), (1, 1.0), (2, 1.0)],
-            1.0,
-        )],
+        vec![LinearConstraint::ge(vec![(0, 1), (1, 1), (2, 1)], 1)],
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Minimize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -117,13 +112,12 @@ fn test_ilp_to_qubo_ge_with_slack() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
-        assert!(ilp.is_feasible(&values));
+        assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal: exactly one variable = 1
     let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
-    assert_eq!(best.iter().sum::<usize>(), 1);
+    assert_eq!(best.iter().sum::<i64>(), 1);
 }
 
 #[test]
@@ -133,13 +127,11 @@ fn test_ilp_to_qubo_le_with_slack() {
     // s.t. x0 + x1 + x2 <= 2 (min_lhs=0, b=2, slack_range=2, ns=ceil(log2(3))=2)
     let ilp = ILP::<bool>::new(
         3,
-        vec![LinearConstraint::le(
-            vec![(0, 1.0), (1, 1.0), (2, 1.0)],
-            2.0,
-        )],
+        vec![LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2)],
         vec![(0, 1.0), (1, 1.0), (2, 1.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
@@ -151,26 +143,26 @@ fn test_ilp_to_qubo_le_with_slack() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
-        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
-        assert!(ilp.is_feasible(&values));
+        assert!(ilp.is_feasible(&extracted).unwrap());
     }
 
     // Optimal: exactly 2 of 3 variables = 1 (3 solutions)
     let best = reduction.extract_solution(&qubo_solutions[0]).unwrap();
-    assert_eq!(best.iter().sum::<usize>(), 2);
+    assert_eq!(best.iter().sum::<i64>(), 2);
 }
 
 #[test]
 fn test_ilp_to_qubo_structure() {
     let ilp = ILP::<bool>::new(
         3,
-        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp).expect("reduction should succeed");
     let qubo = reduction.target_problem();
 
     // Verify QUBO has appropriate structure
-    assert!(qubo.num_variables() >= ilp.num_vars);
+    assert!(qubo.num_variables() >= ilp.num_vars());
 }

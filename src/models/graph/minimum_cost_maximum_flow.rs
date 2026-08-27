@@ -15,9 +15,8 @@
 //! # Integral-flow restriction
 //!
 //! The mathematical CellRouter formulation in issue #1029 uses
-//! continuous flows `f: A -> R_{>= 0}`, but the [`Problem`] trait
-//! requires a discrete configuration space via [`Problem::dims`].
-//! Following the same precedent as
+//! continuous flows `f: A -> R_{>= 0}`, but this model's registered reference
+//! solver uses a finite Cartesian space. Following the same precedent as
 //! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) (see
 //! `src/models/graph/minimum_edge_cost_flow.rs`), we therefore restrict
 //! to **integer** flows: each variable `f(a)` ranges over
@@ -40,7 +39,7 @@
 //! ties by `cost(f)`. The optimum is always non-negative, and a smaller
 //! score is strictly better in the lex order.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -64,13 +63,6 @@ inventory::submit! {
     }
 }
 
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MinimumCostMaximumFlow",
-        fields: &["num_vertices", "num_arcs"],
-    }
-}
-
 /// Minimum-Cost Maximum-Flow problem.
 ///
 /// # Variables
@@ -83,7 +75,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumCostMaximumFlow;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Diamond network from the canonical example.
 /// let graph = DirectedGraph::new(4, vec![
@@ -96,7 +88,7 @@ inventory::submit! {
 ///     vec![1, 0, 0, 1, 2], // costs
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// // Optimal flow has value 3 and cost 7.
 /// assert_eq!(problem.flow_value(&witness).unwrap(), 3);
 /// assert_eq!(problem.total_cost(&witness).unwrap(), 7);
@@ -343,16 +335,20 @@ impl MinimumCostMaximumFlow {
 
 impl Problem for MinimumCostMaximumFlow {
     const NAME: &'static str = "MinimumCostMaximumFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
-    }
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
+        }
         Ok({
             if !self.is_feasible(config)? {
                 return Ok(crate::types::Min(None));
@@ -386,8 +382,18 @@ impl Problem for MinimumCostMaximumFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumCostMaximumFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumCostMaximumFlow => "(num_vertices + num_arcs)^6",
+}
+
+crate::register_brute_force! {
+    MinimumCostMaximumFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -416,7 +422,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cost_maximum_flow",
         instance: Box::new(problem),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(scalar),
     }]
 }

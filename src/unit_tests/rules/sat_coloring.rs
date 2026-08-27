@@ -85,8 +85,7 @@ fn test_unsatisfiable_formula() {
     let mut found_satisfying = false;
     for sol in &solutions {
         let sat_sol = reduction.extract_solution(sol).unwrap();
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        if sat.is_satisfying(&assignment) {
+        if sat.is_satisfying(&sat_sol) {
             found_satisfying = true;
             break;
         }
@@ -203,7 +202,7 @@ fn test_single_literal_clauses() {
     let mut found_correct = false;
     for sol in &solutions {
         let sat_sol = reduction.extract_solution(sol).unwrap();
-        if sat_sol == vec![1, 1] {
+        if sat_sol == vec![true, true] {
             found_correct = true;
             break;
         }
@@ -285,7 +284,7 @@ fn test_manual_coloring_extraction() {
     assert_eq!(coloring.graph().num_vertices(), 5);
     let extracted = reduction.extract_solution(&valid_coloring).unwrap();
     // x1 should be true (1) because vertex 3 has color 0 which equals TRUE vertex's color
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
 }
 
 #[test]
@@ -301,13 +300,13 @@ fn test_extraction_with_different_color_assignment() {
     let coloring_permuted = vec![2, 0, 1, 2, 0];
     let extracted = reduction.extract_solution(&coloring_permuted).unwrap();
     // x1 should still be true because its color equals TRUE vertex's color
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
 
     // Another permutation: TRUE=1, FALSE=2, AUX=0
     // x1 has color 1 (TRUE), NOT_x1 has color 2 (FALSE)
     let coloring_permuted2 = vec![1, 2, 0, 1, 2];
     let extracted2 = reduction.extract_solution(&coloring_permuted2).unwrap();
-    assert_eq!(extracted2, vec![1]);
+    assert_eq!(extracted2, vec![true]);
 }
 
 #[test]
@@ -337,7 +336,7 @@ fn test_jl_parity_sat_to_coloring() {
             .solve_reduced::<bool, _>(target)
             .expect("ILP should find a coloring");
         let extracted = result.extract_solution(&target_sol).unwrap();
-        let best_source: HashSet<Vec<usize>> = BruteForce::new()
+        let best_source: HashSet<Vec<bool>> = BruteForce::new()
             .find_all_witnesses(&source)
             .unwrap()
             .into_iter()
@@ -349,7 +348,7 @@ fn test_jl_parity_sat_to_coloring() {
         for case in data["cases"].as_array().unwrap() {
             assert_eq!(
                 best_source,
-                jl_parse_configs_set(&case["best_source"]),
+                jl_parse_bool_configs_set(&case["best_source"]),
                 "SAT->Coloring [{label}]: best source mismatch"
             );
         }

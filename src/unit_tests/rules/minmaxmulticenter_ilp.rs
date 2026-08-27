@@ -19,17 +19,17 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 + 1 = 3 + 9 + 1 = 13
-    assert_eq!(ilp.num_vars, 13, "n + n^2 + 1 variables");
+    assert_eq!(ilp.num_vars(), 13, "n + n^2 + 1 variables");
     // num_constraints = 1 (cardinality) + n (assignment) + n^2 (link) + n (x bounds) + n^2 (y bounds) + 1 (z bound) + n (minimax)
     //                 = 1 + 3 + 9 + 3 + 9 + 1 + 3 = 29
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         29,
         "cardinality + assignment + link + binary bounds + z bound + minimax constraints"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     // Objective should minimize z (last variable)
-    assert_eq!(ilp.objective, vec![(12, 1.0)]);
+    assert_eq!(ilp.objective(), vec![(12, 1.0)]);
 }
 
 #[test]
@@ -49,10 +49,7 @@ fn test_minmaxmulticenter_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have optimal");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have optimal");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Min(Some(1)));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -87,7 +84,7 @@ fn test_solution_extraction() {
         1, // z
     ];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
@@ -102,10 +99,7 @@ fn test_minmaxmulticenter_to_ilp_weighted() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have optimal");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have optimal");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
     assert_eq!(bf_value, Min(Some(100)));
 
@@ -126,7 +120,7 @@ fn test_minmaxmulticenter_to_ilp_trivial() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 + 1 = 3
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

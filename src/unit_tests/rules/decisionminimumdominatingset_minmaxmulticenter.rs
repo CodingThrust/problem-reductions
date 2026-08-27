@@ -73,7 +73,7 @@ fn test_decisionminimumdominatingset_to_minmaxmulticenter_no_witness_when_bound_
         .expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }

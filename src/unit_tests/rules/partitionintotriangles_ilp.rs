@@ -14,15 +14,15 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // num_vars = 3 vertices * 1 group = 3
-    assert_eq!(ilp.num_vars, 3, "Should have 3 variables");
+    assert_eq!(ilp.num_vars(), 3, "Should have 3 variables");
     assert_eq!(
-        ilp.sense,
+        ilp.sense(),
         ObjectiveSense::Minimize,
         "Should minimize (feasibility)"
     );
     // Constraints: 3 assignment + 1 group-size = 4
     // Non-edges: none (complete triangle), so no triangle constraints
-    assert_eq!(ilp.constraints.len(), 4, "Should have 4 constraints");
+    assert_eq!(ilp.constraints().len(), 4, "Should have 4 constraints");
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn test_partitionintotriangles_to_ilp_bf_vs_ilp() {
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));

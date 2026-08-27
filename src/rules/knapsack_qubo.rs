@@ -33,16 +33,16 @@ impl ReductionResult for ReductionKnapsackToQUBO {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution[..self.num_items].to_vec())
     }
 }
 
-#[reduction(size = exact {
-    num_vars = "num_items + num_slack_bits",
+#[reduction(size = unavailable {
+    num_vars = "the slack-bit count belongs to this QUBO encoding and depends on the unregistered source capacity",
 })]
 impl ReduceTo<QUBO<f64>> for Knapsack {
     type Result = ReductionKnapsackToQUBO;
@@ -152,8 +152,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1],
-                    target_config: vec![1, 0, 0, 1, 0, 0, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, true, false, false, false
+                    ]),
                 },
             )
         },

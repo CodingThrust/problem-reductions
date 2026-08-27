@@ -46,8 +46,8 @@ where
     /// For each vertex, we find which color has value 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
@@ -57,7 +57,7 @@ where
 /// Helper function implementing the KColoring to ILP reduction logic.
 fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     problem: &KColoring<K, G>,
-) -> ReductionKColoringToILP<K, G> {
+) -> Result<ReductionKColoringToILP<K, G>, crate::registry::ConstructionError> {
     let k = problem.num_colors();
     let num_vertices = problem.graph().num_vertices();
     let num_vars = num_vertices * k;
@@ -70,8 +70,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     // Constraint 1: Each vertex has exactly one color
     // sum_c x_{v,c} = 1 for each vertex v
     for v in 0..num_vertices {
-        let terms: Vec<(usize, f64)> = (0..k).map(|c| (var_index(v, c), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, 1.0));
+        let terms: Vec<(usize, i64)> = (0..k).map(|c| (var_index(v, c), 1)).collect();
+        constraints.push(LinearConstraint::eq(terms, 1));
     }
 
     // Constraint 2: Adjacent vertices have different colors
@@ -79,8 +79,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     for (u, v) in problem.graph().edges() {
         for c in 0..k {
             constraints.push(LinearConstraint::le(
-                vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],
-                1.0,
+                vec![(var_index(u, c), 1), (var_index(v, c), 1)],
+                1,
             ));
         }
     }
@@ -89,14 +89,14 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     // We use an empty objective
     let objective: Vec<(usize, f64)> = vec![];
 
-    let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+    let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)?;
 
-    ReductionKColoringToILP {
+    Ok(ReductionKColoringToILP {
         target,
         num_vertices,
         num_colors: k,
         _phantom: std::marker::PhantomData,
-    }
+    })
 }
 
 // Register only the KN variant in the reduction graph
@@ -110,7 +110,7 @@ impl ReduceTo<ILP<bool>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToILP<KN, SimpleGraph>;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        Ok(reduce_kcoloring_to_ilp(self))
+        reduce_kcoloring_to_ilp(self).map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)
     }
 }
 
@@ -120,7 +120,8 @@ macro_rules! impl_kcoloring_to_ilp {
         impl ReduceTo<ILP<bool>> for KColoring<$ktype, SimpleGraph> {
             type Result = ReductionKColoringToILP<$ktype, SimpleGraph>;
             fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-                Ok(reduce_kcoloring_to_ilp(self))
+                reduce_kcoloring_to_ilp(self)
+                    .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)
             }
         }
     )+};
@@ -141,11 +142,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 2, 0, 1, 2, 1, 1, 2, 0, 0],
-                    target_config: vec![
+                    source_config: serde_json::json!(vec![0, 2, 0, 1, 2, 1, 1, 2, 0, 0]),
+                    target_config: serde_json::json!(vec![
                         1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1,
                         0, 0, 1, 0, 0,
-                    ],
+                    ]),
                 },
             )
         },

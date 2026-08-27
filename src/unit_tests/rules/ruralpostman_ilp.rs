@@ -14,7 +14,7 @@ fn test_ruralpostman_to_ilp_closed_loop() {
         vec![0],
     );
     let direct = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source instance should have an optimal solution");
     assert!(source.evaluate(&direct).unwrap().0.is_some());
@@ -39,7 +39,7 @@ fn test_ruralpostman_to_ilp_optimization() {
 
     // Brute-force optimal on the source
     let bf_witness = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("brute-force optimum");
     let bf_value = source.evaluate(&bf_witness).unwrap();

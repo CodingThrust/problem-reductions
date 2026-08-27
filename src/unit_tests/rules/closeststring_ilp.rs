@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::ClosestString;
 use crate::rules::test_helpers::assert_bf_vs_ilp;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -23,28 +23,28 @@ fn test_closeststring_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // q = 2, m = 3 -> 2*3 + 1 = 7 variables.
-    assert_eq!(ilp.num_vars, 7);
+    assert_eq!(ilp.num_vars(), 7);
     // m = 3 assignment constraints + n = 4 radius constraints = 7.
-    assert_eq!(ilp.constraints.len(), 7);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), 7);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // The objective puts weight 1 on the radius variable only.
-    assert_eq!(ilp.objective.len(), 1);
-    let (r_idx, r_coeff) = ilp.objective[0];
+    assert_eq!(ilp.objective().len(), 1);
+    let (r_idx, r_coeff) = ilp.objective()[0];
     assert_eq!(r_idx, 2 * 3);
     assert!((r_coeff - 1.0).abs() < 1e-9);
 
     // Each assignment constraint has q = 2 terms and rhs = 1.
-    for c in ilp.constraints.iter().take(3) {
-        assert_eq!(c.terms.len(), 2);
-        assert!((c.rhs - 1.0).abs() < 1e-9);
+    for c in ilp.constraints().iter().take(3) {
+        assert_eq!(c.terms().len(), 2);
+        assert_eq!(c.rhs(), 1);
     }
 
     // Each radius constraint has m + 1 = 4 terms (one per position + R) and
     // rhs = m = 3.
-    for c in ilp.constraints.iter().skip(3) {
-        assert_eq!(c.terms.len(), 4);
-        assert!((c.rhs - 3.0).abs() < 1e-9);
+    for c in ilp.constraints().iter().skip(3) {
+        assert_eq!(c.terms().len(), 4);
+        assert_eq!(c.rhs(), 3);
     }
 }
 
@@ -53,7 +53,9 @@ fn test_closeststring_to_ilp_closed_loop() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&source).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+
+    let bf_value = source.evaluate(&bf_value_solution).unwrap();
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
@@ -81,7 +83,7 @@ fn test_closeststring_to_ilp_extract_known_center() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
 
-    let mut target_solution = vec![0usize; reduction.target_problem().num_vars];
+    let mut target_solution = vec![0_i64; reduction.target_problem().num_vars()];
     target_solution[0] = 1; // x_{0,0}
     target_solution[2] = 1; // x_{1,0}
     target_solution[4] = 1; // x_{2,0}
@@ -96,7 +98,7 @@ fn test_closeststring_to_ilp_extract_known_center() {
 fn test_closeststring_to_ilp_rejects_missing_one_hot_symbol() {
     let source = ClosestString::new(2, vec![vec![0, 1]]);
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
-    let target_solution = vec![0; reduction.target_problem().num_vars];
+    let target_solution = vec![0; reduction.target_problem().num_vars()];
 
     assert_eq!(
         reduction
@@ -116,8 +118,8 @@ fn test_closeststring_to_ilp_ternary_alphabet() {
     let ilp = reduction.target_problem();
 
     // q * m + 1 = 3 * 2 + 1 = 7 variables; m + n = 2 + 3 = 5 constraints.
-    assert_eq!(ilp.num_vars, 7);
-    assert_eq!(ilp.constraints.len(), 5);
+    assert_eq!(ilp.num_vars(), 7);
+    assert_eq!(ilp.constraints().len(), 5);
 
     assert_bf_vs_ilp(&source, &reduction);
 }

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -39,7 +40,7 @@ fn test_quadratic_assignment_creation() {
     let qap = make_test_instance();
     assert_eq!(qap.num_facilities(), 4);
     assert_eq!(qap.num_locations(), 4);
-    assert_eq!(qap.dims(), vec![4, 4, 4, 4]);
+    assert_eq!(qap.dimensions(), vec![4, 4, 4, 4]);
     assert_eq!(qap.cost_matrix().len(), 4);
     assert_eq!(qap.distance_matrix().len(), 4);
 }
@@ -52,7 +53,7 @@ fn test_quadratic_assignment_evaluate_identity() {
     //   = 5*4 + 2*1 + 0*1 + 5*4 + 0*3 + 3*4 + 2*1 + 0*3 + 4*4 + 0*1 + 3*4 + 4*4
     //   = 20 + 2 + 0 + 20 + 0 + 12 + 2 + 0 + 16 + 0 + 12 + 16 = 100
     assert_eq!(
-        Problem::evaluate(&qap, &[0, 1, 2, 3]).unwrap(),
+        Problem::evaluate(&qap, &vec![0, 1, 2, 3]).unwrap(),
         Min(Some(100))
     );
 }
@@ -68,7 +69,7 @@ fn test_quadratic_assignment_evaluate_swap() {
     //   i=3,j=0: 0*D[3][0]=0       i=3,j=1: 3*D[3][2]=3*4=12  i=3,j=2: 4*D[3][1]=4*4=16
     //   Total = 5+8+0+5+0+12+8+0+16+0+12+16 = 82
     assert_eq!(
-        Problem::evaluate(&qap, &[0, 2, 1, 3]).unwrap(),
+        Problem::evaluate(&qap, &vec![0, 2, 1, 3]).unwrap(),
         Min(Some(82))
     );
 }
@@ -77,16 +78,25 @@ fn test_quadratic_assignment_evaluate_swap() {
 fn test_quadratic_assignment_evaluate_invalid() {
     let qap = make_test_instance();
     // Duplicate location 0 — not injective, should be Invalid.
-    assert_eq!(Problem::evaluate(&qap, &[0, 0, 1, 2]).unwrap(), Min(None));
-    // Out-of-range location index.
-    assert_eq!(Problem::evaluate(&qap, &[0, 1, 2, 99]).unwrap(), Min(None));
-    // Wrong config length — too short.
-    assert_eq!(Problem::evaluate(&qap, &[0, 1, 2]).unwrap(), Min(None));
-    // Wrong config length — too long.
     assert_eq!(
-        Problem::evaluate(&qap, &[0, 1, 2, 3, 0]).unwrap(),
+        Problem::evaluate(&qap, &vec![0, 0, 1, 2]).unwrap(),
         Min(None)
     );
+    // Out-of-range location index.
+    assert!(matches!(
+        Problem::evaluate(&qap, &vec![0, 1, 2, 99]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    // Wrong config length — too short.
+    assert!(matches!(
+        Problem::evaluate(&qap, &vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    // Wrong config length — too long.
+    assert!(matches!(
+        Problem::evaluate(&qap, &vec![0, 1, 2, 3, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -98,8 +108,8 @@ fn test_quadratic_assignment_serialization() {
     assert_eq!(qap2.num_locations(), 4);
     // Verify functional equivalence after round-trip.
     assert_eq!(
-        Problem::evaluate(&qap, &[0, 1, 2, 3]).unwrap(),
-        Problem::evaluate(&qap2, &[0, 1, 2, 3]).unwrap()
+        Problem::evaluate(&qap, &vec![0, 1, 2, 3]).unwrap(),
+        Problem::evaluate(&qap2, &vec![0, 1, 2, 3]).unwrap()
     );
 }
 
@@ -111,14 +121,14 @@ fn test_quadratic_assignment_rectangular() {
     let qap = QuadraticAssignment::new(cost_matrix, distance_matrix);
     assert_eq!(qap.num_facilities(), 2);
     assert_eq!(qap.num_locations(), 3);
-    assert_eq!(qap.dims(), vec![3, 3]);
+    assert_eq!(qap.dimensions(), vec![3, 3]);
     // Assignment f=(0,1): cost = C[0][1]*D[0][1] + C[1][0]*D[1][0] = 3*1 + 3*1 = 6
-    assert_eq!(Problem::evaluate(&qap, &[0, 1]).unwrap(), Min(Some(6)));
+    assert_eq!(Problem::evaluate(&qap, &vec![0, 1]).unwrap(), Min(Some(6)));
     // Assignment f=(0,2): cost = 3*D[0][2] + 3*D[2][0] = 3*4 + 3*4 = 24
-    assert_eq!(Problem::evaluate(&qap, &[0, 2]).unwrap(), Min(Some(24)));
+    assert_eq!(Problem::evaluate(&qap, &vec![0, 2]).unwrap(), Min(Some(24)));
     // BruteForce should find optimal
     let solver = BruteForce::new();
-    let best = solver.find_witness(&qap).unwrap().unwrap();
+    let best = solver.solve(&qap).unwrap().unwrap();
     assert_eq!(Problem::evaluate(&qap, &best).unwrap(), Min(Some(6)));
 }
 
@@ -141,7 +151,7 @@ fn test_quadratic_assignment_too_many_facilities() {
 fn test_quadratic_assignment_solver() {
     let qap = make_test_instance();
     let solver = BruteForce::new();
-    let best = solver.find_witness(&qap).unwrap();
+    let best = solver.solve(&qap).unwrap();
     assert!(best.is_some());
     let best_config = best.unwrap();
     // The brute-force solver finds the optimal assignment f* = (3, 0, 1, 2) with cost 56.

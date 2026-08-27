@@ -37,8 +37,8 @@ impl ReductionResult for ReductionCAToILP {
     /// Extract solution: for each link l, find the unique capacity c where x_{l,c} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -63,22 +63,7 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
         let num_links = self.num_links();
         let num_capacities = self.num_capacities();
         let num_vars = num_links * num_capacities;
-        let delay = self
-            .delay()
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .copied()
-                    .map(i64_to_exact_f64)
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    CapacityAssignment,
-                    ILP<bool>,
-                >(error)
-            })?;
+        let delay = self.delay();
         let cost = self
             .cost()
             .iter()
@@ -95,20 +80,16 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
                     ILP<bool>,
                 >(error)
             })?;
-        let delay_budget = i64_to_exact_f64(self.delay_budget()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<CapacityAssignment, ILP<bool>>(
-                error,
-            )
-        })?;
+        let delay_budget = self.delay_budget();
 
         let mut constraints = Vec::with_capacity(num_links + 1);
 
         // Assignment constraints: for each link l, Σ_c x_{l,c} = 1
         for l in 0..num_links {
-            let terms: Vec<(usize, f64)> = (0..num_capacities)
-                .map(|c| (l * num_capacities + c, 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_capacities)
+                .map(|c| (l * num_capacities + c, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Delay budget constraint: Σ_{l,c} delay[l][c] * x_{l,c} ≤ delay_budget
@@ -128,7 +109,8 @@ impl ReduceTo<ILP<bool>> for CapacityAssignment {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionCAToILP {
             target,

@@ -13,14 +13,14 @@ fn test_reduction_creates_expected_ilp_shape() {
     let ilp = reduction.target_problem();
 
     // 2 completion variables + 1 pair-order variable.
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
 
     // 2 lower bounds + 2 upper bounds + 1 binary upper bound + 2 disjunctive constraints.
-    assert_eq!(ilp.constraints.len(), 7);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), 7);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Objective is w_0 * C_0 + w_1 * C_1.
-    assert_eq!(ilp.objective, vec![(0, 3.0), (1, 5.0)]);
+    assert_eq!(ilp.objective(), vec![(0, 3.0), (1, 5.0)]);
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn test_extract_solution_encodes_schedule_as_lehmer_code() {
 
     // Completion times C0 = 3, C1 = 1 imply schedule [1, 0].
     // y_{0,1} = 0 means task 1 before task 0.
-    let extracted = reduction.extract_solution(&[3, 1, 0]).unwrap();
+    let extracted = reduction.extract_solution(&vec![3, 1, 0]).unwrap();
     assert_eq!(extracted, vec![1, 0]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(14)));
 }
@@ -64,7 +64,7 @@ fn test_issue_example_closed_loop() {
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 2, 0, 1, 0]);
+    assert_eq!(extracted, vec![1, 3, 0, 4, 2]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(46)));
 }
 
@@ -78,7 +78,7 @@ fn test_ilp_matches_bruteforce_optimum() {
 
     let brute_force = BruteForce::new();
     let brute_force_solution = brute_force
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute force should find a schedule");
     let brute_force_metric = problem.evaluate(&brute_force_solution).unwrap();
@@ -154,7 +154,7 @@ fn test_solve_reduced_matches_source_optimum() {
         .expect("ILP should be solvable");
     let source_solution = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(source_solution, vec![1, 2, 0, 1, 0]);
+    assert_eq!(source_solution, vec![1, 3, 0, 4, 2]);
     assert_eq!(problem.evaluate(&source_solution).unwrap(), Min(Some(46)));
 }
 

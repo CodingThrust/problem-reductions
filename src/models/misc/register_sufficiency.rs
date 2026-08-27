@@ -43,7 +43,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::RegisterSufficiency;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 vertices: v2 depends on v0, v3 depends on v0 and v1
 /// let problem = RegisterSufficiency::new(
@@ -52,7 +52,7 @@ inventory::submit! {
 ///     2,
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -350,20 +350,34 @@ impl BnBState {
 
 impl Problem for RegisterSufficiency {
     const NAME: &'static str = "RegisterSufficiency";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("bound", bound),
+        ("num_arcs", num_arcs),
+        ("num_sinks", num_sinks),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_vertices; self.num_vertices]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= self.num_vertices) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering contains an out-of-range position".into(),
+            ));
+        }
         let bound = i64::try_from(self.bound).map_err(|_| {
             crate::traits::EvaluationError::IntegerOverflow(
                 "converting register bound to i64".into(),
@@ -376,8 +390,18 @@ impl Problem for RegisterSufficiency {
     }
 }
 
+impl crate::solvers::BruteForceProblem for RegisterSufficiency {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_vertices; self.num_vertices]
+    }
+}
+
 crate::declare_variants! {
     default RegisterSufficiency => "num_vertices ^ 2 * 2 ^ num_vertices",
+}
+
+crate::register_brute_force! {
+    RegisterSufficiency,
 }
 
 #[cfg(feature = "example-db")]
@@ -403,7 +427,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Order: v1,v2,v3,v4,v6,v5,v7 (1-indexed) = v0,v1,v2,v3,v5,v4,v6 (0-indexed)
         // Positions: v0->0, v1->1, v2->2, v3->3, v4->5, v5->4, v6->6
-        optimal_config: vec![0, 1, 2, 3, 5, 4, 6],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 5, 4, 6]),
         optimal_value: serde_json::json!(true),
     }]
 }

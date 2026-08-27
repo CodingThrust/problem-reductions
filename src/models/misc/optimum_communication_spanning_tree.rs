@@ -44,7 +44,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::OptimumCommunicationSpanningTree;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = OptimumCommunicationSpanningTree::new(
 ///     vec![
@@ -59,7 +59,7 @@ inventory::submit! {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,18 +234,13 @@ impl OptimumCommunicationSpanningTree {
 }
 
 /// Check if a configuration forms a valid spanning tree of K_n.
-fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) -> bool {
+fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[bool]) -> bool {
     if config.len() != edges.len() {
         return false;
     }
 
-    // Check all values are 0 or 1
-    if config.iter().any(|&v| v > 1) {
-        return false;
-    }
-
     // Count selected edges: must be exactly n-1
-    let selected_count: usize = config.iter().sum();
+    let selected_count = config.iter().filter(|&&selected| selected).count();
     if selected_count != n - 1 {
         return false;
     }
@@ -253,7 +248,7 @@ fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) 
     // Build adjacency and check connectivity via BFS
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -283,14 +278,14 @@ fn is_valid_spanning_tree(n: usize, edges: &[(usize, usize)], config: &[usize]) 
 fn communication_cost(
     n: usize,
     edges: &[(usize, usize)],
-    config: &[usize],
+    config: &[bool],
     edge_weights: &[Vec<i64>],
     requirements: &[Vec<i64>],
 ) -> Result<i64, crate::traits::EvaluationError> {
     // Build weighted adjacency list for the tree
     let mut adj: Vec<Vec<(usize, i64)>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             let w = edge_weights[u][v];
             adj[u].push((v, w));
@@ -339,17 +334,24 @@ fn communication_cost(
 
 impl Problem for OptimumCommunicationSpanningTree {
     const NAME: &'static str = "OptimumCommunicationSpanningTree";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.edges().len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the complete graph".into(),
+            ));
+        }
         Ok({
             let edges = self.edges();
             if !is_valid_spanning_tree(self.num_vertices, &edges, config) {
@@ -366,8 +368,18 @@ impl Problem for OptimumCommunicationSpanningTree {
     }
 }
 
+impl crate::solvers::BruteForceProblem for OptimumCommunicationSpanningTree {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
+    }
+}
+
 crate::declare_variants! {
     default OptimumCommunicationSpanningTree => "2^num_edges" create OptimumCommunicationSpanningTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    OptimumCommunicationSpanningTree decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -399,7 +411,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             edge_weights,
             requirements,
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, false, true]),
         optimal_value: serde_json::json!(20),
     }]
 }

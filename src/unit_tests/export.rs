@@ -48,7 +48,7 @@ fn sample_example_db() -> ExampleDb {
             problem: "ModelProblem".to_string(),
             variant: variant_to_map(vec![("graph", "SimpleGraph")]),
             instance: serde_json::json!({"n": 5}),
-            optimal_config: vec![],
+            optimal_config: serde_json::json!([]),
             optimal_value: serde_json::json!(null),
         }],
         rules: vec![RuleExample {
@@ -117,13 +117,13 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
     let mut db = sample_example_db();
     // Add richer data so the one-line-per-entry format is meaningful
     db.models[0].instance = serde_json::json!({"n": 5, "edges": [[0, 1], [1, 2]]});
-    db.models[0].optimal_config = vec![1, 0, 1];
+    db.models[0].optimal_config = serde_json::json!([1, 0, 1]);
     db.models[0].optimal_value = serde_json::json!(2);
     db.rules[0].source.instance = serde_json::json!({"n": 3, "edges": [[0, 1], [1, 2]]});
     db.rules[0].target.instance = serde_json::json!({"m": 4, "weights": [1, 2, 3, 4]});
     db.rules[0].solutions = vec![SolutionPair {
-        source_config: vec![1, 0, 1],
-        target_config: vec![0, 1, 1, 0],
+        source_config: serde_json::json!(vec![1, 0, 1]),
+        target_config: serde_json::json!(vec![0, 1, 1, 0]),
     }];
     write_example_db_to(&dir, &db);
 
@@ -228,11 +228,11 @@ fn model_example_new() {
         "MaximumIndependentSet",
         variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i64")]),
         serde_json::json!({"num_vertices": 3, "edges": [[0, 1], [1, 2]]}),
-        vec![1, 0, 1],
+        serde_json::json!([1, 0, 1]),
         serde_json::json!(2),
     );
     assert_eq!(example.problem, "MaximumIndependentSet");
-    assert_eq!(example.optimal_config, vec![1, 0, 1]);
+    assert_eq!(example.optimal_config, serde_json::json!([1, 0, 1]));
     assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(example.instance.is_object());
 }
@@ -243,7 +243,7 @@ fn model_example_problem_ref() {
         problem: "TestProblem".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({}),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!([]),
         optimal_value: serde_json::json!(null),
     };
     let pref = example.problem_ref();
@@ -285,7 +285,7 @@ fn write_model_example_to_creates_json_file() {
         problem: "TestModel".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph")]),
         instance: serde_json::json!({"n": 3}),
-        optimal_config: vec![1, 0, 1],
+        optimal_config: serde_json::json!(vec![1, 0, 1]),
         optimal_value: serde_json::json!(2),
     };
     write_model_example_to(&dir, "test_model", &example);

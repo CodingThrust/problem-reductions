@@ -49,12 +49,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::FlowShopScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 2 machines, 3 jobs, deadline 10
 /// let problem = FlowShopScheduling::new(2, vec![vec![2, 3], vec![3, 2], vec![1, 4]], 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,23 +176,33 @@ impl FlowShopScheduling {
 
 impl Problem for FlowShopScheduling {
     const NAME: &'static str = "FlowShopScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_jobs", num_jobs), ("num_processors", num_processors),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_jobs())
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.num_jobs();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "job ordering length does not match the jobs".into(),
+            ));
+        }
+        if config.iter().any(|&job| job >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "job ordering contains an out-of-range job".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
-                let Some(job_order) = super::decode_lehmer(config, self.num_jobs()) else {
+                let Some(job_order) = super::decode_permutation(config, self.num_jobs()) else {
                     return Ok(crate::types::Or(false));
                 };
 
@@ -203,8 +213,18 @@ impl Problem for FlowShopScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for FlowShopScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_jobs())
+    }
+}
+
 crate::declare_variants! {
     default FlowShopScheduling => "factorial(num_jobs)",
+}
+
+crate::register_brute_force! {
+    FlowShopScheduling decode |problem: &FlowShopScheduling, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_jobs()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -223,7 +243,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             25,
         )),
         // Job order [3,0,4,2,1] = Lehmer code [3,0,2,1,0], makespan 23
-        optimal_config: vec![3, 0, 2, 1, 0],
+        optimal_config: serde_json::json!(vec![3, 0, 4, 2, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

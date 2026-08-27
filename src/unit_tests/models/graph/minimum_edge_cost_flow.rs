@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -43,7 +44,7 @@ fn test_minimum_edge_cost_flow_creation() {
     assert_eq!(problem.max_capacity(), 2);
     assert_eq!(problem.prices(), &[3, 1, 2, 0, 0, 0]);
     assert_eq!(problem.capacities(), &[2, 2, 2, 2, 2, 2]);
-    assert_eq!(problem.dims(), vec![3, 3, 3, 3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3, 3, 3]);
     assert_eq!(
         <MinimumEdgeCostFlow as Problem>::NAME,
         "MinimumEdgeCostFlow"
@@ -86,9 +87,18 @@ fn test_minimum_edge_cost_flow_evaluate_infeasible_flow_req() {
 #[test]
 fn test_minimum_edge_cost_flow_evaluate_wrong_config_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0; 5]).unwrap(), Min(None)); // too short
-    assert_eq!(problem.evaluate(&[0; 7]).unwrap(), Min(None)); // too long
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(None)); // empty
+    assert!(matches!(
+        problem.evaluate(&vec![0; 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 7]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -96,7 +106,7 @@ fn test_minimum_edge_cost_flow_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find optimal");
     let value = problem.evaluate(&witness).unwrap();
@@ -107,7 +117,7 @@ fn test_minimum_edge_cost_flow_solver() {
 fn test_minimum_edge_cost_flow_infeasible_instance() {
     let problem = infeasible_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

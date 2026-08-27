@@ -16,16 +16,19 @@ pub struct ReductionMinimumCoveringByCliquesToMinimumIntersectionGraphBasis {
     target: MinimumIntersectionGraphBasis<SimpleGraph>,
 }
 
-fn extract_edge_clique_cover(graph: &SimpleGraph, target_solution: &[usize]) -> Option<Vec<usize>> {
+fn extract_edge_clique_cover(
+    graph: &SimpleGraph,
+    target_solution: &[Vec<bool>],
+) -> Option<Vec<usize>> {
     let n = graph.num_vertices();
     let m = graph.num_edges();
 
-    if m == 0 {
-        return target_solution.is_empty().then(Vec::new);
+    if target_solution.len() != n || target_solution.iter().any(|row| row.len() != m) {
+        return None;
     }
 
-    if target_solution.len() != n * m {
-        return None;
+    if m == 0 {
+        return Some(Vec::new());
     }
 
     let mut label_map = BTreeMap::new();
@@ -33,9 +36,8 @@ fn extract_edge_clique_cover(graph: &SimpleGraph, target_solution: &[usize]) -> 
     let mut source_solution = Vec::with_capacity(m);
 
     for (u, v) in graph.edges() {
-        let shared_label = (0..m).find(|&slot| {
-            target_solution[u * m + slot] == 1 && target_solution[v * m + slot] == 1
-        })?;
+        let shared_label =
+            (0..m).find(|&slot| target_solution[u][slot] && target_solution[v][slot])?;
         let compressed = *label_map.entry(shared_label).or_insert_with(|| {
             let label = next_label;
             next_label += 1;
@@ -48,7 +50,7 @@ fn extract_edge_clique_cover(graph: &SimpleGraph, target_solution: &[usize]) -> 
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn intersection_basis_config(graph: &SimpleGraph, subsets: &[&[usize]]) -> Vec<usize> {
+fn intersection_basis_config(graph: &SimpleGraph, subsets: &[&[usize]]) -> Vec<Vec<bool>> {
     let n = graph.num_vertices();
     let m = graph.num_edges();
 
@@ -59,14 +61,14 @@ fn intersection_basis_config(graph: &SimpleGraph, subsets: &[&[usize]]) -> Vec<u
             subsets.iter().all(|subset| subset.is_empty()),
             "empty graphs have empty subsets in canonical configs"
         );
-        return Vec::new();
+        return vec![Vec::new(); n];
     }
 
-    let mut config = vec![0; n * m];
+    let mut config = vec![vec![false; m]; n];
     for (vertex, subset) in subsets.iter().enumerate() {
         for &slot in *subset {
             assert!(slot < m, "intersection-basis slot out of range");
-            config[vertex * m + slot] = 1;
+            config[vertex][slot] = true;
         }
     }
     config
@@ -82,8 +84,8 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToMinimumIntersectionG
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -140,8 +142,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1],
-                    target_config,
+                    source_config: serde_json::json!(vec![0, 0, 0, 1]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

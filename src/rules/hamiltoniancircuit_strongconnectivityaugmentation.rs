@@ -29,8 +29,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -43,7 +43,7 @@ impl ReductionResult for ReductionHamiltonianCircuitToStrongConnectivityAugmenta
             let candidate_arcs = self.target.candidate_arcs();
             let mut successors = vec![Vec::new(); n];
             for (idx, &selected) in target_solution.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     let (u, v, _) = candidate_arcs[idx];
                     successors[u].push(v);
                 }
@@ -130,11 +130,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // for each v in 0..n where u!=v, so arc (u,v) is at index
             // u*(n-1) + (if v > u then v-1 else v).
             let n = 4;
-            let mut target_config = vec![0usize; n * (n - 1)];
+            let mut target_config = vec![false; n * (n - 1)];
             let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
             for (u, v) in cycle_arcs {
                 let idx = u * (n - 1) + if v > u { v - 1 } else { v };
-                target_config[idx] = 1;
+                target_config[idx] = true;
             }
 
             // Verify the target config is valid
@@ -147,8 +147,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 target,
                 vec![SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config,
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

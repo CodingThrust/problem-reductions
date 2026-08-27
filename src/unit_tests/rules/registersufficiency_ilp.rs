@@ -36,10 +36,10 @@ fn test_register_sufficiency_to_ilp_structure() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 62);
-    assert_eq!(ilp.constraints.len(), 180);
-    assert_eq!(ilp.objective, vec![]);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 62);
+    assert_eq!(ilp.constraints().len(), 180);
+    assert_eq!(ilp.objective(), vec![]);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -90,7 +90,13 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.instance["num_vertices"], 7);
     assert_eq!(example.source.instance["bound"], 3);
     assert_eq!(example.source.instance["arcs"].as_array().unwrap().len(), 8);
-    assert_eq!(example.target.instance["num_vars"], 182);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        182
+    );
     assert_eq!(
         example.target.instance["constraints"]
             .as_array()
@@ -103,9 +109,11 @@ fn test_register_sufficiency_to_ilp_canonical_example_spec() {
     let source = canonical_example();
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solution = &example.solutions[0];
-    assert_eq!(source.evaluate(&solution.source_config).unwrap(), Or(true));
+    let source_config: Vec<usize> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<i64> = serde_json::from_value(solution.target_config.clone()).unwrap();
+    assert_eq!(source.evaluate(&source_config).unwrap(), Or(true));
     assert_eq!(
-        reduction.extract_solution(&solution.target_config).unwrap(),
-        solution.source_config
+        reduction.extract_solution(&target_config).unwrap(),
+        source_config
     );
 }

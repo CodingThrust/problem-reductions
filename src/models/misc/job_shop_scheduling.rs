@@ -263,23 +263,43 @@ impl JobShopScheduling {
 
 impl Problem for JobShopScheduling {
     const NAME: &'static str = "JobShopScheduling";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_processors", num_processors),
+        ("num_jobs", num_jobs),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        self.flatten_tasks()
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let flattened = self.flatten_tasks();
+        if config.len() != flattened.lengths.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine-order encoding length does not match the tasks".into(),
+            ));
+        }
+        let dimensions = flattened
             .machine_task_ids
-            .into_iter()
-            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()))
-            .collect()
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+            .iter()
+            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()));
+        if config
+            .iter()
+            .zip(dimensions)
+            .any(|(&digit, radix)| digit >= radix)
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine-order encoding contains an out-of-range digit".into(),
+            ));
+        }
         Ok({
-            let flattened = self.flatten_tasks();
             match self.schedule_from_config_inner(config, &flattened) {
                 Some(start_times) => {
                     let makespan = start_times
@@ -296,8 +316,22 @@ impl Problem for JobShopScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for JobShopScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        self.flatten_tasks()
+            .machine_task_ids
+            .into_iter()
+            .flat_map(|machine_tasks| super::lehmer_dims(machine_tasks.len()))
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default JobShopScheduling => "factorial(num_tasks)" create JobShopSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    JobShopScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -316,7 +350,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Machine 0 order [0,3,5,8,9,11] => [0,0,0,0,0,0]
         // Machine 1 order [2,7,1,6,10,4] => [1,3,0,1,1,0]
-        optimal_config: vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(19),
     }]
 }

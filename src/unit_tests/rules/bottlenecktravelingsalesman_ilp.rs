@@ -17,18 +17,15 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=4, m=6: num_x=16, num_z=2*6*4=48, b=1, total=65
-    assert_eq!(ilp.num_vars, 65);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 65);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
 fn test_bottlenecktravelingsalesman_to_ilp_closed_loop() {
     let problem = k4_btsp();
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     let reduction: ReductionBTSPToILP =
@@ -58,10 +55,7 @@ fn test_bottlenecktravelingsalesman_to_ilp_c4() {
         vec![1, 2, 3, 4],
     );
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     let reduction: ReductionBTSPToILP =

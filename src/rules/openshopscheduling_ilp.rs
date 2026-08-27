@@ -30,7 +30,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::OpenShopScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing OpenShopScheduling to `ILP<i64>`.
 ///
@@ -91,8 +90,8 @@ impl ReductionResult for ReductionOSSToILP {
     /// convert to the config format (direct permutation indices per machine).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -100,7 +99,7 @@ impl ReductionResult for ReductionOSSToILP {
             let m = self.num_machines;
 
             // Read start times s_{j,i} for each (j, i)
-            let start = |j: usize, i: usize| -> usize {
+            let start = |j: usize, i: usize| -> i64 {
                 let idx = self.num_order_vars + j * m + i;
                 target_solution[idx]
             };
@@ -140,7 +139,8 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
         let num_vars = num_order_vars + num_start_vars + num_job_pair_vars + 1; // +1 for C
 
         let result = ReductionOSSToILP {
-            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,
             num_order_vars,
@@ -156,21 +156,8 @@ impl ReduceTo<ILP<i64>> for OpenShopScheduling {
                     "summing open-shop processing times",
                 )
             })?;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP<i64>>(error)
-            })
-        };
-        let big_m = exact_f64(total_p)?;
-        let processing_times = p
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .copied()
-                    .map(exact_f64)
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let big_m = total_p;
+        let processing_times = p;
 
         let c_var = num_order_vars + num_start_vars + num_job_pair_vars;
 
@@ -181,7 +168,7 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
             for k in (j + 1)..n {
                 for i in 0..m {
                     let x = result.x_var(j, k, i);
-                    constraints.push(LinearConstraint::le(vec![(x, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(x, 1)], 1));
                 }
             }
         }
@@ -191,12 +178,12 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
         for j in 0..n {
             for i in 0..m {
                 let sji = result.s_var(j, i);
-                constraints.push(LinearConstraint::le(vec![(sji, 1.0)], big_m));
+                constraints.push(LinearConstraint::le(vec![(sji, 1)], big_m));
             }
         }
 
         // Upper bound on makespan C ≤ total_p
-        constraints.push(LinearConstraint::le(vec![(c_var, 1.0)], big_m));
+        constraints.push(LinearConstraint::le(vec![(c_var, 1)], big_m));
 
         // 2. Machine non-overlap: for each pair (j,k) with j<k, each machine i
         //    x_{j,k,i}=1 means j precedes k on machine i:
@@ -225,13 +212,13 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
                     let sk = result.s_var(k, i);
                     // (a) s_{k,i} - s_{j,i} - M*x_{j,k,i} >= p_{j,i} - M
                     constraints.push(LinearConstraint::ge(
-                        vec![(sk, 1.0), (sj, -1.0), (x, -big_m)],
+                        vec![(sk, 1), (sj, -1), (x, -big_m)],
                         pji - big_m,
                     ));
 
                     // (b) s_{j,i} - s_{k,i} + M*x_{j,k,i} >= p_{k,i}
                     constraints.push(LinearConstraint::ge(
-                        vec![(sj, 1.0), (sk, -1.0), (x, big_m)],
+                        vec![(sj, 1), (sk, -1), (x, big_m)],
                         pki,
                     ));
                 }
@@ -243,7 +230,7 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
             for i in 0..m {
                 for ip in (i + 1)..m {
                     let y = result.y_var(j, i, ip);
-                    constraints.push(LinearConstraint::le(vec![(y, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(y, 1)], 1));
                 }
             }
         }
@@ -265,13 +252,13 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
 
                     // (a) s_{j,i'} - s_{j,i} - M*y >= p_{j,i} - M
                     constraints.push(LinearConstraint::ge(
-                        vec![(sjip, 1.0), (sji, -1.0), (y, -big_m)],
+                        vec![(sjip, 1), (sji, -1), (y, -big_m)],
                         pji - big_m,
                     ));
 
                     // (b) s_{j,i} - s_{j,i'} + M*y >= p_{j,i'}
                     constraints.push(LinearConstraint::ge(
-                        vec![(sji, 1.0), (sjip, -1.0), (y, big_m)],
+                        vec![(sji, 1), (sjip, -1), (y, big_m)],
                         pjip,
                     ));
                 }
@@ -282,7 +269,7 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
         for (j, pj) in processing_times.iter().enumerate() {
             for (i, &pji) in pj.iter().enumerate() {
                 let sji = result.s_var(j, i);
-                constraints.push(LinearConstraint::ge(vec![(c_var, 1.0), (sji, -1.0)], pji));
+                constraints.push(LinearConstraint::ge(vec![(c_var, 1), (sji, -1)], pji));
             }
         }
 
@@ -290,7 +277,8 @@ crate::rules::ReductionError::inexact_float_conversion::<OpenShopScheduling, ILP
         let objective = vec![(c_var, 1.0)];
 
         Ok(ReductionOSSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_jobs: n,
             num_machines: m,
             num_order_vars,

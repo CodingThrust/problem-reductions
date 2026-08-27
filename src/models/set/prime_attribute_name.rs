@@ -37,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::PrimeAttributeName;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 attributes, FDs: {0,1}->rest, {2,3}->rest, {0,3}->rest
 /// let problem = PrimeAttributeName::new(
@@ -51,10 +51,12 @@ inventory::submit! {
 /// );
 ///
 /// // {2, 3} is a candidate key containing attribute 3
-/// assert!(problem.evaluate(&[0, 0, 1, 1, 0, 0]).unwrap());
+/// assert!(problem
+///     .evaluate(&vec![false, false, true, true, false, false])
+///     .unwrap());
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -198,41 +200,41 @@ impl PrimeAttributeName {
 
 impl Problem for PrimeAttributeName {
     const NAME: &'static str = "PrimeAttributeName";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_attributes]
-    }
+    crate::problem_size![
+        ("num_attributes", num_attributes),
+        ("num_dependencies", num_dependencies),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                // Check config length and binary values
-                if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-                    return Ok(crate::types::Or(false));
+                if config.len() != self.num_attributes {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "attribute-selection length does not match the relation".into(),
+                    ));
                 }
 
-                // K = {i : config[i] = 1}
-                let k: Vec<bool> = config.iter().map(|&v| v == 1).collect();
-
                 // query_attribute must be in K
-                if !k[self.query_attribute] {
+                if !config[self.query_attribute] {
                     return Ok(crate::types::Or(false));
                 }
 
                 // Compute closure(K) -- must equal all attributes (K is a superkey)
-                let closure = self.compute_closure(&k);
+                let closure = self.compute_closure(config);
                 if closure.iter().any(|&v| !v) {
                     return Ok(crate::types::Or(false));
                 }
 
                 // Check minimality: removing any attribute from K must break the superkey property
                 for i in 0..self.num_attributes {
-                    if k[i] {
-                        let mut reduced = k.clone();
+                    if config[i] {
+                        let mut reduced = config.clone();
                         reduced[i] = false;
                         let reduced_closure = self.compute_closure(&reduced);
                         if reduced_closure.iter().all(|&v| v) {
@@ -252,8 +254,18 @@ impl Problem for PrimeAttributeName {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PrimeAttributeName {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_attributes]
+    }
+}
+
 crate::declare_variants! {
     default PrimeAttributeName => "2^num_attributes * num_dependencies * num_attributes" create PrimeAttributeNameCreateSpec,
+}
+
+crate::register_brute_force! {
+    PrimeAttributeName decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -271,7 +283,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
         )),
         // {2, 3} is a candidate key containing attribute 3
-        optimal_config: vec![0, 0, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

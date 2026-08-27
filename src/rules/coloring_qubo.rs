@@ -11,7 +11,6 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::KColoring;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::i64_to_exact_f64;
@@ -37,11 +36,25 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
     /// Decode one-hot: for each vertex, find which color bit is 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        one_hot_decode_rows(target_solution, self.num_vertices, self.num_colors, 0)
+        (0..self.num_vertices)
+            .map(|vertex| {
+                let mut selected = (0..self.num_colors)
+                    .filter(|&color| target_solution[vertex * self.num_colors + color]);
+                match (selected.next(), selected.next()) {
+                    (Some(color), None) => Ok(color),
+                    (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "assignment row {vertex} has no selected color"
+                    ))),
+                    (Some(_), Some(_)) => Err(crate::rules::ExtractionError::invalid(format!(
+                        "assignment row {vertex} has multiple selected colors"
+                    ))),
+                }
+            })
+            .collect()
     }
 }
 
@@ -119,8 +132,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    size = exact {
-        num_vars = "num_vertices * num_colors",
+    size = unavailable {
+        num_vars = "the QUBO variable count depends on the number of colors, which is a problem parameter rather than a source size parameter",
     }
 )]
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {
@@ -158,8 +171,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 2, 2, 1, 0],
-                    target_config: vec![0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![1, 2, 2, 1, 0]),
+                    target_config: serde_json::json!(vec![
+                        false, true, false, false, false, true, false, false, true, false, true,
+                        false, true, false, false
+                    ]),
                 },
             )
         },

@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -26,7 +27,10 @@ fn test_job_shop_scheduling_creation_and_dims() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(problem.num_tasks(), 12);
-    assert_eq!(problem.dims(), vec![6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1]);
+    assert_eq!(
+        problem.dimensions(),
+        vec![6, 5, 4, 3, 2, 1, 6, 5, 4, 3, 2, 1]
+    );
 }
 
 #[test]
@@ -67,8 +71,14 @@ fn test_job_shop_scheduling_rejects_cyclic_machine_orders() {
 #[test]
 fn test_job_shop_scheduling_invalid_config_and_serialization() {
     let problem = small_two_job_instance();
-    assert_eq!(problem.evaluate(&[2, 0, 0, 0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
     let json = serde_json::to_value(&problem).unwrap();
     let restored: JobShopScheduling = serde_json::from_value(json).unwrap();
@@ -86,9 +96,10 @@ fn test_job_shop_scheduling_problem_name_and_variant() {
 fn test_job_shop_scheduling_brute_force_solver_small_instance() {
     let problem = small_two_job_instance();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(2)));
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(2)));
 }
 

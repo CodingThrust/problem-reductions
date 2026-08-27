@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 include!("../../jl_helpers.rs");
 
@@ -24,12 +25,21 @@ fn test_get_coloring() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     // Config: a=0, b=1
     // Sequence: a(0), b(1), a(1-opposite), b(0-opposite)
-    let coloring = problem.get_coloring(&[0, 1]);
-    assert_eq!(coloring, vec![0, 1, 1, 0]);
+    let coloring = problem.get_coloring(&[false, true]).unwrap();
+    assert_eq!(coloring, vec![false, true, true, false]);
 
     // Config: a=1, b=0
-    let coloring = problem.get_coloring(&[1, 0]);
-    assert_eq!(coloring, vec![1, 0, 0, 1]);
+    let coloring = problem.get_coloring(&[true, false]).unwrap();
+    assert_eq!(coloring, vec![true, false, false, true]);
+}
+
+#[test]
+fn test_get_coloring_rejects_wrong_assignment_length() {
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    assert!(matches!(
+        problem.get_coloring(&[false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -37,21 +47,21 @@ fn test_count_switches() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
 
     // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(problem.count_switches(&[0, 1]).unwrap(), 2);
+    assert_eq!(problem.count_switches(&[false, true]).unwrap(), 2);
 
     // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(problem.count_switches(&[0, 0]).unwrap(), 1);
+    assert_eq!(problem.count_switches(&[false, false]).unwrap(), 1);
 
     // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
-    assert_eq!(problem.count_switches(&[1, 1]).unwrap(), 1);
+    assert_eq!(problem.count_switches(&[true, true]).unwrap(), 1);
 }
 
 #[test]
 fn test_count_paint_switches_function() {
-    assert_eq!(count_paint_switches(&[0, 0, 0]), 0);
-    assert_eq!(count_paint_switches(&[0, 1, 0]), 2);
-    assert_eq!(count_paint_switches(&[0, 0, 1, 1]), 1);
-    assert_eq!(count_paint_switches(&[0, 1, 0, 1]), 3);
+    assert_eq!(count_paint_switches(&[false, false, false]), 0);
+    assert_eq!(count_paint_switches(&[false, true, false]), 2);
+    assert_eq!(count_paint_switches(&[false, false, true, true]), 1);
+    assert_eq!(count_paint_switches(&[false, true, false, true]), 3);
 }
 
 #[test]
@@ -107,7 +117,7 @@ fn test_jl_parity_evaluation() {
             .collect();
         let problem = PaintShop::new(sequence);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_size = eval["size"].as_i64().unwrap();
             assert_eq!(
@@ -118,8 +128,8 @@ fn test_jl_parity_evaluation() {
             );
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "PaintShop best solutions mismatch");
     }
 }
@@ -141,6 +151,6 @@ fn test_paintshop_paper_example() {
     // Config [0, 0, 1]: A first=0, B first=0, C first=1
     // Coloring: A(0), B(0), A(1), C(1), B(1), C(0) -> [0,0,1,1,1,0] -> 2 switches
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }

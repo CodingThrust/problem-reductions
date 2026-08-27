@@ -30,29 +30,13 @@ impl ReductionResult for Reduction3SATToQuadraticDiophantineEquations {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let Some(x) = self.target.decode_witness(target_solution) else {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "target configuration does not encode a Diophantine witness",
-                ));
-            };
-
-            let Some(congruence_config) = self
-                .congruence_reduction
-                .target_problem()
-                .encode_witness(&x)
-            else {
-                return Err(crate::rules::ExtractionError::invalid(
-                    "decoded Diophantine witness cannot be encoded for the source congruence",
-                ));
-            };
-
             self.congruence_reduction
-                .extract_solution(&congruence_config)?
+                .extract_solution(target_solution)?
         })
     }
 }
@@ -126,17 +110,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = canonical_source();
             let reduction = ReduceTo::<QuadraticDiophantineEquations>::reduce_to(&source)
                 .expect("reduction should succeed");
-            let target_config = reduction
-                .target_problem()
-                .encode_witness(&canonical_witness())
-                .expect("reference witness must fit QDE encoding");
+            let target_config = canonical_witness();
 
             assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config: vec![1, 0, 0],
-                    target_config,
+                    source_config: serde_json::json!(vec![true, false, false]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

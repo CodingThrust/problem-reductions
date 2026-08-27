@@ -254,11 +254,12 @@ fn test_create_problem_kcoloring() {
 #[test]
 fn test_create_problem_factoring() {
     let server = McpServer::new();
-    let params = serde_json::json!({"target": 15, "m": 4, "n": 4});
+    let params = serde_json::json!({"target": "15", "m": 4, "n": 4});
     let result = server.create_problem_inner("Factoring", &params);
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "{result:?}");
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["type"], "Factoring");
+    assert_eq!(json["data"]["target"], "15");
 }
 
 #[test]
@@ -286,25 +287,26 @@ fn test_inspect_problem() {
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["kind"], "problem");
-    assert!(json["num_variables"].as_u64().unwrap() > 0);
+    assert!(json["brute_force_num_variables"].as_u64().unwrap() > 0);
 }
 
 #[test]
 fn test_evaluate() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    let result = server.evaluate_inner(&problem_json, &[1, 0, 1, 0]);
+    let config = serde_json::json!([true, false, true, false]);
+    let result = server.evaluate_inner(&problem_json, &config);
     assert!(result.is_ok());
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
     assert_eq!(json["problem"], "MaximumIndependentSet");
-    assert_eq!(json["config"], serde_json::json!([1, 0, 1, 0]));
+    assert_eq!(json["config"], config);
 }
 
 #[test]
 fn test_evaluate_wrong_config_length() {
     let server = McpServer::new();
     let problem_json = create_test_mis(&server);
-    let result = server.evaluate_inner(&problem_json, &[1, 0]);
+    let result = server.evaluate_inner(&problem_json, &serde_json::json!([true, false]));
     assert!(result.is_err());
 }
 
@@ -668,17 +670,17 @@ fn test_reduce_rejects_aggregate_only_path() {
 }
 
 #[test]
-fn test_solve_aggregate_only_problem_omits_solution() {
+fn test_solve_problem_includes_solution() {
     let server = McpServer::new();
     let result = server.solve_inner(&aggregate_problem_json(), Some("brute-force"), None);
     assert!(result.is_ok());
     let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-    assert_eq!(json["evaluation"], "Sum(56)");
-    assert!(json.get("solution").is_none(), "{json}");
+    assert_eq!(json["evaluation"], "Max(14)");
+    assert_eq!(json["solution"], serde_json::json!([true, true, true]));
 }
 
 #[test]
-fn test_solve_ilp_rejects_aggregate_only_problem() {
+fn test_solve_ilp_rejects_problem_without_pipeline() {
     let server = McpServer::new();
     let result = server.solve_inner(&aggregate_problem_json(), Some("ilp"), None);
     assert!(result.is_err());

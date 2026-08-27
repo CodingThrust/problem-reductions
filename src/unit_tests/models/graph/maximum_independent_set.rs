@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_simple_weights() {
     let problem = MaximumIndependentSet::try_from(MaximumIndependentSetSimpleI64CreateSpec {
@@ -22,7 +23,7 @@ fn test_independent_set_creation() {
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.dims().len(), 4);
+    assert_eq!(problem.dimensions().len(), 4);
 }
 
 #[test]
@@ -30,7 +31,7 @@ fn test_evaluate_reports_non_finite_weight_sum() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![]), vec![f64::MAX, f64::MAX]);
 
     assert!(matches!(
-        problem.evaluate(&[1, 1]),
+        problem.evaluate(&vec![true, true]),
         Err(crate::traits::EvaluationError::NonFiniteResult(_))
     ));
 }
@@ -38,12 +39,16 @@ fn test_evaluate_reports_non_finite_weight_sum() {
 #[test]
 fn test_evaluate_rejects_invalid_configurations() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![]), vec![1_i64, 1]);
-    assert_eq!(problem.evaluate(&[1]).unwrap(), crate::types::Max(None));
-    assert_eq!(
-        problem.evaluate(&[1, 0, 0]).unwrap(),
-        crate::types::Max(None)
+    for solution in [vec![true], vec![true, false, false]] {
+        assert!(matches!(
+            problem.evaluate(&solution),
+            Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+        ));
+    }
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
+            .is_err()
     );
-    assert_eq!(problem.evaluate(&[2, 0]).unwrap(), crate::types::Max(None));
 }
 
 #[test]
@@ -160,7 +165,7 @@ fn test_jl_parity_evaluation() {
         let weights = jl_parse_i64_vec(&instance["instance"]["weights"]);
         let problem = MaximumIndependentSet::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
@@ -180,8 +185,8 @@ fn test_jl_parity_evaluation() {
             }
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "IS best solutions mismatch");
     }
 }
@@ -192,9 +197,9 @@ fn test_is_valid_solution() {
     let problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
     // Valid: {0, 2} is independent
-    assert!(problem.is_valid_solution(&[1, 0, 1]));
+    assert!(problem.is_valid_solution(&[true, false, true]));
     // Invalid: {0, 1} are adjacent
-    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+    assert!(!problem.is_valid_solution(&[true, true, false]));
 }
 
 #[test]
@@ -232,13 +237,15 @@ fn test_mis_paper_example() {
     );
     let problem = MaximumIndependentSet::new(graph, vec![1i64; 10]);
     // MIS = {1,3,5,9} -> config
-    let config = vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1];
+    let config = vec![
+        false, true, false, true, false, true, false, false, false, true,
+    ];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 4);
 
     // Verify this is optimal
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 4);
 }

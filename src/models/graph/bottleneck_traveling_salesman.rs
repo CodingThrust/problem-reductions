@@ -145,47 +145,55 @@ impl BottleneckTravelingSalesman {
     }
 
     /// Check if a configuration is a valid Hamiltonian cycle.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         if config.len() != self.graph.num_edges() {
             return false;
         }
-        let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-        super::traveling_salesman::is_hamiltonian_cycle(&self.graph, &selected)
+        super::traveling_salesman::is_hamiltonian_cycle(&self.graph, config)
     }
 }
 
 impl Problem for BottleneckTravelingSalesman {
     const NAME: &'static str = "BottleneckTravelingSalesman";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.graph.num_edges() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "edge-selection length does not match the graph".into(),
+                ));
             }
 
-            let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-            if !super::traveling_salesman::is_hamiltonian_cycle(&self.graph, &selected) {
+            if !super::traveling_salesman::is_hamiltonian_cycle(&self.graph, config) {
                 return Ok(Min(None));
             }
 
             let bottleneck = config
                 .iter()
                 .zip(self.edge_weights.iter())
-                .filter_map(|(&selected, &weight)| (selected == 1).then_some(weight))
+                .filter_map(|(&selected, &weight)| selected.then_some(weight))
                 .max()
                 .expect("valid Hamiltonian cycle selects at least one edge");
 
             Min(Some(bottleneck))
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for BottleneckTravelingSalesman {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -211,7 +219,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             vec![5, 4, 4, 5, 4, 1, 2, 1, 5, 4],
         )),
-        optimal_config: vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1],
+        optimal_config: serde_json::json!([
+            false, true, true, false, true, false, true, false, false, true
+        ]),
         optimal_value: serde_json::json!(4),
     }]
 }
@@ -228,6 +238,10 @@ crate::impl_random_generate!(
 
 crate::declare_variants! {
     default BottleneckTravelingSalesman => "num_vertices^2 * 2^num_vertices" create BottleneckTravelingSalesmanCreateSpec random,
+}
+
+crate::register_brute_force! {
+    BottleneckTravelingSalesman decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

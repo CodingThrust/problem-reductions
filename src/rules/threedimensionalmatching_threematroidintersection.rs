@@ -22,8 +22,8 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToThreeMatroidIntersec
     /// witness vector is preserved unchanged.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -75,8 +75,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![(0, 0, 0), (1, 1, 1), (2, 2, 2), (0, 1, 2), (1, 2, 0)],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 0, 0],
-                    target_config: vec![1, 1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, true, false, false]),
+                    target_config: serde_json::json!(vec![true, true, true, false, false]),
                 },
             )
         },

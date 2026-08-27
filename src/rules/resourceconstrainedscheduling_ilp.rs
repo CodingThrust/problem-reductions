@@ -8,7 +8,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ResourceConstrainedScheduling;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing ResourceConstrainedScheduling to `ILP<bool>`.
 ///
@@ -32,8 +31,8 @@ impl ReductionResult for ReductionRCSToILP {
     /// Extract: for each task j, find the unique slot t with x_{j,t} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -63,57 +62,32 @@ impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
                 >("deadline does not fit the structural usize domain")
             })?;
         let r = self.num_resources();
-        let m = self.num_processors();
-        let resource_requirements = self
-            .resource_requirements()
-            .iter()
-            .map(|row| {
-                row.iter()
-                    .copied()
-                    .map(i64_to_exact_f64)
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    ResourceConstrainedScheduling,
-                    ILP<bool>,
-                >(error)
-            })?;
-        let resource_bounds = self
-            .resource_bounds()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    ResourceConstrainedScheduling,
-                    ILP<bool>,
-                >(error)
-            })?;
+        let resource_requirements = self.resource_requirements();
+        let resource_bounds = self.resource_bounds();
         let num_vars = n * d;
 
         let var = |j: usize, t: usize| -> usize { j * d + t };
+        let processor_count =
+            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
 
         let mut constraints = Vec::new();
 
         // 1. Each task in exactly one slot: Σ_t x_{j,t} = 1 for all j
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..d).map(|t| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..d).map(|t| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Processor capacity: Σ_j x_{j,t} <= m for each time slot t
         for t in 0..d {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, m as f64));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, processor_count));
         }
 
         // 3. Resource bounds: Σ_j r_{j,q} * x_{j,t} <= B_q for all q, t
         for q in 0..r {
             for t in 0..d {
-                let terms: Vec<(usize, f64)> = (0..n)
+                let terms: Vec<(usize, i64)> = (0..n)
                     .map(|j| (var(j, t), resource_requirements[j][q]))
                     .collect();
                 constraints.push(LinearConstraint::le(terms, resource_bounds[q]));
@@ -121,7 +95,8 @@ impl ReduceTo<ILP<bool>> for ResourceConstrainedScheduling {
         }
 
         Ok(ReductionRCSToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             deadline: d,
         })

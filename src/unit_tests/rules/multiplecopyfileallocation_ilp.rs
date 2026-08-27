@@ -17,14 +17,14 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 = 3 + 9 = 12
-    assert_eq!(ilp.num_vars, 12, "n + n^2 variables");
+    assert_eq!(ilp.num_vars(), 12, "n + n^2 variables");
     // num_constraints = n (assignment) + n^2 (capacity) = 3 + 9 = 12
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         12,
         "assignment + capacity constraints"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -44,10 +44,7 @@ fn test_multiplecopyfileallocation_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have a witness");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have a witness");
     assert!(problem.evaluate(&bf_witness).unwrap().0.is_some());
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -80,7 +77,7 @@ fn test_solution_extraction() {
         0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
     ];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(7)));
 }
 
@@ -92,9 +89,9 @@ fn test_multiplecopyfileallocation_to_ilp_trivial() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 = 2
-    assert_eq!(ilp.num_vars, 2);
+    assert_eq!(ilp.num_vars(), 2);
     // num_constraints = 1 (assignment) + 1 (capacity) = 2
-    assert_eq!(ilp.constraints.len(), 2);
+    assert_eq!(ilp.constraints().len(), 2);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

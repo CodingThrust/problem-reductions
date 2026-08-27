@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -32,11 +32,7 @@ fn test_ocst_to_ilp_closed_loop_k3() {
     let problem = k3_problem();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "OptimumCommunicationSpanningTree->ILP K3 closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -48,7 +44,7 @@ fn test_ocst_to_ilp_structure_k4() {
     // K4: n=4, m=6, 6 commodities (all pairs have r>0)
     // num_vars = 6 + 2*6*6 = 78
     assert_eq!(ilp.num_vars(), 78);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Constraints: 1 (tree size) + 4*6 (flow conservation) + 2*6*6 (capacity) = 1+24+72 = 97
     assert_eq!(ilp.num_constraints(), 97);
@@ -63,7 +59,7 @@ fn test_ocst_to_ilp_structure_k3() {
     // K3: n=3, m=3, 3 commodities (all pairs have r>0)
     // num_vars = 3 + 2*3*3 = 21
     assert_eq!(ilp.num_vars(), 21);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Constraints: 1 (tree size) + 3*3 (flow conservation) + 2*3*3 (capacity) = 1+9+18 = 28
     assert_eq!(ilp.num_constraints(), 28);

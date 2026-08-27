@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_nonpositive_edge_values() {
@@ -52,7 +53,7 @@ fn test_shortest_weight_constrained_path_creation() {
     assert_eq!(problem.source_vertex(), 0);
     assert_eq!(problem.target_vertex(), 5);
     assert_eq!(*problem.weight_bound(), 8);
-    assert_eq!(problem.dims(), vec![2; 8]);
+    assert_eq!(problem.dimensions(), vec![2; 8]);
     assert!(problem.is_weighted());
 }
 
@@ -62,32 +63,44 @@ fn test_shortest_weight_constrained_path_evaluation() {
 
     // Path 0-2-3-5: length=4+1+4=9, weight=1+3+3=7<=8
     assert_eq!(
-        problem.evaluate(&[0, 1, 0, 1, 0, 1, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![false, true, false, true, false, true, false, false])
+            .unwrap(),
         Min(Some(9))
     );
     // Path 0-1-4-5: length=2+6+2=10, weight=5+1+1=7<=8
     assert_eq!(
-        problem.evaluate(&[1, 0, 0, 0, 0, 0, 1, 1]).unwrap(),
+        problem
+            .evaluate(&vec![true, false, false, false, false, false, true, true])
+            .unwrap(),
         Min(Some(10))
     );
     // Invalid: not a simple path
     assert_eq!(
-        problem.evaluate(&[0, 1, 0, 1, 1, 1, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![false, true, false, true, true, true, false, false])
+            .unwrap(),
         Min(None)
     );
     // Path 0-1-3-2-4-5 is not simple s-t path structure in this encoding
     assert_eq!(
-        problem.evaluate(&[1, 0, 0, 1, 0, 0, 1, 0]).unwrap(),
+        problem
+            .evaluate(&vec![true, false, false, true, false, false, true, false])
+            .unwrap(),
         Min(None)
     );
     // Path 0-1-3-5: weight=5+2+3=10>8
     assert_eq!(
-        problem.evaluate(&[1, 0, 1, 0, 0, 1, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![true, false, true, false, false, true, false, false])
+            .unwrap(),
         Min(None)
     );
     // Path 0-2-4-5: length=4+5+2=11, weight=1+2+1=4<=8
     assert_eq!(
-        problem.evaluate(&[0, 1, 0, 0, 1, 0, 1, 0]).unwrap(),
+        problem
+            .evaluate(&vec![false, true, false, false, true, false, true, false])
+            .unwrap(),
         Min(Some(11))
     );
 }
@@ -105,7 +118,7 @@ fn test_shortest_weight_constrained_path_accessors() {
 fn test_shortest_weight_constrained_path_bruteforce() {
     let problem = issue_problem();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let config = solution.unwrap();
     // The witness should be the minimum-length feasible path (length 9)
@@ -142,7 +155,7 @@ fn test_shortest_weight_constrained_path_no_solution() {
         3,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -170,7 +183,9 @@ fn test_shortest_weight_constrained_path_problem_name() {
 fn test_shortestweightconstrainedpath_paper_example() {
     let problem = issue_problem();
     assert_eq!(
-        problem.evaluate(&[0, 1, 0, 1, 0, 1, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![false, true, false, true, false, true, false, false])
+            .unwrap(),
         Min(Some(9))
     );
 
@@ -183,16 +198,15 @@ fn test_shortestweightconstrainedpath_paper_example() {
 fn test_shortest_weight_constrained_path_rejects_invalid_configs() {
     let problem = issue_problem();
 
-    assert_eq!(problem.is_valid_solution(&[0, 1]).unwrap(), None);
+    assert_eq!(problem.is_valid_solution(&[false, true]).unwrap(), None);
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([false, true, false, true, false, true, false, 2])
+    )
+    .is_err());
     assert_eq!(
         problem
-            .is_valid_solution(&[0, 1, 0, 1, 0, 1, 0, 2])
-            .unwrap(),
-        None
-    );
-    assert_eq!(
-        problem
-            .is_valid_solution(&[0, 0, 0, 0, 0, 0, 0, 0])
+            .is_valid_solution(&[false, false, false, false, false, false, false, false])
             .unwrap(),
         None
     );
@@ -209,8 +223,8 @@ fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_
         1,
     );
 
-    assert_eq!(problem.is_valid_solution(&[0, 0]).unwrap(), Some(0));
-    assert_eq!(problem.is_valid_solution(&[1, 0]).unwrap(), None);
+    assert_eq!(problem.is_valid_solution(&[false, false]).unwrap(), Some(0));
+    assert_eq!(problem.is_valid_solution(&[true, false]).unwrap(), None);
 }
 
 #[test]
@@ -225,8 +239,8 @@ fn test_shortest_weight_constrained_path_exceeds_weight_bound() {
         3,
     );
     // Valid path but weight 5 > 3
-    assert_eq!(problem.is_valid_solution(&[1]).unwrap(), None);
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(None));
+    assert_eq!(problem.is_valid_solution(&[true]).unwrap(), None);
+    assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(None));
 }
 
 #[test]
@@ -240,7 +254,12 @@ fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
         10,
     );
 
-    assert_eq!(problem.is_valid_solution(&[1, 1, 1, 1, 1]).unwrap(), None);
+    assert_eq!(
+        problem
+            .is_valid_solution(&[true, true, true, true, true])
+            .unwrap(),
+        None
+    );
 }
 
 #[test]

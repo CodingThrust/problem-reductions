@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_weights_and_validates_sets() {
@@ -55,7 +56,7 @@ fn test_comparative_containment_creation() {
     assert_eq!(problem.num_r_sets(), 2);
     assert_eq!(problem.num_s_sets(), 2);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
 }
 
 #[test]
@@ -69,31 +70,37 @@ fn test_comparative_containment_unit_weights() {
 #[test]
 fn test_comparative_containment_evaluation_yes_and_no_examples() {
     let yes = yes_instance();
-    assert!(yes.evaluate(&[1, 0, 0, 0]).unwrap());
-    assert!(!yes.evaluate(&[0, 0, 1, 0]).unwrap());
-    assert!(!yes.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(yes.evaluate(&vec![true, false, false, false]).unwrap());
+    assert!(!yes.evaluate(&vec![false, false, true, false]).unwrap());
+    assert!(!yes.evaluate(&vec![false, false, false, false]).unwrap());
 
     let no = no_instance();
-    assert!(!no.evaluate(&[0, 0]).unwrap());
-    assert!(!no.evaluate(&[1, 0]).unwrap());
-    assert!(!no.evaluate(&[0, 1]).unwrap());
-    assert!(!no.evaluate(&[1, 1]).unwrap());
+    assert!(!no.evaluate(&vec![false, false]).unwrap());
+    assert!(!no.evaluate(&vec![true, false]).unwrap());
+    assert!(!no.evaluate(&vec![false, true]).unwrap());
+    assert!(!no.evaluate(&vec![true, true]).unwrap());
 }
 
 #[test]
 fn test_comparative_containment_rejects_invalid_configs() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[1, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 0, 0, 2]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([true, false, false, 2])
+    )
+    .is_err());
 }
 
 #[test]
 fn test_comparative_containment_contains_selected_subset_requires_valid_config() {
     let problem = yes_instance();
-    assert!(problem.contains_selected_subset(&[1, 0, 0, 0], &[0, 1, 2, 3]));
-    assert!(!problem.contains_selected_subset(&[0, 0, 1, 0], &[0, 1]));
-    assert!(!problem.contains_selected_subset(&[1, 0, 0], &[0, 1, 2, 3]));
-    assert!(!problem.contains_selected_subset(&[1, 0, 0, 2], &[0, 1, 2, 3]));
+    assert!(problem.contains_selected_subset(&[true, false, false, false], &[0, 1, 2, 3]));
+    assert!(!problem.contains_selected_subset(&[false, false, true, false], &[0, 1]));
+    assert!(!problem.contains_selected_subset(&[true, false, false], &[0, 1, 2, 3]));
 }
 
 #[test]
@@ -101,7 +108,7 @@ fn test_comparative_containment_solver() {
     let solver = BruteForce::new();
 
     let yes_solutions = solver.find_all_witnesses(&yes_instance()).unwrap();
-    assert!(yes_solutions.contains(&vec![1, 0, 0, 0]));
+    assert!(yes_solutions.contains(&vec![true, false, false, false]));
     assert!(!yes_solutions.is_empty());
 
     let no_solutions = solver.find_all_witnesses(&no_instance()).unwrap();
@@ -123,7 +130,7 @@ fn test_comparative_containment_serialization() {
 #[test]
 fn test_comparative_containment_paper_example() {
     let problem = yes_instance();
-    let config = vec![1, 0, 0, 0];
+    let config = vec![true, false, false, false];
     assert!(problem.evaluate(&config).unwrap());
 
     let solver = BruteForce::new();
@@ -136,12 +143,17 @@ fn test_comparative_containment_paper_example() {
 fn test_comparative_containment_weight_sums() {
     let problem = yes_instance();
     // Y = {0}: R1={0,1,2,3} contains {0} (w=2), R2={0,1} contains {0} (w=5) → 7
-    assert_eq!(problem.r_weight_sum(&[1, 0, 0, 0]).unwrap(), Some(7));
+    assert_eq!(
+        problem.r_weight_sum(&[true, false, false, false]).unwrap(),
+        Some(7)
+    );
     // Y = {0}: S1={0,1,2,3} contains {0} (w=3), S2={2,3} does not → 3
-    assert_eq!(problem.s_weight_sum(&[1, 0, 0, 0]).unwrap(), Some(3));
+    assert_eq!(
+        problem.s_weight_sum(&[true, false, false, false]).unwrap(),
+        Some(3)
+    );
     // Invalid config returns None
-    assert_eq!(problem.r_weight_sum(&[1, 0, 0]).unwrap(), None);
-    assert_eq!(problem.s_weight_sum(&[1, 0, 0, 2]).unwrap(), None);
+    assert_eq!(problem.r_weight_sum(&[true, false, false]).unwrap(), None);
 }
 
 #[test]

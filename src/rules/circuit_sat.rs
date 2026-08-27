@@ -274,16 +274,6 @@ fn build_tseitin_encoding(source: &CircuitSAT) -> TseitinEncoding {
     TseitinEncoder::new(source).encode_problem(source)
 }
 
-impl CircuitSAT {
-    pub fn tseitin_num_vars(&self) -> usize {
-        build_tseitin_encoding(self).num_vars
-    }
-
-    pub fn tseitin_num_clauses(&self) -> usize {
-        build_tseitin_encoding(self).clauses.len()
-    }
-}
-
 /// Result of reducing CircuitSAT to SAT.
 #[derive(Debug, Clone)]
 pub struct ReductionCircuitSATToSAT {
@@ -301,8 +291,8 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution[..self.source_var_count].to_vec())
@@ -310,9 +300,9 @@ impl ReductionResult for ReductionCircuitSATToSAT {
 }
 
 #[reduction(
-    size = exact {
-        num_vars = "tseitin_num_vars",
-        num_clauses = "tseitin_num_clauses",
+    size = unavailable {
+        num_vars = "the exact Tseitin variable count is specific to this reduction and is not a CircuitSAT size parameter",
+        num_clauses = "the exact Tseitin clause count is specific to this reduction and is not a CircuitSAT size parameter",
     }
 )]
 impl ReduceTo<Satisfiability> for CircuitSAT {
@@ -352,7 +342,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "circuitsat_to_satisfiability",
         build: || {
             let source = issue_example_source();
-            let source_config = vec![1, 1, 1, 0, 1];
+            let source_config = vec![true, true, true, false, true];
             let reduction =
                 ReduceTo::<Satisfiability>::reduce_to(&source).expect("reduction should succeed");
             let target_config = BruteForce::new()
@@ -366,8 +356,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

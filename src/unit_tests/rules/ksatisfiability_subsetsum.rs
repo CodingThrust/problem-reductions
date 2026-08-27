@@ -53,7 +53,7 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(target).unwrap();
+    let solution = solver.solve(target).unwrap();
     assert!(solution.is_none());
 }
 
@@ -148,15 +148,15 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
     // Need clause digits = 44, so slack: C1 needs +1 (g1=10), C2 needs +3 (g2=1, h2=2)
     // Total: 10010 + 01010 + 00111 + 00010 + 00001 + 00002 = 11144
     let specific_config = vec![
-        1, 0, // y1 selected, z1 not
-        1, 0, // y2 selected, z2 not
-        1, 0, // y3 selected, z3 not
-        1, 0, // g1 selected, h1 not
-        1, 1, // g2 selected, h2 selected
+        true, false, // y1 selected, z1 not
+        true, false, // y2 selected, z2 not
+        true, false, // y3 selected, z3 not
+        true, false, // g1 selected, h1 not
+        true, true, // g2 selected, h2 selected
     ];
     assert!(target.evaluate(&specific_config).unwrap());
 
     let extracted = reduction.extract_solution(&specific_config).unwrap();
-    assert_eq!(extracted, vec![1, 1, 1]); // x1=T, x2=T, x3=T
+    assert_eq!(extracted, vec![true, true, true]); // x1=T, x2=T, x3=T
     assert!(ksat.evaluate(&extracted).unwrap());
 }

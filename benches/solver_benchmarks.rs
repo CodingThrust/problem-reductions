@@ -21,7 +21,7 @@ fn bench_independent_set(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -38,7 +38,7 @@ fn bench_vertex_covering(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -56,7 +56,7 @@ fn bench_max_cut(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -104,7 +104,7 @@ fn bench_spin_glass(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("chain", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -126,7 +126,7 @@ fn bench_set_covering(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("overlapping", num_sets),
             num_sets,
-            |b, _| b.iter(|| solver.find_witness(black_box(&problem))),
+            |b, _| b.iter(|| solver.solve(black_box(&problem))),
         );
     }
 
@@ -161,7 +161,7 @@ fn bench_matching(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -182,7 +182,7 @@ fn bench_paintshop(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("sequential", n), n, |b, _| {
-            b.iter(|| solver.find_witness(black_box(&problem)))
+            b.iter(|| solver.solve(black_box(&problem)))
         });
     }
 
@@ -201,7 +201,7 @@ fn bench_comparison(c: &mut Criterion) {
         vec![1i64; 8],
     );
     group.bench_function("MaximumIndependentSet", |b| {
-        b.iter(|| solver.find_witness(black_box(&is_problem)))
+        b.iter(|| solver.solve(black_box(&is_problem)))
     });
 
     // SAT with 8 variables
@@ -226,7 +226,7 @@ fn bench_comparison(c: &mut Criterion) {
     )
     .unwrap();
     group.bench_function("SpinGlass", |b| {
-        b.iter(|| solver.find_witness(black_box(&sg_problem)))
+        b.iter(|| solver.solve(black_box(&sg_problem)))
     });
 
     // MaxCut with 8 vertices
@@ -235,7 +235,7 @@ fn bench_comparison(c: &mut Criterion) {
         vec![1, 1, 1, 1],
     );
     group.bench_function("MaxCut", |b| {
-        b.iter(|| solver.find_witness(black_box(&mc_problem)))
+        b.iter(|| solver.solve(black_box(&mc_problem)))
     });
 
     group.finish();

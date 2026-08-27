@@ -54,16 +54,16 @@ fn test_directedtwocommodityintegralflow_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 8 arcs → 2*8 = 16 variables
-    assert_eq!(ilp.num_vars, 16);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 16);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     // 8 capacity constraints.
     // Conservation is now enforced away from each commodity's own source/sink only:
     // - commodity 1 at vertices 1,2,3,5
     // - commodity 2 at vertices 0,2,3,4
     // That yields 8 conservation equations total, plus 2 sink requirements.
-    assert_eq!(ilp.constraints.len(), 8 + 8 + 2);
+    assert_eq!(ilp.constraints().len(), 8 + 8 + 2);
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance has a witness");
     assert!(
@@ -124,7 +124,7 @@ fn test_directedtwocommodityintegralflow_to_ilp_extract_solution() {
 
     // f1 routes via (0,2),(2,4): arcs 0,4 = 1; rest 0 for commodity 1
     // f2 routes via (1,3),(3,5): arcs 3,7 = 1; rest 0 for commodity 2
-    let mut target_solution = vec![0usize; 16];
+    let mut target_solution = vec![0_i64; 16];
     target_solution[0] = 1; // f1 on arc (0,2)
     target_solution[4] = 1; // f1 on arc (2,4)
     target_solution[8 + 3] = 1; // f2 on arc (1,3)
@@ -147,10 +147,11 @@ fn test_directedtwocommodityintegralflow_to_ilp_bf_vs_ilp() {
 }
 
 #[test]
-fn test_directedtwocommodityintegralflow_to_ilp_rejects_inexact_capacity() {
+fn test_directedtwocommodityintegralflow_to_ilp_preserves_large_exact_capacity() {
+    let capacity = crate::types::MAX_EXACT_F64_INTEGER + 1;
     let problem = DirectedTwoCommodityIntegralFlow::new(
         DirectedGraph::new(2, vec![(0, 1)]),
-        vec![crate::types::MAX_EXACT_F64_INTEGER + 1],
+        vec![capacity],
         0,
         1,
         0,
@@ -159,9 +160,8 @@ fn test_directedtwocommodityintegralflow_to_ilp_rejects_inexact_capacity() {
         1,
     );
 
-    let error = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::ReductionError::InexactFloatConversion { .. }
-    ));
+    let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).unwrap();
+    let capacity_constraint = &reduction.target_problem().constraints()[0];
+    assert_eq!(capacity_constraint.terms(), vec![(0, 1), (1, 1)]);
+    assert_eq!(capacity_constraint.rhs(), capacity);
 }

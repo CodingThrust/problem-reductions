@@ -59,7 +59,7 @@ fn test_exactcoverby3sets_to_maximumsetpacking_unsatisfiable() {
 
     // Best packing can only select one set (since all share element 0)
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("Should have an optimal solution");
     assert_eq!(target.evaluate(&best).unwrap(), Max(Some(1)));
@@ -78,7 +78,7 @@ fn test_exactcoverby3sets_to_maximumsetpacking_optimal_value() {
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("Should have an optimal solution");
     // Maximum packing: S0 + S1 = 2 disjoint sets = q

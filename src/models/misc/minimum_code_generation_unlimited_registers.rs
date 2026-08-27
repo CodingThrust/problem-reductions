@@ -49,7 +49,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumCodeGenerationUnlimitedRegisters;
-/// use problemreductions::{Problem, Solver, BruteForce, Min};
+/// use problemreductions::{Problem, BruteForce, Min};
 ///
 /// // 5 vertices: leaves {3,4}, internal {0,1,2}
 /// // v1 = op(v3, v4), v2 = op(v3, v4), v0 = op(v1, v2)
@@ -58,8 +58,8 @@ inventory::submit! {
 ///     vec![(1,3),(2,3),(0,1)],  // left arcs (child destroyed)
 ///     vec![(1,4),(2,4),(0,2)],  // right arcs (child preserved)
 /// );
-/// let result = BruteForce::new().solve(&problem).unwrap();
-/// assert_eq!(result, Min(Some(4)));
+/// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(4)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumCodeGenerationUnlimitedRegisters {
@@ -335,24 +335,47 @@ impl MinimumCodeGenerationUnlimitedRegisters {
 
 impl Problem for MinimumCodeGenerationUnlimitedRegisters {
     const NAME: &'static str = "MinimumCodeGenerationUnlimitedRegisters";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.internal_vertices().len();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering length does not match the internal vertices".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "evaluation ordering contains an out-of-range position".into(),
+            ));
+        }
+        Ok(Min(self.simulate(config)?))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MinimumCodeGenerationUnlimitedRegisters {
+    fn dimensions(&self) -> Vec<usize> {
         let n_internal = self.num_internal();
         vec![n_internal; n_internal]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
-        Ok(Min(self.simulate(config)?))
     }
 }
 
 crate::declare_variants! {
     default MinimumCodeGenerationUnlimitedRegisters => "2 ^ num_vertices",
+}
+
+crate::register_brute_force! {
+    MinimumCodeGenerationUnlimitedRegisters,
 }
 
 #[cfg(feature = "example-db")]
@@ -371,7 +394,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(1, 3), (2, 3), (0, 1)],
             vec![(1, 4), (2, 4), (0, 2)],
         )),
-        optimal_config: vec![2, 0, 1],
+        optimal_config: serde_json::json!(vec![2, 0, 1]),
         optimal_value: serde_json::json!(4),
     }]
 }

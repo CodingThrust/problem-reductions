@@ -204,7 +204,7 @@ impl VarBounds {
 /// find integer x ∈ Z^n minimizing ‖Bx - t‖₂.
 ///
 /// Variables are integer coefficients with explicit bounds for enumeration.
-/// The configuration encoding follows ILP: `config[i]` is an offset from `bounds[i].lower`.
+/// A solution stores the integer coefficient of each basis vector directly.
 #[derive(Debug, Clone, Serialize)]
 pub struct ClosestVectorProblem<T> {
     /// Basis matrix B stored as n column vectors, each of dimension m.
@@ -335,49 +335,6 @@ impl<T: ClosestVectorCoordinate> ClosestVectorProblem<T> {
     pub fn num_encoding_bits(&self) -> usize {
         self.bounds.iter().map(VarBounds::num_encoding_bits).sum()
     }
-
-    /// Convert a configuration (offsets from lower bounds) to integer values.
-    fn config_to_values(
-        &self,
-        config: &[usize],
-    ) -> Result<Vec<i64>, crate::traits::EvaluationError> {
-        if config.len() != self.bounds.len() {
-            return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                format!(
-                    "expected {} closest-vector coefficients, got {}",
-                    self.bounds.len(),
-                    config.len()
-                ),
-            ));
-        }
-        config
-            .iter()
-            .enumerate()
-            .map(|(i, &c)| {
-                let bound = &self.bounds[i];
-                let dimension = bound.num_values().expect("validated finite CVP bounds");
-                if c >= dimension {
-                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
-                        format!("coefficient at index {i} is outside its encoded range"),
-                    ));
-                }
-                let offset = i64::try_from(c).map_err(|_| {
-                    crate::traits::EvaluationError::IntegerOverflow(
-                        "converting a closest-vector configuration offset to i64".into(),
-                    )
-                })?;
-                bound
-                    .lower
-                    .expect("validated finite CVP lower bound")
-                    .checked_add(offset)
-                    .ok_or_else(|| {
-                        crate::traits::EvaluationError::IntegerOverflow(
-                            "adding a closest-vector configuration offset".into(),
-                        )
-                    })
-            })
-            .collect()
-    }
 }
 
 impl<'de, T> Deserialize<'de> for ClosestVectorProblem<T>
@@ -410,25 +367,39 @@ where
         + 'static,
 {
     const NAME: &'static str = "ClosestVectorProblem";
+    type Solution = Vec<i64>;
     type Value = Min<f64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.bounds
-            .iter()
-            .map(|b| {
-                b.num_values().expect(
-                    "CVP brute-force enumeration requires all variables to have finite bounds",
-                )
-            })
-            .collect()
-    }
+    crate::problem_size![
+        ("ambient_dimension", ambient_dimension),
+        ("num_basis_vectors", num_basis_vectors),
+        ("num_encoding_bits", num_encoding_bits),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<f64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<f64>, crate::traits::EvaluationError> {
         Ok({
-            let values = self.config_to_values(config)?;
+            if solution.len() != self.bounds.len() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    format!(
+                        "expected {} closest-vector coefficients, got {}",
+                        self.bounds.len(),
+                        solution.len()
+                    ),
+                ));
+            }
+            if solution
+                .iter()
+                .zip(&self.bounds)
+                .any(|(&value, bounds)| !bounds.contains(value))
+            {
+                return Ok(Min(None));
+            }
             let m = self.ambient_dimension();
             let mut diff = vec![0.0f64; m];
-            for (i, &x_i) in values.iter().enumerate() {
+            for (i, &x_i) in solution.iter().enumerate() {
                 let x_i = crate::types::i64_to_exact_f64(x_i).map_err(|error| {
                     crate::traits::EvaluationError::InexactFloatConversion(error.to_string())
                 })?;
@@ -473,15 +444,41 @@ where
     }
 }
 
+impl<T> crate::solvers::BruteForceProblem for ClosestVectorProblem<T>
+where
+    T: ClosestVectorCoordinate
+        + crate::variant::VariantParam
+        + Serialize
+        + for<'de> Deserialize<'de>
+        + std::fmt::Debug
+        + 'static,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        self.bounds
+            .iter()
+            .map(|b| {
+                b.num_values().expect(
+                    "CVP brute-force enumeration requires all variables to have finite bounds",
+                )
+            })
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default ClosestVectorProblem<i64> => "2^num_basis_vectors" create ClosestVectorProblemI64CreateSpec,
     ClosestVectorProblem<f64> => "2^num_basis_vectors" create ClosestVectorProblemF64CreateSpec,
 }
 
+crate::register_brute_force! {
+    ClosestVectorProblem<i64> decode |problem: &ClosestVectorProblem<i64>, indices: Vec<usize>| indices.into_iter().zip(problem.bounds()).map(|(offset, bounds)| bounds.lower.expect("enumerated CVP bounds are finite") + i64::try_from(offset).expect("enumerated CVP offset fits i64")).collect(),
+    ClosestVectorProblem<f64> decode |problem: &ClosestVectorProblem<f64>, indices: Vec<usize>| indices.into_iter().zip(problem.bounds()).map(|(offset, bounds)| bounds.lower.expect("enumerated CVP bounds are finite") + i64::try_from(offset).expect("enumerated CVP offset fits i64")).collect(),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "closest_vector_problem_i64",
+        id: "closest_vector_problem",
         instance: Box::new(
             ClosestVectorProblem::new(
                 vec![vec![2, 0], vec![1, 2]],
@@ -490,7 +487,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .expect("canonical closest-vector instance must be valid"),
         ),
-        optimal_config: vec![3, 3],
+        optimal_config: serde_json::json!(vec![1, 1]),
         optimal_value: serde_json::json!(0.5385164807134505),
     }]
 }

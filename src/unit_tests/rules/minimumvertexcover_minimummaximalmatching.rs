@@ -1,7 +1,8 @@
 use crate::models::graph::{MinimumMaximalMatching, MinimumVertexCover};
 use crate::rules::{ReductionGraph, ReductionMode};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use crate::types::{Min, One};
 
 fn graph_from_mask(n: usize, mask: usize) -> SimpleGraph {
@@ -25,8 +26,14 @@ fn test_minimumvertexcover_to_minimummaximalmatching_c5_gap() {
     let mmm = MinimumMaximalMatching::new(graph);
     let solver = BruteForce::new();
 
-    assert_eq!(solver.solve(&mvc).unwrap(), Min(Some(3)));
-    assert_eq!(solver.solve(&mmm).unwrap(), Min(Some(2)));
+    assert_eq!(
+        mvc.evaluate(&solver.solve(&mvc).unwrap().unwrap()).unwrap(),
+        Min(Some(3))
+    );
+    assert_eq!(
+        mmm.evaluate(&solver.solve(&mmm).unwrap().unwrap()).unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -39,8 +46,10 @@ fn test_minimumvertexcover_to_minimummaximalmatching_forward_bound_on_small_grap
             let graph = graph_from_mask(n, mask);
             let mvc = MinimumVertexCover::new(graph.clone(), vec![One; n]);
             let mmm = MinimumMaximalMatching::new(graph);
-            let mvc_value = solver.solve(&mvc).unwrap();
-            let mmm_value = solver.solve(&mmm).unwrap();
+            let mvc_value_solution = solver.solve(&mvc).unwrap().unwrap();
+            let mvc_value = mvc.evaluate(&mvc_value_solution).unwrap();
+            let mmm_value_solution = solver.solve(&mmm).unwrap().unwrap();
+            let mmm_value = mmm.evaluate(&mmm_value_solution).unwrap();
 
             let Min(Some(mvc_size)) = mvc_value else {
                 panic!("MinimumVertexCover should always have an optimal solution");

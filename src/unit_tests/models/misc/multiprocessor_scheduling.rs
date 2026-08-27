@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_zero_processors() {
@@ -27,7 +28,7 @@ fn test_multiprocessor_scheduling_basic() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.deadline(), 10);
     assert_eq!(problem.total_length(), 20);
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
     assert_eq!(
         <MultiprocessorScheduling as Problem>::NAME,
         "MultiprocessorScheduling"
@@ -39,75 +40,84 @@ fn test_multiprocessor_scheduling_basic() {
 fn test_multiprocessor_scheduling_feasible() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     // Processor 0: tasks 0,4 => 4+6=10, Processor 1: tasks 1,2,3 => 5+3+2=10
-    assert!(problem.evaluate(&[0, 1, 1, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_infeasible() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     // Processor 0: tasks 0,1,2,3,4 => 4+5+3+2+6=20 > 10
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_infeasible_tight() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     // Processor 0: tasks 0,1,4 => 4+5+6=15 > 10
-    assert!(!problem.evaluate(&[0, 0, 1, 1, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_wrong_config_length() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 10);
-    assert!(!problem.evaluate(&[0, 1]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 0, 1]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_multiprocessor_scheduling_invalid_processor_index() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3], 2, 10);
     // Processor index 2 is out of range for 2 processors
-    assert!(!problem.evaluate(&[0, 2, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 2, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_multiprocessor_scheduling_empty_instance() {
     let problem = MultiprocessorScheduling::new(vec![], 2, 10);
     assert_eq!(problem.num_tasks(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
     // Empty assignment is always feasible
-    assert!(problem.evaluate(&[]).unwrap());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_single_task() {
     let problem = MultiprocessorScheduling::new(vec![5], 2, 5);
-    assert!(problem.evaluate(&[0]).unwrap());
-    assert!(problem.evaluate(&[1]).unwrap());
+    assert!(problem.evaluate(&vec![0]).unwrap());
+    assert!(problem.evaluate(&vec![1]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_single_task_exceeds_deadline() {
     let problem = MultiprocessorScheduling::new(vec![11], 2, 10);
-    assert!(!problem.evaluate(&[0]).unwrap());
-    assert!(!problem.evaluate(&[1]).unwrap());
+    assert!(!problem.evaluate(&vec![0]).unwrap());
+    assert!(!problem.evaluate(&vec![1]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_three_processors() {
     let problem = MultiprocessorScheduling::new(vec![3, 3, 3], 3, 3);
-    assert_eq!(problem.dims(), vec![3; 3]);
+    assert_eq!(problem.dimensions(), vec![3; 3]);
     // One task per processor
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
     // Two tasks on one processor exceeds deadline
-    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1]).unwrap());
 }
 
 #[test]
 fn test_multiprocessor_scheduling_brute_force() {
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let config = solution.unwrap();
     assert!(problem.evaluate(&config).unwrap());
@@ -118,7 +128,7 @@ fn test_multiprocessor_scheduling_brute_force_infeasible() {
     // Total length = 20, with 2 processors and deadline 9, impossible
     let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 9);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -181,8 +191,8 @@ fn test_multiprocessor_scheduling_zero_processors() {
 fn test_multiprocessor_scheduling_deadline_zero() {
     // Only feasible if all lengths are 0
     let problem = MultiprocessorScheduling::new(vec![0, 0], 2, 0);
-    assert!(problem.evaluate(&[0, 1]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1]).unwrap());
 
     let problem2 = MultiprocessorScheduling::new(vec![1, 0], 2, 0);
-    assert!(!problem2.evaluate(&[0, 1]).unwrap());
+    assert!(!problem2.evaluate(&vec![0, 1]).unwrap());
 }

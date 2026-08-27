@@ -49,9 +49,16 @@ impl ReductionResult for ReductionThreeDimensionalMatchingToMinimumWeightDecodin
     /// an empty source maps back to the empty prefix.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if target_solution.len() != self.target.num_cols() {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} target codeword bits, got {}",
+                self.target.num_cols(),
+                target_solution.len()
+            )));
+        }
 
         Ok(target_solution[..self.source_num_triples].to_vec())
     }
@@ -113,8 +120,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumWeightDecoding>(
                 ThreeDimensionalMatching::new(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)]),
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 0],
-                    target_config: vec![1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, false, false]),
+                    target_config: serde_json::json!(vec![true, true, false, false]),
                 },
             )
         },

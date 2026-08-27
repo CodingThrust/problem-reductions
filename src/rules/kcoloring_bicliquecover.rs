@@ -70,8 +70,8 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     ///
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -86,9 +86,7 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
                 let a_v = v;
                 let b_v = left_size + v;
                 let biclique = (0..k)
-                    .find(|&r| {
-                        target_solution[a_v * k + r] == 1 && target_solution[b_v * k + r] == 1
-                    })
+                    .find(|&r| target_solution[r][a_v] && target_solution[r][b_v])
                     .ok_or_else(|| {
                         crate::rules::ExtractionError::invalid(format!(
                             "target cover leaves diagonal gadget edge {v} uncovered"
@@ -121,7 +119,9 @@ impl ReductionResult for ReductionKColoringToBicliqueCover {
     size = exact {
         num_vertices = "4 * num_vertices",
         num_edges = "2 * num_vertices * (num_vertices - 1) - 4 * num_edges + 3 * num_vertices",
-        rank = "num_vertices + num_colors",
+    },
+    unavailable = {
+        rank = "the target rank depends on the number of colors, which is a problem parameter rather than a source size parameter",
     }
 )]
 impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
@@ -217,8 +217,8 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 /// C_color = ({a_v : v in C}, {b_v : v in C}).
 /// ```
 ///
-/// Returns a vertex-major BicliqueCover configuration of length
-/// `4n * (n + q)` (i.e. `num_vertices * rank`).
+/// Returns one membership row per biclique. Each row has one Boolean entry
+/// per target vertex.
 ///
 /// `coloring[v]` must be in `0..q`. The order of color bicliques is the
 /// order of first appearance of each color along `0..n`, so unused colors
@@ -227,16 +227,16 @@ impl ReduceTo<BicliqueCover> for KColoring<KN, SimpleGraph> {
 pub(crate) fn forward_witness(
     source: &KColoring<KN, SimpleGraph>,
     coloring: &[usize],
-) -> Vec<usize> {
+) -> Vec<Vec<bool>> {
     let n = source.graph().num_vertices();
     let q = source.num_colors();
     let k = n + q;
     let left_size = 2 * n;
     let num_vertices = 4 * n;
-    let mut config = vec![0usize; num_vertices * k];
+    let mut config = vec![vec![false; num_vertices]; k];
 
-    let set_member = |config: &mut Vec<usize>, vertex: usize, biclique: usize| {
-        config[vertex * k + biclique] = 1;
+    let set_member = |config: &mut Vec<Vec<bool>>, vertex: usize, biclique: usize| {
+        config[biclique][vertex] = true;
     };
 
     // Edge-membership lookup for source edges (undirected).
@@ -300,8 +300,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {
-                    source_config: coloring,
-                    target_config,
+                    source_config: serde_json::json!(coloring),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

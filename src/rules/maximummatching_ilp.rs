@@ -38,11 +38,11 @@ impl ReductionResult for ReductionMatchingToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -65,8 +65,8 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {
             .filter_map(|vertex| v2e.get(&vertex))
             .filter(|edges| !edges.is_empty())
             .map(|edges| {
-                let terms: Vec<(usize, f64)> = edges.iter().map(|&e| (e, 1.0)).collect();
-                LinearConstraint::le(terms, 1.0)
+                let terms: Vec<(usize, i64)> = edges.iter().map(|&e| (e, 1)).collect();
+                LinearConstraint::le(terms, 1)
             })
             .collect();
 
@@ -84,7 +84,8 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMatchingToILP { target })
     }

@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::NonTautology;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // (x1 AND x2 AND x3) OR (NOT x1 AND NOT x2 AND NOT x3)
 /// let problem = NonTautology::new(
@@ -48,7 +48,7 @@ inventory::submit! {
 /// ).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -154,22 +154,21 @@ impl<'de> Deserialize<'de> for NonTautology {
 
 impl Problem for NonTautology {
     const NAME: &'static str = "NonTautology";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_disjuncts", num_disjuncts), ("num_vars", num_vars),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let assignment = super::config_to_assignment(config);
-                self.is_falsifying(&assignment)
-            })
-        })
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_falsifying(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -177,8 +176,18 @@ impl Problem for NonTautology {
     }
 }
 
+impl crate::solvers::BruteForceProblem for NonTautology {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default NonTautology => "1.307^num_variables",
+    default NonTautology => "1.307^num_vars",
+}
+
+crate::register_brute_force! {
+    NonTautology decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -189,7 +198,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             NonTautology::new(3, vec![vec![1, 2, 3], vec![-1, -2, -3]])
                 .expect("canonical non-tautology instance must be valid"),
         ),
-        optimal_config: vec![1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

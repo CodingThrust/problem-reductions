@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -16,11 +16,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_closed_loop() {
     );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "SequencingWithDeadlinesAndSetUpTimes->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -34,7 +30,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_feasible_paper_example() {
 
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("paper example should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
@@ -86,7 +82,7 @@ fn test_sequencingwithdeadlinesandsetuptimes_to_ilp_bf_vs_ilp_small() {
     );
 
     let bf = BruteForce::new();
-    let bf_result = bf.find_witness(&problem).unwrap();
+    let bf_result = bf.solve(&problem).unwrap();
     let bf_feasible = bf_result.is_some();
 
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

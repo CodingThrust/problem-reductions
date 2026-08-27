@@ -1,6 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
 use std::f64::consts::{FRAC_PI_2, PI};
@@ -51,7 +51,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_link() {
         reduction.extract_solution(&qubo_solutions[0]).unwrap(),
         vec![1]
     );
-    assert!(matches!(source.evaluate(&[1]).unwrap(), Min(Some(v)) if v.abs() < EPS));
+    assert!(matches!(source.evaluate(&vec![1]).unwrap(), Min(Some(v)) if v.abs() < EPS));
 }
 
 #[test]
@@ -70,12 +70,12 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_single_sample_per_link() 
         .unwrap();
 
     assert_eq!(reduction.target_problem().num_vars(), 3);
-    assert_eq!(qubo_solutions, vec![vec![1, 1, 1]]);
+    assert_eq!(qubo_solutions, vec![vec![true, true, true]]);
     assert_eq!(
         reduction.extract_solution(&qubo_solutions[0]).unwrap(),
         vec![0, 0, 0]
     );
-    assert!(matches!(source.evaluate(&[0, 0, 0]).unwrap(), Min(Some(v)) if v.abs() < EPS));
+    assert!(matches!(source.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(v)) if v.abs() < EPS));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_empty_allowed_pairs() {
         .find_all_witnesses(reduction.target_problem())
         .unwrap();
 
-    assert_eq!(solver.solve(&source).unwrap(), Min(None));
+    assert!(solver.solve(&source).unwrap().is_none());
     assert!(!qubo_solutions.is_empty(), "QUBO solver found no solutions");
     for target_solution in qubo_solutions {
         let extracted = reduction.extract_solution(&target_solution).unwrap();
@@ -116,6 +116,12 @@ fn test_minimumdiscreteplanarinversekinematics_to_qubo_canonical_example_spec() 
     );
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.target.instance["num_vars"], 4);
-    assert_eq!(example.solutions[0].source_config, vec![0, 1]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 0, 0, 1]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([0, 1])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([true, false, false, true])
+    );
 }

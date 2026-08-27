@@ -160,31 +160,12 @@ impl ExtractionError {
 
 pub type ExtractionResult<T> = std::result::Result<T, ExtractionError>;
 
-/// Validate that a target configuration matches its declared discrete space.
+/// Ask the target model to validate the structure of a typed solution.
 pub(crate) fn validate_target_solution<P: Problem>(
     target: &P,
-    solution: &[usize],
+    solution: &P::Solution,
 ) -> ExtractionResult<()> {
-    let dims = target.dims();
-    if solution.len() != dims.len() {
-        return Err(ExtractionError::invalid(format!(
-            "expected {} target values, got {}",
-            dims.len(),
-            solution.len()
-        )));
-    }
-
-    if let Some((index, (&value, &dimension))) = solution
-        .iter()
-        .zip(&dims)
-        .enumerate()
-        .find(|(_, (value, dimension))| value >= dimension)
-    {
-        return Err(ExtractionError::invalid(format!(
-            "target value {value} at position {index} is outside dimension {dimension}"
-        )));
-    }
-
+    target.evaluate(solution)?;
     Ok(())
 }
 
@@ -208,7 +189,10 @@ pub trait ReductionResult {
     ///
     /// # Returns
     /// The corresponding solution in the source problem space
-    fn extract_solution(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>>;
+    fn extract_solution(
+        &self,
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> ExtractionResult<<Self::Source as crate::traits::Problem>::Solution>;
 }
 
 /// Trait for problems that can be reduced to target type T.
@@ -242,6 +226,22 @@ pub trait ReduceTo<T: Problem>: Problem {
     /// The reduction result type.
     type Result: ReductionResult<Source = Self, Target = T>;
 
+    /// Attach this reduction edge to a target-construction failure.
+    fn target_construction(error: crate::registry::ConstructionError) -> ReductionError
+    where
+        Self: Sized,
+    {
+        ReductionError::construction::<Self, T>(error)
+    }
+
+    /// Convert a structural count used by the target's exact integer algebra.
+    fn exact_i64(value: usize, operation: impl Into<String>) -> Result<i64, ReductionError>
+    where
+        Self: Sized,
+    {
+        i64::try_from(value).map_err(|_| ReductionError::integer_overflow::<Self, T>(operation))
+    }
+
     /// Reduce this problem to the target problem type.
     fn reduce_to(&self) -> Result<Self::Result, ReductionError>;
 }
@@ -262,8 +262,8 @@ pub trait AggregateReductionResult {
     /// Extract an aggregate value from target problem space back to source space.
     fn extract_value(
         &self,
-        target_value: <Self::Target as Problem>::Value,
-    ) -> <Self::Source as Problem>::Value;
+        target_value: <Self::Target as crate::traits::Problem>::Value,
+    ) -> <Self::Source as crate::traits::Problem>::Value;
 }
 
 /// Trait for problems that can be reduced to target type T for aggregate-value
@@ -298,7 +298,12 @@ impl<S: Problem, T: Problem> ReductionAutoCast<S, T> {
     }
 }
 
-impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
+impl<S, T> ReductionResult for ReductionAutoCast<S, T>
+where
+    S: Problem,
+    T: Problem<Solution = S::Solution>,
+    S::Solution: Clone,
+{
     type Source = S;
     type Target = T;
 
@@ -306,10 +311,9 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
         &self.target
     }
 
-    fn extract_solution(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>> {
-        crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
-
-        Ok(target_solution.to_vec())
+    fn extract_solution(&self, target_solution: &T::Solution) -> ExtractionResult<S::Solution> {
+        validate_target_solution(self.target_problem(), target_solution)?;
+        Ok(target_solution.clone())
     }
 }
 
@@ -336,19 +340,65 @@ pub trait DynReductionResult {
     /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;
     /// Extract a solution from target space to source space.
-    fn extract_solution_dyn(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>>;
+    fn extract_solution_dyn(&self, target_solution: &dyn Any) -> ExtractionResult<Box<dyn Any>>;
+    /// Serialize a source-space solution after the complete extraction chain.
+    fn source_solution_json(
+        &self,
+        source_solution: &dyn Any,
+    ) -> ExtractionResult<serde_json::Value>;
+    /// Deserialize the concrete target witness at the dynamic boundary.
+    fn target_solution_from_json(
+        &self,
+        target_solution: serde_json::Value,
+    ) -> ExtractionResult<Box<dyn Any>>;
 }
 
 impl<R: ReductionResult + 'static> DynReductionResult for R
 where
     R::Target: 'static,
+    <R::Target as Problem>::Solution: 'static,
+    <R::Target as Problem>::Solution: serde::de::DeserializeOwned,
+    <R::Source as Problem>::Solution: 'static,
+    <R::Source as Problem>::Solution: serde::Serialize,
 {
     fn target_problem_any(&self) -> &dyn Any {
         self.target_problem() as &dyn Any
     }
-    fn extract_solution_dyn(&self, target_solution: &[usize]) -> ExtractionResult<Vec<usize>> {
+    fn extract_solution_dyn(&self, target_solution: &dyn Any) -> ExtractionResult<Box<dyn Any>> {
+        let target_solution = target_solution
+            .downcast_ref::<<R::Target as Problem>::Solution>()
+            .ok_or_else(|| {
+                ExtractionError::invalid(format!(
+                    "target solution type mismatch: expected {}",
+                    std::any::type_name::<<R::Target as Problem>::Solution>()
+                ))
+            })?;
         self.extract_solution(target_solution)
+            .map(|solution| Box::new(solution) as Box<dyn Any>)
             .map_err(|error| error.for_reduction::<R::Source, R::Target>())
+    }
+
+    fn source_solution_json(
+        &self,
+        source_solution: &dyn Any,
+    ) -> ExtractionResult<serde_json::Value> {
+        let source_solution = source_solution
+            .downcast_ref::<<R::Source as Problem>::Solution>()
+            .ok_or_else(|| ExtractionError::invalid("source solution type mismatch"))?;
+        serde_json::to_value(source_solution).map_err(|error| {
+            ExtractionError::invalid(format!("source solution serialization failed: {error}"))
+        })
+    }
+
+    fn target_solution_from_json(
+        &self,
+        target_solution: serde_json::Value,
+    ) -> ExtractionResult<Box<dyn Any>> {
+        serde_json::from_value::<<R::Target as Problem>::Solution>(target_solution)
+            .map(|solution| Box::new(solution) as Box<dyn Any>)
+            .map_err(|error| {
+                ExtractionError::invalid(format!("target solution deserialization failed: {error}"))
+            })
     }
 }
 

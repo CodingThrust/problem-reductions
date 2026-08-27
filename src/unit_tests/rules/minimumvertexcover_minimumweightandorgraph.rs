@@ -77,13 +77,16 @@ fn test_weighted_vertices_are_charged_on_sink_arcs() {
         ReduceTo::<MinimumWeightAndOrGraph>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let target_solution = vec![1, 1, 0, 1, 1, 0, 0, 1, 0];
-    assert_eq!(source.evaluate(&[0, 1, 0]).unwrap(), Min(Some(1)));
+    let target_solution = vec![true, true, false, true, true, false, false, true, false];
+    assert_eq!(
+        source.evaluate(&vec![false, true, false]).unwrap(),
+        Min(Some(1))
+    );
     assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(5)));
     assert_eq!(target.arc_weights(), &[1, 1, 1, 1, 1, 1, 4, 1, 3]);
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
-        vec![0, 1, 0]
+        vec![false, true, false]
     );
 }
 
@@ -106,31 +109,27 @@ fn test_canonical_rule_example_spec_builds() {
     let target: MinimumWeightAndOrGraph = serde_json::from_value(example.target.instance.clone())
         .expect("target example deserializes");
     let solution = &example.solutions[0];
+    let source_config: Vec<bool> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<bool> = serde_json::from_value(solution.target_config.clone()).unwrap();
 
-    assert_eq!(
-        source.evaluate(&solution.source_config).unwrap(),
-        Min(Some(1))
-    );
-    assert_eq!(
-        target.evaluate(&solution.target_config).unwrap(),
-        Min(Some(5))
-    );
+    assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(1)));
+    assert_eq!(target.evaluate(&target_config).unwrap(), Min(Some(5)));
 
     let best_source = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_witness(&target)
+        .solve(&target)
         .unwrap()
         .expect("target example should have an optimum");
 
     assert_eq!(
-        source.evaluate(&solution.source_config).unwrap(),
+        source.evaluate(&source_config).unwrap(),
         source.evaluate(&best_source).unwrap()
     );
     assert_eq!(
-        target.evaluate(&solution.target_config).unwrap(),
+        target.evaluate(&target_config).unwrap(),
         target.evaluate(&best_target).unwrap()
     );
 }

@@ -4,16 +4,14 @@ use crate::rules::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
-fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<usize> {
+fn edge_config(graph: &SimpleGraph, selected_edges: &[(usize, usize)]) -> Vec<bool> {
     graph
         .edges()
         .into_iter()
         .map(|(u, v)| {
-            usize::from(
-                selected_edges
-                    .iter()
-                    .any(|&(a, b)| (a == u && b == v) || (a == v && b == u)),
-            )
+            selected_edges
+                .iter()
+                .any(|&(a, b)| (a == u && b == v) || (a == v && b == u))
         })
         .collect()
 }

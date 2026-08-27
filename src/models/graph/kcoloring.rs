@@ -6,7 +6,7 @@
 use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
-use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
+use crate::variant::{KValue, VariantParam, K1, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -16,7 +16,7 @@ inventory::submit! {
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
-            VariantDimension::new("k", "KN", &["KN", "K2", "K3", "K4", "K5"]),
+            VariantDimension::new("k", "KN", &["KN", "K1", "K2", "K3", "K4", "K5"]),
         ],
         category: crate::registry::ProblemCategory::Graph,
         module_path: module_path!(),
@@ -41,7 +41,7 @@ inventory::submit! {
 /// use problemreductions::models::graph::KColoring;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::variant::K3;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -222,21 +222,39 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "KColoring";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![K, G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_colors; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "color assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&color| color >= self.num_colors) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "color assignment contains an out-of-range color".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_coloring(config)))
+    }
+}
+
+impl<K: KValue, G> crate::solvers::BruteForceProblem for KColoring<K, G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_colors; self.graph.num_vertices()]
     }
 }
 
@@ -275,7 +293,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
-        optimal_config: vec![0, 1, 1, 0, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 0, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }
@@ -306,11 +324,21 @@ crate::impl_random_generate!(KColoring<K5, SimpleGraph>, crate::random::Coloring
 
 crate::declare_variants! {
     default KColoring<KN, SimpleGraph> => "2^num_vertices" create RuntimeKColoringCreateSpec random,
+    KColoring<K1, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec,
     KColoring<K2, SimpleGraph> => "num_vertices + num_edges" create FixedKColoringCreateSpec random,
     KColoring<K3, SimpleGraph> => "1.3289^num_vertices" create FixedKColoringCreateSpec random,
     KColoring<K4, SimpleGraph> => "1.7159^num_vertices" create FixedKColoringCreateSpec random,
     // Best known: O*((2-ε)^n) for some ε > 0 (Zamir 2021), concrete ε unknown
     KColoring<K5, SimpleGraph> => "2^num_vertices" create FixedKColoringCreateSpec random,
+}
+
+crate::register_brute_force! {
+    KColoring<KN, SimpleGraph>,
+    KColoring<K1, SimpleGraph>,
+    KColoring<K2, SimpleGraph>,
+    KColoring<K3, SimpleGraph>,
+    KColoring<K4, SimpleGraph>,
+    KColoring<K5, SimpleGraph>,
 }
 
 #[cfg(test)]

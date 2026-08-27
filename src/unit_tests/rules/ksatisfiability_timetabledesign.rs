@@ -48,9 +48,12 @@ fn test_ksatisfiability_to_timetabledesign_extract_solution_from_constructed_tim
     let source = satisfiable_instance();
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
-    let target_solution =
-        construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
-            .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let target_solution = construct_timetable_from_assignment(
+        reduction.target_problem(),
+        &[true, true, false],
+        &source,
+    )
+    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
     assert!(
         reduction
@@ -70,12 +73,15 @@ fn test_ksatisfiability_to_timetabledesign_multi_variable_round_trip() {
     let reduction =
         ReduceTo::<TimetableDesign>::reduce_to(&source).expect("reduction should succeed");
 
-    let target_solution =
-        construct_timetable_from_assignment(reduction.target_problem(), &[1, 1, 0], &source)
-            .expect("a satisfying 3SAT assignment should lift to a timetable witness");
+    let target_solution = construct_timetable_from_assignment(
+        reduction.target_problem(),
+        &[true, true, false],
+        &source,
+    )
+    .expect("a satisfying 3SAT assignment should lift to a timetable witness");
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1, 0]);
+    assert_eq!(extracted, vec![true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

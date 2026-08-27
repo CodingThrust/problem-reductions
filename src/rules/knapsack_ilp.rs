@@ -27,11 +27,11 @@ impl ReductionResult for ReductionKnapsackToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -46,15 +46,7 @@ impl ReduceTo<ILP<bool>> for Knapsack {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let num_vars = self.num_items();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
-            })?;
+        let weights = self.weights();
         let values = self
             .values()
             .iter()
@@ -64,9 +56,7 @@ impl ReduceTo<ILP<bool>> for Knapsack {
             .map_err(|error| {
                 crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
             })?;
-        let capacity = i64_to_exact_f64(self.capacity()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<Knapsack, ILP<bool>>(error)
-        })?;
+        let capacity = self.capacity();
         let constraints = vec![LinearConstraint::le(
             weights
                 .iter()
@@ -76,7 +66,8 @@ impl ReduceTo<ILP<bool>> for Knapsack {
             capacity,
         )];
         let objective = values.into_iter().enumerate().collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionKnapsackToILP { target })
     }
@@ -92,8 +83,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![0, 1, 1, 0]),
                 },
             )
         },

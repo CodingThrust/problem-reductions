@@ -88,8 +88,8 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_unsatisfiable() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&source).unwrap().is_none());
-    assert!(solver.find_witness(target).unwrap().is_none());
+    assert!(solver.solve(&source).unwrap().is_none());
+    assert!(solver.solve(target).unwrap().is_none());
 }
 
 #[test]
@@ -99,10 +99,12 @@ fn test_ksatisfiability_to_oneinthreesatisfiability_extract_solution() {
         ReduceTo::<OneInThreeSatisfiability>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let target_solution = vec![0, 0, 1, 0, 1, 0, 0, 0, 1, 1, 0];
+    let target_solution = vec![
+        false, false, true, false, true, false, false, false, true, true, false,
+    ];
     assert!(target.evaluate(&target_solution).unwrap().0);
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![0, 0, 1]);
+    assert_eq!(extracted, vec![false, false, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }

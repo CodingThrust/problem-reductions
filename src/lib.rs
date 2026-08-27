@@ -102,7 +102,7 @@ pub mod prelude {
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
-    pub use crate::solvers::{BruteForce, Solver};
+    pub use crate::solvers::BruteForce;
     pub use crate::traits::Problem;
 
     // Types
@@ -118,14 +118,14 @@ pub use expr::{
 };
 pub use growth::Growth;
 pub use registry::{ComplexityClass, ProblemInfo};
-pub use solvers::{BruteForce, Solver};
+pub use solvers::BruteForce;
 pub use traits::Problem;
 pub use types::{
     And, Extremum, ExtremumSense, Max, Min, NumericSize, One, Or, ProblemSize, Sum, WeightElement,
 };
 
 // Re-export proc macros for reduction registration and variant declaration
-pub use problemreductions_macros::{declare_variants, reduction, CreateSpec};
+pub use problemreductions_macros::{declare_variants, reduction, register_brute_force, CreateSpec};
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;
@@ -139,6 +139,9 @@ mod test_graph_models;
 #[cfg(test)]
 #[path = "unit_tests/prelude.rs"]
 mod test_prelude;
+#[cfg(test)]
+#[path = "unit_tests/problem_size.rs"]
+mod test_problem_size;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

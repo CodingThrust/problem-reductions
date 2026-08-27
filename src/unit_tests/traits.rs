@@ -1,3 +1,4 @@
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::{Max, Min, Or, Sum};
 
@@ -9,18 +10,26 @@ struct TestSatProblem {
 
 impl Problem for TestSatProblem {
     const NAME: &'static str = "TestSat";
+    type Solution = Vec<usize>;
     type Value = Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Or(self.satisfying.iter().any(|s| s == config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for TestSatProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
     }
 }
 
@@ -31,9 +40,9 @@ fn test_problem_sat() {
         satisfying: vec![vec![1, 0], vec![0, 1]],
     };
 
-    assert_eq!(p.dims(), vec![2, 2]);
-    assert_eq!(p.evaluate(&[1, 0]).unwrap(), Or(true));
-    assert_eq!(p.evaluate(&[0, 0]).unwrap(), Or(false));
+    assert_eq!(p.dimensions(), vec![2, 2]);
+    assert_eq!(p.evaluate(&vec![1, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![0, 0]).unwrap(), Or(false));
 }
 
 #[test]
@@ -44,7 +53,7 @@ fn test_problem_num_variables() {
     };
 
     assert_eq!(p.num_variables(), 5);
-    assert_eq!(p.dims().len(), 5);
+    assert_eq!(p.dimensions().len(), 5);
 }
 
 #[test]
@@ -55,7 +64,7 @@ fn test_problem_empty() {
     };
 
     assert_eq!(p.num_variables(), 0);
-    assert!(p.dims().is_empty());
+    assert!(p.dimensions().is_empty());
 }
 
 #[derive(Clone)]
@@ -65,13 +74,15 @@ struct TestMaxProblem {
 
 impl Problem for TestMaxProblem {
     const NAME: &'static str = "TestMax";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok({
             Max(Some(
                 config
@@ -88,6 +99,12 @@ impl Problem for TestMaxProblem {
     }
 }
 
+impl crate::solvers::BruteForceProblem for TestMaxProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+}
+
 #[derive(Clone)]
 struct TestMinProblem {
     costs: Vec<i64>,
@@ -95,13 +112,15 @@ struct TestMinProblem {
 
 impl Problem for TestMinProblem {
     const NAME: &'static str = "TestMin";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.costs.len()]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok({
             Min(Some(
                 config
@@ -118,15 +137,21 @@ impl Problem for TestMinProblem {
     }
 }
 
+impl crate::solvers::BruteForceProblem for TestMinProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.costs.len()]
+    }
+}
+
 #[test]
 fn test_problem_max_value() {
     let p = TestMaxProblem {
         weights: vec![3, 1, 4],
     };
 
-    assert_eq!(p.evaluate(&[1, 0, 1]).unwrap(), Max(Some(7)));
-    assert_eq!(p.evaluate(&[0, 0, 0]).unwrap(), Max(Some(0)));
-    assert_eq!(p.evaluate(&[1, 1, 1]).unwrap(), Max(Some(8)));
+    assert_eq!(p.evaluate(&vec![1, 0, 1]).unwrap(), Max(Some(7)));
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Max(Some(0)));
+    assert_eq!(p.evaluate(&vec![1, 1, 1]).unwrap(), Max(Some(8)));
 }
 
 #[test]
@@ -135,9 +160,9 @@ fn test_problem_min_value() {
         costs: vec![5, 2, 3],
     };
 
-    assert_eq!(p.evaluate(&[1, 0, 0]).unwrap(), Min(Some(5)));
-    assert_eq!(p.evaluate(&[0, 1, 1]).unwrap(), Min(Some(5)));
-    assert_eq!(p.evaluate(&[0, 0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(p.evaluate(&vec![1, 0, 0]).unwrap(), Min(Some(5)));
+    assert_eq!(p.evaluate(&vec![0, 1, 1]).unwrap(), Min(Some(5)));
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(0)));
 }
 
 #[derive(Clone)]
@@ -147,18 +172,26 @@ struct MultiDimProblem {
 
 impl Problem for MultiDimProblem {
     const NAME: &'static str = "MultiDim";
+    type Solution = Vec<usize>;
     type Value = Sum<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.dims.clone()
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Sum(config.iter().map(|&c| c as i64).sum()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i64")]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for MultiDimProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        self.dims.clone()
     }
 }
 
@@ -168,10 +201,10 @@ fn test_multi_dim_problem() {
         dims: vec![2, 3, 4],
     };
 
-    assert_eq!(p.dims(), vec![2, 3, 4]);
+    assert_eq!(p.dimensions(), vec![2, 3, 4]);
     assert_eq!(p.num_variables(), 3);
-    assert_eq!(p.evaluate(&[0, 0, 0]).unwrap(), Sum(0));
-    assert_eq!(p.evaluate(&[1, 2, 3]).unwrap(), Sum(6));
+    assert_eq!(p.evaluate(&vec![0, 0, 0]).unwrap(), Sum(0));
+    assert_eq!(p.evaluate(&vec![1, 2, 3]).unwrap(), Sum(6));
 }
 
 #[test]
@@ -189,13 +222,15 @@ struct FloatProblem {
 
 impl Problem for FloatProblem {
     const NAME: &'static str = "FloatProblem";
+    type Solution = Vec<usize>;
     type Value = Max<f64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok({
             Max(Some(
                 config
@@ -212,15 +247,21 @@ impl Problem for FloatProblem {
     }
 }
 
+impl crate::solvers::BruteForceProblem for FloatProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+}
+
 #[test]
 fn test_float_value_problem() {
     let p = FloatProblem {
         weights: vec![1.5, 2.5, 3.0],
     };
 
-    assert_eq!(p.dims(), vec![2, 2, 2]);
-    assert!((p.evaluate(&[1, 1, 0]).unwrap().0.unwrap() - 4.0).abs() < 1e-10);
-    assert!((p.evaluate(&[1, 1, 1]).unwrap().0.unwrap() - 7.0).abs() < 1e-10);
+    assert_eq!(p.dimensions(), vec![2, 2, 2]);
+    assert!((p.evaluate(&vec![1, 1, 0]).unwrap().0.unwrap() - 4.0).abs() < 1e-10);
+    assert!((p.evaluate(&vec![1, 1, 1]).unwrap().0.unwrap() - 7.0).abs() < 1e-10);
 }
 
 #[test]
@@ -242,6 +283,6 @@ fn test_problem_is_clone() {
     };
     let p2 = p1.clone();
 
-    assert_eq!(p2.dims(), vec![2, 2]);
-    assert_eq!(p2.evaluate(&[1, 0]).unwrap(), Or(true));
+    assert_eq!(p2.dimensions(), vec![2, 2]);
+    assert_eq!(p2.evaluate(&vec![1, 0]).unwrap(), Or(true));
 }

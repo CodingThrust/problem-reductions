@@ -14,7 +14,7 @@
 //! Feasibility requires that the non-zero entries are pairwise distinct
 //! (injectivity) and strictly increasing in source order (order-preserving).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -51,13 +51,6 @@ inventory::submit! {
                 description: "Simple undirected contacts of G_2 as canonicalized (u,v) pairs with u < v",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MaximumContactMapOverlap",
-        fields: &["num_vertices_1", "num_vertices_2", "num_contacts_1", "num_contacts_2"],
     }
 }
 
@@ -230,17 +223,34 @@ impl MaximumContactMapOverlap {
 
 impl Problem for MaximumContactMapOverlap {
     const NAME: &'static str = "MaximumContactMapOverlap";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_size![
+        ("num_contacts_1", num_contacts_1),
+        ("num_contacts_2", num_contacts_2),
+        ("num_vertices_1", num_vertices_1),
+        ("num_vertices_2", num_vertices_2),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_vertices_2 + 1; self.num_vertices_1]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices_1 {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "contact-map alignment length does not match the first map".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex > self.num_vertices_2) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "contact-map alignment contains an out-of-range target vertex".into(),
+            ));
+        }
         Ok({
             match self.preserved_contact_count(config)? {
                 Some(count) => Max(Some(count)),
@@ -250,8 +260,18 @@ impl Problem for MaximumContactMapOverlap {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MaximumContactMapOverlap {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_vertices_2 + 1; self.num_vertices_1]
+    }
+}
+
 crate::declare_variants! {
     default MaximumContactMapOverlap => "(num_vertices_2 + 1)^num_vertices_1",
+}
+
+crate::register_brute_force! {
+    MaximumContactMapOverlap,
 }
 
 #[cfg(feature = "example-db")]
@@ -273,7 +293,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 3), (1, 4), (0, 2)],
         )),
-        optimal_config: vec![1, 2, 4, 5],
+        optimal_config: serde_json::json!(vec![1, 2, 4, 5]),
         optimal_value: serde_json::json!(2),
     }]
 }

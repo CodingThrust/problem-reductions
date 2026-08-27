@@ -23,8 +23,8 @@ impl ReductionResult for ReductionHamiltonianPathToDegreeConstrainedSpanningTree
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         extract_hamiltonian_order(self.target.graph(), target_solution)
@@ -51,7 +51,7 @@ impl ReduceTo<DegreeConstrainedSpanningTree<SimpleGraph>> for HamiltonianPath<Si
 
 fn extract_hamiltonian_order(
     graph: &SimpleGraph,
-    target_solution: &[usize],
+    target_solution: &[bool],
 ) -> crate::rules::ExtractionResult<Vec<usize>> {
     let num_vertices = graph.num_vertices();
     if num_vertices < 2 {
@@ -61,7 +61,7 @@ fn extract_hamiltonian_order(
     let edges = graph.edges();
     let mut adjacency = vec![Vec::new(); num_vertices];
     for ((u, v), &selected) in edges.iter().copied().zip(target_solution.iter()) {
-        if selected != 1 {
+        if !selected {
             continue;
         }
         adjacency[u].push(v);
@@ -117,7 +117,7 @@ fn extract_hamiltonian_order(
 }
 
 #[cfg(feature = "example-db")]
-fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<usize> {
+fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<bool> {
     let selected_edges: Vec<(usize, usize)> = path
         .windows(2)
         .map(|window| (window[0], window[1]))
@@ -126,11 +126,9 @@ fn edge_config_for_path(graph: &SimpleGraph, path: &[usize]) -> Vec<usize> {
         .edges()
         .into_iter()
         .map(|(u, v)| {
-            usize::from(
-                selected_edges
-                    .iter()
-                    .any(|&(a, b)| (a == u && b == v) || (a == v && b == u)),
-            )
+            selected_edges
+                .iter()
+                .any(|&(a, b)| (a == u && b == v) || (a == v && b == u))
         })
         .collect()
 }
@@ -169,8 +167,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 crate::export::SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

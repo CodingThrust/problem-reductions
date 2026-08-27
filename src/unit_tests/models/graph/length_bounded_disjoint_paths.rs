@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_derives_path_slot_bound() {
@@ -26,17 +27,6 @@ fn sample_problem() -> LengthBoundedDisjointPaths<SimpleGraph> {
     LengthBoundedDisjointPaths::new(sample_graph(), 0, 4, 3)
 }
 
-fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<usize> {
-    let mut config = vec![0; num_vertices * max_paths];
-    for (slot_index, slot_vertices) in slots.iter().enumerate() {
-        let offset = slot_index * num_vertices;
-        for &vertex in *slot_vertices {
-            config[offset + vertex] = 1;
-        }
-    }
-    config
-}
-
 #[test]
 fn test_length_bounded_disjoint_paths_creation() {
     let problem = sample_problem();
@@ -45,7 +35,7 @@ fn test_length_bounded_disjoint_paths_creation() {
     assert_eq!(problem.max_paths(), 3);
     assert_eq!(problem.max_length(), 3);
     // 3 slots * 5 vertices = 15 binary variables
-    assert_eq!(problem.dims(), vec![2; 15]);
+    assert_eq!(problem.dimensions(), vec![2; 15]);
 }
 
 #[test]
@@ -107,7 +97,7 @@ fn test_length_bounded_disjoint_paths_evaluate_single_path() {
 fn test_length_bounded_disjoint_paths_evaluate_empty_config() {
     let problem = sample_problem();
     // All slots empty → 0 paths
-    let config = vec![0; 15];
+    let config = vec![vec![false; 5]; 3];
     assert_eq!(problem.evaluate(&config).unwrap(), Max(Some(0)));
 }
 
@@ -157,16 +147,18 @@ fn test_length_bounded_disjoint_paths_rejects_reused_direct_edge() {
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_non_binary_entries() {
     let problem = sample_problem();
-    let mut config = encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4]]);
-    config[3] = 2;
-    assert_eq!(problem.evaluate(&config).unwrap(), Max(None));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([[1, 1, 0, 2, 1], [1, 0, 1, 0, 1], [0, 0, 0, 0, 0]])
+    )
+    .is_err());
 }
 
 #[test]
 fn test_length_bounded_disjoint_paths_solver() {
     let problem = sample_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Max(Some(3)));
 }
 
@@ -198,5 +190,5 @@ fn test_length_bounded_disjoint_paths_num_variables() {
 #[test]
 fn test_length_bounded_disjoint_paths_rejects_wrong_length_config() {
     let problem = sample_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Max(None));
+    assert!(problem.evaluate(&vec![vec![false, true, false]]).is_err());
 }

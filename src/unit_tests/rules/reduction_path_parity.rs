@@ -8,6 +8,7 @@ use crate::models::misc::Factoring;
 use crate::rules::test_helpers::assert_optimization_round_trip_chain;
 use crate::rules::ReductionGraph;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -53,7 +54,7 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap().unwrap();
+    let target_solution = solver.solve(target).unwrap().unwrap();
     let source_solution = chain.extract_solution(&target_solution).unwrap();
 
     // Source solution should be valid

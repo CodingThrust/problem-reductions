@@ -11,14 +11,17 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 3, "one ILP var per universe element");
+    assert_eq!(ilp.num_vars(), 3, "one ILP var per universe element");
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         2,
         "two constraints per subset (ge + le)"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty(), "feasibility: no objective terms");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(
+        ilp.objective().is_empty(),
+        "feasibility: no objective terms"
+    );
 }
 
 #[test]
@@ -30,8 +33,8 @@ fn test_reduction_constraint_structure() {
     let ilp = reduction.target_problem();
 
     // One ge constraint (rhs=1) and one le constraint (rhs=2)
-    let ge_constraints: Vec<_> = ilp.constraints.iter().filter(|c| c.rhs == 1.0).collect();
-    let le_constraints: Vec<_> = ilp.constraints.iter().filter(|c| c.rhs == 2.0).collect();
+    let ge_constraints: Vec<_> = ilp.constraints().iter().filter(|c| c.rhs() == 1).collect();
+    let le_constraints: Vec<_> = ilp.constraints().iter().filter(|c| c.rhs() == 2).collect();
     assert_eq!(ge_constraints.len(), 1);
     assert_eq!(le_constraints.len(), 1);
 }
@@ -79,7 +82,7 @@ fn test_setsplitting_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some());
     let bf_result = problem.evaluate(&bf_witness.unwrap()).unwrap();
 
@@ -102,6 +105,6 @@ fn test_overhead_dimensions() {
     let reduction: ReductionSetSplittingToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 5);
-    assert_eq!(ilp.constraints.len(), 6); // 2 per subset
+    assert_eq!(ilp.num_vars(), 5);
+    assert_eq!(ilp.constraints().len(), 6); // 2 per subset
 }

@@ -14,21 +14,21 @@ fn test_reduction_creates_valid_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=3, m=2: x vars = 3*2=6, C vars = 3, y vars = 3*2/2=3, total=12
-    assert_eq!(ilp.num_vars, 12);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 12);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Objective should reference C_t variables with weights
     // C vars are at indices 6, 7, 8
     assert!(ilp
-        .objective
+        .objective()
         .iter()
         .any(|&(idx, coeff)| idx == 6 && coeff == 4.0));
     assert!(ilp
-        .objective
+        .objective()
         .iter()
         .any(|&(idx, coeff)| idx == 7 && coeff == 2.0));
     assert!(ilp
-        .objective
+        .objective()
         .iter()
         .any(|&(idx, coeff)| idx == 8 && coeff == 1.0));
 }
@@ -42,7 +42,7 @@ fn test_solution_extraction() {
     // Build a manual ILP solution:
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1 => task 0 on P0, task 1 on P1
     // C_0=1, C_1=2, y_{0,1}=1
-    let num_vars = reduction.target_problem().num_vars;
+    let num_vars = reduction.target_problem().num_vars();
     let mut sol = vec![0; num_vars];
     // x vars: indices 0..4
     sol[0] = 1; // x_{0,0} = 1
@@ -68,7 +68,7 @@ fn test_ilp_matches_bruteforce_small() {
 
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -121,7 +121,7 @@ fn test_equal_tasks_multiple_processors() {
 
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     let bf_value = problem.evaluate(&bf_witness).unwrap();

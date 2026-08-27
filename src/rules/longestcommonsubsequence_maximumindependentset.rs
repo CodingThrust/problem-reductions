@@ -32,8 +32,6 @@ pub struct ReductionLCSToIS {
     match_chars: Vec<usize>,
     /// Maximum possible subsequence length in the source problem.
     max_length: usize,
-    /// Alphabet size of the source problem (used as the padding symbol).
-    alphabet_size: usize,
 }
 
 impl ReductionResult for ReductionLCSToIS {
@@ -50,8 +48,8 @@ impl ReductionResult for ReductionLCSToIS {
     /// the first string to get the subsequence order, then pad to `max_length`.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -59,7 +57,7 @@ impl ReductionResult for ReductionLCSToIS {
             let mut selected: Vec<(usize, usize)> = target_solution
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v == 1)
+                .filter(|(_, &v)| v)
                 .map(|(i, _)| (self.match_nodes[i][0], self.match_chars[i]))
                 .collect();
             // Sort by position in the first string
@@ -68,11 +66,11 @@ impl ReductionResult for ReductionLCSToIS {
             // Build config: characters followed by padding
             let mut config = Vec::with_capacity(self.max_length);
             for &(_, ch) in &selected {
-                config.push(ch);
+                config.push(Some(ch));
             }
             // Pad with alphabet_size (the padding symbol)
             while config.len() < self.max_length {
-                config.push(self.alphabet_size);
+                config.push(None);
             }
             config
         })
@@ -145,7 +143,6 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for LongestCommonSubseque
             match_nodes,
             match_chars,
             max_length: self.max_length(),
-            alphabet_size: self.alphabet_size(),
         })
     }
 }
@@ -214,15 +211,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   c=B(1): v4=(1,0)
             //   c=C(2): v5=(3,2)
             // MIS {v2, v4, v5} => positions B@(1,0), A@(2,1), C@(3,2)
-            // source_config = [1, 0, 2, 3] (B, A, C, padding)
+            // source_config = [1, 0, 2, null] (B, A, C, padding)
             crate::example_db::specs::rule_example_with_witness::<
                 _,
                 MaximumIndependentSet<SimpleGraph, One>,
             >(
                 lcs_abac_baca(),
                 SolutionPair {
-                    source_config: vec![1, 0, 2, 3],
-                    target_config: vec![0, 0, 1, 0, 1, 1],
+                    source_config: serde_json::json!(vec![Some(1), Some(0), Some(2), None]),
+                    target_config: serde_json::json!(vec![false, false, true, false, true, true]),
                 },
             )
         },

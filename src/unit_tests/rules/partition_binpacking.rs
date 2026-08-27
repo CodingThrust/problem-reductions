@@ -40,7 +40,7 @@ fn test_partition_to_binpacking_odd_total_is_not_satisfying() {
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("BinPacking target should always have an optimal solution");
 

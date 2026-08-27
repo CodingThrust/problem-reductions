@@ -195,11 +195,6 @@ fn main() {
             &[
                 ("BruteForce", "struct", "Exhaustive search solver"),
                 ("ILPSolver", "struct", "Integer linear programming solver"),
-                (
-                    "Solver",
-                    "trait",
-                    "Solver trait for aggregate value computation",
-                ),
             ],
         ),
         (

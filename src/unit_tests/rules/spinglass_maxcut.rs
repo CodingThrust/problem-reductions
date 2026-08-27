@@ -34,9 +34,9 @@ fn test_solution_extraction_no_ancilla() {
     let reduction =
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
-    let mc_sol = vec![0, 1];
+    let mc_sol = vec![false, true];
     let extracted = reduction.extract_solution(&mc_sol).unwrap();
-    assert_eq!(extracted, vec![0, 1]);
+    assert_eq!(extracted, vec![-1, 1]);
 }
 
 #[test]
@@ -46,14 +46,14 @@ fn test_solution_extraction_with_ancilla() {
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&sg).expect("reduction should succeed");
 
     // If ancilla is 0, don't flip
-    let mc_sol = vec![0, 1, 0];
+    let mc_sol = vec![false, true, false];
     let extracted = reduction.extract_solution(&mc_sol).unwrap();
-    assert_eq!(extracted, vec![0, 1]);
+    assert_eq!(extracted, vec![-1, 1]);
 
     // If ancilla is 1, flip all
-    let mc_sol = vec![0, 1, 1];
+    let mc_sol = vec![false, true, true];
     let extracted = reduction.extract_solution(&mc_sol).unwrap();
-    assert_eq!(extracted, vec![1, 0]); // flipped and ancilla removed
+    assert_eq!(extracted, vec![1, -1]); // flipped and ancilla removed
 }
 
 #[test]
@@ -106,7 +106,7 @@ fn test_jl_parity_spinglass_to_maxcut() {
     let result =
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<i8>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -117,7 +117,7 @@ fn test_jl_parity_spinglass_to_maxcut() {
         "JL parity SpinGlass->MaxCut",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
     }
 }
 
@@ -138,7 +138,7 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -149,7 +149,7 @@ fn test_jl_parity_maxcut_to_spinglass() {
         "JL parity MaxCut->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -172,7 +172,7 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     let result = ReduceTo::<SpinGlass<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -183,7 +183,7 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
         "JL parity rule MaxCut->SpinGlass",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -205,7 +205,7 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
     let result =
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<i8>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -216,6 +216,6 @@ fn test_jl_parity_rule_spinglass_to_maxcut() {
         "JL parity rule SpinGlass->MaxCut",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_spin_configs_set(&case["best_source"]));
     }
 }

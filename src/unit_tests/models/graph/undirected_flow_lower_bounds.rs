@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_lower_bound_above_capacity() {
@@ -47,8 +48,8 @@ fn canonical_no_instance() -> UndirectedFlowLowerBounds {
     )
 }
 
-fn yes_orientation_config() -> Vec<usize> {
-    vec![0, 0, 0, 0, 0, 0, 0]
+fn yes_orientation_config() -> Vec<bool> {
+    vec![false, false, false, false, false, false, false]
 }
 
 #[test]
@@ -63,7 +64,7 @@ fn test_undirected_flow_lower_bounds_creation() {
     assert_eq!(problem.requirement(), 3);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);
-    assert_eq!(problem.dims(), vec![2; 7]);
+    assert_eq!(problem.dimensions(), vec![2; 7]);
 }
 
 #[test]
@@ -77,8 +78,8 @@ fn test_undirected_flow_lower_bounds_evaluation_yes() {
 #[test]
 fn test_undirected_flow_lower_bounds_evaluation_no() {
     let problem = canonical_no_instance();
-    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
-    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
+    assert!(!problem.evaluate(&vec![false, false, false, false]).unwrap());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -86,7 +87,10 @@ fn test_undirected_flow_lower_bounds_rejects_wrong_config_length() {
     let problem = canonical_yes_instance();
     let mut config = yes_orientation_config();
     config.pop();
-    assert!(!problem.evaluate(&config).unwrap());
+    assert!(matches!(
+        problem.evaluate(&config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -106,7 +110,7 @@ fn test_undirected_flow_lower_bounds_serialization() {
 fn test_undirected_flow_lower_bounds_solver_yes() {
     let problem = canonical_yes_instance();
     let solution = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("expected a satisfying orientation");
     assert!(problem.evaluate(&solution).unwrap());

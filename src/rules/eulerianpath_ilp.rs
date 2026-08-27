@@ -72,8 +72,8 @@ impl ReductionResult for ReductionEulerianPathToILP {
     /// error instead of fabricating an ordering.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -154,7 +154,8 @@ impl ReduceTo<ILP<i64>> for EulerianPath {
 
         // Empty-arc instance: vacuously feasible empty ILP.
         if m == 0 {
-            let target = ILP::new(0, Vec::new(), Vec::new(), ObjectiveSense::Minimize);
+            let target = ILP::new(0, Vec::new(), Vec::new(), ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
             return Ok(ReductionEulerianPathToILP {
                 target,
                 pairs: Vec::new(),
@@ -186,50 +187,49 @@ impl ReduceTo<ILP<i64>> for EulerianPath {
 
         // (1) Predecessor equality: s_a + sum_{(b,a) in P} y_{b,a} = 1.
         // (2) Successor equality:   e_a + sum_{(a,b) in P} y_{a,b} = 1.
+        let m_i64 = Self::exact_i64(m, "encoding the arc order")?;
         for a in 0..m {
-            let mut pred_terms: Vec<(usize, f64)> = vec![(s_idx(a), 1.0)];
+            let mut pred_terms: Vec<(usize, i64)> = vec![(s_idx(a), 1)];
             for &k in &incoming[a] {
-                pred_terms.push((y_idx(k), 1.0));
+                pred_terms.push((y_idx(k), 1));
             }
-            constraints.push(LinearConstraint::eq(pred_terms, 1.0));
+            constraints.push(LinearConstraint::eq(pred_terms, 1));
 
-            let mut succ_terms: Vec<(usize, f64)> = vec![(e_idx(a), 1.0)];
+            let mut succ_terms: Vec<(usize, i64)> = vec![(e_idx(a), 1)];
             for &k in &outgoing[a] {
-                succ_terms.push((y_idx(k), 1.0));
+                succ_terms.push((y_idx(k), 1));
             }
-            constraints.push(LinearConstraint::eq(succ_terms, 1.0));
+            constraints.push(LinearConstraint::eq(succ_terms, 1));
         }
 
         // (3) Binary upper bounds on start / end variables, and position
         //     upper bound on `u_a`.
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(s_idx(a), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(vec![(e_idx(a), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(
-                vec![(u_idx(a), 1.0)],
-                (m as f64) - 1.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(s_idx(a), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(e_idx(a), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(u_idx(a), 1)], m_i64 - 1));
         }
 
         // (4) Binary upper bounds on successor variables.
         // (5) Order consistency (MTZ): u_b >= u_a + 1 - m * (1 - y_{a,b})
         //     i.e.  u_a - u_b + m * y_{a,b} <= m - 1.
         for (k, &(a, b)) in pairs.iter().enumerate() {
-            constraints.push(LinearConstraint::le(vec![(y_idx(k), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y_idx(k), 1)], 1));
             constraints.push(LinearConstraint::le(
-                vec![(u_idx(a), 1.0), (u_idx(b), -1.0), (y_idx(k), m as f64)],
-                (m as f64) - 1.0,
+                vec![(u_idx(a), 1), (u_idx(b), -1), (y_idx(k), m_i64)],
+                m_i64 - 1,
             ));
         }
 
         // (6) Unique start: sum_a s_a = 1.
         // (7) Unique end:   sum_a e_a = 1.
-        let start_sum: Vec<(usize, f64)> = (0..m).map(|a| (s_idx(a), 1.0)).collect();
-        let end_sum: Vec<(usize, f64)> = (0..m).map(|a| (e_idx(a), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(start_sum, 1.0));
-        constraints.push(LinearConstraint::eq(end_sum, 1.0));
+        let start_sum: Vec<(usize, i64)> = (0..m).map(|a| (s_idx(a), 1)).collect();
+        let end_sum: Vec<(usize, i64)> = (0..m).map(|a| (e_idx(a), 1)).collect();
+        constraints.push(LinearConstraint::eq(start_sum, 1));
+        constraints.push(LinearConstraint::eq(end_sum, 1));
 
-        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, Vec::new(), ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionEulerianPathToILP {
             target,

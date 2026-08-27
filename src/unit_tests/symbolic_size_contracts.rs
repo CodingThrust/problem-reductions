@@ -6,7 +6,6 @@ use crate::size::SizeRelation;
 use crate::topology::SimpleGraph;
 use crate::types::ProblemSize;
 use crate::Problem;
-use num_bigint::BigUint;
 
 #[test]
 fn exact_rule_formula_matches_the_constructed_target() {
@@ -35,20 +34,20 @@ fn exact_rule_formula_matches_the_constructed_target() {
         .find(|path| path.len() == 1)
         .expect("direct reduction is registered");
 
-    let predicted = graph
-        .evaluate_path_size(
-            &path,
-            &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
-        )
+    let transform = graph.compose_path_size_transform(&path).unwrap().unwrap();
+    let predicted = transform
+        .evaluate(&ProblemSize::new(vec![
+            ("num_vertices", 5),
+            ("num_edges", 4),
+        ]))
         .unwrap();
-    assert_eq!(predicted.relation(), SizeRelation::Exact);
     assert_eq!(
-        predicted.values().get("num_vertices"),
-        Some(&BigUint::from(target.num_vertices()))
+        predicted.get("num_vertices"),
+        Some(u64::try_from(target.num_vertices()).unwrap())
     );
     assert_eq!(
-        predicted.values().get("num_edges"),
-        Some(&BigUint::from(target.num_edges()))
+        predicted.get("num_edges"),
+        Some(u64::try_from(target.num_edges()).unwrap())
     );
 }
 
@@ -66,8 +65,14 @@ fn incoming_rule_measures_every_declared_field_on_a_sink_variant() {
         target,
     );
 
-    assert_eq!(measured.get("num_variables"), Some(target.num_variables()));
-    assert_eq!(measured.get("num_equations"), Some(target.num_equations()));
+    assert_eq!(
+        measured.get("num_variables"),
+        Some(u64::try_from(target.num_variables()).unwrap())
+    );
+    assert_eq!(
+        measured.get("num_equations"),
+        Some(u64::try_from(target.num_equations()).unwrap())
+    );
 }
 
 #[test]
@@ -86,8 +91,6 @@ fn every_registered_rule_has_one_valid_size_contract() {
 #[cfg(feature = "example-db")]
 #[test]
 fn canonical_examples_satisfy_upper_bound_size_contracts() {
-    use crate::size::EvaluatedSize;
-
     for spec in crate::rules::canonical_rule_example_specs() {
         let example = (spec.build)();
         let source = crate::registry::load_dyn(
@@ -131,16 +134,15 @@ fn canonical_examples_satisfy_upper_bound_size_contracts() {
             target.as_any(),
         );
         let predicted = transform
-            .evaluate(&EvaluatedSize::from_problem_size(&source_size))
+            .evaluate(&source_size)
             .unwrap_or_else(|error| panic!("{}: {error}", spec.id));
 
         for (field, actual) in target_size.components {
-            let Some(predicted_value) = predicted.values().get(&field) else {
+            let Some(predicted_value) = predicted.get(&field) else {
                 continue;
             };
-            let actual = BigUint::from(actual);
             assert!(
-                predicted_value >= &actual,
+                predicted_value >= actual,
                 "{}: target field {field}: predicted {predicted_value}, actual {actual}",
                 spec.id
             );

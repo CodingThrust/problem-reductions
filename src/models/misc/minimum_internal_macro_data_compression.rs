@@ -57,12 +57,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumInternalMacroDataCompression;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {a, b}, string "abab", pointer cost h=2
 /// let problem = MinimumInternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -220,23 +220,25 @@ impl MinimumInternalMacroDataCompression {
 
 impl Problem for MinimumInternalMacroDataCompression {
     const NAME: &'static str = "MinimumInternalMacroDataCompression";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("alphabet_size", alphabet_size), ("string_len", string_len),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.string.len();
-        let domain = self.alphabet_size + n + 1; // literals + EOS + pointers
-        vec![domain; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let n = self.string.len();
             if config.len() != n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "macro encoding length does not match the string".into(),
+                ));
             }
 
             // Handle empty string
@@ -282,8 +284,20 @@ impl Problem for MinimumInternalMacroDataCompression {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumInternalMacroDataCompression {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.string.len();
+        let domain = self.alphabet_size + n + 1; // literals + EOS + pointers
+        vec![domain; n]
+    }
+}
+
 crate::declare_variants! {
     default MinimumInternalMacroDataCompression => "(alphabet_size + string_len + 1) ^ string_len",
+}
+
+crate::register_brute_force! {
+    MinimumInternalMacroDataCompression,
 }
 
 #[cfg(feature = "example-db")]
@@ -308,7 +322,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_internal_macro_data_compression",
         instance: Box::new(MinimumInternalMacroDataCompression::new(3, s, 2)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(7),
     }]
 }

@@ -39,7 +39,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximalIS;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph 0-1-2
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
@@ -114,15 +114,14 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
     }
 
     /// Check if a configuration is a valid maximal independent set.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         self.is_maximal(config)
     }
 
     /// Check if a configuration is an independent set.
-    fn is_independent(&self, config: &[usize]) -> bool {
+    fn is_independent(&self, config: &[bool]) -> bool {
         for (u, v) in self.graph.edges() {
-            if config.get(u).copied().unwrap_or(0) == 1 && config.get(v).copied().unwrap_or(0) == 1
-            {
+            if config.get(u).copied().unwrap_or(false) && config.get(v).copied().unwrap_or(false) {
                 return false;
             }
         }
@@ -130,14 +129,14 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
     }
 
     /// Check if an independent set is maximal (cannot be extended).
-    fn is_maximal(&self, config: &[usize]) -> bool {
+    fn is_maximal(&self, config: &[bool]) -> bool {
         if !self.is_independent(config) {
             return false;
         }
 
         let n = self.graph.num_vertices();
         for v in 0..n {
-            if config.get(v).copied().unwrap_or(0) == 1 {
+            if config.get(v).copied().unwrap_or(false) {
                 continue; // Already in set
             }
 
@@ -145,7 +144,7 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
             let neighbors = self.graph.neighbors(v);
             let can_add = neighbors
                 .iter()
-                .all(|&u| config.get(u).copied().unwrap_or(0) == 0);
+                .all(|&u| !config.get(u).copied().unwrap_or(false));
 
             if can_add {
                 return false; // Set is not maximal
@@ -174,24 +173,31 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximalIS";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !self.is_maximal(config) {
                 return Ok(Max(None));
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -204,15 +210,25 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MaximalIS<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximal_is_simplegraph_i64",
+        id: "maximal_is_simplegraph",
         instance: Box::new(MaximalIS::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
             vec![1i64; 5],
         )),
-        optimal_config: vec![1, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, true]),
         optimal_value: serde_json::json!(3),
     }]
 }
@@ -255,6 +271,10 @@ crate::impl_random_generate!(MaximalIS<SimpleGraph, i64>, crate::random::SimpleG
 
 crate::declare_variants! {
     default MaximalIS<SimpleGraph, i64> => "3^(num_vertices / 3)" create MaximalISCreateSpec random,
+}
+
+crate::register_brute_force! {
+    MaximalIS<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

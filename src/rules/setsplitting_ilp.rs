@@ -30,11 +30,11 @@ impl ReductionResult for ReductionSetSplittingToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -52,17 +52,21 @@ impl ReduceTo<ILP<bool>> for SetSplitting {
         let mut constraints = Vec::new();
 
         for subset in self.subsets() {
-            let k = subset.len();
-            let terms: Vec<(usize, f64)> = subset.iter().map(|&e| (e, 1.0)).collect();
+            let terms: Vec<(usize, i64)> = subset.iter().map(|&e| (e, 1)).collect();
+            let k = <Self as ReduceTo<ILP<bool>>>::exact_i64(
+                subset.len() - 1,
+                "encoding the split-set cardinality",
+            )?;
 
             // At least one element in S2: sum >= 1
-            constraints.push(LinearConstraint::ge(terms.clone(), 1.0));
+            constraints.push(LinearConstraint::ge(terms.clone(), 1));
 
             // At least one element in S1: sum <= k - 1
-            constraints.push(LinearConstraint::le(terms, (k - 1) as f64));
+            constraints.push(LinearConstraint::le(terms, k));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionSetSplittingToILP { target })
     }
 }

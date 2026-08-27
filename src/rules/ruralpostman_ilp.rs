@@ -28,14 +28,11 @@ impl ReductionResult for ReductionRPToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok({
-            // Output the traversal multiplicities t_e
-            target_solution[..self.num_edges].to_vec()
-        })
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_edges])
     }
 }
 
@@ -56,7 +53,8 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
         // If E' is empty, the empty circuit satisfies when B >= 0
         if self.required_edges().is_empty() {
             return Ok(ReductionRPToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 num_edges: 0,
             });
         }
@@ -82,19 +80,13 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
 
         // y_e <= t_e and t_e <= 2*y_e for each edge
         for e in 0..m {
-            constraints.push(LinearConstraint::le(
-                vec![(y_idx(e), 1.0), (t_idx(e), -1.0)],
-                0.0,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(t_idx(e), 1.0), (y_idx(e), -2.0)],
-                0.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(y_idx(e), 1), (t_idx(e), -1)], 0));
+            constraints.push(LinearConstraint::le(vec![(t_idx(e), 1), (y_idx(e), -2)], 0));
         }
 
         // t_e >= 1 for required edges
         for &req_idx in self.required_edges() {
-            constraints.push(LinearConstraint::ge(vec![(t_idx(req_idx), 1.0)], 1.0));
+            constraints.push(LinearConstraint::ge(vec![(t_idx(req_idx), 1)], 1));
         }
 
         // Even degree: sum_{e : v in e} t_e = 2 * q_v for all v
@@ -102,46 +94,40 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
             let mut terms = Vec::new();
             for (e, &(u, w)) in edges.iter().enumerate() {
                 if u == v || w == v {
-                    terms.push((t_idx(e), 1.0));
+                    terms.push((t_idx(e), 1));
                 }
             }
-            terms.push((q_idx(v), -2.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            terms.push((q_idx(v), -2));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // y_e <= z_u and y_e <= z_v for each edge e = {u,v}
         for (e, &(u, v)) in edges.iter().enumerate() {
-            constraints.push(LinearConstraint::le(
-                vec![(y_idx(e), 1.0), (z_idx(u), -1.0)],
-                0.0,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(y_idx(e), 1.0), (z_idx(v), -1.0)],
-                0.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(y_idx(e), 1), (z_idx(u), -1)], 0));
+            constraints.push(LinearConstraint::le(vec![(y_idx(e), 1), (z_idx(v), -1)], 0));
         }
 
         // z_v <= sum_{e : v in e} y_e for all v
         for v in 0..n {
-            let mut terms = vec![(z_idx(v), 1.0)];
+            let mut terms = vec![(z_idx(v), 1)];
             for (e, &(u, w)) in edges.iter().enumerate() {
                 if u == v || w == v {
-                    terms.push((y_idx(e), -1.0));
+                    terms.push((y_idx(e), -1));
                 }
             }
-            constraints.push(LinearConstraint::le(terms, 0.0));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         // Flow capacity: f_{u,v} <= (n-1)*y_e and f_{v,u} <= (n-1)*y_e
-        let big_m = (n - 1) as f64;
+        let big_m = Self::exact_i64(n, "encoding the connectivity-flow bound")? - 1;
         for e in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(f_idx(e, 0), 1.0), (y_idx(e), -big_m)],
-                0.0,
+                vec![(f_idx(e, 0), 1), (y_idx(e), -big_m)],
+                0,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(f_idx(e, 1), 1.0), (y_idx(e), -big_m)],
-                0.0,
+                vec![(f_idx(e, 1), 1), (y_idx(e), -big_m)],
+                0,
             ));
         }
 
@@ -154,19 +140,19 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
             let mut terms = Vec::new();
             for (e, &(u, v)) in edges.iter().enumerate() {
                 if u == root {
-                    terms.push((f_idx(e, 0), 1.0)); // outgoing from root via dir 0
-                    terms.push((f_idx(e, 1), -1.0)); // incoming to root via dir 1
+                    terms.push((f_idx(e, 0), 1)); // outgoing from root via dir 0
+                    terms.push((f_idx(e, 1), -1)); // incoming to root via dir 1
                 }
                 if v == root {
-                    terms.push((f_idx(e, 1), 1.0)); // outgoing from root via dir 1
-                    terms.push((f_idx(e, 0), -1.0)); // incoming to root via dir 0
+                    terms.push((f_idx(e, 1), 1)); // outgoing from root via dir 1
+                    terms.push((f_idx(e, 0), -1)); // incoming to root via dir 0
                 }
             }
             // rhs = sum_v z_v - 1, move z_v to left side
             for v in 0..n {
-                terms.push((z_idx(v), -1.0));
+                terms.push((z_idx(v), -1));
             }
-            constraints.push(LinearConstraint::eq(terms, -1.0));
+            constraints.push(LinearConstraint::eq(terms, -1));
         }
 
         // Non-root vertices: inflow - outflow = z_v
@@ -180,30 +166,30 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
             for (e, &(u, w)) in edges.iter().enumerate() {
                 if u == v {
                     // Edge e = {v, w}: dir 0 is v->w (outgoing), dir 1 is w->v (incoming)
-                    terms.push((f_idx(e, 0), -1.0)); // outgoing
-                    terms.push((f_idx(e, 1), 1.0)); // incoming
+                    terms.push((f_idx(e, 0), -1)); // outgoing
+                    terms.push((f_idx(e, 1), 1)); // incoming
                 }
                 if w == v {
                     // Edge e = {u, v}: dir 0 is u->v (incoming), dir 1 is v->u (outgoing)
-                    terms.push((f_idx(e, 0), 1.0)); // incoming
-                    terms.push((f_idx(e, 1), -1.0)); // outgoing
+                    terms.push((f_idx(e, 0), 1)); // incoming
+                    terms.push((f_idx(e, 1), -1)); // outgoing
                 }
             }
-            terms.push((z_idx(v), -1.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            terms.push((z_idx(v), -1));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Upper bound on t_e: t_e <= 2
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(t_idx(e), 1.0)], 2.0));
+            constraints.push(LinearConstraint::le(vec![(t_idx(e), 1)], 2));
         }
 
         // Upper bounds on binary variables: y_e <= 1, z_v <= 1
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(y_idx(e), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y_idx(e), 1)], 1));
         }
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(z_idx(v), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(z_idx(v), 1)], 1));
         }
 
         // Objective: minimize total route cost
@@ -220,7 +206,8 @@ impl ReduceTo<ILP<i64>> for RuralPostman<SimpleGraph, i64> {
                     })
             })
             .collect::<Result<_, _>>()?;
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionRPToILP {
             target,

@@ -54,12 +54,16 @@ fn test_extract_solution_ignores_duplicate_exact_range_encodings() {
         ReduceTo::<QUBO<f64>>::reduce_to(&canonical_cvp()).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 1, 0, 1, 1, 0]).unwrap(),
-        vec![3, 3]
+        reduction
+            .extract_solution(&vec![true, true, false, true, true, false])
+            .unwrap(),
+        vec![1, 1]
     );
     assert_eq!(
-        reduction.extract_solution(&[0, 0, 1, 0, 0, 1]).unwrap(),
-        vec![3, 3]
+        reduction
+            .extract_solution(&vec![false, false, true, false, false, true])
+            .unwrap(),
+        vec![1, 1]
     );
 }
 
@@ -75,8 +79,14 @@ fn test_closestvectorproblem_to_qubo_canonical_example_spec() {
     assert_eq!(example.source.problem, "ClosestVectorProblem");
     assert_eq!(example.target.problem, "QUBO");
     assert_eq!(example.target.instance["num_vars"], 6);
-    assert_eq!(example.solutions[0].source_config, vec![3, 3]);
-    assert_eq!(example.solutions[0].target_config, vec![0, 0, 1, 0, 0, 1]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([1, 1])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([false, false, true, false, false, true])
+    );
 }
 
 #[test]
@@ -87,9 +97,16 @@ fn test_duplicate_target_encodings_have_equal_qubo_value() {
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(qubo).unwrap();
 
-    assert!(best.contains(&vec![0, 0, 1, 0, 0, 1]) || best.contains(&vec![1, 1, 0, 1, 1, 0]));
+    assert!(
+        best.contains(&vec![false, false, true, false, false, true])
+            || best.contains(&vec![true, true, false, true, true, false])
+    );
     assert_close(
-        qubo.evaluate(&[0, 0, 1, 0, 0, 1]).unwrap().unwrap(),
-        qubo.evaluate(&[1, 1, 0, 1, 1, 0]).unwrap().unwrap(),
+        qubo.evaluate(&vec![false, false, true, false, false, true])
+            .unwrap()
+            .unwrap(),
+        qubo.evaluate(&vec![true, true, false, true, true, false])
+            .unwrap()
+            .unwrap(),
     );
 }

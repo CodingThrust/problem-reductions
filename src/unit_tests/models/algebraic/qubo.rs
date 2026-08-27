@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 include!("../../jl_helpers.rs");
@@ -44,15 +45,25 @@ fn test_matrix_access() {
 fn test_empty_qubo() {
     let problem = QUBO::<f64>::from_matrix(vec![]).unwrap();
     assert_eq!(problem.num_vars(), 0);
-    assert_eq!(Problem::evaluate(&problem, &[]).unwrap(), Min(Some(0.0)));
+    assert_eq!(
+        Problem::evaluate(&problem, &vec![]).unwrap(),
+        Min(Some(0.0))
+    );
 }
 
 #[test]
 fn test_qubo_rejects_invalid_configurations() {
     let problem = QUBO::from_matrix(vec![vec![1.0, 2.0], vec![0.0, 3.0]]).unwrap();
-    assert_eq!(Problem::evaluate(&problem, &[1]).unwrap(), Min(None));
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]).unwrap(), Min(None));
-    assert_eq!(Problem::evaluate(&problem, &[2, 0]).unwrap(), Min(None));
+    for solution in [vec![true], vec![true, false, false]] {
+        assert!(matches!(
+            Problem::evaluate(&problem, &solution),
+            Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+        ));
+    }
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
+            .is_err()
+    );
 }
 
 #[test]
@@ -96,7 +107,7 @@ fn test_jl_parity_evaluation() {
         }
         let problem = QUBO::from_matrix(rust_matrix).unwrap();
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = Problem::evaluate(&problem, &config).unwrap();
             let jl_size = eval["size"].as_f64().unwrap();
             assert!(result.is_valid(), "QUBO should always be valid");
@@ -107,8 +118,8 @@ fn test_jl_parity_evaluation() {
             );
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "QUBO best solutions mismatch");
     }
 }
@@ -123,12 +134,12 @@ fn test_qubo_paper_example() {
     ])
     .unwrap();
     assert_eq!(
-        Problem::evaluate(&problem, &[1, 0, 1]).unwrap(),
+        Problem::evaluate(&problem, &vec![true, false, true]).unwrap(),
         Min(Some(-2.0))
     );
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(Problem::evaluate(&problem, &best).unwrap(), Min(Some(-2.0)));
 }
 

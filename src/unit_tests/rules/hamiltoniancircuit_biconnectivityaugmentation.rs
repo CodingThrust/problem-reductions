@@ -65,7 +65,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_extract_solution() {
         .expect("reduction should succeed");
 
     // Select edges (0,1), (0,3), (1,2), (2,3) => config [1, 0, 1, 1, 0, 1]
-    let target_config = vec![1, 0, 1, 1, 0, 1];
+    let target_config = vec![true, false, true, true, false, true];
     let extracted = reduction.extract_solution(&target_config).unwrap();
 
     assert_eq!(extracted.len(), 4);
@@ -85,7 +85,7 @@ fn test_hamiltoniancircuit_to_biconnectivityaugmentation_no_circuit() {
 
     // The target should have no feasible augmentation
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
     assert!(
         witness.is_none(),
         "target should be infeasible when source has no HC"

@@ -13,32 +13,16 @@ use crate::models::set::IntegerKnapsack;
 use crate::rules::registry::ReductionSizeDeclarations;
 use crate::rules::ReductionEntry;
 use crate::traits::Problem;
-use crate::types::ProblemSize;
+#[cfg(feature = "example-db")]
 use num_bigint::BigUint;
+#[cfg(feature = "example-db")]
 use num_traits::ToPrimitive;
-use std::any::Any;
 
 #[cfg(feature = "example-db")]
 fn biguint_to_i64(value: &BigUint, what: &str) -> i64 {
     value
         .to_i64()
         .unwrap_or_else(|| panic!("SubsetSum -> IntegerKnapsack requires {what} to fit in i64"))
-}
-
-fn biguint_to_usize(value: &BigUint, what: &str) -> usize {
-    value
-        .to_usize()
-        .unwrap_or_else(|| panic!("SubsetSum -> IntegerKnapsack requires {what} to fit in usize"))
-}
-
-fn subset_sum_source_size(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<SubsetSum>()
-        .expect("SubsetSum -> IntegerKnapsack source type mismatch");
-    ProblemSize::new(vec![
-        ("num_elements", source.num_elements()),
-        ("target", biguint_to_usize(source.target(), "target")),
-    ])
 }
 
 inventory::submit! {
@@ -49,26 +33,16 @@ inventory::submit! {
         target_variant_fn: <IntegerKnapsack as Problem>::variant,
         size_declarations_fn: || ReductionSizeDeclarations {
             relation: Some(crate::size::SizeRelation::Exact),
-            fields: vec![
-                ("num_items", Expr::variable("num_elements")),
-                ("capacity", Expr::variable("target")),
-            ],
-            unavailable: vec![],
+            fields: vec![("num_items", Expr::variable("num_elements"))],
+            unavailable: vec![crate::rules::registry::UnavailableSizeField {
+                field: "capacity",
+                reason: "the target capacity equals the SubsetSum target, which is not a registered source size parameter",
+            }],
         },
         module_path: module_path!(),
         reduce_fn: None,
         reduce_aggregate_fn: None,
         turing: false,
-        source_size_measure_fn: subset_sum_source_size,
-        target_size_measure_fn: |any| {
-            let target = any
-                .downcast_ref::<IntegerKnapsack>()
-                .expect("SubsetSum -> IntegerKnapsack target type mismatch");
-            ProblemSize::new(vec![
-                ("num_items", target.num_items()),
-                ("capacity", usize::try_from(target.capacity()).expect("capacity exceeds usize")),
-            ])
-        },
     }
 }
 
@@ -100,8 +74,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 &target,
                 vec![SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 1],
-                    target_config: vec![1, 0, 0, 1, 1],
+                    source_config: serde_json::json!(vec![true, false, false, true, true]),
+                    target_config: serde_json::json!(vec![1, 0, 0, 1, 1]),
                 }],
             )
         },

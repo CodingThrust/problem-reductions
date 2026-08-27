@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -69,7 +70,7 @@ fn test_shortestcommonsupersequence_basic() {
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.max_length(), 12); // 4+4+4
     assert_eq!(problem.total_length(), 12);
-    assert_eq!(problem.dims(), vec![4; 12]); // alphabet_size+1 = 4, max_length = 12
+    assert_eq!(problem.dimensions(), vec![4; 12]); // alphabet_size+1 = 4, max_length = 12
     assert_eq!(
         <ShortestCommonSupersequence as Problem>::NAME,
         "ShortestCommonSupersequence"
@@ -87,8 +88,16 @@ fn test_shortestcommonsupersequence_evaluate_valid() {
         3,
         vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
     );
-    let mut config = vec![0, 1, 2, 0, 2, 1, 0];
-    config.extend(vec![3; 5]); // pad to max_length=12
+    let mut config = vec![
+        Some(0),
+        Some(1),
+        Some(2),
+        Some(0),
+        Some(2),
+        Some(1),
+        Some(0),
+    ];
+    config.extend(vec![None; 5]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(7)));
 }
 
@@ -99,8 +108,8 @@ fn test_shortestcommonsupersequence_evaluate_infeasible() {
         vec![vec![0, 1, 2, 1], vec![1, 2, 0, 1], vec![0, 2, 1, 0]],
     );
     // All zeros padded: [0,0,0,0,0,0,0, 3,3,3,3,3] cannot contain [0,1,2,1]
-    let mut config = vec![0; 7];
-    config.extend(vec![3; 5]);
+    let mut config = vec![Some(0); 7];
+    config.extend(vec![None; 5]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -114,24 +123,28 @@ fn test_shortestcommonsupersequence_out_of_range() {
     // This means position 1 is neither a valid symbol nor padding
     // After finding padding at... wait, 3 != 2 (padding), so effective_length = 2
     // Then prefix [0, 3] has 3 >= alphabet_size, so returns None
-    assert_eq!(problem.evaluate(&[0, 3]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![Some(0), None]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_shortestcommonsupersequence_wrong_length() {
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
     // max_length = 2, wrong config lengths return None
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0), Some(1), Some(0)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_shortestcommonsupersequence_interleaved_padding() {
     // Padding must be contiguous at the end
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1]]);
-    // max_length = 2, padding = 2
-    // [2, 0] has padding at position 0 then non-padding at position 1 -> invalid
-    assert_eq!(problem.evaluate(&[2, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![None, Some(0)]).unwrap(), Min(None));
 }
 
 #[test]
@@ -142,7 +155,7 @@ fn test_shortestcommonsupersequence_brute_force() {
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find a solution");
     let val = problem.evaluate(&solution).unwrap();
@@ -152,10 +165,10 @@ fn test_shortestcommonsupersequence_brute_force() {
 
 #[test]
 fn test_shortestcommonsupersequence_solve_aggregate() {
-    use crate::solvers::Solver;
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
     let solver = BruteForce::new();
-    let val = solver.solve(&problem).unwrap();
+    let val_solution = solver.solve(&problem).unwrap().unwrap();
+    let val = problem.evaluate(&val_solution).unwrap();
     assert_eq!(val, Min(Some(3)));
 }
 
@@ -165,7 +178,7 @@ fn test_shortestcommonsupersequence_all_padding() {
     // Only valid if all input strings are empty
     let problem = ShortestCommonSupersequence::new(2, vec![vec![]]);
     // max_length = 0, so config is empty
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -174,9 +187,15 @@ fn test_shortestcommonsupersequence_single_string() {
     // max_length = 3, search space = 4^3 = 64
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2]]);
     // [0,1,2] with no padding = the string itself, length 3
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&vec![Some(0), Some(1), Some(2)]).unwrap(),
+        Min(Some(3))
+    );
     // [2,1,0] doesn't contain [0,1,2] as subsequence
-    assert_eq!(problem.evaluate(&[2, 1, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![Some(2), Some(1), Some(0)]).unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -191,8 +210,8 @@ fn test_shortestcommonsupersequence_find_all_witnesses() {
         assert!(val.0.is_some());
     }
     // Optimal witnesses (length 3): [0,1,0,pad] and [1,0,1,pad]
-    assert!(solutions.contains(&vec![0, 1, 0, 2]));
-    assert!(solutions.contains(&vec![1, 0, 1, 2]));
+    assert!(solutions.contains(&vec![Some(0), Some(1), Some(0), None]));
+    assert!(solutions.contains(&vec![Some(1), Some(0), Some(1), None]));
 }
 
 #[test]
@@ -212,12 +231,17 @@ fn test_shortestcommonsupersequence_paper_example() {
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]]);
     // max_length = 3 + 3 = 6, padding = 3
     // "babc" = [1, 0, 1, 2] padded to [1, 0, 1, 2, 3, 3]
-    assert_eq!(problem.evaluate(&[1, 0, 1, 2, 3, 3]).unwrap(), Min(Some(4)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![Some(1), Some(0), Some(1), Some(2), None, None])
+            .unwrap(),
+        Min(Some(4))
+    );
 
     // Verify a solution exists with brute force
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find solution");
     let val = problem.evaluate(&witness).unwrap();

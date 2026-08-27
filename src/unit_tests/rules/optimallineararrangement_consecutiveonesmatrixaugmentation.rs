@@ -55,7 +55,7 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let witness = BruteForce::new().find_witness(target).unwrap();
+    let witness = BruteForce::new().solve(target).unwrap();
     assert!(witness.is_some(), "target should be YES at bound 4");
 
     let target_witness = witness.unwrap();
@@ -77,12 +77,12 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_closed_loo
     assert_eq!(target.bound(), 3);
 
     assert!(
-        BruteForce::new().find_witness(target).unwrap().is_none(),
+        BruteForce::new().solve(target).unwrap().is_none(),
         "target should be NO at bound 3"
     );
     // Source is genuinely NO too.
     assert!(
-        BruteForce::new().find_witness(&source).unwrap().is_none(),
+        BruteForce::new().solve(&source).unwrap().is_none(),
         "source should be NO at k = 10"
     );
 }
@@ -98,14 +98,14 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_edgeless_s
     assert_eq!(target.matrix().to_vec(), vec![vec![false]]);
     assert_eq!(target.bound(), 0);
 
-    let witness = BruteForce::new().find_witness(target).unwrap().unwrap();
+    let witness = BruteForce::new().solve(target).unwrap().unwrap();
     assert_eq!(target.evaluate(&witness).unwrap(), Or(true));
 
     // Reconstructed source arrangement covers all 3 vertices and is YES.
     let arrangement = reduction.extract_solution(&witness).unwrap();
     assert_eq!(arrangement.len(), 3);
     assert_eq!(source.evaluate(&arrangement).unwrap(), Or(true));
-    assert!(reduction.extract_solution(&[]).is_err());
+    assert!(reduction.extract_solution(&vec![]).is_err());
 }
 
 #[test]
@@ -129,15 +129,15 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_negative_b
 
     // Genuinely NO under every column permutation.
     assert!(
-        BruteForce::new().find_witness(target).unwrap().is_none(),
+        BruteForce::new().solve(target).unwrap().is_none(),
         "cyclic sentinel must be NO at bound 0"
     );
     // Source is NO (every P_6 arrangement costs >= 5 > 4).
     assert!(
-        BruteForce::new().find_witness(&source).unwrap().is_none(),
+        BruteForce::new().solve(&source).unwrap().is_none(),
         "P_6 has no arrangement of length <= 4"
     );
-    assert!(reduction.extract_solution(&[]).is_err());
+    assert!(reduction.extract_solution(&vec![]).is_err());
 }
 
 #[test]
@@ -148,14 +148,14 @@ fn test_optimallineararrangement_to_consecutiveonesmatrixaugmentation_extract_in
 
     assert_eq!(
         reduction
-            .extract_solution(&[0, 1, 2])
+            .extract_solution(&vec![0, 1, 2])
             .unwrap_err()
             .to_string(),
-        "expected 6 target values, got 3"
+        "target evaluation failed during extraction: invalid configuration: column ordering length does not match the matrix"
     );
     assert_eq!(
         reduction
-            .extract_solution(&[0, 0, 1, 2, 3, 4])
+            .extract_solution(&vec![0, 0, 1, 2, 3, 4])
             .unwrap_err()
             .to_string(),
         "target column order is not a permutation"

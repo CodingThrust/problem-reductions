@@ -38,12 +38,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::PrecedenceConstrainedScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 tasks, 2 processors, deadline 3, with t0 < t2 and t1 < t3
 /// let problem = PrecedenceConstrainedScheduling::new(4, 2, 3, vec![(0, 2), (1, 3)]);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -170,33 +170,36 @@ impl PrecedenceConstrainedScheduling {
 
 impl Problem for PrecedenceConstrainedScheduling {
     const NAME: &'static str = "PrecedenceConstrainedScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("deadline", deadline),
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![
-            usize::try_from(self.deadline).expect("validated deadline must fit usize");
-            self.num_tasks
-        ]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_tasks {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule length does not match the tasks".into(),
+                    ));
                 }
-                // Check all values are valid time slots
                 let deadline =
                     usize::try_from(self.deadline).expect("validated deadline must fit usize");
                 if config.iter().any(|&v| v >= deadline) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule contains an out-of-range time slot".into(),
+                    ));
                 }
                 // Check processor capacity: at most num_processors tasks per time slot
                 let mut slot_count = vec![0usize; deadline];
@@ -218,8 +221,21 @@ impl Problem for PrecedenceConstrainedScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PrecedenceConstrainedScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![
+            usize::try_from(self.deadline).expect("validated deadline must fit usize");
+            self.num_tasks
+        ]
+    }
+}
+
 crate::declare_variants! {
     default PrecedenceConstrainedScheduling => "2^num_tasks" create PrecedenceConstrainedSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    PrecedenceConstrainedScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -244,7 +260,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
         )),
         // Valid schedule: slot 0: {t0,t1}, slot 1: {t2,t3,t4}, slot 2: {t5,t6}, slot 3: {t7}
-        optimal_config: vec![0, 0, 1, 1, 1, 2, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 1, 1, 2, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

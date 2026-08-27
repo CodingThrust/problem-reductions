@@ -2,9 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{
-    ConstructionError, CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension,
-};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
 use num_traits::Zero;
@@ -23,13 +21,6 @@ inventory::submit! {
     }
 }
 
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "QUBO",
-        fields: &["num_vars"],
-    }
-}
-
 /// The QUBO (Quadratic Unconstrained Binary Optimization) problem.
 ///
 /// Given n binary variables x_i ∈ {0, 1} and a matrix Q,
@@ -45,7 +36,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::QUBO;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Q matrix: minimize x0 - 2*x1 + x0*x1
 /// // Q = [[1, 1], [0, -2]]
@@ -58,7 +49,7 @@ inventory::submit! {
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Optimal is x = [0, 1] with value -2
-/// assert!(solutions.contains(&vec![0, 1]));
+/// assert!(solutions.contains(&vec![false, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QUBO<W = f64> {
@@ -170,25 +161,33 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "QUBO";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_vars", num_vars),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
-        if config.len() != self.num_vars || config.iter().any(|&value| value > 1) {
-            return Ok(Min(None));
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if solution.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                format!(
+                    "solution has {} variables, expected {}",
+                    solution.len(),
+                    self.num_vars
+                ),
+            ));
         }
         let mut value = W::Sum::zero();
 
         for i in 0..self.num_vars {
-            if config[i] == 0 {
+            if !solution[i] {
                 continue;
             }
 
-            for (j, &selected) in config.iter().enumerate().skip(i) {
-                if selected == 0 {
+            for (j, &selected) in solution.iter().enumerate().skip(i) {
+                if !selected {
                     continue;
                 }
 
@@ -210,14 +209,27 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for QUBO<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
     default QUBO<f64> => "2^num_vars" create QuboCreateSpec,
+}
+
+crate::register_brute_force! {
+    QUBO<f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "qubo_f64",
+        id: "qubo",
         instance: Box::new(
             QUBO::from_matrix(vec![
                 vec![-1.0, 2.0, 0.0],
@@ -226,7 +238,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ])
             .unwrap(),
         ),
-        optimal_config: vec![1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true]),
         optimal_value: serde_json::json!(-2.0),
     }]
 }

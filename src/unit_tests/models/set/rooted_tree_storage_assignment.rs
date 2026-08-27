@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn yes_instance(bound: i64) -> RootedTreeStorageAssignment {
@@ -20,23 +21,29 @@ fn test_rooted_tree_storage_assignment_creation() {
         problem.subsets(),
         &[vec![0, 2], vec![1, 3], vec![0, 4], vec![2, 4]]
     );
-    assert_eq!(problem.dims(), vec![5; 5]);
+    assert_eq!(problem.dimensions(), vec![5; 5]);
 }
 
 #[test]
 fn test_rooted_tree_storage_assignment_evaluate_yes_instance() {
     let problem = yes_instance(1);
-    assert!(problem.evaluate(&[0, 0, 0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 0, 0, 1, 2]).unwrap());
 }
 
 #[test]
 fn test_rooted_tree_storage_assignment_rejects_invalid_tree_configs() {
     let problem = yes_instance(1);
 
-    assert!(!problem.evaluate(&[0, 0, 1, 2]).unwrap());
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 5]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]).unwrap());
-    assert!(!problem.evaluate(&[1, 0, 0, 1, 2]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0, 1, 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3, 4]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 0, 0, 1, 2]).unwrap());
 }
 
 #[test]

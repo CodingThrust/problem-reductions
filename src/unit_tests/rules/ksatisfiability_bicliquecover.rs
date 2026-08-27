@@ -131,9 +131,9 @@ fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
 
     // Use biclique slot r = 0 as B_1: contains s_11^u, s_11^v, h_0^u
     // (i.e. t_1 == true), and no Y matching vertex.
-    let mut witness = vec![0usize; num_vertices * k];
-    let set = |w: &mut [usize], vertex: usize, biclique: usize| {
-        w[vertex * k + biclique] = 1;
+    let mut witness = vec![vec![false; num_vertices]; k];
+    let set = |w: &mut [Vec<bool>], vertex: usize, biclique: usize| {
+        w[biclique][vertex] = true;
     };
     set(&mut witness, s1_left, 0);
     set(&mut witness, s1_right_unified, 0);
@@ -143,7 +143,7 @@ fn test_ksatisfiability_to_bicliquecover_extract_solution_reads_b1() {
 
     let assignment = reduction.extract_solution(&witness).unwrap();
     assert_eq!(assignment.len(), 1);
-    assert_eq!(assignment[0], 1, "expected source x_1 = true from B_1");
+    assert!(assignment[0], "expected source x_1 = true from B_1");
 
     // Sanity: n should be 2 for this source.
     assert_eq!(n, 2);
@@ -155,7 +155,7 @@ fn test_ksatisfiability_to_bicliquecover_rejects_missing_b1() {
     let reduction =
         ReduceTo::<BicliqueCover>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
-    let target_solution = vec![0; target.num_vertices() * target.k()];
+    let target_solution = vec![vec![false; target.num_vertices()]; target.k()];
 
     assert_eq!(
         reduction
@@ -185,9 +185,9 @@ fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
     let s1_right_unified = left_size + reduction.s1_right_offset;
     let y_left_0 = reduction.y_left_offset; // y_0^u (bipartite-local on left)
 
-    let mut witness = vec![0usize; num_vertices * k];
-    let set = |w: &mut [usize], vertex: usize, biclique: usize| {
-        w[vertex * k + biclique] = 1;
+    let mut witness = vec![vec![false; num_vertices]; k];
+    let set = |w: &mut [Vec<bool>], vertex: usize, biclique: usize| {
+        w[biclique][vertex] = true;
     };
 
     // Biclique 0: touches Y on the left side (y_0^u). The extractor
@@ -206,9 +206,9 @@ fn test_ksatisfiability_to_bicliquecover_extract_skips_y_touching_bicliques() {
 
     let assignment = reduction.extract_solution(&witness).unwrap();
     assert_eq!(assignment.len(), 1);
-    assert_eq!(
-        assignment[0], 0,
-        "B_1 was biclique 1 (not biclique 0); h_0^u not in B_1 so x_1 = false"
+    assert!(
+        !assignment[0],
+        "B_1 was biclique true (not biclique false); h_0^u not in B_1 so x_1 = false"
     );
 }
 
@@ -236,8 +236,8 @@ fn test_ksatisfiability_to_bicliquecover_closed_loop_smallest() {
 
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted.len(), 1);
-    assert_eq!(
-        extracted[0], 1,
+    assert!(
+        extracted[0],
         "extracted assignment must set x_1 = true (the only satisfying assignment)"
     );
     assert_eq!(

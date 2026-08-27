@@ -73,8 +73,8 @@ impl ReductionResult for ReductionClosestSubstringToILP {
     /// `s_i`, we pick the unique window start `p` with `y_{i, p} = 1`.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let q = self.alphabet_size;
@@ -100,7 +100,7 @@ impl ReductionResult for ReductionClosestSubstringToILP {
 }
 
 fn decode_one_hot(
-    block: &[usize],
+    block: &[i64],
     block_name: &str,
     block_index: usize,
 ) -> crate::rules::ExtractionResult<usize> {
@@ -149,6 +149,7 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         let y_idx = |i: usize, p: usize| -> usize { y_base + window_offsets[i] + p };
         let r_idx = y_base + total_windows;
         let num_vars = r_idx + 1;
+        let ell_i64 = Self::exact_i64(ell, "encoding the substring length")?;
 
         let mut constraints: Vec<LinearConstraint> =
             Vec::with_capacity(ell + n + total_windows + 1);
@@ -157,8 +158,8 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         // Together with the non-negativity built into `ILP<i64>`, this also
         // forces every x_{r, a} to lie in {0, 1}.
         for r in 0..ell {
-            let terms: Vec<(usize, f64)> = (0..q).map(|a| (x_idx(r, a), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(r, a), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Tight upper bound on R: the worst-case Hamming distance over a
@@ -167,13 +168,13 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         // exactly this pattern) picks it up. Without this, R defaults to the
         // full i64 domain, which severely degrades HiGHS performance even on
         // tiny instances.
-        constraints.push(LinearConstraint::le(vec![(r_idx, 1.0)], ell as f64));
+        constraints.push(LinearConstraint::le(vec![(r_idx, 1)], ell_i64));
 
         // Window-choice constraints: exactly one window per input string.
         // Combined with non-negativity, this forces every y_{i, p} in {0, 1}.
         for (i, &w_i) in window_counts.iter().enumerate() {
-            let terms: Vec<(usize, f64)> = (0..w_i).map(|p| (y_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..w_i).map(|p| (y_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Conditional radius constraints: for every (input string, window
@@ -183,20 +184,21 @@ impl ReduceTo<ILP<i64>> for ClosestSubstring {
         //   automatically satisfied because R >= 0.
         for (i, s) in strings.iter().enumerate() {
             for p in 0..window_counts[i] {
-                let mut terms: Vec<(usize, f64)> = Vec::with_capacity(ell + 2);
-                terms.push((r_idx, 1.0));
+                let mut terms: Vec<(usize, i64)> = Vec::with_capacity(ell + 2);
+                terms.push((r_idx, 1));
                 for r in 0..ell {
-                    terms.push((x_idx(r, s[p + r]), 1.0));
+                    terms.push((x_idx(r, s[p + r]), 1));
                 }
-                terms.push((y_idx(i, p), -(ell as f64)));
-                constraints.push(LinearConstraint::ge(terms, 0.0));
+                terms.push((y_idx(i, p), -ell_i64));
+                constraints.push(LinearConstraint::ge(terms, 0));
             }
         }
 
         // Objective: minimize R.
         let objective = vec![(r_idx, 1.0)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestSubstringToILP {
             target,

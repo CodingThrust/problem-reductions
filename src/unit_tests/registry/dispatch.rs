@@ -3,51 +3,43 @@ use crate::models::graph::MinimumVertexCover;
 use crate::models::misc::SubsetSum;
 use crate::registry::variant::find_variant_entry;
 use crate::registry::{load_dyn, serialize_any, DynProblem, LoadedDynProblem};
-use crate::solvers::SolveError;
+use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
 use crate::topology::SimpleGraph;
-use crate::types::Sum;
-use crate::{Problem, Solver};
+use crate::types::{Max, Sum};
+use crate::Problem;
 use std::any::Any;
 use std::collections::BTreeMap;
 
-fn solve_subset_sum_value(any: &dyn Any) -> Result<String, SolveError> {
-    let p = any.downcast_ref::<SubsetSum>().unwrap();
-    if let Some(config) = crate::BruteForce::new().find_witness(p).unwrap() {
-        Ok(format!("{:?}", p.evaluate(&config).unwrap()))
-    } else {
-        Ok("false".to_string())
-    }
-}
-
-fn solve_subset_sum_witness(any: &dyn Any) -> Result<Option<(Vec<usize>, String)>, SolveError> {
-    let p = any.downcast_ref::<SubsetSum>().unwrap();
-    let Some(config) = crate::BruteForce::new().find_witness(p)? else {
-        return Ok(None);
-    };
-    let eval = format!("{:?}", p.evaluate(&config).unwrap());
-    Ok(Some((config, eval)))
-}
-
-#[derive(Clone, serde::Serialize)]
-struct AggregateOnlyProblem {
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct SolutionProblem {
     weights: Vec<u64>,
 }
 
-impl Problem for AggregateOnlyProblem {
-    const NAME: &'static str = "AggregateOnlyProblem";
-    type Value = Sum<u64>;
-
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.weights.len()]
+impl SolutionProblem {
+    fn num_variables(&self) -> usize {
+        self.weights.len()
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+impl Problem for SolutionProblem {
+    const NAME: &'static str = "SolutionProblem";
+    type Solution = Vec<usize>;
+    type Value = Max<u64>;
+
+    crate::problem_size![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok({
-            Sum(config
-                .iter()
-                .zip(&self.weights)
-                .map(|(&c, &w)| if c == 1 { w } else { 0 })
-                .sum())
+            Max(Some(
+                config
+                    .iter()
+                    .zip(&self.weights)
+                    .map(|(&c, &w)| if c == 1 { w } else { 0 })
+                    .sum(),
+            ))
         })
     }
 
@@ -56,13 +48,31 @@ impl Problem for AggregateOnlyProblem {
     }
 }
 
-fn solve_aggregate_value(any: &dyn Any) -> Result<String, SolveError> {
-    let p = any.downcast_ref::<AggregateOnlyProblem>().unwrap();
-    Ok(format!("{:?}", crate::BruteForce::new().solve(p)?))
+impl crate::solvers::BruteForceProblem for SolutionProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
 }
 
-fn solve_aggregate_witness(_: &dyn Any) -> Result<Option<(Vec<usize>, String)>, SolveError> {
-    Ok(None)
+crate::declare_variants! {
+    default SolutionProblem => "2^num_variables",
+}
+
+crate::register_brute_force! {
+    SolutionProblem decode |_, indices: Vec<usize>| indices,
+}
+
+inventory::submit! {
+    crate::registry::ProblemSchemaEntry {
+        name: "SolutionProblem",
+        display_name: "Solution Test Problem",
+        aliases: &[],
+        dimensions: &[],
+        category: crate::registry::ProblemCategory::Misc,
+        module_path: module_path!(),
+        description: "Test problem for solution-producing reference solving",
+        fields: &[],
+    }
 }
 
 #[test]
@@ -71,9 +81,14 @@ fn test_dyn_problem_blanket_impl_exposes_problem_metadata() {
     let dyn_problem: &dyn DynProblem = &problem;
 
     assert_eq!(dyn_problem.problem_name(), "MaximumIndependentSet");
-    assert_eq!(dyn_problem.num_variables_dyn(), 3);
-    assert_eq!(dyn_problem.dims_dyn(), vec![2, 2, 2]);
     assert_eq!(dyn_problem.variant_map()["graph"], "SimpleGraph");
+    assert_eq!(
+        dyn_problem.size_parameter_names_dyn(),
+        MaximumIndependentSet::<SimpleGraph, i64>::size_parameter_names()
+    );
+    assert_eq!(dyn_problem.size_dyn(), problem.size());
+    assert_eq!(problem.size().get("num_vertices"), Some(3));
+    assert_eq!(problem.size().get("num_edges"), Some(1));
     assert!(dyn_problem.serialize_json().is_object());
 }
 
@@ -82,40 +97,58 @@ fn test_dyn_problem_formats_optimization_values_as_max_min() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i64; 3]);
     let dyn_problem: &dyn DynProblem = &problem;
 
-    assert_eq!(dyn_problem.evaluate_dyn(&[1, 0, 1]).unwrap(), "Max(2)");
-    assert_eq!(dyn_problem.evaluate_dyn(&[1, 1, 0]).unwrap(), "Max(None)");
+    assert_eq!(
+        dyn_problem
+            .evaluate_dyn(&serde_json::json!([true, false, true]))
+            .unwrap(),
+        "Max(2)"
+    );
+    assert_eq!(
+        dyn_problem
+            .evaluate_dyn(&serde_json::json!([true, true, false]))
+            .unwrap(),
+        "Max(None)"
+    );
 }
 
 #[test]
-fn test_loaded_dyn_problem_delegates_to_value_and_witness_fns() {
+fn test_loaded_dyn_problem_delegates_to_solve_fn() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
-    let loaded = LoadedDynProblem::new(
-        Box::new(problem),
-        solve_subset_sum_value,
-        solve_subset_sum_witness,
-    );
+    let loaded = LoadedDynProblem::new(Box::new(problem));
 
-    assert_eq!(loaded.solve_brute_force_value().unwrap(), "Or(true)");
-    let solved = loaded
-        .solve_brute_force_witness()
-        .unwrap()
-        .expect("expected satisfying solution");
-    assert_eq!(solved.1, "Or(true)");
-    assert_eq!(solved.0.len(), 3);
+    assert_eq!(
+        brute_force_dimensions(&loaded).unwrap(),
+        Some(vec![2, 2, 2])
+    );
+    let solved = solve(&loaded, SolverRequest::BruteForce).unwrap();
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = solved.outcome
+    else {
+        panic!("expected satisfying solution");
+    };
+    assert_eq!(evaluation, "Or(true)");
+    assert_eq!(solution.as_array().unwrap().len(), 3);
 }
 
 #[test]
-fn loaded_dyn_problem_returns_none_for_aggregate_only_witness() {
-    let loaded = LoadedDynProblem::new(
-        Box::new(AggregateOnlyProblem {
-            weights: vec![1, 2, 4],
-        }),
-        solve_aggregate_value,
-        solve_aggregate_witness,
-    );
+fn loaded_dyn_problem_returns_solution_and_evaluation() {
+    let problem = SolutionProblem {
+        weights: vec![1, 2, 4],
+    };
+    let loaded = LoadedDynProblem::new(Box::new(problem));
 
-    assert_eq!(loaded.solve_brute_force_value().unwrap(), "Sum(28)");
-    assert!(loaded.solve_brute_force_witness().unwrap().is_none());
+    let solved = solve(&loaded, SolverRequest::BruteForce).unwrap();
+    let SolveOutcome::Optimal {
+        solution,
+        evaluation,
+    } = solved.outcome
+    else {
+        panic!("expected optimal solution");
+    };
+    assert_eq!(solution, serde_json::json!([1, 1, 1]));
+    assert_eq!(evaluation, "Max(7)");
 }
 
 #[test]
@@ -132,9 +165,11 @@ fn test_load_dyn_formats_optimization_solve_values_as_max_min() {
     )
     .unwrap();
 
-    assert_eq!(loaded.solve_brute_force_value().unwrap(), "Min(1)");
-    let solved = loaded.solve_brute_force_witness().unwrap().unwrap();
-    assert_eq!(solved.1, "Min(1)");
+    let solved = solve(&loaded, SolverRequest::BruteForce).unwrap();
+    let SolveOutcome::Optimal { evaluation, .. } = solved.outcome else {
+        panic!("expected optimal solution");
+    };
+    assert_eq!(evaluation, "Min(1)");
 }
 
 #[test]
@@ -162,8 +197,10 @@ fn test_load_dyn_round_trips_maximum_independent_set() {
         loaded.serialize_json(),
         serde_json::to_value(&problem).unwrap()
     );
-    assert!(!loaded.solve_brute_force_value().unwrap().is_empty());
-    assert!(loaded.solve_brute_force_witness().unwrap().is_some());
+    assert!(matches!(
+        solve(&loaded, SolverRequest::BruteForce).unwrap().outcome,
+        SolveOutcome::Optimal { .. }
+    ));
 }
 
 #[test]
@@ -177,9 +214,11 @@ fn test_load_dyn_solves_subset_sum() {
     )
     .unwrap();
 
-    assert_eq!(loaded.solve_brute_force_value().unwrap(), "Or(true)");
-    let solved = loaded.solve_brute_force_witness().unwrap().unwrap();
-    assert_eq!(solved.1, "Or(true)");
+    let solved = solve(&loaded, SolverRequest::BruteForce).unwrap();
+    let SolveOutcome::Optimal { evaluation, .. } = solved.outcome else {
+        panic!("expected satisfying solution");
+    };
+    assert_eq!(evaluation, "Or(true)");
 }
 
 #[test]

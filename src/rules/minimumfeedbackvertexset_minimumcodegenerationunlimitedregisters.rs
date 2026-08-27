@@ -39,13 +39,13 @@ impl ReductionResult for ReductionFVSToCodeGen {
     /// meaning x is in the feedback vertex set.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_source_vertices;
-            let mut source_config = vec![0usize; n];
+            let mut source_config = vec![false; n];
 
             // target_solution[i] = evaluation position for the i-th internal node
             // Internal nodes are indices n, n+1, ..., n+m-1 (sorted), so
@@ -62,7 +62,7 @@ impl ReductionResult for ReductionFVSToCodeGen {
                     for &user_idx in &self.right_child_users[x] {
                         let user_j = user_idx - n;
                         if eval_pos[user_j] > start_pos {
-                            *cfg = 1;
+                            *cfg = true;
                             break;
                         }
                     }
@@ -187,8 +187,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

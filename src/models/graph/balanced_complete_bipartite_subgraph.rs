@@ -102,7 +102,7 @@ impl BalancedCompleteBipartiteSubgraph {
         graph.left_edges().iter().copied().collect()
     }
 
-    fn selected_vertices(&self, config: &[usize]) -> Option<(Vec<usize>, Vec<usize>)> {
+    fn selected_vertices(&self, config: &[bool]) -> Option<(Vec<usize>, Vec<usize>)> {
         if config.len() != self.num_vertices() {
             return None;
         }
@@ -110,17 +110,13 @@ impl BalancedCompleteBipartiteSubgraph {
         let mut selected_left = Vec::new();
         let mut selected_right = Vec::new();
 
-        for (index, &value) in config.iter().enumerate() {
-            match value {
-                0 => {}
-                1 => {
-                    if index < self.left_size() {
-                        selected_left.push(index);
-                    } else {
-                        selected_right.push(index - self.left_size());
-                    }
+        for (index, &selected) in config.iter().enumerate() {
+            if selected {
+                if index < self.left_size() {
+                    selected_left.push(index);
+                } else {
+                    selected_right.push(index - self.left_size());
                 }
-                _ => return None,
             }
         }
 
@@ -133,45 +129,56 @@ impl BalancedCompleteBipartiteSubgraph {
 
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        if config.len() != self.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
+        let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
+            return Ok(false);
+        };
+
+        if selected_left.len() != self.k || selected_right.len() != self.k {
+            return Ok(false);
+        }
+
+        Ok(selected_left.iter().all(|&left| {
+            selected_right
+                .iter()
+                .all(|&right| self.has_selected_edge(left, right))
+        }))
     }
 }
 
 impl Problem for BalancedCompleteBipartiteSubgraph {
     const NAME: &'static str = "BalancedCompleteBipartiteSubgraph";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vertices()]
-    }
+    crate::problem_size![
+        ("k", k),
+        ("left_size", left_size),
+        ("num_vertices", num_vertices),
+        ("right_size", right_size),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let Some((selected_left, selected_right)) = self.selected_vertices(config) else {
-                    return Ok(crate::types::Or(false));
-                };
-
-                if selected_left.len() != self.k || selected_right.len() != self.k {
-                    return Ok(crate::types::Or(false));
-                }
-
-                selected_left.iter().all(|&left| {
-                    selected_right
-                        .iter()
-                        .all(|&right| self.has_selected_edge(left, right))
-                })
-            })
-        })
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for BalancedCompleteBipartiteSubgraph {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vertices()]
     }
 }
 
@@ -189,6 +196,10 @@ impl From<BalancedCompleteBipartiteSubgraphRepr> for BalancedCompleteBipartiteSu
 
 crate::declare_variants! {
     default BalancedCompleteBipartiteSubgraph => "1.3803^num_vertices" create BalancedCompleteBipartiteSubgraphCreateSpec,
+}
+
+crate::register_brute_force! {
+    BalancedCompleteBipartiteSubgraph decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -216,7 +227,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             3,
         )),
-        optimal_config: vec![1, 1, 1, 0, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![true, true, true, false, true, true, true, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -32,20 +32,21 @@ fn test_openshopscheduling_to_ilp_structure_small() {
     // c_var = 1
     // Total = 2 + 4 + 2 + 1 = 9
     assert_eq!(
-        ilp.num_vars, 9,
+        ilp.num_vars(),
+        9,
         "expected 9 variables, got {}",
-        ilp.num_vars
+        ilp.num_vars()
     );
     // Constraint count: 2 bound_x + 4 s_upper + 1 c_upper + 4 machine_nooverlap
     //                 + 2 bound_y + 4 job_nooverlap + 4 makespan = 21
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         21,
         "expected 21 constraints, got {}",
-        ilp.constraints.len()
+        ilp.constraints().len()
     );
     assert_eq!(
-        ilp.objective,
+        ilp.objective(),
         vec![(8, 1.0)],
         "objective should minimize C (index 8)"
     );

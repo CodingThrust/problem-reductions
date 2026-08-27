@@ -118,22 +118,27 @@ impl MinimumCardinalityKey {
 
 impl Problem for MinimumCardinalityKey {
     const NAME: &'static str = "MinimumCardinalityKey";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_attributes]
-    }
+    crate::problem_size![
+        ("num_attributes", num_attributes),
+        ("num_dependencies", num_dependencies),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
-            if config.len() != self.num_attributes || config.iter().any(|&v| v > 1) {
-                return Ok(Min(None));
+            if config.len() != self.num_attributes {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "attribute-selection length does not match the relation".into(),
+                ));
             }
 
-            let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
-
-            if self.is_key(&selected) {
-                let count = selected.iter().filter(|&&v| v).count();
+            if self.is_key(config) {
+                let count = config.iter().filter(|&&v| v).count();
                 Min(Some(i64::try_from(count).map_err(|_| {
                     crate::traits::EvaluationError::IntegerOverflow(
                         "converting selected-attribute count to i64".into(),
@@ -150,8 +155,18 @@ impl Problem for MinimumCardinalityKey {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumCardinalityKey {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_attributes]
+    }
+}
+
 crate::declare_variants! {
     default MinimumCardinalityKey => "2^num_attributes",
+}
+
+crate::register_brute_force! {
+    MinimumCardinalityKey decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -167,7 +182,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (vec![2, 4], vec![5]),
             ],
         )),
-        optimal_config: vec![1, 1, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, false, false, false, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

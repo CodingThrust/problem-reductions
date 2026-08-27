@@ -14,15 +14,15 @@ fn test_reduction_creates_valid_ilp() {
 
     // x vars: 4 * 3 = 12, m vars: 4 * 4 = 16, total = 28
     assert_eq!(ilp.num_vars(), 28);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
-    assert!(!ilp.objective.is_empty());
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
+    assert!(!ilp.objective().is_empty());
 }
 
 #[test]
 fn test_shortestcommonsupersequence_to_ilp_closed_loop() {
-    use crate::Solver;
     let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]]);
-    let bf_value = BruteForce::new().solve(&problem).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     let reduction: ReductionSCSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
@@ -41,7 +41,7 @@ fn test_shortestcommonsupersequence_to_ilp_closed_loop() {
 fn test_shortestcommonsupersequence_to_ilp_bf_vs_ilp() {
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]]);
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some());
 
     let reduction: ReductionSCSToILP =

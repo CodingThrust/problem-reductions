@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -11,7 +12,7 @@ fn test_minimum_metric_dimension_creation() {
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 6);
     assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
 }
 
 #[test]
@@ -19,7 +20,7 @@ fn test_minimum_metric_dimension_evaluate_optimal() {
     // House graph: selecting vertices 0 and 1 forms a resolving set of size 2
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem = MinimumMetricDimension::new(graph);
-    let config = vec![1, 1, 0, 0, 0]; // select v0, v1
+    let config = vec![true, true, false, false, false]; // select v0, v1
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result, Min(Some(2)));
@@ -32,7 +33,7 @@ fn test_minimum_metric_dimension_evaluate_non_resolving() {
     let problem = MinimumMetricDimension::new(graph);
     // v2 alone: d(0,2)=1, d(1,2)=2, d(3,2)=1, d(4,2)=1
     // vertices 0 and 3 both have distance 1 to v2 -> not resolving
-    let config = vec![0, 0, 1, 0, 0];
+    let config = vec![false, false, true, false, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(None));
 }
@@ -41,7 +42,7 @@ fn test_minimum_metric_dimension_evaluate_non_resolving() {
 fn test_minimum_metric_dimension_evaluate_empty_selection() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumMetricDimension::new(graph);
-    let config = vec![0, 0, 0];
+    let config = vec![false, false, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(None));
 }
@@ -51,7 +52,7 @@ fn test_minimum_metric_dimension_evaluate_all_selected() {
     // Selecting all vertices is always resolving (trivially)
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumMetricDimension::new(graph);
-    let config = vec![1, 1, 1];
+    let config = vec![true, true, true];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result, Min(Some(3)));
@@ -63,7 +64,7 @@ fn test_minimum_metric_dimension_solver() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&solution).unwrap();
     assert!(value.is_valid());
     assert_eq!(value, Min(Some(2)));
@@ -77,7 +78,7 @@ fn test_minimum_metric_dimension_path_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(1)));
 }
@@ -89,7 +90,7 @@ fn test_minimum_metric_dimension_complete_graph() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(3)));
 }
@@ -104,7 +105,7 @@ fn test_minimum_metric_dimension_serialization() {
     assert_eq!(deserialized.num_edges(), 2);
 
     // Verify evaluation is preserved
-    let config = vec![1, 0, 0];
+    let config = vec![true, false, false];
     assert_eq!(
         problem.evaluate(&config).unwrap(),
         deserialized.evaluate(&config).unwrap()
@@ -125,7 +126,7 @@ fn test_minimum_metric_dimension_cycle() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
     let problem = MinimumMetricDimension::new(graph);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&solution).unwrap();
     assert_eq!(value, Min(Some(2)));
 }

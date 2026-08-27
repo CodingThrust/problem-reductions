@@ -45,25 +45,15 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
 
     /// Extract a ThreePartition config from a target schedule config.
     ///
-    /// Decode the Lehmer code to a task permutation, simulate the schedule to
-    /// find each task's start time, then assign each element task to its slot
+    /// Simulate the task permutation to find each task's start time, then assign each element task to its slot
     /// based on start_time / (B + 1).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let n = self.target.num_tasks();
-            // Decode Lehmer code to permutation
-            let schedule =
-                crate::models::misc::decode_lehmer(target_solution, n).ok_or_else(|| {
-                    crate::rules::ExtractionError::invalid(
-                        "target configuration is not a Lehmer code",
-                    )
-                })?;
-
             // Simulate the schedule to find start times
             let mut current_time: i64 = 0;
             let mut slot_assignment = vec![0usize; self.num_element_tasks];
@@ -71,7 +61,7 @@ impl ReductionResult for ReductionThreePartitionToSRTD {
                 crate::rules::ExtractionError::invalid("slot width overflows i64")
             })?; // B + 1 (slot width including the filler gap)
 
-            for &task in &schedule {
+            for &task in target_solution {
                 let start = current_time.max(self.target.release_times()[task]);
                 let finish = start
                     .checked_add(self.target.lengths()[task])
@@ -201,8 +191,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 1, 1, 1],
-                    target_config: vec![0, 0, 0, 3, 0, 0, 0],
+                    source_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
+                    target_config: serde_json::json!(vec![0, 1, 2, 6, 3, 4, 5]),
                 },
             )
         },

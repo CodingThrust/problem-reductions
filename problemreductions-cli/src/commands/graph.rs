@@ -165,92 +165,98 @@ pub fn list(
         vec![Some(crate::output::fmt_problem_name), None, None, None];
 
     let expanded = all || query.is_some() || category.is_some() || verbose;
-    let mut text = format!(
-        "{}\n\n",
-        crate::output::fmt_section(&format!(
-            "Registered catalog: {} problem types, {} variant nodes, {} reduction rules",
-            catalog.len(),
-            variant_counts.values().sum::<usize>(),
-            num_reductions,
-        ))
-    );
-    if expanded {
-        if selected.is_empty() {
-            text.push_str("No matching problem types.\n");
-        } else if verbose {
-            text.push_str(&format_table(&columns, &rows, &color_fns));
-            text.push_str("\n* = default variant\n");
-        } else {
-            let compact_rows = selected
-                .iter()
-                .map(|problem| {
-                    let mut aliases = problem.aliases.to_vec();
-                    if let Some(extra) = variant_aliases.get(problem.canonical_name) {
-                        for alias in extra {
-                            if !aliases
-                                .iter()
-                                .any(|known| known.eq_ignore_ascii_case(alias))
-                            {
-                                aliases.push(alias);
+    out.emit(
+        || {
+            let mut text = format!(
+                "{}\n\n",
+                crate::output::fmt_section(&format!(
+                    "Registered catalog: {} problem types, {} variant nodes, {} reduction rules",
+                    catalog.len(),
+                    variant_counts.values().sum::<usize>(),
+                    num_reductions,
+                ))
+            );
+            if expanded {
+                if selected.is_empty() {
+                    text.push_str("No matching problem types.\n");
+                } else if verbose {
+                    text.push_str(&format_table(&columns, &rows, &color_fns));
+                    text.push_str("\n* = default variant\n");
+                } else {
+                    let compact_rows = selected
+                        .iter()
+                        .map(|problem| {
+                            let mut aliases = problem.aliases.to_vec();
+                            if let Some(extra) = variant_aliases.get(problem.canonical_name) {
+                                for alias in extra {
+                                    if !aliases
+                                        .iter()
+                                        .any(|known| known.eq_ignore_ascii_case(alias))
+                                    {
+                                        aliases.push(alias);
+                                    }
+                                }
                             }
-                        }
-                    }
-                    vec![
-                        problem.canonical_name.to_string(),
-                        aliases.join(", "),
-                        problem.category.to_string(),
-                        variant_counts
-                            .get(problem.canonical_name)
-                            .copied()
-                            .unwrap_or_default()
-                            .to_string(),
-                    ]
-                })
-                .collect::<Vec<_>>();
-            text.push_str(&format_table(
-                &[
-                    ("Problem", Align::Left, 7),
-                    ("Aliases", Align::Left, 7),
-                    ("Category", Align::Left, 8),
-                    ("Variants", Align::Right, 8),
-                ],
-                &compact_rows,
-                &[Some(crate::output::fmt_problem_name), None, None, None],
-            ));
-        }
-        text.push_str("\nUse `pred show <problem>` for fields, variants, and reductions.\n");
-    } else {
-        let category_rows = category_counts
-            .iter()
-            .map(|(name, count)| vec![name.to_string(), count.to_string()])
-            .collect::<Vec<_>>();
-        text.push_str(&format_table(
-            &[("Category", Align::Left, 8), ("Problems", Align::Right, 8)],
-            &category_rows,
-            &[None, None],
-        ));
-        text.push_str(
-            "\nSearch with `pred list <query>`, browse a category with `pred list --category <name>`, or use `pred list --all`.\n",
-        );
-    }
-
-    let json = serde_json::json!({
-        "num_types": selected.len(),
-        "num_reductions": num_reductions,
-        "num_variant_nodes": rows_data.len(),
-        "variants": rows_data.iter().map(|r| {
-            serde_json::json!({
-                "name": r.display,
-                "aliases": r.aliases,
-                "default": r.is_default,
-                "rules": r.rules,
-                "complexity": r.complexity,
-                "category": r.category,
-            })
-        }).collect::<Vec<_>>(),
-    });
-
-    out.emit_with_default_name("pred_graph_list.json", &text, &json)
+                            vec![
+                                problem.canonical_name.to_string(),
+                                aliases.join(", "),
+                                problem.category.to_string(),
+                                variant_counts
+                                    .get(problem.canonical_name)
+                                    .copied()
+                                    .unwrap_or_default()
+                                    .to_string(),
+                            ]
+                        })
+                        .collect::<Vec<_>>();
+                    text.push_str(&format_table(
+                        &[
+                            ("Problem", Align::Left, 7),
+                            ("Aliases", Align::Left, 7),
+                            ("Category", Align::Left, 8),
+                            ("Variants", Align::Right, 8),
+                        ],
+                        &compact_rows,
+                        &[Some(crate::output::fmt_problem_name), None, None, None],
+                    ));
+                }
+                text.push_str(
+                    "\nUse `pred show <problem>` for fields, variants, and reductions.\n",
+                );
+            } else {
+                let category_rows = category_counts
+                    .iter()
+                    .map(|(name, count)| vec![name.to_string(), count.to_string()])
+                    .collect::<Vec<_>>();
+                text.push_str(&format_table(
+                    &[("Category", Align::Left, 8), ("Problems", Align::Right, 8)],
+                    &category_rows,
+                    &[None, None],
+                ));
+                text.push_str(
+                    "\nSearch with `pred list <query>`, browse a category with `pred list --category <name>`, or use `pred list --all`.\n",
+                );
+            }
+            text
+        },
+        || {
+            Ok(serde_json::json!({
+                "num_types": selected.len(),
+                "num_reductions": num_reductions,
+                "num_variant_nodes": rows_data.len(),
+                "variants": rows_data.iter().map(|r| {
+                    serde_json::json!({
+                        "name": r.display,
+                        "aliases": r.aliases,
+                        "default": r.is_default,
+                        "rules": r.rules,
+                        "complexity": r.complexity,
+                        "category": r.category,
+                    })
+                }).collect::<Vec<_>>(),
+            }))
+        },
+    )
 }
 
 pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputConfig) -> Result<()> {
@@ -259,12 +265,17 @@ pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputCon
     let num_registered = problemreductions::rules::registry::reduction_entries().len();
     let expanded = all || query.is_some() || verbose || out.json || out.output.is_some();
     if !expanded {
-        let text = format!(
-            "{}\n\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
-            crate::output::fmt_section(&format!("Registered reduction rules: {num_registered}"))
+        return out.emit(
+            || {
+                format!(
+                    "{}\n\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
+                    crate::output::fmt_section(&format!(
+                        "Registered reduction rules: {num_registered}"
+                    ))
+                )
+            },
+            || Ok(serde_json::json!({ "num_rules": num_registered, "rules": [] })),
         );
-        let json = serde_json::json!({ "num_rules": num_registered, "rules": [] });
-        return out.emit_with_default_name("pred_rules_list.json", &text, &json);
     }
 
     let graph = ReductionGraph::new();
@@ -356,45 +367,52 @@ pub fn list_rules(query: Option<&str>, all: bool, verbose: bool, out: &OutputCon
         None,
     ];
 
-    let mut text = format!(
-        "{}\n",
-        crate::output::fmt_section(&format!("Registered reduction rules: {}", rows_data.len()))
-    );
-    if expanded {
-        let compact_columns = if verbose {
-            columns
-        } else {
-            vec![("Source", Align::Left, 6), ("Target", Align::Left, 6)]
-        };
-        let compact_colors: Vec<Option<crate::output::CellFormatter>> = if verbose {
-            color_fns
-        } else {
-            vec![
-                Some(crate::output::fmt_problem_name),
-                Some(crate::output::fmt_problem_name),
-            ]
-        };
-        text.push('\n');
-        text.push_str(&format_table(&compact_columns, &rows, &compact_colors));
-        text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
-    } else {
-        text.push_str(
-            "\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
-        );
-    }
-
-    let json = serde_json::json!({
-        "num_rules": selected.len(),
-        "rules": selected.iter().map(|r| {
-            serde_json::json!({
-                "source": r.source,
-                "target": r.target,
-                "size_contract": r.size_contract,
-            })
-        }).collect::<Vec<_>>(),
-    });
-
-    out.emit_with_default_name("pred_rules_list.json", &text, &json)
+    out.emit(
+        || {
+            let mut text = format!(
+                "{}\n",
+                crate::output::fmt_section(&format!(
+                    "Registered reduction rules: {}",
+                    rows_data.len()
+                ))
+            );
+            if expanded {
+                let compact_columns = if verbose {
+                    columns
+                } else {
+                    vec![("Source", Align::Left, 6), ("Target", Align::Left, 6)]
+                };
+                let compact_colors: Vec<Option<crate::output::CellFormatter>> = if verbose {
+                    color_fns
+                } else {
+                    vec![
+                        Some(crate::output::fmt_problem_name),
+                        Some(crate::output::fmt_problem_name),
+                    ]
+                };
+                text.push('\n');
+                text.push_str(&format_table(&compact_columns, &rows, &compact_colors));
+                text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
+            } else {
+                text.push_str(
+                    "\nSearch with `pred list --rules <query>` or use `pred list --rules --all`. Add `--verbose` for size contracts.\n",
+                );
+            }
+            text
+        },
+        || {
+            Ok(serde_json::json!({
+                "num_rules": selected.len(),
+                "rules": selected.iter().map(|r| {
+                    serde_json::json!({
+                        "source": r.source,
+                        "target": r.target,
+                        "size_contract": r.size_contract,
+                    })
+                }).collect::<Vec<_>>(),
+            }))
+        },
+    )
 }
 
 pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
@@ -405,56 +423,9 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
     let default_variant = graph.default_variant_for(name);
     let is_default = default_variant.as_ref() == Some(variant);
-
-    let slash = variant_to_full_slash(variant);
-    let header = format!("{name}{slash}");
-    let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
-
-    // Show description from schema
     let schemas = collect_schemas();
     let schema = schemas.iter().find(|s| s.name == *name);
-    if let Some(s) = schema {
-        if !s.description.is_empty() {
-            text.push_str(&format!("  {}\n", s.description));
-        }
-    }
-
-    // Show variant info
-    if let Some(c) = graph.variant_complexity(name, variant) {
-        text.push_str(&format!(
-            "  Best Known Complexity: {}\n",
-            big_o_of(&Expr::parse(c))
-        ));
-    }
-
-    // Show fields from schema
-    if let Some(s) = schema {
-        text.push_str(&format!(
-            "\n{}\n",
-            crate::output::fmt_section(&format!("Fields ({}):", s.fields.len()))
-        ));
-        for field in &s.fields {
-            text.push_str(&format!("  {} ({})", field.name, field.type_name));
-            if !field.description.is_empty() {
-                text.push_str(&format!(" -- {}", field.description));
-            }
-            text.push('\n');
-        }
-    }
-
-    // Show the named fields available in concrete and symbolic size reports.
     let size_fields = graph.size_field_names(name);
-    if !size_fields.is_empty() {
-        text.push_str(&format!(
-            "\n{}\n",
-            crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))
-        ));
-        for f in &size_fields {
-            text.push_str(&format!("  {f}\n"));
-        }
-    }
-
-    // Show reductions filtered to this specific variant
     let outgoing: Vec<_> = graph
         .outgoing_reductions(name)
         .into_iter()
@@ -465,72 +436,107 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         .into_iter()
         .filter(|e| &e.target_variant == variant)
         .collect();
-
-    text.push_str(&format!(
-        "\n{}\n",
-        crate::output::fmt_section(&format!("Outgoing reductions ({}):", outgoing.len()))
-    ));
-    for e in &outgoing {
-        text.push_str(&format!(
-            "  {} {}",
-            crate::output::fmt_outgoing("\u{2192}"),
-            fmt_node(&graph, e.target_name, &e.target_variant),
-        ));
-        let size_parts = fmt_size_contract(&e.size_contract);
-        if !size_parts.is_empty() {
-            text.push_str(&format!("  ({})", size_parts.join(", ")));
-        }
-        text.push('\n');
-    }
-
-    text.push_str(&format!(
-        "\n{}\n",
-        crate::output::fmt_section(&format!("Incoming reductions ({}):", incoming.len()))
-    ));
-    for e in &incoming {
-        text.push_str(&format!(
-            "  {} {}",
-            fmt_node(&graph, e.source_name, &e.source_variant),
-            crate::output::fmt_outgoing("\u{2192}"),
-        ));
-        let size_parts = fmt_size_contract(&e.size_contract);
-        if !size_parts.is_empty() {
-            text.push_str(&format!("  ({})", size_parts.join(", ")));
-        }
-        text.push('\n');
-    }
-
-    let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
-        serde_json::json!({
-            "source": {"name": e.source_name, "variant": e.source_variant},
-            "target": {"name": e.target_name, "variant": e.target_variant},
-            "size_contract": size_contract_to_json(&e.size_contract),
-        })
-    };
-
     let complexity = graph.variant_complexity(name, variant).unwrap_or("");
-    let mut json = serde_json::json!({
-        "name": name,
-        "variant": variant,
-        "default": is_default,
-        "complexity": complexity,
-        "big_o": if complexity.is_empty() {
-            String::new()
-        } else {
-            big_o_of(&Expr::parse(complexity))
+    out.emit(
+        || {
+            let slash = variant_to_full_slash(variant);
+            let header = format!("{name}{slash}");
+            let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
+            if let Some(schema) = schema {
+                if !schema.description.is_empty() {
+                    text.push_str(&format!("  {}\n", schema.description));
+                }
+            }
+            if !complexity.is_empty() {
+                text.push_str(&format!(
+                    "  Best Known Complexity: {}\n",
+                    big_o_of(&Expr::parse(complexity))
+                ));
+            }
+            if let Some(schema) = schema {
+                text.push_str(&format!(
+                    "\n{}\n",
+                    crate::output::fmt_section(&format!("Fields ({}):", schema.fields.len()))
+                ));
+                for field in &schema.fields {
+                    text.push_str(&format!("  {} ({})", field.name, field.type_name));
+                    if !field.description.is_empty() {
+                        text.push_str(&format!(" -- {}", field.description));
+                    }
+                    text.push('\n');
+                }
+            }
+            if !size_fields.is_empty() {
+                text.push_str(&format!(
+                    "\n{}\n",
+                    crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))
+                ));
+                for field in &size_fields {
+                    text.push_str(&format!("  {field}\n"));
+                }
+            }
+            text.push_str(&format!(
+                "\n{}\n",
+                crate::output::fmt_section(&format!("Outgoing reductions ({}):", outgoing.len()))
+            ));
+            for edge in &outgoing {
+                text.push_str(&format!(
+                    "  {} {}",
+                    crate::output::fmt_outgoing("\u{2192}"),
+                    fmt_node(&graph, edge.target_name, &edge.target_variant),
+                ));
+                let size_parts = fmt_size_contract(&edge.size_contract);
+                if !size_parts.is_empty() {
+                    text.push_str(&format!("  ({})", size_parts.join(", ")));
+                }
+                text.push('\n');
+            }
+            text.push_str(&format!(
+                "\n{}\n",
+                crate::output::fmt_section(&format!("Incoming reductions ({}):", incoming.len()))
+            ));
+            for edge in &incoming {
+                text.push_str(&format!(
+                    "  {} {}",
+                    fmt_node(&graph, edge.source_name, &edge.source_variant),
+                    crate::output::fmt_outgoing("\u{2192}"),
+                ));
+                let size_parts = fmt_size_contract(&edge.size_contract);
+                if !size_parts.is_empty() {
+                    text.push_str(&format!("  ({})", size_parts.join(", ")));
+                }
+                text.push('\n');
+            }
+            text
         },
-        "size_fields": size_fields,
-        "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
-        "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
-    });
-    if let Some(s) = schema {
-        if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {
-            obj.insert("schema".to_string(), schema_val);
-        }
-    }
-
-    let default_name = format!("pred_show_{}.json", name);
-    out.emit_with_default_name(&default_name, &text, &json)
+        || {
+            let edge_to_json = |edge: &problemreductions::rules::ReductionEdgeInfo| {
+                serde_json::json!({
+                    "source": {"name": edge.source_name, "variant": edge.source_variant},
+                    "target": {"name": edge.target_name, "variant": edge.target_variant},
+                    "size_contract": size_contract_to_json(&edge.size_contract),
+                })
+            };
+            let mut json = serde_json::json!({
+                "name": name,
+                "variant": variant,
+                "default": is_default,
+                "complexity": complexity,
+                "big_o": if complexity.is_empty() {
+                    String::new()
+                } else {
+                    big_o_of(&Expr::parse(complexity))
+                },
+                "size_fields": size_fields,
+                "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
+                "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
+            });
+            if let Some(schema) = schema {
+                json["schema"] = serde_json::to_value(schema)?;
+            }
+            Ok(json)
+        },
+    )
 }
 
 /// Format an expression as Big O notation using the growth domain's canonical
@@ -1020,25 +1026,19 @@ fn path_symbolic(
         batch.paths = retain_selected(batch.paths, &flags);
     }
 
-    let json_output = out.output.is_some() || out.json;
-    let json = if json_output {
-        path_batch_json(graph, &batch, None)?
-    } else {
-        serde_json::Value::Null
-    };
-    let text = if json_output {
-        String::new()
-    } else {
-        render_paths_text(
-            graph,
-            &batch.paths,
-            src_name,
-            dst_name,
-            batch.truncated,
-            limit,
-        )
-    };
-    out.emit_with_default_name("", &text, &json)
+    out.emit(
+        || {
+            render_paths_text(
+                graph,
+                &batch.paths,
+                src_name,
+                dst_name,
+                batch.truncated,
+                limit,
+            )
+        },
+        || path_batch_json(graph, &batch, None),
+    )
 }
 
 pub(crate) struct PathBatch {
@@ -1293,49 +1293,40 @@ fn path_concrete(
         batch.paths = retain_selected(batch.paths, &flags);
         executed = retain_selected(executed, &flags);
     }
-    let json_output = out.output.is_some() || out.json;
-    let json = if json_output {
-        path_batch_json(graph, &batch, Some(&executed))?
-    } else {
-        serde_json::Value::Null
-    };
-    let text = if json_output {
-        String::new()
-    } else {
-        let mut text = format!(
-            "Executed {} paths from {src_name} to {dst_name}:\n",
-            batch.paths.len()
-        );
-        for (index, path) in executed.iter().enumerate() {
-            text.push_str(&format!("\n--- Path {} ---\n", index + 1));
-            text.push_str(&format_concrete_path_text(graph, path));
-        }
-        if batch.truncated {
-            text.push_str(path_truncation_note(limit));
-        }
-        text
-    };
-    out.emit_with_default_name("", &text, &json)
+    out.emit(
+        || {
+            let mut text = format!(
+                "Executed {} paths from {src_name} to {dst_name}:\n",
+                batch.paths.len()
+            );
+            for (index, path) in executed.iter().enumerate() {
+                text.push_str(&format!("\n--- Path {} ---\n", index + 1));
+                text.push_str(&format_concrete_path_text(graph, path));
+            }
+            if batch.truncated {
+                text.push_str(path_truncation_note(limit));
+            }
+            text
+        },
+        || path_batch_json(graph, &batch, Some(&executed)),
+    )
 }
 
 pub fn export(out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
 
-    let json_str = graph
-        .to_json_string()
-        .map_err(|e| anyhow::anyhow!("Failed to export: {}", e))?;
-    let json: serde_json::Value =
-        serde_json::from_str(&json_str).map_err(|e| anyhow::anyhow!("Failed to parse: {}", e))?;
-
-    let text = format!(
-        "Reduction graph: {} types, {} reductions, {} variant nodes\n\
-         Use -o to save as JSON.",
-        graph.num_types(),
-        graph.num_reductions(),
-        graph.num_variant_nodes(),
-    );
-
-    out.emit_with_default_name("reduction_graph.json", &text, &json)
+    out.emit(
+        || {
+            format!(
+                "Reduction graph: {} types, {} reductions, {} variant nodes\n\
+                 Use -o to save as JSON.",
+                graph.num_types(),
+                graph.num_reductions(),
+                graph.num_variant_nodes(),
+            )
+        },
+        || graph.to_json_value().map_err(anyhow::Error::from),
+    )
 }
 
 fn push_alias_part(parts: &mut Vec<String>, alias: &str) {
@@ -1377,39 +1368,39 @@ pub fn neighbors(
     // Build tree structure via BFS with parent tracking
     let tree = graph.k_neighbor_tree(&spec_name, &variant, max_hops, direction);
 
-    let root_label = fmt_node(&graph, &spec_name, &variant);
-
-    let header_label = fmt_node(&graph, &spec_name, &variant);
-    let mut text = format!(
-        "{} — {}-hop neighbors ({})\n\n",
-        header_label, max_hops, dir_label,
-    );
-
-    text.push_str(&root_label);
-    text.push('\n');
-    render_tree(&graph, &tree, &mut text, "");
-
-    text.push_str(&format!(
-        "\n{} reachable nodes in {} hops\n",
-        neighbors.len(),
-        max_hops,
-    ));
-
-    let json = serde_json::json!({
-        "source": spec_name,
-        "hops": max_hops,
-        "direction": direction_str,
-        "neighbors": neighbors.iter().map(|n| {
-            serde_json::json!({
-                "name": n.name,
-                "variant": n.variant,
-                "hops": n.hops,
-            })
-        }).collect::<Vec<_>>(),
-    });
-
-    let default_name = format!("pred_{}_{}_{}.json", direction_str, spec_name, max_hops);
-    out.emit_with_default_name(&default_name, &text, &json)
+    out.emit(
+        || {
+            let root_label = fmt_node(&graph, &spec_name, &variant);
+            let header_label = fmt_node(&graph, &spec_name, &variant);
+            let mut text = format!(
+                "{} — {}-hop neighbors ({})\n\n",
+                header_label, max_hops, dir_label,
+            );
+            text.push_str(&root_label);
+            text.push('\n');
+            render_tree(&graph, &tree, &mut text, "");
+            text.push_str(&format!(
+                "\n{} reachable nodes in {} hops\n",
+                neighbors.len(),
+                max_hops,
+            ));
+            text
+        },
+        || {
+            Ok(serde_json::json!({
+                "source": spec_name,
+                "hops": max_hops,
+                "direction": direction_str,
+                "neighbors": neighbors.iter().map(|n| {
+                    serde_json::json!({
+                        "name": n.name,
+                        "variant": n.variant,
+                        "hops": n.hops,
+                    })
+                }).collect::<Vec<_>>(),
+            }))
+        },
+    )
 }
 
 use problemreductions::rules::NeighborTree;

@@ -8,7 +8,7 @@
 //! model can represent arbitrarily large instances while still fitting the
 //! crate's `Vec<usize>` configuration interface.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use num_bigint::{BigUint, ToBigUint};
@@ -30,13 +30,6 @@ inventory::submit! {
             FieldInfo { name: "b", type_name: "BigUint", description: "b" },
             FieldInfo { name: "c", type_name: "BigUint", description: "c" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "QuadraticCongruences",
-        fields: &["bit_length_a", "bit_length_b", "bit_length_c"],
     }
 }
 
@@ -228,13 +221,33 @@ impl<'de> Deserialize<'de> for QuadraticCongruences {
 
 impl Problem for QuadraticCongruences {
     const NAME: &'static str = "QuadraticCongruences";
+    type Solution = BigUint;
     type Value = Or;
+
+    crate::problem_size![
+        ("bit_length_a", bit_length_a),
+        ("bit_length_b", bit_length_b),
+        ("bit_length_c", bit_length_c),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, x: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            if x.is_zero() || x >= self.c() {
+                return Ok(Or(false));
+            }
+
+            let satisfies = (x * x) % self.b() == self.a().clone();
+            Or(satisfies)
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for QuadraticCongruences {
+    fn dimensions(&self) -> Vec<usize> {
         let num_bits = self.witness_bit_length();
         if num_bits == 0 {
             Vec::new()
@@ -242,38 +255,26 @@ impl Problem for QuadraticCongruences {
             vec![2; num_bits]
         }
     }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
-        Ok({
-            let Some(x) = self.decode_witness(config) else {
-                return Ok(Or(false));
-            };
-
-            if x.is_zero() || x >= *self.c() {
-                return Ok(Or(false));
-            }
-
-            let satisfies = (&x * &x) % self.b() == self.a().clone();
-            Or(satisfies)
-        })
-    }
 }
 
 crate::declare_variants! {
     default QuadraticCongruences => "2^bit_length_c",
 }
 
+crate::register_brute_force! {
+    QuadraticCongruences decode |problem: &QuadraticCongruences, indices: Vec<usize>| problem.decode_witness(&indices).expect("enumerated quadratic-congruence bits are valid"),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let instance = QuadraticCongruences::new(4u32, 15u32, 10u32);
-    let optimal_config = instance
-        .encode_witness(&BigUint::from(2u32))
-        .expect("x=2 should be a valid canonical witness");
+    let optimal_config = BigUint::from(2u32);
 
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "quadratic_congruences",
         instance: Box::new(instance),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::rules::ReduceTo;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::MixedGraph;
 use crate::traits::Problem;
 
@@ -14,7 +14,7 @@ fn test_mixedchinesepostman_to_ilp_closed_loop() {
         vec![1, 1],
     );
     let direct = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source instance should have an optimal solution");
     assert!(source.evaluate(&direct).unwrap().0.is_some());
@@ -37,7 +37,9 @@ fn test_mixedchinesepostman_to_ilp_bf_vs_ilp() {
         vec![1, 1],
     );
 
-    let bf_value = BruteForce::new().solve(&source).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+
+    let bf_value = source.evaluate(&bf_value_solution).unwrap();
 
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()
@@ -61,7 +63,9 @@ fn test_mixedchinesepostman_to_ilp_weighted() {
         vec![3, 1],
     );
 
-    let bf_value = BruteForce::new().solve(&source).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+
+    let bf_value = source.evaluate(&bf_value_solution).unwrap();
 
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp_solution = ILPSolver::new()

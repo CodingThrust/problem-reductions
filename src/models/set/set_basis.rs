@@ -121,29 +121,34 @@ impl SetBasis {
     /// Check whether the configuration is a satisfying Set Basis solution.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        solution: &[Vec<bool>],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        if solution.len() != self.k
+            || solution
+                .iter()
+                .any(|subset| subset.len() != self.universe_size)
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "set-basis dimensions do not match the instance".into(),
+            ));
+        }
+        let basis = Self::decode_basis(solution);
+        Ok(self
+            .collection
+            .iter()
+            .all(|target| Self::can_represent_target(&basis, target, self.universe_size)))
     }
 
-    fn decode_basis(&self, config: &[usize]) -> Option<Vec<Vec<usize>>> {
-        let expected_len = self.k * self.universe_size;
-        if config.len() != expected_len || config.iter().any(|&value| value > 1) {
-            return None;
-        }
-
-        let mut basis = Vec::with_capacity(self.k);
-        for row in 0..self.k {
-            let mut subset = Vec::new();
-            let start = row * self.universe_size;
-            for element in 0..self.universe_size {
-                if config[start + element] == 1 {
-                    subset.push(element);
-                }
-            }
-            basis.push(subset);
-        }
-        Some(basis)
+    fn decode_basis(solution: &[Vec<bool>]) -> Vec<Vec<usize>> {
+        solution
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .enumerate()
+                    .filter_map(|(element, &selected)| selected.then_some(element))
+                    .collect()
+            })
+            .collect()
     }
 
     fn is_subset(candidate: &[usize], target_membership: &[bool]) -> bool {
@@ -174,27 +179,20 @@ impl SetBasis {
 
 impl Problem for SetBasis {
     const NAME: &'static str = "SetBasis";
+    type Solution = Vec<Vec<bool>>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.k * self.universe_size]
-    }
+    crate::problem_size![
+        ("universe_size", universe_size),
+        ("num_sets", num_sets),
+        ("basis_size", basis_size),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let Some(basis) = self.decode_basis(config) else {
-                    return Ok(crate::types::Or(false));
-                };
-
-                self.collection
-                    .iter()
-                    .all(|target| Self::can_represent_target(&basis, target, self.universe_size))
-            })
-        })
+        Ok(crate::types::Or(self.is_valid_solution(solution)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -202,8 +200,18 @@ impl Problem for SetBasis {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SetBasis {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.k * self.universe_size]
+    }
+}
+
 crate::declare_variants! {
     default SetBasis => "2^(basis_size * universe_size)" create SetBasisCreateSpec,
+}
+
+crate::register_brute_force! {
+    SetBasis decode |problem: &SetBasis, indices: Vec<usize>| if problem.universe_size() == 0 { vec![Vec::new(); problem.basis_size()] } else { indices.chunks(problem.universe_size()).map(crate::config::config_to_bits).collect() },
 }
 
 #[cfg(feature = "example-db")]
@@ -215,7 +223,11 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 1], vec![1, 2], vec![0, 2], vec![0, 1, 2]],
             3,
         )),
-        optimal_config: vec![0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![
+            vec![false, false, true, false],
+            vec![false, true, false, false],
+            vec![true, false, false, false]
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }

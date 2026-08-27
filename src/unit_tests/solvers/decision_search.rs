@@ -3,7 +3,6 @@ use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::types::{Max, Min};
-use crate::Solver;
 
 #[test]
 fn test_decision_search_min() {
@@ -26,7 +25,8 @@ fn test_decision_search_matches_brute_force() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
     let problem = MinimumVertexCover::new(graph, vec![1i64; 5]);
 
-    let brute_force_value = BruteForce::new().solve(&problem).unwrap();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    let brute_force_value = problem.evaluate(&solution).unwrap();
 
     assert_eq!(
         solve_via_decision(&problem, 0, 5).unwrap(),
@@ -66,8 +66,10 @@ fn test_decision_search_preserves_value_direction() {
     let min_problem = MinimumVertexCover::new(graph.clone(), vec![1i64; 3]);
     let max_problem = MaximumIndependentSet::new(graph, vec![1i64; 3]);
 
-    let min_value = BruteForce::new().solve(&min_problem).unwrap();
-    let max_value = BruteForce::new().solve(&max_problem).unwrap();
+    let min_solution = BruteForce::new().solve(&min_problem).unwrap().unwrap();
+    let max_solution = BruteForce::new().solve(&max_problem).unwrap().unwrap();
+    let min_value = min_problem.evaluate(&min_solution).unwrap();
+    let max_value = max_problem.evaluate(&max_solution).unwrap();
 
     assert_eq!(min_value, Min(Some(1)));
     assert_eq!(max_value, Max(Some(2)));

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -17,7 +18,7 @@ fn test_setpacking_to_qubo_closed_loop() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
-        assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
+        assert_eq!(extracted.iter().filter(|&&x| x).count(), 2);
     }
 }
 
@@ -35,7 +36,7 @@ fn test_setpacking_to_qubo_disjoint() {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
         // All 3 sets should be selected
-        assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
+        assert_eq!(extracted.iter().filter(|&&x| x).count(), 3);
     }
 }
 
@@ -52,7 +53,7 @@ fn test_setpacking_to_qubo_all_overlap() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert!(sp.evaluate(&extracted).unwrap().is_valid());
-        assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
+        assert_eq!(extracted.iter().filter(|&&x| x).count(), 1);
     }
 }
 

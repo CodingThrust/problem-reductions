@@ -93,7 +93,7 @@ fn test_ksatisfiability_to_register_sufficiency_extract_solution_uses_w_snapshot
     let extracted = reduction
         .extract_solution(&positions_from_order(&order, target.num_vertices()))
         .unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
 }
 
 #[test]
@@ -116,17 +116,16 @@ fn test_ksatisfiability_to_register_sufficiency_closed_loop_via_exact_solver() {
 
     let extracted = reduction.extract_solution(&register_schedule).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
 }
 
 #[test]
 fn test_ksatisfiability_to_register_sufficiency_unsatisfiable_instance() {
-    use crate::solvers::{BruteForce, Solver};
-    use crate::types::Or;
+    use crate::solvers::BruteForce;
 
     let source = contradictory_single_variable();
     // Verify the source is indeed unsatisfiable via brute force
-    assert_eq!(BruteForce::new().solve(&source).unwrap(), Or(false));
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
 
     // Verify the reduction produces a valid RS instance — we check that
     // the structure is correct (vertex/arc counts match Sethi layout) rather

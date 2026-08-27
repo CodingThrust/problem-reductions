@@ -12,6 +12,7 @@ use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use num_bigint::BigUint;
+use num_traits::{One, Zero};
 /// Result of reducing Factoring to CircuitSAT.
 ///
 /// This struct contains:
@@ -45,31 +46,38 @@ impl ReductionResult for ReductionFactoringToCircuit {
     /// and the next n bits are the second factor q.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let var_names = self.target.variable_names();
 
             // Build a map from variable name to its value
-            let var_map: std::collections::HashMap<&str, usize> = var_names
+            let var_map: std::collections::HashMap<&str, bool> = var_names
                 .iter()
                 .enumerate()
                 .map(|(i, name)| (name.as_str(), target_solution[i]))
                 .collect();
 
-            self.p_vars
-                .iter()
-                .chain(&self.q_vars)
-                .map(|name| {
-                    var_map.get(name.as_str()).copied().ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(format!(
-                            "target circuit does not contain factor variable {name}"
-                        ))
+            let decode = |names: &[String]| {
+                names
+                    .iter()
+                    .enumerate()
+                    .try_fold(BigUint::zero(), |value, (index, name)| {
+                        let bit = var_map.get(name.as_str()).copied().ok_or_else(|| {
+                            crate::rules::ExtractionError::invalid(format!(
+                                "target circuit does not contain factor variable {name}"
+                            ))
+                        })?;
+                        Ok::<BigUint, crate::rules::ExtractionError>(if bit {
+                            value + (BigUint::one() << index)
+                        } else {
+                            value
+                        })
                     })
-                })
-                .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
+            };
+            (decode(&self.p_vars)?, decode(&self.q_vars)?)
         })
     }
 }
@@ -290,12 +298,16 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, CircuitSAT>(
                 Factoring::new(3, 3, 35),
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1, 1],
-                    target_config: vec![
-                        1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0,
-                        1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 1,
-                        1, 1, 1, 1, 1, 1, 0, 0, 0, 0,
-                    ],
+                    source_config: serde_json::to_value((BigUint::from(5u32), BigUint::from(7u32)))
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::json!(vec![
+                        true, true, true, false, false, false, true, true, true, false, false,
+                        false, false, false, false, true, false, false, true, true, true, true,
+                        true, false, false, true, true, false, false, false, false, false, false,
+                        false, true, true, false, false, false, false, false, false, true, true,
+                        true, true, false, true, true, true, true, true, true, true, true, true,
+                        false, false, false, false,
+                    ]),
                 },
             )
         },

@@ -47,7 +47,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::SubgraphIsomorphism;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Host: K4 (complete graph on 4 vertices)
 /// let host = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]);
@@ -56,10 +56,10 @@ inventory::submit! {
 /// let problem = SubgraphIsomorphism::new(host, pattern);
 ///
 /// // Mapping [0, 1, 2] means pattern vertex 0->host 0, 1->1, 2->2
-/// assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+/// assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,15 +118,64 @@ impl SubgraphIsomorphism {
         &self,
         config: &[usize],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        let n_pattern = self.pattern_graph.num_vertices();
+        let n_host = self.host_graph.num_vertices();
+
+        if n_pattern > n_host {
+            return Ok(false);
+        }
+        if config.len() != n_pattern {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping length does not match the pattern graph".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex >= n_host) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping contains an out-of-range target vertex".into(),
+            ));
+        }
+        for i in 0..n_pattern {
+            for j in (i + 1)..n_pattern {
+                if config[i] == config[j] {
+                    return Ok(false);
+                }
+            }
+        }
+        for (u, v) in self.pattern_graph.edges() {
+            if !self.host_graph.has_edge(config[u], config[v]) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 }
 
 impl Problem for SubgraphIsomorphism {
     const NAME: &'static str = "SubgraphIsomorphism";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
+    crate::problem_size![
+        ("num_host_edges", num_host_edges),
+        ("num_host_vertices", num_host_vertices),
+        ("num_pattern_edges", num_pattern_edges),
+        ("num_pattern_vertices", num_pattern_vertices),
+    ];
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        crate::variant_params![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SubgraphIsomorphism {
+    fn dimensions(&self) -> Vec<usize> {
         let n_host = self.host_graph.num_vertices();
         let n_pattern = self.pattern_graph.num_vertices();
 
@@ -137,59 +186,14 @@ impl Problem for SubgraphIsomorphism {
             vec![n_host; n_pattern]
         }
     }
-
-    fn evaluate(
-        &self,
-        config: &[usize],
-    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let n_pattern = self.pattern_graph.num_vertices();
-                let n_host = self.host_graph.num_vertices();
-
-                // If the pattern has more vertices than the host, no injective mapping exists.
-                if n_pattern > n_host {
-                    return Ok(crate::types::Or(false));
-                }
-
-                // Config must have one entry per pattern vertex
-                if config.len() != n_pattern {
-                    return Ok(crate::types::Or(false));
-                }
-
-                // All values must be valid host vertex indices
-                if config.iter().any(|&v| v >= n_host) {
-                    return Ok(crate::types::Or(false));
-                }
-
-                // Check injectivity: all mapped host vertices must be distinct
-                for i in 0..n_pattern {
-                    for j in (i + 1)..n_pattern {
-                        if config[i] == config[j] {
-                            return Ok(crate::types::Or(false));
-                        }
-                    }
-                }
-
-                // Check edge preservation: every pattern edge must map to a host edge
-                for (u, v) in self.pattern_graph.edges() {
-                    if !self.host_graph.has_edge(config[u], config[v]) {
-                        return Ok(crate::types::Or(false));
-                    }
-                }
-
-                true
-            })
-        })
-    }
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
-    }
 }
 
 crate::declare_variants! {
     default SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
+}
+
+crate::register_brute_force! {
+    SubgraphIsomorphism,
 }
 
 #[cfg(feature = "example-db")]
@@ -202,7 +206,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
             SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
         )),
-        optimal_config: vec![0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

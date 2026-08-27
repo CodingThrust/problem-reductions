@@ -44,7 +44,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::ResourceConstrainedScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 tasks, 3 processors, 1 resource with bound 20, deadline 2
 /// let problem = ResourceConstrainedScheduling::new(
@@ -54,7 +54,7 @@ inventory::submit! {
 ///     2,
 /// ).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -175,19 +175,22 @@ impl<'de> Deserialize<'de> for ResourceConstrainedScheduling {
 
 impl Problem for ResourceConstrainedScheduling {
     const NAME: &'static str = "ResourceConstrainedScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("deadline", deadline),
+        ("num_resources", num_resources),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.deadline as usize; self.num_tasks()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
@@ -197,12 +200,15 @@ impl Problem for ResourceConstrainedScheduling {
 
                 // Check config length
                 if config.len() != n {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule length does not match the tasks".into(),
+                    ));
                 }
 
-                // Check all time slots are in range
-                if config.iter().any(|&slot| slot >= d) {
-                    return Ok(crate::types::Or(false));
+                if config.iter().any(|&start| start >= d) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule contains an out-of-range start time".into(),
+                    ));
                 }
 
                 // Check processor capacity and resource constraints at each time slot
@@ -247,8 +253,18 @@ impl Problem for ResourceConstrainedScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ResourceConstrainedScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.deadline as usize; self.num_tasks()]
+    }
+}
+
 crate::declare_variants! {
     default ResourceConstrainedScheduling => "deadline ^ num_tasks",
+}
+
+crate::register_brute_force! {
+    ResourceConstrainedScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -265,7 +281,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .expect("canonical resource-constrained-scheduling instance must be valid"),
         ),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

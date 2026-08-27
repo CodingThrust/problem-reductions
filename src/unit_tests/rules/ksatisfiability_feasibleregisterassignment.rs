@@ -72,7 +72,7 @@ fn test_ksatisfiability_to_feasible_register_assignment_extract_solution() {
 
     let extracted = reduction.extract_solution(&realization).unwrap();
 
-    assert_eq!(extracted, vec![1, 0]);
+    assert_eq!(extracted, vec![true, false]);
 }
 
 #[test]

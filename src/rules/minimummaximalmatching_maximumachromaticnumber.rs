@@ -44,14 +44,14 @@ impl ReductionResult for ReductionMMMToAchromatic {
     /// single pass over `source_edges`.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.source_edges
                 .iter()
-                .map(|&(u, v)| usize::from(target_solution[u] == target_solution[v]))
+                .map(|&(u, v)| target_solution[u] == target_solution[v])
                 .collect()
         })
     }
@@ -157,8 +157,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 0, 0],
-                    target_config: vec![1, 0, 3, 0, 2],
+                    source_config: serde_json::json!(vec![false, true, false, false]),
+                    target_config: serde_json::json!(vec![1, 0, 3, 0, 2]),
                 },
             )
         },

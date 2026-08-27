@@ -34,7 +34,7 @@ fn test_partition_to_acyclicpartition_rejects_malformed_target_configuration() {
 
     assert!(reduction
         .partition_to_acyclic
-        .extract_solution(&[])
+        .extract_solution(&vec![])
         .is_err());
 }
 
@@ -51,7 +51,7 @@ fn test_ksatisfiability_to_acyclicpartition_unsatisfiable() {
     // Source is trivially UNSAT: requires x=true AND x=false simultaneously.
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(&source).unwrap().is_none(),
+        solver.solve(&source).unwrap().is_none(),
         "source with contradictory clauses must be unsatisfiable"
     );
 

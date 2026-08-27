@@ -124,8 +124,8 @@ impl ReductionResult for ReductionEMDCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -226,8 +226,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.string_length();
         let k = self.alphabet_size();
-        let h = self.pointer_cost();
-        let h_f64 = i64_to_exact_f64(h).map_err(|error| {
+        let h = i64_to_exact_f64(self.pointer_cost()).map_err(|error| {
             crate::rules::ReductionError::inexact_float_conversion::<
                 MinimumExternalMacroDataCompression,
                 ILP<i64>,
@@ -238,7 +237,8 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // Handle empty string
         if n == 0 {
             let layout = VarLayout::new(0, k);
-            let target = ILP::new(0, vec![], vec![], ObjectiveSense::Minimize);
+            let target = ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?;
             return Ok(ReductionEMDCToILP {
                 target,
                 layout,
@@ -253,16 +253,16 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
 
         // 1. Dictionary one-hot: for each j, sum_c d[j][c] <= 1
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|c| (layout.d_var(j, c), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|c| (layout.d_var(j, c), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // 2. Dictionary linking: d[j][c] <= d_used[j] for all j, c
         for j in 0..n {
             for c in 0..k {
                 constraints.push(LinearConstraint::le(
-                    vec![(layout.d_var(j, c), 1.0), (layout.d_used_var(j), -1.0)],
-                    0.0,
+                    vec![(layout.d_var(j, c), 1), (layout.d_used_var(j), -1)],
+                    0,
                 ));
             }
         }
@@ -270,11 +270,8 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // 3. Dictionary contiguous: d_used[j+1] <= d_used[j] for j=0..n-2
         for j in 0..n.saturating_sub(1) {
             constraints.push(LinearConstraint::le(
-                vec![
-                    (layout.d_used_var(j + 1), 1.0),
-                    (layout.d_used_var(j), -1.0),
-                ],
-                0.0,
+                vec![(layout.d_used_var(j + 1), 1), (layout.d_used_var(j), -1)],
+                0,
             ));
         }
 
@@ -290,28 +287,28 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
         // At node n: sum of incoming = 1
 
         // Helper: get all terms for "segment flow" at (i, l)
-        // Returns the variable indices with coefficient 1.0
-        let segment_terms = |i: usize, l: usize| -> Vec<(usize, f64)> {
+        // Returns the variable indices with coefficient 1
+        let segment_terms = |i: usize, l: usize| -> Vec<(usize, i64)> {
             let mut terms = Vec::new();
             if l == 1 {
-                terms.push((layout.lit_var(i), 1.0));
+                terms.push((layout.lit_var(i), 1));
             }
             for &var in &layout.ptr_vars_for_segment(i, l) {
-                terms.push((var, 1.0));
+                terms.push((var, 1));
             }
             terms
         };
 
         // For each node, compute outgoing and incoming segment terms
         for node in 0..=n {
-            let mut all_terms: Vec<(usize, f64)> = Vec::new();
+            let mut all_terms: Vec<(usize, i64)> = Vec::new();
 
             if node == 0 {
                 // sum of outgoing(0, l) = 1
                 for l in 1..=n {
                     all_terms.extend(segment_terms(0, l));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 1.0));
+                constraints.push(LinearConstraint::eq(all_terms, 1));
             } else if node == n {
                 // sum of incoming(n) = 1
                 // incoming at node n: segments (j, l) where j + l = n
@@ -319,7 +316,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
                     let l = n - j;
                     all_terms.extend(segment_terms(j, l));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 1.0));
+                constraints.push(LinearConstraint::eq(all_terms, 1));
             } else {
                 // node 1..n-1: incoming = outgoing
                 // incoming: segments (j, l) where j + l = node
@@ -340,7 +337,7 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
                 for (var, coef) in outgoing {
                     all_terms.push((var, -coef));
                 }
-                constraints.push(LinearConstraint::eq(all_terms, 0.0));
+                constraints.push(LinearConstraint::eq(all_terms, 0));
             }
         }
 
@@ -352,11 +349,8 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
                 let symbol = s[i + offset];
                 // ptr[i][l][d_start] <= d[d_start + offset][symbol]
                 constraints.push(LinearConstraint::le(
-                    vec![
-                        (ptr_idx, 1.0),
-                        (layout.d_var(d_start + offset, symbol), -1.0),
-                    ],
-                    0.0,
+                    vec![(ptr_idx, 1), (layout.d_var(d_start + offset, symbol), -1)],
+                    0,
                 ));
             }
         }
@@ -376,10 +370,11 @@ impl ReduceTo<ILP<bool>> for MinimumExternalMacroDataCompression {
             objective.push((layout.lit_var(i), 1.0));
         }
         for (idx, _) in layout.ptr_triples.iter().enumerate() {
-            objective.push((layout.ptr_offset + idx, h_f64));
+            objective.push((layout.ptr_offset + idx, h));
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionEMDCToILP {
             target,
@@ -409,7 +404,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let k = 2;
 
             // Build target config: all zeros, then set lit[0]=1, lit[1]=1
-            let mut target_config = vec![0usize; layout.total_vars];
+            let mut target_config = vec![0_i64; layout.total_vars];
             target_config[layout.lit_var(0)] = 1;
             target_config[layout.lit_var(1)] = 1;
 
@@ -421,8 +416,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

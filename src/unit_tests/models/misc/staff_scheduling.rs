@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -38,7 +39,7 @@ fn test_staff_scheduling_creation() {
     assert_eq!(problem.num_schedules(), 5);
     assert_eq!(problem.requirements(), &[2, 2, 2, 3, 3, 2, 1]);
     assert_eq!(problem.num_workers(), 4);
-    assert_eq!(problem.dims(), vec![5; 5]);
+    assert_eq!(problem.dimensions(), vec![5; 5]);
 }
 
 #[test]
@@ -66,22 +67,25 @@ fn test_staff_scheduling_new_panics_on_wrong_active_period_count() {
 #[test]
 fn test_staff_scheduling_evaluate_feasible_issue_example() {
     let problem = issue_example_problem();
-    assert!(problem.evaluate(&[1, 1, 1, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![1, 1, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_rejects_invalid_configs() {
     let problem = issue_example_problem();
-    assert!(!problem.evaluate(&[1, 1, 1, 1]).unwrap());
-    assert!(!problem.evaluate(&[5, 0, 0, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1]).unwrap());
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 4]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 1, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(!problem.evaluate(&vec![5, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0, 4]).unwrap());
 }
 
 #[test]
 fn test_staff_scheduling_bruteforce_solver_finds_solution() {
     let problem = issue_example_problem();
-    let solution = BruteForce::new().find_witness(&problem).unwrap();
+    let solution = BruteForce::new().solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
@@ -90,7 +94,7 @@ fn test_staff_scheduling_bruteforce_solver_finds_solution() {
 fn test_staff_scheduling_bruteforce_solver_detects_unsat() {
     let problem =
         StaffScheduling::new(1, vec![vec![true, false], vec![false, true]], vec![2, 2], 1);
-    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]

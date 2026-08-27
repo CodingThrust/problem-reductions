@@ -24,9 +24,7 @@
 //! - Earlier conference version, RECOMB 2012, LNBI 7262, pp. 287--301.
 //!   <https://doi.org/10.1007/978-3-642-29627-7_31>
 
-use crate::registry::{
-    ConstructionError, CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension,
-};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Min, WeightElement};
@@ -48,13 +46,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Find a forest minimizing omitted-prize plus edge-cost plus omega times the number of tree components",
         fields: PrizeCollectingSteinerForestI64CreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "PrizeCollectingSteinerForest",
-        fields: &["num_vertices", "num_edges", "num_vertices_with_prize"],
     }
 }
 
@@ -81,7 +72,7 @@ inventory::submit! {
 /// use problemreductions::models::graph::PrizeCollectingSteinerForest;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::Min;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 ///
 /// // Path 0 - 1 - 2 with edge costs c(0,1)=1, c(1,2)=6 and vertex prizes
 /// // p = (5, 2, 5), beta = 1, omega = 2.
@@ -90,7 +81,8 @@ inventory::submit! {
 ///     PrizeCollectingSteinerForest::<_, i64>::new(graph, vec![5, 2, 5], vec![1, 6], 1, 2).unwrap();
 /// // V_F = {0,1,2}, E_F = {(0,1)} gives two components {0,1} and {2}:
 /// // objective = 0 + 1 + 2*2 = 5.
-/// assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(Some(5)));
+/// let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(5)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct PrizeCollectingSteinerForest<G, W> {
@@ -295,8 +287,8 @@ impl<G: Graph, W: WeightElement> PrizeCollectingSteinerForest<G, W> {
 
     /// Whether this configuration is a feasible forest (selected edges only
     /// touch selected vertices and induce an acyclic subgraph).
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        forest_components(&self.graph, config).is_some()
+    pub fn is_valid_solution(&self, solution: &(Vec<bool>, Vec<bool>)) -> bool {
+        forest_components(&self.graph, &solution.0, &solution.1).is_some()
     }
 }
 
@@ -306,20 +298,31 @@ where
     W: WeightElement + VariantParam,
 {
     const NAME: &'static str = "PrizeCollectingSteinerForest";
+    type Solution = (Vec<bool>, Vec<bool>);
     type Value = Min<W::Sum>;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+        ("num_vertices_with_prize", num_vertices_with_prize),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices() + self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        let (vertices, edges) = solution;
+        if vertices.len() != self.graph.num_vertices() || edges.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "Steiner forest selection dimensions do not match the graph".into(),
+            ));
+        }
         Ok({
-            let n = self.graph.num_vertices();
-            let kappa = match forest_components(&self.graph, config) {
+            let kappa = match forest_components(&self.graph, vertices, edges) {
                 Some(kappa) => kappa,
                 None => return Ok(Min(None)),
             };
@@ -330,7 +333,7 @@ where
             //
             let mut omitted_prizes = W::Sum::zero();
             for (v, prize) in self.vertex_prizes.iter().enumerate() {
-                if config[v] == 0 {
+                if !vertices[v] {
                     omitted_prizes = W::checked_add_to_sum(
                         omitted_prizes,
                         prize.to_sum(),
@@ -346,7 +349,7 @@ where
 
             let mut edge_term = W::Sum::zero();
             for (i, cost) in self.edge_costs.iter().enumerate() {
-                if config[n + i] == 1 {
+                if edges[i] {
                     edge_term = W::checked_add_to_sum(
                         edge_term,
                         cost.to_sum(),
@@ -381,27 +384,37 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for PrizeCollectingSteinerForest<G, W>
+where
+    G: Graph + VariantParam,
+    W: WeightElement + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices() + self.graph.num_edges()]
+    }
+}
+
 /// Validate a `(V_F, E_F)` configuration and, if feasible, return the number of
 /// tree components `kappa(F)` among the selected vertices. Feasible means every
 /// selected edge is incident only to selected vertices and the selected
 /// subgraph is acyclic. Returns `None` for any infeasible configuration.
-fn forest_components<G: Graph>(graph: &G, config: &[usize]) -> Option<usize> {
+fn forest_components<G: Graph>(
+    graph: &G,
+    selected_vertices: &[bool],
+    selected_edges: &[bool],
+) -> Option<usize> {
     let n = graph.num_vertices();
     let m = graph.num_edges();
-    if config.len() != n + m {
+    if selected_vertices.len() != n || selected_edges.len() != m {
         return None;
     }
     let edges = graph.edges();
     let mut adj: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
     for (i, &(u, v)) in edges.iter().enumerate() {
-        let y_e = config[n + i];
-        if y_e == 0 {
+        if !selected_edges[i] {
             continue;
         }
-        if y_e != 1 {
-            return None;
-        }
-        if config[u] != 1 || config[v] != 1 {
+        if !selected_vertices[u] || !selected_vertices[v] {
             return None;
         }
         adj[u].push((v, i));
@@ -410,7 +423,7 @@ fn forest_components<G: Graph>(graph: &G, config: &[usize]) -> Option<usize> {
     let mut visited = vec![false; n];
     let mut kappa: usize = 0;
     for start in 0..n {
-        if config[start] != 1 || visited[start] {
+        if !selected_vertices[start] || visited[start] {
             continue;
         }
         kappa += 1;
@@ -440,6 +453,11 @@ crate::declare_variants! {
     PrizeCollectingSteinerForest<SimpleGraph, f64> => "2^(num_vertices + num_edges)" create PrizeCollectingSteinerForestF64CreateSpec,
 }
 
+crate::register_brute_force! {
+    PrizeCollectingSteinerForest<SimpleGraph, i64> decode |problem: &PrizeCollectingSteinerForest<SimpleGraph, i64>, indices: Vec<usize>| { let split = problem.num_vertices(); (crate::config::config_to_bits(&indices[..split]), crate::config::config_to_bits(&indices[split..])) },
+    PrizeCollectingSteinerForest<SimpleGraph, f64> decode |problem: &PrizeCollectingSteinerForest<SimpleGraph, f64>, indices: Vec<usize>| { let split = problem.num_vertices(); (crate::config::config_to_bits(&indices[..split]), crate::config::config_to_bits(&indices[split..])) },
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     // Issue #1026 canonical instance: path 0 - 1 - 2 with edge costs
@@ -447,7 +465,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Optimum: V_F = {0,1,2}, E_F = {(0,1)} (two components {0,1} and {2}),
     // objective = 0 + 1 + 2*2 = 5.
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "prize_collecting_steiner_forest_simplegraph_i64",
+        id: "prize_collecting_steiner_forest_simplegraph",
         instance: Box::new(
             PrizeCollectingSteinerForest::<SimpleGraph, i64>::new(
                 SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
@@ -458,8 +476,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .unwrap(),
         ),
-        // 3 vertex bits + 2 edge bits = 5-bit configuration.
-        optimal_config: vec![1, 1, 1, 1, 0],
+        optimal_config: serde_json::json!((vec![true, true, true], vec![true, false])),
         optimal_value: serde_json::json!(5),
     }]
 }

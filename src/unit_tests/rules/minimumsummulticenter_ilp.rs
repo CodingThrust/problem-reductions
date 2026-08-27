@@ -18,15 +18,15 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = n + n^2 = 3 + 9 = 12
-    assert_eq!(ilp.num_vars, 12, "n + n^2 variables");
+    assert_eq!(ilp.num_vars(), 12, "n + n^2 variables");
     // num_constraints = 1 (cardinality) + n (assignment) + n^2 (capacity)
     //                 = 1 + 3 + 9 = 13
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         13,
         "cardinality + assignment + capacity constraints"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -46,10 +46,7 @@ fn test_minimumsummulticenter_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have a solution");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have a solution");
     let bf_cost = problem.evaluate(&bf_witness).unwrap().unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -81,11 +78,12 @@ fn test_minimumsummulticenter_to_ilp_respects_weighted_shortest_paths() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have a solution");
-    assert_eq!(bf_witness, vec![0, 0, 1], "center 2 is uniquely optimal");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have a solution");
+    assert_eq!(
+        bf_witness,
+        vec![false, false, true],
+        "center 2 is uniquely optimal"
+    );
     assert_eq!(problem.evaluate(&bf_witness).unwrap().unwrap(), 20);
 
     let reduction: ReductionMSMCToILP =
@@ -123,7 +121,7 @@ fn test_solution_extraction() {
         0, 1, 0, // y_{2,0}, y_{2,1}, y_{2,2}
     ];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap().unwrap(), 2);
 }
 
@@ -135,14 +133,14 @@ fn test_minimumsummulticenter_to_ilp_trivial() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_vars = 1 + 1 = 2
-    assert_eq!(ilp.num_vars, 2);
+    assert_eq!(ilp.num_vars(), 2);
     // num_constraints = 1 (cardinality) + 1 (assignment) + 1 (capacity) = 3
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(extracted.len(), 1);
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
     assert_eq!(problem.evaluate(&extracted).unwrap().unwrap(), 0);
 }

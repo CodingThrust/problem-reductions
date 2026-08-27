@@ -331,17 +331,33 @@ impl StackerCrane {
 
 impl Problem for StackerCrane {
     const NAME: &'static str = "StackerCrane";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_arcs", num_arcs),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_arcs(); self.num_arcs()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc ordering length does not match the required arcs".into(),
+            ));
+        }
+        if config.iter().any(|&arc| arc >= self.num_arcs()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc ordering contains an out-of-range arc".into(),
+            ));
+        }
         Ok({
             match self.closed_walk_length(config) {
                 Some(total) => Min(Some(total)),
@@ -351,8 +367,18 @@ impl Problem for StackerCrane {
     }
 }
 
+impl crate::solvers::BruteForceProblem for StackerCrane {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_arcs(); self.num_arcs()]
+    }
+}
+
 crate::declare_variants! {
     default StackerCrane => "num_vertices^2 * 2^num_arcs" create StackerCraneCreateSpec,
+}
+
+crate::register_brute_force! {
+    StackerCrane,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -389,7 +415,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![3, 4, 2, 5, 3],
             vec![2, 1, 3, 2, 1, 4, 3],
         )),
-        optimal_config: vec![0, 2, 1, 4, 3],
+        optimal_config: serde_json::json!(vec![0, 2, 1, 4, 3]),
         optimal_value: serde_json::json!(20),
     }]
 }

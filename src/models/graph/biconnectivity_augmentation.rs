@@ -188,9 +188,9 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
 
     fn augmented_graph(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<Option<SimpleGraph>, crate::traits::EvaluationError> {
-        if config.len() != self.num_potential_edges() || config.iter().any(|&value| value >= 2) {
+        if config.len() != self.num_potential_edges() {
             return Ok(None);
         }
 
@@ -202,7 +202,7 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
         }
 
         for (selected, &(u, v, ref weight)) in config.iter().zip(&self.potential_weights) {
-            if *selected == 1 {
+            if *selected {
                 total = W::checked_add_to_sum(
                     total,
                     weight.to_sum(),
@@ -228,26 +228,44 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "BiconnectivityAugmentation";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_potential_edges", num_potential_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_potential_edges()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_potential_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the candidate edges".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 self.augmented_graph(config)?
                     .is_some_and(|graph| is_biconnected(&graph))
             })
         })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for BiconnectivityAugmentation<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_potential_edges()]
     }
 }
 
@@ -326,6 +344,10 @@ crate::declare_variants! {
     default BiconnectivityAugmentation<SimpleGraph, i64> => "2^num_potential_edges" create BiconnectivityAugmentationCreateSpec,
 }
 
+crate::register_brute_force! {
+    BiconnectivityAugmentation<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -345,7 +367,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             4,
         )),
-        optimal_config: vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![
+            true, false, false, true, false, false, true, false, true
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }

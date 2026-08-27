@@ -40,14 +40,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::PartitionIntoTriangles;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Triangle graph: 3 vertices forming a single triangle
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 /// let problem = PartitionIntoTriangles::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -92,20 +92,18 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoTriangles";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let q = self.graph.num_vertices() / 3;
-        vec![q; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
@@ -114,12 +112,16 @@ where
 
                 // Check config length
                 if config.len() != n {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "partition assignment length does not match the graph vertices".into(),
+                    ));
                 }
 
                 // Check all values are in range [0, q)
                 if config.iter().any(|&c| c >= q) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "partition assignment contains an out-of-range group".into(),
+                    ));
                 }
 
                 // Count vertices per group
@@ -162,8 +164,22 @@ where
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for PartitionIntoTriangles<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let q = self.graph.num_vertices() / 3;
+        vec![q; self.graph.num_vertices()]
+    }
+}
+
 crate::declare_variants! {
     default PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    PartitionIntoTriangles<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -174,7 +190,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
         ))),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

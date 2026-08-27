@@ -751,7 +751,12 @@ fn test_evaluate() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1,0,1,0"])
+        .args([
+            "evaluate",
+            tmp.to_str().unwrap(),
+            "--config",
+            "[true,false,true,false]",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -777,7 +782,12 @@ fn test_evaluate_sat() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "1,1,0"])
+        .args([
+            "evaluate",
+            tmp.to_str().unwrap(),
+            "--config",
+            "[true,true,false]",
+        ])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -797,7 +807,7 @@ fn test_evaluate_consecutive_block_minimization_rejects_ragged_matrix() {
     std::fs::write(&tmp, problem_json).unwrap();
 
     let output = pred()
-        .args(["evaluate", tmp.to_str().unwrap(), "--config", "0,1"])
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "[0,1]"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -2666,7 +2676,7 @@ fn test_create_then_evaluate() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0,1,0",
+            "[true,false,true,false]",
         ])
         .output()
         .unwrap();
@@ -5168,7 +5178,7 @@ fn test_evaluate_wrong_config_length() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0",
+            "[true,false]",
         ])
         .output()
         .unwrap();
@@ -5203,7 +5213,7 @@ fn test_evaluate_json_output() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "1,0,1",
+            "[true,false,true]",
         ])
         .output()
         .unwrap();
@@ -6140,7 +6150,7 @@ fn test_create_multiple_choice_branching_pipe_to_solve() {
 
 #[test]
 fn test_create_pipe_to_evaluate() {
-    // pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
+    // pred create MIS --graph 0-1,1-2 | pred evaluate - --config '[true,false,true]'
     let create_out = pred()
         .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
@@ -6153,7 +6163,7 @@ fn test_create_pipe_to_evaluate() {
 
     use std::io::Write;
     let mut child = pred()
-        .args(["evaluate", "-", "--config", "1,0,1"])
+        .args(["evaluate", "-", "--config", "[true,false,true]"])
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
@@ -7694,7 +7704,7 @@ fn test_evaluate_multiprocessor_scheduling_rejects_zero_processors_json() {
             "evaluate",
             problem_file.to_str().unwrap(),
             "--config",
-            "0,0",
+            "[0,0]",
         ])
         .output()
         .unwrap();
@@ -9347,7 +9357,7 @@ fn test_inspect_minimum_cardinality_key_reports_customized_capability() {
     std::fs::remove_file(&problem_file).ok();
 }
 
-/// Solve a bundle with brute-force and return `(target_config_csv, source_evaluation)`.
+/// Solve a bundle with brute-force and return `(target_solution_json, source_evaluation)`.
 ///
 /// Used by extract tests so they do not depend on the exact reduction path chosen
 /// (which differs between `--features mcp` and default builds).
@@ -9368,14 +9378,9 @@ fn extract_test_solve_bundle(bundle_file: &std::path::Path) -> (String, String) 
         String::from_utf8_lossy(&solve_out.stderr)
     );
     let json: serde_json::Value = serde_json::from_slice(&solve_out.stdout).unwrap();
-    let target_cfg: Vec<String> = json["intermediate"]["solution"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_u64().unwrap().to_string())
-        .collect();
+    let target_solution = json["intermediate"]["solution"].to_string();
     let source_eval = json["evaluation"].as_str().unwrap().to_string();
-    (target_cfg.join(","), source_eval)
+    (target_solution, source_eval)
 }
 
 #[test]
@@ -9445,26 +9450,19 @@ fn test_extract_roundtrip_mis_to_qubo() {
 
     // intermediate.solution must be exactly the target config we passed in
     // (extract echoes the input target config unchanged).
-    let expected_target: Vec<serde_json::Value> = target_cfg
-        .split(',')
-        .map(|s| serde_json::json!(s.parse::<u64>().unwrap()))
-        .collect();
-    assert_eq!(
-        json["intermediate"]["solution"].as_array().unwrap(),
-        &expected_target
-    );
+    let expected_target: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
+    assert_eq!(json["intermediate"]["solution"], expected_target);
 
     // Source config is over 4 MIS variables and must describe an independent set
     // whose size matches `expected_source_eval` (e.g. "Max(2)" -> 2 ones).
-    let source_sol: Vec<u64> = json["solution"]
+    let source_sol: Vec<bool> = json["solution"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|v| v.as_u64().unwrap())
+        .map(|v| v.as_bool().unwrap())
         .collect();
     assert_eq!(source_sol.len(), 4);
-    assert!(source_sol.iter().all(|b| *b == 0 || *b == 1));
-    let ones = source_sol.iter().filter(|b| **b == 1).count();
+    let ones = source_sol.iter().filter(|&&selected| selected).count();
     assert_eq!(
         expected_source_eval,
         format!("Max({ones})"),
@@ -9517,14 +9515,14 @@ fn test_extract_rejects_structurally_invalid_one_hot_config() {
             "extract",
             bundle_file.to_str().unwrap(),
             "--config",
-            "0,0,0,0,0,0,0,0,0",
+            "[false,false,false,false,false,false,false,false,false]",
         ])
         .output()
         .unwrap();
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("assignment slot 0 has no selected item"),
+        stderr.contains("tour position 0 does not select exactly one vertex"),
         "unexpected stderr: {stderr}"
     );
 
@@ -9554,7 +9552,7 @@ fn test_extract_rejects_plain_problem_file() {
             "extract",
             problem_file.to_str().unwrap(),
             "--config",
-            "0,1,0",
+            "[false,true,false]",
         ])
         .output()
         .unwrap();
@@ -9599,13 +9597,18 @@ fn test_extract_rejects_wrong_config_length() {
     );
 
     let extract_out = pred()
-        .args(["extract", bundle_file.to_str().unwrap(), "--config", "0,1"])
+        .args([
+            "extract",
+            bundle_file.to_str().unwrap(),
+            "--config",
+            "[false,true]",
+        ])
         .output()
         .unwrap();
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("Target config has 2 values"),
+        stderr.contains("solution has 2 variables, expected"),
         "unexpected stderr: {stderr}"
     );
 
@@ -9614,7 +9617,7 @@ fn test_extract_rejects_wrong_config_length() {
 }
 
 #[test]
-fn test_extract_rejects_out_of_range_config_value() {
+fn test_extract_rejects_non_boolean_solution_value() {
     let problem_file = std::env::temp_dir().join("pred_test_extract_range_in.json");
     let bundle_file = std::env::temp_dir().join("pred_test_extract_range_bundle.json");
 
@@ -9643,12 +9646,12 @@ fn test_extract_rejects_out_of_range_config_value() {
         &bundle_file,
     );
 
-    // Build a valid-length config from pred solve, then flip one entry to 9
-    // (always out of range for a binary QUBO regardless of path).
+    // Build a valid semantic solution from pred solve, then replace one Boolean
+    // entry with an integer.
     let (target_cfg, _) = extract_test_solve_bundle(&bundle_file);
-    let mut parts: Vec<String> = target_cfg.split(',').map(|s| s.to_string()).collect();
-    parts[0] = "9".to_string();
-    let bad_cfg = parts.join(",");
+    let mut bad_cfg: serde_json::Value = serde_json::from_str(&target_cfg).unwrap();
+    bad_cfg.as_array_mut().unwrap()[0] = serde_json::json!(9);
+    let bad_cfg = bad_cfg.to_string();
 
     let extract_out = pred()
         .args([
@@ -9662,7 +9665,7 @@ fn test_extract_rejects_out_of_range_config_value() {
     assert!(!extract_out.status.success());
     let stderr = String::from_utf8(extract_out.stderr).unwrap();
     assert!(
-        stderr.contains("out of range"),
+        stderr.contains("invalid solution JSON"),
         "unexpected stderr: {stderr}"
     );
 
@@ -9715,7 +9718,7 @@ fn test_extract_rejects_malformed_bundle_path_source_mismatch() {
             "extract",
             tampered_file.to_str().unwrap(),
             "--config",
-            "0,1,0",
+            "[false,true,false]",
         ])
         .output()
         .unwrap();

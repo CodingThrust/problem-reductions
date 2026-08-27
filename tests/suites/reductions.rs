@@ -7,6 +7,7 @@ use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP
 use problemreductions::models::graph::{MinimumCoveringByCliques, PartitionIntoCliques};
 use problemreductions::prelude::*;
 use problemreductions::rules::ReductionGraph;
+use problemreductions::solvers::BruteForceProblem as _;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::{Min, Or};
@@ -135,10 +136,10 @@ mod is_vc_reductions {
 
         // Solve IS, reduce to VC solution
         let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
-        let max_is = is_solutions[0].iter().sum::<usize>();
+        let max_is = is_solutions[0].iter().filter(|&&selected| selected).count();
 
         let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
-        let min_vc = vc_solutions[0].iter().sum::<usize>();
+        let min_vc = vc_solutions[0].iter().filter(|&&selected| selected).count();
 
         assert_eq!(max_is + min_vc, n);
     }
@@ -194,7 +195,7 @@ mod is_sp_reductions {
         let sp_solution = result.extract_solution(&is_solutions[0]).unwrap();
 
         // All sets can be packed (disjoint)
-        assert_eq!(sp_solution.iter().sum::<usize>(), 3);
+        assert_eq!(sp_solution.iter().filter(|&&selected| selected).count(), 3);
         assert!(sp_problem.evaluate(&sp_solution).unwrap().is_valid());
     }
 
@@ -222,8 +223,11 @@ mod is_sp_reductions {
 
         // Should match directly solving IS
         let direct_solutions = solver.find_all_witnesses(&original).unwrap();
-        let direct_max = direct_solutions[0].iter().sum::<usize>();
-        let reduced_max = is_solution.iter().sum::<usize>();
+        let direct_max = direct_solutions[0]
+            .iter()
+            .filter(|&&selected| selected)
+            .count();
+        let reduced_max = is_solution.iter().filter(|&&selected| selected).count();
 
         assert_eq!(direct_max, reduced_max);
     }
@@ -295,14 +299,9 @@ mod sg_qubo_reductions {
         // Extract QUBO solution back to SG
         let extracted = result.extract_solution(&qubo_solutions[0]).unwrap();
 
-        // Convert solutions to spins for energy computation
-        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let sg_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&sg_solutions[0]).unwrap();
-        let extracted_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&extracted).unwrap();
-
         // Should be among optimal SG solutions (or equivalent)
-        let sg_energy = sg.compute_energy(&sg_spins).unwrap();
-        let extracted_energy = sg.compute_energy(&extracted_spins).unwrap();
+        let sg_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
+        let extracted_energy = sg.compute_energy(&extracted).unwrap();
 
         // Energies should match for optimal solutions
         assert!((sg_energy - extracted_energy).abs() < 1e-10);
@@ -345,7 +344,7 @@ mod partition_into_cliques_covering_by_cliques_reductions {
         let target = reduction.target_problem();
 
         let target_solution = BruteForce::new()
-            .find_witness(target)
+            .solve(target)
             .unwrap()
             .expect("target should be solvable");
         let extracted = reduction.extract_solution(&target_solution).unwrap();
@@ -472,15 +471,9 @@ mod sg_maxcut_reductions {
         // Extract MaxCut solution back to SG
         let extracted = result.extract_solution(&maxcut_solutions[0]).unwrap();
 
-        // Convert solutions to spins for energy computation
-        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let direct_spins =
-            SpinGlass::<SimpleGraph, i64>::config_to_spins(&sg_solutions[0]).unwrap();
-        let extracted_spins = SpinGlass::<SimpleGraph, i64>::config_to_spins(&extracted).unwrap();
-
         // Should have same energy as directly solved SG
-        let direct_energy = sg.compute_energy(&direct_spins).unwrap();
-        let extracted_energy = sg.compute_energy(&extracted_spins).unwrap();
+        let direct_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
+        let extracted_energy = sg.compute_energy(&extracted).unwrap();
 
         assert_eq!(direct_energy, extracted_energy);
     }
@@ -521,7 +514,7 @@ mod topology_tests {
 
         // Vertices 0-1 are connected, 2-3 are connected
         // Max IS: {0, 2} or {0, 3} or {1, 2} or {1, 3} = size 2
-        assert_eq!(solutions[0].iter().sum::<usize>(), 2);
+        assert_eq!(solutions[0].iter().filter(|&&selected| selected).count(), 2);
     }
 }
 
@@ -591,7 +584,8 @@ mod qubo_reductions {
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_size: usize = chain.extract_solution(&solutions[0]).unwrap().iter().sum();
+        let our_is_solution: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
+        let our_is_size = our_is_solution.iter().filter(|&&selected| selected).count();
         assert_eq!(our_is_size, gt_is_size);
     }
 
@@ -676,7 +670,8 @@ mod qubo_reductions {
             .extract_solution(&solutions[0])
             .unwrap()
             .iter()
-            .sum();
+            .filter(|&&selected| selected)
+            .count();
         assert_eq!(our_selected, gt_selected);
     }
 
@@ -742,7 +737,13 @@ mod qubo_reductions {
         // Verify extracted solution matches ground truth assignment
         let gt_config = &data.qubo_optimal.configs[0];
         let our_config = reduction.extract_solution(&solutions[0]).unwrap();
-        assert_eq!(&our_config, gt_config);
+        assert_eq!(
+            our_config,
+            gt_config
+                .iter()
+                .map(|&value| value != 0)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[derive(Deserialize)]
@@ -756,8 +757,8 @@ mod qubo_reductions {
     struct ILPSource {
         num_variables: usize,
         objective: Vec<f64>,
-        constraints_lhs: Vec<Vec<f64>>,
-        constraints_rhs: Vec<f64>,
+        constraints_lhs: Vec<Vec<i64>>,
+        constraints_rhs: Vec<i64>,
         constraint_signs: Vec<i64>,
     }
 
@@ -774,10 +775,10 @@ mod qubo_reductions {
             .zip(data.source.constraints_rhs.iter())
             .zip(data.source.constraint_signs.iter())
             .map(|((row, &rhs), &sign)| {
-                let terms: Vec<(usize, f64)> = row
+                let terms: Vec<(usize, i64)> = row
                     .iter()
                     .enumerate()
-                    .filter(|(_, &c)| c.abs() > 1e-15)
+                    .filter(|(_, &c)| c != 0)
                     .map(|(i, &c)| (i, c))
                     .collect();
                 match sign {
@@ -805,7 +806,8 @@ mod qubo_reductions {
             constraints,
             objective,
             ObjectiveSense::Maximize,
-        );
+        )
+        .unwrap();
         let reduction = ReduceTo::<QUBO>::reduce_to(&ilp).expect("reduction should succeed");
         let qubo = reduction.target_problem();
 
@@ -823,7 +825,13 @@ mod qubo_reductions {
         // Optimal assignment should match ground truth
         let gt_config = &data.qubo_optimal.configs[0];
         let our_config = reduction.extract_solution(&solutions[0]).unwrap();
-        assert_eq!(&our_config, gt_config);
+        assert_eq!(
+            &our_config,
+            &gt_config
+                .iter()
+                .map(|&value| i64::try_from(value).unwrap())
+                .collect::<Vec<_>>()
+        );
     }
 
     #[derive(Deserialize)]
@@ -891,9 +899,9 @@ mod qubo_reductions {
         }
 
         // Optimal VC size should match ground truth
-        let vc_sol = chain.extract_solution(&solutions[0]).unwrap();
+        let vc_sol: Vec<bool> = chain.extract_solution(&solutions[0]).unwrap();
         let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_vc_size: usize = vc_sol.iter().sum();
+        let our_vc_size = vc_sol.iter().filter(|&&selected| selected).count();
         assert_eq!(our_vc_size, gt_vc_size);
     }
 }
@@ -973,7 +981,7 @@ mod end_to_end {
         // Solve directly
         let solver = BruteForce::new();
         let is_solutions = solver.find_all_witnesses(&is).unwrap();
-        let direct_size = is_solutions[0].iter().sum::<usize>();
+        let direct_size = is_solutions[0].iter().filter(|&&selected| selected).count();
 
         // Reduce to VC and solve
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&is)
@@ -981,7 +989,7 @@ mod end_to_end {
         let vc = to_vc.target_problem();
         let vc_solutions = solver.find_all_witnesses(vc).unwrap();
         let vc_extracted = to_vc.extract_solution(&vc_solutions[0]).unwrap();
-        let via_vc_size = vc_extracted.iter().sum::<usize>();
+        let via_vc_size = vc_extracted.iter().filter(|&&selected| selected).count();
 
         // Reduce to MaximumSetPacking and solve
         let to_sp =
@@ -989,7 +997,7 @@ mod end_to_end {
         let sp = to_sp.target_problem();
         let sp_solutions = solver.find_all_witnesses(sp).unwrap();
         let sp_extracted = to_sp.extract_solution(&sp_solutions[0]).unwrap();
-        let via_sp_size = sp_extracted.iter().sum::<usize>();
+        let via_sp_size = sp_extracted.iter().filter(|&&selected| selected).count();
 
         // All should give same optimal size
         assert_eq!(direct_size, via_vc_size);
@@ -1010,9 +1018,7 @@ mod end_to_end {
         let solver = BruteForce::new();
         let sg_solutions = solver.find_all_witnesses(&sg).unwrap();
 
-        let direct_spins =
-            SpinGlass::<SimpleGraph, i64>::config_to_spins(&sg_solutions[0]).unwrap();
-        let direct_energy = sg.compute_energy(&direct_spins).unwrap();
+        let direct_energy = sg.compute_energy(&sg_solutions[0]).unwrap();
 
         // Reduce to MaxCut and solve
         let to_maxcut =
@@ -1021,9 +1027,7 @@ mod end_to_end {
         let maxcut_solutions = solver.find_all_witnesses(maxcut).unwrap();
         let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]).unwrap();
 
-        let extracted_spins =
-            SpinGlass::<SimpleGraph, i64>::config_to_spins(&maxcut_extracted).unwrap();
-        let via_maxcut_energy = sg.compute_energy(&extracted_spins).unwrap();
+        let via_maxcut_energy = sg.compute_energy(&maxcut_extracted).unwrap();
 
         // Should give same optimal energy
         assert_eq!(direct_energy, via_maxcut_energy);

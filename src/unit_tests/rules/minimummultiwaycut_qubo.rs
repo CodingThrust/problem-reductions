@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -76,20 +77,18 @@ fn test_minimummultiwaycut_to_qubo_terminal_pinning() {
     for sol in &qubo_solutions {
         for (t_pos, &t_vertex) in terminals.iter().enumerate() {
             // Terminal vertex should be assigned to its own position
-            assert_eq!(
+            assert!(
                 sol[t_vertex * k + t_pos],
-                1,
-                "Terminal {} at position {} should be 1",
+                "Terminal {} at position {} should be true",
                 t_vertex,
                 t_pos
             );
             // And not assigned to any other position
             for s in 0..k {
                 if s != t_pos {
-                    assert_eq!(
-                        sol[t_vertex * k + s],
-                        0,
-                        "Terminal {} at position {} should be 0",
+                    assert!(
+                        !sol[t_vertex * k + s],
+                        "Terminal {} at position {} should be false",
                         t_vertex,
                         s
                     );

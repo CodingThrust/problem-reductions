@@ -28,24 +28,30 @@ fn test_integerknapsack_to_ilp_structure() {
 
     assert_eq!(ilp.num_vars(), 3);
     assert_eq!(ilp.num_constraints(), 4);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
-    assert_eq!(ilp.objective, vec![(0, 4.0), (1, 5.0), (2, 7.0)]);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
+    assert_eq!(ilp.objective(), vec![(0, 4.0), (1, 5.0), (2, 7.0)]);
 
-    let capacity = &ilp.constraints[0];
-    assert_eq!(capacity.cmp, Comparison::Le);
-    assert_eq!(capacity.rhs, 10.0);
-    assert_eq!(capacity.terms, vec![(0, 3.0), (1, 4.0), (2, 5.0)]);
+    let capacity = &ilp.constraints()[0];
+    assert_eq!(capacity.comparison(), Comparison::Le);
+    assert_eq!(capacity.rhs(), 10);
+    assert_eq!(capacity.terms(), vec![(0, 3), (1, 4), (2, 5)]);
 
-    let bounds: Vec<_> = ilp.constraints[1..]
+    let bounds: Vec<_> = ilp.constraints()[1..]
         .iter()
-        .map(|constraint| (constraint.terms.clone(), constraint.cmp, constraint.rhs))
+        .map(|constraint| {
+            (
+                constraint.terms().to_vec(),
+                constraint.comparison(),
+                constraint.rhs(),
+            )
+        })
         .collect();
     assert_eq!(
         bounds,
         vec![
-            (vec![(0, 1.0)], Comparison::Le, 3.0),
-            (vec![(1, 1.0)], Comparison::Le, 2.0),
-            (vec![(2, 1.0)], Comparison::Le, 2.0),
+            (vec![(0, 1)], Comparison::Le, 3),
+            (vec![(1, 1)], Comparison::Le, 2),
+            (vec![(2, 1)], Comparison::Le, 2),
         ]
     );
 }
@@ -74,7 +80,13 @@ fn test_integerknapsack_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.problem, "IntegerKnapsack");
     assert_eq!(example.target.problem, "ILP");
     assert_eq!(example.source.instance["capacity"], 10);
-    assert_eq!(example.target.instance["num_vars"], 3);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
     assert_eq!(
         example.target.instance["constraints"]
             .as_array()
@@ -83,6 +95,12 @@ fn test_integerknapsack_to_ilp_canonical_example_spec() {
         4
     );
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![0, 0, 2]);
-    assert_eq!(example.solutions[0].target_config, vec![0, 0, 2]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([0, 0, 2])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([0, 0, 2])
+    );
 }

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -26,7 +27,7 @@ fn test_partition_into_paths_basic() {
     assert_eq!(problem.num_vertices(), 9);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.num_groups(), 3);
-    assert_eq!(problem.dims(), vec![3; 9]);
+    assert_eq!(problem.dimensions(), vec![3; 9]);
 
     // Valid partition: {0,1,2}, {3,4,5}, {6,7,8}
     // Config: vertex i -> group i/3
@@ -51,7 +52,7 @@ fn test_partition_into_paths_no_solution() {
     assert_eq!(problem.num_groups(), 2);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none(), "Expected no solution for this graph");
 }
 
@@ -148,7 +149,10 @@ fn test_partition_into_paths_out_of_range_group() {
 
     // Group index out of range (q=2, so valid groups are 0 and 1)
     let config = vec![0, 0, 0, 2, 2, 2];
-    assert!(!problem.evaluate(&config).unwrap());
+    assert!(matches!(
+        problem.evaluate(&config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]

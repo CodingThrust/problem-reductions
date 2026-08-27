@@ -6,7 +6,7 @@
 //! each containing one element from W, X, and Y, with each triple summing
 //! to exactly B.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -27,13 +27,6 @@ inventory::submit! {
             FieldInfo { name: "sizes_y", type_name: "Vec<i64>", description: "Positive integer sizes for each element of Y" },
             FieldInfo { name: "bound", type_name: "i64", description: "Target sum B for each triple" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "Numerical3DimensionalMatching",
-        fields: &["num_groups", "bound"],
     }
 }
 
@@ -172,22 +165,29 @@ impl<'de> Deserialize<'de> for Numerical3DimensionalMatching {
 
 impl Problem for Numerical3DimensionalMatching {
     const NAME: &'static str = "Numerical3DimensionalMatching";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_size![("bound", bound), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_groups(); 2 * self.num_groups()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             Or({
                 let m = self.num_groups();
                 if config.len() != 2 * m {
-                    return Ok(Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "matching permutation length does not match the instance".into(),
+                    ));
+                }
+
+                if config.iter().any(|&index| index >= m) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "matching permutation contains an out-of-range index".into(),
+                    ));
                 }
 
                 // First m values: assignment of X-elements to W-elements (must be a permutation)
@@ -230,8 +230,18 @@ impl Problem for Numerical3DimensionalMatching {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Numerical3DimensionalMatching {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_groups(); 2 * self.num_groups()]
+    }
+}
+
 crate::declare_variants! {
     default Numerical3DimensionalMatching => "num_groups^(2 * num_groups)",
+}
+
+crate::register_brute_force! {
+    Numerical3DimensionalMatching,
 }
 
 #[cfg(feature = "example-db")]
@@ -244,7 +254,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![5, 7],
             15,
         )),
-        optimal_config: vec![0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

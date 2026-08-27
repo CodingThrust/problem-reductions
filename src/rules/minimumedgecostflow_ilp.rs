@@ -46,11 +46,11 @@ impl ReductionResult for ReductionMECFToILP {
     /// Extract flow solution: first m variables are the flow values.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_edges].to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_edges])
     }
 }
 
@@ -85,14 +85,14 @@ impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
         // 1. Linking: f_a - c(a) * y_a ≤ 0  (forces y_a = 1 when f_a > 0)
         for a in 0..m {
             constraints.push(LinearConstraint::le(
-                vec![(f(a), 1.0), (y(a), -exact_f64(self.capacities()[a])?)],
-                0.0,
+                vec![(f(a), 1), (y(a), -self.capacities()[a])],
+                0,
             ));
         }
 
         // 2. Binary bound: y_a ≤ 1
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(y(a), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(y(a), 1)], 1));
         }
 
         // 3. Flow conservation at non-terminal vertices
@@ -101,34 +101,31 @@ impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
                 continue;
             }
 
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for (a, &(u, v)) in arcs.iter().enumerate() {
                 if vertex == u {
-                    terms.push((f(a), -1.0)); // outgoing
+                    terms.push((f(a), -1)); // outgoing
                 } else if vertex == v {
-                    terms.push((f(a), 1.0)); // incoming
+                    terms.push((f(a), 1)); // incoming
                 }
             }
 
             if !terms.is_empty() {
-                constraints.push(LinearConstraint::eq(terms, 0.0));
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 
         // 4. Flow requirement: net flow into sink ≥ R
         let sink = self.sink();
-        let mut sink_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink_terms: Vec<(usize, i64)> = Vec::new();
         for (a, &(u, v)) in arcs.iter().enumerate() {
             if v == sink {
-                sink_terms.push((f(a), 1.0));
+                sink_terms.push((f(a), 1));
             } else if u == sink {
-                sink_terms.push((f(a), -1.0));
+                sink_terms.push((f(a), -1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink_terms,
-            exact_f64(self.required_flow())?,
-        ));
+        constraints.push(LinearConstraint::ge(sink_terms, self.required_flow()));
 
         // Objective: minimize Σ p(a) · y_a
         let objective: Vec<(usize, f64)> = (0..m)
@@ -136,7 +133,8 @@ impl ReduceTo<ILP<i64>> for MinimumEdgeCostFlow {
             .collect::<Result<_, crate::rules::ReductionError>>()?;
 
         Ok(ReductionMECFToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_edges: m,
         })
     }

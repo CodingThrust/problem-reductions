@@ -1,6 +1,7 @@
-use crate::config::DimsIterator;
 use crate::models::graph::{PartialFeedbackEdgeSet, RootedTreeArrangement};
+use crate::solvers::brute_force::CartesianIndices;
 use crate::solvers::registry::solver_capability_registry;
+use crate::solvers::BruteForceProblem as _;
 use crate::solvers::ExactProblemKey;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -12,7 +13,11 @@ impl CustomizedTestSolver {
         Self
     }
 
-    fn solve_dyn<P: Problem + 'static>(&self, problem: &P) -> Option<Vec<usize>> {
+    fn solve_dyn<P>(&self, problem: &P) -> Option<P::Solution>
+    where
+        P: Problem + 'static,
+        P::Solution: serde::de::DeserializeOwned,
+    {
         let key = ExactProblemKey::new(
             P::NAME,
             P::variant()
@@ -25,6 +30,10 @@ impl CustomizedTestSolver {
             .lookup(&key)
             .customized
             .and_then(|registration| (registration.solve_fn)(problem))
+            .map(|solution| {
+                serde_json::from_value(solution)
+                    .expect("customized solver returned the wrong witness representation")
+            })
     }
 }
 
@@ -50,12 +59,18 @@ fn exact_partial_feedback_edge_set_feasible(
     max_cycle_length: usize,
 ) -> bool {
     let problem = PartialFeedbackEdgeSet::new(graph.clone(), budget, max_cycle_length);
-    DimsIterator::new(problem.dims()).any(|config| problem.evaluate(&config).unwrap().0)
+    CartesianIndices::new(problem.dimensions())
+        .unwrap()
+        .any(|config| {
+            let solution = crate::config::config_to_bits(&config);
+            problem.evaluate(&solution).unwrap().0
+        })
 }
 
 fn exact_rooted_tree_arrangement_min_stretch(graph: &SimpleGraph) -> Option<i64> {
     let problem = RootedTreeArrangement::new(graph.clone(), i64::MAX);
-    DimsIterator::new(problem.dims())
+    CartesianIndices::new(problem.dimensions())
+        .unwrap()
         .filter_map(|config| problem.total_edge_stretch(&config).unwrap())
         .min()
 }
@@ -75,9 +90,7 @@ fn test_customized_solver_matches_bruteforce_for_minimum_cardinality_key() {
         4,
         vec![(vec![0], vec![1]), (vec![1, 2], vec![3])],
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let (Some(bw), Some(cw)) = (&brute, &custom) {
@@ -99,9 +112,7 @@ fn test_customized_solver_matches_bruteforce_for_additional_key() {
         vec![0, 1, 2],
         vec![],
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
@@ -119,9 +130,7 @@ fn test_customized_solver_matches_bruteforce_for_prime_attribute_name() {
         vec![(vec![0, 1], vec![2, 3]), (vec![2], vec![0])],
         0,
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
@@ -139,9 +148,7 @@ fn test_customized_solver_matches_bruteforce_for_bcnf_violation() {
         vec![(vec![0], vec![1]), (vec![2], vec![3])],
         vec![0, 1, 2, 3],
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
@@ -246,9 +253,7 @@ fn test_customized_solver_minimum_cardinality_key_finds_minimum() {
     // All 3 attributes needed as a key (no single-attribute key exists)
     let problem = crate::models::set::MinimumCardinalityKey::new(3, vec![(vec![0, 1], vec![2])]);
     // Both solvers should find a solution (the minimum cardinality key)
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
@@ -274,9 +279,7 @@ fn test_customized_solver_minimum_cardinality_key_optimality() {
             (vec![2, 4], vec![5]),
         ],
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(brute.is_some());
     assert!(custom.is_some());
@@ -351,9 +354,7 @@ fn test_customized_solver_matches_bruteforce_for_partial_feedback_edge_set() {
         1,
         3,
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
@@ -375,7 +376,7 @@ fn test_customized_solver_partial_feedback_edge_set_no_cycles() {
     let result = CustomizedTestSolver::new().solve_dyn(&problem);
     assert!(result.is_some());
     // All zeros: no edges removed
-    assert_eq!(result.unwrap(), vec![0, 0, 0]);
+    assert_eq!(result.unwrap(), vec![false, false, false]);
 }
 
 #[test]
@@ -431,9 +432,7 @@ fn test_customized_solver_matches_bruteforce_for_rooted_tree_arrangement() {
         crate::topology::SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         3,
     );
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
     assert_eq!(custom.is_some(), brute.is_some());
     if let Some(w) = &custom {
@@ -450,9 +449,7 @@ fn test_customized_solver_rooted_tree_arrangement_tight_bound() {
     );
     // With bound=1, we need total stretch=1, but path 0-1-2 needs at minimum 2
     let custom = CustomizedTestSolver::new().solve_dyn(&problem);
-    let brute = crate::solvers::BruteForce::new()
-        .find_witness(&problem)
-        .unwrap();
+    let brute = crate::solvers::BruteForce::new().solve(&problem).unwrap();
     assert_eq!(custom.is_some(), brute.is_some());
 }
 

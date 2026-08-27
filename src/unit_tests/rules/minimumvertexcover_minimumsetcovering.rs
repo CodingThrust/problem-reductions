@@ -67,8 +67,8 @@ fn test_vc_to_sc_weighted() {
     let sc_solutions = solver.find_all_witnesses(sc_problem).unwrap();
 
     // Both should select vertex 1 (weight 1)
-    assert_eq!(vc_solutions[0], vec![0, 1, 0]);
-    assert_eq!(sc_solutions[0], vec![0, 1, 0]);
+    assert_eq!(vc_solutions[0], vec![false, true, false]);
+    assert_eq!(sc_solutions[0], vec![false, true, false]);
 }
 
 #[test]
@@ -110,7 +110,7 @@ fn test_vc_to_sc_star_graph() {
     // Minimum cover should be just vertex 0
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&vc_problem).unwrap();
-    assert_eq!(solutions[0], vec![1, 0, 0, 0]);
+    assert_eq!(solutions[0], vec![true, false, false, false]);
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_jl_parity_vc_to_setcovering() {
     let result =
         ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -141,7 +141,7 @@ fn test_jl_parity_vc_to_setcovering() {
         "JL parity VC->SetCovering",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -162,7 +162,7 @@ fn test_jl_parity_rule_vc_to_setcovering() {
     let result =
         ReduceTo::<MinimumSetCovering<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -173,6 +173,6 @@ fn test_jl_parity_rule_vc_to_setcovering() {
         "JL parity rule VC->SetCovering",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

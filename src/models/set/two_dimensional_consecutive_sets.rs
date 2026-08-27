@@ -41,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::TwoDimensionalConsecutiveSets;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet: {0,1,2,3,4,5}
 /// // Subsets: {0,1,2}, {3,4,5}, {1,3}, {2,4}, {0,5}
@@ -52,7 +52,7 @@ inventory::submit! {
 ///
 /// // Partition: X0={0}, X1={1,5}, X2={2,3}, X3={4}
 /// // config[i] = group index of symbol i
-/// assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]).unwrap());
+/// assert!(problem.evaluate(&vec![0, 1, 2, 2, 3, 1]).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct TwoDimensionalConsecutiveSets {
@@ -153,23 +153,29 @@ impl TwoDimensionalConsecutiveSets {
 
 impl Problem for TwoDimensionalConsecutiveSets {
     const NAME: &'static str = "TwoDimensionalConsecutiveSets";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size; self.alphabet_size]
-    }
+    crate::problem_size![
+        ("alphabet_size", alphabet_size),
+        ("num_subsets", num_subsets),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.alphabet_size {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "group assignment length does not match the alphabet".into(),
+                    ));
                 }
                 if config.iter().any(|&v| v >= self.alphabet_size) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "group assignment contains an out-of-range group".into(),
+                    ));
                 }
 
                 // Empty labels do not create gaps in the partition order, so compress used labels first.
@@ -217,8 +223,18 @@ impl Problem for TwoDimensionalConsecutiveSets {
     }
 }
 
+impl crate::solvers::BruteForceProblem for TwoDimensionalConsecutiveSets {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size; self.alphabet_size]
+    }
+}
+
 crate::declare_variants! {
     default TwoDimensionalConsecutiveSets => "alphabet_size^alphabet_size",
+}
+
+crate::register_brute_force! {
+    TwoDimensionalConsecutiveSets,
 }
 
 #[cfg(feature = "example-db")]
@@ -235,7 +251,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![0, 5],
             ],
         )),
-        optimal_config: vec![0, 1, 2, 2, 3, 1],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 2, 3, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

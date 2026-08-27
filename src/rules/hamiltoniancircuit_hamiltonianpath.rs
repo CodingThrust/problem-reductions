@@ -38,8 +38,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToHamiltonianPath {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -152,9 +152,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 source,
                 SolutionPair {
                     // HC solution: visit vertices in order 0, 1, 2, 3
-                    source_config: vec![0, 1, 2, 3],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
                     // HP solution on G' (7 vertices): s=5, 0, 1, 2, 3, v'=4, t=6
-                    target_config: vec![5, 0, 1, 2, 3, 4, 6],
+                    target_config: serde_json::json!(vec![5, 0, 1, 2, 3, 4, 6]),
                 },
             )
         },

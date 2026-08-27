@@ -53,9 +53,9 @@ fn test_setsplitting_to_betweenness_issue_yes_instance_structure() {
     );
     assert_eq!(
         reduction
-            .extract_solution(&[8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
+            .extract_solution(&vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
             .unwrap(),
-        vec![1, 0, 1, 0, 0]
+        vec![true, false, true, false, false]
     );
 }
 
@@ -78,7 +78,7 @@ fn test_setsplitting_to_betweenness_issue_no_instance_is_unsat() {
     let reduction = ReduceTo::<Betweenness>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }
@@ -95,6 +95,12 @@ fn test_setsplitting_to_betweenness_canonical_example_spec() {
     assert_eq!(example.solutions.len(), 1);
 
     let pair = &example.solutions[0];
-    assert_eq!(pair.source_config, vec![1, 0, 1, 0, 0]);
-    assert_eq!(pair.target_config, vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5]);
+    assert_eq!(
+        pair.source_config,
+        serde_json::json!([true, false, true, false, false])
+    );
+    assert_eq!(
+        pair.target_config,
+        serde_json::json!([8, 2, 9, 0, 1, 4, 3, 6, 7, 5])
+    );
 }

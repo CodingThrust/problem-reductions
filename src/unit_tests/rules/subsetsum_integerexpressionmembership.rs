@@ -13,12 +13,12 @@ fn issue_example_source() -> SubsetSum {
     SubsetSum::new(vec![1u32, 5, 6, 8], 11u32)
 }
 
-fn issue_example_source_config() -> Vec<usize> {
-    vec![0, 1, 1, 0]
+fn issue_example_source_config() -> Vec<bool> {
+    vec![false, true, true, false]
 }
 
-fn issue_example_target_config() -> Vec<usize> {
-    vec![0, 1, 1, 0]
+fn issue_example_target_config() -> Vec<bool> {
+    vec![false, true, true, false]
 }
 
 #[test]
@@ -53,8 +53,10 @@ fn test_subsetsum_to_integerexpressionmembership_extract_solution_matches_choice
         issue_example_source_config()
     );
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 0, 1]).unwrap(),
-        vec![1, 0, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, false, true])
+            .unwrap(),
+        vec![true, false, false, true]
     );
 }
 
@@ -64,9 +66,9 @@ fn test_subsetsum_to_integerexpressionmembership_unsatisfiable_instance_stays_un
     let reduction = ReduceTo::<IntegerExpressionMembership>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert!(BruteForce::new().find_witness(&source).unwrap().is_none());
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }
@@ -86,11 +88,11 @@ fn test_subsetsum_to_integerexpressionmembership_canonical_example_spec() {
     assert!(!example.solutions.is_empty());
     assert_eq!(
         example.solutions[0].source_config,
-        issue_example_source_config()
+        serde_json::json!(issue_example_source_config())
     );
     assert_eq!(
         example.solutions[0].target_config,
-        issue_example_target_config()
+        serde_json::json!(issue_example_target_config())
     );
 
     let source: SubsetSum = serde_json::from_value(example.source.instance.clone())
@@ -99,12 +101,10 @@ fn test_subsetsum_to_integerexpressionmembership_canonical_example_spec() {
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
-    assert!(source
-        .evaluate(&example.solutions[0].source_config)
-        .unwrap()
-        .is_valid());
-    assert!(target
-        .evaluate(&example.solutions[0].target_config)
-        .unwrap()
-        .is_valid());
+    let source_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].source_config.clone()).unwrap();
+    let target_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].target_config.clone()).unwrap();
+    assert!(source.evaluate(&source_config).unwrap().is_valid());
+    assert!(target.evaluate(&target_config).unwrap().is_valid());
 }

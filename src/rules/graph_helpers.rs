@@ -9,7 +9,7 @@ use crate::topology::{Graph, SimpleGraph};
 /// Returns an error if the selection does not form a valid Hamiltonian cycle.
 pub(crate) fn edges_to_cycle_order<G: Graph>(
     graph: &G,
-    target_solution: &[usize],
+    target_solution: &[bool],
 ) -> crate::rules::ExtractionResult<Vec<usize>> {
     let n = graph.num_vertices();
     if n == 0 {
@@ -28,12 +28,7 @@ pub(crate) fn edges_to_cycle_order<G: Graph>(
     let mut adjacency = vec![Vec::new(); n];
     let mut selected_count = 0usize;
     for (idx, &selected) in target_solution.iter().enumerate() {
-        if selected > 1 {
-            return Err(crate::rules::ExtractionError::invalid(
-                "edge-selection values must be binary",
-            ));
-        }
-        if selected != 1 {
+        if !selected {
             continue;
         }
         let (u, v) = edges[idx];
@@ -107,6 +102,6 @@ mod tests {
     fn rejects_disjoint_selected_cycles() {
         let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)]);
 
-        assert!(edges_to_cycle_order(&graph, &[1; 6]).is_err());
+        assert!(edges_to_cycle_order(&graph, &[true; 6]).is_err());
     }
 }

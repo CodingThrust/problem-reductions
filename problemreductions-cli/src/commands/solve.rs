@@ -4,9 +4,7 @@ use crate::dispatch::{
 };
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
-use problemreductions::solvers::{
-    DeterministicSolveResult, SolveOutcome, SolverExecution, SolverRequest,
-};
+use problemreductions::solvers::{SolveOutcome, SolveResult, SolverExecution, SolverRequest};
 use std::path::Path;
 use std::time::Duration;
 
@@ -44,7 +42,7 @@ fn solver_text(solver: &SolverExecution) -> String {
     }
 }
 
-fn solve_result_text(problem: &str, result: &DeterministicSolveResult) -> String {
+fn solve_result_text(problem: &str, result: &SolveResult) -> String {
     let mut text = format!(
         "Problem: {}\nSolver: {}",
         problem,
@@ -56,21 +54,20 @@ fn solve_result_text(problem: &str, result: &DeterministicSolveResult) -> String
 
 fn append_outcome_text(text: &mut String, outcome: &SolveOutcome) {
     match outcome {
-        SolveOutcome::Optimal { config, evaluation } => {
+        SolveOutcome::Optimal {
+            solution,
+            evaluation,
+        } => {
             text.push_str("\nStatus: optimal");
-            if let Some(config) = config {
-                text.push_str(&format!("\nSolution: {:?}", config));
-            }
+            text.push_str(&format!("\nSolution: {:?}", solution));
             text.push_str(&format!("\nEvaluation: {evaluation}"));
         }
         SolveOutcome::Infeasible => text.push_str("\nStatus: infeasible"),
     }
 }
 
-fn plain_problem_output(
-    problem: &str,
-    result: &DeterministicSolveResult,
-) -> (String, serde_json::Value) {
+#[cfg(test)]
+fn plain_problem_output(problem: &str, result: &SolveResult) -> (String, serde_json::Value) {
     (
         solve_result_text(problem, result),
         solve_result_json(problem, result),
@@ -126,11 +123,11 @@ fn solve_problem(
 ) -> Result<()> {
     let problem = load_problem(problem_type, variant, data)?;
     let name = problem.problem_name();
-    let result = problem
-        .solve_deterministically(request)
-        .map_err(add_solver_hint)?;
-    let (text, json) = plain_problem_output(name, &result);
-    let emitted = out.emit_with_default_name("", &text, &json);
+    let result = problem.solve(request).map_err(add_solver_hint)?;
+    let emitted = out.emit(
+        || solve_result_text(name, &result),
+        || Ok(solve_result_json(name, &result)),
+    );
     if out.output.is_none() && crate::output::stderr_is_tty() {
         out.info("\nHint: use -o to save full solution details as JSON.");
     }
@@ -142,27 +139,37 @@ fn solve_bundle(bundle: ReductionBundle, request: SolverRequest, out: &OutputCon
     let replay = BundleReplay::prepare(&bundle)?;
     let result = replay.solve(request).map_err(add_solver_hint)?;
 
-    let solver_desc = format!(
-        "{} (via {})",
-        solver_text(&result.solver),
-        result.target_name
+    let emitted = out.emit(
+        || {
+            let solver_desc = format!(
+                "{} (via {})",
+                solver_text(&result.solver),
+                result.target_name
+            );
+            let mut text = format!("Problem: {}\nSolver: {}", result.source_name, solver_desc);
+            append_outcome_text(&mut text, &result.source_outcome);
+            text
+        },
+        || Ok(result.to_json()),
     );
-    let mut text = format!("Problem: {}\nSolver: {}", result.source_name, solver_desc);
-    append_outcome_text(&mut text, &result.source_outcome);
-    let json = result.to_json();
-
-    let result = out.emit_with_default_name("", &text, &json);
     if out.output.is_none() && crate::output::stderr_is_tty() {
         out.info("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
     }
-    result
+    emitted
 }
 
 fn add_solver_hint(err: anyhow::Error) -> anyhow::Error {
-    let message = err.to_string();
-    if message.starts_with("No ILP pipeline is registered for ")
-        || message.starts_with("No customized solver is registered for ")
-    {
+    let missing_capability = err
+        .downcast_ref::<problemreductions::solvers::SolveError>()
+        .is_some_and(|error| {
+            matches!(
+                error,
+                problemreductions::solvers::SolveError::MissingIlpCapability(_)
+                    | problemreductions::solvers::SolveError::MissingCustomizedCapability(_)
+            )
+        });
+    if missing_capability {
+        let message = err.to_string();
         anyhow::anyhow!(
             "{message}\n\nHint: try `--solver brute-force` for direct exhaustive search on small instances."
         )
@@ -178,18 +185,18 @@ mod tests {
     use crate::test_support::aggregate_bundle;
 
     #[test]
-    fn test_solve_value_only_problem_omits_solution() {
-        let result = DeterministicSolveResult {
+    fn test_solve_result_contains_solution() {
+        let result = SolveResult {
             solver: SolverExecution::BruteForce,
             outcome: SolveOutcome::Optimal {
-                config: None,
-                evaluation: "Sum(56)".to_string(),
+                solution: serde_json::json!([true, true, true]),
+                evaluation: "Max(14)".to_string(),
             },
         };
         let (text, json) = plain_problem_output("CliTestAggregateValueSource", &result);
-        assert!(text.contains("Evaluation: Sum(56)"), "{text}");
-        assert!(!text.contains("Solution:"), "{text}");
-        assert!(json.get("solution").is_none(), "{json}");
+        assert!(text.contains("Evaluation: Max(14)"), "{text}");
+        assert!(text.contains("Solution:"), "{text}");
+        assert_eq!(json["solution"], serde_json::json!([true, true, true]));
         assert_eq!(json["status"], "optimal");
     }
 

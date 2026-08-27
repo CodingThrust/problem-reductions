@@ -28,9 +28,10 @@
       #strong[trait Problem]\
       #text(size: 8pt, fill: secondary)[
         `const NAME: &str`\
+        `type Solution`\
         `type Value: Clone`\
-        `fn dims() -> Vec<usize>`\
-        `fn evaluate(&config) -> Value`\
+        `fn size() -> ProblemSize`\
+        `fn evaluate(&solution) -> Value`\
         `fn variant() -> Vec<(&str, &str)>`
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <problem>),
@@ -41,23 +42,35 @@
       #text(size: 8pt, fill: secondary)[
         `fn identity() -> Self`\
         `fn combine(self, other) -> Self`\
-        `fn supports_witnesses() -> bool`\
-        `fn contributes_to_witnesses(...)`
+        `fn is_absorbing(&self) -> bool`\
+        #strong[trait SolutionAggregate: Aggregate]\
+        `fn contributes_to_solution(...)`
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <aggregate>),
 
+    // Brute-force capability (bottom center)
+    node((0.7, 1), box(width: 48mm, align(left)[
+      #strong[trait BruteForceProblem]\
+      #text(size: 8pt, fill: secondary)[
+        `extends Problem`\
+        `fn dimensions() -> Vec<usize>`\
+        #text(style: "italic")[reference solver only]
+      ]
+    ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <brute-force>),
+
     // Common value types (bottom right)
-    node((1.25, 1), box(width: 48mm, align(left)[
+    node((1.4, 1), box(width: 48mm, align(left)[
       #strong[Common Value Types]\
       #text(size: 8pt, fill: secondary)[
         `Max<V> | Min<V> | Extremum<V>`\
         `Or | Sum<W> | And`\
-        #text(style: "italic")[used as `Problem::Value`]
+        #text(style: "italic")[only selecting values implement `SolutionAggregate`]
       ]
     ]), fill: type-fill, corner-radius: 6pt, inset: 10pt, name: <values>),
 
     // Conceptual relationships
     edge(<aggregate>, <problem>, "->", label: text(size: 8pt)[solver-bound on `Value`], label-side: left, label-fill: none),
+    edge(<brute-force>, <problem>, "->", label: text(size: 8pt)[extends], label-fill: none),
     edge(<values>, <aggregate>, "->", label: text(size: 8pt)[implements], label-side: right, label-fill: none),
   )
 }

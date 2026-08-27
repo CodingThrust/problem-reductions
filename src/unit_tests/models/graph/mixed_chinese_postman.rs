@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_infers_graph_and_default_weights() {
@@ -50,7 +51,7 @@ fn test_mixed_chinese_postman_creation_and_accessors() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_arcs(), 4);
     assert_eq!(problem.num_edges(), 4);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
     assert_eq!(problem.arc_weights(), &[2, 3, 1, 4]);
     assert_eq!(problem.edge_weights(), &[2, 3, 1, 2]);
 }
@@ -60,7 +61,10 @@ fn test_mixed_chinese_postman_evaluate_optimal() {
     let problem = sample_instance();
 
     // Reverse (0,2) and (1,3), keep (0,4) and (4,2) forward.
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0]).unwrap(), Min(Some(21)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, false, false]).unwrap(),
+        Min(Some(21))
+    );
 }
 
 #[test]
@@ -69,7 +73,9 @@ fn test_mixed_chinese_postman_evaluate_connected_instance() {
 
     // The available graph is strongly connected, so valid orientations
     // should return Some(cost).
-    let val = problem.evaluate(&[0, 0, 0, 0, 0]).unwrap();
+    let val = problem
+        .evaluate(&vec![false, false, false, false, false])
+        .unwrap();
     assert!(val.0.is_some());
 }
 
@@ -80,11 +86,11 @@ fn test_mixed_chinese_postman_single_edge_walk() {
     let problem =
         MixedChinesePostman::new(MixedGraph::new(2, vec![], vec![(0, 1)]), vec![], vec![1]);
 
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(2)));
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(Some(2)));
+    assert_eq!(problem.evaluate(&vec![false]).unwrap(), Min(Some(2)));
+    assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(Some(2)));
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_some());
+    assert!(solver.solve(&problem).unwrap().is_some());
 }
 
 #[test]
@@ -96,19 +102,28 @@ fn test_mixed_chinese_postman_rejects_disconnected_graph() {
         vec![1, 1],
     );
 
-    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[1, 1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![false, true]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![true, false]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![true, true]).unwrap(), Min(None));
 }
 
 #[test]
 fn test_mixed_chinese_postman_rejects_wrong_config_length() {
     let problem = sample_instance();
 
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[1, 1, 0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -117,7 +132,7 @@ fn test_mixed_chinese_postman_solver_finds_optimal() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("expected an optimal orientation");
     assert!(problem.is_valid_solution(&solution).unwrap());

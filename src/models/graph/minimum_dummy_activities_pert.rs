@@ -104,25 +104,58 @@ impl MinimumDummyActivitiesPert {
     /// Check whether the merge-selection config encodes a valid PERT network.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.is_valid())
+        Ok(self.evaluate_solution(config)?.is_valid())
+    }
+
+    fn evaluate_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.precedence_arcs().len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc-selection length does not match the precedence graph".into(),
+            ));
+        }
+        let Some(candidate) = self.build_candidate_network(config) else {
+            return Ok(Min(None));
+        };
+
+        let source_reachability = reachability_matrix(&self.graph);
+        let event_reachability = reachability_matrix(&candidate.event_graph);
+
+        for source in 0..self.num_vertices() {
+            for target in 0..self.num_vertices() {
+                let pert_reachable = candidate.finish_events[source]
+                    == candidate.start_events[target]
+                    || event_reachability[candidate.finish_events[source]]
+                        [candidate.start_events[target]];
+                if source_reachability[source][target] != pert_reachable {
+                    return Ok(Min(None));
+                }
+            }
+        }
+
+        Ok(Min(Some(
+            i64::try_from(candidate.num_dummy_arcs).expect("dummy activity count must fit in i64"),
+        )))
     }
 
     fn precedence_arcs(&self) -> Vec<(usize, usize)> {
         self.graph.arcs()
     }
 
-    fn build_candidate_network(&self, config: &[usize]) -> Option<CandidatePertNetwork> {
+    fn build_candidate_network(&self, config: &[bool]) -> Option<CandidatePertNetwork> {
         let num_tasks = self.num_vertices();
         let arcs = self.precedence_arcs();
-        if config.len() != arcs.len() || config.iter().any(|&bit| bit > 1) {
+        if config.len() != arcs.len() {
             return None;
         }
 
         let mut uf = UnionFind::new(2 * num_tasks);
         for ((u, v), &merge_bit) in arcs.iter().zip(config.iter()) {
-            if merge_bit == 1 {
+            if merge_bit {
                 uf.union(finish_endpoint(*u), start_endpoint(*v));
             }
         }
@@ -159,7 +192,7 @@ impl MinimumDummyActivitiesPert {
             .iter()
             .zip(config.iter())
             .filter_map(|((u, v), &merge_bit)| {
-                if merge_bit == 1 {
+                if merge_bit {
                     return None;
                 }
                 let source = finish_events[*u];
@@ -189,47 +222,35 @@ impl MinimumDummyActivitiesPert {
 
 impl Problem for MinimumDummyActivitiesPert {
     const NAME: &'static str = "MinimumDummyActivitiesPert";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_vertices", num_vertices), ("num_arcs", num_arcs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        self.evaluate_solution(config)
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
-        Ok({
-            let Some(candidate) = self.build_candidate_network(config) else {
-                return Ok(Min(None));
-            };
-
-            let source_reachability = reachability_matrix(&self.graph);
-            let event_reachability = reachability_matrix(&candidate.event_graph);
-
-            for source in 0..self.num_vertices() {
-                for target in 0..self.num_vertices() {
-                    let pert_reachable = candidate.finish_events[source]
-                        == candidate.start_events[target]
-                        || event_reachability[candidate.finish_events[source]]
-                            [candidate.start_events[target]];
-                    if source_reachability[source][target] != pert_reachable {
-                        return Ok(Min(None));
-                    }
-                }
-            }
-
-            Min(Some(
-                i64::try_from(candidate.num_dummy_arcs)
-                    .expect("dummy activity count must fit in i64"),
-            ))
-        })
+impl crate::solvers::BruteForceProblem for MinimumDummyActivitiesPert {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_arcs()]
     }
 }
 
 crate::declare_variants! {
     default MinimumDummyActivitiesPert => "2^num_arcs" create MinimumDummyActivitiesPertCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumDummyActivitiesPert decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -240,7 +261,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![(0, 2), (0, 3), (1, 3), (1, 4), (2, 5)],
         ))),
-        optimal_config: vec![1, 0, 0, 1, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, true, true]),
         optimal_value: serde_json::json!(2),
     }]
 }

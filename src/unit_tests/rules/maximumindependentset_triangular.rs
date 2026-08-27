@@ -56,7 +56,7 @@ fn test_mis_simple_one_to_triangular_closed_loop() {
     assert!(target.graph().num_vertices() > 3);
 
     // Map a trivial zero solution back to verify dimensions
-    let zero_config = vec![0; target.graph().num_vertices()];
+    let zero_config = vec![false; target.graph().num_vertices()];
     let original_solution = result.extract_solution(&zero_config).unwrap();
     assert_eq!(original_solution.len(), 3);
 }
@@ -77,11 +77,15 @@ fn test_mis_simple_one_to_triangular_preserves_optimum_and_witness() {
         &target.graph().edges(),
         target.weights(),
     );
+    let target_solution = crate::config::config_to_bits(&target_solution);
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
-    assert!(is_independent_set(&edges, &source_solution));
+    assert!(is_independent_set(
+        &edges,
+        &crate::config::bits_to_config(&source_solution),
+    ));
     assert_eq!(
-        source_solution.iter().filter(|&&value| value > 0).count(),
+        source_solution.iter().filter(|&&value| value).count(),
         solve_mis(4, &edges)
     );
 }
@@ -109,14 +113,15 @@ fn test_mis_simple_one_to_triangular_all_four_vertex_graphs() {
             &target.graph().edges(),
             target.weights(),
         );
+        let target_solution = crate::config::config_to_bits(&target_solution);
         let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
         assert!(
-            is_independent_set(&edges, &source_solution),
+            is_independent_set(&edges, &crate::config::bits_to_config(&source_solution),),
             "graph mask {mask:#08b} extracted a non-independent set"
         );
         assert_eq!(
-            source_solution.iter().filter(|&&value| value > 0).count(),
+            source_solution.iter().filter(|&&value| value).count(),
             solve_mis(4, &edges),
             "graph mask {mask:#08b} did not preserve the optimum"
         );

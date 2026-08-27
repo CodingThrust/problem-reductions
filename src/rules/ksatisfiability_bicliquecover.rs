@@ -100,8 +100,8 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
     ///
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let n = self.normalized_n;
@@ -118,8 +118,8 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         // Y-matching vertex. By Lemma 17, free-edge bicliques touch the
         // Y matching; the important-edge biclique B_1 does not.
         let mut b1_index = None;
-        for r in 0..k {
-            let in_b1 = |vertex: usize| target_solution[vertex * k + r] == 1;
+        for (r, biclique) in target_solution.iter().enumerate().take(k) {
+            let in_b1 = |vertex: usize| biclique[vertex];
             if !in_b1(s11_u) || !in_b1(s11_v) {
                 continue;
             }
@@ -140,16 +140,16 @@ impl ReductionResult for ReductionKSatisfiabilityToBicliqueCover {
         })?;
         let mut normalized_assignment = vec![false; n];
         for (i, slot) in normalized_assignment.iter_mut().enumerate() {
-            *slot = target_solution[h_left(i) * k + b1_index] == 1;
+            *slot = target_solution[h_left(i)][b1_index];
         }
 
         // Map normalized t_i back to the source: source x_s = t_s
         // (with s in 1..=source_num_vars). t_s sits at normalized index
         // 2 * (s - 1).
-        let mut source_assignment = vec![0usize; self.source_num_vars];
+        let mut source_assignment = vec![false; self.source_num_vars];
         for (s, slot) in source_assignment.iter_mut().enumerate() {
             let t_idx = 2 * s;
-            *slot = if normalized_assignment[t_idx] { 1 } else { 0 };
+            *slot = normalized_assignment[t_idx];
         }
         Ok(source_assignment)
     }
@@ -742,16 +742,13 @@ fn enumerate_free_bicliques(
 ///   two non-selected literal edges per clause; cross-pairs are P-P
 ///   and P-Q free edges.
 #[cfg(feature = "example-db")]
-fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -> Vec<usize> {
-    use crate::traits::Problem;
-
+fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -> Vec<Vec<bool>> {
     let reduction = ReduceTo::<BicliqueCover>::reduce_to(source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let k = target.k();
     let left_size = target.left_size();
     let num_vertices = target.num_vertices();
-    let mut config = vec![0usize; num_vertices * k];
-    let _ = target.dims(); // ensure dims matches num_vertices * k
+    let mut config = vec![vec![false; num_vertices]; k];
 
     // Bipartite-local helpers, mirroring `reduce_to`.
     let n = reduction.normalized_n;
@@ -776,8 +773,8 @@ fn forward_witness_single_variable_single_clause(source: &KSatisfiability<K3>) -
     let y_left = |r: usize| y_offset + r;
     let y_right_u = |r: usize| left_size + y_offset + r;
 
-    let mark = |cfg: &mut [usize], vertex: usize, biclique: usize| {
-        cfg[vertex * k + biclique] = 1;
+    let mark = |cfg: &mut [Vec<bool>], vertex: usize, biclique: usize| {
+        cfg[biclique][vertex] = true;
     };
 
     // Biclique 0: B_1 — important.
@@ -896,8 +893,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, BicliqueCover>(
                 source,
                 SolutionPair {
-                    source_config: vec![1usize], // x_1 = true
-                    target_config,
+                    source_config: serde_json::json!([true]), // x_1 = true
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

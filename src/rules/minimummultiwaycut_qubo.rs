@@ -39,8 +39,8 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
     /// for each edge check if endpoints are in different terminals.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -48,19 +48,23 @@ impl ReductionResult for ReductionMinimumMultiwayCutToQUBO {
             let n = self.num_vertices;
 
             // For each vertex, find which terminal position it is assigned to
-            let assignments =
-                crate::rules::ilp_helpers::one_hot_decode_rows(target_solution, n, k, 0)?;
+            let assignments: Vec<usize> = (0..n)
+                .map(|vertex| {
+                    let mut selected =
+                        (0..k).filter(|&terminal| target_solution[vertex * k + terminal]);
+                    match (selected.next(), selected.next()) {
+                        (Some(terminal), None) => Ok(terminal),
+                        _ => Err(crate::rules::ExtractionError::invalid(format!(
+                            "vertex {vertex} does not have exactly one terminal assignment"
+                        ))),
+                    }
+                })
+                .collect::<crate::rules::ExtractionResult<_>>()?;
 
             // For each edge, output 1 (cut) if endpoints differ, 0 (keep) otherwise
             self.edges
                 .iter()
-                .map(|&(u, v)| {
-                    if assignments[u] != assignments[v] {
-                        1
-                    } else {
-                        0
-                    }
-                })
+                .map(|&(u, v)| assignments[u] != assignments[v])
                 .collect()
         })
     }
@@ -79,7 +83,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         let edge_weights = self.edge_weights();
         let terminals = self.terminals();
         let nq = n * k;
-        let edge_weights_f64 = edge_weights
+        let edge_weights = edge_weights
             .iter()
             .copied()
             .map(i64_to_exact_f64)
@@ -92,11 +96,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
             })?;
 
         // Penalty: sum of all edge weights + 1
-        let alpha = edge_weights_f64
-            .iter()
-            .map(|weight| weight.abs())
-            .sum::<f64>()
-            + 1.0;
+        let alpha = edge_weights.iter().map(|weight| weight.abs()).sum::<f64>() + 1.0;
 
         let mut matrix = vec![vec![0.0f64; nq]; nq];
 
@@ -136,7 +136,7 @@ impl ReduceTo<QUBO<f64>> for MinimumMultiwayCut<SimpleGraph, i64> {
         // For each edge (u,v) with weight w, for each pair of distinct
         // terminal positions s != t: add w to Q[u*k+s, v*k+t]
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            let w = edge_weights_f64[edge_idx];
+            let w = edge_weights[edge_idx];
             for s in 0..k {
                 for t in 0..k {
                     if s != t {
@@ -175,8 +175,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 1, 0],
-                    target_config: vec![1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
+                    source_config: serde_json::json!(vec![true, false, false, true, true, false]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, false, true, false, false, true, false, false, true,
+                        false, false, false, true
+                    ]),
                 },
             )
         },

@@ -105,21 +105,21 @@ impl<G: Graph> KClique<G> {
     }
 
     /// Check whether a configuration is a valid witness.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_kclique_config(&self.graph, config, self.k)
     }
 
     /// Build a binary selection config from the listed vertices.
-    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<usize> {
-        let mut config = vec![0; num_vertices];
+    pub fn config_from_vertices(num_vertices: usize, selected_vertices: &[usize]) -> Vec<bool> {
+        let mut config = vec![false; num_vertices];
         for &vertex in selected_vertices {
-            config[vertex] = 1;
+            config[vertex] = true;
         }
         config
     }
 
     /// Convenience wrapper around [`Self::config_from_vertices`] using `self.num_vertices()`.
-    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<usize> {
+    pub fn config_from_selected_vertices(&self, selected_vertices: &[usize]) -> Vec<bool> {
         Self::config_from_vertices(self.num_vertices(), selected_vertices)
     }
 }
@@ -129,20 +129,28 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "KClique";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("k", k),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
         Ok(crate::types::Or(is_kclique_config(
             &self.graph,
             config,
@@ -151,24 +159,25 @@ where
     }
 }
 
-fn is_kclique_config<G: Graph>(graph: &G, config: &[usize], k: usize) -> bool {
+impl<G> crate::solvers::BruteForceProblem for KClique<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
+fn is_kclique_config<G: Graph>(graph: &G, config: &[bool], k: usize) -> bool {
     if config.len() != graph.num_vertices() {
         return false;
     }
 
-    let selected: Vec<usize> = match config
+    let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .map(|(index, &value)| match value {
-            0 => Ok(None),
-            1 => Ok(Some(index)),
-            _ => Err(()),
-        })
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(values) => values.into_iter().flatten().collect(),
-        Err(()) => return false,
-    };
+        .filter_map(|(index, &selected)| selected.then_some(index))
+        .collect();
 
     if selected.len() < k {
         return false;
@@ -203,6 +212,10 @@ crate::declare_variants! {
     default KClique<SimpleGraph> => "1.1996^num_vertices" create KCliqueCreateSpec random,
 }
 
+crate::register_brute_force! {
+    KClique<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -211,7 +224,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
             3,
         )),
-        optimal_config: vec![0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, true, true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

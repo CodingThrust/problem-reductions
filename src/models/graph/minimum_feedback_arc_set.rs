@@ -42,7 +42,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackArcSet;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Directed cycle: 0->1->2->0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
@@ -50,10 +50,10 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let solution = solver.solve(&problem).unwrap().unwrap();
 ///
 /// // Minimum FAS has size 1 (remove any single arc to break the cycle)
-/// assert_eq!(solution.iter().sum::<usize>(), 1);
+/// assert_eq!(solution.iter().filter(|&&selected| selected).count(), 1);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumFeedbackArcSet<W> {
@@ -116,7 +116,7 @@ impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
     /// Check if a configuration is a valid feedback arc set.
     ///
     /// A configuration is valid if removing the selected arcs makes the graph acyclic.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_fas(&self.graph, config)
     }
 }
@@ -143,24 +143,31 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackArcSet";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_arcs()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !is_valid_fas(&self.graph, config) {
                 return Ok(Min(None));
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected != 0 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -173,22 +180,35 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for MinimumFeedbackArcSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_arcs()]
+    }
+}
+
 /// Check if a configuration forms a valid feedback arc set.
 ///
 /// config[i] = 1 means arc i is selected for removal.
 /// The remaining arcs must form a DAG.
-fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
+fn is_valid_fas(graph: &DirectedGraph, config: &[bool]) -> bool {
     let num_arcs = graph.num_arcs();
     if config.len() != num_arcs {
         return false;
     }
     // kept_arcs[i] = true means arc i is NOT removed (kept in the graph)
-    let kept_arcs: Vec<bool> = config.iter().map(|&x| x == 0).collect();
+    let kept_arcs: Vec<bool> = config.iter().map(|&removed| !removed).collect();
     graph.is_acyclic_subgraph(&kept_arcs)
 }
 
 crate::declare_variants! {
     default MinimumFeedbackArcSet<i64> => "2^num_vertices" create MinimumFeedbackArcSetCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumFeedbackArcSet<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -201,7 +221,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
             vec![1i64, 1, 1],
         )),
-        optimal_config: vec![0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(1),
     }]
 }

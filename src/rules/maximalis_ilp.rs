@@ -25,11 +25,11 @@ impl ReductionResult for ReductionMxISToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -50,18 +50,18 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
         for u in 0..n {
             for v in (u + 1)..n {
                 if self.graph().has_edge(u, v) {
-                    constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(u, 1), (v, 1)], 1));
                 }
             }
         }
 
         // Maximality: ∀ v: x_v + Σ_{u∈N(v)} x_u ≥ 1
         for v in 0..n {
-            let mut terms = vec![(v, 1.0)];
+            let mut terms = vec![(v, 1)];
             for u in self.graph().neighbors(v) {
-                terms.push((u, 1.0));
+                terms.push((u, 1));
             }
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: Maximize Σ w_v·x_v
@@ -81,7 +81,8 @@ impl ReduceTo<ILP<bool>> for MaximalIS<SimpleGraph, i64> {
             })
             .collect::<Result<_, _>>()?;
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionMxISToILP { target })
     }
 }

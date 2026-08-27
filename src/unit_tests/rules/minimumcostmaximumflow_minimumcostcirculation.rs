@@ -81,10 +81,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_bottleneck() {
     // Brute-force the target and confirm the extracted source flow has
     // value 1 and cost 1 (the cheaper 1->3 path).
     let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(reduction.target_problem())
-        .unwrap()
-        .unwrap();
+    let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
     let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     assert_eq!(source.total_cost(&extracted).unwrap(), 1);
@@ -119,7 +116,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_parallel_arcs() {
     // Max flow value = 1 (limited by arc (1,2) capacity), cheaper
     // parallel arc has cost 1, so optimal source cost = 1.
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(target).unwrap().unwrap();
+    let target_witness = solver.solve(target).unwrap().unwrap();
     let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     assert_eq!(source.total_cost(&extracted).unwrap(), 1);
@@ -169,7 +166,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_zero_capacity_arc() {
     );
 
     let solver = BruteForce::new();
-    let target_witness = solver.find_witness(target).unwrap().unwrap();
+    let target_witness = solver.solve(target).unwrap().unwrap();
     let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted).unwrap(), 1);
     // Zero-capacity arc must be 0 in the extracted flow.
@@ -223,10 +220,7 @@ fn test_minimumcostmaximumflow_to_minimumcostcirculation_value_priority_over_cos
         ReduceTo::<MinimumCostCirculation>::reduce_to(&source).expect("reduction should succeed");
 
     let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(reduction.target_problem())
-        .unwrap()
-        .unwrap();
+    let target_witness = solver.solve(reduction.target_problem()).unwrap().unwrap();
     let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.flow_value(&extracted).unwrap(), 2);
     assert_eq!(source.total_cost(&extracted).unwrap(), 20);

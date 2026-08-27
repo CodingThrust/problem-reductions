@@ -49,7 +49,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumEdgeCostFlow;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 5-vertex network: s=0, t=4, R=3
 /// let graph = DirectedGraph::new(5, vec![
@@ -62,7 +62,7 @@ inventory::submit! {
 ///     0, 4, 3,
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&witness).unwrap(), problemreductions::types::Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -269,16 +269,24 @@ impl MinimumEdgeCostFlow {
 
 impl Problem for MinimumEdgeCostFlow {
     const NAME: &'static str = "MinimumEdgeCostFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
-    }
+    crate::problem_size![
+        ("max_capacity", max_capacity),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
+        }
         Ok({
             if self.is_feasible(config)? {
                 crate::types::Min(Some(self.edge_cost(config)?))
@@ -293,8 +301,18 @@ impl Problem for MinimumEdgeCostFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumEdgeCostFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumEdgeCostFlow => "(max_capacity + 1)^num_edges",
+}
+
+crate::register_brute_force! {
+    MinimumEdgeCostFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -314,7 +332,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // Optimal: route 1 unit via v2 and 2 units via v3 → cost = 1 + 2 = 3
         // config = [0, 1, 2, 0, 1, 2]
-        optimal_config: vec![0, 1, 2, 0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]
 }

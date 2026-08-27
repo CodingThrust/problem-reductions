@@ -181,25 +181,18 @@ impl ProductionPlanning {
 
 impl Problem for ProductionPlanning {
     const NAME: &'static str = "ProductionPlanning";
+    type Solution = Vec<usize>;
     type Value = Or;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| {
-                usize::try_from(capacity)
-                    .ok()
-                    .and_then(|value| value.checked_add(1))
-                    .expect("capacities validated in constructor")
-            })
-            .collect()
-    }
+    crate::problem_size![("max_capacity", max_capacity), ("num_periods", num_periods),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             Or({
                 if config.len() != self.num_periods {
-                    return Ok(Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "production-plan length does not match the periods".into(),
+                    ));
                 }
 
                 let mut cumulative_production = 0_i64;
@@ -295,8 +288,26 @@ impl Problem for ProductionPlanning {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ProductionPlanning {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities
+            .iter()
+            .map(|&capacity| {
+                usize::try_from(capacity)
+                    .ok()
+                    .and_then(|value| value.checked_add(1))
+                    .expect("capacities validated in constructor")
+            })
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default ProductionPlanning => "(max_capacity + 1)^num_periods" create ProductionPlanningCreateSpec,
+}
+
+crate::register_brute_force! {
+    ProductionPlanning,
 }
 
 #[cfg(feature = "example-db")]
@@ -312,7 +323,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 1, 1, 1],
             16,
         )),
-        optimal_config: vec![3, 0, 4, 1],
+        optimal_config: serde_json::json!(vec![3, 0, 4, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

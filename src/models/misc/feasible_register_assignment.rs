@@ -45,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::FeasibleRegisterAssignment;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 vertices: v0 depends on v1 and v2, v1 depends on v3
 /// let problem = FeasibleRegisterAssignment::new(
@@ -55,7 +55,7 @@ inventory::submit! {
 ///     vec![0, 1, 0, 0],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -270,26 +270,50 @@ impl FeasibleRegisterAssignment {
 
 impl Problem for FeasibleRegisterAssignment {
     const NAME: &'static str = "FeasibleRegisterAssignment";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_arcs", num_arcs),
+        ("num_registers", num_registers),
+        ("num_same_register_pairs", num_same_register_pairs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_vertices; self.num_vertices]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= self.num_vertices) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering contains an out-of-range position".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_feasible(config)))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for FeasibleRegisterAssignment {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_vertices; self.num_vertices]
     }
 }
 
 crate::declare_variants! {
     default FeasibleRegisterAssignment => "factorial(num_vertices)",
+}
+
+crate::register_brute_force! {
+    FeasibleRegisterAssignment,
 }
 
 #[cfg(feature = "example-db")]
@@ -306,7 +330,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // config[v] = position: v0 at pos 3, v1 at pos 1, v2 at pos 2, v3 at pos 0
         // Order: v3(pos0), v1(pos1), v2(pos2), v0(pos3)
-        optimal_config: vec![3, 1, 2, 0],
+        optimal_config: serde_json::json!(vec![3, 1, 2, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

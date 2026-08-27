@@ -53,7 +53,7 @@ fn source_variant() -> Vec<(&'static str, &'static str)> {
     Vec::new()
 }
 
-fn no_solution(_: &dyn std::any::Any) -> Option<Vec<usize>> {
+fn no_solution(_: &dyn std::any::Any) -> Option<serde_json::Value> {
     None
 }
 
@@ -97,7 +97,14 @@ fn solver_capability_registry_duplicate_ilp_registration_is_rejected_independent
         [&DIRECT_BOOL_A, &DIRECT_BOOL_B],
         [&DIRECT_BOOL_B, &DIRECT_BOOL_A],
     ] {
-        let error = build_registry(&variants, std::iter::empty(), pipelines, &[]).unwrap_err();
+        let error = build_registry(
+            &variants,
+            std::iter::empty(),
+            pipelines,
+            std::iter::empty(),
+            &[],
+        )
+        .unwrap_err();
         assert!(matches!(error, RegistryBuildError::DuplicateIlp(_)));
     }
 }
@@ -109,6 +116,7 @@ fn solver_capability_registry_duplicate_customized_registration_is_rejected() {
         &variants,
         [&CUSTOMIZED_A, &CUSTOMIZED_B],
         std::iter::empty(),
+        std::iter::empty(),
         &[],
     )
     .unwrap_err();
@@ -117,8 +125,14 @@ fn solver_capability_registry_duplicate_customized_registration_is_rejected() {
 
 #[test]
 fn solver_capability_registry_unknown_customized_variant_is_rejected() {
-    let error =
-        build_registry(&BTreeSet::new(), [&CUSTOMIZED_A], std::iter::empty(), &[]).unwrap_err();
+    let error = build_registry(
+        &BTreeSet::new(),
+        [&CUSTOMIZED_A],
+        std::iter::empty(),
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(error, RegistryBuildError::UnknownVariant(label) if label == "Source"));
 }
 
@@ -128,22 +142,41 @@ fn solver_capability_registry_unknown_pipeline_variant_is_rejected() {
         "ILP",
         BTreeMap::from([("variable".to_string(), "bool".to_string())]),
     )]);
-    let error = build_registry(&variants, std::iter::empty(), [&MISSING_EDGE], &[]).unwrap_err();
+    let error = build_registry(
+        &variants,
+        std::iter::empty(),
+        [&MISSING_EDGE],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(error, RegistryBuildError::UnknownVariant(label) if label == "Source"));
 }
 
 #[test]
 fn solver_capability_registry_empty_pipeline_is_rejected() {
-    let error =
-        build_registry(&BTreeSet::new(), std::iter::empty(), [&EMPTY_PIPELINE], &[]).unwrap_err();
+    let error = build_registry(
+        &BTreeSet::new(),
+        std::iter::empty(),
+        [&EMPTY_PIPELINE],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(error, RegistryBuildError::EmptyPipeline));
 }
 
 #[test]
 fn solver_capability_registry_unsupported_pipeline_target_is_rejected() {
     let variants = BTreeSet::from([ExactProblemKey::new("Source", BTreeMap::new())]);
-    let error =
-        build_registry(&variants, std::iter::empty(), [&UNSUPPORTED_TARGET], &[]).unwrap_err();
+    let error = build_registry(
+        &variants,
+        std::iter::empty(),
+        [&UNSUPPORTED_TARGET],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(error, RegistryBuildError::UnsupportedTarget(label) if label == "Source"));
 }
 
@@ -156,7 +189,14 @@ fn solver_capability_registry_pipeline_with_missing_exact_edge_is_rejected() {
             BTreeMap::from([("variable".to_string(), "bool".to_string())]),
         ),
     ]);
-    let error = build_registry(&variants, std::iter::empty(), [&MISSING_EDGE], &[]).unwrap_err();
+    let error = build_registry(
+        &variants,
+        std::iter::empty(),
+        [&MISSING_EDGE],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(
         error,
         RegistryBuildError::InvalidEdge { matches: 0, .. }
@@ -175,16 +215,32 @@ fn solver_capability_registry_pipeline_must_stop_at_first_supported_ilp_node() {
             BTreeMap::from([("variable".to_string(), "i64".to_string())]),
         ),
     ]);
-    let error =
-        build_registry(&variants, std::iter::empty(), [&CONTINUES_AFTER_ILP], &[]).unwrap_err();
+    let error = build_registry(
+        &variants,
+        std::iter::empty(),
+        [&CONTINUES_AFTER_ILP],
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
     assert!(matches!(error, RegistryBuildError::ContinuesAfterIlp(_)));
 }
 
 #[test]
-fn solver_capability_registry_production_registry_has_expected_exact_capability_counts() {
-    let registry = solver_capability_registry().unwrap();
-    assert_eq!(registry.customized_entries().count(), 7);
-    assert_eq!(registry.ilp_entries().count(), 151);
+fn solver_capability_registry_rejects_variant_without_solver() {
+    let variants = BTreeSet::from([ExactProblemKey::new("Source", BTreeMap::new())]);
+    let error = build_registry(
+        &variants,
+        std::iter::empty(),
+        std::iter::empty(),
+        std::iter::empty(),
+        &[],
+    )
+    .unwrap_err();
+    assert!(matches!(
+        error,
+        RegistryBuildError::MissingSolverCapability(label) if label == "Source"
+    ));
 }
 
 #[test]
@@ -294,18 +350,39 @@ fn solver_capability_registry_ignores_unrelated_reduction_edges() {
     let mut with_unrelated = required_reductions.clone();
     with_unrelated.push(unrelated);
 
-    let variants = registered_variant_keys();
+    let variants: BTreeSet<_> = path.iter().cloned().collect();
+    let pipelines = inventory::iter::<IlpPipelineRegistration>
+        .into_iter()
+        .filter(|entry| {
+            entry
+                .path
+                .first()
+                .map(ExactProblemKey::from_static)
+                .is_some_and(|source| variants.contains(&source))
+        })
+        .collect::<Vec<_>>();
+    let brute_force = inventory::iter::<crate::solvers::BruteForceRegistration>
+        .into_iter()
+        .filter(|entry| {
+            variants.contains(&ExactProblemKey::new(
+                entry.source_name,
+                crate::export::variant_to_map((entry.source_variant_fn)()),
+            ))
+        })
+        .collect::<Vec<_>>();
     let minimal = build_registry(
         &variants,
         std::iter::empty(),
-        [registration],
+        pipelines.iter().copied(),
+        brute_force.iter().copied(),
         &required_reductions,
     )
     .unwrap();
     let expanded = build_registry(
         &variants,
         std::iter::empty(),
-        [registration],
+        pipelines.iter().copied(),
+        brute_force.iter().copied(),
         &with_unrelated,
     )
     .unwrap();
@@ -351,6 +428,7 @@ fn solver_capability_registry_ambiguous_exact_edge_is_rejected() {
         &registered_variant_keys(),
         std::iter::empty(),
         [registration],
+        std::iter::empty(),
         &[reduction, reduction],
     )
     .unwrap_err();

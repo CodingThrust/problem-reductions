@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use std::collections::HashSet;
 
@@ -23,8 +24,12 @@ fn test_set_basis_create_spec_uses_subsets_input() {
     assert_eq!(problem.collection(), &[vec![0, 2]]);
 }
 
-fn canonical_solution() -> Vec<usize> {
-    vec![1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]
+fn canonical_solution() -> Vec<Vec<bool>> {
+    vec![
+        vec![true, false, false, false],
+        vec![false, true, false, false],
+        vec![false, false, true, false],
+    ]
 }
 
 #[test]
@@ -34,7 +39,7 @@ fn test_set_basis_creation() {
     assert_eq!(problem.num_sets(), 4);
     assert_eq!(problem.basis_size(), 3);
     assert_eq!(problem.num_variables(), 12);
-    assert_eq!(problem.dims(), vec![2; 12]);
+    assert_eq!(problem.dimensions(), vec![2; 12]);
     assert_eq!(problem.get_set(0), Some(&vec![0, 1]));
     assert_eq!(problem.get_set(4), None);
 }
@@ -45,7 +50,11 @@ fn test_set_basis_evaluation() {
 
     assert!(problem.evaluate(&canonical_solution()).unwrap());
     assert!(!problem
-        .evaluate(&[1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0])
+        .evaluate(&vec![
+            vec![true, true, false, false],
+            vec![false; 4],
+            vec![false, false, true, false],
+        ])
         .unwrap());
 }
 
@@ -53,7 +62,12 @@ fn test_set_basis_evaluation() {
 fn test_set_basis_no_solution_for_k_two() {
     let problem = issue_example_problem(2);
 
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 1, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![
+            vec![true, true, false, false],
+            vec![false, false, true, false],
+        ])
+        .unwrap());
 
     let solver = BruteForce::new();
     assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
@@ -64,7 +78,7 @@ fn test_set_basis_solver() {
     let problem = issue_example_problem(3);
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
-    let solution_set: HashSet<Vec<usize>> = solutions.iter().cloned().collect();
+    let solution_set: HashSet<Vec<Vec<bool>>> = solutions.iter().cloned().collect();
 
     assert_eq!(solutions.len(), 12);
     assert_eq!(solution_set.len(), 12);
@@ -101,16 +115,19 @@ fn test_set_basis_paper_example() {
 #[test]
 fn test_set_basis_invalid_config_values() {
     let problem = issue_example_problem(3);
-    let mut invalid = canonical_solution();
-    invalid[0] = 2;
-    assert!(!problem.evaluate(&invalid).unwrap());
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([[2, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]])
+    )
+    .is_err());
 }
 
 #[test]
 fn test_set_basis_rejects_wrong_config_length() {
     let problem = issue_example_problem(3);
-    let solution = canonical_solution();
-    assert!(!problem.evaluate(solution.get(..11).unwrap()).unwrap());
+    let mut solution = canonical_solution();
+    solution.pop();
+    assert!(problem.evaluate(&solution).is_err());
 }
 
 #[test]
@@ -122,7 +139,9 @@ fn test_set_basis_deserialized_invalid_target_returns_false() {
     }))
     .unwrap();
 
-    assert!(!problem.evaluate(&[1, 0, 0, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![vec![true, false, false, false]])
+        .unwrap());
 }
 
 #[test]
@@ -134,7 +153,7 @@ fn test_set_basis_deserialized_unsorted_target_still_evaluates_correctly() {
     }))
     .unwrap();
 
-    assert!(problem.evaluate(&[1, 1]).unwrap());
+    assert!(problem.evaluate(&vec![vec![true, true]]).unwrap());
 }
 
 #[test]
@@ -150,30 +169,30 @@ fn test_set_basis_basis_not_subset_of_target() {
     // so it should not be used, and the target cannot be covered.
     let problem = SetBasis::new(3, vec![vec![0, 1]], 1);
     // Config encodes basis set {0, 2}: bits [1, 0, 1]
-    assert!(!problem.evaluate(&[1, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![vec![true, false, true]]).unwrap());
 }
 
 #[test]
 fn test_set_basis_is_valid_solution() {
     let problem = issue_example_problem(3);
     assert!(problem.is_valid_solution(&canonical_solution()).unwrap());
-    assert!(!problem.is_valid_solution(&[0; 12]).unwrap());
+    assert!(!problem.is_valid_solution(&vec![vec![false; 4]; 3]).unwrap());
 }
 
 #[test]
 fn test_set_basis_k_zero_empty_collection() {
     // k = 0 with empty collection: trivially satisfiable (no targets to cover).
     let problem = SetBasis::new(3, vec![], 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]).unwrap());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_set_basis_k_zero_nonempty_collection() {
     // k = 0 with non-empty collection: impossible (no basis sets to cover targets).
     let problem = SetBasis::new(3, vec![vec![0, 1]], 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(!problem.evaluate(&[]).unwrap());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(!problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
@@ -183,6 +202,6 @@ fn test_set_basis_empty_collection_with_k_positive() {
     assert_eq!(problem.basis_size(), 2);
     assert_eq!(problem.num_sets(), 0);
     // Any valid config of length k * universe_size = 4 should satisfy.
-    assert!(problem.evaluate(&[0, 0, 0, 0]).unwrap());
-    assert!(problem.evaluate(&[1, 1, 1, 1]).unwrap());
+    assert!(problem.evaluate(&vec![vec![false; 2]; 2]).unwrap());
+    assert!(problem.evaluate(&vec![vec![true; 2]; 2]).unwrap());
 }

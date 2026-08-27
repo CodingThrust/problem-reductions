@@ -41,8 +41,8 @@ impl ReductionResult for ReductionSWIDToILP {
     /// For each task j, find the time slot t where x_{j,t} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.num_tasks, self.max_deadline, 0)
@@ -60,7 +60,6 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_tasks();
-        let m = self.num_processors();
         let max_d = usize::try_from(self.max_deadline()).map_err(|_| {
             crate::rules::ReductionError::integer_overflow::<
                 SchedulingWithIndividualDeadlines,
@@ -70,6 +69,8 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
         let num_vars = n * max_d;
 
         let var = |j: usize, t: usize| j * max_d + t;
+        let processor_count =
+            Self::exact_i64(self.num_processors(), "encoding the processor capacity")?;
 
         let mut constraints = Vec::new();
 
@@ -81,14 +82,14 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
                     ILP<bool>,
                 >("validated deadline must fit usize")
             })?;
-            let terms: Vec<(usize, f64)> = (0..dj).map(|t| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..dj).map(|t| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Capacity: Σ_j x_{j,t} ≤ m for each time slot t
         for t in 0..max_d {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (var(j, t), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, m as f64));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (var(j, t), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, processor_count));
         }
 
         // 3. Precedence: Σ_t t·x_{j,t} - Σ_t t·x_{i,t} ≥ 1 for each (i,j)
@@ -105,18 +106,19 @@ impl ReduceTo<ILP<bool>> for SchedulingWithIndividualDeadlines {
                     ILP<bool>,
                 >("validated deadline must fit usize")
             })?;
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for t in 0..dj {
-                terms.push((var(j, t), t as f64));
+                terms.push((var(j, t), Self::exact_i64(t, "encoding a time slot")?));
             }
             for t in 0..di {
-                terms.push((var(i, t), -(t as f64)));
+                terms.push((var(i, t), -Self::exact_i64(t, "encoding a time slot")?));
             }
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         Ok(ReductionSWIDToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             max_deadline: max_d,
         })

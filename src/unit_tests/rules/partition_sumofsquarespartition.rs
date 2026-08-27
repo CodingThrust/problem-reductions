@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::misc::{Partition, SumOfSquaresPartition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -39,7 +39,7 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
         );
     }
     // Confirm the source is genuinely NO via direct solve.
-    let direct_witness = solver.find_witness(&source_no_even).unwrap();
+    let direct_witness = solver.solve(&source_no_even).unwrap();
     assert!(direct_witness.is_none());
 
     // Odd-sum NO case: sizes [2, 4, 5], S = 11.
@@ -54,7 +54,7 @@ fn test_partition_to_sumofsquarespartition_closed_loop() {
             "odd-sum NO Partition: extracted witness {extracted:?} should not satisfy source"
         );
     }
-    assert!(solver.find_witness(&source_no_odd).unwrap().is_none());
+    assert!(solver.solve(&source_no_odd).unwrap().is_none());
 }
 
 #[test]
@@ -73,7 +73,8 @@ fn test_partition_to_sumofsquarespartition_optimal_value_yes() {
     let (_source, reduction) = reduce_partition(&[3, 1, 1, 2, 2, 1]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    let optimal = solver.solve(target).unwrap();
+    let optimal_solution = solver.solve(target).unwrap().unwrap();
+    let optimal = target.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(50)));
 }
 
@@ -83,7 +84,8 @@ fn test_partition_to_sumofsquarespartition_optimal_value_no_even() {
     let (_source, reduction) = reduce_partition(&[1, 1, 1, 5]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    let optimal = solver.solve(target).unwrap();
+    let optimal_solution = solver.solve(target).unwrap().unwrap();
+    let optimal = target.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(34)));
     // Strictly greater than S^2/2 = 32.
     assert!(optimal.0.unwrap() > 32);
@@ -107,7 +109,13 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     for witness in &target_witnesses {
         let extracted = reduction.extract_solution(witness).unwrap();
         assert_eq!(extracted.len(), source.num_elements());
-        assert_eq!(extracted, witness[..source.num_elements()]);
+        assert_eq!(
+            extracted,
+            witness[..source.num_elements()]
+                .iter()
+                .map(|&value| value != 0)
+                .collect::<Vec<_>>()
+        );
         assert!(
             !source.evaluate(&extracted).unwrap().0,
             "singleton Partition: extracted witness must yield Or(false)"
@@ -115,7 +123,7 @@ fn test_partition_to_sumofsquarespartition_singleton_sentinel() {
     }
 
     // Direct solve confirms the source is NO.
-    assert!(solver.find_witness(&source).unwrap().is_none());
+    assert!(solver.solve(&source).unwrap().is_none());
 }
 
 #[test]
@@ -127,7 +135,7 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
 
     let solver = BruteForce::new();
     let target_witnesses = solver.find_all_witnesses(target).unwrap();
-    let source_witnesses: std::collections::HashSet<Vec<usize>> = solver
+    let source_witnesses: std::collections::HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -135,12 +143,15 @@ fn test_partition_to_sumofsquarespartition_solution_extraction_identity() {
 
     for witness in &target_witnesses {
         let extracted = reduction.extract_solution(witness).unwrap();
-        assert_eq!(extracted, *witness);
+        assert_eq!(
+            extracted,
+            witness.iter().map(|&value| value != 0).collect::<Vec<_>>()
+        );
         assert!(
             source_witnesses.contains(&extracted),
             "extracted witness {extracted:?} must be a valid Partition solution"
         );
     }
 
-    assert!(reduction.extract_solution(&[0]).is_err());
+    assert!(reduction.extract_solution(&vec![0]).is_err());
 }

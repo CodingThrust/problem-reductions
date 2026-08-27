@@ -77,8 +77,8 @@ fn test_vc_to_hs_triangle() {
     let hs_solutions = solver.find_all_witnesses(hs_problem).unwrap();
 
     // Minimum vertex cover of triangle = 2, same for hitting set
-    assert_eq!(vc_solutions[0].iter().filter(|&&x| x == 1).count(), 2);
-    assert_eq!(hs_solutions[0].iter().filter(|&&x| x == 1).count(), 2);
+    assert_eq!(vc_solutions[0].iter().filter(|&&x| x).count(), 2);
+    assert_eq!(hs_solutions[0].iter().filter(|&&x| x).count(), 2);
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn test_vc_to_hs_star_graph() {
     // Minimum cover = just vertex 0
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&vc_problem).unwrap();
-    assert_eq!(solutions[0], vec![1, 0, 0, 0]);
+    assert_eq!(solutions[0], vec![true, false, false, false]);
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn test_vc_to_hs_solution_extraction() {
     let reduction =
         ReduceTo::<MinimumHittingSet>::reduce_to(&vc_problem).expect("reduction should succeed");
 
-    let target_solution = vec![0, 1, 0];
+    let target_solution = vec![false, true, false];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
 }

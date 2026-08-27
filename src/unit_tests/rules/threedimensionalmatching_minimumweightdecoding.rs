@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::MinimumWeightDecoding;
 use crate::models::set::ThreeDimensionalMatching;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -35,9 +35,9 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_closed_loop() {
     let target_no = reduction_no.target_problem();
     let solver = BruteForce::new();
     // Confirm the target is infeasible.
-    assert!(solver.find_witness(target_no).unwrap().is_none());
+    assert!(solver.solve(target_no).unwrap().is_none());
     // Confirm the source is infeasible.
-    assert!(solver.find_witness(&source_no).unwrap().is_none());
+    assert!(solver.solve(&source_no).unwrap().is_none());
 
     // YES case: q = 3, exactly one perfect matching among five triples.
     let (source_y, reduction_y) = reduce_tdm(
@@ -85,7 +85,12 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_optimal_value_yes() {
     let (_source, reduction) = reduce_tdm(2, vec![(0, 0, 0), (1, 1, 1), (0, 1, 0), (1, 0, 1)]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(Some(2)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -94,7 +99,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_optimal_value_no() {
     let (_source, reduction) = reduce_tdm(2, vec![(0, 0, 0), (0, 0, 1), (1, 0, 0)]);
     let target = reduction.target_problem();
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(target).unwrap(), Min(None));
+    assert!(solver.solve(target).unwrap().is_none());
 }
 
 #[test]
@@ -111,11 +116,11 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_q_zero() {
     assert!(!target_witnesses.is_empty());
     for witness in &target_witnesses {
         // Sentinel codeword is the all-zero vector of length 1.
-        assert_eq!(witness, &vec![0]);
+        assert_eq!(witness, &vec![false]);
         let extracted = reduction.extract_solution(witness).unwrap();
         // Source has 0 triples → extracted vector has length 0.
         assert_eq!(extracted.len(), source.num_triples());
-        assert_eq!(extracted, Vec::<usize>::new());
+        assert_eq!(extracted, Vec::<bool>::new());
         // Empty matching of empty universe is valid.
         assert!(source.evaluate(&extracted).unwrap().0);
     }
@@ -143,7 +148,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_sentinel_no_triples() 
             );
         }
         // Direct solve confirms the source is NO.
-        assert!(solver.find_witness(&source).unwrap().is_none());
+        assert!(solver.solve(&source).unwrap().is_none());
     }
 }
 
@@ -154,7 +159,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
     let target = reduction.target_problem();
     let solver = BruteForce::new();
     let target_witnesses = solver.find_all_witnesses(target).unwrap();
-    let source_witnesses: std::collections::HashSet<Vec<usize>> = solver
+    let source_witnesses: std::collections::HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -170,5 +175,7 @@ fn test_threedimensionalmatching_to_minimumweightdecoding_solution_extraction_id
         );
     }
 
-    assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
+    assert!(reduction
+        .extract_solution(&vec![false, true, false])
+        .is_err());
 }

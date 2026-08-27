@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_existing_potential_edge() {
     assert!(
@@ -27,7 +28,7 @@ fn test_biconnectivity_augmentation_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_potential_edges(), 2);
-    assert_eq!(problem.dims(), vec![2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2]);
     assert_eq!(problem.num_variables(), 2);
     assert!(problem.is_weighted());
     assert_eq!(
@@ -70,12 +71,19 @@ fn test_biconnectivity_augmentation_evaluation() {
         2,
     );
 
-    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
-    assert!(problem.evaluate(&[0, 0, 1]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 1]).unwrap());
-    assert!(!problem.evaluate(&[2, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![false, false, false]).unwrap());
+    assert!(!problem.evaluate(&vec![false, true, false]).unwrap());
+    assert!(problem.evaluate(&vec![false, false, true]).unwrap());
+    assert!(!problem.evaluate(&vec![false, true, true]).unwrap());
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([2, false, false])
+    )
+    .is_err());
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -102,13 +110,13 @@ fn test_biconnectivity_augmentation_solver() {
     let solver = BruteForce::new();
 
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("expected a satisfying augmentation");
-    assert_eq!(solution, vec![0, 0, 1]);
+    assert_eq!(solution, vec![false, false, true]);
 
     let all_solutions = solver.find_all_witnesses(&problem).unwrap();
-    assert_eq!(all_solutions, vec![vec![0, 0, 1]]);
+    assert_eq!(all_solutions, vec![vec![false, false, true]]);
 }
 
 #[test]
@@ -116,7 +124,7 @@ fn test_biconnectivity_augmentation_no_solution() {
     let problem = BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 2, 1)], 1);
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
     assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
@@ -124,7 +132,7 @@ fn test_biconnectivity_augmentation_no_solution() {
 fn test_biconnectivity_augmentation_paper_example() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let satisfying_config = vec![1, 0, 0, 1, 0, 0, 1, 0, 1];
+    let satisfying_config = vec![true, false, false, true, false, false, true, false, true];
     let satisfying_solutions = solver.find_all_witnesses(&problem).unwrap();
 
     assert!(problem.evaluate(&satisfying_config).unwrap());
@@ -146,7 +154,7 @@ fn test_biconnectivity_augmentation_paper_example() {
         3,
     );
     assert!(!over_budget_problem.evaluate(&satisfying_config).unwrap());
-    assert!(solver.find_witness(&over_budget_problem).unwrap().is_none());
+    assert!(solver.solve(&over_budget_problem).unwrap().is_none());
 }
 
 #[test]

@@ -42,7 +42,7 @@ fn test_partition_to_productionplanning_odd_total_is_infeasible() {
     assert_eq!(target.capacities(), &[2, 4, 5, 0]);
     assert_eq!(target.setup_costs(), &[2, 4, 5, 0]);
     assert_eq!(target.cost_bound(), 5);
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }
 
 #[test]
@@ -52,7 +52,7 @@ fn test_partition_to_productionplanning_extract_solution() {
         ReduceTo::<ProductionPlanning>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[0, 0, 0, 4, 6, 0]).unwrap(),
-        vec![0, 0, 0, 1, 1]
+        reduction.extract_solution(&vec![0, 0, 0, 4, 6, 0]).unwrap(),
+        vec![false, false, false, true, true]
     );
 }

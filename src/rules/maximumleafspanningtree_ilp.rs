@@ -41,13 +41,16 @@ impl ReductionResult for ReductionMaximumLeafSpanningTreeToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             // First m variables are edge selectors
-            target_solution[..self.num_edges].to_vec()
+            target_solution[..self.num_edges]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
         })
     }
 }
@@ -66,6 +69,7 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         let m = self.num_edges();
         let edges = self.graph().edges();
         let root = 0usize;
+        let n_i64 = Self::exact_i64(n, "encoding the spanning-tree order")?;
 
         let num_vars = 3 * m + n;
         // Variable indices
@@ -76,8 +80,8 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         let mut constraints = Vec::new();
 
         // 1. Tree cardinality: sum(y_e) = n - 1
-        let terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, (n - 1) as f64));
+        let terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(terms, n_i64 - 1));
 
         // 2. Flow conservation
         // Build incidence: for each vertex, which edges are incident and which direction
@@ -88,24 +92,24 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
                 // flow_var(e, 1) is flow from v to u
                 if v == vertex {
                     // inflow from edge direction u->v
-                    terms.push((flow_var(edge_idx, 0), 1.0));
+                    terms.push((flow_var(edge_idx, 0), 1));
                     // outflow from edge direction v->u
-                    terms.push((flow_var(edge_idx, 1), -1.0));
+                    terms.push((flow_var(edge_idx, 1), -1));
                 }
                 if u == vertex {
                     // outflow from edge direction u->v
-                    terms.push((flow_var(edge_idx, 0), -1.0));
+                    terms.push((flow_var(edge_idx, 0), -1));
                     // inflow from edge direction v->u
-                    terms.push((flow_var(edge_idx, 1), 1.0));
+                    terms.push((flow_var(edge_idx, 1), 1));
                 }
             }
 
             let rhs = if vertex == root {
                 // Root sends n-1 units out => net inflow = -(n-1)
-                -((n - 1) as f64)
+                1 - n_i64
             } else {
                 // Each non-root vertex receives exactly 1 unit
-                1.0
+                1
             };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
@@ -114,11 +118,11 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (flow_var(edge_idx, 0), 1.0),
-                    (flow_var(edge_idx, 1), 1.0),
-                    (edge_var(edge_idx), -((n - 1) as f64)),
+                    (flow_var(edge_idx, 0), 1),
+                    (flow_var(edge_idx, 1), 1),
+                    (edge_var(edge_idx), 1 - n_i64),
                 ],
-                0.0,
+                0,
             ));
         }
 
@@ -133,23 +137,24 @@ impl ReduceTo<ILP<i64>> for MaximumLeafSpanningTree<SimpleGraph> {
         }
 
         for (v, inc) in incident.iter().enumerate() {
-            let mut terms: Vec<(usize, f64)> = inc.iter().map(|&e| (edge_var(e), 1.0)).collect();
-            terms.push((leaf_var(v), (n - 2) as f64));
-            constraints.push(LinearConstraint::le(terms, (n - 1) as f64));
+            let mut terms: Vec<(usize, i64)> = inc.iter().map(|&e| (edge_var(e), 1)).collect();
+            terms.push((leaf_var(v), n_i64 - 2));
+            constraints.push(LinearConstraint::le(terms, n_i64 - 1));
         }
 
         // 5. Variable bounds: y_e <= 1, z_v <= 1
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1)], 1));
         }
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(leaf_var(v), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(leaf_var(v), 1)], 1));
         }
 
         // Objective: maximize sum(z_v)
         let objective: Vec<(usize, f64)> = (0..n).map(|v| (leaf_var(v), 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMaximumLeafSpanningTreeToILP {
             target,

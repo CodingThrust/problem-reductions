@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -14,7 +15,7 @@ fn test_minimum_dnf_creation() {
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.minterms().len(), 6);
     assert_eq!(problem.num_prime_implicants(), 6);
-    assert_eq!(problem.dims(), vec![2; 6]);
+    assert_eq!(problem.dimensions(), vec![2; 6]);
 }
 
 #[test]
@@ -38,14 +39,14 @@ fn test_minimum_dnf_prime_implicants() {
 fn test_minimum_dnf_evaluate_all_selected() {
     let problem = issue_instance();
     // Select all prime implicants — valid but not minimal
-    let config = vec![1; 6];
+    let config = vec![true; 6];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
 }
 
 #[test]
 fn test_minimum_dnf_evaluate_none_selected() {
     let problem = issue_instance();
-    let config = vec![0; 6];
+    let config = vec![false; 6];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -53,7 +54,7 @@ fn test_minimum_dnf_evaluate_none_selected() {
 fn test_minimum_dnf_evaluate_insufficient() {
     let problem = issue_instance();
     // Select only the first prime implicant — covers at most 2 minterms, not all 6
-    let config = vec![1, 0, 0, 0, 0, 0];
+    let config = vec![true, false, false, false, false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -61,7 +62,8 @@ fn test_minimum_dnf_evaluate_insufficient() {
 fn test_minimum_dnf_solver() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(3)));
 }
 
@@ -95,7 +97,8 @@ fn test_minimum_dnf_two_variables() {
     assert_eq!(problem.num_prime_implicants(), 2);
 
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(2))); // Both PIs needed
 }
 
@@ -106,7 +109,12 @@ fn test_minimum_dnf_single_minterm() {
     assert_eq!(problem.minterms(), &[3]);
     assert_eq!(problem.num_prime_implicants(), 1); // x1∧x2
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
 }
 
 #[test]
@@ -114,13 +122,21 @@ fn test_minimum_dnf_tautology_minus_one() {
     // f = all true except 000 and 111 (same as issue example)
     let problem = issue_instance();
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(3))
+    );
 }
 
 #[test]
 fn test_minimum_dnf_wrong_config_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]

@@ -1,8 +1,6 @@
 use super::*;
 use crate::models::formula::CNFClause;
-use crate::rules::test_helpers::{
-    assert_satisfaction_round_trip_from_optimization_target, solve_optimization_problem,
-};
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 include!("../jl_helpers.rs");
@@ -51,9 +49,9 @@ fn test_extract_solution_positive_literal() {
 
     // Solution: select vertex 0 (positive literal x1)
     // This dominates vertices 1, 2 (gadget) and vertex 3 (clause)
-    let ds_sol = vec![1, 0, 0, 0];
+    let ds_sol = vec![true, false, false, false];
     let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
-    assert_eq!(sat_sol, vec![1]); // x1 = true
+    assert_eq!(sat_sol, vec![true]); // x1 = true
 }
 
 #[test]
@@ -65,9 +63,9 @@ fn test_extract_solution_negative_literal() {
 
     // Solution: select vertex 1 (negative literal NOT x1)
     // This dominates vertices 0, 2 (gadget) and vertex 3 (clause)
-    let ds_sol = vec![0, 1, 0, 0];
+    let ds_sol = vec![false, true, false, false];
     let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
-    assert_eq!(sat_sol, vec![0]); // x1 = false
+    assert_eq!(sat_sol, vec![false]); // x1 = false
 }
 
 #[test]
@@ -80,9 +78,9 @@ fn test_extract_solution_dummy() {
     // Select: vertex 0 (x1 positive) and vertex 5 (x2 dummy)
     // Vertex 0 dominates: itself, 1, 2, and clause 6
     // Vertex 5 dominates: 3, 4, and itself
-    let ds_sol = vec![1, 0, 0, 0, 0, 1, 0];
+    let ds_sol = vec![true, false, false, false, false, true, false];
     let sat_sol = reduction.extract_solution(&ds_sol).unwrap();
-    assert_eq!(sat_sol, vec![1, 0]); // x1 = true, x2 = false (from dummy)
+    assert_eq!(sat_sol, vec![true, false]); // x1 = true, x2 = false (from dummy)
 }
 
 #[test]
@@ -146,7 +144,7 @@ fn test_extract_solution_too_many_selected() {
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&sat)
         .expect("reduction should succeed");
 
-    let ds_sol = vec![1, 1, 0, 0];
+    let ds_sol = vec![true, true, false, false];
     assert_eq!(
         reduction.extract_solution(&ds_sol).unwrap_err().to_string(),
         "variable 0 gadget must select exactly one vertex, got 2"
@@ -161,7 +159,7 @@ fn test_extract_solution_rejects_unselected_variable_gadget() {
 
     assert_eq!(
         reduction
-            .extract_solution(&[0, 0, 0, 0])
+            .extract_solution(&vec![false, false, false, false])
             .unwrap_err()
             .to_string(),
         "variable 0 gadget must select exactly one vertex, got 0"
@@ -176,7 +174,7 @@ fn test_extract_solution_rejects_selected_clause_vertex() {
 
     assert_eq!(
         reduction
-            .extract_solution(&[1, 0, 0, 1])
+            .extract_solution(&vec![true, false, false, true])
             .unwrap_err()
             .to_string(),
         "clause vertex 0 is selected"
@@ -239,14 +237,16 @@ fn test_jl_parity_sat_to_dominatingset() {
         let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i64>>::reduce_to(&source)
             .expect("reduction should succeed");
         let solver = BruteForce::new();
-        let sat_solutions: HashSet<Vec<usize>> = solver
+        let sat_solutions: HashSet<Vec<bool>> = solver
             .find_all_witnesses(&source)
             .unwrap()
             .into_iter()
             .collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
-                let target_solution = solve_optimization_problem(result.target_problem())
+                let target_solution = BruteForce::new()
+                    .solve(result.target_problem())
+                    .unwrap()
                     .expect("SAT->DS: target should have an optimal solution");
                 assert!(result.extract_solution(&target_solution).is_err());
             } else {
@@ -257,7 +257,7 @@ fn test_jl_parity_sat_to_dominatingset() {
                 );
                 assert_eq!(
                     sat_solutions,
-                    jl_parse_configs_set(&case["best_source"]),
+                    jl_parse_bool_configs_set(&case["best_source"]),
                     "SAT->DS [{label}]: best source mismatch"
                 );
             }

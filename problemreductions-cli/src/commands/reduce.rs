@@ -135,18 +135,20 @@ pub fn reduce(input: &Path, via: &Path, out: &OutputConfig) -> Result<()> {
     let route_text = reduction_path.to_string();
     let bundle = execute_route(problem_json, reduction_path)?;
 
-    let json = serde_json::to_value(&bundle)?;
-
-    let mut text = format!(
-        "Reduced {} to {} ({} steps)\n",
-        bundle.source.problem_type, bundle.target.problem_type, route_len,
-    );
-    text.push_str(&format!("\nPath: {route_text}\n"));
-    text.push_str(
-        "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
-    );
-
-    out.emit_with_default_name("", &text, &json)?;
+    out.emit(
+        || {
+            let mut text = format!(
+                "Reduced {} to {} ({} steps)\n",
+                bundle.source.problem_type, bundle.target.problem_type, route_len,
+            );
+            text.push_str(&format!("\nPath: {route_text}\n"));
+            text.push_str(
+                "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
+            );
+            text
+        },
+        || serde_json::to_value(&bundle).context("Failed to serialize reduction bundle"),
+    )?;
 
     Ok(())
 }

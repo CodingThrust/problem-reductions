@@ -6,7 +6,7 @@
 //! The witness integer `x` is encoded as a little-endian binary vector so the
 //! model can represent large reductions without fixed-width overflow.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use num_bigint::{BigUint, ToBigUint};
@@ -28,13 +28,6 @@ inventory::submit! {
             FieldInfo { name: "b", type_name: "BigUint", description: "Coefficient of y" },
             FieldInfo { name: "c", type_name: "BigUint", description: "Right-hand side constant" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "QuadraticDiophantineEquations",
-        fields: &["bit_length_a", "bit_length_b", "bit_length_c"],
     }
 }
 
@@ -187,49 +180,6 @@ impl QuadraticDiophantineEquations {
         }
     }
 
-    /// Encode a candidate witness integer `x` as a little-endian binary configuration.
-    pub fn encode_witness(&self, x: &BigUint) -> Option<Vec<usize>> {
-        if x.is_zero() || x > &self.max_x() {
-            return None;
-        }
-
-        let num_bits = self.witness_bit_length();
-        let mut remaining = x.clone();
-        let mut config = Vec::with_capacity(num_bits);
-
-        for _ in 0..num_bits {
-            config.push(if (&remaining & BigUint::one()).is_zero() {
-                0
-            } else {
-                1
-            });
-            remaining >>= 1usize;
-        }
-
-        if remaining.is_zero() {
-            Some(config)
-        } else {
-            None
-        }
-    }
-
-    /// Decode a little-endian binary configuration into its candidate witness `x`.
-    pub fn decode_witness(&self, config: &[usize]) -> Option<BigUint> {
-        if config.len() != self.witness_bit_length() || config.iter().any(|&digit| digit > 1) {
-            return None;
-        }
-
-        let mut value = BigUint::zero();
-        let mut weight = BigUint::one();
-        for &digit in config {
-            if digit == 1 {
-                value += &weight;
-            }
-            weight <<= 1usize;
-        }
-        Some(value)
-    }
-
     /// Check whether a given x yields a valid positive integer y.
     ///
     /// Returns `Some(y)` if `y` is a positive integer, `None` otherwise.
@@ -279,13 +229,32 @@ impl<'de> Deserialize<'de> for QuadraticDiophantineEquations {
 
 impl Problem for QuadraticDiophantineEquations {
     const NAME: &'static str = "QuadraticDiophantineEquations";
+    type Solution = BigUint;
     type Value = Or;
+
+    crate::problem_size![
+        ("bit_length_a", bit_length_a),
+        ("bit_length_b", bit_length_b),
+        ("bit_length_c", bit_length_c),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, x: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            if x.is_zero() || x > &self.max_x() {
+                return Ok(Or(false));
+            }
+
+            Or(self.check_x(x).is_some())
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for QuadraticDiophantineEquations {
+    fn dimensions(&self) -> Vec<usize> {
         let num_bits = self.witness_bit_length();
         if num_bits == 0 {
             Vec::new()
@@ -293,37 +262,26 @@ impl Problem for QuadraticDiophantineEquations {
             vec![2; num_bits]
         }
     }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
-        Ok({
-            let Some(x) = self.decode_witness(config) else {
-                return Ok(Or(false));
-            };
-
-            if x.is_zero() || x > self.max_x() {
-                return Ok(Or(false));
-            }
-
-            Or(self.check_x(&x).is_some())
-        })
-    }
 }
 
 crate::declare_variants! {
     default QuadraticDiophantineEquations => "2^bit_length_c",
 }
 
+crate::register_brute_force! {
+    QuadraticDiophantineEquations decode |_: &QuadraticDiophantineEquations, indices: Vec<usize>| indices.into_iter().enumerate().fold(BigUint::zero(), |value, (bit, set)| if set == 0 { value } else { value + (BigUint::one() << bit) }),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let instance = QuadraticDiophantineEquations::new(3u32, 5u32, 53u32);
-    let optimal_config = instance
-        .encode_witness(&BigUint::from(1u32))
-        .expect("x=1 should be a valid canonical witness");
+    let optimal_config = BigUint::from(1u32);
 
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "quadratic_diophantine_equations",
         instance: Box::new(instance),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -16,7 +16,7 @@ fn test_reduction_creates_valid_ilp() {
     let r = 2;
     let expected = n * n * n + 2 * n * n + n + r * (n * n + 2 * n + 3);
     assert_eq!(ilp.num_vars(), expected);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn test_rootedtreestorageassignment_to_ilp_bf_vs_ilp() {
     let problem = RootedTreeStorageAssignment::new(3, vec![vec![0, 1], vec![1, 2]], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     let bf_value = bf_witness
         .as_ref()
         .map(|w| problem.evaluate(w).unwrap())
@@ -59,7 +59,7 @@ fn test_rootedtreestorageassignment_to_ilp_infeasible() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
 
     let reduction: ReductionRTSAToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");

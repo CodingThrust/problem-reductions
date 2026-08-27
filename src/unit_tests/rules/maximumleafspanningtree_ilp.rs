@@ -39,10 +39,13 @@ fn test_reduction_creates_expected_ilp_shape() {
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 3*4 + 4 = 16
-    assert_eq!(ilp.num_vars, 16);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 16);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective should be z_0 + z_1 + z_2 + z_3 (indices 4..8)
-    assert_eq!(ilp.objective, vec![(4, 1.0), (5, 1.0), (6, 1.0), (7, 1.0)]);
+    assert_eq!(
+        ilp.objective(),
+        vec![(4, 1.0), (5, 1.0), (6, 1.0), (7, 1.0)]
+    );
 }
 
 #[test]
@@ -97,7 +100,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
-        vec![1, 1, 1, 0]
+        vec![true, true, true, false]
     );
 }
 

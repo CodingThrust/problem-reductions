@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -23,7 +24,7 @@ fn test_minimum_code_generation_one_register_creation() {
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_leaves(), 3);
     assert_eq!(problem.num_internal(), 4);
-    assert_eq!(problem.dims(), vec![4; 4]);
+    assert_eq!(problem.dimensions(), vec![4; 4]);
     assert_eq!(
         <MinimumCodeGenerationOneRegister as Problem>::NAME,
         "MinimumCodeGenerationOneRegister"
@@ -123,11 +124,17 @@ fn test_minimum_code_generation_one_register_invalid_permutation() {
         3,
     );
     // Not a permutation: position 0 used twice
-    assert_eq!(problem.evaluate(&[0, 0, 1, 2]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![0, 0, 1, 2]).unwrap(), Min(None));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Position out of range
-    assert_eq!(problem.evaluate(&[0, 1, 2, 5]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -141,7 +148,8 @@ fn test_minimum_code_generation_one_register_solver() {
     // Leaves: v2 and v3 have out-degree 0. So num_leaves=2.
     let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
     let solver = BruteForce::new();
-    let result = solver.solve(&problem).unwrap();
+    let result_solution = solver.solve(&problem).unwrap().unwrap();
+    let result = problem.evaluate(&result_solution).unwrap();
     // Only valid order: v1 first, then v0
     // v1: LOAD v2, OP v1 (using v3 from memory) = 2 instructions (or LOAD v3, OP v1 using v2)
     // v0: OP v0 (using v1 from register, v2 from memory) = 1 instruction
@@ -154,7 +162,7 @@ fn test_minimum_code_generation_one_register_solver_witness() {
     let problem = MinimumCodeGenerationOneRegister::new(4, vec![(0, 1), (0, 2), (1, 2), (1, 3)], 2);
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find witness");
     assert_eq!(problem.simulate(&witness).unwrap(), Some(3));
@@ -222,11 +230,12 @@ fn test_minimum_code_generation_one_register_paper_example() {
 
     // Verify with brute force
     let solver = BruteForce::new();
-    let result = solver.solve(&problem).unwrap();
+    let result_solution = solver.solve(&problem).unwrap().unwrap();
+    let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(8)));
 
     // Verify witness
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(8));
 }
 

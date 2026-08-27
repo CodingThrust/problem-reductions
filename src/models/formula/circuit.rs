@@ -226,7 +226,7 @@ impl Circuit {
 ///
 /// ```
 /// use problemreductions::models::formula::{CircuitSAT, BooleanExpr, Assignment, Circuit};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a simple circuit: c = x AND y
 /// let circuit = Circuit::new(vec![
@@ -289,21 +289,29 @@ impl CircuitSAT {
     }
 
     /// Check if a configuration is a valid satisfying assignment.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.count_satisfied(config) == self.circuit.num_assignments()
+    pub fn is_valid_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        if config.len() != self.variables.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the circuit variables".into(),
+            ));
+        }
+        Ok(self.count_satisfied(config) == self.circuit.num_assignments())
     }
 
     /// Convert a configuration to variable assignments.
-    fn config_to_assignments(&self, config: &[usize]) -> HashMap<String, bool> {
+    fn config_to_assignments(&self, config: &[bool]) -> HashMap<String, bool> {
         self.variables
             .iter()
             .enumerate()
-            .map(|(i, name)| (name.clone(), config.get(i).copied().unwrap_or(0) == 1))
+            .map(|(i, name)| (name.clone(), config[i]))
             .collect()
     }
 
     /// Count how many assignments are satisfied.
-    fn count_satisfied(&self, config: &[usize]) -> usize {
+    fn count_satisfied(&self, config: &[bool]) -> usize {
         let assignments = self.config_to_assignments(config);
         self.circuit
             .assignments
@@ -327,19 +335,21 @@ pub(crate) fn is_circuit_satisfying(
 
 impl Problem for CircuitSAT {
     const NAME: &'static str = "CircuitSAT";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.variables.len()]
-    }
+    crate::problem_size![
+        ("num_assignment_outputs", num_assignment_outputs),
+        ("num_assignments", num_assignments),
+        ("num_expression_nodes", num_expression_nodes),
+        ("num_variables", num_variables),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok(crate::types::Or(
-            self.count_satisfied(config) == self.circuit.num_assignments(),
-        ))
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -347,8 +357,18 @@ impl Problem for CircuitSAT {
     }
 }
 
+impl crate::solvers::BruteForceProblem for CircuitSAT {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.variables.len()]
+    }
+}
+
 crate::declare_variants! {
     default CircuitSAT => "2^num_variables",
+}
+
+crate::register_brute_force! {
+    CircuitSAT decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -369,7 +389,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
             ),
         ]))),
-        optimal_config: vec![0, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

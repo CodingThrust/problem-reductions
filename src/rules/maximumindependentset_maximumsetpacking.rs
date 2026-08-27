@@ -31,8 +31,8 @@ where
     /// Solutions map directly: vertex selection = set selection.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -93,8 +93,8 @@ where
     /// Solutions map directly.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -143,35 +143,43 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumindependentset_to_maximumsetpacking",
+            id: "weighted_maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; 10]);
                 crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        source_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
+                        target_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
                     },
                 )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumindependentset_one_to_maximumsetpacking_one",
+            id: "cardinality_maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
                 let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![One; 10]);
                 crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<One>>(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        source_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
+                        target_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
                     },
                 )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumsetpacking_to_maximumindependentset",
+            id: "weighted_maximumsetpacking_to_maximumindependentset",
             build: || {
                 let sets = vec![
                     vec![0, 1, 2],
@@ -187,14 +195,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 0, 0, 1],
-                        target_config: vec![1, 0, 0, 0, 1],
+                        source_config: serde_json::json!(vec![true, false, false, false, true]),
+                        target_config: serde_json::json!(vec![true, false, false, false, true]),
                     },
                 )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumsetpacking_one_to_maximumindependentset_one",
+            id: "cardinality_maximumsetpacking_to_maximumindependentset",
             build: || {
                 let sets = vec![
                     vec![0, 1, 2],
@@ -210,8 +218,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![1, 0, 0, 0, 1],
-                        target_config: vec![1, 0, 0, 0, 1],
+                        source_config: serde_json::json!(vec![true, false, false, false, true]),
+                        target_config: serde_json::json!(vec![true, false, false, false, true]),
                     },
                 )
             },

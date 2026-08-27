@@ -24,8 +24,8 @@ impl ReductionResult for ReductionSMCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -59,8 +59,8 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
 
         // Each row assigned exactly one shift
         for r in 0..m {
-            let terms: Vec<(usize, f64)> = (0..k).map(|g| (r * k + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|g| (r * k + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Collision constraints:
@@ -88,8 +88,8 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
                                 continue;
                             }
                             constraints.push(LinearConstraint::le(
-                                vec![(r * k + g, 1.0), (s * k + h, 1.0)],
-                                1.0,
+                                vec![(r * k + g, 1), (s * k + h, 1)],
+                                1,
                             ));
                         }
                     }
@@ -97,7 +97,8 @@ impl ReduceTo<ILP<bool>> for SparseMatrixCompression {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionSMCToILP {
             target,
             num_rows: m,
@@ -131,8 +132,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

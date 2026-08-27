@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -26,7 +27,7 @@ fn test_consecutive_block_minimization_basic() {
     assert_eq!(problem.num_cols(), 3);
     assert_eq!(problem.bound(), 2);
     assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dims(), vec![3; 3]);
+    assert_eq!(problem.dimensions(), vec![3; 3]);
 }
 
 #[test]
@@ -42,13 +43,13 @@ fn test_consecutive_block_minimization_evaluate() {
         vec![vec![true, false, true], vec![false, true, true]],
         2,
     );
-    assert!(problem.evaluate(&[0, 2, 1]).unwrap());
+    assert!(problem.evaluate(&vec![0, 2, 1]).unwrap());
 
     // Identity permutation [0, 1, 2]:
     //   [1, 0, 1]  -> 2 blocks
     //   [0, 1, 1]  -> 1 block
     // Total = 3 blocks, bound = 2 => does not satisfy
-    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -95,8 +96,11 @@ fn test_consecutive_block_minimization_empty_matrix() {
     let problem = ConsecutiveBlockMinimization::new(vec![], 0);
     assert_eq!(problem.num_rows(), 0);
     assert_eq!(problem.num_cols(), 0);
-    assert!(problem.evaluate(&[]).unwrap());
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(problem.evaluate(&vec![]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -131,7 +135,10 @@ fn test_consecutive_block_minimization_deserialization_rejects_ragged_matrix() {
 fn test_consecutive_block_minimization_invalid_permutation() {
     let problem = ConsecutiveBlockMinimization::new(vec![vec![true, false], vec![false, true]], 2);
     // Not a valid permutation => evaluate returns false
-    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0]).unwrap());
     // Wrong length
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }

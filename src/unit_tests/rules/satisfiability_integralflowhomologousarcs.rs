@@ -21,13 +21,9 @@ fn issue_example() -> Satisfiability {
     )
 }
 
-fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
+fn all_assignments(num_vars: usize) -> Vec<Vec<bool>> {
     (0..(1usize << num_vars))
-        .map(|mask| {
-            (0..num_vars)
-                .map(|bit| usize::from(((mask >> bit) & 1) == 1))
-                .collect()
-        })
+        .map(|mask| (0..num_vars).map(|bit| ((mask >> bit) & 1) == 1).collect())
         .collect()
 }
 
@@ -65,7 +61,7 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_en
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let satisfying_assignment = vec![1, 0, 1];
+    let satisfying_assignment = vec![true, false, true];
     let satisfying_flow = reduction.encode_assignment(&satisfying_assignment);
     assert!(target.evaluate(&satisfying_flow).unwrap().0);
     assert_eq!(
@@ -73,7 +69,7 @@ fn test_satisfiability_to_integralflowhomologousarcs_issue_example_assignment_en
         satisfying_assignment
     );
 
-    let unsatisfying_assignment = vec![1, 1, 1];
+    let unsatisfying_assignment = vec![true, true, true];
     let unsatisfying_flow = reduction.encode_assignment(&unsatisfying_assignment);
     assert!(!target.evaluate(&unsatisfying_flow).unwrap().0);
 }
@@ -103,9 +99,7 @@ fn test_satisfiability_to_integralflowhomologousarcs_unsat_source_has_no_target_
         .expect("reduction should succeed");
 
     assert_eq!(
-        BruteForce::new()
-            .find_witness(reduction.target_problem())
-            .unwrap(),
+        BruteForce::new().solve(reduction.target_problem()).unwrap(),
         None
     );
 }
@@ -136,7 +130,10 @@ fn test_satisfiability_to_integralflowhomologousarcs_canonical_example_spec() {
         8
     );
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![1, 0, 1]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, false, true])
+    );
 
     let source: Satisfiability = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");
@@ -144,12 +141,10 @@ fn test_satisfiability_to_integralflowhomologousarcs_canonical_example_spec() {
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
-    assert!(source
-        .evaluate(&example.solutions[0].source_config)
-        .unwrap()
-        .is_valid());
-    assert!(target
-        .evaluate(&example.solutions[0].target_config)
-        .unwrap()
-        .is_valid());
+    let source_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].source_config.clone()).unwrap();
+    let target_config: Vec<usize> =
+        serde_json::from_value(example.solutions[0].target_config.clone()).unwrap();
+    assert!(source.evaluate(&source_config).unwrap().is_valid());
+    assert!(target.evaluate(&target_config).unwrap().is_valid());
 }

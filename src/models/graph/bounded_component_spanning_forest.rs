@@ -227,28 +227,46 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "BoundedComponentSpanningForest";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("max_components", max_components),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.max_components; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "component assignment length does not match the graph vertices".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_solution(config)?))
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for BoundedComponentSpanningForest<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.max_components; self.graph.num_vertices()]
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "bounded_component_spanning_forest_simplegraph_i64",
+        id: "bounded_component_spanning_forest_simplegraph",
         instance: Box::new(BoundedComponentSpanningForest::new(
             SimpleGraph::new(
                 8,
@@ -269,13 +287,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
             6,
         )),
-        optimal_config: vec![0, 0, 1, 1, 1, 2, 2, 0],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 1, 1, 2, 2, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default BoundedComponentSpanningForest<SimpleGraph, i64> => "3^num_vertices" create BoundedComponentSpanningForestCreateSpec,
+}
+
+crate::register_brute_force! {
+    BoundedComponentSpanningForest<SimpleGraph, i64>,
 }
 
 #[cfg(test)]

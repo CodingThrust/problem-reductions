@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 include!("../../jl_helpers.rs");
@@ -66,7 +67,7 @@ fn test_is_set_packing_function() {
 fn test_empty_sets() {
     let problem = MaximumSetPacking::<i64>::new(vec![]);
     // Empty packing is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]).unwrap(), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -97,8 +98,8 @@ fn test_relationship_to_independent_set() {
     let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
 
     // Should have same optimal value
-    let sp_size: usize = sp_solutions[0].iter().sum();
-    let is_size: usize = is_solutions[0].iter().sum();
+    let sp_size: usize = sp_solutions[0].iter().filter(|&&selected| selected).count();
+    let is_size: usize = is_solutions[0].iter().filter(|&&selected| selected).count();
     assert_eq!(sp_size, is_size);
 }
 
@@ -121,7 +122,7 @@ fn test_jl_parity_evaluation() {
             MaximumSetPacking::with_weights(sets, weights).unwrap()
         };
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
@@ -141,8 +142,8 @@ fn test_jl_parity_evaluation() {
             }
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SetPacking best solutions mismatch");
     }
 }
@@ -152,9 +153,9 @@ fn test_is_valid_solution() {
     // Sets: {0,1}, {1,2}, {3,4}
     let problem = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
     // Valid: select sets 0 and 2 (disjoint: {0,1} and {3,4})
-    assert!(problem.is_valid_solution(&[1, 0, 1]));
+    assert!(problem.is_valid_solution(&[true, false, true]));
     // Invalid: select sets 0 and 1 (share element 1)
-    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+    assert!(!problem.is_valid_solution(&[true, true, false]));
 }
 
 #[test]
@@ -176,13 +177,13 @@ fn test_setpacking_paper_example() {
     // Paper: U={0..5}, sets {0,1},{1,2},{2,3},{3,4}, max packing {S_0,S_2}
     let problem =
         MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
-    let config = vec![1, 0, 1, 0]; // {S_0, S_2}
+    let config = vec![true, false, true, false]; // {S_0, S_2}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }
 

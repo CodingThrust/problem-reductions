@@ -43,14 +43,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::PartitionIntoForests;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Graph containing two triangles; K=2 forests suffice
 /// let graph = SimpleGraph::new(6, vec![(0,1),(1,2),(2,0),(2,3),(3,4),(4,5),(5,3)]);
 /// let problem = PartitionIntoForests::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,20 +98,33 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoForests";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_vertices", num_vertices),
+        ("num_edges", num_edges),
+        ("num_forests", num_forests),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_forests; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&part| part >= self.num_forests) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range forest".into(),
+            ));
+        }
         Ok({
             crate::types::Or(is_valid_forest_partition(
                 &self.graph,
@@ -119,6 +132,15 @@ where
                 config,
             ))
         })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for PartitionIntoForests<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_forests; self.graph.num_vertices()]
     }
 }
 
@@ -167,6 +189,10 @@ crate::declare_variants! {
     default PartitionIntoForests<SimpleGraph> => "num_forests^num_vertices",
 }
 
+crate::register_brute_force! {
+    PartitionIntoForests<SimpleGraph>,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -180,7 +206,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // V0={0,3}: edges from graph in class 0: none among {0,3} → forest
         // V1={1,2,4,5}: edges (1,2),(3,4) but 3∉V1; edges among V1: (1,2),(4,5) → path forest
-        optimal_config: vec![0, 1, 1, 0, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 0, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

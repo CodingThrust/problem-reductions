@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_constructs_model() {
@@ -43,7 +44,7 @@ fn no_instance() -> PartialFeedbackEdgeSet<SimpleGraph> {
     PartialFeedbackEdgeSet::new(issue_graph(), 2, 4)
 }
 
-fn select_edges<G: Graph>(graph: &G, selected_edges: &[(usize, usize)]) -> Vec<usize> {
+fn select_edges<G: Graph>(graph: &G, selected_edges: &[(usize, usize)]) -> Vec<bool> {
     let chosen: std::collections::BTreeSet<_> = selected_edges
         .iter()
         .copied()
@@ -52,7 +53,7 @@ fn select_edges<G: Graph>(graph: &G, selected_edges: &[(usize, usize)]) -> Vec<u
     graph
         .edges()
         .into_iter()
-        .map(|(u, v)| usize::from(chosen.contains(&super::normalize_edge(u, v))))
+        .map(|(u, v)| chosen.contains(&super::normalize_edge(u, v)))
         .collect()
 }
 
@@ -66,7 +67,7 @@ fn test_partial_feedback_edge_set_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
     assert_eq!(problem.num_variables(), 9);
-    assert_eq!(problem.dims(), vec![2; 9]);
+    assert_eq!(problem.dimensions(), vec![2; 9]);
 }
 
 #[test]
@@ -94,15 +95,20 @@ fn test_partial_feedback_edge_set_rejects_missing_cycle_hit() {
 #[test]
 fn test_partial_feedback_edge_set_rejects_wrong_length_config() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_partial_feedback_edge_set_rejects_non_binary_entries() {
     let problem = yes_instance();
-    let mut config = select_edges(problem.graph(), &[(0, 2), (2, 3), (3, 4)]);
-    config[0] = 2;
-    assert!(!problem.evaluate(&config).unwrap());
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([2, 0, 0, 0, 0, 0, 0, 0, 0]),
+    )
+    .is_err());
 }
 
 #[test]
@@ -110,11 +116,11 @@ fn test_partial_feedback_edge_set_solver_yes_and_no_instances() {
     let solver = BruteForce::new();
 
     let yes_problem = yes_instance();
-    let solution = solver.find_witness(&yes_problem).unwrap().unwrap();
+    let solution = solver.solve(&yes_problem).unwrap().unwrap();
     assert!(yes_problem.evaluate(&solution).unwrap());
 
     let no_problem = no_instance();
-    assert!(solver.find_witness(&no_problem).unwrap().is_none());
+    assert!(solver.solve(&no_problem).unwrap().is_none());
 }
 
 #[test]

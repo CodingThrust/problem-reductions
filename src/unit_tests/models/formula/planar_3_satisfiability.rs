@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -16,7 +17,7 @@ fn test_planar_3_satisfiability_creation() {
     assert_eq!(problem.num_vars(), 4);
     assert_eq!(problem.num_clauses(), 4);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
 }
 
 #[test]
@@ -33,11 +34,11 @@ fn test_planar_3_satisfiability_evaluate() {
 
     // config [1,1,1,0] -> x1=T, x2=T, x3=T, x4=F
     // (T OR T OR T)=T, (F OR T OR F)=T, (T OR F OR F)=T, (F OR T OR T)=T
-    assert!(problem.evaluate(&[1, 1, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![true, true, true, false]).unwrap());
 
     // config [0,0,0,0] -> all false
     // (F OR F OR F)=F -> unsatisfied
-    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![false, false, false, false]).unwrap());
 }
 
 #[test]
@@ -53,7 +54,7 @@ fn test_planar_3_satisfiability_solver() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 
     // Verify the found solution actually satisfies the formula
@@ -84,7 +85,7 @@ fn test_planar_3_satisfiability_unsatisfiable() {
     );
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -60,10 +61,10 @@ fn test_open_shop_scheduling_creation() {
 fn test_open_shop_scheduling_dims() {
     let p = issue_example();
     // n = 4 jobs, m = 3 machines → n*m = 12 config variables, each in 0..4
-    assert_eq!(p.dims(), vec![4usize; 12]);
+    assert_eq!(p.dimensions(), vec![4usize; 12]);
 
     let p2 = two_by_two();
-    assert_eq!(p2.dims(), vec![2usize; 4]);
+    assert_eq!(p2.dimensions(), vec![2usize; 4]);
 }
 
 // ─── evaluate ────────────────────────────────────────────────────────────────
@@ -110,16 +111,22 @@ fn test_open_shop_scheduling_evaluate_invalid_not_permutation() {
 fn test_open_shop_scheduling_evaluate_wrong_length() {
     let p = issue_example();
     // Too short
-    assert_eq!(p.evaluate(&[0, 1, 2]).unwrap(), Min(None));
+    assert!(matches!(
+        p.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Too long
-    assert_eq!(p.evaluate(&[0; 13]).unwrap(), Min(None));
+    assert!(matches!(
+        p.evaluate(&vec![0; 13]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_open_shop_scheduling_evaluate_empty() {
     let p = OpenShopScheduling::new(3, vec![]);
-    assert_eq!(p.dims(), Vec::<usize>::new());
-    assert_eq!(p.evaluate(&[]).unwrap(), Min(Some(0)));
+    assert_eq!(p.dimensions(), Vec::<usize>::new());
+    assert_eq!(p.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -218,11 +225,12 @@ fn test_open_shop_scheduling_brute_force_small() {
     // 2x2 instance: brute force over 2^4 = 16 configs (4 valid schedules)
     let p = two_by_two();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &p).unwrap();
+    let value_solution = solver.solve(&p).unwrap().unwrap();
+    let value = p.evaluate(&value_solution).unwrap();
     assert!(value.0.is_some());
     // Optimal value for this instance
     assert_eq!(value, Min(Some(3)));
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Min(Some(3)));
 }
 
@@ -231,9 +239,10 @@ fn test_open_shop_scheduling_brute_force_medium() {
     // 3x3 instance: brute force over 3^9 = 19683 configs (216 valid schedules)
     let p = three_by_three();
     let solver = BruteForce::new();
-    let value = Solver::solve(&solver, &p).unwrap();
+    let value_solution = solver.solve(&p).unwrap().unwrap();
+    let value = p.evaluate(&value_solution).unwrap();
     assert!(value.0.is_some());
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), value);
 }
 

@@ -6,7 +6,7 @@
 //! in cyclic order — i.e., (f(a) < f(b) < f(c)) ∨ (f(b) < f(c) < f(a))
 //! ∨ (f(c) < f(a) < f(b)).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -25,13 +25,6 @@ inventory::submit! {
             FieldInfo { name: "num_elements", type_name: "usize", description: "Number of elements in the set A" },
             FieldInfo { name: "triples", type_name: "Vec<(usize, usize, usize)>", description: "Collection of ordered triples (a, b, c) requiring cyclic order" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "CyclicOrdering",
-        fields: &["num_elements", "num_triples"],
     }
 }
 
@@ -157,23 +150,42 @@ impl<'de> Deserialize<'de> for CyclicOrdering {
 
 impl Problem for CyclicOrdering {
     const NAME: &'static str = "CyclicOrdering";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_size![("num_elements", num_elements), ("num_triples", num_triples),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_elements; self.num_elements]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_elements {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= self.num_elements) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "ordering contains an out-of-range position".into(),
+            ));
+        }
         Ok(Or(self.is_valid_solution(config)))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for CyclicOrdering {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_elements; self.num_elements]
     }
 }
 
 crate::declare_variants! {
     default CyclicOrdering => "factorial(num_elements)",
+}
+
+crate::register_brute_force! {
+    CyclicOrdering,
 }
 
 #[cfg(feature = "example-db")]
@@ -184,7 +196,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             vec![(0, 1, 2), (2, 3, 0), (1, 3, 4)],
         )),
-        optimal_config: vec![1, 3, 4, 0, 2],
+        optimal_config: serde_json::json!(vec![1, 3, 4, 0, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

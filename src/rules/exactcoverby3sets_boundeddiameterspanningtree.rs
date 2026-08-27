@@ -60,15 +60,15 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     /// correspond to the q chosen subsets.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let m = self.source_num_subsets;
             let root_to_set_offset = 2;
             (0..m)
-                .map(|i| usize::from(target_solution[root_to_set_offset + i] == 1))
+                .map(|i| target_solution[root_to_set_offset + i])
                 .collect()
         })
     }
@@ -78,8 +78,6 @@ impl ReductionResult for ReductionX3CToBoundedDiameterSpanningTree {
     size = exact {
         num_vertices = "num_subsets + universe_size + 3",
         num_edges = "2 + 4 * num_subsets + num_subsets * (num_subsets - 1) / 2",
-        weight_bound = "4 * universe_size / 3 + num_subsets + 2",
-        diameter_bound = "4",
     })]
 impl ReduceTo<BoundedDiameterSpanningTree<SimpleGraph, i64>> for ExactCoverBy3Sets {
     type Result = ReductionX3CToBoundedDiameterSpanningTree;
@@ -168,7 +166,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
 
             // Source: select both subsets.
-            let source_config = vec![1, 1];
+            let source_config = vec![true, true];
 
             // Target spanning tree (n = 11, n-1 = 10 edges):
             //   (r,v1)=idx 0, (v1,v2)=idx 1, (r,s0)=idx 2, (r,s1)=idx 3,
@@ -180,7 +178,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             //   edge order = forced(2) + root-to-set(m=2) + set-to-element(6) + clique(1)
             //              = indices 0..1, 2..3, 4..9, 10
             // Select every edge except the clique edge.
-            let target_config = vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0];
+            let target_config = vec![
+                true, true, true, true, true, true, true, true, true, true, false,
+            ];
 
             crate::example_db::specs::rule_example_with_witness::<
                 _,
@@ -188,8 +188,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

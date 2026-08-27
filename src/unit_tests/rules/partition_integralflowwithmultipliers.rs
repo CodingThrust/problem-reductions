@@ -59,7 +59,7 @@ fn test_partition_to_integralflowwithmultipliers_even_no_instance_uses_bottlenec
     let target = reduction.target_problem();
 
     assert_eq!(target.capacities(), &[1, 1, 3, 5, 4]);
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }
 
 #[test]
@@ -74,9 +74,9 @@ fn test_partition_to_integralflowwithmultipliers_odd_total_is_fixed_no_instance(
     assert_eq!(target.multipliers(), &[1, 2, 1]);
     assert_eq!(target.capacities(), &[1, 1]);
     assert_eq!(target.requirement(), 1);
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
     assert_eq!(
-        reduction.extract_solution(&[]).unwrap_err().to_string(),
+        reduction.extract_solution(&vec![]).unwrap_err().to_string(),
         "the fixed infeasible target instance has no extractable witness"
     );
 }
@@ -89,9 +89,9 @@ fn test_partition_to_integralflowwithmultipliers_extract_solution() {
 
     assert_eq!(
         reduction
-            .extract_solution(&[1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
+            .extract_solution(&vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
             .unwrap(),
-        vec![1, 0, 1, 0, 1, 0]
+        vec![true, false, true, false, true, false]
     );
 }
 
@@ -106,9 +106,12 @@ fn test_partition_to_integralflowwithmultipliers_canonical_example_spec() {
 
     assert_eq!(example.solutions.len(), 1);
     let solution = &example.solutions[0];
-    assert_eq!(solution.source_config, vec![1, 0, 1, 0, 1, 0]);
+    assert_eq!(
+        solution.source_config,
+        serde_json::json!([true, false, true, false, true, false])
+    );
     assert_eq!(
         solution.target_config,
-        vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12]
+        serde_json::json!([1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12])
     );
 }

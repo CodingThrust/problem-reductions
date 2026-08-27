@@ -42,11 +42,14 @@ impl ReductionResult for ReductionMinimumWeightDecodingToILP {
     /// Extract the source solution: first m variables are the binary x_j values.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_cols].to_vec())
+        Ok(target_solution[..self.num_cols]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -71,27 +74,28 @@ impl ReduceTo<ILP<i64>> for MinimumWeightDecoding {
 
         // Equality constraints: Σ_j H[i][j] * x_j - 2 * k_i = s_i
         for i in 0..n {
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for j in 0..m {
                 if self.matrix()[i][j] {
-                    terms.push((x(j), 1.0));
+                    terms.push((x(j), 1));
                 }
             }
-            terms.push((k(i), -2.0));
-            let rhs = if self.target()[i] { 1.0 } else { 0.0 };
+            terms.push((k(i), -2));
+            let rhs = if self.target()[i] { 1 } else { 0 };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
 
         // Binary bounds: x_j ≤ 1
         for j in 0..m {
-            constraints.push(LinearConstraint::le(vec![(x(j), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(x(j), 1)], 1));
         }
 
         // Objective: minimize Σ x_j
         let objective: Vec<(usize, f64)> = (0..m).map(|j| (x(j), 1.0)).collect();
 
         Ok(ReductionMinimumWeightDecodingToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_cols: m,
         })
     }

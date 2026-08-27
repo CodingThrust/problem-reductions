@@ -14,12 +14,12 @@ pub use crate::create_args::CreateArgs;
 Typical workflow:
   pred create MIS --graph 0-1,1-2,2-3 -o problem.json
   pred solve problem.json
-  pred evaluate problem.json --config 1,0,1,0
+  pred evaluate problem.json --config '[true,false,true,false]'
 
 Piping (use - to read from stdin):
   pred create MIS --graph 0-1,1-2 | pred solve -
   pred create StringToStringCorrection --source-string \"0,1,2,3,1,0\" --target-string \"0,1,3,2,1\" --bound 2 | pred solve - --solver brute-force
-  pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
+  pred create MIS --graph 0-1,1-2 | pred evaluate - --config '[true,false,true]'
   pred create MIS --graph 0-1,1-2 | pred reduce - --via route.json
 
 JSON output (any command):
@@ -216,9 +216,9 @@ Examples:
     /// Extract a source-space solution from a reduction bundle and a target-space config
     #[command(after_help = "\
 Examples:
-  pred extract bundle.json --config 1,0,1,0
-  pred extract bundle.json --config 1,0,1,0 -o source.json
-  cat bundle.json | pred extract - --config 1,0,1,0
+  pred extract bundle.json --config '[1,0,1,0]'
+  pred extract bundle.json --config '[1,0,1,0]' -o source.json
+  cat bundle.json | pred extract - --config '[1,0,1,0]'
 
 Use this when an external solver has solved the bundle's target problem
 (e.g. a QUBO sampler, a neutral-atom platform, a QAOA runtime) and you want
@@ -226,7 +226,7 @@ the corresponding solution in the original source problem space without
 having to shell back into `pred solve`.
 
 Input: a reduction bundle JSON (from `pred reduce`). Use - to read from stdin.
---config is the target-space configuration (comma-separated, e.g. 1,0,1,0).")]
+--config is the target problem's solution encoded as JSON (e.g. '[1,0,1,0]').")]
     Extract(ExtractArgs),
     /// Start MCP (Model Context Protocol) server for AI assistant integration
     #[cfg(feature = "mcp")]
@@ -341,7 +341,7 @@ pub struct ReduceArgs {
 pub struct ExtractArgs {
     /// Reduction bundle JSON (from `pred reduce`). Use - for stdin.
     pub input: PathBuf,
-    /// Target-space configuration to map back (comma-separated, e.g. 1,0,1,0)
+    /// Target problem solution encoded as JSON (for example, [1,0,1,0])
     #[arg(long)]
     pub config: String,
 }
@@ -355,15 +355,15 @@ pub struct InspectArgs {
 #[derive(clap::Args)]
 #[command(after_help = "\
 Examples:
-  pred evaluate problem.json --config 1,0,1,0
-  pred evaluate problem.json --config 1,0,1,0 -o result.json
-  pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1  # read from stdin
+  pred evaluate problem.json --config '[true,false,true,false]'
+  pred evaluate problem.json --config '[true,false,true,false]' -o result.json
+  pred create MIS --graph 0-1,1-2 | pred evaluate - --config '[true,false,true]'  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.")]
 pub struct EvaluateArgs {
     /// Problem JSON file (from `pred create`). Use - for stdin.
     pub input: PathBuf,
-    /// Configuration to evaluate (comma-separated, e.g., 1,0,1,0)
+    /// Problem solution encoded as JSON (for example, [true,false,true,false])
     #[arg(long)]
     pub config: String,
 }

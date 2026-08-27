@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -20,7 +21,7 @@ fn test_rootedtreearrangement_basic_yes_example() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 5);
     assert_eq!(problem.bound(), 7);
-    assert_eq!(problem.dims(), vec![5; 10]);
+    assert_eq!(problem.dimensions(), vec![5; 10]);
     assert!(problem.evaluate(&config).unwrap());
     assert_eq!(problem.total_edge_stretch(&config).unwrap(), Some(6));
 }
@@ -53,7 +54,10 @@ fn test_rootedtreearrangement_rejects_invalid_bijections() {
     assert_eq!(problem.total_edge_stretch(&out_of_range).unwrap(), None);
 
     let wrong_length = vec![0, 0, 1, 2, 3, 0, 1, 2, 3];
-    assert!(!problem.evaluate(&wrong_length).unwrap());
+    assert!(matches!(
+        problem.evaluate(&wrong_length),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert_eq!(problem.total_edge_stretch(&wrong_length).unwrap(), None);
 }
 
@@ -86,7 +90,7 @@ fn test_rootedtreearrangement_solver_and_serialization() {
 
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("expected satisfying solution");
     assert!(problem.evaluate(&solution).unwrap());

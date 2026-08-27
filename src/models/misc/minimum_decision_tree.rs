@@ -35,7 +35,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumDecisionTree;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = MinimumDecisionTree::new(
 ///     vec![
@@ -222,17 +222,20 @@ impl MinimumDecisionTree {
 
 impl Problem for MinimumDecisionTree {
     const NAME: &'static str = "MinimumDecisionTree";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
-        vec![self.num_tests + 1; self.num_tree_slots()]
-    }
+    crate::problem_size![("num_objects", num_objects), ("num_tests", num_tests),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_tree_slots() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "decision-tree encoding length does not match the instance".into(),
+                ));
             }
             Min(self.simulate(config)?)
         })
@@ -243,8 +246,19 @@ impl Problem for MinimumDecisionTree {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumDecisionTree {
+    fn dimensions(&self) -> Vec<usize> {
+        // Each internal node can hold test 0..num_tests-1 or sentinel (leaf)
+        vec![self.num_tests + 1; self.num_tree_slots()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumDecisionTree => "num_tests^num_objects" create MinimumDecisionTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumDecisionTree,
 }
 
 #[cfg(feature = "example-db")]
@@ -261,7 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
         )),
         // T0 at root, T2 left, T1 right, rest are leaves (sentinel=3)
-        optimal_config: vec![0, 2, 1, 3, 3, 3, 3],
+        optimal_config: serde_json::json!(vec![0, 2, 1, 3, 3, 3, 3]),
         optimal_value: serde_json::json!(8),
     }]
 }

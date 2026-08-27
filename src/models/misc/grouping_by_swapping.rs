@@ -190,16 +190,29 @@ impl GroupingBySwapping {
 
 impl Problem for GroupingBySwapping {
     const NAME: &'static str = "GroupingBySwapping";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.string_len(); self.budget]
-    }
+    crate::problem_size![
+        ("alphabet_size", alphabet_size),
+        ("string_len", string_len),
+        ("budget", budget),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.budget {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "swap-program length does not match the budget".into(),
+            ));
+        }
+        if config.iter().any(|&slot| slot >= self.string.len()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "swap program contains an out-of-range slot".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 self.apply_swap_program(config)
@@ -213,8 +226,18 @@ impl Problem for GroupingBySwapping {
     }
 }
 
+impl crate::solvers::BruteForceProblem for GroupingBySwapping {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.string_len(); self.budget]
+    }
+}
+
 crate::declare_variants! {
     default GroupingBySwapping => "string_len ^ budget" create GroupingBySwappingCreateSpec,
+}
+
+crate::register_brute_force! {
+    GroupingBySwapping,
 }
 
 #[cfg(feature = "example-db")]
@@ -222,7 +245,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "grouping_by_swapping",
         instance: Box::new(GroupingBySwapping::new(3, vec![0, 1, 2, 0, 1, 2], 5)),
-        optimal_config: vec![2, 1, 3, 5, 5],
+        optimal_config: serde_json::json!(vec![2, 1, 3, 5, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }

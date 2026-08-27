@@ -22,10 +22,10 @@ fn test_reduction_creates_valid_ilp() {
     let n = 5;
     let m = 6;
     // kn + m = 21 variables
-    assert_eq!(ilp.num_vars, k * n + m);
+    assert_eq!(ilp.num_vars(), k * n + m);
     // n + 2km + k^2 = 5 + 36 + 9 = 50 constraints
-    assert_eq!(ilp.constraints.len(), n + 2 * k * m + k * k);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), n + 2 * k * m + k * k);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -105,7 +105,7 @@ fn test_solution_extraction() {
     // Manually construct an ILP solution representing the optimal partition:
     // V_0 = {0}, V_1 = {1, 2, 3}, V_2 = {4}
     // Cut edges: (0,1)=idx 0, (3,4)=idx 3, (0,4)=idx 4
-    let mut ilp_solution = vec![0usize; num_vars];
+    let mut ilp_solution = vec![0_i64; num_vars];
 
     // y_{0,v}: component 0 assignments (indices 0..5)
     ilp_solution[0] = 1; // y_{0,0} = 1 (vertex 0 in component 0)
@@ -124,7 +124,7 @@ fn test_solution_extraction() {
     ilp_solution[15 + 4] = 1; // edge (0,4) cut
 
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 0, 0, 1, 1, 0]);
+    assert_eq!(extracted, vec![true, false, false, true, true, false]);
 
     let obj = problem.evaluate(&extracted).unwrap();
     assert_eq!(obj, Min(Some(8)));

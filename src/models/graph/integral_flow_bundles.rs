@@ -3,7 +3,7 @@
 //! Given a directed graph with overlapping bundle-capacity constraints on arcs,
 //! determine whether an integral flow can deliver a required amount to the sink.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -19,13 +19,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with overlapping bundle capacities",
         fields: IntegralFlowBundlesCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "IntegralFlowBundles",
-        fields: &["num_vertices", "num_arcs", "num_bundles"],
     }
 }
 
@@ -257,7 +250,7 @@ impl IntegralFlowBundles {
         &self,
         config: &[usize],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        Ok(self.evaluate_solution(config)?.0)
     }
 
     fn arc_upper_bounds(&self) -> Vec<i64> {
@@ -302,13 +295,81 @@ impl IntegralFlowBundles {
         }
         Ok(Some(balance))
     }
+
+    fn evaluate_solution(
+        &self,
+        config: &[usize],
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
+        }
+
+        let upper_bounds = self.arc_upper_bounds();
+        for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
+            if i64::try_from(value).map_or(true, |value| value > upper_bound) {
+                return Ok(crate::types::Or(false));
+            }
+        }
+
+        for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
+            let mut total = 0i64;
+            for &arc_index in bundle {
+                let Ok(flow) = i64::try_from(config[arc_index]) else {
+                    return Ok(crate::types::Or(false));
+                };
+                let Some(next_total) = total.checked_add(flow) else {
+                    return Ok(crate::types::Or(false));
+                };
+                total = next_total;
+            }
+            if total > capacity {
+                return Ok(crate::types::Or(false));
+            }
+        }
+
+        for vertex in 0..self.num_vertices() {
+            if vertex == self.source || vertex == self.sink {
+                continue;
+            }
+            if self.vertex_balance(config, vertex)? != Some(0) {
+                return Ok(crate::types::Or(false));
+            }
+        }
+
+        Ok(crate::types::Or(matches!(
+            self.vertex_balance(config, self.sink)?,
+            Some(balance) if balance >= self.requirement
+        )))
+    }
 }
 
 impl Problem for IntegralFlowBundles {
     const NAME: &'static str = "IntegralFlowBundles";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
+    crate::problem_size![
+        ("num_arcs", num_arcs),
+        ("num_bundles", num_bundles),
+        ("num_vertices", num_vertices),
+    ];
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        self.evaluate_solution(config)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        crate::variant_params![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for IntegralFlowBundles {
+    fn dimensions(&self) -> Vec<usize> {
         self.arc_upper_bounds()
             .into_iter()
             .map(|bound| {
@@ -319,64 +380,14 @@ impl Problem for IntegralFlowBundles {
             })
             .collect()
     }
-
-    fn evaluate(
-        &self,
-        config: &[usize],
-    ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                if config.len() != self.num_arcs() {
-                    return Ok(crate::types::Or(false));
-                }
-
-                let upper_bounds = self.arc_upper_bounds();
-                for (&value, &upper_bound) in config.iter().zip(&upper_bounds) {
-                    if i64::try_from(value).map_or(true, |value| value > upper_bound) {
-                        return Ok(crate::types::Or(false));
-                    }
-                }
-
-                for (bundle, &capacity) in self.bundles.iter().zip(&self.bundle_capacities) {
-                    let mut total = 0i64;
-                    for &arc_index in bundle {
-                        let Ok(flow) = i64::try_from(config[arc_index]) else {
-                            return Ok(crate::types::Or(false));
-                        };
-                        let Some(next_total) = total.checked_add(flow) else {
-                            return Ok(crate::types::Or(false));
-                        };
-                        total = next_total;
-                    }
-                    if total > capacity {
-                        return Ok(crate::types::Or(false));
-                    }
-                }
-
-                for vertex in 0..self.num_vertices() {
-                    if vertex == self.source || vertex == self.sink {
-                        continue;
-                    }
-                    if self.vertex_balance(config, vertex)? != Some(0) {
-                        return Ok(crate::types::Or(false));
-                    }
-                }
-
-                matches!(
-                    self.vertex_balance(config, self.sink)?,
-                    Some(balance) if balance >= self.requirement
-                )
-            })
-        })
-    }
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
-    }
 }
 
 crate::declare_variants! {
     default IntegralFlowBundles => "2^num_arcs" create IntegralFlowBundlesCreateSpec,
+}
+
+crate::register_brute_force! {
+    IntegralFlowBundles,
 }
 
 #[cfg(feature = "example-db")]
@@ -391,7 +402,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 1, 1],
             1,
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![1, 0, 1, 0, 0, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

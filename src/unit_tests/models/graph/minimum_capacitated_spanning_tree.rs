@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -54,7 +55,7 @@ fn test_creation() {
     assert_eq!(problem.root(), 0);
     assert_eq!(problem.requirements(), &[0, 1, 1, 1, 1]);
     assert_eq!(*problem.capacity(), 3);
-    assert_eq!(problem.dims().len(), 8);
+    assert_eq!(problem.dimensions().len(), 8);
     assert!(problem.is_weighted());
 }
 
@@ -91,7 +92,7 @@ fn test_evaluate_optimal() {
     let problem = example_instance();
     // Optimal: edges {(0,1),(0,2),(1,4),(3,4)} = indices {0,1,4,7}
     // Weight = 2+1+1+1 = 5
-    let config = vec![1, 1, 0, 0, 1, 0, 0, 1];
+    let config = vec![true, true, false, false, true, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(5)));
 }
 
@@ -99,7 +100,7 @@ fn test_evaluate_optimal() {
 fn test_evaluate_infeasible_not_spanning() {
     let problem = example_instance();
     // Only 3 edges selected (not n-1=4)
-    let config = vec![1, 1, 0, 0, 1, 0, 0, 0];
+    let config = vec![true, true, false, false, true, false, false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -108,14 +109,14 @@ fn test_evaluate_infeasible_capacity_violated() {
     let problem = example_instance();
     // Tree: (0,3),(3,4),(3,2),(2,1) = indices {2,7,5,3}
     // Subtree at 3: {3,4,2,1} req = 4 > 3 (capacity)
-    let config = vec![0, 0, 1, 1, 0, 1, 0, 1];
+    let config = vec![false, false, true, true, false, true, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_evaluate_empty() {
     let problem = example_instance();
-    let config = vec![0; 8];
+    let config = vec![false; 8];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -149,14 +150,14 @@ fn test_is_valid_solution() {
     let problem = example_instance();
     // Valid
     assert!(problem
-        .is_valid_solution(&[1, 1, 0, 0, 1, 0, 0, 1])
+        .is_valid_solution(&[true, true, false, false, true, false, false, true])
         .unwrap());
     // Invalid: not enough edges
     assert!(!problem
-        .is_valid_solution(&[1, 1, 0, 0, 0, 0, 0, 0])
+        .is_valid_solution(&[true, true, false, false, false, false, false, false])
         .unwrap());
     // Invalid: wrong length
-    assert!(!problem.is_valid_solution(&[1, 1, 0]).unwrap());
+    assert!(!problem.is_valid_solution(&[true, true, false]).unwrap());
 }
 
 #[test]
@@ -186,6 +187,6 @@ fn test_set_weights() {
     problem.set_weights(vec![1; 8]);
     assert_eq!(problem.weights(), &[1; 8]);
     // Same optimal tree now has cost 4
-    let config = vec![1, 1, 0, 0, 1, 0, 0, 1];
+    let config = vec![true, true, false, false, true, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }

@@ -8,8 +8,9 @@
 //!   y_{ij} ≤ x_i, y_{ij} ≤ x_j, y_{ij} ≥ x_i + x_j - 1
 
 use crate::models::algebraic::MinimumMatrixCover;
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::types::i64_to_exact_f64;
 
@@ -30,13 +31,16 @@ impl ReductionResult for ReductionMinimumMatrixCoverToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             // First n variables are the sign variables x_0,...,x_{n-1}
-            target_solution[..self.n].to_vec()
+            target_solution[..self.n]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
         })
     }
 }
@@ -69,17 +73,7 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
             for j in (i + 1)..n {
                 let y = y_index(n, i, j);
 
-                // y_{ij} ≤ x_i  →  y_{ij} - x_i ≤ 0
-                constraints.push(LinearConstraint::le(vec![(y, 1.0), (i, -1.0)], 0.0));
-
-                // y_{ij} ≤ x_j  →  y_{ij} - x_j ≤ 0
-                constraints.push(LinearConstraint::le(vec![(y, 1.0), (j, -1.0)], 0.0));
-
-                // y_{ij} ≥ x_i + x_j - 1  →  -y_{ij} + x_i + x_j ≤ 1
-                constraints.push(LinearConstraint::le(
-                    vec![(y, -1.0), (i, 1.0), (j, 1.0)],
-                    1.0,
-                ));
+                constraints.extend(mccormick_product(y, i, j));
             }
         }
 
@@ -96,14 +90,11 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
         //             + Σ_k [-2·(Σ_{j≠k} (a_kj + a_jk))]·x_k
         //             + constant
         //
-        // The constant doesn't affect which x minimizes the objective.
-        // But we can still include it as an ILP constant offset... however
-        // ILP only has linear terms. Since extract_solution maps back to source
-        // and source.evaluate() computes the correct value, we just need the
-        // ILP to find the right optimum assignment. The constant is irrelevant.
+        // The constant does not affect the minimizing assignment. The mapped
+        // source solution is evaluated by the source problem, so omit it here.
 
         let matrix = self.matrix();
-        let mut obj_coeffs = vec![0.0f64; num_vars];
+        let mut obj_coeffs = vec![0f64; num_vars];
 
         // y_{ij} coefficients: 4·(a_ij + a_ji) for each i<j
         for (i, row_i) in matrix.iter().enumerate() {
@@ -162,7 +153,8 @@ impl ReduceTo<ILP<bool>> for MinimumMatrixCover {
             .filter(|&(_, c)| c != 0.0)
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMinimumMatrixCoverToILP { target, n })
     }
@@ -186,8 +178,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1],
-                    target_config: vec![0, 1, 0],
+                    source_config: serde_json::json!(vec![false, true]),
+                    target_config: serde_json::json!(vec![0, 1, 0]),
                 },
             )
         },

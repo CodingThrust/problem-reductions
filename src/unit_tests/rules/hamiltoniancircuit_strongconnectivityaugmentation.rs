@@ -65,7 +65,7 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_nonhamiltonian() {
     // With budget n=4, the only way to get strong connectivity at cost 4
     // is to use 4 weight-1 arcs. But star graph has 3 edges => 6 weight-1 arcs,
     // and no Hamiltonian circuit exists, so no feasible solution should exist.
-    let witness = BruteForce::new().find_witness(target).unwrap();
+    let witness = BruteForce::new().solve(target).unwrap();
     assert!(
         witness.is_none(),
         "non-Hamiltonian source should yield infeasible SCA"
@@ -81,11 +81,11 @@ fn test_hamiltoniancircuit_to_strongconnectivityaugmentation_extract_solution() 
 
     // Manually build the target config for directed cycle 0->1->2->3->0.
     let n = 4;
-    let mut target_config = vec![0usize; n * (n - 1)];
+    let mut target_config = vec![false; n * (n - 1)];
     let cycle_arcs = [(0, 1), (1, 2), (2, 3), (3, 0)];
     for (u, v) in cycle_arcs {
         let idx = u * (n - 1) + if v > u { v - 1 } else { v };
-        target_config[idx] = 1;
+        target_config[idx] = true;
     }
 
     assert!(target.is_valid_solution(&target_config).unwrap());

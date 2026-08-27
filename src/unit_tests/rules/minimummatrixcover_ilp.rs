@@ -1,8 +1,8 @@
 use super::*;
 use crate::models::algebraic::MinimumMatrixCover;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::rules::test_helpers::assert_bf_vs_ilp;
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -16,11 +16,7 @@ fn test_minimum_matrix_cover_to_ilp_closed_loop() {
     ]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "MinimumMatrixCover->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -37,15 +33,15 @@ fn test_minimum_matrix_cover_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=2: 2 sign vars + 1 auxiliary = 3 vars
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
     // 3 constraints per pair, 1 pair
-    assert_eq!(ilp.constraints.len(), 3);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), 3);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // y_{01} coefficient: 4*(a_01 + a_10) = 4*(3+2) = 20
     // x_0 coefficient: -2*(a_01+a_10) = -2*(3+2) = -10
     // x_1 coefficient: -2*(a_10+a_01) = -2*(2+3) = -10
-    let obj_map: std::collections::HashMap<usize, f64> = ilp.objective.iter().copied().collect();
+    let obj_map: std::collections::HashMap<usize, f64> = ilp.objective().iter().copied().collect();
     assert_eq!(*obj_map.get(&0).unwrap_or(&0.0), -10.0);
     assert_eq!(*obj_map.get(&1).unwrap_or(&0.0), -10.0);
     assert_eq!(*obj_map.get(&2).unwrap_or(&0.0), 20.0);
@@ -61,7 +57,9 @@ fn test_minimum_matrix_cover_to_ilp_bf_vs_ilp() {
     ]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&problem).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -93,8 +91,8 @@ fn test_minimum_matrix_cover_to_ilp_1x1() {
     let ilp = reduction.target_problem();
 
     // 1 variable, 0 pairs → 0 auxiliaries
-    assert_eq!(ilp.num_vars, 1);
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.num_vars(), 1);
+    assert_eq!(ilp.constraints().len(), 0);
 
     // For 1×1, f(1)²=1, value = 5 regardless. Objective should be constant (no x terms).
     // x_0 coefficient: -2*Σ_{j≠0} (a_0j+a_j0) = 0 (no off-diagonal)
@@ -127,7 +125,9 @@ fn test_minimum_matrix_cover_to_ilp_asymmetric() {
     let problem = MinimumMatrixCover::new(vec![vec![0, 5], vec![1, 0]]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    let bf_value = BruteForce::new().solve(&problem).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -155,5 +155,11 @@ fn test_minimum_matrix_cover_to_ilp_canonical_example_spec() {
         example.source.instance["matrix"].as_array().unwrap().len(),
         2
     );
-    assert_eq!(example.target.instance["num_vars"], 3);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
 }

@@ -74,7 +74,7 @@ fn test_single_vertex_candidate_selection_must_still_respect_budget() {
     config[0] = 1;
 
     assert!(
-        !source.evaluate(&[1]).unwrap().0,
+        !source.evaluate(&vec![true]).unwrap().0,
         "source rejects the over-budget candidate"
     );
     assert!(

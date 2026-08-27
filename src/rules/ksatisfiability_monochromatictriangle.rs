@@ -49,20 +49,20 @@ impl ReductionResult for Reduction3SATToMonochromaticTriangle {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        let direct: Vec<usize> = self
+        let direct: Vec<bool> = self
             .negation_edge_indices
             .iter()
-            .map(|&edge_idx| usize::from(target_solution[edge_idx] == 0))
+            .map(|&edge_idx| !target_solution[edge_idx])
             .collect();
         if self.source.evaluate(&direct)?.0 {
             return Ok(direct);
         }
 
-        let complement: Vec<usize> = direct.iter().map(|&value| 1 - value).collect();
+        let complement: Vec<bool> = direct.iter().map(|&value| !value).collect();
         if self.source.evaluate(&complement)?.0 {
             return Ok(complement);
         }
@@ -155,7 +155,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 )
                 .expect("reduction should succeed");
             let target_config = BruteForce::new()
-                .find_witness(reduction.target_problem())
+                .solve(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .expect("canonical MonochromaticTriangle example must be feasible");
             let source_config = reduction.extract_solution(&target_config).unwrap();
@@ -163,8 +163,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

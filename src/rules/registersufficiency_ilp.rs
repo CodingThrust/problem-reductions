@@ -28,11 +28,11 @@ impl ReductionResult for ReductionRegisterSufficiencyToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..self.num_vertices])
     }
 }
 
@@ -67,103 +67,116 @@ impl ReduceTo<ILP<i64>> for RegisterSufficiency {
         let after_idx = |vertex: usize, step: usize| -> usize { after_offset + vertex * n + step };
         let live_idx = |vertex: usize, step: usize| -> usize { live_offset + vertex * n + step };
 
-        let big_m = n as f64;
+        let big_m = Self::exact_i64(n, "representing the schedule length in ILP rows")?;
+        let latest_time = big_m;
+        let maximum_time = Self::exact_i64(
+            n.saturating_sub(1),
+            "representing the maximum schedule time in ILP rows",
+        )?;
         let mut has_dependent = vec![false; n];
         let mut constraints = Vec::new();
 
         for vertex in 0..n {
             constraints.push(LinearConstraint::le(
-                vec![(time_idx(vertex), 1.0)],
-                (n.saturating_sub(1)) as f64,
+                vec![(time_idx(vertex), 1)],
+                maximum_time,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(latest_idx(vertex), 1.0)],
-                n as f64,
+                vec![(latest_idx(vertex), 1)],
+                latest_time,
             ));
         }
 
         for (pair_idx, &(u, v)) in pair_list.iter().enumerate() {
             let order_var = order_idx(pair_idx);
-            constraints.push(LinearConstraint::le(vec![(order_var, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(order_var, 1)], 1));
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(v), 1.0), (time_idx(u), -1.0), (order_var, -big_m)],
-                1.0 - big_m,
+                vec![(time_idx(v), 1), (time_idx(u), -1), (order_var, -big_m)],
+                1 - big_m,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(u), 1.0), (time_idx(v), -1.0), (order_var, big_m)],
-                1.0,
+                vec![(time_idx(u), 1), (time_idx(v), -1), (order_var, big_m)],
+                1,
             ));
         }
 
         for &(dependent, dependency) in self.arcs() {
             has_dependent[dependency] = true;
             constraints.push(LinearConstraint::ge(
-                vec![(time_idx(dependent), 1.0), (time_idx(dependency), -1.0)],
-                1.0,
+                vec![(time_idx(dependent), 1), (time_idx(dependency), -1)],
+                1,
             ));
             constraints.push(LinearConstraint::ge(
-                vec![(latest_idx(dependency), 1.0), (time_idx(dependent), -1.0)],
-                0.0,
+                vec![(latest_idx(dependency), 1), (time_idx(dependent), -1)],
+                0,
             ));
         }
 
         for (vertex, &has_child) in has_dependent.iter().enumerate() {
             if !has_child {
                 constraints.push(LinearConstraint::eq(
-                    vec![(latest_idx(vertex), 1.0)],
-                    n as f64,
+                    vec![(latest_idx(vertex), 1)],
+                    latest_time,
                 ));
             }
         }
 
         for vertex in 0..n {
             for step in 0..n {
+                let step_value = Self::exact_i64(step, "representing a schedule step in ILP rows")?;
                 let before_var = before_idx(vertex, step);
-                constraints.push(LinearConstraint::le(vec![(before_var, 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(before_var, 1)], 1));
                 constraints.push(LinearConstraint::le(
-                    vec![(time_idx(vertex), 1.0), (before_var, big_m)],
-                    step as f64 + big_m,
+                    vec![(time_idx(vertex), 1), (before_var, big_m)],
+                    step_value + big_m,
                 ));
                 constraints.push(LinearConstraint::ge(
-                    vec![(time_idx(vertex), 1.0), (before_var, big_m)],
-                    (step + 1) as f64,
+                    vec![(time_idx(vertex), 1), (before_var, big_m)],
+                    step_value + 1,
                 ));
 
                 let after_var = after_idx(vertex, step);
-                constraints.push(LinearConstraint::le(vec![(after_var, 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(after_var, 1)], 1));
                 constraints.push(LinearConstraint::ge(
-                    vec![(latest_idx(vertex), 1.0), (after_var, -big_m)],
-                    (step + 1) as f64 - big_m,
+                    vec![(latest_idx(vertex), 1), (after_var, -big_m)],
+                    step_value + 1 - big_m,
                 ));
                 constraints.push(LinearConstraint::le(
-                    vec![(latest_idx(vertex), 1.0), (after_var, -big_m)],
-                    step as f64,
+                    vec![(latest_idx(vertex), 1), (after_var, -big_m)],
+                    step_value,
                 ));
 
                 let live_var = live_idx(vertex, step);
                 constraints.push(LinearConstraint::le(
-                    vec![(live_var, 1.0), (before_var, -1.0)],
-                    0.0,
+                    vec![(live_var, 1), (before_var, -1)],
+                    0,
                 ));
                 constraints.push(LinearConstraint::le(
-                    vec![(live_var, 1.0), (after_var, -1.0)],
-                    0.0,
+                    vec![(live_var, 1), (after_var, -1)],
+                    0,
                 ));
                 constraints.push(LinearConstraint::ge(
-                    vec![(live_var, 1.0), (before_var, -1.0), (after_var, -1.0)],
-                    -1.0,
+                    vec![(live_var, 1), (before_var, -1), (after_var, -1)],
+                    -1,
                 ));
             }
         }
 
         for step in 0..n {
-            let live_terms: Vec<(usize, f64)> =
-                (0..n).map(|vertex| (live_idx(vertex, step), 1.0)).collect();
-            constraints.push(LinearConstraint::le(live_terms, self.bound() as f64));
+            let live_terms: Vec<(usize, i64)> =
+                (0..n).map(|vertex| (live_idx(vertex, step), 1)).collect();
+            constraints.push(LinearConstraint::le(
+                live_terms,
+                Self::exact_i64(
+                    self.bound(),
+                    "representing the register bound in an ILP row",
+                )?,
+            ));
         }
 
         Ok(ReductionRegisterSufficiencyToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_vertices: n,
         })
     }

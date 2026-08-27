@@ -55,9 +55,9 @@ fn test_no_clique_infeasible() {
 
     let bf = BruteForce::new();
     // Source has no 3-clique
-    assert_eq!(bf.find_witness(&problem).unwrap(), None);
+    assert_eq!(bf.solve(&problem).unwrap(), None);
     // Target CBQ should also be unsatisfiable
-    assert_eq!(bf.find_witness(reduction.target_problem()).unwrap(), None);
+    assert_eq!(bf.solve(reduction.target_problem()).unwrap(), None);
 }
 
 #[test]
@@ -70,13 +70,13 @@ fn test_solution_extraction() {
 
     let bf = BruteForce::new();
     let cbq_witness = bf
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .expect("CBQ should be satisfiable");
     let extracted = reduction.extract_solution(&cbq_witness).unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     // All 3 vertices should be selected
-    assert_eq!(extracted.iter().sum::<usize>(), 3);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn test_trivial_k1() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .expect("k=1 should be feasible");
     let extracted = reduction.extract_solution(&witness).unwrap();

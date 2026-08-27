@@ -140,16 +140,25 @@ impl ConsecutiveOnesMatrixAugmentation {
 
 impl Problem for ConsecutiveOnesMatrixAugmentation {
     const NAME: &'static str = "ConsecutiveOnesMatrixAugmentation";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_cols(); self.num_cols()]
-    }
+    crate::problem_size![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_cols() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering length does not match the matrix".into(),
+            ));
+        }
+        if config.iter().any(|&column| column >= self.num_cols()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "column ordering contains an out-of-range column".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 self.total_augmentation_cost(config)?
@@ -161,14 +170,20 @@ impl Problem for ConsecutiveOnesMatrixAugmentation {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+}
 
-    fn num_variables(&self) -> usize {
-        self.num_cols()
+impl crate::solvers::BruteForceProblem for ConsecutiveOnesMatrixAugmentation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_cols(); self.num_cols()]
     }
 }
 
 crate::declare_variants! {
     default ConsecutiveOnesMatrixAugmentation => "factorial(num_cols) * num_rows * num_cols" create ConsecutiveOnesMatrixAugmentationCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConsecutiveOnesMatrixAugmentation,
 }
 
 #[cfg(feature = "example-db")]
@@ -184,7 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![0, 1, 4, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 4, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

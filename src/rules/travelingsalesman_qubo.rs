@@ -9,7 +9,6 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::i64_to_exact_f64;
@@ -38,17 +37,28 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
     /// We extract the tour order, then map consecutive pairs to edge indices.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_vertices;
 
-            let tour = one_hot_decode(target_solution, n, n, 0)?;
+            let tour: Vec<usize> = (0..n)
+                .map(|position| {
+                    let mut selected =
+                        (0..n).filter(|&vertex| target_solution[position * n + vertex]);
+                    match (selected.next(), selected.next()) {
+                        (Some(vertex), None) => Ok(vertex),
+                        _ => Err(crate::rules::ExtractionError::invalid(format!(
+                            "tour position {position} does not select exactly one vertex"
+                        ))),
+                    }
+                })
+                .collect::<crate::rules::ExtractionResult<_>>()?;
 
             // Build edge-based config: for each consecutive pair in the tour, mark the edge
-            let mut config = vec![0usize; self.num_edges];
+            let mut config = vec![false; self.num_edges];
             for p in 0..n {
                 let u = tour[p];
                 let v = tour[(p + 1) % n];
@@ -58,7 +68,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
                         "target tour uses absent source edge ({u}, {v})"
                     ))
                 })?;
-                config[edge] = 1;
+                config[edge] = true;
             }
 
             config
@@ -198,8 +208,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        false, false, true, true, false, false, false, true, false
+                    ]),
                 },
             )
         },

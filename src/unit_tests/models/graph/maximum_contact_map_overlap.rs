@@ -1,9 +1,9 @@
 use super::*;
 use crate::registry::find_problem_type_by_alias;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
-use crate::Solver;
 
 fn issue_instance() -> MaximumContactMapOverlap {
     // Canonical example from the issue:
@@ -20,7 +20,7 @@ fn test_maximum_contact_map_overlap_creation() {
     assert_eq!(problem.num_contacts_1(), 2);
     assert_eq!(problem.num_contacts_2(), 3);
     // dims must be [|V_2| + 1; |V_1|] = [6; 4].
-    assert_eq!(problem.dims(), vec![6; 4]);
+    assert_eq!(problem.dimensions(), vec![6; 4]);
     assert_eq!(problem.num_variables(), 4);
     // Contacts get normalized so the smaller endpoint comes first.
     let contacts_2 = problem.contacts_2();
@@ -39,7 +39,7 @@ fn test_maximum_contact_map_overlap_evaluate_optimum() {
     //   - contact {1,3}: mapped (1, 4); sorted (1, 4) in E_2
     //   - value = 2 contacts preserved.
     assert!(problem.is_valid_solution(&[1, 2, 4, 5]));
-    assert_eq!(problem.evaluate(&[1, 2, 4, 5]).unwrap(), Max(Some(2)));
+    assert_eq!(problem.evaluate(&vec![1, 2, 4, 5]).unwrap(), Max(Some(2)));
     assert_eq!(
         problem.preserved_contact_count(&[1, 2, 4, 5]).unwrap(),
         Some(2)
@@ -51,7 +51,7 @@ fn test_maximum_contact_map_overlap_evaluate_all_unmatched() {
     let problem = issue_instance();
     // No vertex matched -> no contacts preserved, but trivially feasible.
     assert!(problem.is_valid_solution(&[0, 0, 0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Max(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0, 0, 0, 0]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -61,7 +61,7 @@ fn test_maximum_contact_map_overlap_evaluate_single_match() {
     // satisfies both injectivity and strict monotonicity), but no contact
     // has both endpoints matched, so the score is 0.
     assert!(problem.is_valid_solution(&[1, 0, 0, 0]));
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Max(Some(0)));
+    assert_eq!(problem.evaluate(&vec![1, 0, 0, 0]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn test_maximum_contact_map_overlap_evaluate_not_injective() {
     let problem = issue_instance();
     // Two source vertices map to the same nonzero image -> infeasible.
     assert!(!problem.is_valid_solution(&[1, 1, 0, 0]));
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0]).unwrap(), Max(None));
+    assert_eq!(problem.evaluate(&vec![1, 1, 0, 0]).unwrap(), Max(None));
     assert_eq!(
         problem.preserved_contact_count(&[1, 1, 0, 0]).unwrap(),
         None
@@ -83,7 +83,7 @@ fn test_maximum_contact_map_overlap_evaluate_not_order_preserving() {
     // residue index 0): both nonzero, but 2 > 1 in source order -> not
     // order-preserving.
     assert!(!problem.is_valid_solution(&[2, 1, 0, 0]));
-    assert_eq!(problem.evaluate(&[2, 1, 0, 0]).unwrap(), Max(None));
+    assert_eq!(problem.evaluate(&vec![2, 1, 0, 0]).unwrap(), Max(None));
 }
 
 #[test]
@@ -95,20 +95,18 @@ fn test_maximum_contact_map_overlap_evaluate_suboptimal_feasible() {
     //   - contact {1,3}: mapped (1, 3) ∉ E_2 -> not preserved
     //   - value = 1.
     assert!(problem.is_valid_solution(&[1, 2, 3, 4]));
-    assert_eq!(problem.evaluate(&[1, 2, 3, 4]).unwrap(), Max(Some(1)));
+    assert_eq!(problem.evaluate(&vec![1, 2, 3, 4]).unwrap(), Max(Some(1)));
 }
 
 #[test]
 fn test_maximum_contact_map_overlap_brute_force_finds_optimum() {
     let problem = issue_instance();
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Max(Some(2)));
 
-    let witness = solver
-        .find_witness(&problem)
-        .unwrap()
-        .expect("witness exists");
+    let witness = solver.solve(&problem).unwrap().expect("witness exists");
     assert!(problem.is_valid_solution(&witness));
     assert_eq!(problem.evaluate(&witness).unwrap(), Max(Some(2)));
 }
@@ -118,10 +116,16 @@ fn test_maximum_contact_map_overlap_rejects_wrong_length_config() {
     let problem = issue_instance();
     // |V_1| = 4, config has 3 entries -> infeasible.
     assert!(!problem.is_valid_solution(&[0, 0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Max(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Too long.
     assert!(!problem.is_valid_solution(&[0, 0, 0, 0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]).unwrap(), Max(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -129,7 +133,10 @@ fn test_maximum_contact_map_overlap_rejects_out_of_range_value() {
     let problem = issue_instance();
     // Valid entries are 0..=|V_2| = 0..=5. Value 6 is out of range.
     assert!(!problem.is_valid_solution(&[0, 0, 0, 6]));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 6]).unwrap(), Max(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -138,7 +145,7 @@ fn test_maximum_contact_map_overlap_serialization_roundtrip() {
     let json = serde_json::to_value(&problem).expect("serialize");
     let restored: MaximumContactMapOverlap = serde_json::from_value(json).expect("deserialize");
     assert_eq!(restored, problem);
-    assert_eq!(restored.evaluate(&[1, 2, 4, 5]).unwrap(), Max(Some(2)));
+    assert_eq!(restored.evaluate(&vec![1, 2, 4, 5]).unwrap(), Max(Some(2)));
 }
 
 #[test]

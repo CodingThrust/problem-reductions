@@ -51,11 +51,8 @@ fn test_kcoloring_to_clustering_unsat_preserved() {
     let reduction = ReduceTo::<Clustering>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&source).unwrap().is_none());
-    assert!(solver
-        .find_witness(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(solver.solve(&source).unwrap().is_none());
+    assert!(solver.solve(reduction.target_problem()).unwrap().is_none());
 }
 
 #[test]
@@ -68,7 +65,7 @@ fn test_kcoloring_to_clustering_empty_graph() {
     assert_eq!(target.num_clusters(), 3);
     assert_eq!(target.diameter_bound(), 0);
     assert_eq!(
-        reduction.extract_solution(&[2]).unwrap(),
+        reduction.extract_solution(&vec![2]).unwrap(),
         Vec::<usize>::new()
     );
     assert_satisfaction_round_trip_from_satisfaction_target(&source, &reduction, "empty graph");

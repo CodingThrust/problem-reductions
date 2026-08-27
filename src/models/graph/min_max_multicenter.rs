@@ -43,14 +43,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinMaxMulticenter;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Hexagonal-like graph: 6 vertices, 7 edges, unit weights/lengths, K=2
 /// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)]);
 /// let problem = MinMaxMulticenter::new(graph, vec![1i64; 6], vec![1i64; 7], 2);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,9 +243,9 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// Correct because all edge lengths are non-negative.
     ///
     /// Returns `None` if any vertex is unreachable from all centers.
-    fn shortest_distances(&self, config: &[usize]) -> Option<Vec<W::Sum>> {
+    fn shortest_distances(&self, config: &[bool]) -> Option<Vec<W::Sum>> {
         let n = self.graph.num_vertices();
-        if config.len() != n || config.iter().any(|&selected| selected > 1) {
+        if config.len() != n {
             return None;
         }
         let edges = self.graph.edges();
@@ -263,7 +263,7 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
 
         // Initialize centers
         for (v, &selected) in config.iter().enumerate() {
-            if selected == 1 {
+            if selected {
                 dist[v] = Some(W::Sum::zero());
             }
         }
@@ -318,26 +318,28 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinMaxMulticenter";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
         Ok({
-            if config.len() != self.graph.num_vertices()
-                || config.iter().any(|&selected| selected > 1)
-            {
-                return Ok(Min(None));
+            if config.len() != self.graph.num_vertices() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "center-selection length does not match the graph vertices".into(),
+                ));
             }
 
             // Check exactly K centers are selected
-            let num_selected = config.iter().filter(|&&selected| selected == 1).count();
+            let num_selected = config.iter().filter(|&&selected| selected).count();
             if num_selected != self.k {
                 return Ok(Min(None));
             }
@@ -368,15 +370,30 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MinMaxMulticenter<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 crate::declare_variants! {
     default MinMaxMulticenter<SimpleGraph, i64> => "1.4969^num_vertices" create MinMaxMulticenterI64CreateSpec,
     MinMaxMulticenter<SimpleGraph, One> => "1.4969^num_vertices" create MinMaxMulticenterOneCreateSpec,
 }
 
+crate::register_brute_force! {
+    MinMaxMulticenter<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MinMaxMulticenter<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "min_max_multicenter_simplegraph_i64",
+        id: "min_max_multicenter_simplegraph",
         instance: Box::new(MinMaxMulticenter::new(
             SimpleGraph::new(
                 6,
@@ -386,7 +403,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1i64; 7],
             2,
         )),
-        optimal_config: vec![0, 1, 0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![false, true, false, false, true, false]),
         optimal_value: serde_json::json!(1),
     }]
 }

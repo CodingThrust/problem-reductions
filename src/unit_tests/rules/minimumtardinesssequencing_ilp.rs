@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::One;
@@ -12,11 +12,7 @@ fn test_minimumtardinesssequencing_to_ilp_closed_loop() {
     let problem = MinimumTardinessSequencing::<One>::new(3, vec![2, 3, 1], vec![(0, 2)]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "MinimumTardinessSequencing->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -72,11 +68,7 @@ fn test_minimumtardinesssequencing_weighted_to_ilp_closed_loop() {
         MinimumTardinessSequencing::<i64>::with_lengths(vec![2, 1, 3], vec![3, 4, 5], vec![(0, 2)]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "MinimumTardinessSequencing<i64>->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -88,10 +80,7 @@ fn test_minimumtardinesssequencing_weighted_to_ilp_vs_brute_force() {
     );
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should have solution");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should have solution");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
 
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");

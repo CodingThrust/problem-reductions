@@ -189,7 +189,7 @@ pub(crate) fn command_for_selected_problem(
     })?;
     let problem_ref =
         problemreductions::registry::ProblemRef::from_values(&problem, &spec.variant_values)
-            .map_err(|error| invalid_problem_spec(&command, error))?;
+            .map_err(|error| invalid_problem_spec(&command, error.to_string()))?;
     if problemreductions::registry::find_variant_entry(problem_ref.name(), problem_ref.variant())
         .is_none()
     {

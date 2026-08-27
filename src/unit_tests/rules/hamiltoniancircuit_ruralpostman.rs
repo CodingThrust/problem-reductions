@@ -85,7 +85,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_optimal_cost() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("should find a solution");
 
@@ -104,11 +104,11 @@ fn test_hamiltoniancircuit_to_ruralpostman_nonhamiltonian_cost_gap() {
     let target = reduction.target_problem();
 
     // Verify source has no Hamiltonian circuit
-    let source_witness = BruteForce::new().find_witness(&source).unwrap();
+    let source_witness = BruteForce::new().solve(&source).unwrap();
     assert!(source_witness.is_none(), "star graph should have no HC");
 
     // The RPP optimal cost should exceed 2n = 8
-    let best = BruteForce::new().find_witness(target).unwrap();
+    let best = BruteForce::new().solve(target).unwrap();
     if let Some(config) = best {
         let metric = target.evaluate(&config).unwrap();
         assert!(
@@ -132,7 +132,7 @@ fn test_hamiltoniancircuit_to_ruralpostman_extract_solution() {
 
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("should find a solution");
 

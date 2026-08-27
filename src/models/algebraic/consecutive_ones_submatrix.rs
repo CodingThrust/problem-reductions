@@ -45,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::ConsecutiveOnesSubmatrix;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Tucker matrix (3×4) — full matrix does NOT have C1P, but K=3 does.
 /// let matrix = vec![
@@ -55,7 +55,7 @@ inventory::submit! {
 /// ];
 /// let problem = ConsecutiveOnesSubmatrix::new(matrix, 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -174,33 +174,35 @@ impl ConsecutiveOnesSubmatrix {
 
 impl Problem for ConsecutiveOnesSubmatrix {
     const NAME: &'static str = "ConsecutiveOnesSubmatrix";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("bound", bound),
+        ("num_cols", num_cols),
+        ("num_rows", num_rows),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_cols() {
-                    return Ok(crate::types::Or(false));
-                }
-                if config.iter().any(|&v| v >= 2) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "column-selection length does not match the matrix".into(),
+                    ));
                 }
                 // Collect selected column indices
                 let selected: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v == 1)
+                    .filter(|(_, &v)| v)
                     .map(|(i, _)| i)
                     .collect();
                 if usize::try_from(self.bound) != Ok(selected.len()) {
@@ -212,8 +214,18 @@ impl Problem for ConsecutiveOnesSubmatrix {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ConsecutiveOnesSubmatrix {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_cols()]
+    }
+}
+
 crate::declare_variants! {
     default ConsecutiveOnesSubmatrix => "2^(num_cols) * (num_rows + num_cols)",
+}
+
+crate::register_brute_force! {
+    ConsecutiveOnesSubmatrix decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -230,7 +242,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             3,
         )),
-        optimal_config: vec![1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Or;
@@ -11,11 +11,7 @@ fn test_numericalmatchingwithtargetsums_to_ilp_closed_loop() {
         NumericalMatchingWithTargetSums::new(vec![1, 4, 7], vec![2, 5, 3], vec![3, 7, 12]);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "NMTS->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -42,14 +38,14 @@ fn test_numericalmatchingwithtargetsums_to_ilp_structure() {
     // Only compatible triples are created as variables
     // Check that we have 3m = 9 constraints (3 for x, 3 for y, 3 for targets)
     assert_eq!(ilp.num_constraints(), 9);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     // Feasibility: empty objective
-    assert!(ilp.objective.is_empty());
+    assert!(ilp.objective().is_empty());
 
     // All constraints should be equality constraints
-    for c in &ilp.constraints {
-        assert_eq!(c.cmp, Comparison::Eq);
-        assert!((c.rhs - 1.0).abs() < 1e-9);
+    for c in ilp.constraints() {
+        assert_eq!(c.comparison(), Comparison::Eq);
+        assert_eq!(c.rhs(), 1);
     }
 }
 

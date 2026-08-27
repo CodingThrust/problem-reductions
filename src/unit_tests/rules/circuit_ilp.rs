@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -14,11 +14,7 @@ fn test_circuitsat_to_ilp_and_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "CircuitSAT->ILP AND gate",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -30,11 +26,7 @@ fn test_circuitsat_to_ilp_or_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "CircuitSAT->ILP OR gate",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -46,11 +38,7 @@ fn test_circuitsat_to_ilp_xor_gate() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "CircuitSAT->ILP XOR gate",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
     assert_eq!(
         BruteForce::new().find_all_witnesses(&source).unwrap().len(),
         4
@@ -69,11 +57,7 @@ fn test_circuitsat_to_ilp_nested() {
     )]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "CircuitSAT->ILP nested",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -94,11 +78,7 @@ fn test_circuitsat_to_ilp_closed_loop() {
     ]);
     let source = CircuitSAT::new(circuit);
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "CircuitSAT->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -115,7 +95,7 @@ fn test_circuit_to_ilp_bf_vs_ilp() {
     let reduction = ReduceTo::<ILP>::reduce_to(&source).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("should be satisfiable");
     assert_eq!(source.evaluate(&bf_witness).unwrap(), Or(true));

@@ -33,7 +33,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::MinimumSetCovering;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Universe: {0, 1, 2, 3}
 /// // Sets: S0={0,1}, S1={1,2}, S2={2,3}, S3={0,3}
@@ -155,16 +155,16 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
     }
 
     /// Check if a configuration is a valid set cover.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         let covered = self.covered_elements(config);
         covered.len() == self.universe_size && (0..self.universe_size).all(|e| covered.contains(&e))
     }
 
     /// Check which elements are covered by selected sets.
-    pub fn covered_elements(&self, config: &[usize]) -> HashSet<usize> {
+    pub fn covered_elements(&self, config: &[bool]) -> HashSet<usize> {
         let mut covered = HashSet::new();
         for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
+            if selected {
                 if let Some(set) = self.sets.get(i) {
                     covered.extend(set.iter().copied());
                 }
@@ -179,13 +179,20 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumSetCovering";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.sets.len()]
-    }
+    crate::problem_size![("num_sets", num_sets), ("universe_size", universe_size),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.sets.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "set-selection length does not match the family".into(),
+            ));
+        }
         Ok({
             let covered = self.covered_elements(config);
             let is_valid = covered.len() == self.universe_size
@@ -195,7 +202,7 @@ where
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -212,8 +219,21 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for MinimumSetCovering<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumSetCovering<i64> => "2^num_sets" create MinimumSetCoveringCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumSetCovering<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 /// Check if a selection of sets forms a valid set cover.
@@ -236,12 +256,12 @@ pub(crate) fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_set_covering_i64",
+        id: "minimum_set_covering",
         instance: Box::new(MinimumSetCovering::<i64>::new(
             5,
             vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]],
         )),
-        optimal_config: vec![1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true]),
         optimal_value: serde_json::json!(2),
     }]
 }

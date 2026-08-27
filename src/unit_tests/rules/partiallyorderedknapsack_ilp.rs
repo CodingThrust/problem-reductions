@@ -9,9 +9,9 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3);
-    assert_eq!(ilp.constraints.len(), 2); // 1 capacity + 1 precedence
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 3);
+    assert_eq!(ilp.constraints().len(), 2); // 1 capacity + 1 precedence
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 }
 
 #[test]
@@ -54,6 +54,6 @@ fn test_partiallyorderedknapsack_to_ilp_trivial() {
     let reduction: ReductionPOKToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 0);
-    assert_eq!(ilp.constraints.len(), 1); // capacity only
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.constraints().len(), 1); // capacity only
 }

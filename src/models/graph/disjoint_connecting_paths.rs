@@ -161,7 +161,7 @@ impl<G: Graph> DisjointConnectingPaths<G> {
     }
 
     /// Check whether a configuration is a valid solution.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_disjoint_connecting_paths(&self.graph, &self.terminal_pairs, config)
     }
 }
@@ -171,21 +171,38 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "DisjointConnectingPaths";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_pairs", num_pairs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_solution(config)))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for DisjointConnectingPaths<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
     }
 }
 
@@ -210,21 +227,17 @@ fn normalize_edge(u: usize, v: usize) -> (usize, usize) {
 fn is_valid_disjoint_connecting_paths<G: Graph>(
     graph: &G,
     terminal_pairs: &[(usize, usize)],
-    config: &[usize],
+    config: &[bool],
 ) -> bool {
     let edges = canonical_edges(graph);
     if config.len() != edges.len() {
         return false;
     }
-    if config.iter().any(|&value| value > 1) {
-        return false;
-    }
-
     let num_vertices = graph.num_vertices();
     let mut adjacency = vec![Vec::new(); num_vertices];
     let mut degrees = vec![0usize; num_vertices];
     for (index, &chosen) in config.iter().enumerate() {
-        if chosen == 1 {
+        if chosen {
             let (u, v) = edges[index];
             adjacency[u].push(v);
             adjacency[v].push(u);
@@ -303,6 +316,10 @@ crate::declare_variants! {
     default DisjointConnectingPaths<SimpleGraph> => "2^num_edges" create DisjointConnectingPathsCreateSpec,
 }
 
+crate::register_brute_force! {
+    DisjointConnectingPaths<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -314,7 +331,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             vec![(0, 3), (2, 5)],
         )),
-        optimal_config: vec![1, 0, 1, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

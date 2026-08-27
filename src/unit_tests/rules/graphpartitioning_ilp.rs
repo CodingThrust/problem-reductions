@@ -31,11 +31,11 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 15);
-    assert_eq!(ilp.constraints.len(), 19);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 15);
+    assert_eq!(ilp.constraints().len(), 19);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert_eq!(
-        ilp.objective,
+        ilp.objective(),
         vec![
             (6, 1.0),
             (7, 1.0),
@@ -57,23 +57,23 @@ fn test_reduction_constraint_shape() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 3);
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.num_vars(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
-    let balance = &ilp.constraints[0];
-    assert_eq!(balance.cmp, Comparison::Eq);
-    assert_eq!(balance.terms, vec![(0, 1.0), (1, 1.0)]);
-    assert_eq!(balance.rhs, 1.0);
+    let balance = &ilp.constraints()[0];
+    assert_eq!(balance.comparison(), Comparison::Eq);
+    assert_eq!(balance.terms(), vec![(0, 2), (1, 2)]);
+    assert_eq!(balance.rhs(), 2);
 
-    let first_link = &ilp.constraints[1];
-    assert_eq!(first_link.cmp, Comparison::Ge);
-    assert_eq!(first_link.terms, vec![(2, 1.0), (0, -1.0), (1, 1.0)]);
-    assert_eq!(first_link.rhs, 0.0);
+    let first_link = &ilp.constraints()[1];
+    assert_eq!(first_link.comparison(), Comparison::Ge);
+    assert_eq!(first_link.terms(), vec![(0, -1), (1, 1), (2, 1)]);
+    assert_eq!(first_link.rhs(), 0);
 
-    let second_link = &ilp.constraints[2];
-    assert_eq!(second_link.cmp, Comparison::Ge);
-    assert_eq!(second_link.terms, vec![(2, 1.0), (0, 1.0), (1, -1.0)]);
-    assert_eq!(second_link.rhs, 0.0);
+    let second_link = &ilp.constraints()[2];
+    assert_eq!(second_link.comparison(), Comparison::Ge);
+    assert_eq!(second_link.terms(), vec![(0, 1), (1, -1), (2, 1)]);
+    assert_eq!(second_link.rhs(), 0);
 }
 
 #[test]
@@ -104,8 +104,9 @@ fn test_odd_vertices_reduce_to_infeasible_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.constraints[0].cmp, Comparison::Eq);
-    assert_eq!(ilp.constraints[0].rhs, 1.5);
+    assert_eq!(ilp.constraints()[0].comparison(), Comparison::Eq);
+    assert_eq!(ilp.constraints()[0].terms(), vec![(0, 2), (1, 2), (2, 2)]);
+    assert_eq!(ilp.constraints()[0].rhs(), 3);
 
     let solver = ILPSolver::new();
     assert_eq!(
@@ -123,7 +124,7 @@ fn test_solution_extraction() {
     let ilp_solution = vec![0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![0, 0, 0, 1, 1, 1]);
+    assert_eq!(extracted, vec![false, false, false, true, true, true]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(3)));
 }
 

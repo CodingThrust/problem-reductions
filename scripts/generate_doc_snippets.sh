@@ -47,7 +47,7 @@ json.dump(paths[0], sys.stdout)
 rm -f /tmp/pred_doc_problem.json /tmp/pred_doc_route.json /tmp/pred_doc_reduced.json
 
 # 10. pred evaluate
-"$PRED" create MIS --graph 0-1,1-2,2-3 2>/dev/null | "$PRED" evaluate - --config 1,0,1,0 2>/dev/null > "$OUT/pred-evaluate.txt"
+"$PRED" create MIS --graph 0-1,1-2,2-3 2>/dev/null | "$PRED" evaluate - --config '[true,false,true,false]' 2>/dev/null > "$OUT/pred-evaluate.txt"
 
 # 11. pred show typo suggestion (goes to stderr)
 "$PRED" show MaximumIndependentSe 2> "$OUT/pred-show-typo.txt" || true

@@ -45,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SequencingWithReleaseTimesAndDeadlines;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = SequencingWithReleaseTimesAndDeadlines::new(
 ///     vec![1, 2, 1],
@@ -53,7 +53,7 @@ inventory::submit! {
 ///     vec![3, 3, 4],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,23 +119,33 @@ impl SequencingWithReleaseTimesAndDeadlines {
 
 impl Problem for SequencingWithReleaseTimesAndDeadlines {
     const NAME: &'static str = "SequencingWithReleaseTimesAndDeadlines";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_tasks", num_tasks), ("time_horizon", time_horizon),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
-                let Some(schedule) = super::decode_lehmer(config, self.num_tasks()) else {
+                let Some(schedule) = super::decode_permutation(config, self.num_tasks()) else {
                     return Ok(crate::types::Or(false));
                 };
 
@@ -156,8 +166,18 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingWithReleaseTimesAndDeadlines {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 crate::declare_variants! {
     default SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
+}
+
+crate::register_brute_force! {
+    SequencingWithReleaseTimesAndDeadlines decode |problem: &SequencingWithReleaseTimesAndDeadlines, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -172,7 +192,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 5, 0, 8],
             vec![5, 6, 10, 3, 12],
         )),
-        optimal_config: vec![3, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![3, 0, 1, 2, 4]),
         optimal_value: serde_json::json!(true),
     }]
 }

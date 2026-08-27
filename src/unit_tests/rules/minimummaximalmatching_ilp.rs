@@ -13,11 +13,11 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // num_vars = num_edges = 3
-    assert_eq!(ilp.num_vars, 3, "Should have one variable per edge");
+    assert_eq!(ilp.num_vars(), 3, "Should have one variable per edge");
     // num_constraints = num_vertices (with degree >= 1) + num_edges
     // Vertices 0,1,2,3 all have degree >= 1 → 4 matching constraints + 3 maximality constraints
-    assert_eq!(ilp.constraints.len(), 7);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(ilp.constraints().len(), 7);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 }
 
 #[test]
@@ -30,7 +30,7 @@ fn test_minimummaximalmatching_to_ilp_closed_loop() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solution = bf.find_witness(&problem).unwrap().unwrap();
+    let bf_solution = bf.solve(&problem).unwrap().unwrap();
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     let ilp_solution = ilp_solver
@@ -98,8 +98,8 @@ fn test_empty_graph() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 0);
-    assert_eq!(ilp.constraints.len(), 0);
-    assert!(problem.evaluate(&[]).unwrap().is_valid());
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(Some(0)));
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
+    assert!(problem.evaluate(&vec![]).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }

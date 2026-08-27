@@ -1,6 +1,6 @@
 use crate::models::graph::{MaximumAchromaticNumber, MinimumMaximalMatching};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::{BipartiteGraph, Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{Max, Min};
@@ -34,10 +34,20 @@ fn test_minimummaximalmatching_to_maximumachromaticnumber_closed_loop() {
 
     // Source MMM(T-tree) = 1 (the central edge (v1, v2) is a minimum maximal
     // matching on its own).
-    assert_eq!(solver.solve(&source).unwrap(), Min(Some(1)));
+    assert_eq!(
+        source
+            .evaluate(&solver.solve(&source).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
 
     // Target achromatic number of complement(G) = |V| - mm(G) = 5 - 1 = 4.
-    assert_eq!(solver.solve(target).unwrap(), Max(Some(4)));
+    assert_eq!(
+        target
+            .evaluate(&solver.solve(target).unwrap().unwrap())
+            .unwrap(),
+        Max(Some(4))
+    );
 
     // Closed-loop: every optimal target witness extracts to a valid maximal
     // matching with size mm(G).
@@ -85,7 +95,7 @@ fn test_extract_solution_known_coloring() {
     // unified edge (1, 3), source-edge index 1 in the edges list.
     let coloring = vec![1, 0, 3, 0, 2];
     let extracted = reduction.extract_solution(&coloring).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0, 0]);
+    assert_eq!(extracted, vec![false, true, false, false]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(1)));
 }
 
@@ -106,14 +116,14 @@ fn test_extract_solution_recovers_suboptimal_matchings() {
     // Edge 0 = (v0, v1) selected; edge 2 = (v2, v3) selected.
     let coloring_a = vec![0, 1, 2, 0, 1];
     let extracted_a = reduction.extract_solution(&coloring_a).unwrap();
-    assert_eq!(extracted_a, vec![1, 0, 1, 0]);
+    assert_eq!(extracted_a, vec![true, false, true, false]);
     assert_eq!(source.evaluate(&extracted_a).unwrap(), Min(Some(2)));
 
     // Suboptimal matching {(v1, v4), (v2, v3)} -> pair v1 with v4 and v2
     // with v3; v0 takes a singleton color. Edge 2 = (v2, v3); edge 3 = (v1, v4).
     let coloring_b = vec![2, 0, 1, 1, 0];
     let extracted_b = reduction.extract_solution(&coloring_b).unwrap();
-    assert_eq!(extracted_b, vec![0, 0, 1, 1]);
+    assert_eq!(extracted_b, vec![false, false, true, true]);
     assert_eq!(source.evaluate(&extracted_b).unwrap(), Min(Some(2)));
 }
 
@@ -140,10 +150,12 @@ fn test_identity_on_random_bipartite_instances() {
             .expect("reduction should succeed");
         let target = reduction.target_problem();
 
-        let Min(Some(mm)) = solver.solve(&source).unwrap() else {
+        let source_solution = solver.solve(&source).unwrap().unwrap();
+        let Min(Some(mm)) = source.evaluate(&source_solution).unwrap() else {
             panic!("MinimumMaximalMatching always has a feasible optimum");
         };
-        let Max(Some(ach)) = solver.solve(target).unwrap() else {
+        let target_solution = solver.solve(target).unwrap().unwrap();
+        let Max(Some(ach)) = target.evaluate(&target_solution).unwrap() else {
             panic!("MaximumAchromaticNumber always has a feasible optimum");
         };
 

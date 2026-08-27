@@ -39,8 +39,8 @@ impl ReductionResult for ReductionPITToILP {
     /// Extract solution: for each vertex v, find the unique group g where x_{v,g} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -70,14 +70,14 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
 
         // Assignment constraints: for each vertex v, Σ_g x_{v,g} = 1
         for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> = (0..q).map(|g| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|g| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Group size constraints: for each group g, Σ_v x_{v,g} = 3
         for g in 0..q {
-            let terms: Vec<(usize, f64)> = (0..num_vertices).map(|v| (v * q + g, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 3.0));
+            let terms: Vec<(usize, i64)> = (0..num_vertices).map(|v| (v * q + g, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 3));
         }
 
         // Triangle constraints: for each group g and each non-edge (u,v),
@@ -88,15 +88,16 @@ impl ReduceTo<ILP<bool>> for PartitionIntoTriangles<SimpleGraph> {
                 for v in (u + 1)..num_vertices {
                     if !graph.has_edge(u, v) {
                         constraints.push(LinearConstraint::le(
-                            vec![(u * q + g, 1.0), (v * q + g, 1.0)],
-                            1.0,
+                            vec![(u * q + g, 1), (v * q + g, 1)],
+                            1,
                         ));
                     }
                 }
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionPITToILP {
             target,

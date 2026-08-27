@@ -3,11 +3,11 @@ use crate::solvers::ILPSolver;
 
 /// Check if a configuration represents a valid clique in the graph.
 /// A clique is valid if all selected vertices are pairwise adjacent.
-fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[usize]) -> bool {
+fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[bool]) -> bool {
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v == 1)
+        .filter(|(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
 
@@ -23,11 +23,11 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i64>, config: &[usize]) 
 }
 
 /// Compute the clique size (sum of weights of selected vertices).
-fn clique_size(problem: &MaximumClique<SimpleGraph, i64>, config: &[usize]) -> i64 {
+fn clique_size(problem: &MaximumClique<SimpleGraph, i64>, config: &[bool]) -> i64 {
     config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v == 1)
+        .filter(|(_, &selected)| selected)
         .map(|(i, _)| problem.weights()[i])
         .sum()
 }
@@ -37,7 +37,7 @@ fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i64>) -> i64 {
     let n = problem.graph().num_vertices();
     let mut max_size = 0;
     for mask in 0..(1 << n) {
-        let config: Vec<usize> = (0..n).map(|i| (mask >> i) & 1).collect();
+        let config: Vec<bool> = (0..n).map(|i| ((mask >> i) & 1) != 0).collect();
         if is_valid_clique(problem, &config) {
             let size = clique_size(problem, &config);
             if size > max_size {
@@ -61,13 +61,13 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // Check ILP structure
-    assert_eq!(ilp.num_vars, 3, "Should have one variable per vertex");
+    assert_eq!(ilp.num_vars(), 3, "Should have one variable per vertex");
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         0,
         "Complete graph has no non-edges, so no constraints"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize, "Should maximize");
 }
 
 #[test]
@@ -80,12 +80,12 @@ fn test_reduction_with_non_edges() {
     let ilp = reduction.target_problem();
 
     // Should have 1 constraint for non-edge (0, 2)
-    assert_eq!(ilp.constraints.len(), 1);
+    assert_eq!(ilp.constraints().len(), 1);
 
     // The constraint should be x_0 + x_2 <= 1
-    let constraint = &ilp.constraints[0];
-    assert_eq!(constraint.terms.len(), 2);
-    assert!((constraint.rhs - 1.0).abs() < 1e-9);
+    let constraint = &ilp.constraints()[0];
+    assert_eq!(constraint.terms().len(), 2);
+    assert_eq!(constraint.rhs(), 1);
 }
 
 #[test]
@@ -98,7 +98,7 @@ fn test_reduction_weighted() {
 
     // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<f64> = vec![0.0; 3];
-    for &(var, coef) in &ilp.objective {
+    for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
     assert!((coeffs[0] - 5.0).abs() < 1e-9);
@@ -203,7 +203,7 @@ fn test_solution_extraction() {
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1, 0, 0]);
+    assert_eq!(extracted, vec![true, true, false, false]);
 
     // Verify this is a valid clique (0 and 1 are adjacent)
     assert!(is_valid_clique(&problem, &extracted));
@@ -219,9 +219,9 @@ fn test_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 5);
+    assert_eq!(ilp.num_vars(), 5);
     // Number of non-edges in a path of 5 vertices: C(5,2) - 4 = 10 - 4 = 6
-    assert_eq!(ilp.constraints.len(), 6);
+    assert_eq!(ilp.constraints().len(), 6);
 }
 
 #[test]
@@ -234,14 +234,14 @@ fn test_empty_graph() {
     let ilp = reduction.target_problem();
 
     // All pairs are non-edges, so 3 constraints
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // Only one vertex should be selected
-    assert_eq!(extracted.iter().sum::<usize>(), 1);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 1);
@@ -259,14 +259,14 @@ fn test_complete_graph() {
     let ilp = reduction.target_problem();
 
     // No non-edges, so no constraints
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
     // All vertices should be selected
-    assert_eq!(extracted, vec![1, 1, 1, 1]);
+    assert_eq!(extracted, vec![true, true, true, true]);
 
     assert!(is_valid_clique(&problem, &extracted));
     assert_eq!(clique_size(&problem, &extracted), 4);
@@ -292,7 +292,7 @@ fn test_bipartite_graph() {
     assert_eq!(clique_size(&problem, &extracted), 2);
 
     // Should select an adjacent pair
-    let sum: usize = extracted.iter().sum();
+    let sum: usize = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(sum, 2);
 }
 
@@ -309,7 +309,7 @@ fn test_star_graph() {
     let ilp = reduction.target_problem();
 
     // Non-edges: (1,2), (1,3), (2,3) = 3 constraints
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

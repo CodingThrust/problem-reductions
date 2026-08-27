@@ -40,11 +40,11 @@ impl ReductionResult for ReductionMMMToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -72,8 +72,8 @@ impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
         }
         for incident in &v2e {
             if !incident.is_empty() {
-                let terms: Vec<(usize, f64)> = incident.iter().map(|&e| (e, 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = incident.iter().map(|&e| (e, 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
@@ -88,14 +88,15 @@ impl ReduceTo<ILP<bool>> for MinimumMaximalMatching<SimpleGraph> {
                     neighbors.push(i);
                 }
             }
-            let terms: Vec<(usize, f64)> = neighbors.iter().map(|&i| (i, 1.0)).collect();
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            let terms: Vec<(usize, i64)> = neighbors.iter().map(|&i| (i, 1)).collect();
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: minimize sum e_i
         let objective: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionMMMToILP { target })
     }
 }

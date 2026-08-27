@@ -1,7 +1,7 @@
 use crate::models::algebraic::ILP;
 use crate::models::misc::MinimumInternalMacroDataCompression;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -13,11 +13,8 @@ fn test_imdc_to_ilp_closed_loop_simple() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(target)
-        .unwrap()
-        .expect("ILP should be feasible");
+    let solver = ILPSolver::new();
+    let target_witness = solver.solve(target).expect("ILP should be feasible");
     let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
@@ -32,11 +29,8 @@ fn test_imdc_to_ilp_closed_loop_repeated() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(target)
-        .unwrap()
-        .expect("ILP should be feasible");
+    let solver = ILPSolver::new();
+    let target_witness = solver.solve(target).expect("ILP should be feasible");
     let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
@@ -52,16 +46,14 @@ fn test_imdc_to_ilp_closed_loop_low_pointer_cost() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(target)
-        .unwrap()
-        .expect("ILP should be feasible");
+    let solver = ILPSolver::new();
+    let target_witness = solver.solve(target).expect("ILP should be feasible");
     let source_config = reduction.extract_solution(&target_witness).unwrap();
     let val = source.evaluate(&source_config).unwrap();
     assert!(val.0.is_some());
     // Verify against brute force
-    let bf_val = BruteForce::new().solve(&source).unwrap();
+    let bf_val_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+    let bf_val = source.evaluate(&bf_val_solution).unwrap();
     assert_eq!(val, bf_val);
 }
 
@@ -71,7 +63,7 @@ fn test_imdc_to_ilp_empty_string() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     assert_eq!(target.num_variables(), 0);
-    let source_config = reduction.extract_solution(&[]).unwrap();
+    let source_config = reduction.extract_solution(&vec![]).unwrap();
     assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(0)));
 }
 
@@ -83,11 +75,8 @@ fn test_imdc_to_ilp_single_char() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let solver = BruteForce::new();
-    let target_witness = solver
-        .find_witness(target)
-        .unwrap()
-        .expect("ILP should be feasible");
+    let solver = ILPSolver::new();
+    let target_witness = solver.solve(target).expect("ILP should be feasible");
     let source_config = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(source.evaluate(&source_config).unwrap(), Min(Some(1)));
 }
@@ -101,7 +90,9 @@ fn test_imdc_to_ilp_structure() {
     // n=4 literals + valid ptr triples
     assert!(target.num_variables() >= 4);
     // Must be a minimization problem
-    assert_eq!(target.dims(), vec![2; target.num_variables()]);
+    assert!(target.variables().iter().all(|variable| {
+        variable.lower_bound() == Some(0) && variable.upper_bound() == Some(1)
+    }));
 }
 
 #[test]
@@ -113,14 +104,14 @@ fn test_imdc_to_ilp_vs_brute_force() {
         (2, vec![0, 0, 1, 1], 1),
     ] {
         let source = MinimumInternalMacroDataCompression::new(k, s.clone(), h);
-        let bf_val = BruteForce::new().solve(&source).unwrap();
+        let bf_val_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+        let bf_val = source.evaluate(&bf_val_solution).unwrap();
 
         let reduction =
             ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
         let target = reduction.target_problem();
-        let target_witness = BruteForce::new()
-            .find_witness(target)
-            .unwrap()
+        let target_witness = ILPSolver::new()
+            .solve(target)
             .expect("ILP should be feasible");
         let source_config = reduction.extract_solution(&target_witness).unwrap();
         let ilp_val = source.evaluate(&source_config).unwrap();

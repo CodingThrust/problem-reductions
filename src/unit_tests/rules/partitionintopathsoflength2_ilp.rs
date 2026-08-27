@@ -15,14 +15,14 @@ fn test_reduction_creates_valid_ilp() {
 
     // n=6, q=2, num_edges=4
     // num_vars = 6*2 + 4*2 = 12 + 8 = 20
-    assert_eq!(ilp.num_vars, 20, "Should have 20 variables");
+    assert_eq!(ilp.num_vars(), 20, "Should have 20 variables");
     assert_eq!(
-        ilp.sense,
+        ilp.sense(),
         ObjectiveSense::Minimize,
         "Should minimize (feasibility)"
     );
     // Constraints: 6 assignment + 2 group-size + 4*2*3 McCormick + 2 edge count = 6+2+24+2=34
-    assert_eq!(ilp.constraints.len(), 34, "Should have 34 constraints");
+    assert_eq!(ilp.constraints().len(), 34, "Should have 34 constraints");
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn test_partitionintopathsoflength2_to_ilp_bf_vs_ilp() {
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));

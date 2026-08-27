@@ -45,7 +45,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumAxiomSet;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 8 sentences, all true, with implications forming a cycle
 /// let problem = MinimumAxiomSet::new(
@@ -59,7 +59,7 @@ inventory::submit! {
 ///     ],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,30 +164,34 @@ fn deductive_closure(current: &mut [bool], implications: &[(Vec<usize>, usize)])
 
 impl Problem for MinimumAxiomSet {
     const NAME: &'static str = "MinimumAxiomSet";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_implications", num_implications),
+        ("num_sentences", num_sentences),
+        ("num_true_sentences", num_true_sentences),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_true_sentences()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_true_sentences() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "axiom-selection length does not match the true sentences".into(),
+                ));
             }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Min(None));
-            }
-
             // Build the initial set of selected axioms
             let mut current = vec![false; self.num_sentences];
             let mut count = 0usize;
             for (i, &v) in config.iter().enumerate() {
-                if v == 1 {
+                if v {
                     current[self.true_sentences[i]] = true;
                     count += 1;
                 }
@@ -212,8 +216,18 @@ impl Problem for MinimumAxiomSet {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumAxiomSet {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_true_sentences()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumAxiomSet => "2^num_true_sentences",
+}
+
+crate::register_brute_force! {
+    MinimumAxiomSet decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -236,7 +250,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (vec![6, 7], 1),
             ],
         )),
-        optimal_config: vec![1, 1, 0, 0, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![
+            true, true, false, false, false, false, false, false
+        ]),
         optimal_value: serde_json::json!(2),
     }]
 }

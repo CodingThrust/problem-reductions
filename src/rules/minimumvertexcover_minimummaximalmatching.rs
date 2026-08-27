@@ -12,18 +12,7 @@ use crate::rules::registry::ReductionSizeDeclarations;
 use crate::rules::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::{One, ProblemSize};
-use std::any::Any;
-
-fn source_problem_size(any: &dyn Any) -> ProblemSize {
-    let source = any
-        .downcast_ref::<MinimumVertexCover<SimpleGraph, One>>()
-        .expect("MinimumVertexCover -> MinimumMaximalMatching source type mismatch");
-    ProblemSize::new(vec![
-        ("num_vertices", source.num_vertices()),
-        ("num_edges", source.num_edges()),
-    ])
-}
+use crate::types::One;
 
 inventory::submit! {
     ReductionEntry {
@@ -43,16 +32,6 @@ inventory::submit! {
         reduce_fn: None,
         reduce_aggregate_fn: None,
         turing: false,
-        source_size_measure_fn: source_problem_size,
-        target_size_measure_fn: |any| {
-            let target = any
-                .downcast_ref::<MinimumMaximalMatching<SimpleGraph>>()
-                .expect("MinimumVertexCover -> MinimumMaximalMatching target type mismatch");
-            ProblemSize::new(vec![
-                ("num_vertices", target.num_vertices()),
-                ("num_edges", target.num_edges()),
-            ])
-        },
     }
 }
 
@@ -71,8 +50,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 &target,
                 vec![SolutionPair {
-                    source_config: vec![1, 1, 0, 1, 0],
-                    target_config: vec![1, 0, 1, 0, 0],
+                    source_config: serde_json::json!(vec![true, true, false, true, false]),
+                    target_config: serde_json::json!(vec![true, false, true, false, false]),
                 }],
             )
         },

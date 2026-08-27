@@ -25,11 +25,11 @@ impl ReductionResult for ReductionIntegerKnapsackToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(target_solution)
     }
 }
 
@@ -52,12 +52,7 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
                 )
             })
         };
-        let sizes = self
-            .sizes()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
+        let sizes = self.sizes();
         let values = self
             .values()
             .iter()
@@ -71,21 +66,19 @@ impl ReduceTo<ILP<i64>> for IntegerKnapsack {
                 .enumerate()
                 .map(|(item, &size)| (item, size))
                 .collect(),
-            exact_f64(self.capacity())?,
+            self.capacity(),
         ));
 
         for (i, &size) in self.sizes().iter().enumerate() {
             let upper_bound = self.capacity() / size;
-            constraints.push(LinearConstraint::le(
-                vec![(i, 1.0)],
-                exact_f64(upper_bound)?,
-            ));
+            constraints.push(LinearConstraint::le(vec![(i, 1)], upper_bound));
         }
 
         let objective = values.into_iter().enumerate().collect();
 
         Ok(ReductionIntegerKnapsackToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+                .map_err(Self::target_construction)?,
         })
     }
 }

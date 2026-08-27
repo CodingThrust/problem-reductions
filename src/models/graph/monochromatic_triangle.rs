@@ -47,14 +47,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MonochromaticTriangle;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // K4: complete graph on 4 vertices
 /// let graph = SimpleGraph::new(4, vec![(0,1),(0,2),(0,3),(1,2),(1,3),(2,3)]);
 /// let problem = MonochromaticTriangle::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -142,24 +142,29 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "MonochromaticTriangle";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_triangles", num_triangles),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.edge_list.len()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.edge_list.len() {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edge-coloring length does not match the graph".into(),
+                    ));
                 }
 
                 // Check each triangle: if all three edges have the same color,
@@ -179,8 +184,21 @@ where
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MonochromaticTriangle<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.edge_list.len()]
+    }
+}
+
 crate::declare_variants! {
     default MonochromaticTriangle<SimpleGraph> => "2^num_edges",
+}
+
+crate::register_brute_force! {
+    MonochromaticTriangle<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -198,7 +216,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
         ))),
-        optimal_config: vec![0, 0, 1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true, true, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

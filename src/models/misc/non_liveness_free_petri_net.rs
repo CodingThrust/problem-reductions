@@ -10,7 +10,7 @@
 //! transitions are claimed to be globally dead. The answer is YES (Or(true))
 //! when at least one selected transition is indeed globally dead.
 
-use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -33,13 +33,6 @@ inventory::submit! {
             FieldInfo { name: "transition_to_place", type_name: "Vec<(usize,usize)>", description: "Arcs from transitions to places" },
             FieldInfo { name: "initial_marking", type_name: "Vec<i64>", description: "Initial marking M₀ (tokens per place)" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "NonLivenessFreePetriNet",
-        fields: &["num_places", "num_transitions", "num_arcs", "initial_token_sum"],
     }
 }
 
@@ -400,26 +393,32 @@ impl<'de> Deserialize<'de> for NonLivenessFreePetriNet {
 
 impl Problem for NonLivenessFreePetriNet {
     const NAME: &'static str = "NonLivenessFreePetriNet";
+    type Solution = Vec<bool>;
     type Value = Or;
+
+    crate::problem_size![
+        ("initial_token_sum", initial_token_sum),
+        ("num_arcs", num_arcs),
+        ("num_places", num_places),
+        ("num_transitions", num_transitions),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_transitions]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_transitions {
-                return Ok(Or(false));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "transition-selection length does not match the net".into(),
+                ));
             }
 
             // Config selects transitions claimed to be dead.
             // Return true iff at least one selected transition is indeed globally dead.
             for (t, &selected) in config.iter().enumerate() {
-                if selected == 1 && self.globally_dead[t] {
+                if selected && self.globally_dead[t] {
                     return Ok(Or(true));
                 }
             }
@@ -429,8 +428,18 @@ impl Problem for NonLivenessFreePetriNet {
     }
 }
 
+impl crate::solvers::BruteForceProblem for NonLivenessFreePetriNet {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_transitions]
+    }
+}
+
 crate::declare_variants! {
     default NonLivenessFreePetriNet => "(initial_token_sum + 1) ^ num_places * num_transitions",
+}
+
+crate::register_brute_force! {
+    NonLivenessFreePetriNet decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -447,7 +456,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .unwrap(),
         ),
-        optimal_config: vec![1, 1, 1],
+        optimal_config: serde_json::json!(vec![true, true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -298,21 +298,16 @@ pub trait Aggregate: Clone + fmt::Debug + Serialize + DeserializeOwned {
     /// Associative combine operation.
     fn combine(self, other: Self) -> Result<Self, AggregationError>;
 
-    /// Whether this aggregate admits representative witness configurations.
-    fn supports_witnesses() -> bool {
-        false
-    }
-
-    /// Whether a configuration-level value belongs to the witness set
-    /// for the final aggregate value.
-    fn contributes_to_witnesses(_config_value: &Self, _total: &Self) -> bool {
-        false
-    }
-
     /// Whether no further configuration can change this aggregate value.
     fn is_absorbing(&self) -> bool {
         false
     }
+}
+
+/// Aggregate value whose optimum identifies contributing solutions.
+pub trait SolutionAggregate: Aggregate {
+    /// Whether a solution-level value contributes to the final aggregate value.
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool;
 }
 
 /// Maximum aggregate over feasible values.
@@ -341,13 +336,13 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
             }
         })
     }
+}
 
-    fn supports_witnesses() -> bool {
-        true
-    }
-
-    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
-        matches!((config_value, total), (Max(Some(value)), Max(Some(best))) if value == best)
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Max<V>
+{
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        matches!((value, total), (Max(Some(value)), Max(Some(best))) if value == best)
     }
 }
 
@@ -400,13 +395,13 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
             }
         })
     }
+}
 
-    fn supports_witnesses() -> bool {
-        true
-    }
-
-    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
-        matches!((config_value, total), (Min(Some(value)), Min(Some(best))) if value == best)
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Min<V>
+{
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        matches!((value, total), (Min(Some(value)), Min(Some(best))) if value == best)
     }
 }
 
@@ -462,7 +457,7 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Optimiza
     }
 }
 
-/// Sum aggregate for value-only problems.
+/// Additive fold value.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Sum<W>(pub W);
 
@@ -508,16 +503,14 @@ impl Aggregate for Or {
         Ok(Or(self.0 || other.0))
     }
 
-    fn supports_witnesses() -> bool {
-        true
-    }
-
-    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
-        config_value.0 && total.0
-    }
-
     fn is_absorbing(&self) -> bool {
         self.0
+    }
+}
+
+impl SolutionAggregate for Or {
+    fn contributes_to_solution(value: &Self, total: &Self) -> bool {
+        value.0 && total.0
     }
 }
 
@@ -653,15 +646,15 @@ impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> Aggregat
             }
         })
     }
+}
 
-    fn supports_witnesses() -> bool {
-        true
-    }
-
-    fn contributes_to_witnesses(config_value: &Self, total: &Self) -> bool {
+impl<V: fmt::Debug + PartialOrd + Clone + Serialize + DeserializeOwned> SolutionAggregate
+    for Extremum<V>
+{
+    fn contributes_to_solution(candidate: &Self, total: &Self) -> bool {
         matches!(
-            (config_value.value.as_ref(), total.value.as_ref()),
-            (Some(value), Some(best)) if config_value.sense == total.sense && value == best
+            (candidate.value.as_ref(), total.value.as_ref()),
+            (Some(value), Some(best)) if candidate.sense == total.sense && value == best
         )
     }
 }
@@ -681,12 +674,12 @@ impl<V: fmt::Display> fmt::Display for Extremum<V> {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProblemSize {
     /// Named size components.
-    pub components: Vec<(String, usize)>,
+    pub components: Vec<(String, u64)>,
 }
 
 impl ProblemSize {
     /// Create a new problem size with named components.
-    pub fn new(components: Vec<(&str, usize)>) -> Self {
+    pub fn new(components: Vec<(&str, u64)>) -> Self {
         Self {
             components: components
                 .into_iter()
@@ -696,7 +689,7 @@ impl ProblemSize {
     }
 
     /// Get a size component by name.
-    pub fn get(&self, name: &str) -> Option<usize> {
+    pub fn get(&self, name: &str) -> Option<u64> {
         self.components
             .iter()
             .find(|(k, _)| k == name)

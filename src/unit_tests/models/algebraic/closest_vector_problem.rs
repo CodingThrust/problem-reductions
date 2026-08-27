@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_expands_shared_default_bounds() {
@@ -43,8 +44,7 @@ fn test_cvp_evaluate() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     // x=(1,1,1) -> Bx=(3,3,2), distance=1.0
-    // config offset: x_i - lower = 1 - (-2) = 3
-    let config_111 = vec![3, 3, 3]; // maps to x=(1,1,1)
+    let config_111 = vec![1, 1, 1];
     let result = Problem::evaluate(&cvp, &config_111).unwrap();
     assert_eq!(result, Min(Some(1.0)));
 }
@@ -58,7 +58,7 @@ fn test_cvp_evaluate_reports_non_finite_norm() {
     )
     .unwrap();
     assert!(matches!(
-        problem.evaluate(&[0]),
+        problem.evaluate(&vec![1]),
         Err(crate::traits::EvaluationError::NonFiniteResult(_))
     ));
 }
@@ -69,7 +69,7 @@ fn test_cvp_dims() {
     let target = vec![0.5, 0.5];
     let bounds = vec![VarBounds::bounded(-1, 3), VarBounds::bounded(0, 5)];
     let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
-    assert_eq!(cvp.dims(), vec![5, 6]); // (-1..3)=5 values, (0..5)=6 values
+    assert_eq!(cvp.dimensions(), vec![5, 6]); // (-1..3)=5 values, (0..5)=6 values
 }
 
 #[test]
@@ -130,16 +130,8 @@ fn test_cvp_brute_force() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver
-        .find_witness(&cvp)
-        .unwrap()
-        .expect("should find a solution");
-    let values: Vec<i64> = solution
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| cvp.bounds()[i].lower.unwrap() + c as i64)
-        .collect();
-    assert_eq!(values, vec![1, 1, 1]);
+    let solution = solver.solve(&cvp).unwrap().expect("should find a solution");
+    assert_eq!(solution, vec![1, 1, 1]);
     assert_eq!(Problem::evaluate(&cvp, &solution).unwrap(), Min(Some(1.0)));
 }
 
@@ -159,7 +151,7 @@ fn test_cvp_serialization() {
     assert_eq!(cvp2.num_basis_vectors(), 3);
     assert_eq!(cvp2.ambient_dimension(), 3);
     // Verify functional equivalence after round-trip
-    let config = vec![3, 3, 3];
+    let config = vec![1, 1, 1];
     assert_eq!(
         Problem::evaluate(&cvp, &config).unwrap(),
         Problem::evaluate(&cvp2, &config).unwrap()
@@ -175,21 +167,13 @@ fn test_cvp_f64_basis() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver
-        .find_witness(&cvp)
-        .unwrap()
-        .expect("should find a solution");
-    let values: Vec<i64> = solution
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| cvp.bounds()[i].lower.unwrap() + c as i64)
-        .collect();
+    let solution = solver.solve(&cvp).unwrap().expect("should find a solution");
     // x=(1,1): Bx=(1.5, 2.0), dist=sqrt(0.25+1.0)=sqrt(1.25)≈1.118
     // x=(1,0): Bx=(1.5, 0.0), dist=sqrt(0.25+1.0)=sqrt(1.25)≈1.118
     // x=(0,1): Bx=(0.0, 2.0), dist=sqrt(1.0+1.0)=sqrt(2.0)≈1.414
     // x=(0,0): Bx=(0.0, 0.0), dist=sqrt(1.0+1.0)=sqrt(2.0)≈1.414
     // Both (1,0) and (1,1) tie at sqrt(1.25); brute force returns first found
-    assert!(values == vec![1, 0] || values == vec![1, 1]);
+    assert!(solution == vec![1, 0] || solution == vec![1, 1]);
 }
 
 #[test]
@@ -202,16 +186,8 @@ fn test_cvp_2d_identity() {
     let cvp = ClosestVectorProblem::new(basis, target, bounds).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver
-        .find_witness(&cvp)
-        .unwrap()
-        .expect("should find a solution");
-    let values: Vec<i64> = solution
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| cvp.bounds()[i].lower.unwrap() + c as i64)
-        .collect();
-    assert_eq!(values, vec![0, 1]);
+    let solution = solver.solve(&cvp).unwrap().expect("should find a solution");
+    assert_eq!(solution, vec![0, 1]);
 }
 
 #[test]
@@ -254,15 +230,14 @@ fn test_cvp_paper_example() {
 
     // x=(1,1): Bx = 2*1+1*1=3, 0*1+2*1=2 -> point (3,2)
     // distance = sqrt((2.8-3)^2 + (1.5-2)^2) = sqrt(0.04+0.25) = sqrt(0.29)
-    // config offset: x_i - lower = 1 - (-2) = 3
-    let config = vec![3, 3]; // maps to x=(1,1)
+    let config = vec![1, 1];
     let result = Problem::evaluate(&cvp, &config).unwrap();
     assert!(result.is_valid());
     let dist = result.unwrap();
     assert!((dist - 0.29_f64.sqrt()).abs() < 1e-10);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&cvp).unwrap().unwrap();
+    let best = solver.solve(&cvp).unwrap().unwrap();
     let best_dist = Problem::evaluate(&cvp, &best).unwrap().unwrap();
     assert!((best_dist - 0.29_f64.sqrt()).abs() < 1e-10);
 }
@@ -301,13 +276,10 @@ fn test_cvp_accepts_large_range_when_cardinality_fits_usize() {
 }
 
 #[test]
-fn test_cvp_evaluate_rejects_invalid_configuration() {
+fn test_cvp_evaluate_rejects_out_of_bounds_coefficient() {
     let problem =
         ClosestVectorProblem::new(vec![vec![1_i64]], vec![0.0], vec![VarBounds::binary()]).unwrap();
-    assert!(matches!(
-        problem.evaluate(&[2]),
-        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
-    ));
+    assert_eq!(problem.evaluate(&vec![2]).unwrap(), Min(None));
 }
 
 #[test]

@@ -48,14 +48,11 @@ fn test_kclique_to_subgraphisomorphism_complete_graph() {
 
     // Solve the target and extract back to source
     let bf = BruteForce::new();
-    let witness = bf
-        .find_witness(target)
-        .unwrap()
-        .expect("K4 should contain K3");
+    let witness = bf.solve(target).unwrap().expect("K4 should contain K3");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     // Exactly 3 vertices should be selected
-    assert_eq!(extracted.iter().sum::<usize>(), 3);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
 }
 
 #[test]
@@ -73,11 +70,11 @@ fn test_kclique_to_subgraphisomorphism_no_clique() {
 
     // No subgraph isomorphism should exist
     let bf = BruteForce::new();
-    let witness = bf.find_witness(target).unwrap();
+    let witness = bf.solve(target).unwrap();
     assert!(witness.is_none(), "path graph should not contain K3");
 
     // Also verify brute force on source agrees
-    let source_witness = bf.find_witness(&source).unwrap();
+    let source_witness = bf.solve(&source).unwrap();
     assert!(source_witness.is_none());
 }
 
@@ -95,12 +92,12 @@ fn test_kclique_to_subgraphisomorphism_k_equals_1() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("should find a single vertex");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 1);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
 }
 
 #[test]
@@ -117,10 +114,10 @@ fn test_kclique_to_subgraphisomorphism_k_equals_2() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("graph has edges, so K2 exists");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 2);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 2);
 }

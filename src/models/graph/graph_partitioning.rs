@@ -42,7 +42,7 @@ inventory::submit! {
 /// use problemreductions::models::graph::GraphPartitioning;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::Min;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Square graph: 0-1, 1-2, 2-3, 3-0
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
@@ -93,31 +93,32 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "GraphPartitioning";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let n = self.graph.num_vertices();
             if config.len() != n {
-                return Ok(Min(None));
-            }
-            if config.iter().any(|&part| part >= 2) {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "partition assignment length does not match the graph vertices".into(),
+                ));
             }
             // Balanced bisection requires even n
             if !n.is_multiple_of(2) {
                 return Ok(Min(None));
             }
             // Check balanced: exactly n/2 vertices in partition 1
-            let count_ones = config.iter().filter(|&&x| x == 1).count();
+            let count_ones = config.iter().filter(|&&x| x).count();
             if count_ones != n / 2 {
                 return Ok(Min(None));
             }
@@ -133,8 +134,21 @@ where
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for GraphPartitioning<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 crate::declare_variants! {
     default GraphPartitioning<SimpleGraph> => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    GraphPartitioning<SimpleGraph> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -157,7 +171,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (4, 5),
             ],
         ))),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]
 }

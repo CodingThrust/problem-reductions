@@ -44,11 +44,14 @@ impl ReductionResult for ReductionFASToILP {
     /// which directly correspond to the FAS configuration (1 = removed).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_arcs].to_vec())
+        Ok(target_solution[..self.num_arcs]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -72,28 +75,28 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
         // o_v = m + v     (integer: topological order of vertex v)
 
         let mut constraints = Vec::new();
+        let n_i64 = Self::exact_i64(n, "encoding the topological order")?;
 
         // Binary bounds: y_a <= 1 for a in 0..m
         for a in 0..m {
-            constraints.push(LinearConstraint::le(vec![(a, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(a, 1)], 1));
         }
 
         // Order bounds: o_v <= n - 1 for v in 0..n
         for v in 0..n {
-            constraints.push(LinearConstraint::le(vec![(m + v, 1.0)], (n - 1) as f64));
+            constraints.push(LinearConstraint::le(vec![(m + v, 1)], n_i64 - 1));
         }
 
         // Arc constraints: for each arc a = (u -> v):
         //   o_v - o_u >= 1 - n * y_a
         // Rearranged: o_v - o_u + n * y_a >= 1
-        let n_f64 = n as f64;
         for (a, &(u, v)) in arcs.iter().enumerate() {
             let terms = vec![
-                (m + v, 1.0),  // o_v
-                (m + u, -1.0), // -o_u
-                (a, n_f64),    // n * y_a
+                (m + v, 1),  // o_v
+                (m + u, -1), // -o_u
+                (a, n_i64),  // n * y_a
             ];
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: minimize sum w_a * y_a
@@ -110,7 +113,8 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackArcSet<i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionFASToILP {
             target,

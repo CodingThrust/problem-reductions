@@ -10,7 +10,6 @@ use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionBCSFToILP {
@@ -30,8 +29,8 @@ impl ReductionResult for ReductionBCSFToILP {
     /// One-hot decode: for each vertex v, output the unique component c with x_{v,c} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.n, self.k, 0)
@@ -62,36 +61,20 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
             |i: usize, eta: usize, c: usize| -> usize { 3 * n * k + 2 * k + (i * 2 + eta) * k + c };
 
         let num_vars = 3 * n * k + 2 * k + 2 * m * k;
-        let n_f64 = n as f64;
+        let n_i64 = Self::exact_i64(n, "encoding the vertex count")?;
         let mut constraints = Vec::new();
-        let weights = self
-            .weights()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    BoundedComponentSpanningForest<SimpleGraph, i64>,
-                    ILP<i64>,
-                >(error)
-            })?;
-        let max_weight = i64_to_exact_f64(*self.max_weight()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<
-                BoundedComponentSpanningForest<SimpleGraph, i64>,
-                ILP<i64>,
-            >(error)
-        })?;
+        let weights = self.weights();
+        let max_weight = *self.max_weight();
 
         // 1) Assignment: sum_c x_{v,c} = 1 for each vertex v
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|c| (x_idx(v, c), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|c| (x_idx(v, c), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2) Weight bound: sum_v w_v * x_{v,c} <= B for each component c
         for c in 0..k {
-            let terms: Vec<(usize, f64)> = weights
+            let terms: Vec<(usize, i64)> = weights
                 .iter()
                 .enumerate()
                 .map(|(vertex, &weight)| (x_idx(vertex, c), weight))
@@ -101,35 +84,32 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
 
         // 3) Size: s_c = sum_v x_{v,c}
         for c in 0..k {
-            let mut terms: Vec<(usize, f64)> = vec![(s_idx(c), -1.0)];
+            let mut terms: Vec<(usize, i64)> = vec![(s_idx(c), -1)];
             for v in 0..n {
-                terms.push((x_idx(v, c), 1.0));
+                terms.push((x_idx(v, c), 1));
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // 4) Nonempty indicator: u_c <= s_c and s_c <= n * u_c
         for c in 0..k {
+            constraints.push(LinearConstraint::le(vec![(u_idx(c), 1), (s_idx(c), -1)], 0));
             constraints.push(LinearConstraint::le(
-                vec![(u_idx(c), 1.0), (s_idx(c), -1.0)],
-                0.0,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(s_idx(c), 1.0), (u_idx(c), -n_f64)],
-                0.0,
+                vec![(s_idx(c), 1), (u_idx(c), -n_i64)],
+                0,
             ));
         }
 
         // 5) Root selection: sum_v r_{v,c} = u_c and r_{v,c} <= x_{v,c}
         for c in 0..k {
-            let mut terms: Vec<(usize, f64)> = (0..n).map(|v| (r_idx(v, c), 1.0)).collect();
-            terms.push((u_idx(c), -1.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            let mut terms: Vec<(usize, i64)> = (0..n).map(|v| (r_idx(v, c), 1)).collect();
+            terms.push((u_idx(c), -1));
+            constraints.push(LinearConstraint::eq(terms, 0));
 
             for v in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(r_idx(v, c), 1.0), (x_idx(v, c), -1.0)],
-                    0.0,
+                    vec![(r_idx(v, c), 1), (x_idx(v, c), -1)],
+                    0,
                 ));
             }
         }
@@ -139,37 +119,37 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
             for c in 0..k {
                 // b <= s_c
                 constraints.push(LinearConstraint::le(
-                    vec![(b_idx(v, c), 1.0), (s_idx(c), -1.0)],
-                    0.0,
+                    vec![(b_idx(v, c), 1), (s_idx(c), -1)],
+                    0,
                 ));
                 // b <= n * r
                 constraints.push(LinearConstraint::le(
-                    vec![(b_idx(v, c), 1.0), (r_idx(v, c), -n_f64)],
-                    0.0,
+                    vec![(b_idx(v, c), 1), (r_idx(v, c), -n_i64)],
+                    0,
                 ));
                 // b >= s - n*(1-r) => b - s - n*r >= -n
                 constraints.push(LinearConstraint::ge(
-                    vec![(b_idx(v, c), 1.0), (s_idx(c), -1.0), (r_idx(v, c), -n_f64)],
-                    -n_f64,
+                    vec![(b_idx(v, c), 1), (s_idx(c), -1), (r_idx(v, c), -n_i64)],
+                    -n_i64,
                 ));
                 // b >= 0
-                constraints.push(LinearConstraint::ge(vec![(b_idx(v, c), 1.0)], 0.0));
+                constraints.push(LinearConstraint::ge(vec![(b_idx(v, c), 1)], 0));
             }
         }
 
         // 7) Flow capacity: 0 <= f_{i,eta,c} <= (n-1)*x_{u_i,c} and <= (n-1)*x_{v_i,c}
-        let cap = (n as f64) - 1.0;
+        let cap = n_i64 - 1;
         for (i, &(u_e, v_e)) in edges.iter().enumerate() {
             for eta in 0..2usize {
                 for c in 0..k {
-                    constraints.push(LinearConstraint::ge(vec![(f_idx(i, eta, c), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::ge(vec![(f_idx(i, eta, c), 1)], 0));
                     constraints.push(LinearConstraint::le(
-                        vec![(f_idx(i, eta, c), 1.0), (x_idx(u_e, c), -cap)],
-                        0.0,
+                        vec![(f_idx(i, eta, c), 1), (x_idx(u_e, c), -cap)],
+                        0,
                     ));
                     constraints.push(LinearConstraint::le(
-                        vec![(f_idx(i, eta, c), 1.0), (x_idx(v_e, c), -cap)],
-                        0.0,
+                        vec![(f_idx(i, eta, c), 1), (x_idx(v_e, c), -cap)],
+                        0,
                     ));
                 }
             }
@@ -178,26 +158,27 @@ impl ReduceTo<ILP<i64>> for BoundedComponentSpanningForest<SimpleGraph, i64> {
         // 8) Flow conservation: net_flow(v,c) = b_{v,c} - x_{v,c}
         for v in 0..n {
             for c in 0..k {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
 
                 for (i, &(u_e, v_e)) in edges.iter().enumerate() {
                     if u_e == v {
-                        terms.push((f_idx(i, 0, c), 1.0));
-                        terms.push((f_idx(i, 1, c), -1.0));
+                        terms.push((f_idx(i, 0, c), 1));
+                        terms.push((f_idx(i, 1, c), -1));
                     }
                     if v_e == v {
-                        terms.push((f_idx(i, 0, c), -1.0));
-                        terms.push((f_idx(i, 1, c), 1.0));
+                        terms.push((f_idx(i, 0, c), -1));
+                        terms.push((f_idx(i, 1, c), 1));
                     }
                 }
 
-                terms.push((b_idx(v, c), -1.0));
-                terms.push((x_idx(v, c), 1.0));
-                constraints.push(LinearConstraint::eq(terms, 0.0));
+                terms.push((b_idx(v, c), -1));
+                terms.push((x_idx(v, c), 1));
+                constraints.push(LinearConstraint::eq(terms, 0));
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionBCSFToILP { target, n, k })
     }
 }
@@ -224,8 +205,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config: ilp_sol,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::json!(ilp_sol),
                 },
             )
         },

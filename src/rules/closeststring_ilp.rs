@@ -53,8 +53,8 @@ impl ReductionResult for ReductionClosestStringToILP {
     /// `x_{j, a} = 1`.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let q = self.alphabet_size;
@@ -103,25 +103,29 @@ impl ReduceTo<ILP<i64>> for ClosestString {
         // Together with the non-negativity built into `ILP<i64>`, this also
         // forces every x_{j, a} to lie in {0, 1}.
         for j in 0..m {
-            let terms: Vec<(usize, f64)> = (0..q).map(|a| (x_idx(j, a), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..q).map(|a| (x_idx(j, a), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Radius constraints: R + sum_j x_{j, s_i[j]} >= m.
         // Equivalently, R >= m - sum_j x_{j, s_i[j]} = d_H(c, s_i).
         for s in strings.iter() {
-            let mut terms: Vec<(usize, f64)> = Vec::with_capacity(m + 1);
-            terms.push((r_idx, 1.0));
+            let mut terms: Vec<(usize, i64)> = Vec::with_capacity(m + 1);
+            terms.push((r_idx, 1));
             for (j, &symbol) in s.iter().enumerate() {
-                terms.push((x_idx(j, symbol), 1.0));
+                terms.push((x_idx(j, symbol), 1));
             }
-            constraints.push(LinearConstraint::ge(terms, m as f64));
+            constraints.push(LinearConstraint::ge(
+                terms,
+                Self::exact_i64(m, "encoding the string length")?,
+            ));
         }
 
         // Objective: minimize R.
         let objective = vec![(r_idx, 1.0)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionClosestStringToILP {
             target,

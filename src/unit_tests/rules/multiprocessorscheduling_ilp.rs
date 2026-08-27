@@ -13,18 +13,19 @@ fn test_reduction_creates_valid_ilp() {
 
     // num_vars = 3 tasks * 2 processors = 6
     assert_eq!(
-        ilp.num_vars, 6,
+        ilp.num_vars(),
+        6,
         "Should have 6 variables (3 tasks * 2 processors)"
     );
 
     // num_constraints = 3 assignment + 2 load = 5
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         5,
         "Should have 5 constraints (3 assignment + 2 load)"
     );
     assert_eq!(
-        ilp.sense,
+        ilp.sense(),
         ObjectiveSense::Minimize,
         "Should minimize (feasibility)"
     );
@@ -42,7 +43,7 @@ fn test_multiprocessorscheduling_to_ilp_bf_vs_ilp() {
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
@@ -81,9 +82,9 @@ fn test_multiprocessorscheduling_to_ilp_trivial() {
     let ilp = reduction.target_problem();
 
     // num_vars = 1 task * 1 processor = 1
-    assert_eq!(ilp.num_vars, 1);
+    assert_eq!(ilp.num_vars(), 1);
     // num_constraints = 1 assignment + 1 load = 2
-    assert_eq!(ilp.constraints.len(), 2);
+    assert_eq!(ilp.constraints().len(), 2);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");

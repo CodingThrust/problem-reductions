@@ -18,7 +18,7 @@ fn singleton_problem() -> ThreeDimensionalMatching {
     ThreeDimensionalMatching::new(1, vec![(0, 0, 0)])
 }
 
-fn constraint_signature(constraint: &(Comparison, f64, Vec<(usize, f64)>)) -> String {
+fn constraint_signature(constraint: &(Comparison, i64, Vec<(usize, i64)>)) -> String {
     let cmp = match constraint.0 {
         Comparison::Le => "<=",
         Comparison::Ge => ">=",
@@ -27,13 +27,10 @@ fn constraint_signature(constraint: &(Comparison, f64, Vec<(usize, f64)>)) -> St
     let terms = constraint
         .2
         .iter()
-        .map(|&(var, coeff)| format!("{var}:{}", (coeff * 1_000_000.0).round() as i64))
+        .map(|&(variable, coefficient)| format!("{variable}:{coefficient}"))
         .collect::<Vec<_>>()
         .join(",");
-    format!(
-        "{cmp}|{}|{terms}",
-        (constraint.1 * 1_000_000.0).round() as i64
-    )
+    format!("{cmp}|{}|{terms}", constraint.1)
 }
 
 #[test]
@@ -43,31 +40,31 @@ fn test_threedimensionalmatching_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 5);
-    assert_eq!(ilp.constraints.len(), 9);
-    assert!(ilp.objective.is_empty());
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 5);
+    assert_eq!(ilp.constraints().len(), 9);
+    assert!(ilp.objective().is_empty());
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
-    type Constraint = (Comparison, f64, Vec<(usize, f64)>);
+    type Constraint = (Comparison, i64, Vec<(usize, i64)>);
     let actual_constraints: Vec<Constraint> = ilp
-        .constraints
+        .constraints()
         .iter()
         .map(|constraint| {
-            let mut terms = constraint.terms.clone();
+            let mut terms = constraint.terms().to_vec();
             terms.sort_by_key(|(var, _)| *var);
-            (constraint.cmp, constraint.rhs, terms)
+            (constraint.comparison(), constraint.rhs(), terms)
         })
         .collect();
     let expected_constraints = vec![
-        (Comparison::Eq, 1.0, vec![(0, 1.0), (3, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(1, 1.0), (4, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(2, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(1, 1.0), (3, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(0, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(2, 1.0), (4, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(2, 1.0), (3, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(1, 1.0)]),
-        (Comparison::Eq, 1.0, vec![(0, 1.0), (4, 1.0)]),
+        (Comparison::Eq, 1, vec![(0, 1), (3, 1)]),
+        (Comparison::Eq, 1, vec![(1, 1), (4, 1)]),
+        (Comparison::Eq, 1, vec![(2, 1)]),
+        (Comparison::Eq, 1, vec![(1, 1), (3, 1)]),
+        (Comparison::Eq, 1, vec![(0, 1)]),
+        (Comparison::Eq, 1, vec![(2, 1), (4, 1)]),
+        (Comparison::Eq, 1, vec![(2, 1), (3, 1)]),
+        (Comparison::Eq, 1, vec![(1, 1)]),
+        (Comparison::Eq, 1, vec![(0, 1), (4, 1)]),
     ];
 
     let mut actual_signatures: Vec<_> = actual_constraints
@@ -91,17 +88,17 @@ fn test_threedimensionalmatching_to_ilp_closed_loop() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("canonical 3DM instance should be feasible");
-    assert_eq!(bf_witness, vec![1, 1, 1, 0, 0]);
+    assert_eq!(bf_witness, vec![true, true, true, false, false]);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("direct ILP should be feasible");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 1, 1, 0, 0]);
+    assert_eq!(extracted, vec![true, true, true, false, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
 }
 
@@ -112,7 +109,7 @@ fn test_threedimensionalmatching_to_ilp_infeasible_instance() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     assert!(
-        BruteForce::new().find_witness(&problem).unwrap().is_none(),
+        BruteForce::new().solve(&problem).unwrap().is_none(),
         "source instance should be infeasible"
     );
     assert!(
@@ -146,9 +143,9 @@ fn test_threedimensionalmatching_to_ilp_direct_path_beats_indirect_chain() {
         matches!(indirect_solution, Err(ILPSolveError::InvalidSolution(_))),
         "the numerically unstable indirect ILP should be rejected: {indirect_solution:?}"
     );
-    assert!(direct.target_problem().num_vars < indirect.target_problem().num_vars);
+    assert!(direct.target_problem().num_vars() < indirect.target_problem().num_vars());
     assert!(
-        direct.target_problem().constraints.len() < indirect.target_problem().constraints.len()
+        direct.target_problem().constraints().len() < indirect.target_problem().constraints().len()
     );
 
     let graph = ReductionGraph::new();

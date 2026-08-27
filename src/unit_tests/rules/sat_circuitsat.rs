@@ -1,8 +1,6 @@
 use super::*;
 use crate::models::formula::{CNFClause, CircuitSAT, Satisfiability};
-use crate::rules::test_helpers::{
-    assert_satisfaction_round_trip_from_satisfaction_target, solve_satisfaction_problem,
-};
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 
@@ -60,10 +58,12 @@ fn test_sat_to_circuitsat_single_literal_clause() {
         "SAT->CircuitSAT single literal clause",
     );
 
-    let target_solution = solve_satisfaction_problem(result.target_problem())
+    let target_solution = BruteForce::new()
+        .solve(result.target_problem())
+        .unwrap()
         .expect("CircuitSAT should have a satisfying solution");
     let extracted = result.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
 }
 
 #[test]

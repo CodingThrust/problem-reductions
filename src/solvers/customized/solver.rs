@@ -23,7 +23,10 @@ macro_rules! register_customized_solver {
                     let problem = any.downcast_ref::<$problem>().expect(
                         "customized solver registration received the wrong concrete type",
                     );
-                    $solve(problem)
+                    $solve(problem).map(|solution: <$problem as Problem>::Solution| {
+                        serde_json::to_value(solution)
+                            .expect("customized solution serialization must succeed")
+                    })
                 },
             }
         }
@@ -49,12 +52,12 @@ register_customized_solver!(
 register_customized_solver!(
     PartialFeedbackEdgeSet<SimpleGraph>,
     "partial-feedback-edge-set",
-    super::partial_feedback_edge_set::find_witness
+    super::partial_feedback_edge_set::solve
 );
 register_customized_solver!(
     RootedTreeArrangement<SimpleGraph>,
     "rooted-tree-arrangement",
-    super::rooted_tree_arrangement::find_witness
+    super::rooted_tree_arrangement::solve
 );
 register_customized_solver!(
     TimetableDesign,
@@ -66,7 +69,7 @@ register_customized_solver!(
 ///
 /// Uses iterative deepening by cardinality to guarantee the first solution
 /// found has the minimum number of attributes.
-pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> Option<Vec<bool>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
 
@@ -98,9 +101,9 @@ pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> 
         );
 
         if let Some(indices) = result {
-            let mut config = vec![0; n];
+            let mut config = vec![false; n];
             for i in indices {
-                config[i] = 1;
+                config[i] = true;
             }
             return Some(config);
         }
@@ -109,7 +112,7 @@ pub(crate) fn solve_minimum_cardinality_key(problem: &MinimumCardinalityKey) -> 
 }
 
 /// Solve AdditionalKey: find a candidate key not in the known set.
-pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>> {
+pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<bool>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let relation_attrs = problem.relation_attrs();
@@ -166,13 +169,13 @@ pub(crate) fn solve_additional_key(problem: &AdditionalKey) -> Option<Vec<usize>
         let index_set: HashSet<usize> = indices.into_iter().collect();
         relation_attrs
             .iter()
-            .map(|&attr| if index_set.contains(&attr) { 1 } else { 0 })
+            .map(|&attr| index_set.contains(&attr))
             .collect()
     })
 }
 
 /// Solve PrimeAttributeName: find a candidate key containing the query attribute.
-pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<usize>> {
+pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option<Vec<bool>> {
     let n = problem.num_attributes();
     let deps = problem.dependencies().to_vec();
     let query = problem.query_attribute();
@@ -206,9 +209,9 @@ pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option
     );
 
     result.map(|indices| {
-        let mut config = vec![0; n];
+        let mut config = vec![false; n];
         for i in indices {
-            config[i] = 1;
+            config[i] = true;
         }
         config
     })
@@ -216,7 +219,7 @@ pub(crate) fn solve_prime_attribute_name(problem: &PrimeAttributeName) -> Option
 
 /// Solve BoyceCoddNormalFormViolation: find a subset X of target_subset such that
 /// the closure of X contains some but not all of target_subset \ X.
-pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<usize>> {
+pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Option<Vec<bool>> {
     let n_attrs = problem.num_attributes();
     let deps = problem.functional_deps().to_vec();
     let target = problem.target_subset();
@@ -253,7 +256,7 @@ pub(crate) fn solve_bcnf_violation(problem: &BoyceCoddNormalFormViolation) -> Op
         let index_set: HashSet<usize> = indices.into_iter().collect();
         target
             .iter()
-            .map(|&attr| if index_set.contains(&attr) { 1 } else { 0 })
+            .map(|&attr| index_set.contains(&attr))
             .collect()
     })
 }

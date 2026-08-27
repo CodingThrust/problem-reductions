@@ -2,8 +2,8 @@
 //!
 //! Given a finite alphabet and a set of strings over that alphabet, find a
 //! longest common subsequence. The configuration is a fixed-length vector of
-//! `max_length` positions, where each entry is either a valid symbol or the
-//! padding symbol (`alphabet_size`). Padding must be contiguous at the end.
+//! `max_length` positions, where each entry is either a valid symbol or `None`
+//! as padding. Padding must be contiguous at the end.
 
 use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -30,11 +30,11 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// The configuration is a vector of length `max_length`, where each entry is a
-/// symbol in `{0, ..., alphabet_size}`. The value `alphabet_size` is the
-/// padding symbol. Padding must be contiguous at the end of the vector. The
-/// effective subsequence consists of all non-padding symbols (the prefix before
-/// padding starts). The objective is to maximize the effective length.
+/// The configuration is a vector of length `max_length`, where each entry is
+/// either a symbol in `{0, ..., alphabet_size - 1}` or `None` as padding.
+/// Padding must be contiguous at the end of the vector. The effective
+/// subsequence consists of the symbols before padding starts. The objective is
+/// to maximize the effective length.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LongestCommonSubsequence {
     alphabet_size: usize,
@@ -204,22 +204,45 @@ fn is_subsequence(candidate: &[usize], target: &[usize]) -> bool {
 
 impl Problem for LongestCommonSubsequence {
     const NAME: &'static str = "LongestCommonSubsequence";
+    type Solution = Vec<Option<usize>>;
     type Value = Max<i64>;
+
+    crate::problem_size![
+        ("alphabet_size", alphabet_size),
+        ("cross_frequency_product", cross_frequency_product),
+        ("max_length", max_length),
+        ("num_strings", num_strings),
+        ("num_transitions", num_transitions),
+        ("sum_triangular_lengths", sum_triangular_lengths),
+        ("total_length", total_length),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.alphabet_size + 1; self.max_length]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.max_length {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "subsequence representation length does not match the bound".into(),
+            ));
+        }
+        if config
+            .iter()
+            .any(|symbol| symbol.is_some_and(|value| value >= self.alphabet_size))
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "subsequence contains an out-of-range symbol".into(),
+            ));
+        }
+        let config = config
+            .iter()
+            .map(|symbol| symbol.unwrap_or(self.alphabet_size))
+            .collect::<Vec<_>>();
         Ok({
-            if config.len() != self.max_length {
-                return Ok(Max(None));
-            }
-
             let padding = self.alphabet_size;
 
             // Find effective length = index of first padding symbol (or max_length if no padding).
@@ -236,11 +259,6 @@ impl Problem for LongestCommonSubsequence {
             // Extract the non-padding prefix as the candidate subsequence.
             let prefix = &config[..effective_length];
 
-            // Check all symbols in prefix are valid (0..alphabet_size).
-            if prefix.iter().any(|&s| s >= self.alphabet_size) {
-                return Ok(Max(None));
-            }
-
             // Check the prefix is a subsequence of every input string.
             if !self.strings.iter().all(|s| is_subsequence(prefix, s)) {
                 return Ok(Max(None));
@@ -255,8 +273,18 @@ impl Problem for LongestCommonSubsequence {
     }
 }
 
+impl crate::solvers::BruteForceProblem for LongestCommonSubsequence {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.alphabet_size + 1; self.max_length]
+    }
+}
+
 crate::declare_variants! {
     default LongestCommonSubsequence => "(alphabet_size + 1) ^ max_length" create LongestCommonSubsequenceCreateSpec,
+}
+
+crate::register_brute_force! {
+    LongestCommonSubsequence decode |problem: &LongestCommonSubsequence, indices: Vec<usize>| indices.into_iter().map(|value| (value != problem.alphabet_size()).then_some(value)).collect(),
 }
 
 #[cfg(feature = "example-db")]
@@ -274,7 +302,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![1, 0, 1, 0, 1, 0],
             ],
         )),
-        optimal_config: vec![0, 0, 1, 0, 2, 2],
+        optimal_config: serde_json::json!(vec![Some(0), Some(0), Some(1), Some(0), None, None]),
         optimal_value: serde_json::json!(4),
     }]
 }

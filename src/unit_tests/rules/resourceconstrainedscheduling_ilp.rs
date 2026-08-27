@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Or;
@@ -16,11 +16,7 @@ fn test_resourceconstrainedscheduling_to_ilp_closed_loop() {
     .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "ResourceConstrainedScheduling->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -35,7 +31,7 @@ fn test_resourceconstrainedscheduling_to_ilp_bf_vs_ilp() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
@@ -69,7 +65,7 @@ fn test_resourceconstrainedscheduling_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=3 tasks, D=2 deadline → 6 variables
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
     // 3 one-hot + 2 capacity + 1*2 resource = 7
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
 }

@@ -35,14 +35,14 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToMaxCut {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let reference_side = target_solution[0];
             (0..self.source_num_vars)
-                .map(|i| usize::from(target_solution[i + 1] == reference_side))
+                .map(|i| target_solution[i + 1] == reference_side)
                 .collect()
         })
     }
@@ -124,10 +124,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 source,
                 SolutionPair {
                     // x1=F, x2=T, x3=T satisfies all five clauses.
-                    source_config: vec![0, 1, 1],
+                    source_config: serde_json::json!(vec![false, true, true]),
                     // Vertex 0 is the reference vertex s. Variables are true
                     // exactly when they share s's side of the cut.
-                    target_config: vec![0, 1, 0, 0],
+                    target_config: serde_json::json!(vec![false, true, false, false]),
                 },
             )
         },

@@ -242,8 +242,8 @@ impl ReductionResult for ReductionSATToColoring {
     /// If so, the variable is assigned true (1); otherwise false (0).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -259,7 +259,7 @@ impl ReductionResult for ReductionSATToColoring {
                 ));
             }
 
-            let mut assignment = vec![0usize; self.num_source_variables];
+            let mut assignment = vec![false; self.num_source_variables];
 
             for (i, &pos_vertex) in self.pos_vertices.iter().enumerate() {
                 let vertex_color = target_solution[pos_vertex];
@@ -273,7 +273,7 @@ impl ReductionResult for ReductionSATToColoring {
 
                 // If positive literal has TRUE color, variable is true (1)
                 // Otherwise, variable is false (0)
-                assignment[i] = if vertex_color == true_color { 1 } else { 0 };
+                assignment[i] = vertex_color == true_color;
             }
 
             assignment
@@ -346,8 +346,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, KColoring<K3, SimpleGraph>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 1, 1],
-                    target_config: vec![2, 1, 0, 2, 2, 1, 2, 2, 1, 1, 2, 1, 1],
+                    source_config: serde_json::json!(vec![true, true, false, true, true]),
+                    target_config: serde_json::json!(vec![2, 1, 0, 2, 2, 1, 2, 2, 1, 1, 2, 1, 1]),
                 },
             )
         },

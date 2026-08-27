@@ -32,7 +32,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::MaximumSetPacking;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Sets: S0={0,1}, S1={1,2}, S2={2,3}, S3={3,4}
 /// // S0 and S1 overlap, S2 and S3 are disjoint from S0
@@ -174,7 +174,7 @@ impl<W: Clone + Default> MaximumSetPacking<W> {
     }
 
     /// Check if a configuration is a valid set packing.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_packing(&self.sets, config)
     }
 }
@@ -184,20 +184,27 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumSetPacking";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.sets.len()]
-    }
+    crate::problem_size![("num_sets", num_sets), ("universe_size", universe_size),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.sets.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "set-selection length does not match the family".into(),
+            ));
+        }
         Ok({
             if !is_valid_packing(&self.sets, config) {
                 return Ok(Max(None));
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -214,18 +221,33 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for MaximumSetPacking<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
+    }
+}
+
 crate::declare_variants! {
     default MaximumSetPacking<One> => "2^num_sets" create MaximumSetPackingCreateSpec<One>,
     MaximumSetPacking<i64> => "2^num_sets" create MaximumSetPackingCreateSpec<i64>,
     MaximumSetPacking<f64> => "2^num_sets" create MaximumSetPackingCreateSpec<f64>,
 }
 
+crate::register_brute_force! {
+    MaximumSetPacking<One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumSetPacking<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumSetPacking<f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 /// Check if a selection forms a valid set packing (pairwise disjoint).
-fn is_valid_packing(sets: &[Vec<usize>], config: &[usize]) -> bool {
+fn is_valid_packing(sets: &[Vec<usize>], config: &[bool]) -> bool {
     let selected_sets: Vec<_> = config
         .iter()
         .enumerate()
-        .filter(|(_, &s)| s == 1)
+        .filter(|(_, &selected)| selected)
         .map(|(i, _)| i)
         .collect();
 
@@ -248,21 +270,20 @@ pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
         return false;
     }
 
-    let config: Vec<usize> = selected.iter().map(|&b| if b { 1 } else { 0 }).collect();
-    is_valid_packing(sets, &config)
+    is_valid_packing(sets, selected)
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_set_packing_i64",
+        id: "maximum_set_packing",
         instance: Box::new(MaximumSetPacking::<i64>::new(vec![
             vec![0, 1],
             vec![1, 2],
             vec![2, 3],
             vec![3, 4],
         ])),
-        optimal_config: vec![0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![false, true, false, true]),
         optimal_value: serde_json::json!(2),
     }]
 }

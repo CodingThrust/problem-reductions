@@ -4,7 +4,7 @@
 //! non-terminals, and a sink demand, determine whether there exists an
 //! integral flow satisfying multiplier-scaled conservation.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -19,13 +19,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Integral flow feasibility on a directed graph with multiplier-scaled conservation at non-terminal vertices",
         fields: IntegralFlowWithMultipliersCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "IntegralFlowWithMultipliers",
-        fields: &["num_vertices", "num_arcs", "max_capacity", "requirement"],
     }
 }
 
@@ -276,19 +269,25 @@ impl IntegralFlowWithMultipliers {
 
 impl Problem for IntegralFlowWithMultipliers {
     const NAME: &'static str = "IntegralFlowWithMultipliers";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .map(|&capacity| Self::domain_size(capacity))
-            .collect()
-    }
+    crate::problem_size![
+        ("max_capacity", max_capacity),
+        ("num_arcs", num_arcs),
+        ("num_vertices", num_vertices),
+        ("requirement", requirement),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
@@ -297,8 +296,21 @@ impl Problem for IntegralFlowWithMultipliers {
     }
 }
 
+impl crate::solvers::BruteForceProblem for IntegralFlowWithMultipliers {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities
+            .iter()
+            .map(|&capacity| Self::domain_size(capacity))
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default IntegralFlowWithMultipliers => "(max_capacity + 1)^num_arcs" create IntegralFlowWithMultipliersCreateSpec,
+}
+
+crate::register_brute_force! {
+    IntegralFlowWithMultipliers,
 }
 
 #[cfg(feature = "example-db")]
@@ -329,7 +341,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4],
             12,
         )),
-        optimal_config: vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0],
+        optimal_config: serde_json::json!(vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

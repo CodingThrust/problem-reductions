@@ -38,8 +38,8 @@ impl ReductionResult for ReductionRootedTreeArrangementToRootedTreeStorageAssign
     /// means the mapping f is the identity.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -75,13 +75,13 @@ impl ReduceTo<RootedTreeStorageAssignment> for RootedTreeArrangement<SimpleGraph
         // is infeasible (each edge contributes at least 1 to the arrangement
         // cost). In that case, return a fixed gadget instance that is
         // guaranteed infeasible for the target problem as well.
-        let num_edges_i64 = i64::try_from(num_edges).map_err(|_| {
+        let num_edges = i64::try_from(num_edges).map_err(|_| {
             crate::rules::ReductionError::integer_overflow::<
                 RootedTreeArrangement<SimpleGraph>,
                 RootedTreeStorageAssignment,
             >("converting the number of edges to i64")
         })?;
-        let bound = match self.bound().checked_sub(num_edges_i64) {
+        let bound = match self.bound().checked_sub(num_edges) {
             Some(b) => b,
             None => {
                 // Gadget: universe {0,1,2} with all 2-element subsets and bound 0.
@@ -133,8 +133,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, RootedTreeStorageAssignment>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

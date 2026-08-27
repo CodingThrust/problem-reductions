@@ -8,7 +8,7 @@ use crate::types::i64_to_exact_f64;
 fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64]) -> ILP<bool> {
     let constraints: Vec<LinearConstraint> = edges
         .iter()
-        .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
+        .map(|&(i, j)| LinearConstraint::le(vec![(i, 1), (j, 1)], 1))
         .collect();
 
     let objective: Vec<(usize, f64)> = weights
@@ -28,6 +28,7 @@ fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i64])
         objective,
         ObjectiveSense::Maximize,
     )
+    .expect("MIS test ILP must be valid")
 }
 
 /// Check if a configuration is a valid independent set.

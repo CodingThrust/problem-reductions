@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -27,7 +28,7 @@ fn test_highly_connected_deletion_creation() {
     assert_eq!(problem.graph().num_edges(), 4);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 4);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
     assert_eq!(problem.num_variables(), 4);
 }
 
@@ -43,7 +44,7 @@ fn test_highly_connected_deletion_problem_name() {
 fn test_highly_connected_deletion_evaluate_optimum() {
     // Delete only the leaf edge (2,3) at index 3 → K3 on {0,1,2} + isolated {3}.
     let problem = canonical_problem();
-    let config = vec![0, 0, 0, 1];
+    let config = vec![false, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(1)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -53,7 +54,7 @@ fn test_highly_connected_deletion_evaluate_zero_deletions_infeasible() {
     // No deletions: the whole graph on 4 vertices has min cut 1 (vertex 3 has degree 1),
     // and 2*1 = 2 <= 4, so the unique component is not highly connected → infeasible.
     let problem = canonical_problem();
-    let config = vec![0, 0, 0, 0];
+    let config = vec![false, false, false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
@@ -62,7 +63,7 @@ fn test_highly_connected_deletion_evaluate_zero_deletions_infeasible() {
 fn test_highly_connected_deletion_evaluate_delete_all_feasible() {
     // Deleting every edge yields 4 isolated vertices — all singletons are allowed.
     let problem = canonical_problem();
-    let config = vec![1, 1, 1, 1];
+    let config = vec![true, true, true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -72,7 +73,7 @@ fn test_highly_connected_deletion_evaluate_two_vertex_component_infeasible() {
     // Delete (0,1),(0,2),(1,2); keep only (2,3).
     // Components: {0}, {1}, {2,3}. The 2-vertex component {2,3} is never a valid cluster.
     let problem = canonical_problem();
-    let config = vec![1, 1, 1, 0];
+    let config = vec![true, true, true, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
@@ -83,7 +84,7 @@ fn test_highly_connected_deletion_evaluate_path_component_infeasible() {
     // Components: {1}, {0,2,3} with edges (0,2),(2,3) — a path P_3.
     // λ(P_3) = 1, 2*1 = 2 <= 3 → not highly connected → infeasible.
     let problem = canonical_problem();
-    let config = vec![1, 0, 1, 0];
+    let config = vec![true, false, true, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -92,8 +93,11 @@ fn test_highly_connected_deletion_evaluate_wrong_config_length() {
     // A config whose length disagrees with the number of edges is rejected by the
     // feasibility check (it can never describe a valid deletion).
     let problem = canonical_problem();
-    let too_short = vec![0, 0, 0];
-    assert_eq!(problem.evaluate(&too_short).unwrap(), Min(None));
+    let too_short = vec![false, false, false];
+    assert!(matches!(
+        problem.evaluate(&too_short),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert!(!problem.is_valid_solution(&too_short));
 }
 
@@ -101,8 +105,13 @@ fn test_highly_connected_deletion_evaluate_wrong_config_length() {
 fn test_highly_connected_deletion_brute_force_canonical() {
     // Brute force over 2^4 = 16 configs; optimum is delete only edge (2,3) → value 1.
     let problem = canonical_problem();
-    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(Some(1)));
-    let witness = BruteForce::new().find_witness(&problem).unwrap().unwrap();
+    assert_eq!(
+        problem
+            .evaluate(&BruteForce::new().solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
+    let witness = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(1)));
 }
 
@@ -113,19 +122,24 @@ fn test_highly_connected_deletion_brute_force_double_triangle() {
     // Keeping any extra edge of either triangle either leaves the whole graph
     // connected (which is infeasible) or creates a non-highly-connected component.
     let problem = double_triangle_problem();
-    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem
+            .evaluate(&BruteForce::new().solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
 
     // Verify the named optimal config evaluates to 1.
-    let bridge_only = vec![0, 0, 0, 1, 0, 0, 0];
+    let bridge_only = vec![false, false, false, true, false, false, false];
     assert_eq!(problem.evaluate(&bridge_only).unwrap(), Min(Some(1)));
 
     // The all-zero config is infeasible because the bridge gives the union min cut 1.
-    let no_deletions = vec![0; 7];
+    let no_deletions = vec![false; 7];
     assert_eq!(problem.evaluate(&no_deletions).unwrap(), Min(None));
 
     // Deleting one extra triangle edge in addition to the bridge breaks one K3 into
     // a 3-vertex path, which is no longer highly connected → infeasible.
-    let bridge_plus_one = vec![1, 0, 0, 1, 0, 0, 0];
+    let bridge_plus_one = vec![true, false, false, true, false, false, false];
     assert_eq!(problem.evaluate(&bridge_plus_one).unwrap(), Min(None));
 }
 
@@ -137,7 +151,10 @@ fn test_highly_connected_deletion_serialization() {
     assert_eq!(restored.graph().num_vertices(), 4);
     assert_eq!(restored.graph().num_edges(), 4);
     // Evaluating on the canonical optimum still yields 1 after the round trip.
-    assert_eq!(restored.evaluate(&[0, 0, 0, 1]).unwrap(), Min(Some(1)));
+    assert_eq!(
+        restored.evaluate(&vec![false, false, false, true]).unwrap(),
+        Min(Some(1))
+    );
 }
 
 #[test]

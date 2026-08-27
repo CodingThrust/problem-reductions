@@ -62,8 +62,8 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
     /// it is deleted (`config[e] = 1`).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let mut cluster_of: Vec<Option<usize>> = vec![None; vertex_count(&self.clusters)];
@@ -93,7 +93,7 @@ impl ReductionResult for ReductionHighlyConnectedDeletionToILP {
         Ok(self
             .edges
             .iter()
-            .map(|&(u, v)| usize::from(cluster_of[u] != cluster_of[v]))
+            .map(|&(u, v)| cluster_of[u] != cluster_of[v])
             .collect())
     }
 }
@@ -173,18 +173,18 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
         // small graphs we use in tests.
         let mut constraints: Vec<LinearConstraint> = Vec::with_capacity(n);
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = clusters
+            let terms: Vec<(usize, i64)> = clusters
                 .iter()
                 .enumerate()
                 .filter_map(|(c, cluster)| {
                     if cluster.binary_search(&v).is_ok() {
-                        Some((c, 1.0))
+                        Some((c, 1))
                     } else {
                         None
                     }
                 })
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Objective: maximize sum_S |E(G[S])| * x_S.
@@ -194,7 +194,8 @@ impl ReduceTo<ILP<bool>> for HighlyConnectedDeletion<SimpleGraph> {
             .map(|(c, cluster)| (c, induced_edge_count(graph, cluster) as f64))
             .collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionHighlyConnectedDeletionToILP {
             target,

@@ -45,13 +45,15 @@ impl ReductionResult for ReductionMMCToILP {
     /// For each edge e, source config[e] = target_solution[k*n + e] (the x_e variable).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let offset = self.k * self.n;
-            (0..self.m).map(|e| target_solution[offset + e]).collect()
+            (0..self.m)
+                .map(|e| target_solution[offset + e] == 1)
+                .collect()
         })
     }
 }
@@ -83,22 +85,22 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
 
         // Terminal fixing: y_{i, t_i} = 1 for each terminal i
         for (i, &t) in terminals.iter().enumerate() {
-            constraints.push(LinearConstraint::eq(vec![(i * n + t, 1.0)], 1.0));
+            constraints.push(LinearConstraint::eq(vec![(i * n + t, 1)], 1));
         }
 
         // Terminal fixing: y_{j, t_i} = 0 for j != i
         for (i, &t) in terminals.iter().enumerate() {
             for j in 0..k {
                 if j != i {
-                    constraints.push(LinearConstraint::eq(vec![(j * n + t, 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(j * n + t, 1)], 0));
                 }
             }
         }
 
         // Partition constraints: sum_i y_{iv} = 1 for each vertex v
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|i| (i * n + v, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|i| (i * n + v, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Edge-cut linking constraints: for each edge e=(u,v) and each terminal i:
@@ -111,13 +113,13 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
                 let y_iv = i * n + v;
                 // x_e - y_{iu} + y_{iv} >= 0
                 constraints.push(LinearConstraint::ge(
-                    vec![(x_var, 1.0), (y_iu, -1.0), (y_iv, 1.0)],
-                    0.0,
+                    vec![(x_var, 1), (y_iu, -1), (y_iv, 1)],
+                    0,
                 ));
                 // x_e + y_{iu} - y_{iv} >= 0
                 constraints.push(LinearConstraint::ge(
-                    vec![(x_var, 1.0), (y_iu, 1.0), (y_iv, -1.0)],
-                    0.0,
+                    vec![(x_var, 1), (y_iu, 1), (y_iv, -1)],
+                    0,
                 ));
             }
         }
@@ -138,7 +140,8 @@ impl ReduceTo<ILP<bool>> for MinimumMultiwayCut<SimpleGraph, i64> {
             })
             .collect::<Result<_, _>>()?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMMCToILP { target, n, m, k })
     }

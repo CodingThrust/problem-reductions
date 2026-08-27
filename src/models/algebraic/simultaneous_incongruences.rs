@@ -3,7 +3,7 @@
 //! Given a list of pairs (aᵢ, bᵢ) with bᵢ > 0 and 1 ≤ aᵢ ≤ bᵢ, determine whether
 //! there exists a non-negative integer x such that x ≢ aᵢ (mod bᵢ) for all i.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -28,13 +28,6 @@ inventory::submit! {
     }
 }
 
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "SimultaneousIncongruences",
-        fields: &["num_pairs"],
-    }
-}
-
 /// Simultaneous Incongruences problem.
 ///
 /// Given a list of pairs (aᵢ, bᵢ) with bᵢ > 0 and 1 ≤ aᵢ ≤ bᵢ, determine whether
@@ -47,12 +40,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::SimultaneousIncongruences;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // pairs: [(2,2),(1,3),(2,5),(3,7)] — lcm=210, x=5 is a solution
 /// let problem = SimultaneousIncongruences::new(vec![(2,2),(1,3),(2,5),(3,7)]).unwrap();
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -136,33 +129,36 @@ impl<'de> Deserialize<'de> for SimultaneousIncongruences {
 
 impl Problem for SimultaneousIncongruences {
     const NAME: &'static str = "SimultaneousIncongruences";
+    type Solution = i64;
     type Value = Or;
+
+    crate::problem_size![("num_pairs", num_pairs),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok({
+            // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
+            Or(self.pairs.iter().all(|&(a, b)| solution % b != a % b))
+        })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SimultaneousIncongruences {
+    fn dimensions(&self) -> Vec<usize> {
         let lcm = usize::try_from(self.lcm_moduli()).expect("validated positive LCM fits usize");
         vec![lcm]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
-        Ok({
-            if config.len() != 1 {
-                return Ok(Or(false));
-            }
-            let Ok(x) = i64::try_from(config[0]) else {
-                return Ok(Or(false));
-            };
-            // x is a solution iff x % bᵢ ≠ aᵢ % bᵢ for every pair.
-            Or(self.pairs.iter().all(|&(a, b)| x % b != a % b))
-        })
     }
 }
 
 crate::declare_variants! {
     default SimultaneousIncongruences => "num_pairs",
+}
+
+crate::register_brute_force! {
+    SimultaneousIncongruences decode |_, indices: Vec<usize>| i64::try_from(indices[0]).expect("enumerated incongruence value fits i64"),
 }
 
 #[cfg(feature = "example-db")]
@@ -173,7 +169,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimultaneousIncongruences::new(vec![(2, 2), (1, 3), (2, 5), (3, 7)]).unwrap(),
         ),
         // x=5: 5%2=1≠0(=2%2), 5%3=2≠1, 5%5=0≠2, 5%7=5≠3 ✓
-        optimal_config: vec![5],
+        optimal_config: serde_json::json!(5),
         optimal_value: serde_json::json!(true),
     }]
 }

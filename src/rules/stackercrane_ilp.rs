@@ -7,7 +7,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::StackerCrane;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode;
+use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::types::i64_to_exact_f64;
 
@@ -34,8 +34,8 @@ impl ReductionResult for ReductionSCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -59,7 +59,8 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
         if m == 0 {
             return Ok(ReductionSCToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 num_arcs: 0,
             });
         }
@@ -82,14 +83,14 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
         // Each arc assigned to exactly one position: sum_p x_{i,p} = 1 for all i
         for i in 0..m {
-            let terms: Vec<(usize, f64)> = (0..m).map(|p| (x_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..m).map(|p| (x_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Each position assigned exactly one arc: sum_i x_{i,p} = 1 for all p
         for p in 0..m {
-            let terms: Vec<(usize, f64)> = (0..m).map(|i| (x_idx(i, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..m).map(|i| (x_idx(i, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // McCormick linearization for z_{i,j,p} = x_{i,p} * x_{j,(p+1) mod m}
@@ -102,26 +103,12 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
 
                     if distances[head_i][tail_j] == i64::MAX {
                         // Infeasible pair: z_{i,j,p} = 0
-                        constraints.push(LinearConstraint::eq(vec![(z_idx(i, j, p), 1.0)], 0.0));
+                        constraints.push(LinearConstraint::eq(vec![(z_idx(i, j, p), 1)], 0));
                     } else {
-                        // z <= x_{i,p}
-                        constraints.push(LinearConstraint::le(
-                            vec![(z_idx(i, j, p), 1.0), (x_idx(i, p), -1.0)],
-                            0.0,
-                        ));
-                        // z <= x_{j, next_p}
-                        constraints.push(LinearConstraint::le(
-                            vec![(z_idx(i, j, p), 1.0), (x_idx(j, next_p), -1.0)],
-                            0.0,
-                        ));
-                        // z >= x_{i,p} + x_{j, next_p} - 1
-                        constraints.push(LinearConstraint::le(
-                            vec![
-                                (x_idx(i, p), 1.0),
-                                (x_idx(j, next_p), 1.0),
-                                (z_idx(i, j, p), -1.0),
-                            ],
-                            1.0,
+                        constraints.extend(mccormick_product(
+                            z_idx(i, j, p),
+                            x_idx(i, p),
+                            x_idx(j, next_p),
                         ));
                     }
                 }
@@ -150,7 +137,8 @@ impl ReduceTo<ILP<bool>> for StackerCrane {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionSCToILP {
             target,

@@ -44,7 +44,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Clustering;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 elements, 2 clusters, diameter bound 1
 /// let distances = vec![
@@ -55,7 +55,7 @@ inventory::submit! {
 /// ];
 /// let problem = Clustering::new(distances, 2, 1);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -161,26 +161,48 @@ impl Clustering {
 
 impl Problem for Clustering {
     const NAME: &'static str = "Clustering";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_clusters", num_clusters),
+        ("num_elements", num_elements),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_clusters; self.num_elements()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_elements() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "cluster assignment length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&cluster| cluster >= self.num_clusters) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "cluster assignment contains an out-of-range cluster".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_partition(config)))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for Clustering {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_clusters; self.num_elements()]
     }
 }
 
 crate::declare_variants! {
     default Clustering => "num_clusters^num_elements",
+}
+
+crate::register_brute_force! {
+    Clustering,
 }
 
 #[cfg(feature = "example-db")]
@@ -199,7 +221,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "clustering",
         instance: Box::new(Clustering::new(distances, 2, 1)),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

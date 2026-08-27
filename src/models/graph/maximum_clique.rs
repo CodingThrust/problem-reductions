@@ -43,7 +43,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximumClique;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle graph (3 vertices, 3 edges - complete graph)
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum clique in a triangle (K3) is size 3
-/// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 3));
+/// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 3));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaximumClique<G, W> {
@@ -117,7 +117,7 @@ impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
     }
 
     /// Check if a configuration is a valid clique.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_clique_config(&self.graph, config)
     }
 }
@@ -140,24 +140,31 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumClique";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !is_clique_config(&self.graph, config) {
                 return Ok(Max(None));
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -170,13 +177,23 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MaximumClique<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 /// Check if a configuration forms a valid clique.
-fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_clique_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
     // Collect all selected vertices
     let selected: Vec<usize> = config
         .iter()
         .enumerate()
-        .filter(|(_, &v)| v == 1)
+        .filter(|(_, &v)| v)
         .map(|(i, _)| i)
         .collect();
 
@@ -203,15 +220,20 @@ crate::declare_variants! {
     default MaximumClique<SimpleGraph, One> => "1.1996^num_vertices" create MaximumCliqueCreateSpec<One> random,
 }
 
+crate::register_brute_force! {
+    MaximumClique<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumClique<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_clique_simplegraph_i64",
+        id: "maximum_clique_simplegraph",
         instance: Box::new(MaximumClique::new(
             SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]),
             vec![1i64; 5],
         )),
-        optimal_config: vec![0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, true, true, true]),
         optimal_value: serde_json::json!(3),
     }]
 }

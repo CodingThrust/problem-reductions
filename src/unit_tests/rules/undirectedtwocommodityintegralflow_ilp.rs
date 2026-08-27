@@ -43,10 +43,10 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 3 edges → 4 flow vars + 2 direction vars per edge = 18 variables.
-    assert_eq!(ilp.num_vars, 18);
-    assert_eq!(ilp.constraints.len(), 25);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 18);
+    assert_eq!(ilp.constraints().len(), 25);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
@@ -67,21 +67,21 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_overhead_matches_target() {
         })
         .expect("U2CIF -> ILP<i64> reduction should be registered");
 
-    let source_size = (entry.source_size_measure_fn)(&problem as &dyn std::any::Any);
+    let source_size = problem.size();
     let predicted = entry
         .size_contract()
         .unwrap()
         .transform()
         .unwrap()
-        .evaluate(&crate::size::EvaluatedSize::from_problem_size(&source_size))
+        .evaluate(&source_size)
         .unwrap();
     assert_eq!(
-        predicted.values().get("num_vars"),
-        Some(&ilp.num_vars.into())
+        predicted.get("num_vars"),
+        Some(ilp.num_vars().try_into().unwrap())
     );
     assert_eq!(
-        predicted.values().get("num_constraints"),
-        Some(&ilp.constraints.len().into())
+        predicted.get("num_constraints"),
+        Some(ilp.constraints().len().try_into().unwrap())
     );
 }
 
@@ -90,7 +90,7 @@ fn test_undirectedtwocommodityintegralflow_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance has a witness");
     assert!(

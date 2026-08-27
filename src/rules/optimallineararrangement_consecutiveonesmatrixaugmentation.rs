@@ -47,9 +47,16 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        let expected = self.target.num_cols();
+        if target_solution.len() != expected {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {expected} target values, got {}",
+                target_solution.len()
+            )));
+        }
 
         Ok({
             match &self.construction {
@@ -68,7 +75,7 @@ impl ReductionResult for ReductionOptimalLinearArrangementToConsecutiveOnesMatri
                     let mut arrangement = vec![0usize; n];
                     let mut seen = vec![false; n];
                     for (position, &vertex) in target_solution.iter().enumerate() {
-                        if seen[vertex] {
+                        if vertex >= n || seen[vertex] {
                             return Err(crate::rules::ExtractionError::invalid(
                                 "target column order is not a permutation",
                             ));
@@ -101,7 +108,6 @@ fn no_sentinel() -> ConsecutiveOnesMatrixAugmentation {
     size = exact {
         num_rows = "num_edges",
         num_cols = "num_vertices",
-        bound = "k - num_edges",
     }
 )]
 impl ReduceTo<ConsecutiveOnesMatrixAugmentation>
@@ -194,8 +200,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

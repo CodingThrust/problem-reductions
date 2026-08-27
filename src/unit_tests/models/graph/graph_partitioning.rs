@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -28,12 +29,12 @@ fn test_graphpartitioning_basic() {
     let problem = issue_example();
 
     // Check dims: 6 binary variables
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
 
     // Evaluate a valid balanced partition: A={0,1,2}, B={3,4,5}
     // config: [0, 0, 0, 1, 1, 1]
     // Crossing edges: (1,3), (2,3), (2,4) => cut = 3
-    let config = vec![0, 0, 0, 1, 1, 1];
+    let config = vec![false, false, false, true, true, true];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(3)));
 }
@@ -47,7 +48,7 @@ fn test_graphpartitioning_serialization() {
     assert_eq!(deserialized.graph().num_edges(), 9);
 
     // Verify evaluation is consistent after round-trip
-    let config = vec![0, 0, 0, 1, 1, 1];
+    let config = vec![false, false, false, true, true, true];
     assert_eq!(
         problem.evaluate(&config).unwrap(),
         deserialized.evaluate(&config).unwrap()
@@ -58,7 +59,7 @@ fn test_graphpartitioning_serialization() {
 fn test_graphpartitioning_solver() {
     let problem = issue_example();
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     let size = problem.evaluate(&best).unwrap();
     assert_eq!(size, Min(Some(3)));
 
@@ -77,11 +78,11 @@ fn test_graphpartitioning_odd_vertices() {
     let problem = GraphPartitioning::new(graph);
 
     // Every possible config should be Invalid
-    for a in 0..2 {
-        for b in 0..2 {
-            for c in 0..2 {
+    for a in [false, true] {
+        for b in [false, true] {
+            for c in [false, true] {
                 assert_eq!(
-                    problem.evaluate(&[a, b, c]).unwrap(),
+                    problem.evaluate(&vec![a, b, c]).unwrap(),
                     Min(None),
                     "Expected Invalid for odd n, config [{}, {}, {}]",
                     a,
@@ -100,27 +101,46 @@ fn test_graphpartitioning_unbalanced_invalid() {
     let problem = GraphPartitioning::new(graph);
 
     // All zeros: 0 ones, not balanced
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![false, false, false, false]).unwrap(),
+        Min(None)
+    );
 
     // All ones: 4 ones, not balanced
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true, true]).unwrap(),
+        Min(None)
+    );
 
     // One vertex in partition 1: not balanced
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false, false]).unwrap(),
+        Min(None)
+    );
 
     // Three vertices in partition 1: not balanced
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true, false]).unwrap(),
+        Min(None)
+    );
 
     // Two vertices in partition 1: balanced, should be Valid
     // 4-cycle edges: (0,1),(1,2),(2,3),(0,3). Config [1,1,0,0] cuts (1,2) and (0,3) => cut=2
-    assert_eq!(problem.evaluate(&[1, 1, 0, 0]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, false, false]).unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
 fn test_graphpartitioning_rejects_non_binary_configs() {
     let problem = issue_example();
 
-    assert_eq!(problem.evaluate(&[0, 0, 1, 1, 1, 2]).unwrap(), Min(None));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([false, false, true, true, true, 2])
+    )
+    .is_err());
 }
 
 #[test]
@@ -167,6 +187,6 @@ fn test_graphpartitioning_empty_graph() {
     let graph = SimpleGraph::new(4, vec![]);
     let problem = GraphPartitioning::new(graph);
 
-    let config = vec![0, 0, 1, 1];
+    let config = vec![false, false, true, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(0)));
 }

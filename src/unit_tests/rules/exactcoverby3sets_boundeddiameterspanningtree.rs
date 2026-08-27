@@ -1,8 +1,7 @@
 use super::*;
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::Graph;
-use crate::types::Or;
 
 /// q = 2, m = 2: X = {0..5} with C = [{0,1,2}, {3,4,5}].
 /// Both subsets together form the unique exact cover.
@@ -73,17 +72,17 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_extract_solution() {
 
     // Build a target config that selects both root-to-set edges (indices 2 and 3).
     // The remaining selections do not matter for extraction.
-    let mut target_config = vec![0; reduction.target_problem().num_edges()];
-    target_config[2] = 1;
-    target_config[3] = 1;
+    let mut target_config = vec![false; reduction.target_problem().num_edges()];
+    target_config[2] = true;
+    target_config[3] = true;
     let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
 
     // Only s_0 selected via root edge.
-    let mut target_config = vec![0; reduction.target_problem().num_edges()];
-    target_config[2] = 1;
+    let mut target_config = vec![false; reduction.target_problem().num_edges()];
+    target_config[2] = true;
     let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![1, 0]);
+    assert_eq!(extracted, vec![true, false]);
 }
 
 #[test]
@@ -95,10 +94,10 @@ fn test_exactcoverby3sets_to_boundeddiameterspanningtree_no_instance() {
 
     // The target should be infeasible: no spanning tree satisfies both weight
     // bound B = 4q + m + 2 = 12 and diameter bound D = 4. For an Or-valued
-    // problem with no satisfying configuration, BruteForce::find_witness
+    // problem with no satisfying configuration, BruteForce::solve
     // returns None (witnesses are configs that evaluate to Or(true), and none
     // exist here). Equivalently, the brute-force aggregate evaluates to
     // Or(false).
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
-    assert_eq!(BruteForce::new().solve(target).unwrap(), Or(false));
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }

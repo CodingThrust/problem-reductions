@@ -222,20 +222,25 @@ impl StaffScheduling {
 
 impl Problem for StaffScheduling {
     const NAME: &'static str = "StaffScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.worker_limit() + 1; self.num_schedules()]
-    }
+    crate::problem_size![
+        ("num_periods", num_periods),
+        ("num_schedules", num_schedules),
+        ("num_workers", num_workers),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_schedules() {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "staffing vector length does not match the schedules".into(),
+                    ));
                 }
                 self.worker_counts_valid(config)
                     && self.within_budget(config)?
@@ -249,8 +254,18 @@ impl Problem for StaffScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for StaffScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.worker_limit() + 1; self.num_schedules()]
+    }
+}
+
 crate::declare_variants! {
     default StaffScheduling => "(num_workers + 1)^num_schedules" create StaffSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    StaffScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -269,7 +284,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 2, 2, 3, 3, 2, 1],
             4,
         )),
-        optimal_config: vec![1, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

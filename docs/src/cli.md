@@ -78,7 +78,7 @@ pred solve problem.json --solver brute-force
 pred solve lbdp.json
 
 # Evaluate a specific configuration (shows the aggregate value, e.g. Max(2) or Min(None))
-pred evaluate problem.json --config 1,0,1,0
+pred evaluate problem.json --config '[true,false,true,false]'
 
 # Reduce along an explicitly chosen route and solve via brute-force
 pred reduce problem.json --via route.json -o reduced.json
@@ -262,8 +262,8 @@ The output file uses a standard wrapper format:
 #### Example: Bounded Component Spanning Forest
 
 `BoundedComponentSpanningForest` uses one component label per vertex in the
-evaluation config. If the graph has `n` vertices and limit `k`, then
-`--config` expects `n` comma-separated integers in `0..k-1`.
+evaluation solution. If the graph has `n` vertices and limit `k`, then
+`--config` expects a JSON array of `n` integers in `0..k-1`.
 
 ```bash
 pred create BoundedComponentSpanningForest \
@@ -273,7 +273,7 @@ pred create BoundedComponentSpanningForest \
   --bound 6 \
   -o bcsf.json
 
-pred evaluate bcsf.json --config 0,0,1,1,1,2,2,0
+pred evaluate bcsf.json --config '[0,0,1,1,1,2,2,0]'
 pred solve bcsf.json
 ```
 
@@ -291,7 +291,7 @@ Evaluate a configuration against a problem instance:
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
+pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config '[true,false,true,false]'
 ```
 
 ### `pred inspect` — Inspect a problem file
@@ -373,9 +373,9 @@ Solve a reduction bundle (from `pred reduce`):
 {{#include generated/pred-solve-bundle.txt}}
 ```
 
-Successful exact solves report `"status": "optimal"`; aggregate-only problems omit
+Successful exact solves report `"status": "optimal"` and always include
 `solution`. A proven infeasible instance is also a successful command result and reports
-`"status": "infeasible"` without `solution` or `evaluation`. Solver, timeout, registry,
+`"status": "infeasible"` without `solution` or `evaluation`. Timeout, registry,
 and extraction failures remain command errors.
 
 > **Note:** Solver availability is determined by the exact problem variant's

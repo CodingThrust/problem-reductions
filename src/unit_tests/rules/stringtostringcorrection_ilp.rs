@@ -14,7 +14,7 @@ fn test_reduction_creates_valid_ilp() {
 
     // n=2, K=1: (K+1)*n*n + (K+1)*n + K*n + K*(n-1) + K = 2*4 + 2*2 + 1*2 + 1*1 + 1 = 16
     assert_eq!(ilp.num_vars(), 16);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -23,7 +23,7 @@ fn test_stringtostringcorrection_to_ilp_bf_vs_ilp() {
     let problem = StringToStringCorrection::new(2, vec![0, 1], vec![1], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some(), "BF should find a solution");
 
     let reduction: ReductionSTSCToILP =
@@ -59,7 +59,7 @@ fn test_stringtostringcorrection_to_ilp_infeasible() {
 
     // Verify the source problem is actually infeasible
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_none(), "source should be infeasible");
 
     let reduction: ReductionSTSCToILP =
@@ -77,7 +77,7 @@ fn test_stringtostringcorrection_to_ilp_swap() {
     let problem = StringToStringCorrection::new(2, vec![1, 0], vec![0, 1], 1);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(bf_witness.is_some(), "BF should find a solution");
 
     let reduction: ReductionSTSCToILP =

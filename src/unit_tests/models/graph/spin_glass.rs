@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_couplings_and_fields() {
@@ -152,7 +153,7 @@ fn test_jl_parity_evaluation() {
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
         let jl_best = jl_flip_configs_set(&jl_parse_configs_set(&instance["best_solutions"]));
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let rust_best: HashSet<Vec<i8>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "SpinGlass best solutions mismatch");
     }
 }
@@ -187,9 +188,9 @@ fn test_spinglass_paper_example() {
         ],
     )
     .unwrap();
-    // Ground state: s = (+1,-1,+1,+1,-1) → config x = (1,0,1,1,0)
+    // Ground state: s = (+1,-1,+1,+1,-1).
     // Energy = -3 (5 satisfied antiparallel, 2 frustrated parallel edges)
-    let result = problem.evaluate(&[1, 0, 1, 1, 0]).unwrap();
+    let result = problem.evaluate(&vec![1, -1, 1, 1, -1]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), -3);
 
@@ -212,7 +213,7 @@ fn test_spin_glass_reports_energy_overflow() {
     let problem =
         SpinGlass::<SimpleGraph, i64>::new(2, vec![((0, 1), i64::MIN)], vec![0, 0]).unwrap();
     assert!(matches!(
-        problem.evaluate(&[0, 1]),
+        problem.evaluate(&vec![-1, 1]),
         Err(crate::traits::EvaluationError::IntegerOverflow(_))
     ));
 }

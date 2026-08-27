@@ -30,13 +30,9 @@ fn unsatisfiable_instance() -> KSatisfiability<K3> {
     )
 }
 
-fn all_assignments(num_vars: usize) -> Vec<Vec<usize>> {
+fn all_assignments(num_vars: usize) -> Vec<Vec<bool>> {
     (0..(1usize << num_vars))
-        .map(|mask| {
-            (0..num_vars)
-                .map(|bit| usize::from(((mask >> bit) & 1) == 1))
-                .collect()
-        })
+        .map(|mask| (0..num_vars).map(|bit| ((mask >> bit) & 1) == 1).collect())
         .collect()
 }
 
@@ -92,7 +88,7 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_extract_solution_fro
         ReduceTo::<crate::models::graph::DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
             .expect("reduction should succeed");
 
-    let assignment = vec![1, 1, 0];
+    let assignment = vec![true, true, false];
     let flow = reduction.encode_assignment(&assignment);
     assert!(reduction.target_problem().evaluate(&flow).unwrap().0);
     assert_eq!(reduction.extract_solution(&flow).unwrap(), assignment);
@@ -161,7 +157,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
         serde_json::json!(2)
     );
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![1, 1, 0]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, true, false])
+    );
 
     let source: KSatisfiability<K3> = serde_json::from_value(example.source.instance.clone())
         .expect("source example deserializes");
@@ -169,12 +168,10 @@ fn test_ksatisfiability_to_directedtwocommodityintegralflow_canonical_example_sp
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
 
-    assert!(source
-        .evaluate(&example.solutions[0].source_config)
-        .unwrap()
-        .is_valid());
-    assert!(target
-        .evaluate(&example.solutions[0].target_config)
-        .unwrap()
-        .is_valid());
+    let source_config: Vec<bool> =
+        serde_json::from_value(example.solutions[0].source_config.clone()).unwrap();
+    let target_config: Vec<usize> =
+        serde_json::from_value(example.solutions[0].target_config.clone()).unwrap();
+    assert!(source.evaluate(&source_config).unwrap().is_valid());
+    assert!(target.evaluate(&target_config).unwrap().is_valid());
 }

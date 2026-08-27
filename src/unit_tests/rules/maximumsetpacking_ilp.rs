@@ -10,18 +10,18 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 3, "Should have one variable per set");
+    assert_eq!(ilp.num_vars(), 3, "Should have one variable per set");
     // Elements 1 and 2 each appear in 2 sets → 2 element constraints
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         2,
         "Should have one constraint per shared element"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize, "Should maximize");
 
-    for constraint in &ilp.constraints {
-        assert!(constraint.terms.len() >= 2);
-        assert!((constraint.rhs - 1.0).abs() < 1e-9);
+    for constraint in ilp.constraints() {
+        assert!(constraint.terms().len() >= 2);
+        assert_eq!(constraint.rhs(), 1);
     }
 }
 
@@ -34,7 +34,7 @@ fn test_reduction_weighted() {
     let ilp = reduction.target_problem();
 
     let mut coeffs: Vec<f64> = vec![0.0; 2];
-    for &(var, coef) in &ilp.objective {
+    for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
     assert!((coeffs[0] - 5.0).abs() < 1e-9);
@@ -55,8 +55,8 @@ fn test_maximumsetpacking_to_ilp_closed_loop() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    let bf_size: usize = bf_solutions[0].iter().sum();
-    let ilp_size: usize = extracted.iter().sum();
+    let bf_size: usize = bf_solutions[0].iter().filter(|&&selected| selected).count();
+    let ilp_size: usize = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(bf_size, 2);
     assert_eq!(ilp_size, 2);
 
@@ -89,7 +89,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
     assert_eq!(bf_obj, Max(Some(6)));
     assert_eq!(ilp_obj, Max(Some(6)));
-    assert_eq!(extracted, vec![0, 1, 1]);
+    assert_eq!(extracted, vec![false, true, true]);
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_solution_extraction() {
 
     let ilp_solution = vec![1, 0, 1, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1, 0]);
+    assert_eq!(extracted, vec![true, false, true, false]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
@@ -111,13 +111,13 @@ fn test_disjoint_sets() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 1, 1, 1]);
+    assert_eq!(extracted, vec![true, true, true, true]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(4)));
 }

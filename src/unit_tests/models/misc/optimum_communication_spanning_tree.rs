@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_edge_weights() {
@@ -35,7 +36,7 @@ fn test_ocst_creation() {
     let problem = k4_problem();
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 6);
-    assert_eq!(problem.dims(), vec![2; 6]);
+    assert_eq!(problem.dimensions(), vec![2; 6]);
     assert_eq!(
         <OptimumCommunicationSpanningTree as Problem>::NAME,
         "OptimumCommunicationSpanningTree"
@@ -74,7 +75,9 @@ fn test_ocst_evaluate_optimal() {
     //   W(1,2) = 1+2+1 = 4, W(1,3) = 1+2 = 3, W(2,3) = 1
     // Total = 1*2 + 3*1 + 2*3 + 4*1 + 3*1 + 1*2 = 2+3+6+4+3+2 = 20
     assert_eq!(
-        problem.evaluate(&[1, 0, 1, 0, 0, 1]).unwrap(),
+        problem
+            .evaluate(&vec![true, false, true, false, false, true])
+            .unwrap(),
         Min(Some(20))
     );
 }
@@ -89,7 +92,9 @@ fn test_ocst_evaluate_suboptimal() {
     //   W(1,2) = 2, W(1,3) = 2+1 = 3, W(2,3) = 1
     // Total = 1*2 + 3*1 + 4*3 + 2*1 + 3*1 + 1*2 = 2+3+12+2+3+2 = 24
     assert_eq!(
-        problem.evaluate(&[1, 0, 0, 1, 0, 1]).unwrap(),
+        problem
+            .evaluate(&vec![true, false, false, true, false, true])
+            .unwrap(),
         Min(Some(24))
     );
 }
@@ -98,13 +103,30 @@ fn test_ocst_evaluate_suboptimal() {
 fn test_ocst_evaluate_invalid() {
     let problem = k4_problem();
     // Wrong number of edges
-    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![true, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Too many edges (not a tree)
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0, 1]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, true, true, true, false, true])
+            .unwrap(),
+        Min(None)
+    );
     // Not connected (two separate edges)
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0, 1]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, false, false, false, false, true])
+            .unwrap(),
+        Min(None)
+    );
     // Value > 1
-    assert_eq!(problem.evaluate(&[2, 0, 1, 0, 0, 0]).unwrap(), Min(None));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([2, false, true, false, false, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -112,7 +134,7 @@ fn test_ocst_solver() {
     let problem = k4_problem();
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find a solution");
     let value = problem.evaluate(&solution).unwrap();
@@ -140,14 +162,23 @@ fn test_ocst_k3_equal_requirements() {
     assert_eq!(problem.num_edges(), 3);
 
     // Tree {(0,1), (0,2)}: W(0,1)=1, W(0,2)=2, W(1,2)=1+2=3, cost = 1+2+3 = 6
-    assert_eq!(problem.evaluate(&[1, 1, 0]).unwrap(), Min(Some(6)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, false]).unwrap(),
+        Min(Some(6))
+    );
     // Tree {(0,1), (1,2)}: W(0,1)=1, W(0,2)=1+3=4, W(1,2)=3, cost = 1+4+3 = 8
-    assert_eq!(problem.evaluate(&[1, 0, 1]).unwrap(), Min(Some(8)));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, true]).unwrap(),
+        Min(Some(8))
+    );
     // Tree {(0,2), (1,2)}: W(0,1)=2+3=5, W(0,2)=2, W(1,2)=3, cost = 5+2+3 = 10
-    assert_eq!(problem.evaluate(&[0, 1, 1]).unwrap(), Min(Some(10)));
+    assert_eq!(
+        problem.evaluate(&vec![false, true, true]).unwrap(),
+        Min(Some(10))
+    );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(6)));
 }
 
@@ -182,6 +213,9 @@ fn test_ocst_canonical_example() {
     assert_eq!(specs.len(), 1);
     let spec = &specs[0];
     assert_eq!(spec.id, "optimum_communication_spanning_tree");
-    assert_eq!(spec.optimal_config, vec![1, 0, 1, 0, 0, 1]);
+    assert_eq!(
+        spec.optimal_config,
+        serde_json::json!([true, false, true, false, false, true])
+    );
     assert_eq!(spec.optimal_value, serde_json::json!(20));
 }

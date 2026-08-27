@@ -8,7 +8,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::TimetableDesign;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing TimetableDesign to `ILP<bool>`.
 ///
@@ -17,6 +16,9 @@ use crate::types::i64_to_exact_f64;
 #[derive(Debug, Clone)]
 pub struct ReductionTDToILP {
     target: ILP<bool>,
+    num_craftsmen: usize,
+    num_tasks: usize,
+    num_periods: usize,
 }
 
 impl ReductionResult for ReductionTDToILP {
@@ -31,11 +33,26 @@ impl ReductionResult for ReductionTDToILP {
     /// source configuration layout exactly.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok((0..self.num_craftsmen)
+            .map(|craftsman| {
+                (0..self.num_tasks)
+                    .map(|task| {
+                        (0..self.num_periods)
+                            .map(|period| {
+                                let index = ((craftsman * self.num_tasks) + task)
+                                    * self.num_periods
+                                    + period;
+                                target_solution[index] == 1
+                            })
+                            .collect()
+                    })
+                    .collect()
+            })
+            .collect())
     }
 }
 
@@ -51,22 +68,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         let nc = self.num_craftsmen();
         let nt = self.num_tasks();
         let nh = self.num_periods();
-        let requirements =
-            self.requirements()
-                .iter()
-                .map(|row| {
-                    row.iter()
-                        .copied()
-                        .map(i64_to_exact_f64)
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| {
-                    crate::rules::ReductionError::inexact_float_conversion::<
-                        TimetableDesign,
-                        ILP<bool>,
-                    >(error)
-                })?;
+        let requirements = self.requirements();
         let num_vars = nc * nt * nh;
 
         let var = |c: usize, t: usize, h: usize| -> usize { ((c * nt) + t) * nh + h };
@@ -78,7 +80,7 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
             for t in 0..nt {
                 for h in 0..nh {
                     if !self.craftsman_avail()[c][h] || !self.task_avail()[t][h] {
-                        constraints.push(LinearConstraint::eq(vec![(var(c, t, h), 1.0)], 0.0));
+                        constraints.push(LinearConstraint::eq(vec![(var(c, t, h), 1)], 0));
                     }
                 }
             }
@@ -87,29 +89,33 @@ impl ReduceTo<ILP<bool>> for TimetableDesign {
         // 2. Each craftsman works on at most one task per period: Σ_t x_{c,t,h} <= 1 for all c, h
         for c in 0..nc {
             for h in 0..nh {
-                let terms: Vec<(usize, f64)> = (0..nt).map(|t| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = (0..nt).map(|t| (var(c, t, h), 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
         // 3. Each task worked on by at most one craftsman per period: Σ_c x_{c,t,h} <= 1 for all t, h
         for t in 0..nt {
             for h in 0..nh {
-                let terms: Vec<(usize, f64)> = (0..nc).map(|c| (var(c, t, h), 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = (0..nc).map(|c| (var(c, t, h), 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
         // 4. Exact requirements: Σ_h x_{c,t,h} = r_{c,t} for all c, t
         for (c, row) in requirements.iter().enumerate() {
             for (t, &requirement) in row.iter().enumerate() {
-                let terms: Vec<(usize, f64)> = (0..nh).map(|h| (var(c, t, h), 1.0)).collect();
+                let terms: Vec<(usize, i64)> = (0..nh).map(|h| (var(c, t, h), 1)).collect();
                 constraints.push(LinearConstraint::eq(terms, requirement));
             }
         }
 
         Ok(ReductionTDToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
+            num_craftsmen: nc,
+            num_tasks: nt,
+            num_periods: nh,
         })
     }
 }

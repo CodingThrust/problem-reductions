@@ -12,7 +12,7 @@ fn test_flowshopscheduling_to_ilp_closed_loop() {
 
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance should have a witness");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
@@ -57,10 +57,7 @@ fn test_flowshopscheduling_to_ilp_bf_vs_ilp() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ILPSolver::new()

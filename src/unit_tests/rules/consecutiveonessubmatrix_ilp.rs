@@ -20,8 +20,8 @@ fn test_cos_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // s: 4, x: 4*3=12, a+l+u+h+f: 5*3*3=45 => 61
-    assert_eq!(ilp.num_vars, 61);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 61);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -48,10 +48,7 @@ fn test_cos_to_ilp_closed_loop() {
 
     // Verify brute-force on source agrees
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 }
 
@@ -69,10 +66,7 @@ fn test_cos_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solver = ILPSolver::new();

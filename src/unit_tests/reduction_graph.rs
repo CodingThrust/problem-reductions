@@ -25,16 +25,14 @@ fn exact_transform_evaluates_without_path_ranking() {
         ReductionMode::Witness,
     );
     let path = paths.iter().find(|path| path.len() == 1).unwrap();
-    let evaluated = graph
-        .evaluate_path_size(
-            path,
-            &ProblemSize::new(vec![("num_vertices", 5), ("num_edges", 4)]),
-        )
+    let transform = graph.compose_path_size_transform(path).unwrap().unwrap();
+    let evaluated = transform
+        .evaluate(&ProblemSize::new(vec![
+            ("num_vertices", 5),
+            ("num_edges", 4),
+        ]))
         .unwrap();
-    assert_eq!(
-        evaluated.values().get("num_edges"),
-        Some(&num_bigint::BigUint::from(6u8))
-    );
+    assert_eq!(evaluated.get("num_edges"), Some(6));
 }
 
 #[test]

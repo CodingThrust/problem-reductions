@@ -17,7 +17,7 @@ struct SympyApproximateFixture {
 struct SympyApproximateCase {
     name: String,
     source: String,
-    bindings: BTreeMap<String, usize>,
+    bindings: BTreeMap<String, u64>,
     decimal_result: String,
     finite_f64: bool,
 }
@@ -402,7 +402,7 @@ fn test_expr_variables_exp_log_sqrt() {
 // --- Runtime parser tests (Expr::parse / parse_to_expr) ---
 
 /// Helper: parse and evaluate with given variable bindings.
-fn parse_eval(input: &str, vars: &[(&str, usize)]) -> f64 {
+fn parse_eval(input: &str, vars: &[(&str, u64)]) -> f64 {
     let expr = Expr::parse(input);
     let size = ProblemSize::new(vars.to_vec());
     eval(&expr, &size)
@@ -412,7 +412,7 @@ fn parse_eval(input: &str, vars: &[(&str, usize)]) -> f64 {
 fn parse_eval_f64(input: &str, vars: &[(&str, f64)]) -> f64 {
     let expr = Expr::parse(input);
     // Build a ProblemSize-compatible evaluation by using substitute + eval
-    // Since ProblemSize only stores usize, we substitute variables with Const nodes.
+    // ProblemSize stores integers, so substitute approximate values with Const nodes.
     let mut mapping = std::collections::HashMap::new();
     let exprs: Vec<Expr> = vars
         .iter()

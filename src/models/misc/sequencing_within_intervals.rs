@@ -42,12 +42,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SequencingWithinIntervals;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 3 tasks: release_times = [0, 2, 4], deadlines = [3, 5, 7], lengths = [2, 2, 2]
 /// let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -193,27 +193,29 @@ impl<'de> Deserialize<'de> for SequencingWithinIntervals {
 
 impl Problem for SequencingWithinIntervals {
     const NAME: &'static str = "SequencingWithinIntervals";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_start_slots", num_start_slots),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        (0..self.num_tasks())
-            .map(|i| (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize)
-            .collect()
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 let n = self.num_tasks();
                 if config.len() != n {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "sequence length does not match the tasks".into(),
+                    ));
                 }
 
                 // Check each variable is within range and compute start times
@@ -222,7 +224,9 @@ impl Problem for SequencingWithinIntervals {
                     let dim =
                         (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize;
                     if c >= dim {
-                        return Ok(crate::types::Or(false));
+                        return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                            "schedule contains an out-of-range start offset".into(),
+                        ));
                     }
                     // start = r[i] + c, and c < dim = d[i] - r[i] - l[i] + 1,
                     // so start + l[i] <= d[i] is guaranteed by construction.
@@ -266,8 +270,20 @@ impl Problem for SequencingWithinIntervals {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingWithinIntervals {
+    fn dimensions(&self) -> Vec<usize> {
+        (0..self.num_tasks())
+            .map(|i| (self.deadlines[i] - self.release_times[i] - self.lengths[i] + 1) as usize)
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default SequencingWithinIntervals => "2^num_tasks" create SequencingWithinIntervalsCreateSpec,
+}
+
+crate::register_brute_force! {
+    SequencingWithinIntervals,
 }
 
 #[cfg(feature = "example-db")]
@@ -282,7 +298,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .expect("canonical sequencing-within-intervals instance must be valid"),
         ),
-        optimal_config: vec![0, 1, 1, 0, 9],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 0, 9]),
         optimal_value: serde_json::json!(true),
     }]
 }

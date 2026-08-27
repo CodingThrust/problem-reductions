@@ -165,22 +165,39 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
     /// Check whether a configuration satisfies the problem.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[Vec<bool>],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        self.evaluate_config(config)
+        if config.len() != self.k
+            || config
+                .iter()
+                .any(|tree| tree.len() != self.graph.num_edges())
+        {
+            return Ok(false);
+        }
+
+        let edges = self.graph.edges();
+        if !self.blocks_are_pairwise_distinct(config) {
+            return Ok(false);
+        }
+        for tree in config {
+            if !self.block_is_valid_tree(tree, &edges)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
     }
 
     fn block_is_valid_tree(
         &self,
-        block: &[usize],
+        block: &[bool],
         edges: &[(usize, usize)],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        if block.len() != edges.len() || block.iter().any(|&value| value > 1) {
+        if block.len() != edges.len() {
             return Ok(false);
         }
 
         let num_vertices = self.graph.num_vertices();
-        let selected_count = block.iter().filter(|&&value| value == 1).count();
+        let selected_count = block.iter().filter(|&&selected| selected).count();
         if selected_count != num_vertices.saturating_sub(1) {
             return Ok(false);
         }
@@ -190,7 +207,7 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
         let mut start = None;
 
         for (idx, &selected) in block.iter().enumerate() {
-            if selected == 0 {
+            if !selected {
                 continue;
             }
             total_weight = W::checked_add_to_sum(
@@ -235,42 +252,15 @@ impl<W: WeightElement> KthBestSpanningTree<W> {
         Ok(visited.into_iter().all(|seen| seen))
     }
 
-    fn blocks_are_pairwise_distinct(&self, config: &[usize], block_size: usize) -> bool {
-        debug_assert!(block_size > 0, "block_size must be positive");
-        let blocks: Vec<&[usize]> = config.chunks_exact(block_size).collect();
-        for left in 0..blocks.len() {
-            for right in (left + 1)..blocks.len() {
-                if blocks[left] == blocks[right] {
+    fn blocks_are_pairwise_distinct(&self, config: &[Vec<bool>]) -> bool {
+        for left in 0..config.len() {
+            for right in (left + 1)..config.len() {
+                if config[left] == config[right] {
                     return false;
                 }
             }
         }
         true
-    }
-
-    fn evaluate_config(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
-        let block_size = self.graph.num_edges();
-        let expected_len = self.k * block_size;
-        if config.len() != expected_len {
-            return Ok(false);
-        }
-
-        if block_size == 0 {
-            return Ok(self.k == 1 && self.block_is_valid_tree(config, &[])?);
-        }
-
-        let edges = self.graph.edges();
-
-        if !self.blocks_are_pairwise_distinct(config, block_size) {
-            return Ok(false);
-        }
-
-        for block in config.chunks_exact(block_size) {
-            if !self.block_is_valid_tree(block, &edges)? {
-                return Ok(false);
-            }
-        }
-        Ok(true)
     }
 }
 
@@ -279,21 +269,42 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "KthBestSpanningTree";
+    type Solution = Vec<Vec<bool>>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_vertices", num_vertices),
+        ("num_edges", num_edges),
+        ("k", k),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.k * self.graph.num_edges()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok(crate::types::Or(self.evaluate_config(config)?))
+        if solution.len() != self.k
+            || solution
+                .iter()
+                .any(|tree| tree.len() != self.graph.num_edges())
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "spanning-tree collection dimensions do not match the instance".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_valid_solution(solution)?))
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for KthBestSpanningTree<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.k * self.graph.num_edges()]
     }
 }
 
@@ -307,15 +318,22 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let problem = KthBestSpanningTree::new(graph, vec![1, 1, 2, 2, 2, 3], 2, 4);
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "kth_best_spanning_tree_i64",
+        id: "kth_best_spanning_tree",
         instance: Box::new(problem),
-        optimal_config: vec![1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0],
+        optimal_config: serde_json::json!([
+            [true, true, true, false, false, false],
+            [true, true, false, false, true, false]
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default KthBestSpanningTree<i64> => "2^(num_edges * k)" create KthBestSpanningTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    KthBestSpanningTree<i64> decode |problem: &KthBestSpanningTree<i64>, indices: Vec<usize>| indices.chunks(problem.num_edges()).map(crate::config::config_to_bits).collect(),
 }
 
 #[cfg(test)]

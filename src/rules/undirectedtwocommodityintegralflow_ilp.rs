@@ -29,7 +29,6 @@ use crate::models::graph::UndirectedTwoCommodityIntegralFlow;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing UndirectedTwoCommodityIntegralFlow to `ILP<i64>`.
 ///
@@ -54,11 +53,11 @@ impl ReductionResult for ReductionU2CIFToILP {
     /// Extract flow solution: first 4*|E| variables are the flow values.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..4 * self.num_edges].to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(&target_solution[..4 * self.num_edges])
     }
 }
 
@@ -77,15 +76,6 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
         let n = self.num_vertices();
         // 4*e flow variables + 2*e direction indicators = 6*e total
         let num_vars = 6 * e;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    UndirectedTwoCommodityIntegralFlow,
-                    ILP<i64>,
-                >(error)
-            })
-        };
-
         // Variable index helpers
         let f1_uv = |edge: usize| 4 * edge;
         let f1_vu = |edge: usize| 4 * edge + 1;
@@ -97,42 +87,42 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
         let mut constraints = Vec::with_capacity(7 * e + 2 * self.num_nonterminal_vertices() + 2);
 
         for (edge_idx, (_u, _v)) in edges.iter().enumerate() {
-            let cap = exact_f64(self.capacities()[edge_idx])?;
+            let cap = self.capacities()[edge_idx];
 
             // Direction indicators are binary: d1_e ≤ 1, d2_e ≤ 1
-            constraints.push(LinearConstraint::le(vec![(d1(edge_idx), 1.0)], 1.0));
-            constraints.push(LinearConstraint::le(vec![(d2(edge_idx), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(d1(edge_idx), 1)], 1));
+            constraints.push(LinearConstraint::le(vec![(d2(edge_idx), 1)], 1));
 
             // Commodity 1 anti-parallel: f1_{uv} ≤ cap * d1_e
             // => f1_{uv} - cap * d1_e ≤ 0
             constraints.push(LinearConstraint::le(
-                vec![(f1_uv(edge_idx), 1.0), (d1(edge_idx), -cap)],
-                0.0,
+                vec![(f1_uv(edge_idx), 1), (d1(edge_idx), -cap)],
+                0,
             ));
             // f1_{vu} ≤ cap * (1 - d1_e) => f1_{vu} + cap*d1_e ≤ cap
             constraints.push(LinearConstraint::le(
-                vec![(f1_vu(edge_idx), 1.0), (d1(edge_idx), cap)],
+                vec![(f1_vu(edge_idx), 1), (d1(edge_idx), cap)],
                 cap,
             ));
 
             // Commodity 2 anti-parallel: f2_{uv} ≤ cap * d2_e
             constraints.push(LinearConstraint::le(
-                vec![(f2_uv(edge_idx), 1.0), (d2(edge_idx), -cap)],
-                0.0,
+                vec![(f2_uv(edge_idx), 1), (d2(edge_idx), -cap)],
+                0,
             ));
             // f2_{vu} ≤ cap * (1 - d2_e)
             constraints.push(LinearConstraint::le(
-                vec![(f2_vu(edge_idx), 1.0), (d2(edge_idx), cap)],
+                vec![(f2_vu(edge_idx), 1), (d2(edge_idx), cap)],
                 cap,
             ));
 
             // Joint capacity: f1_{uv} + f1_{vu} + f2_{uv} + f2_{vu} ≤ cap
             constraints.push(LinearConstraint::le(
                 vec![
-                    (f1_uv(edge_idx), 1.0),
-                    (f1_vu(edge_idx), 1.0),
-                    (f2_uv(edge_idx), 1.0),
-                    (f2_vu(edge_idx), 1.0),
+                    (f1_uv(edge_idx), 1),
+                    (f1_vu(edge_idx), 1),
+                    (f2_uv(edge_idx), 1),
+                    (f2_vu(edge_idx), 1),
                 ],
                 cap,
             ));
@@ -152,71 +142,66 @@ impl ReduceTo<ILP<i64>> for UndirectedTwoCommodityIntegralFlow {
             }
 
             // Commodity 1 conservation: Σ_in f1 - Σ_out f1 = 0
-            let mut terms_c1: Vec<(usize, f64)> = Vec::new();
+            let mut terms_c1: Vec<(usize, i64)> = Vec::new();
             // Commodity 2 conservation: Σ_in f2 - Σ_out f2 = 0
-            let mut terms_c2: Vec<(usize, f64)> = Vec::new();
+            let mut terms_c2: Vec<(usize, i64)> = Vec::new();
 
             for (edge_idx, &(u, v)) in edges.iter().enumerate() {
                 if vertex == u {
                     // outgoing from u: f1_{uv} goes out, f1_{vu} comes in
-                    terms_c1.push((f1_uv(edge_idx), -1.0));
-                    terms_c1.push((f1_vu(edge_idx), 1.0));
-                    terms_c2.push((f2_uv(edge_idx), -1.0));
-                    terms_c2.push((f2_vu(edge_idx), 1.0));
+                    terms_c1.push((f1_uv(edge_idx), -1));
+                    terms_c1.push((f1_vu(edge_idx), 1));
+                    terms_c2.push((f2_uv(edge_idx), -1));
+                    terms_c2.push((f2_vu(edge_idx), 1));
                 } else if vertex == v {
                     // outgoing from v: f1_{vu} goes out, f1_{uv} comes in
-                    terms_c1.push((f1_uv(edge_idx), 1.0));
-                    terms_c1.push((f1_vu(edge_idx), -1.0));
-                    terms_c2.push((f2_uv(edge_idx), 1.0));
-                    terms_c2.push((f2_vu(edge_idx), -1.0));
+                    terms_c1.push((f1_uv(edge_idx), 1));
+                    terms_c1.push((f1_vu(edge_idx), -1));
+                    terms_c2.push((f2_uv(edge_idx), 1));
+                    terms_c2.push((f2_vu(edge_idx), -1));
                 }
             }
 
             if !terms_c1.is_empty() {
-                constraints.push(LinearConstraint::eq(terms_c1, 0.0));
+                constraints.push(LinearConstraint::eq(terms_c1, 0));
             }
             if !terms_c2.is_empty() {
-                constraints.push(LinearConstraint::eq(terms_c2, 0.0));
+                constraints.push(LinearConstraint::eq(terms_c2, 0));
             }
         }
 
         // Net flow into sinks ≥ requirements
         // Commodity 1: net inflow at sink_1 ≥ requirement_1
         let sink_1 = self.sink_1();
-        let mut sink1_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink1_terms: Vec<(usize, i64)> = Vec::new();
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             if sink_1 == v {
-                sink1_terms.push((f1_uv(edge_idx), 1.0));
-                sink1_terms.push((f1_vu(edge_idx), -1.0));
+                sink1_terms.push((f1_uv(edge_idx), 1));
+                sink1_terms.push((f1_vu(edge_idx), -1));
             } else if sink_1 == u {
-                sink1_terms.push((f1_uv(edge_idx), -1.0));
-                sink1_terms.push((f1_vu(edge_idx), 1.0));
+                sink1_terms.push((f1_uv(edge_idx), -1));
+                sink1_terms.push((f1_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink1_terms,
-            exact_f64(self.requirement_1())?,
-        ));
+        constraints.push(LinearConstraint::ge(sink1_terms, self.requirement_1()));
 
         // Commodity 2: net inflow at sink_2 ≥ requirement_2
         let sink_2 = self.sink_2();
-        let mut sink2_terms: Vec<(usize, f64)> = Vec::new();
+        let mut sink2_terms: Vec<(usize, i64)> = Vec::new();
         for (edge_idx, &(u, v)) in edges.iter().enumerate() {
             if sink_2 == v {
-                sink2_terms.push((f2_uv(edge_idx), 1.0));
-                sink2_terms.push((f2_vu(edge_idx), -1.0));
+                sink2_terms.push((f2_uv(edge_idx), 1));
+                sink2_terms.push((f2_vu(edge_idx), -1));
             } else if sink_2 == u {
-                sink2_terms.push((f2_uv(edge_idx), -1.0));
-                sink2_terms.push((f2_vu(edge_idx), 1.0));
+                sink2_terms.push((f2_uv(edge_idx), -1));
+                sink2_terms.push((f2_vu(edge_idx), 1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink2_terms,
-            exact_f64(self.requirement_2())?,
-        ));
+        constraints.push(LinearConstraint::ge(sink2_terms, self.requirement_2()));
 
         Ok(ReductionU2CIFToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_edges: e,
         })
     }
@@ -253,8 +238,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

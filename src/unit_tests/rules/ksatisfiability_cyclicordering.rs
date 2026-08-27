@@ -143,7 +143,7 @@ fn test_ksatisfiability_to_cyclicordering_single_clause_reference_vector() {
     let target_solution =
         solve_cyclic_ordering(target).expect("single-clause gadget should be solvable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1, 1]);
+    assert_eq!(extracted, vec![true, true, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -189,7 +189,7 @@ fn test_ksatisfiability_to_cyclicordering_extract_solution_from_reference_witnes
     );
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
-        vec![1, 1, 1]
+        vec![true, true, true]
     );
 }
 

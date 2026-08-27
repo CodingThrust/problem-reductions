@@ -16,7 +16,7 @@ fn test_maximumsetpacking_one_to_i64_cast_closed_loop() {
     assert_eq!(sp_i64.weights_ref(), &vec![1i64, 1, 1]);
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(sp_i64).unwrap().unwrap();
+    let target_solution = solver.solve(sp_i64).unwrap().unwrap();
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     let metric = sp_one.evaluate(&source_solution).unwrap();
@@ -35,7 +35,7 @@ fn test_maximumsetpacking_i64_to_f64_cast_closed_loop() {
     assert_eq!(sp_f64.weights_ref(), &vec![2.0f64, 3.0, 5.0]);
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(sp_f64).unwrap().unwrap();
+    let target_solution = solver.solve(sp_f64).unwrap().unwrap();
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     let metric = sp_i64.evaluate(&source_solution).unwrap();

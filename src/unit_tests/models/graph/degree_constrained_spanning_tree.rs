@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -20,7 +21,7 @@ fn test_degree_constrained_spanning_tree_creation() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.max_degree(), 2);
-    assert_eq!(problem.dims(), vec![2; 7]);
+    assert_eq!(problem.dimensions(), vec![2; 7]);
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.edge_list().len(), 7);
 }
@@ -32,7 +33,9 @@ fn test_degree_constrained_spanning_tree_evaluate_valid() {
     // Select edges 1,2,3,4: (0,2),(0,3),(1,2),(1,4)
     // Degrees: 0→2, 1→2, 2→2, 3→1, 4→1 — all ≤ 2
     // Connected and n-1=4 edges → valid spanning tree
-    assert!(problem.evaluate(&[0, 1, 1, 1, 1, 0, 0]).unwrap());
+    assert!(problem
+        .evaluate(&vec![false, true, true, true, true, false, false])
+        .unwrap());
 }
 
 #[test]
@@ -40,16 +43,22 @@ fn test_degree_constrained_spanning_tree_evaluate_invalid_degree() {
     let problem = example_instance();
     // Select edges 0,1,2,4: (0,1),(0,2),(0,3),(1,4)
     // Degrees: 0→3 (exceeds K=2)
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 1, 0, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, true, true, false, true, false, false])
+        .unwrap());
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_evaluate_not_tree() {
     let problem = example_instance();
     // Select only 3 edges (not enough for n-1=4)
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0, 0, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, true, true, false, false, false, false])
+        .unwrap());
     // Select 5 edges (too many)
-    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 0, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, true, true, true, true, false, false])
+        .unwrap());
 }
 
 #[test]
@@ -62,21 +71,29 @@ fn test_degree_constrained_spanning_tree_evaluate_disconnected() {
     // Need to pick 4 edges forming a tree where no vertex has degree > 2.
     // edges (0,2),(2,3),(3,4),(1,4) → indices 1,5,6,4
     // Degrees: 0→1, 1→1, 2→2, 3→2, 4→2 → valid and connected!
-    assert!(problem.evaluate(&[0, 1, 0, 0, 1, 1, 1]).unwrap());
+    assert!(problem
+        .evaluate(&vec![false, true, false, false, true, true, true])
+        .unwrap());
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_evaluate_wrong_length() {
     let problem = example_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 0, 0, 1]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false, false, true, false, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_degree_constrained_spanning_tree_brute_force() {
     let problem = example_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
@@ -91,7 +108,7 @@ fn test_degree_constrained_spanning_tree_infeasible() {
         2,
     );
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -101,12 +118,12 @@ fn test_degree_constrained_spanning_tree_k1_path() {
     let problem =
         DegreeConstrainedSpanningTree::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), 1);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 
     // For n=2, K=1 works: the single edge is the tree.
     let problem2 = DegreeConstrainedSpanningTree::new(SimpleGraph::new(2, vec![(0, 1)]), 1);
     let solver2 = BruteForce::new();
-    let sol = solver2.find_witness(&problem2).unwrap();
+    let sol = solver2.solve(&problem2).unwrap();
     assert!(sol.is_some());
 }
 

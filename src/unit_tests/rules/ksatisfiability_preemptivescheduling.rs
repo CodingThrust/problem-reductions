@@ -24,7 +24,7 @@ fn no_single_variable_instance() -> KSatisfiability<K3> {
 fn solve_threshold_schedule_via_ilp(
     target: &PreemptiveScheduling,
     deadline: usize,
-) -> Option<Vec<usize>> {
+) -> Option<Vec<Vec<bool>>> {
     let pcs = PrecedenceConstrainedScheduling::new(
         target.num_tasks(),
         target.num_processors(),
@@ -35,9 +35,9 @@ fn solve_threshold_schedule_via_ilp(
     let ilp_solution = ILPSolver::new().solve(pcs_to_ilp.target_problem()).ok()?;
     let slot_assignment = pcs_to_ilp.extract_solution(&ilp_solution).unwrap();
 
-    let mut config = vec![0usize; target.num_tasks() * target.d_max()];
+    let mut config = vec![vec![false; target.d_max()]; target.num_tasks()];
     for (task, &slot) in slot_assignment.iter().enumerate() {
-        config[task * target.d_max() + slot] = 1;
+        config[task][slot] = true;
     }
     Some(config)
 }
@@ -63,7 +63,7 @@ fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructe
     let reduction =
         ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
-    let schedule = construct_schedule_from_assignment(reduction.target_problem(), &[1], &source)
+    let schedule = construct_schedule_from_assignment(reduction.target_problem(), &[true], &source)
         .expect("satisfying assignment should yield a witness schedule");
 
     assert_eq!(
@@ -72,7 +72,7 @@ fn test_ksatisfiability_to_preemptivescheduling_extract_solution_from_constructe
     );
 
     let extracted = reduction.extract_solution(&schedule).unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -88,11 +88,12 @@ fn test_ksatisfiability_to_preemptivescheduling_multi_variable_round_trip() {
     let result =
         ReduceTo::<PreemptiveScheduling>::reduce_to(&source).expect("reduction should succeed");
 
-    let schedule = construct_schedule_from_assignment(result.target_problem(), &[1, 1, 0], &source)
-        .expect("satisfying assignment should yield a witness schedule");
+    let schedule =
+        construct_schedule_from_assignment(result.target_problem(), &[true, true, false], &source)
+            .expect("satisfying assignment should yield a witness schedule");
 
     let extracted = result.extract_solution(&schedule).unwrap();
-    assert_eq!(extracted, vec![1, 1, 0]);
+    assert_eq!(extracted, vec![true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -115,7 +116,7 @@ fn test_ksatisfiability_to_preemptivescheduling_closed_loop() {
     );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

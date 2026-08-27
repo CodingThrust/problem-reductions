@@ -48,8 +48,8 @@ fn test_maximum2satisfiability_to_maxcut_structure() {
     assert_eq!(target.edge_weight(1, 3), None);
     assert_eq!(target.edge_weight(2, 3), Some(&-1));
 
-    let source_solution = vec![0, 1, 1];
-    let target_solution = vec![0, 1, 0, 0];
+    let source_solution = vec![false, true, true];
+    let target_solution = vec![false, true, false, false];
     assert_eq!(source.evaluate(&source_solution).unwrap(), Max(Some(5)));
     assert_eq!(target.evaluate(&target_solution).unwrap(), Max(Some(2)));
 }
@@ -64,8 +64,8 @@ fn test_maximum2satisfiability_to_maxcut_issue_affine_relation_on_all_partitions
     // For this issue instance, every partition satisfies
     // 2 * satisfied_clauses = 8 + cut_weight.
     for mask in 0..(1usize << target.num_vertices()) {
-        let target_solution: Vec<usize> = (0..target.num_vertices())
-            .map(|bit| (mask >> bit) & 1)
+        let target_solution: Vec<bool> = (0..target.num_vertices())
+            .map(|bit| ((mask >> bit) & 1) == 1)
             .collect();
         let source_solution = reduction.extract_solution(&target_solution).unwrap();
         let satisfied = source.evaluate(&source_solution).unwrap().unwrap();
@@ -86,16 +86,24 @@ fn test_maximum2satisfiability_to_maxcut_extract_solution_uses_reference_vertex(
         ReduceTo::<MaxCut<SimpleGraph, i64>>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[0, 1, 0, 0]).unwrap(),
-        vec![0, 1, 1]
+        reduction
+            .extract_solution(&vec![false, true, false, false])
+            .unwrap(),
+        vec![false, true, true]
     );
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 1]).unwrap(),
-        vec![0, 1, 1]
+        reduction
+            .extract_solution(&vec![true, false, true, true])
+            .unwrap(),
+        vec![false, true, true]
     );
     assert_eq!(
         source
-            .evaluate(&reduction.extract_solution(&[1, 0, 1, 1]).unwrap())
+            .evaluate(
+                &reduction
+                    .extract_solution(&vec![true, false, true, true])
+                    .unwrap()
+            )
             .unwrap(),
         Max(Some(5))
     );
@@ -155,8 +163,8 @@ fn test_maximum2satisfiability_to_maxcut_canonical_example_spec() {
     assert_eq!(
         example.solutions,
         vec![crate::export::SolutionPair {
-            source_config: vec![0, 1, 1],
-            target_config: vec![0, 1, 0, 0],
+            source_config: serde_json::json!(vec![false, true, true]),
+            target_config: serde_json::json!(vec![false, true, false, false]),
         }]
     );
 }

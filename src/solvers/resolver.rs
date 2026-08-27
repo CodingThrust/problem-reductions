@@ -1,9 +1,7 @@
 //! Shared deterministic solver dispatch.
 
 use super::registry::CompiledIlpPipeline;
-use super::registry::{
-    solver_capability_registry, CustomizedSolverRegistration, ExactProblemKey, RegistryBuildError,
-};
+use super::registry::{solver_capability_registry, CustomizedSolverRegistration, ExactProblemKey};
 use crate::registry::LoadedDynProblem;
 use serde::Serialize;
 
@@ -28,7 +26,7 @@ pub enum SolverExecution {
 
 /// Type-erased result returned by deterministic solver dispatch.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DeterministicSolveResult {
+pub struct SolveResult {
     pub solver: SolverExecution,
     pub outcome: SolveOutcome,
 }
@@ -37,37 +35,13 @@ pub struct DeterministicSolveResult {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum SolveOutcome {
-    /// The exact optimum was established. Aggregate-only problems do not
-    /// provide a witness configuration.
+    /// The exact optimum and a corresponding solution were established.
     Optimal {
-        #[serde(rename = "solution", skip_serializing_if = "Option::is_none")]
-        config: Option<Vec<usize>>,
+        solution: serde_json::Value,
         evaluation: String,
     },
     /// The solver proved that the instance has no feasible configuration.
     Infeasible,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum DeterministicSolveError {
-    #[error("solver capability registry is invalid: {0}")]
-    InvalidRegistry(&'static RegistryBuildError),
-    #[error("No ILP pipeline is registered for {0}")]
-    MissingIlpCapability(String),
-    #[error("No customized solver is registered for {0}")]
-    MissingCustomizedCapability(String),
-    #[error("ILP solver failed for {problem}: {source}")]
-    IlpSolve {
-        problem: String,
-        #[source]
-        source: super::ILPSolveError,
-    },
-    #[error("solving {problem} failed: {source}")]
-    Solve {
-        problem: String,
-        #[source]
-        source: super::SolveError,
-    },
 }
 
 fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
@@ -77,20 +51,15 @@ fn problem_key(problem: &LoadedDynProblem) -> ExactProblemKey {
 fn solve_customized(
     problem: &LoadedDynProblem,
     registration: &'static CustomizedSolverRegistration,
-) -> Result<DeterministicSolveResult, DeterministicSolveError> {
+) -> Result<SolveResult, super::SolveError> {
     let outcome = match (registration.solve_fn)(problem.as_any()) {
-        Some(config) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&config).map_err(|source| {
-                DeterministicSolveError::Solve {
-                    problem: problem_key(problem).label(),
-                    source: source.into(),
-                }
-            })?,
-            config: Some(config),
+        Some(solution) => SolveOutcome::Optimal {
+            evaluation: problem.evaluate_dyn(&solution)?,
+            solution,
         },
         None => SolveOutcome::Infeasible,
     };
-    Ok(DeterministicSolveResult {
+    Ok(SolveResult {
         solver: SolverExecution::Customized {
             implementation: registration.implementation,
         },
@@ -101,26 +70,21 @@ fn solve_customized(
 fn solve_ilp(
     problem: &LoadedDynProblem,
     pipeline: &CompiledIlpPipeline,
-) -> Result<DeterministicSolveResult, DeterministicSolveError> {
+) -> Result<SolveResult, super::SolveError> {
     let outcome = match pipeline.solve(problem.as_any(), &super::ILPSolver::new()) {
-        Ok(config) => SolveOutcome::Optimal {
-            evaluation: problem.evaluate_dyn(&config).map_err(|source| {
-                DeterministicSolveError::Solve {
-                    problem: problem_key(problem).label(),
-                    source: source.into(),
-                }
-            })?,
-            config: Some(config),
+        Ok(solution) => SolveOutcome::Optimal {
+            evaluation: problem.evaluate_dyn(&solution)?,
+            solution,
         },
         Err(super::ILPSolveError::Infeasible) => SolveOutcome::Infeasible,
         Err(source) => {
-            return Err(DeterministicSolveError::IlpSolve {
+            return Err(super::SolveError::IlpSolve {
                 problem: problem_key(problem).label(),
                 source,
             });
         }
     };
-    Ok(DeterministicSolveResult {
+    Ok(SolveResult {
         solver: SolverExecution::Ilp {
             reduction_path: pipeline.path_labels(),
         },
@@ -130,29 +94,16 @@ fn solve_ilp(
 
 fn solve_brute_force(
     problem: &LoadedDynProblem,
-) -> Result<DeterministicSolveResult, DeterministicSolveError> {
-    let outcome = match problem.solve_brute_force_witness().map_err(|source| {
-        DeterministicSolveError::Solve {
-            problem: problem_key(problem).label(),
-            source,
-        }
-    })? {
-        Some((config, evaluation)) => SolveOutcome::Optimal {
-            config: Some(config),
+    registration: &'static super::BruteForceRegistration,
+) -> Result<SolveResult, super::SolveError> {
+    let outcome = match (registration.solve_fn)(problem.as_any())? {
+        Some((solution, evaluation)) => SolveOutcome::Optimal {
+            solution,
             evaluation,
         },
-        None if problem.supports_witnesses_dyn() => SolveOutcome::Infeasible,
-        None => SolveOutcome::Optimal {
-            config: None,
-            evaluation: problem.solve_brute_force_value().map_err(|source| {
-                DeterministicSolveError::Solve {
-                    problem: problem_key(problem).label(),
-                    source,
-                }
-            })?,
-        },
+        None => SolveOutcome::Infeasible,
     };
-    Ok(DeterministicSolveResult {
+    Ok(SolveResult {
         solver: SolverExecution::BruteForce,
         outcome,
     })
@@ -162,31 +113,31 @@ fn solve_brute_force(
 ///
 /// Default dispatch is customized, then the registered fixed ILP pipeline, then
 /// brute force. Once selected, backend failure is returned without fallback.
-pub fn solve_deterministically(
+pub fn solve(
     problem: &LoadedDynProblem,
     request: SolverRequest,
-) -> Result<DeterministicSolveResult, DeterministicSolveError> {
-    if request == SolverRequest::BruteForce {
-        return solve_brute_force(problem);
-    }
-
-    let registry =
-        solver_capability_registry().map_err(DeterministicSolveError::InvalidRegistry)?;
+) -> Result<SolveResult, super::SolveError> {
+    let registry = solver_capability_registry().map_err(super::SolveError::InvalidRegistry)?;
     let key = problem_key(problem);
     let capabilities = registry.lookup(&key);
 
     match request {
-        SolverRequest::BruteForce => unreachable!("handled before registry initialization"),
+        SolverRequest::BruteForce => solve_brute_force(
+            problem,
+            capabilities
+                .brute_force
+                .ok_or_else(|| super::SolveError::MissingRegistration(key.label()))?,
+        ),
         SolverRequest::Customized => {
             let registration = capabilities
                 .customized
-                .ok_or_else(|| DeterministicSolveError::MissingCustomizedCapability(key.label()))?;
+                .ok_or_else(|| super::SolveError::MissingCustomizedCapability(key.label()))?;
             solve_customized(problem, registration)
         }
         SolverRequest::Ilp => {
             let pipeline = capabilities
                 .ilp
-                .ok_or_else(|| DeterministicSolveError::MissingIlpCapability(key.label()))?;
+                .ok_or_else(|| super::SolveError::MissingIlpCapability(key.label()))?;
             solve_ilp(problem, pipeline)
         }
         SolverRequest::Default => {
@@ -196,7 +147,12 @@ pub fn solve_deterministically(
             if let Some(pipeline) = capabilities.ilp {
                 return solve_ilp(problem, pipeline);
             }
-            solve_brute_force(problem)
+            solve_brute_force(
+                problem,
+                capabilities
+                    .brute_force
+                    .ok_or_else(|| super::SolveError::MissingRegistration(key.label()))?,
+            )
         }
     }
 }

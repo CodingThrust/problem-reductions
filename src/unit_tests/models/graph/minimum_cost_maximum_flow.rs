@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -57,7 +58,7 @@ fn test_minimum_cost_maximum_flow_creation() {
     assert_eq!(problem.sink(), 3);
     assert_eq!(problem.capacities(), &[2, 1, 1, 1, 2]);
     assert_eq!(problem.costs(), &[1, 0, 0, 1, 2]);
-    assert_eq!(problem.dims(), vec![3, 2, 2, 2, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 2, 2, 2, 3]);
     assert_eq!(
         <MinimumCostMaximumFlow as Problem>::NAME,
         "MinimumCostMaximumFlow"
@@ -126,9 +127,18 @@ fn test_minimum_cost_maximum_flow_evaluate_infeasible_conservation() {
 #[test]
 fn test_minimum_cost_maximum_flow_evaluate_wrong_config_length() {
     let problem = canonical_instance();
-    assert_eq!(problem.evaluate(&[0; 4]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0; 6]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -136,7 +146,7 @@ fn test_minimum_cost_maximum_flow_solver_canonical() {
     let problem = canonical_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("canonical instance must be feasible");
     assert_eq!(problem.flow_value(&witness).unwrap(), 3);
@@ -151,7 +161,7 @@ fn test_minimum_cost_maximum_flow_lex_tiebreaker() {
     let problem = lex_tiebreaker_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("lex instance must be feasible");
     assert_eq!(problem.flow_value(&witness).unwrap(), 1);
@@ -173,7 +183,7 @@ fn test_minimum_cost_maximum_flow_serialization() {
     assert_eq!(deserialized.costs(), &[1, 0, 0, 1, 2]);
     // Optimal config evaluates identically after roundtrip.
     assert_eq!(
-        deserialized.evaluate(&[2, 1, 1, 1, 2]).unwrap(),
-        problem.evaluate(&[2, 1, 1, 1, 2]).unwrap()
+        deserialized.evaluate(&vec![2, 1, 1, 1, 2]).unwrap(),
+        problem.evaluate(&vec![2, 1, 1, 1, 2]).unwrap()
     );
 }

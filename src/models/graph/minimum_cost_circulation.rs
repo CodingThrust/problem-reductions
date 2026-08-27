@@ -21,9 +21,9 @@
 //! # Integral-circulation restriction
 //!
 //! The mathematical formulation in issue #1030 uses continuous flows
-//! `g: A -> R_{>= 0}`, but the [`Problem`] trait requires a discrete
-//! configuration space via [`Problem::dims`]. Following the same
-//! precedent as [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) and
+//! `g: A -> R_{>= 0}`, but this model's registered reference solver uses a
+//! finite Cartesian space. Following the same precedent as
+//! [`MinimumEdgeCostFlow`](super::MinimumEdgeCostFlow) and
 //! the recently added [`MinimumCostMaximumFlow`](super::MinimumCostMaximumFlow),
 //! we therefore restrict to **integer** circulations: each variable
 //! `g(a)` ranges over `{0, 1, ..., c(a)}`. When capacities and costs are
@@ -32,7 +32,7 @@
 //! optimum exists, so this restriction does not change the optimal value
 //! on integer instances.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -54,13 +54,6 @@ inventory::submit! {
     }
 }
 
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MinimumCostCirculation",
-        fields: &["num_vertices", "num_arcs"],
-    }
-}
-
 /// Minimum-Cost Circulation problem.
 ///
 /// # Variables
@@ -73,7 +66,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumCostCirculation;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two competing cycles 0->1->0 and 0->2->0; the cheaper-per-unit
 /// // cycle 0->2->0 has lower capacity, but pushing both to capacity is
@@ -87,7 +80,7 @@ inventory::submit! {
 ///     vec![2, -3, 1, -4], // costs (signed)
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// // Optimal cost = 2*2 + 2*(-3) + 1*1 + 1*(-4) = -5.
 /// assert_eq!(problem.total_cost(&witness).unwrap(), -5);
 /// ```
@@ -234,16 +227,20 @@ impl MinimumCostCirculation {
 
 impl Problem for MinimumCostCirculation {
     const NAME: &'static str = "MinimumCostCirculation";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
-    }
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "flow vector length does not match the graph arcs".into(),
+            ));
+        }
         Ok({
             if !self.is_feasible(config)? {
                 return Ok(crate::types::Min(None));
@@ -257,8 +254,18 @@ impl Problem for MinimumCostCirculation {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumCostCirculation {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities.iter().map(|&c| (c as usize) + 1).collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumCostCirculation => "(num_vertices + num_arcs)^6",
+}
+
+crate::register_brute_force! {
+    MinimumCostCirculation,
 }
 
 #[cfg(feature = "example-db")]
@@ -285,7 +292,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_cost_circulation",
         instance: Box::new(problem),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(scalar),
     }]
 }

@@ -13,7 +13,7 @@ use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
 enum ConstructionKind {
-    FixedYes { source_cover: Vec<usize> },
+    FixedYes { source_cover: Vec<bool> },
     FixedNo,
     Theorem(TheoremConstruction),
 }
@@ -65,21 +65,21 @@ impl TheoremConstruction {
         ))
     }
 
-    fn covers_all_edges(&self, selected: &[usize]) -> bool {
+    fn covers_all_edges(&self, selected: &[bool]) -> bool {
         self.edges
             .iter()
-            .all(|&(u, v)| selected.get(u) == Some(&1) || selected.get(v) == Some(&1))
+            .all(|&(u, v)| selected.get(u) == Some(&true) || selected.get(v) == Some(&true))
     }
 
     #[cfg(any(test, feature = "example-db"))]
-    fn exact_selected_vertices(&self, source_cover: &[usize]) -> Option<Vec<usize>> {
+    fn exact_selected_vertices(&self, source_cover: &[bool]) -> Option<Vec<usize>> {
         if source_cover.len() != self.num_source_vertices || !self.covers_all_edges(source_cover) {
             return None;
         }
 
         let mut selected: Vec<usize> = self
             .active_vertices()
-            .filter(|&v| source_cover[v] == 1)
+            .filter(|&v| source_cover[v])
             .collect();
 
         if selected.len() > self.selector_count {
@@ -90,7 +90,7 @@ impl TheoremConstruction {
             if selected.len() == self.selector_count {
                 break;
             }
-            if source_cover[v] == 0 {
+            if !source_cover[v] {
                 selected.push(v);
             }
         }
@@ -166,7 +166,7 @@ impl TheoremConstruction {
     }
 
     #[cfg(any(test, feature = "example-db"))]
-    fn build_target_witness(&self, source_cover: &[usize]) -> Vec<usize> {
+    fn build_target_witness(&self, source_cover: &[bool]) -> Vec<usize> {
         let Some(selected_vertices) = self.exact_selected_vertices(source_cover) else {
             return Vec::new();
         };
@@ -185,10 +185,10 @@ impl TheoremConstruction {
     fn decode_solution(
         &self,
         target_problem: &HamiltonianCircuit<SimpleGraph>,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &Vec<usize>,
+    ) -> crate::rules::ExtractionResult<Vec<bool>> {
         Ok({
-            let mut source_cover = vec![0; self.num_source_vertices];
+            let mut source_cover = vec![false; self.num_source_vertices];
             if !target_problem.evaluate(target_solution)?.0 {
                 return Err(crate::rules::ExtractionError::invalid(
                     "target configuration is not a Hamiltonian circuit",
@@ -218,11 +218,11 @@ impl TheoremConstruction {
                     continue;
                 };
                 if touches_selector(start) && touches_selector(end) {
-                    source_cover[vertex] = 1;
+                    source_cover[vertex] = true;
                 }
             }
 
-            let selected_count = source_cover.iter().filter(|&&x| x == 1).count();
+            let selected_count = source_cover.iter().filter(|&&x| x).count();
             if selected_count != self.selector_count || !self.covers_all_edges(&source_cover) {
                 return Err(crate::rules::ExtractionError::invalid(
                     "target circuit does not encode a source vertex cover of the required size",
@@ -244,7 +244,7 @@ pub struct ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
 
 impl ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
     #[cfg(any(test, feature = "example-db"))]
-    fn build_target_witness(&self, source_cover: &[usize]) -> Vec<usize> {
+    fn build_target_witness(&self, source_cover: &[bool]) -> Vec<usize> {
         match &self.construction {
             ConstructionKind::FixedYes { .. } => vec![0, 1, 2],
             ConstructionKind::FixedNo => Vec::new(),
@@ -265,8 +265,8 @@ impl ReductionResult for ReductionDecisionMinimumVertexCoverToHamiltonianCircuit
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -308,9 +308,9 @@ fn insert_edge(edges: &mut BTreeSet<(usize, usize)>, a: usize, b: usize) {
 }
 
 #[reduction(
-    size = exact {
-        num_vertices = "12 * num_edges + k",
-        num_edges = "16 * num_edges - num_vertices + 2 * k * num_vertices",
+    size = unavailable {
+        num_vertices = "the construction size depends on the decision threshold, which is not a problem size parameter",
+        num_edges = "the construction size depends on the decision threshold, which is not a problem size parameter",
     }
 )]
 impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<SimpleGraph, i64>> {
@@ -353,9 +353,9 @@ impl ReduceTo<HamiltonianCircuit<SimpleGraph>> for Decision<MinimumVertexCover<S
         let active_count = active_vertices.len();
 
         if active_count == 0 || k >= active_count {
-            let mut source_cover = vec![0; num_source_vertices];
+            let mut source_cover = vec![false; num_source_vertices];
             for vertex in active_vertices {
-                source_cover[vertex] = 1;
+                source_cover[vertex] = true;
             }
             return Ok(ReductionDecisionMinimumVertexCoverToHamiltonianCircuit {
                 target: HamiltonianCircuit::new(SimpleGraph::cycle(3)),
@@ -460,7 +460,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 1, 1]),
                 1,
             );
-            let source_config = vec![0, 1, 0];
+            let source_config = vec![false, true, false];
             let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
                 .expect("reduction should succeed");
             let target_config = reduction.build_target_witness(&source_config);
@@ -468,8 +468,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

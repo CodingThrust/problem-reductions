@@ -39,12 +39,12 @@ fn test_reduction_creates_expected_ilp_shape() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 7);
-    assert_eq!(ilp.constraints.len(), 23);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 7);
+    assert_eq!(ilp.constraints().len(), 23);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
-    let mut objective = vec![0.0; ilp.num_vars];
-    for &(var, coeff) in &ilp.objective {
+    let mut objective = vec![0.0; ilp.num_vars()];
+    for &(var, coeff) in ilp.objective() {
         objective[var] = coeff;
     }
 
@@ -60,7 +60,7 @@ fn test_longestpath_to_ilp_closed_loop_on_issue_example() {
     let problem = issue_problem();
     let brute_force = BruteForce::new();
     let best = brute_force
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force optimum");
     let best_value = problem.evaluate(&best).unwrap();
@@ -88,7 +88,7 @@ fn test_solution_extraction_from_handcrafted_ilp_assignment() {
     let target_solution = vec![1, 0, 1, 0, 0, 1, 2];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(5)));
 }
 
@@ -108,7 +108,7 @@ fn test_source_equals_target_uses_empty_path() {
         .expect("ILP should solve the trivial empty-path case");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![0, 0, 0]);
+    assert_eq!(extracted, vec![false, false, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(0)));
 }
 

@@ -10,8 +10,8 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // Number of vars = number of maximal rectangles (precomputed)
-    assert!(ilp.num_vars > 0);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert!(ilp.num_vars() > 0);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -24,10 +24,7 @@ fn test_rectilinearpicturecompression_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -56,5 +53,5 @@ fn test_rectilinearpicturecompression_to_ilp_trivial() {
     let reduction: ReductionRPCToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 0); // no maximal rects
+    assert_eq!(ilp.num_vars(), 0); // no maximal rects
 }

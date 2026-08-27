@@ -3,7 +3,9 @@
 //! The Independent Set problem asks for a maximum weight subset of vertices
 //! such that no two vertices in the subset are adjacent.
 
-use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
+use crate::registry::{
+    ConstructionError, CreateSpec, FieldInfo, ProblemSchemaEntry, VariantDimension,
+};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::traits::Problem;
 use crate::types::{Max, One, WeightElement};
@@ -43,7 +45,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximumIndependentSet;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle graph (3 vertices, 3 edges)
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -54,7 +56,7 @@ inventory::submit! {
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Maximum independent set in a triangle has size 1
-/// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
+/// assert!(solutions.iter().all(|s| s.iter().filter(|&&selected| selected).count() == 1));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaximumIndependentSet<G, W> {
@@ -218,7 +220,7 @@ impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     }
 
     /// Check if a configuration is a valid independent set.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_independent_set_config(&self.graph, config)
     }
 }
@@ -241,29 +243,35 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumIndependentSet";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
         Ok({
-            if config.len() != self.graph.num_vertices()
-                || config.iter().any(|&selected| selected > 1)
-            {
-                return Ok(Max(None));
+            if solution.len() != self.graph.num_vertices() {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    format!(
+                        "solution has {} variables, expected {}",
+                        solution.len(),
+                        self.graph.num_vertices()
+                    ),
+                ));
             }
-            if !is_independent_set_config(&self.graph, config) {
+            if !is_independent_set_config(&self.graph, solution) {
                 return Ok(Max(None));
             }
             let mut total = W::Sum::zero();
-            for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+            for (i, &selected) in solution.iter().enumerate() {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -276,10 +284,20 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MaximumIndependentSet<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 /// Check if a configuration forms a valid independent set.
-fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_independent_set_config<G: Graph>(graph: &G, config: &[bool]) -> bool {
     for (u, v) in graph.edges() {
-        if config.get(u).copied().unwrap_or(0) == 1 && config.get(v).copied().unwrap_or(0) == 1 {
+        if config.get(u).copied().unwrap_or(false) && config.get(v).copied().unwrap_or(false) {
             return false;
         }
     }
@@ -323,6 +341,16 @@ crate::declare_variants! {
     MaximumIndependentSet<UnitDiskGraph, One> => "2^sqrt(num_vertices)" create MaximumIndependentSetUnitDiskOneCreateSpec random,
 }
 
+crate::register_brute_force! {
+    MaximumIndependentSet<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<KingsSubgraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<KingsSubgraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<TriangularSubgraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<UnitDiskGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaximumIndependentSet<UnitDiskGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 impl<G, W> crate::models::decision::DecisionProblemMeta for MaximumIndependentSet<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -332,11 +360,41 @@ where
     const DECISION_NAME: &'static str = "DecisionMaximumIndependentSet";
 }
 
+impl crate::models::decision::Decision<MaximumIndependentSet<SimpleGraph, i64>> {
+    pub fn num_vertices(&self) -> usize {
+        self.inner().num_vertices()
+    }
+
+    pub fn num_edges(&self) -> usize {
+        self.inner().num_edges()
+    }
+}
+
+crate::register_decision_variant!(
+    MaximumIndependentSet<SimpleGraph, i64>,
+    "DecisionMaximumIndependentSet",
+    "1.1996^num_vertices",
+    &["DMIS", "IndependentSet"],
+    "Decision version: does an independent set of weight at least the bound exist?",
+    category: crate::registry::ProblemCategory::Graph,
+    dims: [
+        VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        VariantDimension::new("weight", "i64", &["i64"]),
+    ],
+    fields: [
+        FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        FieldInfo { name: "bound", type_name: "W::Sum", description: "Decision bound (minimum required independent-set weight)" },
+    ],
+    size_getters: [("num_vertices", num_vertices), ("num_edges", num_edges)],
+    decode: |_, indices: Vec<usize>| crate::config::config_to_bits(&indices)
+);
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
         crate::example_db::specs::ModelExampleSpec {
-            id: "maximum_independent_set_simplegraph_one",
+            id: "maximum_independent_set_petersen_graph",
             instance: Box::new(MaximumIndependentSet::new(
                 SimpleGraph::new(
                     10,
@@ -360,11 +418,13 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
                 vec![One; 10],
             )),
-            optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+            optimal_config: serde_json::json!(vec![
+                true, false, true, false, false, false, false, false, true, true
+            ]),
             optimal_value: serde_json::json!(4),
         },
         crate::example_db::specs::ModelExampleSpec {
-            id: "maximum_independent_set_simplegraph_i64",
+            id: "maximum_independent_set_simplegraph",
             instance: Box::new(MaximumIndependentSet::new(
                 SimpleGraph::new(
                     10,
@@ -388,10 +448,57 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
                 vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3],
             )),
-            optimal_config: vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1],
+            optimal_config: serde_json::json!(vec![
+                true, false, true, false, false, false, false, false, true, true
+            ]),
             optimal_value: serde_json::json!(10),
         },
     ]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_model_example_specs(
+) -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "decision_maximum_independent_set_simplegraph",
+        instance: Box::new(crate::models::decision::Decision::new(
+            MaximumIndependentSet::new(SimpleGraph::path(4), vec![1i64; 4]),
+            2,
+        )),
+        optimal_config: serde_json::json!(vec![true, false, true, false]),
+        optimal_value: serde_json::json!(true),
+    }]
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn decision_canonical_rule_example_specs(
+) -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "decision_maximum_independent_set_to_maximum_independent_set",
+        build: || {
+            use crate::example_db::specs::assemble_rule_example;
+            use crate::export::SolutionPair;
+            use crate::rules::{AggregateReductionResult, ReduceToAggregate};
+
+            let source = crate::models::decision::Decision::new(
+                MaximumIndependentSet::new(SimpleGraph::path(4), vec![1i64; 4]),
+                2,
+            );
+            let result = source
+                .reduce_to_aggregate()
+                .expect("reduction should succeed");
+            let target = result.target_problem();
+            let config = vec![true, false, true, false];
+            assemble_rule_example(
+                &source,
+                target,
+                vec![SolutionPair {
+                    source_config: serde_json::json!(config.clone()),
+                    target_config: serde_json::json!(config),
+                }],
+            )
+        },
+    }]
 }
 
 /// Check if a set of vertices forms an independent set.

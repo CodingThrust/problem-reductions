@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::PartiallyOrderedKnapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = PartiallyOrderedKnapsack::new(
 ///     vec![2, 3, 4, 1, 2, 3],  // weights
@@ -48,7 +48,7 @@ inventory::submit! {
 ///     11,  // capacity
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 ///
@@ -267,11 +267,11 @@ impl PartiallyOrderedKnapsack {
     ///
     /// Uses precomputed transitive predecessors: if item `b` is selected,
     /// all its predecessors must also be selected.
-    fn is_downward_closed(&self, config: &[usize]) -> bool {
+    fn is_downward_closed(&self, config: &[bool]) -> bool {
         for (b, preds) in self.predecessors.iter().enumerate() {
-            if config[b] == 1 {
+            if config[b] {
                 for &a in preds {
-                    if config[a] != 1 {
+                    if !config[a] {
                         return false;
                     }
                 }
@@ -283,23 +283,27 @@ impl PartiallyOrderedKnapsack {
 
 impl Problem for PartiallyOrderedKnapsack {
     const NAME: &'static str = "PartiallyOrderedKnapsack";
+    type Solution = Vec<bool>;
     type Value = Max<i64>;
+
+    crate::problem_size![
+        ("num_items", num_items),
+        ("num_precedences", num_precedences),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_items() {
-                return Ok(Max(None));
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Max(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "item-selection length does not match the instance".into(),
+                ));
             }
             // Check downward-closure (precedence constraints)
             if !self.is_downward_closed(config) {
@@ -309,7 +313,7 @@ impl Problem for PartiallyOrderedKnapsack {
             let total_weight = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x == 1)
+                .filter(|(_, &x)| x)
                 .map(|(i, _)| self.weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {
@@ -325,7 +329,7 @@ impl Problem for PartiallyOrderedKnapsack {
             let total_value = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x == 1)
+                .filter(|(_, &x)| x)
                 .map(|(i, _)| self.values[i])
                 .try_fold(0_i64, |total, value| {
                     total.checked_add(value).ok_or_else(|| {
@@ -339,8 +343,18 @@ impl Problem for PartiallyOrderedKnapsack {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PartiallyOrderedKnapsack {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_items()]
+    }
+}
+
 crate::declare_variants! {
     default PartiallyOrderedKnapsack => "2^num_items" create PartiallyOrderedKnapsackCreateSpec,
+}
+
+crate::register_brute_force! {
+    PartiallyOrderedKnapsack decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -353,7 +367,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
             11,
         )),
-        optimal_config: vec![1, 1, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true, true, true]),
         optimal_value: serde_json::json!(20),
     }]
 }

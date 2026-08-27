@@ -39,7 +39,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_closed_loop() {
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    let cover = vec![0, 1, 0];
+    let cover = vec![false, true, false];
     let target_witness = reduction.build_target_witness(&cover);
 
     assert!(
@@ -61,7 +61,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
     let reduction = ReduceTo::<HamiltonianCircuit<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    let target_witness = reduction.build_target_witness(&[1, 0, 0]);
+    let target_witness = reduction.build_target_witness(&[true, false, false]);
     assert!(
         reduction
             .target_problem()
@@ -72,7 +72,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_ignores_isolated_vertic
 
     let extracted = reduction.extract_solution(&target_witness).unwrap();
     assert_eq!(extracted.len(), 3);
-    assert_eq!(extracted[2], 0);
+    assert!(!extracted[2]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -88,7 +88,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_yes_when_k_covers
     assert_eq!(target.num_edges(), 3);
 
     let witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("triangle should have a Hamiltonian circuit");
     let extracted = reduction.extract_solution(&witness).unwrap();
@@ -103,7 +103,7 @@ fn test_decisionminimumvertexcover_to_hamiltoniancircuit_fixed_no_when_k_zero() 
     let target = reduction.target_problem();
 
     assert_eq!(target.num_vertices(), 3);
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }
 
 #[test]

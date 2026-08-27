@@ -2,6 +2,7 @@
 
 use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
+use crate::types::{i64_to_exact_f64, MAX_EXACT_F64_INTEGER};
 use good_lp::highs;
 use good_lp::solvers::highs::HighsParallelType;
 use good_lp::{
@@ -29,6 +30,9 @@ pub enum ILPSolveError {
     /// HiGHS reported an optimal solution that is invalid after integer rounding.
     #[error("the ILP backend returned an invalid rounded solution: {0}")]
     InvalidSolution(String),
+    /// An exact integer in the model cannot be transported through the f64 backend API.
+    #[error("the ILP backend cannot represent an exact model integer: {0}")]
+    InexactTransport(#[from] crate::types::ExactI64ToF64Error),
     /// A target witness could not be mapped back to the source problem.
     #[error(transparent)]
     Extraction(#[from] crate::rules::ExtractionError),
@@ -37,8 +41,15 @@ pub enum ILPSolveError {
     Reduction(#[from] crate::rules::ReductionError),
 }
 
-fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> ILPSolveError {
+fn classify_backend_error(
+    error: ResolutionError,
+    time_limit: Option<f64>,
+    has_unbounded_variable: bool,
+) -> ILPSolveError {
     match error {
+        ResolutionError::Infeasible if has_unbounded_variable => ILPSolveError::BackendFailure(
+            "good_lp cannot distinguish an infeasible backend result from an infeasible-or-unbounded result for a model with unbounded variable domains".into(),
+        ),
         ResolutionError::Infeasible => ILPSolveError::Infeasible,
         ResolutionError::Unbounded => ILPSolveError::Unbounded,
         ResolutionError::Other("NoSolutionFound") if time_limit.is_some() => ILPSolveError::Timeout,
@@ -52,22 +63,22 @@ fn classify_backend_error(error: ResolutionError, time_limit: Option<f64>) -> IL
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust
 /// use problemreductions::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 /// use problemreductions::solvers::ILPSolver;
 ///
 /// // Create a simple binary ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1
 /// let ilp = ILP::<bool>::new(
 ///     2,
-///     vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+///     vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 1)],
 ///     vec![(0, 1.0), (1, 2.0)],
 ///     ObjectiveSense::Maximize,
-/// );
+/// )?;
 ///
 /// let solver = ILPSolver::new();
-/// let solution = solver.solve(&ilp).unwrap()?;
+/// let solution = solver.solve(&ilp)?;
 /// println!("Solution: {:?}", solution);
-/// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
+/// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct ILPSolver {
@@ -92,57 +103,46 @@ impl ILPSolver {
     ///
     /// Returns a classified error when the problem is infeasible, the time
     /// limit is reached, or the backend fails.
-    /// The returned solution is a configuration vector where each element
-    /// is the variable value (config index = value).
-    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<usize>, ILPSolveError> {
-        let n = problem.num_vars;
+    /// The returned solution contains the mathematical integer value of each
+    /// variable in model order.
+    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Result<Vec<i64>, ILPSolveError> {
+        let n = problem.num_vars();
         if n == 0 {
-            return problem
+            return if problem
                 .is_feasible(&[])
-                .then_some(vec![])
-                .ok_or(ILPSolveError::Infeasible);
-        }
-
-        // Derive tighter per-variable upper bounds from single-variable ≤ constraints.
-        // This avoids giving HiGHS the full domain (e.g. 2^31 for i64), which can
-        // cause severe performance degradation even when constraints already bound
-        // the variable to a small range.
-        let default_ub = (V::DIMS_PER_VAR - 1) as f64;
-        let mut upper_bounds = vec![default_ub; n];
-        for constraint in &problem.constraints {
-            if constraint.cmp == crate::models::algebraic::Comparison::Le
-                && constraint.terms.len() == 1
+                .map_err(|error| ILPSolveError::InvalidSolution(error.to_string()))?
             {
-                let (var_idx, coef) = constraint.terms[0];
-                if coef > 0.0 && var_idx < n {
-                    let ub = constraint.rhs / coef;
-                    if ub < upper_bounds[var_idx] {
-                        upper_bounds[var_idx] = ub;
-                    }
-                }
-            }
+                Ok(vec![])
+            } else {
+                Err(ILPSolveError::Infeasible)
+            };
         }
 
-        // Create integer variables with tightened bounds
         let mut vars_builder = ProblemVariables::new();
-        let vars: Vec<Variable> = (0..n)
-            .map(|i| {
-                let mut v = variable().integer();
-                v = v.min(0.0);
-                v = v.max(upper_bounds[i]);
-                vars_builder.add(v)
+        let vars: Vec<Variable> = problem
+            .variables()
+            .iter()
+            .map(|variable_bounds| {
+                let mut definition = variable().integer();
+                if let Some(lower) = variable_bounds.lower_bound() {
+                    definition = definition.min(i64_to_exact_f64(lower)?);
+                }
+                if let Some(upper) = variable_bounds.upper_bound() {
+                    definition = definition.max(i64_to_exact_f64(upper)?);
+                }
+                Ok(vars_builder.add(definition))
             })
-            .collect();
+            .collect::<Result<_, ILPSolveError>>()?;
 
         // Build objective expression
         let objective: good_lp::Expression = problem
-            .objective
+            .objective()
             .iter()
             .map(|&(var_idx, coef)| coef * vars[var_idx])
             .sum();
 
         // Build the model with objective
-        let unsolved = match problem.sense {
+        let unsolved = match problem.sense() {
             ObjectiveSense::Maximize => vars_builder.maximise(&objective),
             ObjectiveSense::Minimize => vars_builder.minimise(&objective),
         };
@@ -152,7 +152,6 @@ impl ILPSolver {
             let mut model = unsolved
                 .using(highs)
                 .set_option("random_seed", 0i32)
-                .set_option("presolve", "off")
                 .set_parallel(HighsParallelType::Off)
                 .set_threads(1);
             if let Some(seconds) = self.time_limit {
@@ -162,19 +161,22 @@ impl ILPSolver {
         };
 
         // Add constraints
-        for constraint in &problem.constraints {
+        for constraint in problem.constraints() {
             // Build left-hand side expression
-            let lhs: good_lp::Expression = constraint
-                .terms
-                .iter()
-                .map(|&(var_idx, coef)| coef * vars[var_idx])
-                .sum();
+            let lhs: good_lp::Expression = constraint.terms().iter().try_fold(
+                good_lp::Expression::from(0.0),
+                |lhs, &(var_idx, coefficient)| {
+                    Ok::<_, ILPSolveError>(lhs + i64_to_exact_f64(coefficient)? * vars[var_idx])
+                },
+            )?;
+
+            let rhs = i64_to_exact_f64(constraint.rhs())?;
 
             // Create the constraint based on comparison type
-            let good_lp_constraint = match constraint.cmp {
-                Comparison::Le => lhs.leq(constraint.rhs),
-                Comparison::Ge => lhs.geq(constraint.rhs),
-                Comparison::Eq => lhs.eq(constraint.rhs),
+            let good_lp_constraint = match constraint.comparison() {
+                Comparison::Le => lhs.leq(rhs),
+                Comparison::Ge => lhs.geq(rhs),
+                Comparison::Eq => lhs.eq(rhs),
             };
 
             model = model.with(good_lp_constraint);
@@ -182,9 +184,13 @@ impl ILPSolver {
 
         // Solve
         let effective_time_limit = self.time_limit;
-        let solution = model
-            .solve()
-            .map_err(|error| classify_backend_error(error, effective_time_limit))?;
+        let has_unbounded_variable = problem
+            .variables()
+            .iter()
+            .any(|variable| variable.lower_bound().is_none() || variable.upper_bound().is_none());
+        let solution = model.solve().map_err(|error| {
+            classify_backend_error(error, effective_time_limit, has_unbounded_variable)
+        })?;
 
         match solution.status() {
             SolutionStatus::Optimal => {}
@@ -196,33 +202,38 @@ impl ILPSolver {
             }
         }
 
-        // Extract solution: config index = value (no lower bound offset)
-        let result: Vec<usize> = vars
+        let result: Vec<i64> = vars
             .iter()
             .enumerate()
             .map(|(index, v)| {
-                let value = solution.value(*v).round();
-                if !value.is_finite() || value < 0.0 || value >= V::DIMS_PER_VAR as f64 {
+                let value = solution.value(*v);
+                if !value.is_finite() {
                     return Err(ILPSolveError::InvalidSolution(format!(
-                        "variable {index} rounded to {value}, outside the {} domain",
-                        V::NAME
+                        "variable {index} is non-finite"
                     )));
                 }
-                Ok(value as usize)
+                let rounded = value.round();
+                if (value - rounded).abs() > 1e-6 {
+                    return Err(ILPSolveError::InvalidSolution(format!(
+                        "variable {index} has non-integral value {value}"
+                    )));
+                }
+                if rounded.abs() > MAX_EXACT_F64_INTEGER as f64 {
+                    return Err(ILPSolveError::InvalidSolution(format!(
+                        "variable {index} value {rounded} exceeds exact f64 integer transport"
+                    )));
+                }
+                Ok(rounded as i64)
             })
             .collect::<Result<_, _>>()?;
 
-        let values = result.iter().map(|&value| value as i64).collect::<Vec<_>>();
-        if let Some((index, constraint)) = problem
-            .constraints
-            .iter()
-            .enumerate()
-            .find(|(_, constraint)| !constraint.is_satisfied(&values))
+        if !problem
+            .is_feasible(&result)
+            .map_err(|error| ILPSolveError::InvalidSolution(error.to_string()))?
         {
-            return Err(ILPSolveError::InvalidSolution(format!(
-                "constraint {index} is violated after rounding: left-hand side {} {:?} right-hand side {}",
-                constraint.evaluate_lhs(&values), constraint.cmp, constraint.rhs
-            )));
+            return Err(ILPSolveError::InvalidSolution(
+                "the rounded assignment violates the ILP".into(),
+            ));
         }
 
         Ok(result)
@@ -252,7 +263,10 @@ impl ILPSolver {
     /// println!("Solution: {:?}", solution);
     /// # Ok::<(), problemreductions::solvers::ILPSolveError>(())
     /// ```
-    pub fn solve_reduced<V, P>(&self, problem: &P) -> Result<Vec<usize>, ILPSolveError>
+    pub fn solve_reduced<V, P>(
+        &self,
+        problem: &P,
+    ) -> Result<<P as crate::traits::Problem>::Solution, ILPSolveError>
     where
         V: VariableDomain,
         P: ReduceTo<ILP<V>>,
@@ -263,7 +277,7 @@ impl ILPSolver {
     }
 
     /// Solve a type-erased supported ILP variant directly.
-    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<usize>, ILPSolveError> {
+    pub(crate) fn solve_dyn(&self, any: &dyn std::any::Any) -> Result<Vec<i64>, ILPSolveError> {
         if let Some(ilp) = any.downcast_ref::<ILP<bool>>() {
             return self.solve(ilp);
         }

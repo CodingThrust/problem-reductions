@@ -44,10 +44,7 @@ fn test_satisfiability_to_non_tautology_unsatisfiable_source_has_no_target_witne
     let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert_eq!(
-        solver.find_witness(reduction.target_problem()).unwrap(),
-        None
-    );
+    assert_eq!(solver.solve(reduction.target_problem()).unwrap(), None);
 }
 
 #[test]
@@ -56,7 +53,7 @@ fn test_satisfiability_to_non_tautology_extract_solution_is_identity() {
 
     let reduction = ReduceTo::<NonTautology>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .expect("target should have a witness");
 

@@ -1,7 +1,22 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
+
+fn padded_solution(values: Vec<usize>, padding: usize) -> Vec<Option<usize>> {
+    values
+        .into_iter()
+        .map(|value| {
+            if value == padding {
+                None
+            } else {
+                assert!(value < padding);
+                Some(value)
+            }
+        })
+        .collect()
+}
 
 #[test]
 fn test_shortestcommonsuperstring_basic() {
@@ -11,7 +26,7 @@ fn test_shortestcommonsuperstring_basic() {
     assert_eq!(problem.num_strings(), 3);
     assert_eq!(problem.max_length(), 9); // 3+3+3
     assert_eq!(problem.total_length(), 9);
-    assert_eq!(problem.dims(), vec![4; 9]); // alphabet_size + 1 = 4 across max_length = 9 positions
+    assert_eq!(problem.dimensions(), vec![4; 9]); // alphabet_size + 1 = 4 across max_length = 9 positions
     assert_eq!(
         <ShortestCommonSuperstring as Problem>::NAME,
         "ShortestCommonSuperstring"
@@ -38,6 +53,7 @@ fn test_shortestcommonsuperstring_evaluate_valid_substring() {
     let pad = 3;
     let mut config = vec![0, 0, 1, 2, 0, 1, 2, 2, 0]; // "aabcabcca"
     config.extend(vec![pad; problem.max_length() - 9]);
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(9)));
 }
 
@@ -54,6 +70,7 @@ fn test_shortestcommonsuperstring_evaluate_subsequence_not_substring() {
     while config.len() < problem.max_length() {
         config.push(pad);
     }
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 
     // w = [0,1,0] padded -- "01" at pos 0, "10" at pos 1 -- valid, length 3
@@ -61,6 +78,7 @@ fn test_shortestcommonsuperstring_evaluate_subsequence_not_substring() {
     while config.len() < problem.max_length() {
         config.push(pad);
     }
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(3)));
 }
 
@@ -74,6 +92,7 @@ fn test_shortestcommonsuperstring_evaluate_infeasible() {
     while config.len() < problem.max_length() {
         config.push(pad);
     }
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -81,21 +100,30 @@ fn test_shortestcommonsuperstring_evaluate_infeasible() {
 fn test_shortestcommonsuperstring_out_of_range() {
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
     // max_length = 2. Value 3 is neither a valid symbol (0..2) nor padding (= 2).
-    assert_eq!(problem.evaluate(&[0, 3]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0), Some(3)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_shortestcommonsuperstring_wrong_length() {
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0), Some(1), Some(0)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_shortestcommonsuperstring_interleaved_padding() {
     // Padding must be contiguous at the end.
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1]]);
-    assert_eq!(problem.evaluate(&[2, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![None, Some(0)]).unwrap(), Min(None));
 }
 
 #[test]
@@ -106,7 +134,7 @@ fn test_shortestcommonsuperstring_brute_force_small() {
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find solution");
     let val = problem.evaluate(&witness).unwrap();
@@ -115,10 +143,10 @@ fn test_shortestcommonsuperstring_brute_force_small() {
 
 #[test]
 fn test_shortestcommonsuperstring_solve_aggregate() {
-    use crate::solvers::Solver;
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
     let solver = BruteForce::new();
-    let val = solver.solve(&problem).unwrap();
+    let val_solution = solver.solve(&problem).unwrap().unwrap();
+    let val = problem.evaluate(&val_solution).unwrap();
     assert_eq!(val, Min(Some(3)));
 }
 
@@ -153,6 +181,7 @@ fn test_shortestcommonsuperstring_example1_ternary() {
     let prefix = vec![0, 0, 1, 2, 0, 1, 2, 2, 0]; // "aabcabcca"
     let mut config = prefix.clone();
     config.extend(vec![pad; problem.max_length() - prefix.len()]);
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(9)));
 
     // Any prefix shorter than 9 cannot contain all 6 length-3 strings as substrings
@@ -161,6 +190,7 @@ fn test_shortestcommonsuperstring_example1_ternary() {
     // is infeasible.
     let mut short_cfg = prefix[..8].to_vec();
     short_cfg.extend(vec![pad; problem.max_length() - 8]);
+    let short_cfg = padded_solution(short_cfg, pad);
     assert_eq!(problem.evaluate(&short_cfg).unwrap(), Min(None));
 }
 
@@ -184,6 +214,7 @@ fn test_shortestcommonsuperstring_example2_binary() {
     let prefix = vec![0, 0, 1, 1, 0, 1, 0, 0]; // "00110100"
     let mut config = prefix.clone();
     config.extend(vec![pad; problem.max_length() - prefix.len()]);
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(8)));
 }
 
@@ -207,6 +238,7 @@ fn test_shortestcommonsuperstring_example3() {
     let prefix = vec![0, 1, 2, 0, 1, 1, 0]; // "abcabba"
     let mut config = prefix.clone();
     config.extend(vec![pad; problem.max_length() - prefix.len()]);
+    let config = padded_solution(config, pad);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(7)));
 }
 
@@ -215,9 +247,18 @@ fn test_shortestcommonsuperstring_paper_example() {
     // Canonical example_db instance: alphabet {0,1}, strings [0,1] and [1,0].
     // Optimal superstring length = 3, witness [0,1,0,pad].
     let problem = ShortestCommonSuperstring::new(2, vec![vec![0, 1], vec![1, 0]]);
-    assert_eq!(problem.evaluate(&[0, 1, 0, 2]).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![Some(0), Some(1), Some(0), None])
+            .unwrap(),
+        Min(Some(3))
+    );
 
-    use crate::solvers::Solver;
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(3))
+    );
 }

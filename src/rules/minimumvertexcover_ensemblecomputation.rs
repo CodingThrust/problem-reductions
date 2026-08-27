@@ -47,8 +47,8 @@ impl ReductionResult for ReductionVCToEC {
     /// Padding steps beyond the coverage point are ignored.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -67,17 +67,17 @@ impl ReductionResult for ReductionVCToEC {
                     ))
                 }
             };
-            let mut cover = vec![0usize; self.num_vertices];
+            let mut cover = vec![false; self.num_vertices];
 
             for step in 0..meaningful_steps {
                 let left = target_solution[2 * step];
                 let right = target_solution[2 * step + 1];
 
                 if left < self.num_vertices {
-                    cover[left] = 1;
+                    cover[left] = true;
                 }
                 if right < self.num_vertices {
-                    cover[right] = 1;
+                    cover[right] = true;
                 }
             }
 
@@ -147,13 +147,15 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // 2 meaningful steps. Step 2 is padding and is ignored.
             // Cover {0,1} is valid (though not minimum — the optimal witness
             // is found by BruteForce, giving cover {0} or {1}).
-            let source_config = vec![1, 1];
+            let source_config = vec![true, true];
 
             crate::example_db::specs::rule_example_with_witness::<_, EnsembleComputation>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

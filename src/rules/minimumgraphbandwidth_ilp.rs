@@ -36,8 +36,8 @@ impl ReductionResult for ReductionMGBToILP {
     /// Extract: for each vertex v, output its position p (the unique p with x_{v,p} = 1).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -71,63 +71,65 @@ impl ReduceTo<ILP<i64>> for MinimumGraphBandwidth<SimpleGraph> {
         let b_idx = num_x + n;
 
         let mut constraints = Vec::new();
+        let n_i64 = Self::exact_i64(n, "encoding a vertex position")?;
 
         // Assignment: each vertex in exactly one position
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|p| (x_idx(v, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_idx(v, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Assignment: each position has exactly one vertex
         for p in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (x_idx(v, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Binary bounds for x variables (`ILP<i64>`)
         for v in 0..n {
             for p in 0..n {
-                constraints.push(LinearConstraint::le(vec![(x_idx(v, p), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(x_idx(v, p), 1)], 1));
             }
         }
 
         // Position variable linking: pos_v = sum_p p * x_{v,p}
         for v in 0..n {
-            let mut terms: Vec<(usize, f64)> = vec![(pos_idx(v), 1.0)];
+            let mut terms: Vec<(usize, i64)> = vec![(pos_idx(v), 1)];
             for p in 0..n {
-                terms.push((x_idx(v, p), -(p as f64)));
+                terms.push((
+                    x_idx(v, p),
+                    -Self::exact_i64(p, "encoding a vertex position")?,
+                ));
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Position bounds: 0 <= pos_v <= n-1
         for v in 0..n {
-            constraints.push(LinearConstraint::le(
-                vec![(pos_idx(v), 1.0)],
-                (n - 1) as f64,
-            ));
+            constraints.push(LinearConstraint::le(vec![(pos_idx(v), 1)], n_i64 - 1));
         }
 
         // Bandwidth upper bound: B <= n-1 (max possible position difference)
-        constraints.push(LinearConstraint::le(vec![(b_idx, 1.0)], (n - 1) as f64));
+        constraints.push(LinearConstraint::le(vec![(b_idx, 1)], n_i64 - 1));
 
         // Bandwidth constraints: for each edge (u,v):
         //   pos_u - pos_v <= B  =>  pos_u - pos_v - B <= 0
         //   pos_v - pos_u <= B  =>  pos_v - pos_u - B <= 0
         for &(u, v) in edges.iter() {
             constraints.push(LinearConstraint::le(
-                vec![(pos_idx(u), 1.0), (pos_idx(v), -1.0), (b_idx, -1.0)],
-                0.0,
+                vec![(pos_idx(u), 1), (pos_idx(v), -1), (b_idx, -1)],
+                0,
             ));
             constraints.push(LinearConstraint::le(
-                vec![(pos_idx(v), 1.0), (pos_idx(u), -1.0), (b_idx, -1.0)],
-                0.0,
+                vec![(pos_idx(v), 1), (pos_idx(u), -1), (b_idx, -1)],
+                0,
             ));
         }
 
         // Objective: minimize B
         let objective = vec![(b_idx, 1.0)];
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMGBToILP {
             target,

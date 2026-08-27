@@ -323,23 +323,48 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "RuralPostman";
+    type Solution = Vec<usize>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_required_edges", num_required_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![3; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-multiplicity vector length does not match the graph".into(),
+            ));
+        }
         Ok(Min(self.is_valid_solution(config)?))
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for RuralPostman<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![3; self.graph.num_edges()]
     }
 }
 
 crate::declare_variants! {
     default RuralPostman<SimpleGraph, i64> => "2^num_vertices * num_vertices^2" create RuralPostmanCreateSpec,
+}
+
+crate::register_brute_force! {
+    RuralPostman<SimpleGraph, i64>,
 }
 
 #[cfg(feature = "example-db")]
@@ -367,7 +392,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![1, 1, 1, 1, 1, 1, 2, 2],
             vec![0, 2, 4],
         )),
-        optimal_config: vec![1, 1, 1, 1, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![1, 1, 1, 1, 1, 1, 0, 0]),
         optimal_value: serde_json::json!(6),
     }]
 }

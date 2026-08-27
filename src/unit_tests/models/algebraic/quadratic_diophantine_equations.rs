@@ -1,5 +1,6 @@
 use crate::models::algebraic::QuadraticDiophantineEquations;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 use num_bigint::BigUint;
@@ -18,8 +19,8 @@ fn bu(n: u32) -> BigUint {
     BigUint::from(n)
 }
 
-fn config_for_x(problem: &QuadraticDiophantineEquations, x: u32) -> Vec<usize> {
-    problem.encode_witness(&bu(x)).unwrap()
+fn config_for_x(_problem: &QuadraticDiophantineEquations, x: u32) -> BigUint {
+    bu(x)
 }
 
 #[test]
@@ -32,7 +33,7 @@ fn test_quadratic_diophantine_equations_creation_and_accessors() {
     assert_eq!(problem.bit_length_b(), 3);
     assert_eq!(problem.bit_length_c(), 6);
     // max_x = floor(sqrt(53 / 3)) = 4, encoded in 3 binary digits.
-    assert_eq!(problem.dims(), vec![2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
     assert_eq!(problem.num_variables(), 3);
     assert_eq!(
         <QuadraticDiophantineEquations as Problem>::NAME,
@@ -68,7 +69,7 @@ fn test_quadratic_diophantine_equations_evaluate_yes() {
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_no() {
     let problem = no_problem();
-    assert_eq!(problem.dims(), vec![2]);
+    assert_eq!(problem.dimensions(), vec![2]);
     assert_eq!(
         problem.evaluate(&config_for_x(&problem, 1)).unwrap(),
         Or(false)
@@ -78,36 +79,32 @@ fn test_quadratic_diophantine_equations_evaluate_no() {
 #[test]
 fn test_quadratic_diophantine_equations_evaluate_invalid_config() {
     let problem = yes_problem();
-    assert_eq!(problem.evaluate(&[]).unwrap(), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&BigUint::default()).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&bu(5)).unwrap(), Or(false));
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_c_le_a() {
     let problem = QuadraticDiophantineEquations::new(10, 1, 5);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert_eq!(problem.evaluate(&[]).unwrap(), Or(false));
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert_eq!(problem.evaluate(&BigUint::default()).unwrap(), Or(false));
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_bigint_witness_encoding_round_trip() {
-    let c = BigUint::from(1u32) << 202usize;
-    let problem = QuadraticDiophantineEquations::new(1u32, 1u32, c);
     let x = (BigUint::from(1u32) << 100usize) + BigUint::from(1u32);
-    let config = problem.encode_witness(&x).expect("x should be encodable");
-
-    assert_eq!(config.len(), problem.dims().len());
-    assert_eq!(problem.decode_witness(&config), Some(x));
+    let serialized = serde_json::to_value(&x).unwrap();
+    let restored: BigUint = serde_json::from_value(serialized).unwrap();
+    assert_eq!(restored, x);
 }
 
 #[test]
 fn test_quadratic_diophantine_equations_solver_finds_witness() {
     let problem = yes_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
-    let x = problem.decode_witness(&witness).unwrap();
+    let x = witness;
     assert!(matches!(x, v if v == bu(1) || v == bu(4)));
 }
 
@@ -122,7 +119,7 @@ fn test_quadratic_diophantine_equations_solver_finds_all_witnesses() {
         .all(|sol| problem.evaluate(sol).unwrap() == Or(true)));
     let decoded = all
         .iter()
-        .map(|sol| problem.decode_witness(sol).unwrap())
+        .cloned()
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(decoded, std::collections::BTreeSet::from([bu(1), bu(4)]));
 }
@@ -131,7 +128,7 @@ fn test_quadratic_diophantine_equations_solver_finds_all_witnesses() {
 fn test_quadratic_diophantine_equations_solver_no_witness() {
     let problem = no_problem();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -179,7 +176,7 @@ fn test_quadratic_diophantine_equations_paper_example() {
     assert_eq!(problem.evaluate(&config).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 

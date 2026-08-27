@@ -54,7 +54,7 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_invalid_target
     let reduction = ReduceTo::<MinimumIntersectionGraphBasis<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
-    let invalid_target_solution = vec![1; 6];
+    let invalid_target_solution = vec![vec![true; 2]; 3];
 
     assert_eq!(
         target.evaluate(&invalid_target_solution).unwrap(),
@@ -77,10 +77,11 @@ fn test_minimumcoveringbycliques_to_minimumintersectiongraphbasis_empty_graph() 
         .expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(target.evaluate(&[]).unwrap(), Min(Some(0)));
+    let target_solution = vec![vec![], vec![], vec![]];
+    assert_eq!(target.evaluate(&target_solution).unwrap(), Min(Some(0)));
     assert_eq!(
-        reduction.extract_solution(&[]).unwrap(),
+        reduction.extract_solution(&target_solution).unwrap(),
         Vec::<usize>::new()
     );
-    assert_eq!(source.evaluate(&[]).unwrap(), Min(Some(0)));
+    assert_eq!(source.evaluate(&vec![]).unwrap(), Min(Some(0)));
 }

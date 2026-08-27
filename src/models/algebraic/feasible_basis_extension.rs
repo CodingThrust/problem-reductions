@@ -42,7 +42,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::FeasibleBasisExtension;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![1, 0, 1, 2, -1, 0],
@@ -53,7 +53,7 @@ inventory::submit! {
 /// let required = vec![0, 1];
 /// let problem = FeasibleBasisExtension::new(matrix, rhs, required);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -411,31 +411,32 @@ fn gcd_i64(mut a: i64, mut b: i64) -> i64 {
 
 impl Problem for FeasibleBasisExtension {
     const NAME: &'static str = "FeasibleBasisExtension";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_rows", num_rows),
+        ("num_columns", num_columns),
+        ("num_required", num_required),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_columns() - self.num_required()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             let free_cols = self.free_columns();
             let num_free = free_cols.len();
 
             if config.len() != num_free {
-                return Ok(crate::types::Or(false));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "free-column selection length does not match the matrix".into(),
+                ));
             }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(crate::types::Or(false));
-            }
-
             let m = self.num_rows();
             let s = self.num_required();
             let needed = m - s;
@@ -444,7 +445,7 @@ impl Problem for FeasibleBasisExtension {
             let selected_free: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v == 1)
+                .filter(|(_, &v)| v)
                 .map(|(i, _)| free_cols[i])
                 .collect();
 
@@ -461,8 +462,18 @@ impl Problem for FeasibleBasisExtension {
     }
 }
 
+impl crate::solvers::BruteForceProblem for FeasibleBasisExtension {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_columns() - self.num_required()]
+    }
+}
+
 crate::declare_variants! {
     default FeasibleBasisExtension => "2^num_columns * num_rows^3" create FeasibleBasisExtensionCreateSpec,
+}
+
+crate::register_brute_force! {
+    FeasibleBasisExtension decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -479,7 +490,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![7, 5, 3],
             vec![0, 1],
         )),
-        optimal_config: vec![1, 0, 0, 0], // select col 2 (first free column)
+        optimal_config: serde_json::json!(vec![true, false, false, false]), // select col 2 (first free column)
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -44,12 +44,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SumOfSquaresPartition;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 elements with sizes [5, 3, 8, 2, 7, 1], K=3 groups
 /// let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -169,23 +169,45 @@ impl<'de> Deserialize<'de> for SumOfSquaresPartition {
 
 impl Problem for SumOfSquaresPartition {
     const NAME: &'static str = "SumOfSquaresPartition";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_elements", num_elements), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_groups; self.sizes.len()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.sizes.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&group| group >= self.num_groups) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment contains an out-of-range group".into(),
+            ));
+        }
         Ok(Min(self.sum_of_squares(config)?))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SumOfSquaresPartition {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_groups; self.sizes.len()]
     }
 }
 
 crate::declare_variants! {
     default SumOfSquaresPartition => "num_groups^num_elements",
+}
+
+crate::register_brute_force! {
+    SumOfSquaresPartition,
 }
 
 #[cfg(feature = "example-db")]
@@ -195,7 +217,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // sizes=[5,3,8,2,7,1], K=3
         // Optimal: groups {8},{2,7},{5,3,1} -> sums 8,9,9 -> 64+81+81=226
         instance: Box::new(SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3)),
-        optimal_config: vec![2, 2, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![2, 2, 0, 1, 1, 0]),
         optimal_value: serde_json::json!(226),
     }]
 }

@@ -60,12 +60,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumExternalMacroDataCompression;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Alphabet {a, b}, string "abab", pointer cost h=2
 /// let problem = MinimumExternalMacroDataCompression::new(2, vec![0, 1, 0, 1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -191,26 +191,28 @@ impl MinimumExternalMacroDataCompression {
 
 impl Problem for MinimumExternalMacroDataCompression {
     const NAME: &'static str = "MinimumExternalMacroDataCompression";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("alphabet_size", alphabet_size),
+        ("string_length", string_length),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.string.len();
-        let d_domain = self.alphabet_size + 1; // symbols + empty
-        let c_domain = self.c_domain_size(); // symbols + empty + pointers
-        let mut dims = vec![d_domain; n]; // D-slots
-        dims.extend(vec![c_domain; n]); // C-slots
-        dims
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let n = self.string.len();
             if config.len() != 2 * n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "macro encoding length does not match the string".into(),
+                ));
             }
 
             // Handle empty string case
@@ -319,8 +321,23 @@ impl Problem for MinimumExternalMacroDataCompression {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumExternalMacroDataCompression {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.string.len();
+        let d_domain = self.alphabet_size + 1; // symbols + empty
+        let c_domain = self.c_domain_size(); // symbols + empty + pointers
+        let mut dims = vec![d_domain; n]; // D-slots
+        dims.extend(vec![c_domain; n]); // C-slots
+        dims
+    }
+}
+
 crate::declare_variants! {
     default MinimumExternalMacroDataCompression => "(alphabet_size + 1) ^ string_length * (alphabet_size + 1 + string_length * (string_length + 1) / 2) ^ string_length",
+}
+
+crate::register_brute_force! {
+    MinimumExternalMacroDataCompression,
 }
 
 #[cfg(feature = "example-db")]
@@ -341,7 +358,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_external_macro_data_compression",
         instance: Box::new(MinimumExternalMacroDataCompression::new(6, s, 2)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(12),
     }]
 }

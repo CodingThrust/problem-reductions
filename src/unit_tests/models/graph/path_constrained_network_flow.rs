@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_capacities_and_validates_paths() {
@@ -75,22 +76,25 @@ fn test_path_constrained_network_flow_creation() {
 #[test]
 fn test_path_constrained_network_flow_dims_use_path_bottlenecks() {
     let problem = yes_instance();
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2]);
 }
 
 #[test]
 fn test_path_constrained_network_flow_evaluation_satisfying() {
     let problem = yes_instance();
-    assert!(problem.evaluate(&[1, 1, 0, 0, 1]).unwrap());
-    assert!(problem.evaluate(&[1, 0, 1, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![1, 1, 0, 0, 1]).unwrap());
+    assert!(problem.evaluate(&vec![1, 0, 1, 1, 0]).unwrap());
 }
 
 #[test]
 fn test_path_constrained_network_flow_evaluation_unsatisfying() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 1, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 1, 1, 0, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -105,7 +109,7 @@ fn test_path_constrained_network_flow_solver_yes_and_no() {
         .iter()
         .all(|config| yes.evaluate(config).unwrap().0));
 
-    assert!(solver.find_witness(&no).unwrap().is_none());
+    assert!(solver.solve(&no).unwrap().is_none());
 }
 
 #[test]

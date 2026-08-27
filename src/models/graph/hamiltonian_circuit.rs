@@ -40,7 +40,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::HamiltonianCircuit;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Square graph (4-cycle) has a Hamiltonian circuit
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
@@ -93,25 +93,44 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "HamiltonianCircuit";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; n]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "circuit ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "circuit ordering contains an out-of-range vertex".into(),
+            ));
+        }
         Ok(crate::types::Or(is_valid_hamiltonian_circuit(
             &self.graph,
             config,
         )))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for HamiltonianCircuit<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.graph.num_vertices();
+        vec![n; n]
     }
 }
 
@@ -166,7 +185,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (2, 5),
             ],
         ))),
-        optimal_config: vec![0, 1, 2, 5, 4, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 5, 4, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }
@@ -179,6 +198,10 @@ crate::impl_random_generate!(
 
 crate::declare_variants! {
     default HamiltonianCircuit<SimpleGraph> => "1.657^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    HamiltonianCircuit<SimpleGraph>,
 }
 
 #[cfg(test)]

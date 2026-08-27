@@ -55,7 +55,7 @@ fn test_hamiltoniancircuit_to_stackercrane_optimal_cost() {
     let target = reduction.target_problem();
 
     let witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target should have a solution");
     let cost = target.evaluate(&witness).unwrap();
@@ -70,7 +70,7 @@ fn test_hamiltoniancircuit_to_stackercrane_non_hamiltonian() {
     let reduction = ReduceTo::<StackerCrane>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let witness = BruteForce::new().find_witness(target).unwrap();
+    let witness = BruteForce::new().solve(target).unwrap();
     match witness {
         Some(w) => {
             let cost = target.evaluate(&w).unwrap();

@@ -34,8 +34,8 @@ impl ReductionResult for ReductionLBDPToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -46,7 +46,7 @@ impl ReductionResult for ReductionLBDPToILP {
             let j = self.num_paths;
             let flow_vars_per_k = 2 * m;
 
-            let mut result = vec![0usize; j * n];
+            let mut result = vec![vec![false; n]; j];
             for k in 0..j {
                 // Find which vertices are on the path for commodity k
                 let mut on_path = vec![false; n];
@@ -65,7 +65,7 @@ impl ReductionResult for ReductionLBDPToILP {
                 }
                 for v in 0..n {
                     if on_path[v] {
-                        result[k * n + v] = 1;
+                        result[k][v] = true;
                     }
                 }
             }
@@ -96,7 +96,7 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
         let m = edges.len();
         let n = self.num_vertices();
         let j = self.max_paths();
-        let max_len = self.max_length();
+        let max_len = Self::exact_i64(self.max_length(), "encoding the path-length bound")?;
         let s = self.source();
         let t = self.sink();
 
@@ -124,52 +124,52 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
                 for &e in &vertex_edges[vertex] {
                     let (eu, _) = edges[e];
                     if vertex == eu {
-                        terms.push((flow_var(k, e, 0), 1.0)); // outgoing
-                        terms.push((flow_var(k, e, 1), -1.0)); // incoming
+                        terms.push((flow_var(k, e, 0), 1)); // outgoing
+                        terms.push((flow_var(k, e, 1), -1)); // incoming
                     } else {
-                        terms.push((flow_var(k, e, 1), 1.0)); // outgoing
-                        terms.push((flow_var(k, e, 0), -1.0)); // incoming
+                        terms.push((flow_var(k, e, 1), 1)); // outgoing
+                        terms.push((flow_var(k, e, 0), -1)); // incoming
                     }
                 }
                 if vertex == s {
                     // outflow - inflow = a_k  =>  outflow - inflow - a_k = 0
-                    terms.push((a_var(k), -1.0));
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    terms.push((a_var(k), -1));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 } else if vertex == t {
                     // outflow - inflow = -a_k  =>  outflow - inflow + a_k = 0
-                    terms.push((a_var(k), 1.0));
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    terms.push((a_var(k), 1));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 } else {
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 }
             }
 
             // Anti-parallel
             for e in 0..m {
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, e, 0), 1.0), (flow_var(k, e, 1), 1.0)],
-                    1.0,
+                    vec![(flow_var(k, e, 0), 1), (flow_var(k, e, 1), 1)],
+                    1,
                 ));
             }
 
             // Length bound: total flow for commodity k <= max_length * a_k
             let mut len_terms = Vec::new();
             for e in 0..m {
-                len_terms.push((flow_var(k, e, 0), 1.0));
-                len_terms.push((flow_var(k, e, 1), 1.0));
+                len_terms.push((flow_var(k, e, 0), 1));
+                len_terms.push((flow_var(k, e, 1), 1));
             }
-            len_terms.push((a_var(k), -(max_len as f64)));
-            constraints.push(LinearConstraint::le(len_terms, 0.0));
+            len_terms.push((a_var(k), -max_len));
+            constraints.push(LinearConstraint::le(len_terms, 0));
         }
 
         // Edge disjointness: each edge used by at most one commodity
         for e in 0..m {
             let mut terms = Vec::new();
             for k in 0..j {
-                terms.push((flow_var(k, e, 0), 1.0));
-                terms.push((flow_var(k, e, 1), 1.0));
+                terms.push((flow_var(k, e, 0), 1));
+                terms.push((flow_var(k, e, 1), 1));
             }
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Vertex disjointness for non-terminal vertices
@@ -182,18 +182,19 @@ impl ReduceTo<ILP<bool>> for LengthBoundedDisjointPaths<SimpleGraph> {
                 for &e in &vertex_edges[v] {
                     let (eu, _) = edges[e];
                     if v == eu {
-                        terms.push((flow_var(k, e, 0), 1.0));
+                        terms.push((flow_var(k, e, 0), 1));
                     } else {
-                        terms.push((flow_var(k, e, 1), 1.0));
+                        terms.push((flow_var(k, e, 1), 1));
                     }
                 }
             }
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Objective: maximize number of active path slots
         let objective: Vec<(usize, f64)> = (0..j).map(|k| (a_var(k), 1.0)).collect();
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionLBDPToILP {
             target,

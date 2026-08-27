@@ -32,19 +32,19 @@ impl ReductionResult for Reduction3SATToCyclicOrdering {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             (0..self.source_num_vars)
                 .map(|var_idx| {
                     let (alpha, beta, gamma) = variable_triple(var_idx);
-                    usize::from(!is_cyclic_order(
+                    !is_cyclic_order(
                         target_solution[alpha],
                         target_solution[beta],
                         target_solution[gamma],
-                    ))
+                    )
                 })
                 .collect()
         })
@@ -129,8 +129,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, CyclicOrdering>(
                 KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]),
                 SolutionPair {
-                    source_config: vec![1, 1, 1],
-                    target_config: vec![0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5],
+                    source_config: serde_json::json!(vec![true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        0, 11, 1, 9, 12, 10, 6, 13, 7, 2, 3, 4, 8, 5
+                    ]),
                 },
             )
         },

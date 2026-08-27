@@ -244,7 +244,7 @@ impl TimetableDesign {
         ((craftsman * self.num_tasks) + task) * self.num_periods + period
     }
 
-    pub(crate) fn solve_via_required_assignments(&self) -> Option<Vec<usize>> {
+    pub(crate) fn solve_via_required_assignments(&self) -> Option<Vec<Vec<Vec<bool>>>> {
         #[derive(Clone)]
         struct PairRequirement {
             craftsman: usize,
@@ -379,7 +379,21 @@ impl TimetableDesign {
         };
 
         if state.search_pair(0, 0, pairs.first().map_or(0, |pair| pair.required)) {
-            Some(state.config)
+            Some(
+                (0..self.num_craftsmen)
+                    .map(|craftsman| {
+                        (0..self.num_tasks)
+                            .map(|task| {
+                                (0..self.num_periods)
+                                    .map(|period| {
+                                        state.config[self.index(craftsman, task, period)] == 1
+                                    })
+                                    .collect()
+                            })
+                            .collect()
+                    })
+                    .collect(),
+            )
         } else {
             None
         }
@@ -388,25 +402,40 @@ impl TimetableDesign {
 
 impl Problem for TimetableDesign {
     const NAME: &'static str = "TimetableDesign";
+    type Solution = Vec<Vec<Vec<bool>>>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.config_len()]
-    }
+    crate::problem_size![
+        ("num_craftsmen", num_craftsmen),
+        ("num_periods", num_periods),
+        ("num_tasks", num_tasks),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if solution.len() != self.num_craftsmen
+            || solution.iter().any(|craftsman| {
+                craftsman.len() != self.num_tasks
+                    || craftsman.iter().any(|task| task.len() != self.num_periods)
+            })
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "timetable dimensions do not match the instance".into(),
+            ));
+        }
+        let config = solution
+            .iter()
+            .flatten()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>();
         Ok({
             crate::types::Or({
                 if config.len() != self.config_len() {
                     return Ok(crate::types::Or(false));
                 }
-                if config.iter().any(|&value| value > 1) {
-                    return Ok(crate::types::Or(false));
-                }
-
                 let mut craftsman_busy = vec![vec![false; self.num_periods]; self.num_craftsmen];
                 let mut task_busy = vec![vec![false; self.num_periods]; self.num_tasks];
                 let mut pair_counts = vec![vec![0i64; self.num_tasks]; self.num_craftsmen];
@@ -414,7 +443,7 @@ impl Problem for TimetableDesign {
                 for craftsman in 0..self.num_craftsmen {
                     for task in 0..self.num_tasks {
                         for period in 0..self.num_periods {
-                            if config[self.index(craftsman, task, period)] == 0 {
+                            if !config[self.index(craftsman, task, period)] {
                                 continue;
                             }
 
@@ -445,8 +474,18 @@ impl Problem for TimetableDesign {
     }
 }
 
+impl crate::solvers::BruteForceProblem for TimetableDesign {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.config_len()]
+    }
+}
+
 crate::declare_variants! {
     default TimetableDesign => "2^(num_craftsmen * num_tasks * num_periods)" create TimetableDesignCreateSpec,
+}
+
+crate::register_brute_force! {
+    TimetableDesign decode |problem: &TimetableDesign, indices: Vec<usize>| (0..problem.num_craftsmen()).map(|craftsman| (0..problem.num_tasks()).map(|task| (0..problem.num_periods()).map(|period| indices[problem.index(craftsman, task, period)] != 0).collect()).collect()).collect(),
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -491,11 +530,14 @@ fn issue_example_problem() -> TimetableDesign {
 }
 
 #[cfg(any(test, feature = "example-db"))]
-fn issue_example_config() -> Vec<usize> {
+fn issue_example_config() -> Vec<Vec<Vec<bool>>> {
     let problem = issue_example_problem();
-    let mut config = vec![0; problem.config_len()];
+    let mut config = vec![
+        vec![vec![false; problem.num_periods()]; problem.num_tasks()];
+        problem.num_craftsmen()
+    ];
     for &(craftsman, task, period) in ISSUE_EXAMPLE_ASSIGNMENTS {
-        config[problem.index(craftsman, task, period)] = 1;
+        config[craftsman][task][period] = true;
     }
     config
 }
@@ -505,7 +547,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "timetable_design",
         instance: Box::new(issue_example_problem()),
-        optimal_config: issue_example_config(),
+        optimal_config: serde_json::json!(issue_example_config()),
         optimal_value: serde_json::json!(true),
     }]
 }

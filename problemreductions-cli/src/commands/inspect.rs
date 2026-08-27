@@ -26,78 +26,82 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
     let name = problem.problem_name();
     let variant = problem.variant_map();
     let graph = ReductionGraph::new();
+    let brute_force_num_variables = problem.brute_force_num_variables()?;
 
-    let variant_str = if variant.is_empty() {
-        String::new()
-    } else {
-        let pairs: Vec<String> = variant.iter().map(|(k, v)| format!("{k}={v}")).collect();
-        format!(" {{{}}}", pairs.join(", "))
-    };
-
-    let mut text = format!("Type: {}{}\n", name, variant_str);
-
-    // Size fields from the reduction graph
     let size_fields = graph.size_field_names(name);
-    if !size_fields.is_empty() {
-        text.push_str(&format!("Size fields: {}\n", size_fields.join(", ")));
-    }
-    text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
-
     let solver_view = solver_capabilities_view(&problem)?;
-    text.push_str(&format!("Default solver: {}\n", solver_view.default_solver));
-    text.push_str(&format!("Solvers: {}\n", solver_view.solvers.join(", ")));
-    if let Some(customized) = solver_view.capabilities.customized.as_ref() {
-        text.push_str(&format!(
-            "Customized implementation: {}\n",
-            customized.implementation
-        ));
-    }
-    if let Some(ilp) = solver_view.capabilities.ilp.as_ref() {
-        text.push_str(&format!(
-            "ILP pipeline: {}\n",
-            ilp.reduction_path.join(" -> ")
-        ));
-    }
-
-    // Reductions
     let targets = executable_reduction_targets(&graph, name, &variant);
-    if !targets.is_empty() {
-        text.push_str(&format!("Reduces to: {}\n", targets.join(", ")));
-    }
-
-    let json_val = serde_json::json!({
-        "kind": "problem",
-        "type": name,
-        "variant": variant,
-        "size_fields": size_fields,
-        "num_variables": problem.num_variables_dyn(),
-        "solvers": solver_view.solvers,
-        "default_solver": solver_view.default_solver,
-        "solver_capabilities": solver_view.capabilities,
-        "reduces_to": targets,
-    });
-
-    out.emit_with_default_name("", &text, &json_val)
+    out.emit(
+        || {
+            let variant_str = if variant.is_empty() {
+                String::new()
+            } else {
+                let pairs: Vec<String> = variant.iter().map(|(k, v)| format!("{k}={v}")).collect();
+                format!(" {{{}}}", pairs.join(", "))
+            };
+            let mut text = format!("Type: {}{}\n", name, variant_str);
+            if !size_fields.is_empty() {
+                text.push_str(&format!("Size fields: {}\n", size_fields.join(", ")));
+            }
+            if let Some(num_variables) = brute_force_num_variables {
+                text.push_str(&format!("Brute-force variables: {num_variables}\n"));
+            }
+            text.push_str(&format!("Default solver: {}\n", solver_view.default_solver));
+            text.push_str(&format!("Solvers: {}\n", solver_view.solvers.join(", ")));
+            if let Some(customized) = solver_view.capabilities.customized.as_ref() {
+                text.push_str(&format!(
+                    "Customized implementation: {}\n",
+                    customized.implementation
+                ));
+            }
+            if let Some(ilp) = solver_view.capabilities.ilp.as_ref() {
+                text.push_str(&format!(
+                    "ILP pipeline: {}\n",
+                    ilp.reduction_path.join(" -> ")
+                ));
+            }
+            if !targets.is_empty() {
+                text.push_str(&format!("Reduces to: {}\n", targets.join(", ")));
+            }
+            text
+        },
+        || {
+            Ok(serde_json::json!({
+                "kind": "problem",
+                "type": name,
+                "variant": variant,
+                "size_fields": size_fields,
+                "brute_force_num_variables": brute_force_num_variables,
+                "solvers": solver_view.solvers,
+                "default_solver": solver_view.default_solver,
+                "solver_capabilities": solver_view.capabilities,
+                "reduces_to": targets,
+            }))
+        },
+    )
 }
 
 fn inspect_bundle(bundle: &ReductionBundle, out: &OutputConfig) -> Result<()> {
-    let mut text = String::from("Kind: Reduction Bundle\n");
-    text.push_str(&format!("Source: {}\n", bundle.source.problem_type));
-    text.push_str(&format!("Target: {}\n", bundle.target.problem_type));
-    text.push_str(&format!("Steps: {}\n", bundle.path.len().saturating_sub(1)));
-
     let path_str: Vec<&str> = bundle.path.iter().map(|s| s.name.as_str()).collect();
-    text.push_str(&format!("Path: {}\n", path_str.join(" -> ")));
-
-    let json_val = serde_json::json!({
-        "kind": "bundle",
-        "source": bundle.source.problem_type,
-        "target": bundle.target.problem_type,
-        "steps": bundle.path.len().saturating_sub(1),
-        "path": path_str,
-    });
-
-    out.emit_with_default_name("", &text, &json_val)
+    out.emit(
+        || {
+            let mut text = String::from("Kind: Reduction Bundle\n");
+            text.push_str(&format!("Source: {}\n", bundle.source.problem_type));
+            text.push_str(&format!("Target: {}\n", bundle.target.problem_type));
+            text.push_str(&format!("Steps: {}\n", bundle.path.len().saturating_sub(1)));
+            text.push_str(&format!("Path: {}\n", path_str.join(" -> ")));
+            text
+        },
+        || {
+            Ok(serde_json::json!({
+                "kind": "bundle",
+                "source": bundle.source.problem_type,
+                "target": bundle.target.problem_type,
+                "steps": bundle.path.len().saturating_sub(1),
+                "path": path_str,
+            }))
+        },
+    )
 }
 
 pub(crate) fn executable_reduction_targets(

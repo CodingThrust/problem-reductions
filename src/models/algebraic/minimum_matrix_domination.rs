@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumMatrixDomination;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 3×3 identity matrix: 3 ones on the diagonal, no shared rows/cols
 /// let matrix = vec![
@@ -49,9 +49,9 @@ inventory::submit! {
 /// ];
 /// let problem = MinimumMatrixDomination::new(matrix);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.solve(&problem).unwrap();
 /// // All 3 diagonal entries must be selected (no domination possible)
-/// assert_eq!(witness, Some(vec![1, 1, 1]));
+/// assert_eq!(witness, Some(vec![true, true, true]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MinimumMatrixDomination {
@@ -113,30 +113,34 @@ impl MinimumMatrixDomination {
 
 impl Problem for MinimumMatrixDomination {
     const NAME: &'static str = "MinimumMatrixDomination";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_cols", num_cols),
+        ("num_ones", num_ones),
+        ("num_rows", num_rows),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_ones()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_ones() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "selected-entry vector length does not match the matrix".into(),
+                ));
             }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Min(None));
-            }
-
             // Collect the set of selected 1-entry indices
             let selected: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v == 1)
+                .filter(|(_, &v)| v)
                 .map(|(i, _)| i)
                 .collect();
 
@@ -152,7 +156,7 @@ impl Problem for MinimumMatrixDomination {
             // Check domination: every unselected 1-entry must share a row or
             // column with some selected entry
             for (k, &(r, c)) in self.ones.iter().enumerate() {
-                if config[k] == 1 {
+                if config[k] {
                     continue; // selected entries don't need domination
                 }
                 if !covered_rows.contains(&r) && !covered_cols.contains(&c) {
@@ -169,8 +173,18 @@ impl Problem for MinimumMatrixDomination {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumMatrixDomination {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_ones()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumMatrixDomination => "2^num_ones",
+}
+
+crate::register_brute_force! {
+    MinimumMatrixDomination decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -189,7 +203,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_matrix_domination",
         instance: Box::new(MinimumMatrixDomination::new(matrix)),
-        optimal_config: vec![1, 1, 0, 0, 0, 0, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![
+            true, true, false, false, false, false, true, true, false, false
+        ]),
         optimal_value: serde_json::json!(4),
     }]
 }

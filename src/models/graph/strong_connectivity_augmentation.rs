@@ -147,12 +147,12 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     /// Check whether a configuration is a satisfying augmentation.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
         self.evaluate_config(config)
     }
 
-    fn evaluate_config(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
+    fn evaluate_config(&self, config: &[bool]) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.candidate_arcs.len() {
             return Ok(false);
         }
@@ -161,10 +161,7 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
         let mut augmented_arcs = self.graph.arcs();
 
         for ((u, v, weight), &selected) in self.candidate_arcs.iter().zip(config.iter()) {
-            if selected > 1 {
-                return Ok(false);
-            }
-            if selected == 1 {
+            if selected {
                 total = W::checked_add_to_sum(
                     total,
                     weight.to_sum(),
@@ -186,26 +183,47 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "StrongConnectivityAugmentation";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_arcs", num_arcs),
+        ("num_potential_arcs", num_potential_arcs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.candidate_arcs.len()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.candidate_arcs.len() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "arc-selection length does not match the candidate arcs".into(),
+            ));
+        }
         Ok(crate::types::Or(self.evaluate_config(config)?))
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for StrongConnectivityAugmentation<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.candidate_arcs.len()]
     }
 }
 
 crate::declare_variants! {
     default StrongConnectivityAugmentation<i64> => "2^num_potential_arcs",
+}
+
+crate::register_brute_force! {
+    StrongConnectivityAugmentation<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Deserialize)]
@@ -232,7 +250,7 @@ where
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "strong_connectivity_augmentation_i64",
+        id: "strong_connectivity_augmentation",
         // Path digraph 0→1→2→3→4 (not strongly connected — no back-edges).
         // Nine candidate arcs are all individually affordable, but only the
         // pair (4→1, w=3) + (1→0, w=5) = 8 = B achieves strong connectivity.
@@ -251,7 +269,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             8,
         )),
-        optimal_config: vec![0, 0, 0, 1, 0, 0, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![
+            false, false, false, true, false, false, false, false, true
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }

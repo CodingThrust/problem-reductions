@@ -201,8 +201,8 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -220,7 +220,7 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
                             "both literals of variable {var} precede the extraction cutoff"
                         )))
                     } else {
-                        Ok(usize::from(x_pos_before))
+                        Ok(x_pos_before)
                     }
                 })
                 .collect::<crate::rules::ExtractionResult<Vec<_>>>()?
@@ -229,11 +229,12 @@ impl ReductionResult for Reduction3SATToRegisterSufficiency {
 }
 
 #[reduction(
-    size = exact {
-        num_vertices = "3 * num_vars^2 + 9 * num_vars + 4 * num_clauses + register_sufficiency_padding + 4",
-        num_arcs = "6 * num_vars^2 + 19 * num_vars + 16 * num_clauses + 2 * register_sufficiency_padding + 1",
-        bound = "3 * num_clauses + 4 * num_vars + 1 + register_sufficiency_padding",
-    })]
+    size = unavailable {
+        num_vertices = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+        num_arcs = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+        bound = "the construction size is piecewise because its padding is max(2 * num_vars - num_clauses, 0)",
+    }
+)]
 impl ReduceTo<RegisterSufficiency> for KSatisfiability<K3> {
     type Result = Reduction3SATToRegisterSufficiency;
 
@@ -394,8 +395,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 to_registers.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

@@ -48,7 +48,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::SpinGlass;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Two spins with antiferromagnetic coupling J_01 = 1
 /// let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]).unwrap();
@@ -363,21 +363,37 @@ where
         + num_traits::Bounded,
 {
     const NAME: &'static str = "SpinGlass";
+    type Solution = Vec<i8>;
     type Value = Min<W::Sum>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
+    crate::problem_size![
+        ("num_interactions", num_interactions),
+        ("num_spins", num_spins),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
-        Ok({
-            let spins = Self::config_to_spins(config)?;
-            Min(Some(self.compute_energy(&spins)?))
-        })
+    fn evaluate(
+        &self,
+        spins: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        Ok(Min(Some(self.compute_energy(spins)?)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for SpinGlass<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement
+        + crate::variant::VariantParam
+        + PartialOrd
+        + num_traits::Zero
+        + num_traits::Bounded,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
@@ -396,10 +412,15 @@ crate::declare_variants! {
     SpinGlass<SimpleGraph, f64> => "2^num_spins" create SpinGlassF64CreateSpec,
 }
 
+crate::register_brute_force! {
+    SpinGlass<SimpleGraph, i64> decode |_, indices: Vec<usize>| SpinGlass::<SimpleGraph, i64>::config_to_spins(&indices).expect("enumerated spin bits are valid"),
+    SpinGlass<SimpleGraph, f64> decode |_, indices: Vec<usize>| SpinGlass::<SimpleGraph, f64>::config_to_spins(&indices).expect("enumerated spin bits are valid"),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "spin_glass_simplegraph_i64",
+        id: "spin_glass_simplegraph",
         instance: Box::new(
             SpinGlass::<SimpleGraph, i64>::without_fields(
                 5,
@@ -415,7 +436,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .unwrap(),
         ),
-        optimal_config: vec![1, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![1, -1, 1, 1, -1]),
         optimal_value: serde_json::json!(-3),
     }]
 }

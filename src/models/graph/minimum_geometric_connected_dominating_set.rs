@@ -46,7 +46,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::graph::MinimumGeometricConnectedDominatingSet;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Four collinear points with spacing 3 and radius 3.5:
 /// // each point reaches its immediate neighbor but not two steps away.
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = MinimumGeometricConnectedDominatingSet::new(points, 3.5).unwrap();
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// let value = problem.evaluate(&witness).unwrap().unwrap();
 /// assert_eq!(value, 2); // Two interior points dominate all and form a connected pair
 /// ```
@@ -135,9 +135,9 @@ impl MinimumGeometricConnectedDominatingSet {
     /// Check if a configuration is a valid connected dominating set.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        if config.len() != self.points.len() || config.iter().any(|&value| value > 1) {
+        if config.len() != self.points.len() {
             return Err(crate::traits::EvaluationError::InvalidConfiguration(
                 "geometric connected dominating set expects one Boolean value per point".into(),
             ));
@@ -151,7 +151,7 @@ impl MinimumGeometricConnectedDominatingSet {
         let selected: Vec<usize> = config
             .iter()
             .enumerate()
-            .filter(|(_, &v)| v == 1)
+            .filter(|(_, &v)| v)
             .map(|(i, _)| i)
             .collect();
 
@@ -162,7 +162,7 @@ impl MinimumGeometricConnectedDominatingSet {
         // Check domination: every unselected point must be within distance B
         // of some selected point.
         for (i, &v) in config.iter().enumerate() {
-            if v == 0 {
+            if !v {
                 let mut dominated = false;
                 for &s in &selected {
                     if self.within_radius(i, s, radius_squared)? {
@@ -214,22 +214,24 @@ impl<'de> Deserialize<'de> for MinimumGeometricConnectedDominatingSet {
 
 impl Problem for MinimumGeometricConnectedDominatingSet {
     const NAME: &'static str = "MinimumGeometricConnectedDominatingSet";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_points", num_points),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_points()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if !self.is_valid_solution(config)? {
                 return Ok(Min(None));
             }
-            let count = config.iter().filter(|&&v| v == 1).count();
+            let count = config.iter().filter(|&&v| v).count();
             Min(Some(i64::try_from(count).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
                     "converting dominating-set cardinality to i64".into(),
@@ -239,8 +241,18 @@ impl Problem for MinimumGeometricConnectedDominatingSet {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumGeometricConnectedDominatingSet {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_points()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumGeometricConnectedDominatingSet => "2^num_points",
+}
+
+crate::register_brute_force! {
+    MinimumGeometricConnectedDominatingSet decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -263,7 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .expect("canonical geometric connected-dominating-set instance must be valid"),
         ),
-        optimal_config: vec![1, 1, 1, 1, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, true, true, false, false, false, false]),
         optimal_value: serde_json::json!(4),
     }]
 }

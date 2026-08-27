@@ -3,7 +3,7 @@
 //! The 0-1 Knapsack problem asks for a subset of items that maximizes
 //! total value while respecting a weight capacity constraint.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -18,13 +18,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Select items to maximize total value subject to weight capacity constraint",
         fields: KnapsackCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "Knapsack",
-        fields: &["num_items"],
     }
 }
 
@@ -43,11 +36,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Knapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,28 +145,29 @@ impl Knapsack {
 
 impl Problem for Knapsack {
     const NAME: &'static str = "Knapsack";
+    type Solution = Vec<bool>;
     type Value = Max<i64>;
+
+    crate::problem_size![("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_items()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_items() {
-                return Ok(Max(None));
-            }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Max(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "item-selection length does not match the instance".into(),
+                ));
             }
             let total_weight = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x == 1)
+                .filter(|(_, &x)| x)
                 .map(|(i, _)| self.weights[i])
                 .try_fold(0_i64, |total, weight| {
                     total.checked_add(weight).ok_or_else(|| {
@@ -188,7 +182,7 @@ impl Problem for Knapsack {
             let total_value = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &x)| x == 1)
+                .filter(|(_, &x)| x)
                 .map(|(i, _)| self.values[i])
                 .try_fold(0_i64, |total, value| {
                     total.checked_add(value).ok_or_else(|| {
@@ -202,8 +196,18 @@ impl Problem for Knapsack {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Knapsack {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_items()]
+    }
+}
+
 crate::declare_variants! {
     default Knapsack => "2^(num_items / 2)" create KnapsackCreateSpec,
+}
+
+crate::register_brute_force! {
+    Knapsack decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 mod nonnegative_i64 {
@@ -249,7 +253,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "knapsack",
         instance: Box::new(Knapsack::new(vec![2, 3, 4, 5], vec![3, 4, 5, 7], 7)),
-        optimal_config: vec![1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, true]),
         optimal_value: serde_json::json!(10),
     }]
 }

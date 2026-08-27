@@ -11,10 +11,7 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_closed_loop() {
 
     // Brute-force the source to get the optimal value
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve the ILP target with the ILP solver
@@ -40,7 +37,7 @@ fn test_sequencingtominimizemaximumcumulativecost_to_ilp_bf_vs_ilp() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should be feasible");
     assert!(problem.evaluate(&bf_witness).unwrap().0.is_some());

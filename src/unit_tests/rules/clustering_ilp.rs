@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 use crate::types::Or;
@@ -29,20 +29,20 @@ fn test_clustering_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 8);
-    assert_eq!(ilp.constraints.len(), 12);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 8);
+    assert_eq!(ilp.constraints().len(), 12);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     let assignment_constraints = ilp
-        .constraints
+        .constraints()
         .iter()
-        .filter(|constraint| constraint.cmp == Comparison::Eq && constraint.rhs == 1.0)
+        .filter(|constraint| constraint.comparison() == Comparison::Eq && constraint.rhs() == 1)
         .count();
     let conflict_constraints = ilp
-        .constraints
+        .constraints()
         .iter()
-        .filter(|constraint| constraint.cmp == Comparison::Le && constraint.rhs == 1.0)
+        .filter(|constraint| constraint.comparison() == Comparison::Le && constraint.rhs() == 1)
         .count();
     assert_eq!(assignment_constraints, 4);
     assert_eq!(conflict_constraints, 8);
@@ -54,11 +54,7 @@ fn test_clustering_to_ilp_closed_loop() {
     let reduction: ReductionClusteringToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "Clustering->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -68,7 +64,7 @@ fn test_clustering_to_ilp_solution_extraction() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let extracted = reduction
-        .extract_solution(&[1, 0, 1, 0, 0, 1, 0, 1])
+        .extract_solution(&vec![1, 0, 1, 0, 0, 1, 0, 1])
         .unwrap();
     assert_eq!(extracted, vec![0, 0, 1, 1]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));

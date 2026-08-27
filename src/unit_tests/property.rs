@@ -47,8 +47,8 @@ proptest! {
         let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
         let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
 
-        let is_size: usize = is_solutions[0].iter().sum();
-        let vc_size: usize = vc_solutions[0].iter().sum();
+        let is_size: usize = is_solutions[0].iter().filter(|&&selected| selected).count();
+        let vc_size: usize = vc_solutions[0].iter().filter(|&&selected| selected).count();
 
         // IS size + VC size = n (for optimal solutions)
         prop_assert_eq!(is_size + vc_size, n);
@@ -64,7 +64,7 @@ proptest! {
             // Any subset of an IS is also an IS
             for i in 0..n {
                 let mut subset = sol.clone();
-                subset[i] = 0;
+                subset[i] = false;
                 // Valid configurations return is_valid() == true
                 prop_assert!(problem.evaluate(&subset).unwrap().is_valid());
             }
@@ -81,7 +81,7 @@ proptest! {
             // Adding any vertex to a VC still gives a valid VC
             for i in 0..n {
                 let mut superset = sol.clone();
-                superset[i] = 1;
+                superset[i] = true;
                 // Valid configurations return is_valid() == true
                 prop_assert!(problem.evaluate(&superset).unwrap().is_valid());
             }
@@ -98,7 +98,7 @@ proptest! {
         // Get all valid independent sets (not just optimal)
         for sol in solver.find_all_witnesses(&is_problem).unwrap() {
             // The complement should be a valid vertex cover
-            let complement: Vec<usize> = sol.iter().map(|&x| 1 - x).collect();
+            let complement: Vec<bool> = sol.iter().map(|&selected| !selected).collect();
             prop_assert!(vc_problem.evaluate(&complement).unwrap().is_valid(),
                 "Complement of IS {:?} should be valid VC", sol);
         }
@@ -108,7 +108,7 @@ proptest! {
     #[test]
     fn empty_is_always_valid_is((n, edges) in graph_strategy(10)) {
         let problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i64; n]);
-        let empty = vec![0; n];
+        let empty = vec![false; n];
         // Valid configuration returns is_valid() == true (0 for empty set)
         prop_assert!(problem.evaluate(&empty).unwrap().is_valid());
     }
@@ -118,7 +118,7 @@ proptest! {
     #[test]
     fn full_is_always_valid_vc((n, edges) in graph_strategy(10)) {
         let problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i64; n]);
-        let full = vec![1; n];
+        let full = vec![true; n];
         // Valid configuration returns is_valid() == true
         prop_assert!(problem.evaluate(&full).unwrap().is_valid());
     }

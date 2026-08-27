@@ -275,14 +275,14 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
     /// weight is within the weight bound, or `None` otherwise.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<Option<N::Sum>, crate::traits::EvaluationError> {
-        if config.len() != self.graph.num_edges() || config.iter().any(|&value| value > 1) {
+        if config.len() != self.graph.num_edges() {
             return Ok(None);
         }
 
         if self.source_vertex == self.target_vertex {
-            if config.contains(&1) {
+            if config.contains(&true) {
                 return Ok(None);
             }
             return Ok(Some(N::Sum::zero()));
@@ -296,7 +296,7 @@ impl<G: Graph, N: WeightElement> ShortestWeightConstrainedPath<G, N> {
         let mut total_weight = N::Sum::zero();
 
         for (idx, &selected) in config.iter().enumerate() {
-            if selected == 0 {
+            if !selected {
                 continue;
             }
             let (u, v) = edges[idx];
@@ -380,25 +380,42 @@ where
     N: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "ShortestWeightConstrainedPath";
+    type Solution = Vec<bool>;
     type Value = Min<N::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, N]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<N::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<N::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok(Min(self.is_valid_solution(config)?))
+    }
+}
+
+impl<G, N> crate::solvers::BruteForceProblem for ShortestWeightConstrainedPath<G, N>
+where
+    G: Graph + crate::variant::VariantParam,
+    N: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "shortest_weight_constrained_path_simplegraph_i64",
+        id: "shortest_weight_constrained_path_simplegraph",
         instance: Box::new(ShortestWeightConstrainedPath::new(
             SimpleGraph::new(
                 6,
@@ -419,13 +436,19 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             8,
         )),
-        optimal_config: vec![0, 1, 0, 1, 0, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![
+            false, true, false, true, false, true, false, false
+        ]),
         optimal_value: serde_json::json!(9),
     }]
 }
 
 crate::declare_variants! {
     default ShortestWeightConstrainedPath<SimpleGraph, i64> => "2^num_edges" create ShortestWeightConstrainedPathCreateSpec,
+}
+
+crate::register_brute_force! {
+    ShortestWeightConstrainedPath<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

@@ -46,7 +46,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::{Planar3Satisfiability, CNFClause};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Formula: (x1 OR x2 OR x3) AND (NOT x1 OR x2 OR x4)
 /// //       AND (x1 OR NOT x3 OR x4) AND (NOT x2 OR x3 OR NOT x4)
@@ -61,7 +61,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,22 +127,21 @@ impl Planar3Satisfiability {
 
 impl Problem for Planar3Satisfiability {
     const NAME: &'static str = "Planar3Satisfiability";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_vars", num_vars), ("num_clauses", num_clauses),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let assignment = super::config_to_assignment(config);
-                self.is_satisfying(&assignment)
-            })
-        })
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_satisfying(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -150,8 +149,18 @@ impl Problem for Planar3Satisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Planar3Satisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default Planar3Satisfiability => "1.307^num_variables",
+    default Planar3Satisfiability => "1.307^num_vars",
+}
+
+crate::register_brute_force! {
+    Planar3Satisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Deserialize)]
@@ -181,7 +190,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![-2, 3, -4]),
             ],
         )),
-        optimal_config: vec![1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![true, true, true, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

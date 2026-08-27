@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_invalid_terminals() {
@@ -19,7 +20,7 @@ use crate::types::Min;
 fn test_minimummultiwaycut_creation() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
-    assert_eq!(problem.dims().len(), 6);
+    assert_eq!(problem.dimensions().len(), 6);
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.num_terminals(), 3);
@@ -34,7 +35,7 @@ fn test_minimummultiwaycut_evaluate_valid() {
 
     // Optimal cut: remove edges (0,1), (3,4), (0,4) => indices 0, 3, 4
     // config: [1, 0, 0, 1, 1, 0] => weight 2 + 2 + 4 = 8
-    let config = vec![1, 0, 0, 1, 1, 0];
+    let config = vec![true, false, false, true, true, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(8)));
 }
@@ -45,7 +46,7 @@ fn test_minimummultiwaycut_evaluate_invalid() {
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
     // No edges cut: all terminals connected => invalid
-    let config = vec![0, 0, 0, 0, 0, 0];
+    let config = vec![false, false, false, false, false, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(None));
 }
@@ -64,7 +65,7 @@ fn test_minimummultiwaycut_brute_force() {
         assert_eq!(val, Min(Some(8)));
     }
     // Verify the claimed optimal cut [1,0,0,1,1,0] is among solutions
-    let claimed_optimal = vec![1, 0, 0, 1, 1, 0];
+    let claimed_optimal = vec![true, false, false, true, true, false];
     assert!(
         solutions.contains(&claimed_optimal),
         "expected optimal config {:?} not found in brute-force solutions",
@@ -91,7 +92,7 @@ fn test_minimummultiwaycut_two_terminals() {
 fn test_minimummultiwaycut_all_edges_cut() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
-    let config = vec![1, 1, 1, 1, 1, 1];
+    let config = vec![true, true, true, true, true, true];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(2 + 3 + 1 + 2 + 4 + 5)));
 }
@@ -102,7 +103,7 @@ fn test_minimummultiwaycut_already_disconnected() {
     // Graph: 0-1  2-3, terminals {0, 2}
     let graph = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2], vec![1i64, 1]);
-    let config = vec![0, 0];
+    let config = vec![false, false];
     let result = problem.evaluate(&config).unwrap();
     assert_eq!(result, Min(Some(0)));
 
@@ -169,17 +170,19 @@ fn test_minimummultiwaycut_getters() {
 }
 
 #[test]
-fn test_minimummultiwaycut_short_config_no_panic() {
+fn test_minimummultiwaycut_rejects_wrong_config_lengths() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
-    // Short config: only 2 of 6 edges specified, terminals remain connected
-    let short_config = vec![1, 0];
-    let result = problem.evaluate(&short_config).unwrap();
-    assert_eq!(result, Min(None));
+    let short_config = vec![true, false];
+    assert!(matches!(
+        problem.evaluate(&short_config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
-    // Empty config: no edges cut, all terminals connected
-    let empty_config: Vec<usize> = vec![];
-    let result = problem.evaluate(&empty_config).unwrap();
-    assert_eq!(result, Min(None));
+    let empty_config: Vec<bool> = vec![];
+    assert!(matches!(
+        problem.evaluate(&empty_config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }

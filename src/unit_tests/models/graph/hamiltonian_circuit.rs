@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -25,23 +26,29 @@ fn test_hamiltonian_circuit_basic() {
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
-    assert_eq!(problem.dims(), vec![6; 6]);
+    assert_eq!(problem.dimensions(), vec![6; 6]);
 
     // Valid Hamiltonian circuit: 0->1->2->5->4->3->0
     // Edges used: (0,1), (1,2), (2,5), (5,4), (4,3), (3,0) -- all present
-    assert!(problem.evaluate(&[0, 1, 2, 5, 4, 3]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2, 5, 4, 3]).unwrap());
 
     // Invalid: 0->1->2->3 requires edge (2,3) which is NOT in the edge list
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4, 5]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3, 4, 5]).unwrap());
 
     // Invalid: duplicate vertex 0 -- not a valid permutation
-    assert!(!problem.evaluate(&[0, 0, 1, 2, 3, 4]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1, 2, 3, 4]).unwrap());
 
     // Invalid: wrong-length config
-    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
     // Invalid: vertex out of range
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4, 99]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 3, 4, 99]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -49,17 +56,17 @@ fn test_hamiltonian_circuit_small_graphs() {
     // Empty graph (0 vertices): n < 3, no circuit possible
     let graph = SimpleGraph::new(0, vec![]);
     let problem = HamiltonianCircuit::new(graph);
-    assert!(!problem.evaluate(&[]).unwrap());
+    assert!(!problem.evaluate(&vec![]).unwrap());
 
     // Single vertex: n < 3
     let graph = SimpleGraph::new(1, vec![]);
     let problem = HamiltonianCircuit::new(graph);
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(!problem.evaluate(&vec![0]).unwrap());
 
     // Two vertices with edge: n < 3
     let graph = SimpleGraph::new(2, vec![(0, 1)]);
     let problem = HamiltonianCircuit::new(graph);
-    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1]).unwrap());
 
     // Triangle (K3): smallest valid Hamiltonian circuit
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
@@ -93,7 +100,7 @@ fn test_hamiltonian_circuit_no_solution() {
     let problem = HamiltonianCircuit::new(graph);
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
     assert!(solver.find_all_witnesses(&problem).unwrap().is_empty());
 }
 
@@ -122,16 +129,16 @@ fn test_hamiltonian_circuit_serialization() {
     let json = serde_json::to_string(&problem).unwrap();
     let restored: HamiltonianCircuit<SimpleGraph> = serde_json::from_str(&json).unwrap();
 
-    assert_eq!(problem.dims(), restored.dims());
+    assert_eq!(problem.dimensions(), restored.dimensions());
 
     // Valid circuit gives the same result on both instances
     assert_eq!(
-        problem.evaluate(&[0, 1, 2, 3]).unwrap(),
-        restored.evaluate(&[0, 1, 2, 3]).unwrap()
+        problem.evaluate(&vec![0, 1, 2, 3]).unwrap(),
+        restored.evaluate(&vec![0, 1, 2, 3]).unwrap()
     );
     // Invalid config gives the same result on both instances
     assert_eq!(
-        problem.evaluate(&[0, 0, 1, 2]).unwrap(),
-        restored.evaluate(&[0, 0, 1, 2]).unwrap()
+        problem.evaluate(&vec![0, 0, 1, 2]).unwrap(),
+        restored.evaluate(&vec![0, 0, 1, 2]).unwrap()
     );
 }

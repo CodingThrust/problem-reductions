@@ -38,7 +38,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumWeightSolutionToLinearEquations;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![1, 2, 3, 1],
@@ -47,7 +47,7 @@ inventory::submit! {
 /// let rhs = vec![5, 4];
 /// let problem = MinimumWeightSolutionToLinearEquations::new(matrix, rhs);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -207,29 +207,32 @@ impl MinimumWeightSolutionToLinearEquations {
 
 impl Problem for MinimumWeightSolutionToLinearEquations {
     const NAME: &'static str = "MinimumWeightSolutionToLinearEquations";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_equations", num_equations),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_variables()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_variables() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment length does not match the equation variables".into(),
+                ));
             }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Min(None));
-            }
-
             let columns: Vec<usize> = config
                 .iter()
                 .enumerate()
-                .filter(|(_, &v)| v == 1)
+                .filter(|(_, &v)| v)
                 .map(|(j, _)| j)
                 .collect();
 
@@ -255,8 +258,18 @@ impl Problem for MinimumWeightSolutionToLinearEquations {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumWeightSolutionToLinearEquations {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_variables()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumWeightSolutionToLinearEquations => "2^num_variables" create MinimumWeightSolutionCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumWeightSolutionToLinearEquations decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -269,7 +282,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_solution_to_linear_equations",
         instance: Box::new(MinimumWeightSolutionToLinearEquations::new(matrix, rhs)),
-        optimal_config: vec![1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, false, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

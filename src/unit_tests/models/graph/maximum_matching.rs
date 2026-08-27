@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -39,13 +40,13 @@ fn test_is_valid_matching() {
     );
 
     // Valid: select edge 0 only
-    assert!(problem.is_valid_matching(&[1, 0, 0]));
+    assert!(problem.is_valid_matching(&[true, false, false]));
 
     // Valid: select edges 0 and 2 (disjoint)
-    assert!(problem.is_valid_matching(&[1, 0, 1]));
+    assert!(problem.is_valid_matching(&[true, false, true]));
 
     // Invalid: edges 0 and 1 share vertex 1
-    assert!(!problem.is_valid_matching(&[1, 1, 0]));
+    assert!(!problem.is_valid_matching(&[true, true, false]));
 }
 
 #[test]
@@ -62,7 +63,7 @@ fn test_is_matching_function() {
 fn test_empty_graph() {
     let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(3, vec![]));
     // Empty matching is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]).unwrap(), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -76,7 +77,7 @@ fn test_edges() {
 fn test_empty_sets() {
     let problem = MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(2, vec![]));
     // Empty matching
-    assert_eq!(Problem::evaluate(&problem, &[]).unwrap(), Max(Some(0)));
+    assert_eq!(Problem::evaluate(&problem, &vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -122,7 +123,7 @@ fn test_jl_parity_evaluation() {
         let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let problem = MaximumMatching::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
@@ -142,8 +143,8 @@ fn test_jl_parity_evaluation() {
             }
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "Matching best solutions mismatch");
     }
 }
@@ -156,9 +157,9 @@ fn test_is_valid_solution() {
         vec![1i64; 3],
     );
     // Valid: select edge (0,1) only — no shared vertices
-    assert!(problem.is_valid_solution(&[1, 0, 0]));
+    assert!(problem.is_valid_solution(&[true, false, false]));
     // Invalid: select edges (0,1) and (1,2) — vertex 1 shared
-    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+    assert!(!problem.is_valid_solution(&[true, true, false]));
 }
 
 #[test]
@@ -178,13 +179,13 @@ fn test_matching_paper_example() {
     let problem = MaximumMatching::<_, i64>::unit_weights(graph);
     // Edges: 0=(0,1), 1=(0,2), 2=(1,3), 3=(2,3), 4=(2,4), 5=(3,4)
     // Select edges 0 and 4
-    let config = vec![1, 0, 0, 0, 1, 0];
+    let config = vec![true, false, false, false, true, false];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }
 #[test]

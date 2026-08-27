@@ -11,14 +11,17 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionNAESATToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 2, "one ILP var per Boolean variable");
+    assert_eq!(ilp.num_vars(), 2, "one ILP var per Boolean variable");
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         2,
         "two constraints per clause (ge + le)"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty(), "feasibility: no objective terms");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(
+        ilp.objective().is_empty(),
+        "feasibility: no objective terms"
+    );
 }
 
 #[test]
@@ -41,7 +44,7 @@ fn test_naesatisfiability_to_ilp_bf_vs_ilp() {
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("NAE-SAT instance should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
@@ -96,8 +99,8 @@ fn test_naesatisfiability_to_ilp_negative_literals() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 2);
-    assert_eq!(ilp.constraints.len(), 2);
+    assert_eq!(ilp.num_vars(), 2);
+    assert_eq!(ilp.constraints().len(), 2);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver

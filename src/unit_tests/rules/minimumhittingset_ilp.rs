@@ -8,9 +8,9 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3, "one var per universe element");
-    assert_eq!(ilp.constraints.len(), 2, "one constraint per set");
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 3, "one var per universe element");
+    assert_eq!(ilp.constraints().len(), 2, "one constraint per set");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn test_solution_extraction() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp_solution = vec![0, 1, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
 
@@ -47,6 +47,6 @@ fn test_minimumhittingset_to_ilp_trivial() {
     let reduction: ReductionHSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 0);
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
 }

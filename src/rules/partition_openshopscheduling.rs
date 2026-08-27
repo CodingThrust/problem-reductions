@@ -19,13 +19,13 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let num_elements = self.target.num_jobs() - 1;
-            let mut source_config = vec![0; num_elements];
+            let mut source_config = vec![false; num_elements];
             let Some(orders) = self.target.decode_orders(target_solution) else {
                 return Err(crate::rules::ExtractionError::invalid(
                     "target configuration does not encode valid machine orders",
@@ -93,7 +93,7 @@ impl ReductionResult for ReductionPartitionToOpenShopScheduling {
                         crate::rules::ExtractionError::invalid("target schedule time overflows i64")
                     })?;
                 if completion <= pivot {
-                    *slot = 1;
+                    *slot = true;
                 }
             }
 
@@ -132,8 +132,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, OpenShopScheduling>(
                 Partition::new(vec![1, 2, 3]).unwrap(),
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 1, 2, 3, 0, 1, 2, 3, 2, 3, 0, 1],
+                    source_config: serde_json::json!(vec![false, false, true]),
+                    target_config: serde_json::json!(vec![0, 1, 2, 3, 0, 1, 2, 3, 2, 3, 0, 1]),
                 },
             )
         },

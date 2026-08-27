@@ -162,27 +162,35 @@ impl SchedulingWithIndividualDeadlines {
 
 impl Problem for SchedulingWithIndividualDeadlines {
     const NAME: &'static str = "SchedulingWithIndividualDeadlines";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("max_deadline", max_deadline),
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        self.deadlines
-            .iter()
-            .map(|&deadline| usize::try_from(deadline).expect("validated deadline must fit usize"))
-            .collect()
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_tasks {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule length does not match the tasks".into(),
+                    ));
+                }
+
+                if config.iter().any(|&position| position >= self.num_tasks) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "schedule contains an out-of-range task position".into(),
+                    ));
                 }
 
                 for (&start, &deadline) in config.iter().zip(&self.deadlines) {
@@ -214,8 +222,21 @@ impl Problem for SchedulingWithIndividualDeadlines {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SchedulingWithIndividualDeadlines {
+    fn dimensions(&self) -> Vec<usize> {
+        self.deadlines
+            .iter()
+            .map(|&deadline| usize::try_from(deadline).expect("validated deadline must fit usize"))
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default SchedulingWithIndividualDeadlines => "max_deadline^num_tasks" create SchedulingWithIndividualDeadlinesCreateSpec,
+}
+
+crate::register_brute_force! {
+    SchedulingWithIndividualDeadlines,
 }
 
 #[cfg(feature = "example-db")]
@@ -228,7 +249,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 1, 2, 2, 3, 3, 2],
             vec![(0, 3), (1, 3), (1, 4), (2, 4), (2, 5)],
         )),
-        optimal_config: vec![0, 0, 0, 1, 2, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 2, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

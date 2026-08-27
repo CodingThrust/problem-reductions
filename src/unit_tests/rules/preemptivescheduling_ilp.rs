@@ -27,16 +27,16 @@ fn test_preemptivescheduling_to_ilp_structure() {
     let reduction: ReductionPSToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 5, "expected n*D_max+1 = 5 variables");
+    assert_eq!(ilp.num_vars(), 5, "expected n*D_max+1 = 5 variables");
     assert_eq!(
-        ilp.objective,
+        ilp.objective(),
         vec![(4, 1.0)],
         "objective: minimize M at index 4"
     );
 
     // Constraints:
     // 2 work + 2 capacity + 1 prec*(D_max=2 slots) + 2*2 makespan + 2*2 binary = 2+2+2+4+4 = 14
-    assert_eq!(ilp.constraints.len(), 14);
+    assert_eq!(ilp.constraints().len(), 14);
 }
 
 // ─── closed-loop ───────────────────────────────────────────────────────────
@@ -115,6 +115,6 @@ fn test_preemptivescheduling_to_ilp_extract_solution() {
         ReduceTo::<ILP<i64>>::reduce_to(&p).expect("reduction should succeed");
     let ilp_solution = vec![1, 0, 0, 1, 2]; // last element is M
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 0, 0, 1]);
+    assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);
     assert_eq!(p.evaluate(&extracted).unwrap(), Min(Some(2)));
 }

@@ -88,7 +88,7 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 |------|-----------|-------------|
 | `create_problem` | `problem_type` (string), `params` (JSON object) | Create a problem instance from parameters and return its JSON representation. Supports graph problems, SAT, QUBO, SpinGlass, KColoring, Factoring, and random graph generation |
 | `inspect_problem` | `problem_json` (string) | Inspect a problem JSON or reduction bundle: returns type, size metrics, available solvers, and reduction targets |
-| `evaluate` | `problem_json` (string), `config` (array of int) | Evaluate a configuration against a problem instance and return the objective value or feasibility |
+| `evaluate` | `problem_json` (string), `config` (typed JSON solution) | Evaluate a solution against a problem instance and return the objective value or feasibility |
 | `reduce` | `problem_json` (string), `path_json` (string) | Reduce a problem instance along an explicitly supplied route, returning a bundle with the transformed instance and path metadata |
 | `solve` | `problem_json` (string), optional `solver` ("customized"\|"ilp"\|"brute-force"), `timeout` (int, default: 0) | Solve a problem instance or reduction bundle using deterministic customized → ILP → brute-force dispatch. Returns `optimal` or `infeasible`; execution failures are tool errors. |
 

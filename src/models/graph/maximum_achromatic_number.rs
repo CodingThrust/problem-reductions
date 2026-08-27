@@ -47,14 +47,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximumAchromaticNumber;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // C6: achromatic number is 3
 /// let graph = SimpleGraph::new(6, vec![(0,1),(1,2),(2,3),(3,4),(4,5),(5,0)]);
 /// let problem = MaximumAchromaticNumber::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap().unwrap();
+/// let solution = solver.solve(&problem).unwrap().unwrap();
 /// let value = problem.evaluate(&solution).unwrap();
 /// assert_eq!(value, problemreductions::types::Max(Some(3)));
 /// ```
@@ -128,20 +128,24 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumAchromaticNumber";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph.num_vertices(); self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.graph.num_vertices() {
-                return Ok(Max(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "color assignment length does not match the graph vertices".into(),
+                ));
             }
             if self.graph.num_vertices() == 0 {
                 return Ok(Max(Some(0)));
@@ -164,6 +168,15 @@ where
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MaximumAchromaticNumber<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph.num_vertices(); self.graph.num_vertices()]
+    }
+}
+
 crate::impl_random_generate!(
     MaximumAchromaticNumber<SimpleGraph>,
     crate::random::SimpleGraphRandomSpec,
@@ -172,6 +185,10 @@ crate::impl_random_generate!(
 
 crate::declare_variants! {
     default MaximumAchromaticNumber<SimpleGraph> => "num_vertices^num_vertices" random,
+}
+
+crate::register_brute_force! {
+    MaximumAchromaticNumber<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -184,7 +201,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             6,
             vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)],
         ))),
-        optimal_config: vec![0, 1, 2, 0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 0, 1, 2]),
         optimal_value: serde_json::json!(3),
     }]
 }

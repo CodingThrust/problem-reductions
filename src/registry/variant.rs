@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::registry::dyn_problem::{DynProblem, SolveValueFn, SolveWitnessFn};
+use crate::registry::dyn_problem::DynProblem;
 use crate::registry::FieldInfo;
 
 /// Reusable syntax used to transport one construction input.
@@ -231,6 +231,10 @@ pub struct VariantEntry {
     /// Takes a `&dyn Any` (must be `&ProblemType`), calls getter methods directly,
     /// and returns the estimated worst-case time as f64.
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
+    /// Canonical problem-owned size-parameter names.
+    pub size_parameter_names_fn: fn() -> &'static [&'static str],
+    /// Measure the complete canonical size of a concrete instance.
+    pub size_measure_fn: fn(&dyn Any) -> crate::types::ProblemSize,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
     /// Variant-level aliases (e.g., `&["3SAT"]` for `KSatisfiability<K3>`).
@@ -250,10 +254,6 @@ pub struct VariantEntry {
     pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
     pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
-    /// Solve value: downcast `&dyn Any` and brute-force solve to an aggregate string.
-    pub solve_value_fn: SolveValueFn,
-    /// Solve witness: downcast `&dyn Any` and brute-force recover a witness when available.
-    pub solve_witness_fn: SolveWitnessFn,
 }
 
 impl VariantEntry {
@@ -269,11 +269,70 @@ impl VariantEntry {
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
     }
+
+    /// Return the canonical size-parameter names for this exact variant.
+    pub fn size_parameter_names(&self) -> &'static [&'static str] {
+        (self.size_parameter_names_fn)()
+    }
 }
 
 /// Return every registered concrete problem variant.
 pub fn variant_entries() -> Vec<&'static VariantEntry> {
     inventory::iter::<VariantEntry>().collect()
+}
+
+/// Validate canonical size schemas for every registered exact variant.
+pub fn validate_variant_size_schemas() -> Result<(), Vec<String>> {
+    let mut errors = Vec::new();
+    let mut schemas = BTreeMap::<&str, Vec<&str>>::new();
+
+    for entry in inventory::iter::<VariantEntry> {
+        let names = entry.size_parameter_names();
+        if names.is_empty() {
+            errors.push(format!("{} has no size parameters", variant_label(entry)));
+            continue;
+        }
+
+        let unique = names
+            .iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        if unique.len() != names.len() {
+            errors.push(format!(
+                "{} declares duplicate size parameters: {names:?}",
+                variant_label(entry)
+            ));
+        }
+
+        let canonical = unique.into_iter().collect::<Vec<_>>();
+        if let Some(expected) = schemas.get(entry.name) {
+            if expected != &canonical {
+                errors.push(format!(
+                    "{} has size schema {canonical:?}, expected {expected:?}",
+                    variant_label(entry)
+                ));
+            }
+        } else {
+            schemas.insert(entry.name, canonical.clone());
+        }
+
+        let expression = crate::expr::Expr::parse(entry.complexity);
+        for variable in expression.variables() {
+            if !canonical.contains(&variable) {
+                errors.push(format!(
+                    "{} complexity references unknown size parameter `{variable}`; declared: {canonical:?}",
+                    variant_label(entry)
+                ));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        errors.sort();
+        Err(errors)
+    }
 }
 
 /// Find a variant entry by exact problem name and exact variant map.

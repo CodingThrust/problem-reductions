@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -15,7 +16,7 @@ fn test_one_in_three_satisfiability_creation() {
     assert_eq!(problem.num_vars(), 4);
     assert_eq!(problem.num_clauses(), 3);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
 }
 
 #[test]
@@ -33,15 +34,15 @@ fn test_one_in_three_satisfiability_evaluate() {
     // Clause 1: (T, F, F) -> exactly 1 true -> OK
     // Clause 2: (F, F, T) -> exactly 1 true -> OK
     // Clause 3: (F, T, F) -> exactly 1 true -> OK
-    assert!(problem.evaluate(&[1, 0, 0, 1]).unwrap());
+    assert!(problem.evaluate(&vec![true, false, false, true]).unwrap());
 
     // config [1,1,1,0] -> x1=T, x2=T, x3=T, x4=F
     // Clause 1: (T, T, T) -> 3 true -> NOT 1-in-3
-    assert!(!problem.evaluate(&[1, 1, 1, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![true, true, true, false]).unwrap());
 
     // config [0,0,0,0] -> all false
     // Clause 1: (F, F, F) -> 0 true -> NOT 1-in-3
-    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![false, false, false, false]).unwrap());
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn test_one_in_three_satisfiability_solver() {
     );
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 
     // Verify the found solution actually satisfies 1-in-3
@@ -78,7 +79,7 @@ fn test_one_in_three_satisfiability_unsatisfiable() {
     let problem = OneInThreeSatisfiability::new(1, vec![CNFClause::new(vec![1, 1, 1])]);
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

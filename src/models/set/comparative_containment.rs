@@ -4,20 +4,11 @@
 //! whether there exists a subset of the universe whose containment weight
 //! in the first family is at least its containment weight in the second.
 
-use crate::registry::{
-    ConstructionError, CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension,
-};
+use crate::registry::{ConstructionError, CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::traits::Problem;
 use crate::types::{One, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "ComparativeContainment",
-        fields: &["universe_size", "num_r_sets", "num_s_sets"],
-    }
-}
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -207,12 +198,12 @@ impl<W: WeightElement> ComparativeContainment<W> {
     }
 
     /// Check whether the subset selected by `config` is contained in `set`.
-    pub fn contains_selected_subset(&self, config: &[usize], set: &[usize]) -> bool {
+    pub fn contains_selected_subset(&self, config: &[bool], set: &[usize]) -> bool {
         self.valid_config(config) && contains_selected_subset_unchecked(config, set)
     }
 
-    fn valid_config(&self, config: &[usize]) -> bool {
-        config.len() == self.universe_size && config.iter().all(|&value| value <= 1)
+    fn valid_config(&self, config: &[bool]) -> bool {
+        config.len() == self.universe_size
     }
 }
 
@@ -252,7 +243,7 @@ where
     /// Total R-family weight for sets containing the selected subset.
     pub fn r_weight_sum(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         self.sum_containing_weights(config, &self.r_sets, &self.r_weights)
     }
@@ -260,7 +251,7 @@ where
     /// Total S-family weight for sets containing the selected subset.
     pub fn s_weight_sum(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
         self.sum_containing_weights(config, &self.s_sets, &self.s_weights)
     }
@@ -268,7 +259,7 @@ where
     /// Check if a configuration is a satisfying solution.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
         Ok(
             match (self.r_weight_sum(config)?, self.s_weight_sum(config)?) {
@@ -280,7 +271,7 @@ where
 
     fn sum_containing_weights(
         &self,
-        config: &[usize],
+        config: &[bool],
         sets: &[Vec<usize>],
         weights: &[W],
     ) -> Result<Option<W::Sum>, crate::traits::EvaluationError> {
@@ -307,21 +298,38 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "ComparativeContainment";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.universe_size]
-    }
+    crate::problem_size![
+        ("num_r_sets", num_r_sets),
+        ("num_s_sets", num_s_sets),
+        ("universe_size", universe_size),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.universe_size {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "element-selection length does not match the universe".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_solution(config)?))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for ComparativeContainment<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.universe_size]
     }
 }
 
@@ -331,17 +339,23 @@ crate::declare_variants! {
     ComparativeContainment<f64> => "2^universe_size" create ComparativeContainmentF64CreateSpec,
 }
 
-fn contains_selected_subset_unchecked(config: &[usize], set: &[usize]) -> bool {
+crate::register_brute_force! {
+    ComparativeContainment<One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    ComparativeContainment<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    ComparativeContainment<f64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
+fn contains_selected_subset_unchecked(config: &[bool], set: &[usize]) -> bool {
     config
         .iter()
         .enumerate()
-        .all(|(element, &selected)| selected == 0 || set.contains(&element))
+        .all(|(element, &selected)| !selected || set.contains(&element))
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "comparative_containment_i64",
+        id: "comparative_containment",
         instance: Box::new(
             ComparativeContainment::with_weights(
                 4,
@@ -352,7 +366,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .expect("canonical comparative-containment instance must be valid"),
         ),
-        optimal_config: vec![0, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

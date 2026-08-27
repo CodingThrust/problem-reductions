@@ -208,16 +208,25 @@ impl CapacityAssignment {
 
 impl Problem for CapacityAssignment {
     const NAME: &'static str = "CapacityAssignment";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_capacities(); self.num_links()]
-    }
+    crate::problem_size![("num_capacities", num_capacities), ("num_links", num_links),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_links() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "capacity-choice length does not match the links".into(),
+            ));
+        }
+        if config.iter().any(|&choice| choice >= self.num_capacities()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "capacity assignment contains an out-of-range choice".into(),
+            ));
+        }
         Ok({
             let Some((total_cost, total_delay)) = self.total_cost_and_delay(config)? else {
                 return Ok(crate::types::Min(None));
@@ -235,8 +244,18 @@ impl Problem for CapacityAssignment {
     }
 }
 
+impl crate::solvers::BruteForceProblem for CapacityAssignment {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_capacities(); self.num_links()]
+    }
+}
+
 crate::declare_variants! {
     default CapacityAssignment => "num_capacities ^ num_links" create CapacityAssignmentCreateSpec,
+}
+
+crate::register_brute_force! {
+    CapacityAssignment,
 }
 
 #[cfg(feature = "example-db")]
@@ -249,7 +268,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![8, 4, 1], vec![7, 3, 1], vec![6, 3, 1]],
             12,
         )),
-        optimal_config: vec![1, 1, 1],
+        optimal_config: serde_json::json!(vec![1, 1, 1]),
         optimal_value: serde_json::json!(9),
     }]
 }

@@ -72,7 +72,7 @@ pub struct ReductionSATToIntegralFlowHomologousArcs {
 
 impl ReductionSATToIntegralFlowHomologousArcs {
     #[cfg(any(test, feature = "example-db"))]
-    fn encode_assignment(&self, assignment: &[usize]) -> Vec<usize> {
+    fn encode_assignment(&self, assignment: &[bool]) -> Vec<usize> {
         assert_eq!(
             assignment.len(),
             self.variable_paths.len(),
@@ -81,7 +81,7 @@ impl ReductionSATToIntegralFlowHomologousArcs {
 
         let mut flow = vec![0usize; self.target.num_arcs()];
         for (value, paths) in assignment.iter().zip(&self.variable_paths) {
-            let path = if *value == 0 {
+            let path = if !*value {
                 &paths.false_path
             } else {
                 &paths.true_path
@@ -104,14 +104,14 @@ impl ReductionResult for ReductionSATToIntegralFlowHomologousArcs {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.variable_paths
                 .iter()
-                .map(|paths| usize::from(target_solution[paths.true_base_arc] > 0))
+                .map(|paths| target_solution[paths.true_base_arc] > 0)
                 .collect()
         })
     }
@@ -282,15 +282,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "satisfiability_to_integralflowhomologousarcs",
         build: || {
             let source = issue_example();
-            let source_config = vec![1, 0, 1];
+            let source_config = vec![true, false, true];
             let target_config = ReduceTo::<IntegralFlowHomologousArcs>::reduce_to(&source)
                 .expect("reduction should succeed")
                 .encode_assignment(&source_config);
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowHomologousArcs>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -29,7 +29,6 @@ use crate::models::graph::MinMaxMulticenter;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing MinMaxMulticenter to ILP.
 #[derive(Debug, Clone)]
@@ -48,11 +47,14 @@ impl ReductionResult for ReductionMMCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -130,7 +132,7 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let k = self.k();
+        let k = Self::exact_i64(self.k(), "encoding the number of centers")?;
         let vertex_weights = self.vertex_weights();
         let edge_lengths = self.edge_lengths();
 
@@ -148,13 +150,13 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
         let mut constraints = Vec::with_capacity(2 * n * n + 3 * n + 2);
 
         // Cardinality constraint: Σ_j x_j = k
-        let center_terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(center_terms, k as f64));
+        let center_terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j), 1)).collect();
+        constraints.push(LinearConstraint::eq(center_terms, k));
 
         // Assignment constraints: ∀i: Σ_j y_{i,j} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (y_var(i, j), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (y_var(i, j), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Assignment link constraints:
@@ -163,28 +165,28 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
             for (j, distance) in distances.iter().enumerate() {
                 if distance.is_some() {
                     constraints.push(LinearConstraint::le(
-                        vec![(y_var(i, j), 1.0), (x_var(j), -1.0)],
-                        0.0,
+                        vec![(y_var(i, j), 1), (x_var(j), -1)],
+                        0,
                     ));
                 } else {
-                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1)], 0));
                 }
             }
         }
 
         // Binary bounds for x_j and y_{i,j} (enforce binary within `ILP<i64>`)
         for j in 0..n {
-            constraints.push(LinearConstraint::le(vec![(x_var(j), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(x_var(j), 1)], 1));
         }
         for i in 0..n {
             for j in 0..n {
-                constraints.push(LinearConstraint::le(vec![(y_var(i, j), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(y_var(i, j), 1)], 1));
             }
         }
 
         // Upper bound on z: the worst-case weighted distance over all vertex
         // pairs.  Without this bound HiGHS sees z ∈ [0, 2^31) and can stall.
-        let weighted_distances: Vec<Vec<Option<f64>>> = all_dist
+        let weighted_distances: Vec<Vec<Option<i64>>> = all_dist
             .iter()
             .enumerate()
             .map(|(i, row)| {
@@ -201,42 +203,34 @@ impl ReduceTo<ILP<i64>> for MinMaxMulticenter<SimpleGraph, i64> {
                                     )
                                 })
                             })
-                            .transpose()?
-                            .map(|weighted_distance| {
-                                i64_to_exact_f64(weighted_distance).map_err(|error| {
-                                    crate::rules::ReductionError::inexact_float_conversion::<
-                                        MinMaxMulticenter<SimpleGraph, i64>,
-                                        ILP<i64>,
-                                    >(error)
-                                })
-                            })
                             .transpose()
                     })
-                    .collect()
+                    .collect::<Result<Vec<_>, _>>()
             })
             .collect::<Result<_, crate::rules::ReductionError>>()?;
         let z_upper = weighted_distances
             .iter()
             .flatten()
             .filter_map(|distance| *distance)
-            .fold(0.0_f64, f64::max);
-        constraints.push(LinearConstraint::le(vec![(z_var, 1.0)], z_upper));
+            .fold(0_i64, i64::max);
+        constraints.push(LinearConstraint::le(vec![(z_var, 1)], z_upper));
 
         // Minimax constraints: ∀i: Σ_j w_i · d(i,j) · y_{i,j} ≤ z
         for (i, distances) in weighted_distances.iter().enumerate() {
-            let mut terms: Vec<(usize, f64)> = distances
+            let mut terms: Vec<(usize, i64)> = distances
                 .iter()
                 .enumerate()
                 .filter_map(|(j, distance)| distance.map(|distance| (y_var(i, j), distance)))
                 .collect();
-            terms.push((z_var, -1.0));
-            constraints.push(LinearConstraint::le(terms, 0.0));
+            terms.push((z_var, -1));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         // Objective: minimize z
         let objective = vec![(z_var, 1.0)];
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionMMCToILP {
             target,
             num_vertices: n,

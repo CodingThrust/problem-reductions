@@ -1,19 +1,18 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maxcut_creation() {
-    use crate::traits::Problem;
-
     let problem = MaxCut::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1, 2, 3],
     );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
 }
 
 #[test]
@@ -108,7 +107,7 @@ fn test_jl_parity_evaluation() {
         let weights: Vec<i64> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
         let problem = MaxCut::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_size = eval["size"].as_i64().unwrap();
             assert!(result.is_valid(), "MaxCut should always be valid");
@@ -120,8 +119,8 @@ fn test_jl_parity_evaluation() {
             );
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "MaxCut best solutions mismatch");
     }
 }
@@ -133,9 +132,9 @@ fn test_cut_size_method() {
         vec![1, 2, 3],
     );
     // Partition {0} vs {1, 2}: cuts edges (0,1)=1 and (0,2)=3
-    assert_eq!(problem.cut_size(&[0, 1, 1]).unwrap(), 4);
+    assert_eq!(problem.cut_size(&[false, true, true]).unwrap(), 4);
     // All same partition: no edges cut
-    assert_eq!(problem.cut_size(&[0, 0, 0]).unwrap(), 0);
+    assert_eq!(problem.cut_size(&[false, false, false]).unwrap(), 0);
 }
 
 #[test]
@@ -151,13 +150,13 @@ fn test_maxcut_paper_example() {
     // Paper: house graph, S = {v_0, v_3}, cut = 5
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem = MaxCut::<_, i64>::unweighted(graph);
-    let config = vec![1, 0, 0, 1, 0]; // S = {v_0, v_3}
+    let config = vec![true, false, false, true, false]; // S = {v_0, v_3}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 5);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 5);
 }
 #[test]

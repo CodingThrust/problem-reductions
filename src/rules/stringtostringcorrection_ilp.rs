@@ -56,8 +56,8 @@ impl ReductionResult for ReductionSTSCToILP {
     /// Extract operation sequence from ILP solution.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -129,10 +129,11 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
             return Ok(ReductionSTSCToILP {
                 target: ILP::new(
                     0,
-                    vec![LinearConstraint::le(vec![], -1.0)],
+                    vec![LinearConstraint::le(vec![], -1)],
                     vec![],
                     ObjectiveSense::Minimize,
-                ),
+                )
+                .map_err(Self::target_construction)?,
                 n,
                 bound: k,
             });
@@ -143,10 +144,11 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
             let nv = k;
             let mut constraints = Vec::new();
             for t in 1..=k {
-                constraints.push(LinearConstraint::eq(vec![(t - 1, 1.0)], 1.0));
+                constraints.push(LinearConstraint::eq(vec![(t - 1, 1)], 1));
             }
             return Ok(ReductionSTSCToILP {
-                target: ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize),
+                target: ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 n,
                 bound: k,
             });
@@ -162,19 +164,19 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
         // e_{t,p} + Σ_i z_{t,p,i} = 1  ∀ t,p
         for t in 0..=k {
             for p in 0..n {
-                let mut terms = vec![(idx_e(n, k, t, p), 1.0)];
+                let mut terms = vec![(idx_e(n, k, t, p), 1)];
                 for i in 0..n {
-                    terms.push((idx_z(n, t, p, i), 1.0));
+                    terms.push((idx_z(n, t, p, i), 1));
                 }
-                constraints.push(LinearConstraint::eq(terms, 1.0));
+                constraints.push(LinearConstraint::eq(terms, 1));
             }
         }
 
         // Σ_p z_{t,p,i} <= 1  ∀ t,i
         for t in 0..=k {
             for i in 0..n {
-                let terms: Vec<(usize, f64)> = (0..n).map(|p| (idx_z(n, t, p, i), 1.0)).collect();
-                constraints.push(LinearConstraint::le(terms, 1.0));
+                let terms: Vec<(usize, i64)> = (0..n).map(|p| (idx_z(n, t, p, i), 1)).collect();
+                constraints.push(LinearConstraint::le(terms, 1));
             }
         }
 
@@ -182,52 +184,52 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
         for t in 0..=k {
             for p in 0..nm1 {
                 constraints.push(LinearConstraint::le(
-                    vec![(idx_e(n, k, t, p), 1.0), (idx_e(n, k, t, p + 1), -1.0)],
-                    0.0,
+                    vec![(idx_e(n, k, t, p), 1), (idx_e(n, k, t, p + 1), -1)],
+                    0,
                 ));
             }
         }
 
         // === Initial state ===
         for p in 0..n {
-            constraints.push(LinearConstraint::eq(vec![(idx_z(n, 0, p, p), 1.0)], 1.0));
+            constraints.push(LinearConstraint::eq(vec![(idx_z(n, 0, p, p), 1)], 1));
             for i in 0..n {
                 if i != p {
-                    constraints.push(LinearConstraint::eq(vec![(idx_z(n, 0, p, i), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(idx_z(n, 0, p, i), 1)], 0));
                 }
             }
-            constraints.push(LinearConstraint::eq(vec![(idx_e(n, k, 0, p), 1.0)], 0.0));
+            constraints.push(LinearConstraint::eq(vec![(idx_e(n, k, 0, p), 1)], 0));
         }
 
         // === Operation choice ===
         for t in 1..=k {
             let mut terms = Vec::new();
             for j in 0..n {
-                terms.push((idx_d(n, k, t, j), 1.0));
+                terms.push((idx_d(n, k, t, j), 1));
             }
             for j in 0..nm1 {
-                terms.push((idx_s(n, k, t, j), 1.0));
+                terms.push((idx_s(n, k, t, j), 1));
             }
-            terms.push((idx_nu(n, k, t), 1.0));
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            terms.push((idx_nu(n, k, t), 1));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Legality
         for t in 1..=k {
             for j in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(idx_d(n, k, t, j), 1.0), (idx_e(n, k, t - 1, j), 1.0)],
-                    1.0,
+                    vec![(idx_d(n, k, t, j), 1), (idx_e(n, k, t - 1, j), 1)],
+                    1,
                 ));
             }
             for j in 0..nm1 {
                 constraints.push(LinearConstraint::le(
-                    vec![(idx_s(n, k, t, j), 1.0), (idx_e(n, k, t - 1, j), 1.0)],
-                    1.0,
+                    vec![(idx_s(n, k, t, j), 1), (idx_e(n, k, t - 1, j), 1)],
+                    1,
                 ));
                 constraints.push(LinearConstraint::le(
-                    vec![(idx_s(n, k, t, j), 1.0), (idx_e(n, k, t - 1, j + 1), 1.0)],
-                    1.0,
+                    vec![(idx_s(n, k, t, j), 1), (idx_e(n, k, t - 1, j + 1), 1)],
+                    1,
                 ));
             }
         }
@@ -239,19 +241,19 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
                     // No-op
                     constraints.push(LinearConstraint::le(
                         vec![
-                            (idx_z(n, t, p, i), 1.0),
-                            (idx_z(n, t - 1, p, i), -1.0),
-                            (idx_nu(n, k, t), 1.0),
+                            (idx_z(n, t, p, i), 1),
+                            (idx_z(n, t - 1, p, i), -1),
+                            (idx_nu(n, k, t), 1),
                         ],
-                        1.0,
+                        1,
                     ));
                     constraints.push(LinearConstraint::le(
                         vec![
-                            (idx_z(n, t - 1, p, i), 1.0),
-                            (idx_z(n, t, p, i), -1.0),
-                            (idx_nu(n, k, t), 1.0),
+                            (idx_z(n, t - 1, p, i), 1),
+                            (idx_z(n, t, p, i), -1),
+                            (idx_nu(n, k, t), 1),
                         ],
-                        1.0,
+                        1,
                     ));
 
                     // Delete at position j
@@ -260,43 +262,43 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
                             // Before deleted position: unchanged
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t, p, i), 1.0),
-                                    (idx_z(n, t - 1, p, i), -1.0),
-                                    (idx_d(n, k, t, j), 1.0),
+                                    (idx_z(n, t, p, i), 1),
+                                    (idx_z(n, t - 1, p, i), -1),
+                                    (idx_d(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t - 1, p, i), 1.0),
-                                    (idx_z(n, t, p, i), -1.0),
-                                    (idx_d(n, k, t, j), 1.0),
+                                    (idx_z(n, t - 1, p, i), 1),
+                                    (idx_z(n, t, p, i), -1),
+                                    (idx_d(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                         } else if p + 1 < n {
                             // j <= p < n-1: shift from p+1
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t, p, i), 1.0),
-                                    (idx_z(n, t - 1, p + 1, i), -1.0),
-                                    (idx_d(n, k, t, j), 1.0),
+                                    (idx_z(n, t, p, i), 1),
+                                    (idx_z(n, t - 1, p + 1, i), -1),
+                                    (idx_d(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t - 1, p + 1, i), 1.0),
-                                    (idx_z(n, t, p, i), -1.0),
-                                    (idx_d(n, k, t, j), 1.0),
+                                    (idx_z(n, t - 1, p + 1, i), 1),
+                                    (idx_z(n, t, p, i), -1),
+                                    (idx_d(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                         } else {
                             // p == n-1: last slot must be empty
                             constraints.push(LinearConstraint::le(
-                                vec![(idx_z(n, t, n - 1, i), 1.0), (idx_d(n, k, t, j), 1.0)],
-                                1.0,
+                                vec![(idx_z(n, t, n - 1, i), 1), (idx_d(n, k, t, j), 1)],
+                                1,
                             ));
                         }
                     }
@@ -306,54 +308,54 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
                         if p != j && p != j + 1 {
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t, p, i), 1.0),
-                                    (idx_z(n, t - 1, p, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t, p, i), 1),
+                                    (idx_z(n, t - 1, p, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t - 1, p, i), 1.0),
-                                    (idx_z(n, t, p, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t - 1, p, i), 1),
+                                    (idx_z(n, t, p, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                         } else if p == j {
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t, j, i), 1.0),
-                                    (idx_z(n, t - 1, j + 1, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t, j, i), 1),
+                                    (idx_z(n, t - 1, j + 1, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t - 1, j + 1, i), 1.0),
-                                    (idx_z(n, t, j, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t - 1, j + 1, i), 1),
+                                    (idx_z(n, t, j, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                         } else {
                             // p == j+1
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t, j + 1, i), 1.0),
-                                    (idx_z(n, t - 1, j, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t, j + 1, i), 1),
+                                    (idx_z(n, t - 1, j, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                             constraints.push(LinearConstraint::le(
                                 vec![
-                                    (idx_z(n, t - 1, j, i), 1.0),
-                                    (idx_z(n, t, j + 1, i), -1.0),
-                                    (idx_s(n, k, t, j), 1.0),
+                                    (idx_z(n, t - 1, j, i), 1),
+                                    (idx_z(n, t, j + 1, i), -1),
+                                    (idx_s(n, k, t, j), 1),
                                 ],
-                                1.0,
+                                1,
                             ));
                         }
                     }
@@ -363,17 +365,18 @@ impl ReduceTo<ILP<bool>> for StringToStringCorrection {
 
         // === Final state equals target ===
         for p in 0..m {
-            let terms: Vec<(usize, f64)> = (0..n)
+            let terms: Vec<(usize, i64)> = (0..n)
                 .filter(|&i| source[i] == target[p])
-                .map(|i| (idx_z(n, k, p, i), 1.0))
+                .map(|i| (idx_z(n, k, p, i), 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
         for p in m..n {
-            constraints.push(LinearConstraint::eq(vec![(idx_e(n, k, k, p), 1.0)], 1.0));
+            constraints.push(LinearConstraint::eq(vec![(idx_e(n, k, k, p), 1)], 1));
         }
 
-        let target_ilp = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize);
+        let target_ilp = ILP::new(nv, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionSTSCToILP {
             target: target_ilp,
             n,
@@ -402,8 +405,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -1,9 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumEdgeWeightedKClique;
-use crate::rules::test_helpers::{
-    assert_bf_vs_ilp, assert_optimization_round_trip_from_optimization_target,
-};
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -23,11 +21,7 @@ fn issue_instance() -> MaximumEdgeWeightedKClique<i64> {
 fn test_maximumedgeweightedkclique_to_ilp_closed_loop() {
     let source = issue_instance();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_optimization_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "MaximumEdgeWeightedKClique -> ILP closed loop",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -37,11 +31,13 @@ fn test_maximumedgeweightedkclique_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 4 vertex variables + 5 edge variables = 9.
-    assert_eq!(ilp.num_vars, 9);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective is on the edge variables (indices 4..9).
-    let weights: Vec<f64> = ilp.objective.iter().map(|(_, w)| *w).collect();
-    assert_eq!(weights, vec![5.0, 4.0, -1.0, 1.0, 0.0]);
+    assert_eq!(
+        ilp.objective(),
+        vec![(4, 5.0), (5, 4.0), (6, -1.0), (7, 1.0)]
+    );
 }
 
 #[test]
@@ -50,7 +46,7 @@ fn test_maximumedgeweightedkclique_to_ilp_extract_solution_identity() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_solution = vec![1, 1, 1, 0, 1, 1, 1, 0, 0];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1, 1, 0]);
+    assert_eq!(extracted, vec![true, true, true, false]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Max(Some(8)));
 }
 
@@ -74,10 +70,5 @@ fn test_maximumedgeweightedkclique_to_ilp_negative_weight_excluded_via_extra_con
     )
     .unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_optimization_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "MaximumEdgeWeightedKClique -> ILP negative-weight triangle",
-    );
     assert_bf_vs_ilp(&source, &reduction);
 }

@@ -38,14 +38,14 @@ impl ReductionResult for ReductionCircuitToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.source_variables
                 .iter()
-                .map(|name| target_solution[self.variable_map[name]])
+                .map(|name| target_solution[self.variable_map[name]] == 1)
                 .collect()
         })
     }
@@ -88,61 +88,68 @@ impl ILPBuilder {
 
     /// Recursively process a BooleanExpr, returning the ILP variable index
     /// that holds the expression's value.
-    fn process_expr(&mut self, expr: &BooleanExpr) -> usize {
-        match &expr.op {
+    fn process_expr(&mut self, expr: &BooleanExpr) -> Result<usize, std::num::TryFromIntError> {
+        Ok(match &expr.op {
             BooleanOp::Var(name) => self.get_or_create_var(name),
             BooleanOp::Const(value) => {
                 let c = self.alloc_aux();
-                let v = if *value { 1.0 } else { 0.0 };
-                self.constraints
-                    .push(LinearConstraint::eq(vec![(c, 1.0)], v));
+                let v = if *value { 1 } else { 0 };
+                self.constraints.push(LinearConstraint::eq(vec![(c, 1)], v));
                 c
             }
             BooleanOp::Not(inner) => {
-                let a = self.process_expr(inner);
+                let a = self.process_expr(inner)?;
                 let c = self.alloc_aux();
                 // c + a = 1
                 self.constraints
-                    .push(LinearConstraint::eq(vec![(c, 1.0), (a, 1.0)], 1.0));
+                    .push(LinearConstraint::eq(vec![(c, 1), (a, 1)], 1));
                 c
             }
             BooleanOp::And(args) => {
-                let inputs: Vec<usize> = args.iter().map(|a| self.process_expr(a)).collect();
+                let inputs: Vec<usize> = args
+                    .iter()
+                    .map(|arg| self.process_expr(arg))
+                    .collect::<Result<_, _>>()?;
                 let c = self.alloc_aux();
-                let k = inputs.len() as f64;
+                let k = i64::try_from(inputs.len())?;
                 // c ≤ a_i for all i
                 for &a_i in &inputs {
                     self.constraints
-                        .push(LinearConstraint::le(vec![(c, 1.0), (a_i, -1.0)], 0.0));
+                        .push(LinearConstraint::le(vec![(c, 1), (a_i, -1)], 0));
                 }
                 // c ≥ Σa_i - (k - 1)
-                let mut terms: Vec<(usize, f64)> = vec![(c, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(c, 1)];
                 for &a_i in &inputs {
-                    terms.push((a_i, -1.0));
+                    terms.push((a_i, -1));
                 }
-                self.constraints
-                    .push(LinearConstraint::ge(terms, -(k - 1.0)));
+                self.constraints.push(LinearConstraint::ge(terms, 1 - k));
                 c
             }
             BooleanOp::Or(args) => {
-                let inputs: Vec<usize> = args.iter().map(|a| self.process_expr(a)).collect();
+                let inputs: Vec<usize> = args
+                    .iter()
+                    .map(|arg| self.process_expr(arg))
+                    .collect::<Result<_, _>>()?;
                 let c = self.alloc_aux();
                 // c ≥ a_i for all i
                 for &a_i in &inputs {
                     self.constraints
-                        .push(LinearConstraint::ge(vec![(c, 1.0), (a_i, -1.0)], 0.0));
+                        .push(LinearConstraint::ge(vec![(c, 1), (a_i, -1)], 0));
                 }
                 // c ≤ Σa_i
-                let mut terms: Vec<(usize, f64)> = vec![(c, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(c, 1)];
                 for &a_i in &inputs {
-                    terms.push((a_i, -1.0));
+                    terms.push((a_i, -1));
                 }
-                self.constraints.push(LinearConstraint::le(terms, 0.0));
+                self.constraints.push(LinearConstraint::le(terms, 0));
                 c
             }
             BooleanOp::Xor(args) => {
                 // Chain pairwise: XOR(a1, a2, a3) = XOR(XOR(a1, a2), a3)
-                let inputs: Vec<usize> = args.iter().map(|a| self.process_expr(a)).collect();
+                let inputs: Vec<usize> = args
+                    .iter()
+                    .map(|arg| self.process_expr(arg))
+                    .collect::<Result<_, _>>()?;
                 assert!(!inputs.is_empty());
                 let mut result = inputs[0];
                 for &next in &inputs[1..] {
@@ -150,30 +157,22 @@ impl ILPBuilder {
                     let a = result;
                     let b = next;
                     // c ≤ a + b
-                    self.constraints.push(LinearConstraint::le(
-                        vec![(c, 1.0), (a, -1.0), (b, -1.0)],
-                        0.0,
-                    ));
+                    self.constraints
+                        .push(LinearConstraint::le(vec![(c, 1), (a, -1), (b, -1)], 0));
                     // c ≥ a - b
-                    self.constraints.push(LinearConstraint::ge(
-                        vec![(c, 1.0), (a, -1.0), (b, 1.0)],
-                        0.0,
-                    ));
+                    self.constraints
+                        .push(LinearConstraint::ge(vec![(c, 1), (a, -1), (b, 1)], 0));
                     // c ≥ b - a
-                    self.constraints.push(LinearConstraint::ge(
-                        vec![(c, 1.0), (a, 1.0), (b, -1.0)],
-                        0.0,
-                    ));
+                    self.constraints
+                        .push(LinearConstraint::ge(vec![(c, 1), (a, 1), (b, -1)], 0));
                     // c ≤ 2 - a - b
-                    self.constraints.push(LinearConstraint::le(
-                        vec![(c, 1.0), (a, 1.0), (b, 1.0)],
-                        2.0,
-                    ));
+                    self.constraints
+                        .push(LinearConstraint::le(vec![(c, 1), (a, 1), (b, 1)], 2));
                     result = c;
                 }
                 result
             }
-        }
+        })
     }
 }
 
@@ -196,16 +195,19 @@ impl ReduceTo<ILP<bool>> for CircuitSAT {
 
         // Process each assignment
         for assignment in &self.circuit().assignments {
-            let expr_var = builder.process_expr(&assignment.expr);
+            let expr_var = builder.process_expr(&assignment.expr).map_err(|_| {
+                crate::rules::ReductionError::integer_overflow::<CircuitSAT, ILP<bool>>(
+                    "encoding a circuit gate arity",
+                )
+            })?;
             // Constrain each output to equal the expression result
             for output_name in &assignment.outputs {
                 let out_var = builder.get_or_create_var(output_name);
                 if out_var != expr_var {
                     // out = expr_var
-                    builder.constraints.push(LinearConstraint::eq(
-                        vec![(out_var, 1.0), (expr_var, -1.0)],
-                        0.0,
-                    ));
+                    builder
+                        .constraints
+                        .push(LinearConstraint::eq(vec![(out_var, 1), (expr_var, -1)], 0));
                 }
             }
         }
@@ -217,7 +219,8 @@ impl ReduceTo<ILP<bool>> for CircuitSAT {
             builder.constraints,
             objective,
             ObjectiveSense::Minimize,
-        );
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionCircuitToILP {
             target,
@@ -267,8 +270,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 full_adder_circuit_sat(),
                 SolutionPair {
-                    source_config: vec![0, 0, 0, 0, 0, 0, 0, 0],
-                    target_config: vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    source_config: serde_json::json!(vec![
+                        false, false, false, false, false, false, false, false
+                    ]),
+                    target_config: serde_json::json!(vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
                 },
             )
         },

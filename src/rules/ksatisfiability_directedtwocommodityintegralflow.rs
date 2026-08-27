@@ -66,8 +66,8 @@ fn literal_var_index(literal: i64) -> usize {
 }
 
 #[cfg_attr(not(any(test, feature = "example-db")), allow(dead_code))]
-fn literal_satisfied(requires_true: bool, assignment: &[usize], variable: usize) -> bool {
-    assignment.get(variable).copied().unwrap_or(0) == usize::from(requires_true)
+fn literal_satisfied(requires_true: bool, assignment: &[bool], variable: usize) -> bool {
+    assignment.get(variable).copied().unwrap_or(false) == requires_true
 }
 
 fn build_branch<FV, FA>(
@@ -122,7 +122,7 @@ where
 
 impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
     #[cfg(any(test, feature = "example-db"))]
-    pub(crate) fn encode_assignment(&self, assignment: &[usize]) -> Vec<usize> {
+    pub(crate) fn encode_assignment(&self, assignment: &[bool]) -> Vec<usize> {
         assert_eq!(
             assignment.len(),
             self.variable_paths.len(),
@@ -137,7 +137,7 @@ impl Reduction3SATToDirectedTwoCommodityIntegralFlow {
         }
 
         for (value, paths) in assignment.iter().zip(&self.variable_paths) {
-            let chosen_path = if *value == 1 {
+            let chosen_path = if *value {
                 &paths.lower_path
             } else {
                 &paths.upper_path
@@ -173,14 +173,14 @@ impl ReductionResult for Reduction3SATToDirectedTwoCommodityIntegralFlow {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.variable_paths
                 .iter()
-                .map(|paths| usize::from(target_solution[paths.lower_entry_arc] > 0))
+                .map(|paths| target_solution[paths.lower_entry_arc] > 0)
                 .collect()
         })
     }
@@ -333,15 +333,17 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let reduction =
                 crate::rules::ReduceTo::<DirectedTwoCommodityIntegralFlow>::reduce_to(&source)
                     .expect("reduction should succeed");
-            let source_config = vec![1, 1, 0];
+            let source_config = vec![true, true, false];
             let target_config = reduction.encode_assignment(&source_config);
 
             crate::example_db::specs::assemble_rule_example(
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

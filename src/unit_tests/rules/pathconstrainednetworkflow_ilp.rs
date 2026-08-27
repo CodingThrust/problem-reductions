@@ -17,7 +17,7 @@ fn test_pathconstrainednetworkflow_to_ilp_closed_loop() {
         2,
     );
     let direct = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source instance should be satisfiable");
     assert!(source.evaluate(&direct).unwrap());

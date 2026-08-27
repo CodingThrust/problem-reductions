@@ -2,6 +2,7 @@ use super::*;
 use crate::models::misc::{SequencingWithReleaseTimesAndDeadlines, ThreePartition};
 use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn reduce(sizes: Vec<i64>, bound: i64) -> (ThreePartition, ReductionThreePartitionToSRTD) {
@@ -60,9 +61,9 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_satisfiability(
 
     let solver = BruteForce::new();
     // Source is satisfiable
-    assert!(solver.find_witness(&source).unwrap().is_some());
+    assert!(solver.solve(&source).unwrap().is_some());
     // Target should also be satisfiable
-    assert!(solver.find_witness(target).unwrap().is_some());
+    assert!(solver.solve(target).unwrap().is_some());
 }
 
 #[test]
@@ -90,6 +91,6 @@ fn test_threepartition_to_sequencingwithreleasetimesanddeadlines_dims() {
     let target = reduction.target_problem();
 
     // 7 tasks -> Lehmer dims [7,6,5,4,3,2,1]
-    let dims = target.dims();
+    let dims = target.dimensions();
     assert_eq!(dims, vec![7, 6, 5, 4, 3, 2, 1]);
 }

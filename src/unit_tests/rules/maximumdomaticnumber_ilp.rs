@@ -16,7 +16,7 @@ fn test_maximumdomaticnumber_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_witness = bf.find_witness(&problem).unwrap().unwrap();
+    let bf_witness = bf.solve(&problem).unwrap().unwrap();
     let bf_value = problem.evaluate(&bf_witness).unwrap();
 
     // Solve via ILP reduction
@@ -41,17 +41,17 @@ fn test_maximumdomaticnumber_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=3: n²+n = 12 variables
-    assert_eq!(ilp.num_vars, 12);
+    assert_eq!(ilp.num_vars(), 12);
 
     // Constraints: n + n² + n² = 3 + 9 + 9 = 21
-    assert_eq!(ilp.constraints.len(), 21);
+    assert_eq!(ilp.constraints().len(), 21);
 
     // Objective should be maximize
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
     // Objective should have 3 terms (y_0, y_1, y_2)
-    assert_eq!(ilp.objective.len(), 3);
-    for &(var, coef) in &ilp.objective {
+    assert_eq!(ilp.objective().len(), 3);
+    for &(var, coef) in ilp.objective() {
         assert!(var >= 9); // y_i at indices 9, 10, 11
         assert!((coef - 1.0).abs() < 1e-9);
     }

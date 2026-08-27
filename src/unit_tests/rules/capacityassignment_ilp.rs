@@ -18,20 +18,25 @@ fn test_reduction_creates_valid_ilp() {
 
     // num_vars = 2 links * 2 capacities = 4
     assert_eq!(
-        ilp.num_vars, 4,
+        ilp.num_vars(),
+        4,
         "Should have 4 variables (2 links * 2 capacities)"
     );
 
     // num_constraints = 2 assignment + 1 delay budget = 3
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         3,
         "Should have 3 constraints (2 assignment + 1 delay)"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize cost");
+    assert_eq!(
+        ilp.sense(),
+        ObjectiveSense::Minimize,
+        "Should minimize cost"
+    );
     // Objective should have cost coefficients
     assert!(
-        !ilp.objective.is_empty(),
+        !ilp.objective().is_empty(),
         "Objective should have cost terms"
     );
 }
@@ -50,7 +55,7 @@ fn test_capacityassignment_to_ilp_closed_loop() {
     let ilp_solver = ILPSolver::new();
 
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("BF should find a solution");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -98,8 +103,8 @@ fn test_capacityassignment_to_ilp_trivial() {
     let ilp = reduction.target_problem();
 
     // num_vars = 1, num_constraints = 1 + 1 = 2
-    assert_eq!(ilp.num_vars, 1);
-    assert_eq!(ilp.constraints.len(), 2);
+    assert_eq!(ilp.num_vars(), 1);
+    assert_eq!(ilp.constraints().len(), 2);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");

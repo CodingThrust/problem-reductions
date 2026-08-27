@@ -272,25 +272,25 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "GeneralizedHex";
+    type Solution = ();
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_vertices", num_vertices),
+        ("num_edges", num_edges),
+        ("num_playable_vertices", num_playable_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        _solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                if !config.is_empty() {
-                    return Ok(crate::types::Or(false));
-                }
                 let playable_vertices = self.playable_vertices();
                 let vertex_to_state_index = self.vertex_to_state_index(&playable_vertices);
                 let mut state = vec![ClaimState::Unclaimed; playable_vertices.len()];
@@ -298,6 +298,15 @@ where
                 self.first_player_wins(&mut state, &vertex_to_state_index, &mut memo)
             })
         })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for GeneralizedHex<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
     }
 }
 
@@ -314,6 +323,10 @@ crate::declare_variants! {
     default GeneralizedHex<SimpleGraph> => "3^num_playable_vertices" create GeneralizedHexCreateSpec random,
 }
 
+crate::register_brute_force! {
+    GeneralizedHex<SimpleGraph> decode |_, _| (),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -326,7 +339,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             0,
             5,
         )),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]
 }

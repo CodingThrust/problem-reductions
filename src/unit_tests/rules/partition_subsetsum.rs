@@ -44,10 +44,10 @@ fn test_partition_to_subsetsum_odd_total() {
     assert_eq!(*target.target(), num_bigint::BigUint::from(1u32));
 
     // No witness should exist for the target
-    let witness = BruteForce::new().find_witness(target).unwrap();
+    let witness = BruteForce::new().solve(target).unwrap();
     assert!(witness.is_none());
 
-    let error = reduction.extract_solution(&[]).unwrap_err();
+    let error = reduction.extract_solution(&vec![]).unwrap_err();
     assert_eq!(
         error.to_string(),
         "expected 3 subset-selection values, got 0"
@@ -72,5 +72,7 @@ fn test_partition_to_subsetsum_rejects_wrong_solution_length() {
     let source = Partition::new(vec![1, 1, 2, 2]).unwrap();
     let reduction = ReduceTo::<SubsetSum>::reduce_to(&source).expect("reduction should succeed");
 
-    assert!(reduction.extract_solution(&[0, 1, 0]).is_err());
+    assert!(reduction
+        .extract_solution(&vec![false, true, false])
+        .is_err());
 }

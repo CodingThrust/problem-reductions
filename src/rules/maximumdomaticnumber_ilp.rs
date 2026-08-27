@@ -38,8 +38,8 @@ impl ReductionResult for ReductionDomaticNumberToILP {
     /// For each vertex v, find the set index i where x_{v,i} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -74,8 +74,8 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
 
         // Partition constraints: for each vertex v, Σ_i x_{v,i} = 1
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|i| (v * n + i, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|i| (v * n + i, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Domination constraints: for each v, i: x_{v,i} + Σ_{u ∈ N(v)} x_{u,i} >= y_i
@@ -83,13 +83,13 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         for v in 0..n {
             let neighbors = self.graph().neighbors(v);
             for i in 0..n {
-                let mut terms: Vec<(usize, f64)> = vec![(v * n + i, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(v * n + i, 1)];
                 for &u in &neighbors {
-                    terms.push((u * n + i, 1.0));
+                    terms.push((u * n + i, 1));
                 }
                 // -y_i
-                terms.push((n * n + i, -1.0));
-                constraints.push(LinearConstraint::ge(terms, 0.0));
+                terms.push((n * n + i, -1));
+                constraints.push(LinearConstraint::ge(terms, 0));
             }
         }
 
@@ -99,8 +99,8 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         for v in 0..n {
             for i in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(v * n + i, 1.0), (n * n + i, -1.0)],
-                    0.0,
+                    vec![(v * n + i, 1), (n * n + i, -1)],
+                    0,
                 ));
             }
         }
@@ -108,7 +108,8 @@ impl ReduceTo<ILP<bool>> for MaximumDomaticNumber<SimpleGraph> {
         // Objective: maximize Σ y_i
         let objective: Vec<(usize, f64)> = (0..n).map(|i| (n * n + i, 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionDomaticNumberToILP { target, n })
     }

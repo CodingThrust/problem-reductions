@@ -81,8 +81,10 @@ fn test_identity_solution_extraction() {
             .expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1]).unwrap(),
-        vec![1, 0, 1, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, true, false, true])
+            .unwrap(),
+        vec![true, false, true, false, true]
     );
 }
 
@@ -110,9 +112,11 @@ fn test_canonical_rule_example_spec_builds() {
         serde_json::from_value(example.target.instance.clone())
             .expect("target example deserializes");
     let solution = &example.solutions[0];
+    let source_config: Vec<bool> = serde_json::from_value(solution.source_config.clone()).unwrap();
+    let target_config: Vec<bool> = serde_json::from_value(solution.target_config.clone()).unwrap();
 
-    let source_metric = source.evaluate(&solution.source_config).unwrap();
-    let target_metric = target.evaluate(&solution.target_config).unwrap();
+    let source_metric = source.evaluate(&source_config).unwrap();
+    let target_metric = target.evaluate(&target_config).unwrap();
     assert!(
         source_metric.is_valid(),
         "source witness should be feasible"
@@ -123,11 +127,11 @@ fn test_canonical_rule_example_spec_builds() {
     );
 
     let best_source = BruteForce::new()
-        .find_witness(&source)
+        .solve(&source)
         .unwrap()
         .expect("source example should have an optimum");
     let best_target = BruteForce::new()
-        .find_witness(&target)
+        .solve(&target)
         .unwrap()
         .expect("target example should have an optimum");
 

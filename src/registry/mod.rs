@@ -51,20 +51,19 @@ pub mod problem_type;
 mod schema;
 pub mod variant;
 
-pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem, SolveValueFn, SolveWitnessFn};
+pub use dyn_problem::{format_metric, DynProblem, LoadedDynProblem};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
 pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
 pub use schema::{
-    collect_schemas, declared_size_fields, FieldInfoJson, ParseProblemCategoryError,
-    ProblemCategory, ProblemSchemaEntry, ProblemSchemaJson, ProblemSizeFieldEntry,
-    VariantDimension,
+    collect_schemas, FieldInfoJson, ParseProblemCategoryError, ProblemCategory, ProblemSchemaEntry,
+    ProblemSchemaJson, VariantDimension,
 };
 pub use variant::{
     find_variant_by_alias, find_variant_entry, validate_create_inputs,
-    validate_direct_create_inputs, validate_variant_aliases, variant_entries, ConstructProblemFn,
-    ConstructionError, CreateInputCodec, CreateInputInfo, CreateSpec, RandomGenerate,
-    RandomRegistration, VariantEntry,
+    validate_direct_create_inputs, validate_variant_aliases, validate_variant_size_schemas,
+    variant_entries, ConstructProblemFn, ConstructionError, CreateInputCodec, CreateInputInfo,
+    CreateSpec, RandomGenerate, RandomRegistration, VariantEntry,
 };
 
 /// Construct a problem from normalized construction inputs using the exact
@@ -103,11 +102,7 @@ pub fn load_dyn(
 
     let inner = (entry.factory)(data)
         .map_err(|error| ConstructionError::InvalidInput(error.to_string()))?;
-    Ok(LoadedDynProblem::new(
-        inner,
-        entry.solve_value_fn,
-        entry.solve_witness_fn,
-    ))
+    Ok(LoadedDynProblem::new(inner))
 }
 
 /// Serialize a `&dyn Any` by exact problem name and exact variant map.

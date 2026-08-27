@@ -33,7 +33,7 @@ inventory::submit! {
 /// A configuration is a binary vector of length `n × D_max` where
 /// `D_max = sum of all lengths` is the worst-case makespan.
 ///
-/// `config[t * D_max + u] = 1` means task `t` is processed at time slot `u`.
+/// `solution[t][u] = true` means task `t` is processed at time slot `u`.
 ///
 /// A valid schedule satisfies:
 /// - Each task `t` is active in exactly `l(t)` time slots.
@@ -50,10 +50,13 @@ inventory::submit! {
 /// use problemreductions::Problem;
 ///
 /// let problem = PreemptiveScheduling::new(vec![2, 1], 2, vec![]).unwrap();
-/// // D_max = 3, config length = 2 * 3 = 6
+/// // D_max = 3, so the solution is a 2 × 3 task-by-time matrix.
 /// // task 0 active at slots 0,1; task 1 active at slot 0
-/// let config = vec![1, 1, 0, 1, 0, 0];
-/// assert_eq!(problem.evaluate(&config).unwrap(), problemreductions::types::Min(Some(2)));
+/// let solution = vec![
+///     vec![true, true, false],
+///     vec![true, false, false],
+/// ];
+/// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Min(Some(2)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct PreemptiveScheduling {
@@ -201,37 +204,36 @@ impl<'de> Deserialize<'de> for PreemptiveScheduling {
 
 impl Problem for PreemptiveScheduling {
     const NAME: &'static str = "PreemptiveScheduling";
+    type Solution = Vec<Vec<bool>>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("d_max", d_max),
+        ("num_precedences", num_precedences),
+        ("num_processors", num_processors),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
         let d = self.d_max();
-        vec![2; self.num_tasks() * d]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if solution.len() != n || solution.iter().any(|task| task.len() != d) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "preemptive schedule dimensions do not match the instance".into(),
+            ));
+        }
         Ok({
-            let n = self.num_tasks();
-            let d = self.d_max();
-
-            // Check config length
-            if config.len() != n * d {
-                return Ok(Min(None));
-            }
-
-            // Check each slot is binary
-            if config.iter().any(|&v| v > 1) {
-                return Ok(Min(None));
-            }
-
             // Check each task t is active in exactly l(t) slots
-            for t in 0..n {
-                let active: usize = config[t * d..(t + 1) * d].iter().sum();
-                if i64::try_from(active).expect("active slots fit the validated horizon")
-                    != self.lengths[t]
+            for (task, &length) in solution.iter().zip(&self.lengths) {
+                let active = task.iter().filter(|&&active| active).count();
+                if i64::try_from(active).expect("active slots fit the validated horizon") != length
                 {
                     return Ok(Min(None));
                 }
@@ -239,7 +241,7 @@ impl Problem for PreemptiveScheduling {
 
             // Check processor capacity at each time slot
             for u in 0..d {
-                let active_count: usize = (0..n).filter(|&t| config[t * d + u] == 1).count();
+                let active_count = solution.iter().filter(|task| task[u]).count();
                 if active_count > self.num_processors {
                     return Ok(Min(None));
                 }
@@ -248,8 +250,8 @@ impl Problem for PreemptiveScheduling {
             // Check precedence constraints:
             // last active slot of pred < first active slot of succ
             for &(pred, succ) in &self.precedences {
-                let last_pred = (0..d).rev().find(|&u| config[pred * d + u] == 1);
-                let first_succ = (0..d).find(|&u| config[succ * d + u] == 1);
+                let last_pred = (0..d).rev().find(|&u| solution[pred][u]);
+                let first_succ = (0..d).find(|&u| solution[succ][u]);
                 if let (Some(lp), Some(fs)) = (last_pred, first_succ) {
                     if lp >= fs {
                         return Ok(Min(None));
@@ -258,8 +260,9 @@ impl Problem for PreemptiveScheduling {
             }
 
             // Compute makespan: max over all t of (last active slot + 1)
-            let makespan = (0..n)
-                .filter_map(|t| (0..d).rev().find(|&u| config[t * d + u] == 1))
+            let makespan = solution
+                .iter()
+                .filter_map(|task| (0..d).rev().find(|&u| task[u]))
                 .map(|last| last + 1)
                 .max()
                 .unwrap_or(0);
@@ -271,8 +274,19 @@ impl Problem for PreemptiveScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PreemptiveScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        let d = self.d_max();
+        vec![2; self.num_tasks() * d]
+    }
+}
+
 crate::declare_variants! {
     default PreemptiveScheduling => "2^(num_tasks * num_tasks)" create PreemptiveSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    PreemptiveScheduling decode |problem: &PreemptiveScheduling, indices: Vec<usize>| if problem.d_max() == 0 { vec![Vec::new(); problem.num_tasks()] } else { indices.chunks(problem.d_max()).map(crate::config::config_to_bits).collect() },
 }
 
 #[cfg(feature = "example-db")]
@@ -291,27 +305,22 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     //   t2 (18..27):[0,0,1,1,1,0,0,0,0]
     //   t3 (27..36):[0,0,1,1,0,0,0,0,0]
     //   t4 (36..45):[0,1,0,0,0,0,0,0,0]
-    let mut config = vec![0usize; 5 * 9];
-    // t0 (config[0..9]) at slots 0,1
-    config[0] = 1;
-    config[1] = 1;
-    // t1 (config[9..18]) at slot 0
-    config[9] = 1;
-    // t2 (config[18..27]) at slots 2,3,4
-    config[18 + 2] = 1;
-    config[18 + 3] = 1;
-    config[18 + 4] = 1;
-    // t3 (config[27..36]) at slots 2,3
-    config[27 + 2] = 1;
-    config[27 + 3] = 1;
-    // t4 (config[36..45]) at slot 1
-    config[36 + 1] = 1;
+    let mut config = vec![vec![false; 9]; 5];
+    config[0][0] = true;
+    config[0][1] = true;
+    config[1][0] = true;
+    config[2][2] = true;
+    config[2][3] = true;
+    config[2][4] = true;
+    config[3][2] = true;
+    config[3][3] = true;
+    config[4][1] = true;
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "preemptive_scheduling",
         instance: Box::new(
             PreemptiveScheduling::new(vec![2, 1, 3, 2, 1], 2, vec![(0, 2), (1, 3)]).unwrap(),
         ),
-        optimal_config: config,
+        optimal_config: serde_json::json!(config),
         optimal_value: serde_json::json!(5),
     }]
 }

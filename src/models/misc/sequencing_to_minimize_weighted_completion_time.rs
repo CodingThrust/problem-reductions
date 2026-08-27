@@ -146,7 +146,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
     }
 
     fn decode_schedule(&self, config: &[usize]) -> Option<Vec<usize>> {
-        super::decode_lehmer(config, self.num_tasks())
+        super::decode_permutation(config, self.num_tasks())
     }
 
     fn weighted_completion_time(
@@ -219,17 +219,33 @@ impl<'de> Deserialize<'de> for SequencingToMinimizeWeightedCompletionTime {
 
 impl Problem for SequencingToMinimizeWeightedCompletionTime {
     const NAME: &'static str = "SequencingToMinimizeWeightedCompletionTime";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
             let Some(schedule) = self.decode_schedule(config) else {
                 return Ok(Min(None));
@@ -239,8 +255,18 @@ impl Problem for SequencingToMinimizeWeightedCompletionTime {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingToMinimizeWeightedCompletionTime {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 crate::declare_variants! {
     default SequencingToMinimizeWeightedCompletionTime => "factorial(num_tasks)" create SequencingToMinimizeWeightedCompletionTimeCreateSpec,
+}
+
+crate::register_brute_force! {
+    SequencingToMinimizeWeightedCompletionTime decode |problem: &SequencingToMinimizeWeightedCompletionTime, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -252,7 +278,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![3, 5, 1, 4, 2],
             vec![(0, 2), (1, 4)],
         )),
-        optimal_config: vec![1, 2, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 3, 0, 4, 2]),
         optimal_value: serde_json::json!(46),
     }]
 }

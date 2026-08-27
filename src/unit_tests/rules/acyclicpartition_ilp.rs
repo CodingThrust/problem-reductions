@@ -47,7 +47,7 @@ fn test_reduction_num_vars() {
         ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=4, m=3: n^2 + m*n + m + 2*n = 16 + 12 + 3 + 8 = 39
-    assert_eq!(ilp.num_vars, 39);
+    assert_eq!(ilp.num_vars(), 39);
 }
 
 #[test]

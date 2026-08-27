@@ -30,10 +30,9 @@ macro_rules! decision_problem_meta {
 /// The `size_getters` parameter defines problem-specific size fields as
 /// `(name, getter_on_inner)` pairs, e.g., `[("num_vertices", num_vertices), ("num_edges", num_edges)]`.
 /// These are used for size expressions and `ProblemSize` extraction.
-/// The macro also measures `k` on the Decision source side.
 ///
 /// Callers must define inherent methods on `Decision<Inner>` (delegating to `self.inner()`)
-/// and a `k()` method (from `self.bound()`) **before** invoking this macro.
+/// before invoking this macro.
 #[macro_export]
 macro_rules! register_decision_variant {
     (
@@ -45,7 +44,8 @@ macro_rules! register_decision_variant {
         category: $category:expr,
         dims: [$($dim:expr),* $(,)?],
         fields: [$($field:expr),* $(,)?],
-        size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?]
+        size_getters: [$(($sg_name:literal, $sg_method:ident)),* $(,)?],
+        decode: $decoder:expr
         $(, $random:ident)?
     ) => {
         impl $crate::registry::CreateSpec
@@ -57,7 +57,7 @@ macro_rules! register_decision_variant {
             ];
         }
 
-        $crate::register_decision_variant!(@declare $inner, $complexity $(, $random)?);
+        $crate::register_decision_variant!(@declare $inner, $complexity, $decoder $(, $random)?);
 
         $crate::inventory::submit! {
             $crate::registry::ProblemSchemaEntry {
@@ -108,23 +108,6 @@ macro_rules! register_decision_variant {
                     Ok(Box::new(result))
                 }),
                 turing: false,
-                source_size_measure_fn: |any| {
-                    let source = any
-                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .expect(concat!($name, " size source type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, source.$sg_method()),)*
-                        ("k", source.k()),
-                    ])
-                },
-                target_size_measure_fn: |any| {
-                    let target = any
-                        .downcast_ref::<$inner>()
-                        .expect(concat!($name, " size target type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, target.$sg_method())),*
-                    ])
-                },
             }
         }
 
@@ -144,34 +127,24 @@ macro_rules! register_decision_variant {
                 reduce_fn: None,
                 reduce_aggregate_fn: None,
                 turing: true,
-                source_size_measure_fn: |any| {
-                    let source = any
-                        .downcast_ref::<$inner>()
-                        .expect(concat!($name, " turing size source type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, source.$sg_method())),*
-                    ])
-                },
-                target_size_measure_fn: |any| {
-                    let target = any
-                        .downcast_ref::<$crate::models::decision::Decision<$inner>>()
-                        .expect(concat!($name, " turing size target type mismatch"));
-                    $crate::types::ProblemSize::new(vec![
-                        $(($sg_name, target.$sg_method())),*
-                    ])
-                },
             }
         }
     };
 
-    (@declare $inner:ty, $complexity:literal, random) => {
+    (@declare $inner:ty, $complexity:literal, $decoder:expr, random) => {
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner> random,
         }
+        $crate::register_brute_force! {
+            $crate::models::decision::Decision<$inner> decode $decoder,
+        }
     };
-    (@declare $inner:ty, $complexity:literal) => {
+    (@declare $inner:ty, $complexity:literal, $decoder:expr) => {
         $crate::declare_variants! {
             default $crate::models::decision::Decision<$inner> => $complexity create $crate::models::decision::DecisionCreateSpec<$inner>,
+        }
+        $crate::register_brute_force! {
+            $crate::models::decision::Decision<$inner> decode $decoder,
         }
     };
     (@display_name "DecisionMinimumVertexCover") => {
@@ -272,13 +245,18 @@ where
     P::Value: OptimizationValue,
 {
     const NAME: &'static str = P::DECISION_NAME;
+    type Solution = P::Solution;
     type Value = Or;
 
-    fn dims(&self) -> Vec<usize> {
-        self.inner.dims()
+    fn size_parameter_names() -> &'static [&'static str] {
+        P::size_parameter_names()
     }
 
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn size(&self) -> crate::types::ProblemSize {
+        self.inner.size()
+    }
+
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
         Ok({
             Or(<P::Value as OptimizationValue>::meets_bound(
                 &self.inner.evaluate(config)?,
@@ -289,6 +267,16 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         P::variant()
+    }
+}
+
+impl<P> crate::solvers::BruteForceProblem for Decision<P>
+where
+    P: DecisionProblemMeta + crate::solvers::BruteForceProblem,
+    P::Value: OptimizationValue,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        self.inner.dimensions()
     }
 }
 
@@ -355,6 +343,7 @@ where
 impl<P> ReductionResult for DecisionToOptimizationWitnessResult<P>
 where
     P: DecisionProblemMeta + 'static,
+    P::Solution: Clone,
     P::Value: OptimizationValue + Serialize + DeserializeOwned,
 {
     type Source = Decision<P>;
@@ -366,17 +355,18 @@ where
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.clone())
     }
 }
 
 impl<P> ReduceTo<P> for Decision<P>
 where
     P: DecisionProblemMeta + Clone + 'static,
+    P::Solution: Clone,
     P::Value: OptimizationValue + Serialize + DeserializeOwned,
 {
     type Result = DecisionToOptimizationWitnessResult<P>;

@@ -90,10 +90,8 @@ pub struct InspectParams {
 pub struct EvaluateParams {
     #[schemars(description = "Problem JSON string (from create_problem)")]
     pub problem_json: String,
-    #[schemars(
-        description = "Configuration to evaluate as array of integers (e.g., [1, 0, 1, 0])"
-    )]
-    pub config: Vec<usize>,
+    #[schemars(description = "Solution JSON matching the selected problem model's Solution type")]
+    pub config: serde_json::Value,
 }
 
 #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
@@ -411,7 +409,7 @@ impl McpServer {
             "type": name,
             "variant": variant,
             "size_fields": size_fields,
-            "num_variables": problem.num_variables_dyn(),
+            "brute_force_num_variables": problem.brute_force_num_variables()?,
             "solvers": solver_view.solvers,
             "default_solver": solver_view.default_solver,
             "solver_capabilities": solver_view.capabilities,
@@ -420,18 +418,13 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&result)?)
     }
 
-    pub fn evaluate_inner(&self, problem_json: &str, config: &[usize]) -> anyhow::Result<String> {
+    pub fn evaluate_inner(
+        &self,
+        problem_json: &str,
+        config: &serde_json::Value,
+    ) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let problem = load_problem(&pj.problem_type, &pj.variant, pj.data)?;
-
-        let dims = problem.dims_dyn();
-        if config.len() != dims.len() {
-            anyhow::bail!(
-                "Config has {} values but problem has {} variables",
-                config.len(),
-                dims.len()
-            );
-        }
 
         let result = problem.evaluate_dyn(config)?;
         let json = serde_json::json!({
@@ -708,7 +701,7 @@ fn solve_problem_inner(
 ) -> anyhow::Result<String> {
     let problem = load_problem(problem_type, variant, data)?;
     let name = problem.problem_name();
-    let result = problem.solve_deterministically(request)?;
+    let result = problem.solve(request)?;
     let json = solve_result_json(name, &result);
     Ok(serde_json::to_string_pretty(&json)?)
 }

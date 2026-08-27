@@ -26,7 +26,7 @@ fn no_instance() -> IntegralFlowBundles {
     )
 }
 
-fn satisfying_config() -> Vec<usize> {
+fn satisfying_config() -> Vec<i64> {
     vec![1, 0, 1, 0, 0, 0]
 }
 
@@ -37,28 +37,28 @@ fn test_integral_flow_bundles_to_ilp_structure() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 6);
-    assert_eq!(ilp.constraints.len(), 6);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 6);
+    assert_eq!(ilp.constraints().len(), 6);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
     assert_eq!(
-        ilp.constraints
+        ilp.constraints()
             .iter()
-            .filter(|constraint| constraint.cmp == Comparison::Le)
+            .filter(|constraint| constraint.comparison() == Comparison::Le)
             .count(),
         3
     );
     assert_eq!(
-        ilp.constraints
+        ilp.constraints()
             .iter()
-            .filter(|constraint| constraint.cmp == Comparison::Eq)
+            .filter(|constraint| constraint.comparison() == Comparison::Eq)
             .count(),
         2
     );
     assert_eq!(
-        ilp.constraints
+        ilp.constraints()
             .iter()
-            .filter(|constraint| constraint.cmp == Comparison::Ge)
+            .filter(|constraint| constraint.comparison() == Comparison::Ge)
             .count(),
         1
     );
@@ -68,7 +68,7 @@ fn test_integral_flow_bundles_to_ilp_structure() {
 fn test_integral_flow_bundles_to_ilp_closed_loop() {
     let problem = yes_instance();
     let direct = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("source instance should be satisfiable");
     assert!(problem.evaluate(&direct).unwrap());
@@ -90,7 +90,7 @@ fn test_integral_flow_bundles_to_ilp_extract_solution_is_identity() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     assert_eq!(
         reduction.extract_solution(&satisfying_config()).unwrap(),
-        satisfying_config()
+        vec![1, 0, 1, 0, 0, 0]
     );
 }
 
@@ -110,12 +110,12 @@ fn test_integral_flow_bundles_to_ilp_sink_requirement_constraint() {
     let ilp = reduction.target_problem();
 
     let sink_constraint = ilp
-        .constraints
+        .constraints()
         .iter()
-        .find(|constraint| constraint.cmp == Comparison::Ge)
+        .find(|constraint| constraint.comparison() == Comparison::Ge)
         .expect("expected one sink inflow lower bound");
-    assert_eq!(sink_constraint.rhs, 1.0);
-    assert_eq!(sink_constraint.terms, vec![(2, 1.0), (3, 1.0)]);
+    assert_eq!(sink_constraint.rhs(), 1);
+    assert_eq!(sink_constraint.terms(), vec![(2, 1), (3, 1)]);
 }
 
 #[test]

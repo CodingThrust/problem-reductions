@@ -30,8 +30,8 @@ impl ReductionResult for ReductionKColoringToClustering {
     /// dummy target element because Clustering forbids empty instances.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution[..self.source_num_vertices].to_vec())
@@ -78,8 +78,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, Clustering>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 0, 1, 2],
-                    target_config: vec![0, 1, 0, 1, 2],
+                    source_config: serde_json::json!(vec![0, 1, 0, 1, 2]),
+                    target_config: serde_json::json!(vec![0, 1, 0, 1, 2]),
                 },
             )
         },

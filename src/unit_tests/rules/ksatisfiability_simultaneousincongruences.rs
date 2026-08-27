@@ -22,7 +22,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target should be satisfiable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();
@@ -63,10 +63,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_unsatisfiable() {
         .expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert_eq!(
-        solver.find_witness(reduction.target_problem()).unwrap(),
-        None
-    );
+    assert_eq!(solver.solve(reduction.target_problem()).unwrap(), None);
 }
 
 #[test]
@@ -82,7 +79,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_tautological_clause_is_red
         .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_solution = solver
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .expect("target should remain satisfiable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();

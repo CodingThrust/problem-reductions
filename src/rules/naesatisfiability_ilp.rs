@@ -28,11 +28,11 @@ impl ReductionResult for ReductionNAESATToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -51,34 +51,34 @@ impl ReduceTo<ILP<bool>> for NAESatisfiability {
 
         for clause in self.clauses() {
             let clause_size = clause.len();
-            let mut terms: Vec<(usize, f64)> = Vec::with_capacity(clause_size);
-            let mut neg_count: f64 = 0.0;
+            let mut terms: Vec<(usize, i64)> = Vec::with_capacity(clause_size);
+            let clause_size =
+                <Self as ReduceTo<ILP<bool>>>::exact_i64(clause_size, "encoding a clause size")?;
+            let mut neg_count: i64 = 0;
 
             for &lit in &clause.literals {
                 // Variables are 1-indexed in CNFClause literals.
                 let var_idx = lit.unsigned_abs() as usize - 1;
                 if lit > 0 {
                     // Positive literal x_i: coefficient +1
-                    terms.push((var_idx, 1.0));
+                    terms.push((var_idx, 1));
                 } else {
                     // Negative literal ¬x_i: substitute (1 - x_i), so coefficient -1
                     // and adjust rhs by -1 (accumulated in neg_count).
-                    terms.push((var_idx, -1.0));
-                    neg_count += 1.0;
+                    terms.push((var_idx, -1));
+                    neg_count += 1;
                 }
             }
 
             // At least one literal is true: Σ coeff_i * x_i ≥ 1 - neg_count
-            constraints.push(LinearConstraint::ge(terms.clone(), 1.0 - neg_count));
+            constraints.push(LinearConstraint::ge(terms.clone(), 1 - neg_count));
 
             // At least one literal is false: Σ coeff_i * x_i ≤ |C| - 1 - neg_count
-            constraints.push(LinearConstraint::le(
-                terms,
-                clause_size as f64 - 1.0 - neg_count,
-            ));
+            constraints.push(LinearConstraint::le(terms, clause_size - 1 - neg_count));
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionNAESATToILP { target })
     }
 }

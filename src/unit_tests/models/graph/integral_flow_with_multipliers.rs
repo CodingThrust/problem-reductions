@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_zero_internal_multiplier() {
     assert!(
@@ -14,7 +15,6 @@ fn create_spec_rejects_zero_internal_multiplier() {
         .is_err()
     );
 }
-use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
@@ -68,7 +68,10 @@ fn test_integral_flow_with_multipliers_creation_accessors_and_dimensions() {
     assert_eq!(problem.max_capacity(), 6);
     assert_eq!(problem.multipliers(), &[1, 2, 3, 4, 5, 6, 4, 1]);
     assert_eq!(problem.capacities(), &[1, 1, 1, 1, 1, 1, 2, 3, 4, 5, 6, 4]);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2, 3, 4, 5, 6, 7, 5]);
+    assert_eq!(
+        problem.dimensions(),
+        vec![2, 2, 2, 2, 2, 2, 3, 4, 5, 6, 7, 5]
+    );
 }
 
 #[test]
@@ -79,7 +82,7 @@ fn test_integral_flow_with_multipliers_evaluate_yes_instance() {
 #[test]
 fn test_integral_flow_with_multipliers_evaluate_no_instance() {
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&no_instance()).unwrap().is_none());
+    assert!(solver.solve(&no_instance()).unwrap().is_none());
 }
 
 #[test]
@@ -97,9 +100,18 @@ fn test_integral_flow_with_multipliers_sink_requirement_is_at_least() {
 #[test]
 fn test_integral_flow_with_multipliers_rejects_wrong_config_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0; 11]).unwrap());
-    assert!(!problem.evaluate(&[0; 13]).unwrap());
-    assert!(!problem.evaluate(&[]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0; 11]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 13]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -118,7 +130,7 @@ fn test_integral_flow_with_multipliers_serialization_round_trip() {
 fn test_integral_flow_with_multipliers_solver_yes_instance() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     assert!(problem.evaluate(&solution).unwrap());
 }
 
@@ -128,8 +140,9 @@ fn test_integral_flow_with_multipliers_problem_name_and_size_fields() {
         <IntegralFlowWithMultipliers as Problem>::NAME,
         "IntegralFlowWithMultipliers"
     );
-    let fields: HashSet<&'static str> = declared_size_fields("IntegralFlowWithMultipliers")
-        .into_iter()
+    let fields: HashSet<&'static str> = IntegralFlowWithMultipliers::size_parameter_names()
+        .iter()
+        .copied()
         .collect();
     assert_eq!(
         fields,
@@ -144,7 +157,7 @@ fn test_integral_flow_with_multipliers_canonical_example_spec() {
     assert_eq!(specs.len(), 1);
     let spec = &specs[0];
     assert_eq!(spec.id, "integral_flow_with_multipliers");
-    assert_eq!(spec.optimal_config, yes_config());
+    assert_eq!(spec.optimal_config, serde_json::json!(yes_config()));
     assert_eq!(spec.optimal_value, serde_json::json!(true));
 }
 

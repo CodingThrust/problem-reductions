@@ -36,11 +36,11 @@ impl ReductionResult for ReductionSCToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -61,15 +61,15 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
         let constraints: Vec<LinearConstraint> = (0..self.universe_size())
             .map(|element| {
                 // Find all sets containing this element
-                let terms: Vec<(usize, f64)> = self
+                let terms: Vec<(usize, i64)> = self
                     .sets()
                     .iter()
                     .enumerate()
                     .filter(|(_, set)| set.contains(&element))
-                    .map(|(j, _)| (j, 1.0))
+                    .map(|(j, _)| (j, 1))
                     .collect();
 
-                LinearConstraint::ge(terms, 1.0)
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
 
@@ -87,7 +87,8 @@ impl ReduceTo<ILP<bool>> for MinimumSetCovering<i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionSCToILP { target })
     }

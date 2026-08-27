@@ -33,8 +33,8 @@ impl ReductionResult for ReductionVCToFAS {
     /// If internal arc i is in the FAS (config[i] = 1), vertex i is in the cover.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution[..self.num_source_vertices].to_vec())
@@ -119,7 +119,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target = reduction.target_problem();
 
             let target_witness = BruteForce::new()
-                .find_witness(target)
+                .solve(target)
                 .expect("target evaluation should succeed")
                 .expect("target should have an optimum");
             let source_witness = reduction.extract_solution(&target_witness).unwrap();
@@ -127,8 +127,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumFeedbackArcSet<i64>>(
                 source,
                 SolutionPair {
-                    source_config: source_witness,
-                    target_config: target_witness,
+                    source_config: serde_json::json!(source_witness),
+                    target_config: serde_json::json!(target_witness),
                 },
             )
         },

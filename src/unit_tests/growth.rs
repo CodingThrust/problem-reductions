@@ -689,7 +689,7 @@ fn gen_var(rng: &mut SplitMix64) -> Expr {
 }
 
 /// All variables set jointly to `s` (the contracts evaluate on the diagonal).
-fn joint_size(s: usize) -> ProblemSize {
+fn joint_size(s: u64) -> ProblemSize {
     ProblemSize::new(vec![("n", s), ("m", s), ("k", s)])
 }
 
@@ -836,8 +836,8 @@ struct UbResult {
 /// exact same code must accept the sound transfer and reject the broken one.
 fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> UbResult {
     // Anchor 2^6; check at 2^8, 2^10, 2^12 — all *larger* than the anchor.
-    let anchor = 64.0_f64;
-    let large = [256.0_f64, 1024.0, 4096.0];
+    let anchor = 64_u64;
+    let large = [256_u64, 1024, 4096];
     let slack = 16.0_f64;
 
     let mut rng = SplitMix64::new(seed);
@@ -855,7 +855,7 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
         };
 
         // Calibrate C from the observed ratio at the (smaller) anchor.
-        let sz0 = joint_size(anchor as usize);
+        let sz0 = joint_size(anchor);
         let (Ok(ve0), Ok(vg0)) = (
             evaluate_approximate(&e, &sz0),
             evaluate_approximate(&gexpr, &sz0),
@@ -875,7 +875,7 @@ fn run_upper_bound(transfer: fn(&Expr) -> Growth, seed: u64, iters: usize) -> Ub
 
         let mut conclusive = false;
         for &s in &large {
-            let sz = joint_size(s as usize);
+            let sz = joint_size(s);
             let (Ok(ve), Ok(vg)) = (
                 evaluate_approximate(&e, &sz),
                 evaluate_approximate(&gexpr, &sz),

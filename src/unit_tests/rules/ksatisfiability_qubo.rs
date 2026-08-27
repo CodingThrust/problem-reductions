@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::variant::{K2, K3};
 
@@ -132,8 +133,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol).unwrap();
         assert_eq!(extracted.len(), 5);
-        let assignment: Vec<bool> = extracted.iter().map(|&v| v == 1).collect();
-        let satisfied = ksat.count_satisfied(&assignment).unwrap();
+        let satisfied = ksat.count_satisfied(&extracted).unwrap();
         assert_eq!(satisfied, 7, "Expected all 7 clauses satisfied");
     }
 }

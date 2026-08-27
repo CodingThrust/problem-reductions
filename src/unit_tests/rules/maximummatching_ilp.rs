@@ -14,18 +14,18 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // Check ILP structure
-    assert_eq!(ilp.num_vars, 3, "Should have one variable per edge");
+    assert_eq!(ilp.num_vars(), 3, "Should have one variable per edge");
     // Each vertex has degree 2, so 3 constraints (one per vertex)
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         3,
         "Should have one constraint per vertex"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize, "Should maximize");
 
     // Each constraint should be sum of incident edge vars <= 1
-    for constraint in &ilp.constraints {
-        assert!((constraint.rhs - 1.0).abs() < 1e-9);
+    for constraint in ilp.constraints() {
+        assert_eq!(constraint.rhs(), 1);
     }
 }
 
@@ -38,7 +38,7 @@ fn test_reduction_weighted() {
 
     // Check that weights are correctly transferred to objective
     let mut coeffs: Vec<f64> = vec![0.0; 2];
-    for &(var, coef) in &ilp.objective {
+    for &(var, coef) in ilp.objective() {
         coeffs[var] = coef;
     }
     assert!((coeffs[0] - 5.0).abs() < 1e-9);
@@ -130,7 +130,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     assert_eq!(ilp_obj, Max(Some(100)));
 
     // Verify the solution selects edge 0 (0-1)
-    assert_eq!(extracted, vec![1, 0]);
+    assert_eq!(extracted, vec![true, false]);
 }
 
 #[test]
@@ -143,7 +143,7 @@ fn test_solution_extraction() {
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
 
     // Verify this is a valid matching (edges 0-1 and 2-3 are disjoint)
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
@@ -159,10 +159,10 @@ fn test_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 4);
+    assert_eq!(ilp.num_vars(), 4);
     // Constraints: one per vertex with degree >= 1
     // Vertices 0,1,2,3,4 have degrees 1,2,2,2,1 respectively
-    assert_eq!(ilp.constraints.len(), 5);
+    assert_eq!(ilp.constraints().len(), 5);
 }
 
 #[test]
@@ -173,11 +173,11 @@ fn test_empty_graph() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 0);
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
 
-    assert!(problem.evaluate(&[]).unwrap().is_valid());
-    assert_eq!(problem.evaluate(&[]).unwrap(), Max(Some(0)));
+    assert!(problem.evaluate(&vec![]).unwrap().is_valid());
+    assert_eq!(problem.evaluate(&vec![]).unwrap(), Max(Some(0)));
 }
 
 #[test]
@@ -192,8 +192,8 @@ fn test_k4_perfect_matching() {
     let ilp = reduction.target_problem();
 
     // 6 edges, 4 vertices with constraints
-    assert_eq!(ilp.num_vars, 6);
-    assert_eq!(ilp.constraints.len(), 4);
+    assert_eq!(ilp.num_vars(), 6);
+    assert_eq!(ilp.constraints().len(), 4);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -203,7 +203,7 @@ fn test_k4_perfect_matching() {
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(2))); // Perfect matching has 2 edges
 
     // Verify all vertices are matched
-    let sum: usize = extracted.iter().sum();
+    let sum: usize = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(sum, 2);
 }
 

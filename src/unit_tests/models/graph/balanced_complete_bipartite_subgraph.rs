@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_builds_bipartite_graph_and_rejects_invalid_edges() {
@@ -66,8 +67,8 @@ fn issue_instance_2_graph() -> BipartiteGraph {
     )
 }
 
-fn issue_instance_2_witness() -> Vec<usize> {
-    vec![1, 1, 1, 0, 1, 1, 1, 0]
+fn issue_instance_2_witness() -> Vec<bool> {
+    vec![true, true, true, false, true, true, true, false]
 }
 
 #[test]
@@ -79,28 +80,34 @@ fn test_balanced_complete_bipartite_subgraph_creation() {
     assert_eq!(problem.num_vertices(), 8);
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.k(), 2);
-    assert_eq!(problem.dims(), vec![2; 8]);
+    assert_eq!(problem.dimensions(), vec![2; 8]);
 }
 
 #[test]
 fn test_balanced_complete_bipartite_subgraph_evaluation_yes_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
-    assert!(problem.evaluate(&[1, 1, 0, 0, 1, 1, 0, 0]).unwrap());
+    assert!(problem
+        .evaluate(&vec![true, true, false, false, true, true, false, false])
+        .unwrap());
 }
 
 #[test]
 fn test_balanced_complete_bipartite_subgraph_evaluation_no_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 3);
 
-    assert!(!problem.evaluate(&[1, 1, 1, 0, 1, 1, 1, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, true, true, false, true, true, true, false])
+        .unwrap());
 }
 
 #[test]
 fn test_balanced_complete_bipartite_subgraph_invalid_pairing() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 1, 0, 1, 0]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![true, true, false, false, true, false, true, false])
+        .unwrap());
 }
 
 #[test]
@@ -116,8 +123,15 @@ fn test_balanced_complete_bipartite_subgraph_edge_lookup() {
 fn test_balanced_complete_bipartite_subgraph_rejects_invalid_configs() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 2);
 
-    assert!(!problem.evaluate(&[1, 1, 0, 0, 1, 1, 0]).unwrap());
-    assert!(!problem.evaluate(&[1, 2, 0, 0, 1, 1, 0, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false, false, true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([true, 2, false, false, true, true, false, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -125,7 +139,7 @@ fn test_balanced_complete_bipartite_subgraph_solver_yes_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_2_graph(), 3);
     let solver = BruteForce::new();
 
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 
@@ -138,7 +152,7 @@ fn test_balanced_complete_bipartite_subgraph_solver_no_instance() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_1_graph(), 3);
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -164,11 +178,14 @@ fn test_balanced_complete_bipartite_subgraph_serialization() {
 fn test_balanced_complete_bipartite_subgraph_is_valid_solution() {
     let problem = BalancedCompleteBipartiteSubgraph::new(issue_instance_2_graph(), 3);
     let yes_config = issue_instance_2_witness();
-    let no_config = vec![1, 1, 0, 1, 1, 1, 0, 0];
+    let no_config = vec![true, true, false, true, true, true, false, false];
 
     assert!(problem.is_valid_solution(&yes_config).unwrap());
     assert!(!problem.is_valid_solution(&no_config).unwrap());
-    assert!(!problem.is_valid_solution(&[1, 1, 1]).unwrap());
+    assert!(matches!(
+        problem.is_valid_solution(&[true, true, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]

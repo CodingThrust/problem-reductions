@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 
@@ -11,7 +12,7 @@ fn test_isomorphicspanningtree_basic() {
     let problem: IsomorphicSpanningTree<SimpleGraph> =
         IsomorphicSpanningTree::new(graph.clone(), tree.clone());
 
-    assert_eq!(problem.dims(), vec![3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 3]);
     assert_eq!(problem.graph(), &graph);
     assert_eq!(problem.tree(), &tree);
     assert_eq!(problem.num_vertices(), 3);
@@ -33,11 +34,11 @@ fn test_isomorphicspanningtree_evaluation_yes() {
 
     // Identity mapping: π = [0, 1, 2]
     // Tree edges: (0,1) -> (0,1) ✓, (1,2) -> (1,2) ✓
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
 
     // Reversed: π = [2, 1, 0]
     // Tree edges: (0,1) -> (2,1) ✓, (1,2) -> (1,0) ✓
-    assert!(problem.evaluate(&[2, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![2, 1, 0]).unwrap());
 }
 
 #[test]
@@ -56,9 +57,9 @@ fn test_isomorphicspanningtree_evaluation_no() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // No permutation should work
-    assert!(!problem.evaluate(&[0, 1, 2, 3]).unwrap());
-    assert!(!problem.evaluate(&[1, 0, 2, 3]).unwrap());
-    assert!(!problem.evaluate(&[2, 1, 0, 3]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 0, 2, 3]).unwrap());
+    assert!(!problem.evaluate(&vec![2, 1, 0, 3]).unwrap());
 }
 
 #[test]
@@ -68,11 +69,17 @@ fn test_isomorphicspanningtree_invalid_configs() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // Not a permutation: repeated value
-    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1]).unwrap());
     // Out of range
-    assert!(!problem.evaluate(&[0, 1, 3]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Wrong length
-    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -83,7 +90,7 @@ fn test_isomorphicspanningtree_solver_yes() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
-    let sol = solver.find_witness(&problem).unwrap();
+    let sol = solver.solve(&problem).unwrap();
     assert!(sol.is_some());
     assert!(problem.evaluate(&sol.unwrap()).unwrap());
 
@@ -103,7 +110,7 @@ fn test_isomorphicspanningtree_solver_no() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let solver = BruteForce::new();
-    let sol = solver.find_witness(&problem).unwrap();
+    let sol = solver.solve(&problem).unwrap();
     assert!(sol.is_none());
 
     let all = solver.find_all_witnesses(&problem).unwrap();
@@ -123,7 +130,7 @@ fn test_isomorphicspanningtree_serialization() {
     assert_eq!(deserialized.num_edges(), 3);
     assert_eq!(deserialized.tree_edges(), vec![(0, 1), (1, 2)]);
     // Verify same evaluation
-    assert!(deserialized.evaluate(&[0, 1, 2]).unwrap());
+    assert!(deserialized.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -153,7 +160,7 @@ fn test_isomorphicspanningtree_caterpillar_example() {
 
     // The issue gives solution: a→0, b→1, c→2, d→3, e→6, f→4, g→5
     // As config: π = [0, 1, 2, 3, 6, 4, 5]
-    assert!(problem.evaluate(&[0, 1, 2, 3, 6, 4, 5]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2, 3, 6, 4, 5]).unwrap());
 }
 
 #[test]
@@ -166,7 +173,7 @@ fn test_isomorphicspanningtree_paper_example() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     // Identity mapping: π = [0, 1, 2, 3]
-    assert!(problem.evaluate(&[0, 1, 2, 3]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap());
 
     // All 4! = 24 permutations should work since K4 has every edge
     let solver = BruteForce::new();

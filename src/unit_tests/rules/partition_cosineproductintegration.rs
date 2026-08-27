@@ -17,8 +17,8 @@ fn assert_satisfiability_matches(
     expected: bool,
 ) {
     let solver = BruteForce::new();
-    assert_eq!(solver.find_witness(source).unwrap().is_some(), expected);
-    assert_eq!(solver.find_witness(target).unwrap().is_some(), expected);
+    assert_eq!(solver.solve(source).unwrap().is_some(), expected);
+    assert_eq!(solver.solve(target).unwrap().is_some(), expected);
 }
 
 #[test]

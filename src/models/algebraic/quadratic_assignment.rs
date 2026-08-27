@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::QuadraticAssignment;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let cost_matrix = vec![
 ///     vec![0, 1, 2],
@@ -54,7 +54,7 @@ inventory::submit! {
 /// let problem = QuadraticAssignment::new(cost_matrix, distance_matrix);
 ///
 /// let solver = BruteForce::new();
-/// let best = solver.find_witness(&problem).unwrap();
+/// let best = solver.solve(&problem).unwrap();
 /// assert!(best.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -116,27 +116,33 @@ impl QuadraticAssignment {
 
 impl Problem for QuadraticAssignment {
     const NAME: &'static str = "QuadraticAssignment";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_locations(); self.num_facilities()]
-    }
+    crate::problem_size![
+        ("num_facilities", num_facilities),
+        ("num_locations", num_locations),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let n = self.num_facilities();
             let m = self.num_locations();
 
             // Check config length matches number of facilities
             if config.len() != n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment length does not match the number of facilities".into(),
+                ));
             }
 
-            // Check that all assignments are valid locations
-            for &loc in config {
-                if loc >= m {
-                    return Ok(Min(None));
-                }
+            if config.iter().any(|&location| location >= m) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment contains an out-of-range location".into(),
+                ));
             }
 
             // Check injectivity: no two facilities assigned to the same location
@@ -179,8 +185,18 @@ impl Problem for QuadraticAssignment {
     }
 }
 
+impl crate::solvers::BruteForceProblem for QuadraticAssignment {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_locations(); self.num_facilities()]
+    }
+}
+
 crate::declare_variants! {
     default QuadraticAssignment => "factorial(num_facilities)",
+}
+
+crate::register_brute_force! {
+    QuadraticAssignment,
 }
 
 #[cfg(feature = "example-db")]
@@ -201,7 +217,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![1, 4, 4, 0],
             ],
         )),
-        optimal_config: vec![3, 0, 1, 2],
+        optimal_config: serde_json::json!(vec![3, 0, 1, 2]),
         optimal_value: serde_json::json!(56),
     }]
 }

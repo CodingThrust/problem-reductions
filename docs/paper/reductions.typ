@@ -140,6 +140,21 @@
   }
 }
 
+#let cli-config(solution) = "'" + json.encode(solution) + "'"
+#let bool-bit(value) = if value { 1 } else { 0 }
+#let display-value(value) = {
+  if value == none {
+    "none"
+  } else if type(value) == bool {
+    str(bool-bit(value))
+  } else if type(value) == array {
+    "[" + value.map(display-value).join(", ") + "]"
+  } else {
+    str(value)
+  }
+}
+#let fmt-values(values) = values.map(display-value).join(", ")
+
 #let graph-instance(instance) = {
   if "graph" in instance {
     instance
@@ -766,7 +781,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = graph-num-edges(x.instance)
   // Pick optimal config = {v1, v3, v5, v9} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let alpha = metric-value(sol.metric)
   [
     #problem-def("MaximumIndependentSet")[
@@ -779,7 +794,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MIS -o mis.json",
       "pred solve mis.json",
-      "pred evaluate mis.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate mis.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -800,7 +815,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let weights = x.instance.weights
   let k = x.instance.bound_k
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
   [
     #problem-def("MaximumCoKPlex")[
@@ -813,7 +828,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o co-k-plex.json",
       "pred solve co-k-plex.json",
-      "pred evaluate co-k-plex.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate co-k-plex.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -884,7 +899,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaximumCommonEdgeSubgraph -o mces.json",
       "pred solve mces.json --solver brute-force",
-      "pred evaluate mces.json --config " + f.map(str).join(","),
+      "pred evaluate mces.json --config " + cli-config(f),
     )
 
     #figure({
@@ -987,7 +1002,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaximumContactMapOverlap -o cmo.json",
       "pred solve cmo.json --solver brute-force",
-      "pred evaluate cmo.json --config " + config.map(str).join(","),
+      "pred evaluate cmo.json --config " + cli-config(config),
     )
 
     #figure({
@@ -1058,7 +1073,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edge-weights = x.instance.edge_weights
   let k = x.instance.k
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
   let edge-strs = edges.zip(edge-weights).map(((e, w)) => [$w_(#e.at(0)#e.at(1)) = #w$]).join(", ")
   [
@@ -1074,7 +1089,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o k-clique.json",
       "pred solve k-clique.json",
-      "pred evaluate k-clique.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate k-clique.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -1099,9 +1114,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let nv = 4
   let edges = ((0, 1), (0, 2), (1, 2), (2, 3))
   let ne = edges.len()
-  let config = (0, 0, 0, 1)
-  let deleted = edges.zip(config).filter(((e, b)) => b == 1).map(((e, _)) => e)
-  let surviving = edges.zip(config).filter(((e, b)) => b == 0).map(((e, _)) => e)
+  let config = (false, false, false, true)
+  let deleted = edges.zip(config).filter(((e, deleted)) => deleted).map(((e, _)) => e)
+  let surviving = edges.zip(config).filter(((e, deleted)) => not deleted).map(((e, _)) => e)
   let cluster = (0, 1, 2)
   let opt-val = deleted.len()
   [
@@ -1117,7 +1132,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example HighlyConnectedDeletion -o hcd.json",
       "pred solve hcd.json",
-      "pred evaluate hcd.json --config " + config.map(str).join(","),
+      "pred evaluate hcd.json --config " + cli-config(config),
     )
 
     #figure({
@@ -1153,7 +1168,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example EulerianPath -o eulerian.json",
         "pred solve eulerian.json",
-        "pred evaluate eulerian.json --config " + pi.map(str).join(","),
+        "pred evaluate eulerian.json --config " + cli-config(pi),
       )
 
       #figure(
@@ -1230,10 +1245,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let beta = x.instance.beta
   let omega = x.instance.omega
   let config = x.optimal_config
-  // Configuration layout: first nv bits are vertex selectors x_v, next ne bits are y_e.
-  let selected-verts = range(nv).filter(v => config.at(v) == 1)
-  let omitted-verts = range(nv).filter(v => config.at(v) == 0)
-  let selected-edge-indices = range(ne).filter(i => config.at(nv + i) == 1)
+  let vertex-config = config.at(0)
+  let edge-config = config.at(1)
+  let selected-verts = range(nv).filter(v => vertex-config.at(v))
+  let omitted-verts = range(nv).filter(v => not vertex-config.at(v))
+  let selected-edge-indices = range(ne).filter(i => edge-config.at(i))
   let selected-edges = selected-edge-indices.map(i => edges.at(i))
   let omitted-prize-sum = omitted-verts.map(v => vertex-prizes.at(v)).fold(0, (a, b) => a + b)
   let edge-cost-sum = selected-edge-indices.map(i => edge-costs.at(i)).fold(0, (a, b) => a + b)
@@ -1252,7 +1268,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example PrizeCollectingSteinerForest -o pcsf.json",
       "pred solve pcsf.json --solver brute-force",
-      "pred evaluate pcsf.json --config " + config.map(str).join(","),
+      "pred evaluate pcsf.json --config " + cli-config(config),
     )
 
     #figure({
@@ -1294,9 +1310,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // Pick optimal config = {v0, v3, v4} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let cover = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
-  let complement = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let complement = sol.config.enumerate().filter(((i, v)) => not v).map(((i, _)) => i)
   let alpha = complement.len()
   [
     #problem-def("MinimumVertexCover")[
@@ -1312,7 +1328,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MVC -o mvc.json",
       "pred solve mvc.json",
-      "pred evaluate mvc.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -1332,7 +1348,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = graph-num-edges(x.instance)
   let k = x.instance.bound
   let sol = x.optimal_config
-  let cover = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let cover = sol.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("DecisionMinimumVertexCover")[
       Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> RR_(gt.eq 0)$ and an integer bound $k$, determine whether there exists a vertex cover $S subset.eq V$ with $sum_(v in S) w(v) <= k$ such that every edge has at least one endpoint in $S$.
@@ -1344,7 +1360,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example DecisionMinimumVertexCover -o vc.json",
       "pred solve vc.json",
-      "pred evaluate vc.json --config " + sol.map(str).join(","),
+      "pred evaluate vc.json --config " + cli-config(sol),
     )
 
     #figure({
@@ -1365,8 +1381,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // Pick optimal config = S={v0, v3} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let side-sbar = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let side-s = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
+  let side-sbar = sol.config.enumerate().filter(((i, v)) => not v).map(((i, _)) => i)
   let cut-val = metric-value(sol.metric)
   let cut-edges = edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
   let uncut-edges = edges.filter(e => side-s.contains(e.at(0)) == side-s.contains(e.at(1)))
@@ -1381,7 +1397,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaxCut -o maxcut.json",
       "pred solve maxcut.json",
-      "pred evaluate maxcut.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate maxcut.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(canvas(length: 1cm, {
@@ -1416,8 +1432,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let nv = graph-num-vertices(x.instance)
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
-  let side-a = x.optimal_config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
-  let side-b = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let side-a = x.optimal_config.enumerate().filter(((i, v)) => not v).map(((i, _)) => i)
+  let side-b = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let cut-edges = edges.filter(e => x.optimal_config.at(e.at(0)) != x.optimal_config.at(e.at(1)))
   let cut-val = metric-value(x.optimal_value)
   [
@@ -1433,7 +1449,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example GraphPartitioning -o gp.json",
       "pred solve gp.json",
-      "pred evaluate gp.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate gp.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -1457,8 +1473,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let snk = x.instance.sink
   let B = x.instance.size_bound
   let config = x.optimal_config
-  let V1 = range(nv).filter(i => config.at(i) == 0)
-  let V2 = range(nv).filter(i => config.at(i) == 1)
+  let V1 = range(nv).filter(i => not config.at(i))
+  let V2 = range(nv).filter(i => config.at(i))
   let cut-idx = edges.enumerate().filter(((i, e)) => config.at(e.at(0)) != config.at(e.at(1))).map(((i, _)) => i)
   let cut-weight = metric-value(x.optimal_value)
   [
@@ -1475,7 +1491,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumCutIntoBoundedSets -o mcibs.json",
         "pred solve mcibs.json",
-        "pred evaluate mcibs.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mcibs.json --config " + cli-config(x.optimal_config),
       )
 
       // Layout matches the checked-in canonical instance (8 vertices, 12 edges); see
@@ -1512,7 +1528,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           content((mx, my), text(6.5pt, fill: rgb("#333333"))[#str(int(ew.at(i)))])
         }
         for (k, pos) in vpos.enumerate() {
-          let in-v1 = config.at(k) == 0
+          let in-v1 = not config.at(k)
           g-node(pos, name: "v" + str(k),
             fill: if in-v1 { graph-colors.at(0) } else { graph-colors.at(1) },
             label: text(fill: white)[$v_#k$])
@@ -1530,7 +1546,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let candidates = x.instance.potential_weights.map(c => (u: c.at(0), v: c.at(1), w: c.at(2)))
   let budget = x.instance.budget
   let config = x.optimal_config
-  let sel-idx = range(candidates.len()).filter(i => config.at(i) == 1)
+  let sel-idx = range(candidates.len()).filter(i => config.at(i))
   let sel-weight = sel-idx.map(i => candidates.at(i).w).sum(default: 0)
   [
     #problem-def("BiconnectivityAugmentation")[
@@ -1543,7 +1559,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example BiconnectivityAugmentation -o biaug.json",
         "pred solve biaug.json",
-        "pred evaluate biaug.json --config " + config.map(str).join(","),
+        "pred evaluate biaug.json --config " + cli-config(config),
       )
 
       #figure(
@@ -1603,7 +1619,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example HC -o hc.json",
         "pred solve hc.json",
-        "pred evaluate hc.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate hc.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -1645,7 +1661,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = edges.len()
   let edge-lengths = x.instance.edge_lengths
   let config = x.optimal_config
-  let selected = range(ne).filter(i => config.at(i) == 1)
+  let selected = range(ne).filter(i => config.at(i))
   let total-length = selected.map(i => edge-lengths.at(i)).sum()
   let cycle-order = (0, 1, 4, 5, 2, 3)
   [
@@ -1661,7 +1677,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o longest-circuit.json",
         "pred solve longest-circuit.json",
-        "pred evaluate longest-circuit.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate longest-circuit.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -1678,7 +1694,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           })
 
           for (ei, (u, v)) in edges.enumerate() {
-            let is-selected = config.at(ei) == 1
+            let is-selected = config.at(ei)
             let col = if is-selected { colors.selected } else { colors.unused }
             let thickness = if is-selected { 1.3pt } else { 0.5pt }
             let dash = if is-selected { "solid" } else { "dashed" }
@@ -1735,12 +1751,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Bounded Component Spanning Forest appears as ND10 in Garey and Johnson @garey1979. It asks for a decomposition into a bounded number of connected pieces, each with bounded total weight, so it naturally captures contiguous districting and redistricting-style constraints where each district must remain connected while respecting a population cap. A direct exhaustive search over component labels gives an $O^*(K^n)$ baseline, but subset-DP techniques via inclusion-exclusion improve the exact running time to $O^*(3^n)$ @bjorklund2009.
 
-      *Example.* Consider the graph on $n = #nv$ vertices ${v_0, dots, v_#(nv - 1)}$ with $|E| = #{edges-j.len()}$ edges, vertex weights $(#weights.map(str).join(", "))$, component limit $K = #K$, and bound $B = #B$. The partition #range(num-parts).map(p => $V_#(p + 1) = {#parts.at(p).map(i => $v_#i$).join(", ")}$).join(", ") is feasible: each set induces a connected subgraph, and the component weights #range(num-parts).map(p => $#{parts.at(p).map(i => str(weights.at(i))).join(" + ")} = #part-weights.at(p)$).join(", ") all respect $B = #B$. Therefore this instance is a YES instance.
+      *Example.* Consider the graph on $n = #nv$ vertices ${v_0, dots, v_#(nv - 1)}$ with $|E| = #{edges-j.len()}$ edges, vertex weights $(#fmt-values(weights))$, component limit $K = #K$, and bound $B = #B$. The partition #range(num-parts).map(p => $V_#(p + 1) = {#parts.at(p).map(i => $v_#i$).join(", ")}$).join(", ") is feasible: each set induces a connected subgraph, and the component weights #range(num-parts).map(p => $#{parts.at(p).map(i => str(weights.at(i))).join(" + ")} = #part-weights.at(p)$).join(", ") all respect $B = #B$. Therefore this instance is a YES instance.
 
       #pred-commands(
         "pred create --example BoundedComponentSpanningForest -o bcsf.json",
         "pred solve bcsf.json",
-        "pred evaluate bcsf.json --config " + partition.map(str).join(","),
+        "pred evaluate bcsf.json --config " + cli-config(partition),
       )
 
       #figure(
@@ -1771,7 +1787,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
             content(lpos, text(7pt)[$w = #(weights.at(k))$])
           }
         }),
-        caption: [Bounded Component Spanning Forest on #nv vertices with $K = #K$ and $B = #B$. The partition #range(num-parts).map(p => $V_#(p+1) = {#parts.at(p).map(i => $v_#i$).join(", ")}$).join(", ") (weights #part-weights.map(str).join(", ")) is feasible. Bold colored edges are intra-component; gray edges cross components.],
+        caption: [Bounded Component Spanning Forest on #nv vertices with $K = #K$ and $B = #B$. The partition #range(num-parts).map(p => $V_#(p+1) = {#parts.at(p).map(i => $v_#i$).join(", ")}$).join(", ") (weights #fmt-values(part-weights)) is feasible. Bold colored edges are intra-component; gray edges cross components.],
       ) <fig:bcsf>
     ]
   ]
@@ -1796,7 +1812,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example LengthBoundedDisjointPaths -o length-bounded-disjoint-paths.json",
         "pred solve length-bounded-disjoint-paths.json",
-        "pred evaluate length-bounded-disjoint-paths.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate length-bounded-disjoint-paths.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -1873,7 +1889,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example DisjointConnectingPaths -o disjoint-connecting-paths.json",
         "pred solve disjoint-connecting-paths.json",
-        "pred evaluate disjoint-connecting-paths.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate disjoint-connecting-paths.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -1943,7 +1959,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example GeneralizedHex -o generalized-hex.json",
         "pred solve generalized-hex.json",
-        "pred evaluate generalized-hex.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate generalized-hex.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2013,7 +2029,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example HamiltonianPath -o hamiltonian-path.json",
         "pred solve hamiltonian-path.json",
-        "pred evaluate hamiltonian-path.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate hamiltonian-path.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2062,7 +2078,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example HamiltonianPathBetweenTwoVertices -o hpbtv.json",
         "pred solve hpbtv.json",
-        "pred evaluate hpbtv.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate hpbtv.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2117,7 +2133,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example DirectedHamiltonianPath -o dhp.json",
         "pred solve dhp.json",
-        "pred evaluate dhp.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate dhp.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2165,7 +2181,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("Kernel")
   let nv = x.instance.graph.num_vertices
   let arcs = x.instance.graph.arcs
-  let in-kernel(k) = x.optimal_config.at(k) == 1
+  let in-kernel(k) = x.optimal_config.at(k)
   [
     #problem-def("Kernel")[
       Given a directed graph $G = (V, A)$, find a _kernel_ $V' subset.eq V$ such that (1) $V'$ is _independent_ — no arc joins any two vertices in $V'$ — and (2) $V'$ is _absorbing_ — every vertex $u in.not V'$ has an arc $(u, v) in A$ for some $v in V'$.
@@ -2179,7 +2195,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example Kernel -o kernel.json",
         "pred solve kernel.json",
-        "pred evaluate kernel.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate kernel.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2256,7 +2272,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let t = x.instance.target_vertex
   let path-config = x.optimal_config
   let path-order = (0, 1, 3, 2, 4, 5, 6)
-  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx)).map(((idx, e)) => e)
   [
     #problem-def("LongestPath")[
       Given an undirected graph $G = (V, E)$ with positive edge lengths $l: E -> ZZ^+$ and designated vertices $s, t in V$, find a simple path $P$ from $s$ to $t$ maximizing $sum_(e in P) l(e)$.
@@ -2268,7 +2284,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example LongestPath -o longest-path.json",
         "pred solve longest-path.json",
-        "pred evaluate longest-path.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate longest-path.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2281,7 +2297,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           // so route them as quadratic Bezier arcs (below / above the main layout).
           let arc-ctrl = ("7": (3.75, -0.35), "9": (3.1, 2.85))
           for (idx, (u, v)) in edges.enumerate() {
-            let on-path = path-config.at(idx) == 1
+            let on-path = path-config.at(idx)
             let st = if on-path { 2pt + blue } else { 1pt + gray }
             let key = str(idx)
             if key in arc-ctrl {
@@ -2338,12 +2354,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Undirected Flow with Lower Bounds appears as ND37 in Garey and Johnson's catalog @garey1979. Itai proved that even this single-commodity undirected feasibility problem is NP-complete, contrasting sharply with the directed lower-bounded case, which reduces to ordinary max-flow machinery @itai1978.
 
-      *Example.* The canonical fixture uses source $s = v_#s$, sink $t = v_#t$, requirement $R = #R$, edges ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, and lower/upper pairs ${#range(edges.len()).map(i => $(#lower.at(i), #caps.at(i))$).join(", ")}$ in that order. Under the all-zero orientation config, a feasible witness sends flows $(#witness.map(str).join(", "))$ along those edges respectively: $2$ on $(v_0, v_1)$, $1$ on $(v_0, v_2)$, $1$ on $(v_1, v_3)$, $1$ on $(v_2, v_3)$, $1$ on $(v_1, v_4)$, $2$ on $(v_3, v_5)$, and $1$ on $(v_4, v_5)$. Every lower bound is satisfied, each nonterminal vertex has equal inflow and outflow, and the sink receives $2 + 1 = 3 >= R$, so the instance evaluates to true.
+      *Example.* The canonical fixture uses source $s = v_#s$, sink $t = v_#t$, requirement $R = #R$, edges ${#edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$, and lower/upper pairs ${#range(edges.len()).map(i => $(#lower.at(i), #caps.at(i))$).join(", ")}$ in that order. Under the all-zero orientation config, a feasible witness sends flows $(#fmt-values(witness))$ along those edges respectively: $2$ on $(v_0, v_1)$, $1$ on $(v_0, v_2)$, $1$ on $(v_1, v_3)$, $1$ on $(v_2, v_3)$, $1$ on $(v_1, v_4)$, $2$ on $(v_3, v_5)$, and $1$ on $(v_4, v_5)$. Every lower bound is satisfied, each nonterminal vertex has equal inflow and outflow, and the sink receives $2 + 1 = 3 >= R$, so the instance evaluates to true.
 
       #pred-commands(
         "pred create --example UndirectedFlowLowerBounds -o undirected-flow-lower-bounds.json",
         "pred solve undirected-flow-lower-bounds.json",
-        "pred evaluate undirected-flow-lower-bounds.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate undirected-flow-lower-bounds.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2418,7 +2434,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example UndirectedTwoCommodityIntegralFlow -o undirected-two-commodity-integral-flow.json",
         "pred solve undirected-two-commodity-integral-flow.json",
-        "pred evaluate undirected-two-commodity-integral-flow.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate undirected-two-commodity-integral-flow.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2482,7 +2498,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o path-constrained-network-flow.json",
         "pred solve path-constrained-network-flow.json --solver brute-force",
-        "pred evaluate path-constrained-network-flow.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate path-constrained-network-flow.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -2600,7 +2616,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example IsomorphicSpanningTree -o isomorphic-spanning-tree.json",
         "pred solve isomorphic-spanning-tree.json",
-        "pred evaluate isomorphic-spanning-tree.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate isomorphic-spanning-tree.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2648,7 +2664,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let t = x.instance.target_vertex
   let W = x.instance.weight_bound
   let path-config = x.optimal_config
-  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx) == 1).map(((idx, e)) => e)
+  let path-edges = edges.enumerate().filter(((idx, _)) => path-config.at(idx)).map(((idx, e)) => e)
   let path-order = (0, 2, 3, 5)
   [
     #problem-def("ShortestWeightConstrainedPath")[
@@ -2663,7 +2679,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ShortestWeightConstrainedPath -o shortest-weight-constrained-path.json",
         "pred solve shortest-weight-constrained-path.json",
-        "pred evaluate shortest-weight-constrained-path.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate shortest-weight-constrained-path.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2676,7 +2692,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           // labels toward opposite ends of each edge so they don't collide.
           let label-t = ("3": 0.3, "7": 0.7)
           for (idx, (u, v)) in edges.enumerate() {
-            let on-path = path-config.at(idx) == 1
+            let on-path = path-config.at(idx)
             g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
             let pu = verts.at(u)
             let pv = verts.at(v)
@@ -2727,7 +2743,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o kcoloring.json",
       "pred solve kcoloring.json",
-      "pred evaluate kcoloring.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate kcoloring.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -2759,7 +2775,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MaximumAchromaticNumber -o achromatic.json",
         "pred solve achromatic.json",
-        "pred evaluate achromatic.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate achromatic.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2781,7 +2797,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // Pick optimal config = {v2, v3} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
   // Compute neighbors dominated by each vertex in S
   let dominated = S.map(s => {
@@ -2803,7 +2819,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumDominatingSet -o minimum-dominating-set.json",
       "pred solve minimum-dominating-set.json",
-      "pred evaluate minimum-dominating-set.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-dominating-set.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -2820,7 +2836,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = x.instance.points.len()
   let B = x.instance.radius
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumGeometricConnectedDominatingSet")[
@@ -2833,7 +2849,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumGeometricConnectedDominatingSet -o mgcds.json",
       "pred solve mgcds.json",
-      "pred evaluate mgcds.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate mgcds.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -2904,7 +2920,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumCoveringByCliques -o covering-by-cliques.json",
         "pred solve covering-by-cliques.json",
-        "pred evaluate covering-by-cliques.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate covering-by-cliques.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2948,7 +2964,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumIntersectionGraphBasis -o intersection-basis.json",
         "pred solve intersection-basis.json",
-        "pred evaluate intersection-basis.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate intersection-basis.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -2985,7 +3001,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // Pick optimal config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let matched-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => edges.at(i))
   let wM = metric-value(sol.metric)
   // Collect matched vertices
   let matched-verts = ()
@@ -3005,7 +3021,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaximumMatching -o maximum-matching.json",
       "pred solve maximum-matching.json",
-      "pred evaluate maximum-matching.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate maximum-matching.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3024,7 +3040,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let tour-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => edges.at(i))
   let bottleneck = metric-value(sol.metric)
   let tour-weights = tour-edges.map(((u, v)) => {
     let idx = edges.position(e => e == (u, v) or e == (v, u))
@@ -3058,7 +3074,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example BottleneckTravelingSalesman -o btsp.json",
       "pred solve btsp.json",
-      "pred evaluate btsp.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate btsp.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3120,7 +3136,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let tour-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => edges.at(i))
   let tour-cost = metric-value(sol.metric)
   // Build ordered tour from tour-edges starting at vertex 0
   let tour-order = (0,)
@@ -3151,7 +3167,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example TSP -o tsp.json",
       "pred solve tsp.json",
-      "pred evaluate tsp.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate tsp.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3189,7 +3205,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
   let cost = metric-value(sol.metric)
   // Steiner vertices: in tree but not terminals
@@ -3222,7 +3238,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example SteinerTree -o steiner-tree.json",
       "pred solve steiner-tree.json",
-      "pred evaluate steiner-tree.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate steiner-tree.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3261,7 +3277,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let candidates = x.instance.candidate_arcs
   let bound = x.instance.bound
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let chosen = candidates.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
+  let chosen = candidates.enumerate().filter(((i, _)) => sol.config.at(i)).map(((i, arc)) => arc)
   let total-weight = chosen.map(a => a.at(2)).sum()
   let blue = graph-colors.at(0)
   [
@@ -3275,7 +3291,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example StrongConnectivityAugmentation -o strong-connectivity-augmentation.json",
       "pred solve strong-connectivity-augmentation.json",
-      "pred evaluate strong-connectivity-augmentation.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate strong-connectivity-augmentation.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3337,7 +3353,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let weights = x.instance.edge_weights
   let terminals = x.instance.terminals
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let cut-edge-indices = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let cut-edges = cut-edge-indices.map(i => edges.at(i))
   let cost = metric-value(sol.metric)
   [
@@ -3351,7 +3367,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumMultiwayCut -o minimum-multiway-cut.json",
       "pred solve minimum-multiway-cut.json",
-      "pred evaluate minimum-multiway-cut.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-multiway-cut.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3400,7 +3416,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example OptimalLinearArrangement -o optimal-linear-arrangement.json",
         "pred solve optimal-linear-arrangement.json",
-        "pred evaluate optimal-linear-arrangement.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate optimal-linear-arrangement.json --config " + cli-config(x.optimal_config),
       )
 
       // Build inverse mapping: pos[p] = vertex placed at position p
@@ -3465,7 +3481,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example RootedTreeArrangement -o rooted-tree-arrangement.json",
         "pred solve rooted-tree-arrangement.json --solver brute-force",
-        "pred evaluate rooted-tree-arrangement.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate rooted-tree-arrangement.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -3519,7 +3535,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   let k = x.instance.k
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let K = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
   [
     #problem-def("KClique")[
@@ -3532,7 +3548,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example KClique -o kclique.json",
       "pred solve kclique.json",
-      "pred evaluate kclique.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate kclique.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3551,7 +3567,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // optimal config = {v2, v3, v4}
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let K = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let omega = metric-value(sol.metric)
   // Edges within the clique
   let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
@@ -3566,7 +3582,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaximumClique -o maximum-clique.json",
       "pred solve maximum-clique.json",
-      "pred evaluate maximum-clique.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate maximum-clique.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3585,7 +3601,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   // optimal config = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
   let opt = (config: x.optimal_config, metric: x.optimal_value)
-  let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S-opt = opt.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let w-opt = metric-value(opt.metric)
   // Suboptimal maximal IS {v1,v3} with w=2 (hardcoded — no longer in fixture)
   let S-sub = (1, 3)
@@ -3601,7 +3617,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MaximalIS -o maximal-is.json",
       "pred solve maximal-is.json",
-      "pred evaluate maximal-is.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate maximal-is.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3619,7 +3635,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let matched-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => edges.at(i))
   let sz = metric-value(sol.metric)
   [
     #problem-def("MinimumMaximalMatching")[
@@ -3632,7 +3648,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumMaximalMatching -o mmm.json",
       "pred solve mmm.json",
-      "pred evaluate mmm.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate mmm.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3657,8 +3673,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let arcs = x.instance.graph.arcs
   let ne = arcs.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 1).map(((i, arc)) => arc)
-  let dummy = arcs.enumerate().filter(((i, _)) => sol.config.at(i) == 0).map(((i, arc)) => arc)
+  let merged = arcs.enumerate().filter(((i, _)) => sol.config.at(i)).map(((i, arc)) => arc)
+  let dummy = arcs.enumerate().filter(((i, _)) => not sol.config.at(i)).map(((i, arc)) => arc)
   let opt = metric-value(sol.metric)
   let blue = graph-colors.at(0)
   [
@@ -3672,7 +3688,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o minimum-dummy-activities-pert.json",
       "pred solve minimum-dummy-activities-pert.json --solver brute-force",
-      "pred evaluate minimum-dummy-activities-pert.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-dummy-activities-pert.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3710,7 +3726,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let arcs = x.instance.graph.arcs
   // Pick optimal config = {v0} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let S = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wS = metric-value(sol.metric)
   [
     #problem-def("MinimumFeedbackVertexSet")[
@@ -3723,7 +3739,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumFeedbackVertexSet -o minimum-feedback-vertex-set.json",
       "pred solve minimum-feedback-vertex-set.json",
-      "pred evaluate minimum-feedback-vertex-set.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-feedback-vertex-set.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3777,7 +3793,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example PartitionIntoPathsOfLength2 -o partition-paths2.json",
       "pred solve partition-paths2.json",
-      "pred evaluate partition-paths2.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate partition-paths2.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3801,7 +3817,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let opt-weight = metric-value(sol.metric)
   // Derive tree edges from optimal config
-  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edge-indices = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let tree-edges = tree-edge-indices.map(i => edges.at(i))
   // Steiner vertices: non-terminal vertices that appear in tree edges
   let steiner-verts = range(nv).filter(v => not terminals.contains(v) and tree-edges.any(e => e.at(0) == v or e.at(1) == v))
@@ -3816,7 +3832,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example SteinerTreeInGraphs -o steiner-tree-in-graphs.json",
       "pred solve steiner-tree-in-graphs.json",
-      "pred evaluate steiner-tree-in-graphs.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate steiner-tree-in-graphs.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3868,7 +3884,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let opt-cost = metric-value(x.optimal_value)
   // Pick optimal config = {v2, v5} to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let centers = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MinimumSumMulticenter")[
       Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
@@ -3882,7 +3898,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumSumMulticenter -o minimum-sum-multicenter.json",
       "pred solve minimum-sum-multicenter.json",
-      "pred evaluate minimum-sum-multicenter.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-sum-multicenter.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3915,7 +3931,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let K = x.instance.k
   let opt = x.optimal_value
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let centers = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MinMaxMulticenter")[
       Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find $S subset.eq V$ with $|S| = K$ that minimizes $max_(v in V) w(v) dot d(v, S)$, where $d(v, S) = min_(s in S) d(v, s)$ is the shortest weighted-path distance from $v$ to the nearest vertex in $S$.
@@ -3929,7 +3945,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinMaxMulticenter -o min-max-multicenter.json",
       "pred solve min-max-multicenter.json",
-      "pred evaluate min-max-multicenter.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate min-max-multicenter.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -3962,7 +3978,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let usage = x.instance.usage
   let storage = x.instance.storage
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let copies = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let copies = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let opt = metric-value(sol.metric)
   let s-cost = copies.map(i => storage.at(i)).sum()
   let a-cost = opt - s-cost
@@ -3974,12 +3990,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     Multiple Copy File Allocation appears in the storage-and-retrieval section of Garey and Johnson (SR6) @garey1979. The model combines two competing costs: each chosen copy vertex incurs a storage charge, while every vertex pays an access cost weighted by its demand and graph distance to the nearest copy. Applications include content distribution networks (placing cache servers), database replication across data centers, and distributed file systems. Garey and Johnson record the problem as NP-hard in the strong sense, even when usage and storage costs are uniform @garey1979. It generalizes Uncapacitated Facility Location when the network topology is arbitrary.
 
-    *Example.* Consider the path $P_#nv$ with usage $u = (#usage.map(str).join(", "))$ and storage costs $s = (#storage.map(str).join(", "))$. The endpoints $v_0, v_5$ have high demand ($u = 5$) but expensive storage ($s = 6$), while $v_1, v_4$ are cheap server locations ($s = 2$). Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $#copies.map(i => str(storage.at(i))).join(" + ") = #s-cost$ and access cost $5 dot 1 + 1 dot 0 + 1 dot 1 + 1 dot 1 + 1 dot 0 + 5 dot 1 = #a-cost$, for a total of $#opt$. Adding a copy at $v_0$ would save $5 dot 1 = 5$ in access but cost $6$ in storage — a net loss. This tradeoff between placement cost and proximity drives the problem's NP-hardness.
+    *Example.* Consider the path $P_#nv$ with usage $u = (#fmt-values(usage))$ and storage costs $s = (#fmt-values(storage))$. The endpoints $v_0, v_5$ have high demand ($u = 5$) but expensive storage ($s = 6$), while $v_1, v_4$ are cheap server locations ($s = 2$). Placing copies at $V' = {#copies.map(i => $v_#i$).join(", ")}$ gives storage cost $#copies.map(i => str(storage.at(i))).join(" + ") = #s-cost$ and access cost $5 dot 1 + 1 dot 0 + 1 dot 1 + 1 dot 1 + 1 dot 0 + 5 dot 1 = #a-cost$, for a total of $#opt$. Adding a copy at $v_0$ would save $5 dot 1 = 5$ in access but cost $6$ in storage — a net loss. This tradeoff between placement cost and proximity drives the problem's NP-hardness.
 
     #pred-commands(
       "pred create --example MultipleCopyFileAllocation -o multiple-copy-file-allocation.json",
       "pred solve multiple-copy-file-allocation.json",
-      "pred evaluate multiple-copy-file-allocation.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate multiple-copy-file-allocation.json --config " + cli-config(x.optimal_config),
     )
 
     #figure({
@@ -4021,7 +4037,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let U-size = all-elems.len()
   // Pick optimal config = {S1, S3} (0-indexed: sets 0, 2) to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wP = metric-value(sol.metric)
   // Format a set as {e1+1, e2+1, ...} (1-indexed)
   let fmt-set(s) = "{" + s.map(e => str(e + 1)).join(", ") + "}"
@@ -4036,7 +4052,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o maximum-set-packing.json",
       "pred solve maximum-set-packing.json",
-      "pred evaluate maximum-set-packing.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate maximum-set-packing.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4064,7 +4080,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let m = sets.len()
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let wC = metric-value(sol.metric)
   let fmt-set(s) = "{" + s.map(e => str(e + 1)).join(", ") + "}"
   [
@@ -4078,7 +4094,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumSetCovering -o minimum-set-covering.json",
       "pred solve minimum-set-covering.json",
-      "pred evaluate minimum-set-covering.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-set-covering.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4109,7 +4125,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let m = sets.len()
   let U-size = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let hit-size = metric-value(sol.metric)
   let fmt-set(s) = if s.len() == 0 {
     $emptyset$
@@ -4129,7 +4145,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumHittingSet -o minimum-hitting-set.json",
       "pred solve minimum-hitting-set.json",
-      "pred evaluate minimum-hitting-set.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-hitting-set.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4172,8 +4188,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let m = subsets.len()
   let n = x.instance.universe_size
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let part0 = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
-  let part1 = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let part0 = sol.config.enumerate().filter(((i, v)) => not v).map(((i, _)) => i)
+  let part1 = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let fmt-set(s) = "{" + s.map(e => str(e + 1)).join(", ") + "}"
   [
     #problem-def("SetSplitting")[
@@ -4186,7 +4202,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example SetSplitting -o set-splitting.json",
       "pred solve set-splitting.json",
-      "pred evaluate set-splitting.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate set-splitting.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4242,7 +4258,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConsecutiveSets -o consecutive-sets.json",
         "pred solve consecutive-sets.json",
-        "pred evaluate consecutive-sets.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate consecutive-sets.json --config " + cli-config(x.optimal_config),
       )
 
       // Subset span data: (start_pos, end_pos) in the solution string
@@ -4275,7 +4291,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
             content((x1 + 0.45, y), text(7pt, fill: color, $Sigma_#(si + 1)$))
           }
         }),
-        caption: [Consecutive Sets: the string $w = (#sol.map(str).join(", "))$ with each subset $Sigma_i$ occupying a contiguous block. Colored bars below indicate the span of each subset.]
+        caption: [Consecutive Sets: the string $w = (#fmt-values(sol))$ with each subset $Sigma_i$ occupying a contiguous block. Colored bars below indicate the span of each subset.]
       ) <fig:consecutive-sets>
     ]
   ]
@@ -4291,7 +4307,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Format a 0-indexed triple as 1-indexed set notation: {a+1, b+1, c+1}
   let fmt-triple(t) = "{" + t.map(e => str(e + 1)).join(", ") + "}"
   // Collect indices of selected subsets (1-indexed)
-  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
 
   [
     #problem-def("ExactCoverBy3Sets")[
@@ -4304,7 +4320,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ExactCoverBy3Sets -o exact-cover-by-3-sets.json",
       "pred solve exact-cover-by-3-sets.json",
-      "pred evaluate exact-cover-by-3-sets.json --config " + x3c.optimal_config.map(str).join(","),
+      "pred evaluate exact-cover-by-3-sets.json --config " + cli-config(x3c.optimal_config),
     )
 
     #figure(
@@ -4356,7 +4372,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Format a triple as (w+1, x+1, y+1) using 1-indexed notation
   let fmt-triple(t) = $(#(t.at(0) + 1), #(t.at(1) + 1), #(t.at(2) + 1))$
   // Collect indices of selected triples (0-indexed)
-  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
 
   [
     #problem-def("ThreeDimensionalMatching")[
@@ -4369,7 +4385,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ThreeDimensionalMatching -o three-dimensional-matching.json",
       "pred solve three-dimensional-matching.json",
-      "pred evaluate three-dimensional-matching.json --config " + tdm.optimal_config.map(str).join(","),
+      "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm.optimal_config),
     )
 
     // Tripartite layout: W (left), X (center), Y (right) with triples as hyperedges
@@ -4418,7 +4434,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let parts = tmi.instance.partitions
   let K = tmi.instance.bound
   let sol = tmi.optimal_config
-  let selected = sol.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected = sol.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let fmt-set(items) = if items.len() == 0 {
     $emptyset$
   } else {
@@ -4438,7 +4454,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ThreeMatroidIntersection -o three-matroid-intersection.json",
       "pred solve three-matroid-intersection.json",
-      "pred evaluate three-matroid-intersection.json --config " + tmi.optimal_config.map(str).join(","),
+      "pred evaluate three-matroid-intersection.json --config " + cli-config(tmi.optimal_config),
     )
 
     // Three rows of partition groups, elements shown in each
@@ -4484,8 +4500,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let S = x.instance.s_sets
   let r-weights = x.instance.r_weights
   let s-weights = x.instance.s_weights
-  let selected = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
-  let satisfiers = ((config: x.optimal_config, metric: x.optimal_value),).map(sol => sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i))
+  let selected = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
+  let satisfiers = ((config: x.optimal_config, metric: x.optimal_value),).map(sol => sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i))
   let contains-selected(family-set) = selected.all(i => family-set.contains(i))
   let r-active = range(R.len()).filter(i => contains-selected(R.at(i)))
   let s-active = range(S.len()).filter(i => contains-selected(S.at(i)))
@@ -4510,7 +4526,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ComparativeContainment -o comparative-containment.json",
       "pred solve comparative-containment.json",
-      "pred evaluate comparative-containment.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate comparative-containment.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4579,7 +4595,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let k = x.instance.k
   let sat-count = 1
   let basis = range(k).map(i =>
-    range(U-size).filter(j => x.optimal_config.at(i * U-size + j) == 1)
+    range(U-size).filter(j => x.optimal_config.at(i).at(j))
   )
   let fmt-set(s) = "{" + s.map(e => str(e + 1)).join(", ") + "}"
   [
@@ -4593,7 +4609,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example SetBasis -o set-basis.json",
       "pred solve set-basis.json",
-      "pred evaluate set-basis.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate set-basis.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4635,7 +4651,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let q = x.instance.query_attribute
-  let key = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let key = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let num-sat = 2  // candidate keys containing query attribute: {2,3} and {0,3}
   // Format a set as {e0, e1, ...} (0-indexed); no `$` — embed inside `$...$` or use `fmt-set-math` alias.
   let fmt-set(s) = "{" + s.map(e => str(e)).join(", ") + "}"
@@ -4661,7 +4677,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example PrimeAttributeName -o prime-attribute-name.json",
       "pred solve prime-attribute-name.json",
-      "pred evaluate prime-attribute-name.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate prime-attribute-name.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4718,7 +4734,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = x.instance.num_attributes
   let deps = x.instance.dependencies
   let m = deps.len()
-  let key-attrs = range(n).filter(i => x.optimal_config.at(i) == 1)
+  let key-attrs = range(n).filter(i => x.optimal_config.at(i))
   let fmt-set(s) = "{" + s.map(e => str(e)).join(", ") + "}"
   let fmt-fd(d) = $#fmt-set(d.at(0)) arrow #fmt-set(d.at(1))$
   [
@@ -4733,7 +4749,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumCardinalityKey -o minimum-cardinality-key.json",
       "pred solve minimum-cardinality-key.json",
-      "pred evaluate minimum-cardinality-key.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate minimum-cardinality-key.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4797,12 +4813,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     Rooted Tree Storage Assignment is the storage-and-retrieval problem SR5 in Garey and Johnson @garey1979. Their catalog credits a reduction from Rooted Tree Arrangement, framing the problem as hierarchical file organization: pick a rooted tree on the records so every request set can be completed to a single root-to-leaf path using only a limited number of extra records. The implementation here uses one parent variable per element of $X$, so the direct exhaustive bound is $|X|^(|X|)$ candidate parent arrays, filtered down to valid rooted trees#footnote[No exact algorithm improving on the direct parent-array search bound is claimed here for the general formulation.].
 
-    *Example.* Let $X = {0, 1, dots, #(n - 1)}$, $K = #K$, and $cal(C) = {#range(m).map(i => $X_#(i + 1)$).join(", ")}$ with #subsets.enumerate().map(((i, s)) => $X_#(i + 1) = #fmt-set(s)$).join(", "). The satisfying parent array $p = (#config.map(str).join(", "))$ encodes the rooted tree with arcs #edges.map(((u, v)) => $(#u, #v)$).join(", "). In this tree, $X_1 = {0, 2}$, $X_2 = {1, 3}$, and $X_4 = {2, 4}$ are already directed paths. The only extension is $X_3 = {0, 4}$, which becomes $X_3' = {0, 2, 4}$ along the path $0 -> 2 -> 4$, so the total extension cost is exactly $1 = K$.
+    *Example.* Let $X = {0, 1, dots, #(n - 1)}$, $K = #K$, and $cal(C) = {#range(m).map(i => $X_#(i + 1)$).join(", ")}$ with #subsets.enumerate().map(((i, s)) => $X_#(i + 1) = #fmt-set(s)$).join(", "). The satisfying parent array $p = (#fmt-values(config))$ encodes the rooted tree with arcs #edges.map(((u, v)) => $(#u, #v)$).join(", "). In this tree, $X_1 = {0, 2}$, $X_2 = {1, 3}$, and $X_4 = {2, 4}$ are already directed paths. The only extension is $X_3 = {0, 4}$, which becomes $X_3' = {0, 2, 4}$ along the path $0 -> 2 -> 4$, so the total extension cost is exactly $1 = K$.
 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o rooted-tree-storage-assignment.json",
       "pred solve rooted-tree-storage-assignment.json --solver brute-force",
-      "pred evaluate rooted-tree-storage-assignment.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate rooted-tree-storage-assignment.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4838,7 +4854,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           content(pos, if highlighted { text(fill: white)[$#vertex$] } else { [$#vertex$] })
         }
       }),
-      caption: [Rooted Tree Storage Assignment example. The rooted tree encoded by $p = (#config.map(str).join(", "))$ is shown; the blue path $0 -> 2 -> 4$ is the unique extension needed to realize $X_3 = {0, 4}$ within total cost $K = #K$.],
+      caption: [Rooted Tree Storage Assignment example. The rooted tree encoded by $p = (#fmt-values(config))$ is shown; the blue path $0 -> 2 -> 4$ is the unique extension needed to realize $X_3 = {0, 4}$ within total cost $K = #K$.],
     ) <fig:rooted-tree-storage-assignment>
     ]
   ]
@@ -4868,7 +4884,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example TwoDimensionalConsecutiveSets -o two-dimensional-consecutive-sets.json",
       "pred solve two-dimensional-consecutive-sets.json",
-      "pred evaluate two-dimensional-consecutive-sets.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate two-dimensional-consecutive-sets.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -4949,10 +4965,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = spin-num-spins(x.instance)
   let edges = x.instance.graph.edges
   let ne = edges.len()
-  // Pick optimal config = (+,-,+,+,-) to match figure
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  // Convert config (0=+1, 1=-1) to spin values
-  let spins = sol.config.map(v => if v == 0 { 1 } else { -1 })
+  let spins = sol.config
   let H = metric-value(sol.metric)
   let spin-str = spins.map(s => if s > 0 { "+" } else { "-" }).join(", ")
   // Count satisfied and frustrated edges
@@ -4969,7 +4983,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example SpinGlass -o spinglass.json",
       "pred solve spinglass.json",
-      "pred evaluate spinglass.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate spinglass.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -5007,11 +5021,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     if v == vi { str(vi) } else { str(v) }
   }).join(", ")).join("; ")
   // Collect indices where x*_i = 1 (1-indexed)
-  let selected = xstar.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => $x_#(i + 1)$)
+  let selected = xstar.enumerate().filter(((i, v)) => v).map(((i, _)) => $x_#(i + 1)$)
   let unselected-pairs = ()
   for i in range(n) {
     for j in range(i + 1, n) {
-      if Q.at(i).at(j) != 0 and (xstar.at(i) == 0 or xstar.at(j) == 0) {
+      if Q.at(i).at(j) != 0 and (not xstar.at(i) or not xstar.at(j)) {
         unselected-pairs.push($#(int(Q.at(i).at(j))) x_#(i + 1) x_#(j + 1)$)
       }
     }
@@ -5022,12 +5036,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
-    *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
+    *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#fmt-values(xstar))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
 
     #pred-commands(
       "pred create --example QUBO -o qubo.json",
       "pred solve qubo.json",
-      "pred evaluate qubo.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate qubo.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5035,7 +5049,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #{
   let x = load-model-example("ILP")
-  let nv = x.instance.num_vars
+  let nv = x.instance.variables.len()
   let obj = x.instance.objective
   let constraints = x.instance.constraints
   let sol = (config: x.optimal_config, metric: x.optimal_value)
@@ -5073,7 +5087,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o ilp.json",
       "pred solve ilp.json",
-      "pred evaluate ilp.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate ilp.json --config " + cli-config(x.optimal_config),
     )
 
 #figure(
@@ -5177,7 +5191,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example QuadraticAssignment -o quadratic-assignment.json",
       "pred solve quadratic-assignment.json",
-      "pred evaluate quadratic-assignment.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate quadratic-assignment.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -5245,12 +5259,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       *Example.* Consider $n = #n$ variables and #(eqs.len()) equations over $"GF"(2)$:
       $ #eqs.enumerate().map(((i, eq)) => $p_#(i+1): #render-eq(eq)$).join($, quad$) $
-      The assignment $(x_0, x_1, x_2) = (#(config.map(str).join(", ")))$ satisfies all equations:
+      The assignment $(x_0, x_1, x_2) = (#fmt-values(config))$ satisfies all equations:
       #eqs.enumerate().map(((i, eq)) => {
         // Evaluate each monomial under the assignment
         let vals = eq.map(mono => {
           if mono.len() == 0 { 1 }
-          else { mono.fold(1, (acc, j) => acc * config.at(j)) }
+          else { mono.fold(1, (acc, j) => acc * bool-bit(config.at(j))) }
         })
         let xor-sum = vals.fold(0, (acc, v) => calc.rem(acc + v, 2))
         let lhs = eq.zip(vals).map(((mono, v)) => {
@@ -5264,7 +5278,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example AlgebraicEquationsOverGF2 -o agf2.json",
         "pred solve agf2.json --solver brute-force",
-        "pred evaluate agf2.json --config " + config.map(str).join(","),
+        "pred evaluate agf2.json --config " + cli-config(config),
       )
     ]
   ]
@@ -5295,7 +5309,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example QuadraticCongruences -o qc.json",
         "pred solve qc.json --solver brute-force",
-        "pred evaluate qc.json --config " + config.map(str).join(","),
+        "pred evaluate qc.json --config " + cli-config(config),
       )
 
       #align(center, table(
@@ -5342,7 +5356,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example QuadraticDiophantineEquations -o qde.json",
         "pred solve qde.json --solver brute-force",
-        "pred evaluate qde.json --config " + config.map(str).join(","),
+        "pred evaluate qde.json --config " + cli-config(config),
       )
 
       #align(center, table(
@@ -5366,7 +5380,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("SimultaneousIncongruences")
   let pairs = x.instance.pairs
   let config = x.optimal_config
-  let xval = config.at(0)
+  let xval = config
   // Build table rows: for each pair (a, b), compute x mod b and check ≠ a mod b
   let rows = pairs.map(pair => {
     let a = pair.at(0)
@@ -5395,12 +5409,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Simultaneous Incongruences is an NP-complete problem @garey1979. It asks whether the complement of a system of congruences — a _covering system_ — can be simultaneously avoided. A _covering system_ is a finite collection of congruences $\{a_i space (op("mod") space b_i)\}$ that covers every integer; when the system is a covering system there is no valid $x$ and the instance is a "no" instance. The problem generalises checking whether a given set of congruences is a covering system, which has connections to Erdős's covering conjecture and sieve methods in analytic number theory.
 
-      *Example.* Let $n = #pairs.len()$ with pairs #pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "). The full period is $L = op("lcm")(#moduli.map(str).join(", ")) = #lcm-val$. We test $x = #xval$:
+      *Example.* Let $n = #pairs.len()$ with pairs #pairs.map(p => $(#p.at(0), #p.at(1))$).join(", "). The full period is $L = op("lcm")(#fmt-values(moduli)) = #lcm-val$. We test $x = #xval$:
 
       #pred-commands(
         "pred create --example SimultaneousIncongruences -o si.json",
         "pred solve si.json --solver brute-force",
-        "pred evaluate si.json --config " + config.map(str).join(","),
+        "pred evaluate si.json --config " + cli-config(config),
       )
 
       #align(center, table(
@@ -5469,12 +5483,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         F_2 = #fmt-payoff(polynomials.at(1)), quad
         F_3 = #fmt-payoff(polynomials.at(2)) $
 
-      The assignment $bold(y) = (#assignment.map(str).join(", "))$ is a Nash equilibrium: #range(n).map(i => {let v = eval-payoff(i); let ii = i + 1; $F_#ii (bold(y)) = #v$}).join(", "), and no player can strictly improve their payoff by deviating.
+      The assignment $bold(y) = (#fmt-values(assignment))$ is a Nash equilibrium: #range(n).map(i => {let v = eval-payoff(i); let ii = i + 1; $F_#ii (bold(y)) = #v$}).join(", "), and no player can strictly improve their payoff by deviating.
 
       #pred-commands(
         "pred create --example EquilibriumPoint -o ep.json",
         "pred solve ep.json --solver brute-force",
-        "pred evaluate ep.json --config " + config.map(str).join(","),
+        "pred evaluate ep.json --config " + cli-config(config),
       )
     ]
   ]
@@ -5487,8 +5501,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let bounds = x.instance.bounds
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let dist = metric-value(sol.metric)
-  // Config encodes offset from lower bound; recover actual integer coordinates
-  let coords = sol.config.enumerate().map(((i, v)) => v + bounds.at(i).lower)
+  let coords = sol.config
   // Compute B*x: sum over j of coords[j] * basis[j]
   let dim = basis.at(0).len()
   let bx = range(dim).map(d => coords.enumerate().fold(0.0, (acc, (j, c)) => acc + c * basis.at(j).at(d)))
@@ -5506,7 +5519,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ClosestVectorProblem -o closest-vector-problem.json",
         "pred solve closest-vector-problem.json",
-        "pred evaluate closest-vector-problem.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate closest-vector-problem.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -5555,20 +5568,20 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   // Format a clause as (l1 or l2 or ...)
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  // Evaluate a literal under assignment: positive l -> assign[l-1], negative l -> 1-assign[|l|-1]
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  // Evaluate a literal under the Boolean assignment.
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
   [
     #problem-def("Satisfiability")[
       Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
     ][
     The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
-    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", "). Hence $phi(#assign.map(v => str(v)).join(", ")) = 1$.
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#fmt-values(assign))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(bool-bit(eval-lit(l)))).join($or$) paren.r = 1$).join(", "). Hence $phi(#fmt-values(assign)) = 1$.
 
     #pred-commands(
       "pred create --example SAT -o sat.json",
       "pred solve sat.json",
-      "pred evaluate sat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5581,23 +5594,23 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let clauses = x.instance.clauses
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let assign = sol.config
-  let complement = assign.map(v => 1 - v)
+  let complement = assign.map(v => not v)
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
-  let clause-values(c) = c.literals.map(l => str(eval-lit(l)))
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
+  let clause-values(c) = c.literals.map(l => str(bool-bit(eval-lit(l))))
   [
     #problem-def("NAESatisfiability")[
       Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that every clause contains at least one true literal and at least one false literal.
     ][
     Not-All-Equal Satisfiability (NAE-SAT) is a canonical variant in Schaefer's dichotomy theorem @schaefer1978. Unlike ordinary SAT, each clause forbids the all-true and all-false patterns, giving the problem a complement symmetry: if an assignment is NAE-satisfying, then flipping every bit is also NAE-satisfying. This makes NAE-SAT a natural intermediate for cut and partition reductions such as Max-Cut. A straightforward exact algorithm enumerates all $2^n$ assignments; complement symmetry can halve the search space in practice by fixing one variable, but the asymptotic worst-case bound remains $O^*(2^n)$.
 
-    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ is NAE-satisfying because each clause evaluates to a tuple containing both $0$ and $1$: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #clause-values(c).join(", ") paren.r$).join(", "). The complementary assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#complement.map(v => str(v)).join(", "))$ is therefore also NAE-satisfying, illustrating the paired-solution structure characteristic of NAE-SAT.
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ is NAE-satisfying because each clause evaluates to a tuple containing both $0$ and $1$: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #clause-values(c).join(", ") paren.r$).join(", "). The complementary assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(complement))$ is therefore also NAE-satisfying, illustrating the paired-solution structure characteristic of NAE-SAT.
 
     #pred-commands(
       "pred create --example NAESatisfiability -o nae-satisfiability.json",
       "pred solve nae-satisfiability.json",
-      "pred evaluate nae-satisfiability.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate nae-satisfiability.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5614,19 +5627,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
   [
     #problem-def("KSatisfiability")[
       SAT with exactly $k$ literals per clause.
     ][
     The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. The best known algorithm for 3-SAT runs in $O^*(1.307^n)$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
 
-    *Example.* Consider the #{k}-SAT formula $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses, each containing exactly #k literals. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
+    *Example.* Consider the #{k}-SAT formula $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses, each containing exactly #k literals. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(bool-bit(eval-lit(l)))).join($or$) paren.r = 1$).join(", ").
 
     #pred-commands(
       "pred create --example " + problem-spec(x) + " -o ksat.json",
       "pred solve ksat.json",
-      "pred evaluate ksat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5641,19 +5654,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
   [
     #problem-def("Planar3Satisfiability")[
       Given a 3-CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j$ contains exactly 3 literals, and the variable-clause incidence graph $H(phi)$ is planar, find a satisfying assignment $bold(x) in {0, 1}^n$.
     ][
     Planar 3-SAT is a restricted variant of 3-SAT introduced by Lichtenstein @lichtenstein1982, who proved it NP-complete. The incidence graph $H(phi)$ is bipartite with variable nodes and clause nodes, connected by edges when a variable appears in a clause. Requiring $H(phi)$ to be planar is a strong structural constraint that enables reductions to geometric and planar problems (e.g., rectilinear Steiner tree, planar vertex cover). The best known algorithm shares the 3-SAT bound of $O^*(1.307^n)$ via biased-PPSZ @hansen2019, since any Planar 3-SAT instance is also a valid 3-SAT instance.
 
-    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(bool-bit(eval-lit(l)))).join($or$) paren.r = 1$).join(", ").
 
     #pred-commands(
       "pred create --example Planar3Satisfiability -o planar3sat.json",
       "pred solve planar3sat.json",
-      "pred evaluate planar3sat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate planar3sat.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5668,20 +5681,20 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
-  let count-true(c) = c.literals.map(eval-lit).sum()
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
+  let count-true(c) = c.literals.map(l => bool-bit(eval-lit(l))).sum()
   [
     #problem-def("OneInThreeSatisfiability")[
       Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j$ contains exactly 3 literals, find a truth assignment $bold(x) in {0, 1}^n$ such that each clause has _exactly one_ true literal.
     ][
     One-in-Three Satisfiability (1-in-3 SAT) was introduced by Schaefer @schaefer1978 as part of his dichotomy theorem for generalized satisfiability. Unlike standard 3-SAT which requires at least one true literal per clause, 1-in-3 SAT requires exactly one. The problem is NP-complete even for monotone instances (no negations). The best known algorithm runs in $O^*(1.307^n)$ time via biased-PPSZ @hansen2019, since every 1-in-3 SAT instance reduces trivially to 3-SAT.
 
-    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies the 1-in-3 condition: #clauses.enumerate().map(((j, c)) => $C_#(j + 1)$+ " has " + str(count-true(c)) + " true literal").join(", ").
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ satisfies the 1-in-3 condition: #clauses.enumerate().map(((j, c)) => $C_#(j + 1)$+ " has " + str(count-true(c)) + " true literal").join(", ").
 
     #pred-commands(
       "pred create --example OneInThreeSatisfiability -o 1in3sat.json",
       "pred solve 1in3sat.json",
-      "pred evaluate 1in3sat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate 1in3sat.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5696,8 +5709,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
-  let clause-sat(c) = c.literals.map(eval-lit).any(v => v == 1)
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
+  let clause-sat(c) = c.literals.map(eval-lit).any(v => v)
   let sat-count = clauses.filter(clause-sat).len()
   [
     #problem-def("Maximum2Satisfiability")[
@@ -5705,12 +5718,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     Maximum 2-Satisfiability (MAX-2-SAT) is one of the fundamental NP-hard optimization problems. While the decision version of 2-SAT is solvable in linear time by implication-graph analysis, the optimization variant---maximizing the number of satisfied clauses---is NP-hard @garey1979. The best known exact algorithm by Williams @williams2005 runs in $O^*(2^(0.7905n))$ time by reducing to a maximum-weight triangle problem and applying fast matrix multiplication.
 
-    *Example.* Consider $m = #m$ clauses over $n = #n$ variables: $#clauses.map(fmt-clause).join($and$)$. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies #sat-count out of #m clauses.
+    *Example.* Consider $m = #m$ clauses over $n = #n$ variables: $#clauses.map(fmt-clause).join($and$)$. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ satisfies #sat-count out of #m clauses.
 
     #pred-commands(
       "pred create --example Maximum2Satisfiability -o max2sat.json",
       "pred solve max2sat.json",
-      "pred evaluate max2sat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate max2sat.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5724,20 +5737,20 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let assign = sol.config
   let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
   let fmt-disjunct(d) = $paren.l #d.map(fmt-lit).join($and$) paren.r$
-  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
-  let disjunct-true(d) = d.map(eval-lit).all(v => v == 1)
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { not assign.at(-l - 1) }
+  let disjunct-true(d) = d.map(eval-lit).all(v => v)
   [
     #problem-def("NonTautology")[
       Given a Boolean formula in DNF $phi = or.big_(j=1)^m D_j$ with $m$ disjuncts over $n$ Boolean variables, where each disjunct $D_j$ is a conjunction of literals, find a truth assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 0$ (i.e., every disjunct is false).
     ][
     The Non-Tautology problem asks whether a given DNF formula is _not_ a tautology, by finding a falsifying assignment. A disjunct $D_j = ell_1 and dots and ell_k$ is false when at least one of its literals evaluates to false; the formula is false when all disjuncts are false. The problem is coNP-complete in general and closely related to SAT through De Morgan duality: a DNF formula $phi$ is a tautology iff $not phi$ (a CNF formula) is unsatisfiable.
 
-    *Example.* Consider $phi = #disjuncts.map(fmt-disjunct).join($or$)$ with $n = #n$ variables and $m = #m$ disjuncts. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ falsifies the formula: #disjuncts.enumerate().map(((j, d)) => $D_#(j + 1)$+ " is " + if disjunct-true(d) { "true" } else { "false" }).join(", ").
+    *Example.* Consider $phi = #disjuncts.map(fmt-disjunct).join($or$)$ with $n = #n$ variables and $m = #m$ disjuncts. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#fmt-values(assign))$ falsifies the formula: #disjuncts.enumerate().map(((j, d)) => $D_#(j + 1)$+ " is " + if disjunct-true(d) { "true" } else { "false" }).join(", ").
 
     #pred-commands(
       "pred create --example NonTautology -o nontaut.json",
       "pred solve nontaut.json",
-      "pred evaluate nontaut.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate nontaut.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -5813,7 +5826,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     }
     // Build initial env from satisfying assignment
     #let init-env = inputs.enumerate().fold((:), (env, pair) => {
-      let (i, v) = pair; env.insert(v, sat-assigns.at(0).at(i)); env
+      let (i, v) = pair; env.insert(v, bool-bit(sat-assigns.at(0).at(i))); env
     })
     // Evaluate gates in order, accumulating (env, steps)
     #let result = gates.fold((env: init-env, steps: ()), (acc, a) => {
@@ -5828,12 +5841,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #let final-val = eval-expr(output-gate.expr, result.env)
 
     *Example.* Consider the circuit with $n = #n$ inputs and $g = #g$ gates: #gate-defs.join(", "), giving $C(#inputs.map(fmt-input).join(", ")) = #circuit-expr$.
-    The assignment $(#inputs.map(fmt-input).join(", ")) = (#sat-assigns.at(0).map(str).join(", "))$ is satisfying: #result.steps.join(", "), so $C = #final-val$.
+    The assignment $(#inputs.map(fmt-input).join(", ")) = (#fmt-values(sat-assigns.at(0)))$ is satisfying: #result.steps.join(", "), so $C = #final-val$.
 
     #pred-commands(
       "pred create --example CircuitSAT -o circuitsat.json",
       "pred solve circuitsat.json",
-      "pred evaluate circuitsat.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate circuitsat.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -5854,7 +5867,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         draw.content((-0.3, 0.975), text(8pt)[$x_1$])
         draw.content((-0.3, -0.975), text(8pt)[$x_2$])
       }),
-      caption: [Circuit $C(#inputs.map(fmt-input).join(", ")) = #circuit-expr$. Junction dots mark where inputs fork to both gates. Satisfying assignments: #sat-assigns.map(a => $paren.l #a.map(v => str(v)).join(", ") paren.r$).join(" and ").],
+      caption: [Circuit $C(#inputs.map(fmt-input).join(", ")) = #circuit-expr$. Junction dots mark where inputs fork to both gates. Satisfying assignments: #sat-assigns.map(a => $paren.l #fmt-values(a) paren.r$).join(" and ").],
     ) <fig:circuit-sat>
     ]
   ]
@@ -5895,7 +5908,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConjunctiveQueryFoldability -o cqf.json",
         "pred solve cqf.json",
-        "pred evaluate cqf.json --config " + config.map(str).join(","),
+        "pred evaluate cqf.json --config " + cli-config(config),
       )
 
       #figure(
@@ -5983,7 +5996,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     let yset = if yop.kind == "elem" { (yop.val,) } else { z-sets.at(yop.val) }
     z-sets.push((xset + yset).dedup().sorted())
   }
-  let fmt-elem-set(s) = "{" + s.map(str).join(", ") + "}"
+  let fmt-elem-set(s) = "{" + fmt-values(s) + "}"
   let fmt-op(op) = if op.kind == "elem" {
     "{" + str(op.val) + "}"
   } else {
@@ -6001,7 +6014,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example EnsembleComputation -o ensemble.json",
         "pred solve ensemble.json",
-        "pred evaluate ensemble.json --config " + config.map(str).join(","),
+        "pred evaluate ensemble.json --config " + cli-config(config),
       )
     ]
   ]
@@ -6013,9 +6026,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let mb = x.instance.m
   let nb = x.instance.n
   let sol = x.optimal_config
-  // First mb bits encode p, next nb bits encode q
-  let p = range(mb).fold(0, (acc, i) => acc + sol.at(i) * calc.pow(2, i)) + 2
-  let q = range(nb).fold(0, (acc, i) => acc + sol.at(mb + i) * calc.pow(2, i)) + 2
+  let p = sol.at(0).at(0)
+  let q = sol.at(1).at(0)
   [
     #problem-def("Factoring")[
       Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
@@ -6027,7 +6039,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example Factoring -o factoring.json",
       "pred solve factoring.json",
-      "pred evaluate factoring.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate factoring.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -6053,7 +6065,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example QuantifiedBooleanFormulas -o quantified-boolean-formulas.json",
       "pred solve quantified-boolean-formulas.json",
-      "pred evaluate quantified-boolean-formulas.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate quantified-boolean-formulas.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -6080,7 +6092,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ExpectedRetrievalCost -o expected-retrieval-cost.json",
       "pred solve expected-retrieval-cost.json --solver brute-force",
-      "pred evaluate expected-retrieval-cost.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate expected-retrieval-cost.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6113,7 +6125,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
       "pred solve ik.json --solver brute-force",
-      "pred evaluate ik.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate ik.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6140,12 +6152,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let k = x.instance.k
   let A = x.instance.matrix
   let fs = metric-value(x.optimal_value)
-  // Decode B and C from optimal config
-  // Config layout: B is m*k values, then C is k*n values
   let cfg = x.optimal_config
-  let B = range(mr).map(i => range(k).map(j => cfg.at(i * k + j)))
-  let C = range(k).map(i => range(nc).map(j => cfg.at(mr * k + i * nc + j)))
-  // Convert A from bool to int for display
+  let B = cfg.at(0).map(row => row.map(bool-bit))
+  let C = cfg.at(1).map(row => row.map(bool-bit))
   let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
   // Format matrix as math.mat with proper rows
   let fmt-mat(m) = math.mat(..m.map(row => row.map(v => $#v$)))
@@ -6160,7 +6169,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example BMF -o bmf.json",
       "pred solve bmf.json",
-      "pred evaluate bmf.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate bmf.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6243,7 +6252,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example ConsecutiveBlockMinimization -o consecutive-block-minimization.json",
       "pred solve consecutive-block-minimization.json",
-      "pred evaluate consecutive-block-minimization.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate consecutive-block-minimization.json --config " + cli-config(x.optimal_config),
     )
     ]
   ]
@@ -6260,10 +6269,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let num-changes = metric-value(sol.metric)
   // Build the full sequence of car labels
   let seq-labels = seq-indices.map(i => labels.at(i))
-  // Build color sequence: for each position, if is_first[pos] then color = assign[car], else 1-assign[car]
+  // Build the color sequence, flipping the second occurrence of each car.
   let color-seq = range(seq-indices.len()).map(pos => {
     let car = seq-indices.at(pos)
-    if is-first.at(pos) { assign.at(car) } else { 1 - assign.at(car) }
+    if is-first.at(pos) { assign.at(car) } else { not assign.at(car) }
   })
   [
     #problem-def("PaintShop")[
@@ -6271,12 +6280,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
     NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general Paint Shop.].
 
-    *Example.* Consider $n = #n-cars$ cars with sequence $(#seq-labels.join(", "))$. Each car gets one occurrence colored 0 and the other colored 1. The assignment #labels.zip(assign).map(((l, c)) => [#l: #c\/#(1 - c)]).join(", ") yields color sequence $(#color-seq.map(c => str(c)).join(", "))$ with #num-changes color changes. The minimum is #num-changes changes.
+    *Example.* Consider $n = #n-cars$ cars with sequence $(#seq-labels.join(", "))$. Each car gets one occurrence colored 0 and the other colored 1. The assignment #labels.zip(assign).map(((l, c)) => [#l: #bool-bit(c)\/#bool-bit(not c)]).join(", ") yields color sequence $(#fmt-values(color-seq))$ with #num-changes color changes. The minimum is #num-changes changes.
 
     #pred-commands(
       "pred create --example PaintShop -o paint-shop.json",
       "pred solve paint-shop.json",
-      "pred evaluate paint-shop.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate paint-shop.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6294,11 +6303,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
               items.push(box(width: 0.15cm))  // spacer
             }
           }
-          let fill = if c == 0 { white } else { blue.transparentize(40%) }
+          let fill = if not c { white } else { blue.transparentize(40%) }
           items.push(stack(dir: ttb, spacing: 0.08cm,
             box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
               align(center + horizon, text(8pt, weight: "bold", car))),
-            text(6pt, fill: luma(100), str(c)),
+            text(6pt, fill: luma(100), str(bool-bit(c))),
           ))
         }
         align(center, stack(dir: ltr, spacing: 0pt, ..items))
@@ -6329,7 +6338,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example BicliqueCover -o biclique-cover.json",
       "pred solve biclique-cover.json",
-      "pred evaluate biclique-cover.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate biclique-cover.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6362,8 +6371,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let k = x.instance.k
   let bip-edges = x.instance.graph.edges
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let left-selected = range(left-size).filter(i => sol.config.at(i) == 1)
-  let right-selected = range(right-size).filter(i => sol.config.at(left-size + i) == 1)
+  let left-selected = range(left-size).filter(i => sol.config.at(i))
+  let right-selected = range(right-size).filter(i => sol.config.at(left-size + i))
   let selected-edges = bip-edges.filter(e =>
     left-selected.contains(e.at(0)) and right-selected.contains(e.at(1))
   )
@@ -6379,7 +6388,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example BalancedCompleteBipartiteSubgraph -o balanced-complete-bipartite-subgraph.json",
       "pred solve balanced-complete-bipartite-subgraph.json",
-      "pred evaluate balanced-complete-bipartite-subgraph.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate balanced-complete-bipartite-subgraph.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6449,7 +6458,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PartitionIntoTriangles -o partition-into-triangles.json",
         "pred solve partition-into-triangles.json",
-        "pred evaluate partition-into-triangles.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partition-into-triangles.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -6493,7 +6502,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PartitionIntoForests -o partition-into-forests.json",
         "pred solve partition-into-forests.json",
-        "pred evaluate partition-into-forests.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partition-into-forests.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6506,7 +6515,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let edges = x.instance.graph.edges
   let K = x.instance.max_degree
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let selected-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("DegreeConstrainedSpanningTree")[
       Given an undirected graph $G = (V, E)$ and a positive integer $K$, determine whether $G$ contains a spanning tree $T$ in which every vertex has degree at most $K$.
@@ -6518,7 +6527,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example DegreeConstrainedSpanningTree -o dcst.json",
         "pred solve dcst.json",
-        "pred evaluate dcst.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate dcst.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6533,7 +6542,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let D = x.instance.diameter_bound
   let ew = x.instance.edge_weights
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let selected-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let selected-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let total-weight = selected-edges.map(i => ew.at(i)).sum()
   [
     #problem-def("BoundedDiameterSpanningTree")[
@@ -6546,7 +6555,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example BoundedDiameterSpanningTree -o bdst.json",
         "pred solve bdst.json",
-        "pred evaluate bdst.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate bdst.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6558,7 +6567,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ne = graph-num-edges(x.instance)
   let edges = x.instance.graph.edges
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let tree-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let tree-edges = sol.config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let leaf-count = sol.metric
   // compute degrees in the tree
   let degrees = range(nv).map(v => tree-edges.map(i => edges.at(i)).filter(((u, w)) => u == v or w == v).len())
@@ -6574,7 +6583,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MaximumLeafSpanningTree -o mlst.json",
         "pred solve mlst.json",
-        "pred evaluate mlst.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mlst.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6596,7 +6605,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MonochromaticTriangle -o monochromatic-triangle.json",
         "pred solve monochromatic-triangle.json",
-        "pred evaluate monochromatic-triangle.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate monochromatic-triangle.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6621,7 +6630,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PartitionIntoCliques -o partition-into-cliques.json",
         "pred solve partition-into-cliques.json",
-        "pred evaluate partition-into-cliques.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partition-into-cliques.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6646,7 +6655,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PartitionIntoPerfectMatchings -o partition-into-perfect-matchings.json",
         "pred solve partition-into-perfect-matchings.json",
-        "pred evaluate partition-into-perfect-matchings.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partition-into-perfect-matchings.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6675,7 +6684,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example BinPacking -o bin-packing.json",
         "pred solve bin-packing.json",
-        "pred evaluate bin-packing.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate bin-packing.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -6717,7 +6726,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = weights.len()
   let config = x.optimal_config
   let opt-val = metric-value(x.optimal_value)
-  let selected = range(n).filter(i => config.at(i) == 1)
+  let selected = range(n).filter(i => config.at(i))
   let total-w = selected.map(i => weights.at(i)).sum()
   let total-v = selected.map(i => values.at(i)).sum()
   [
@@ -6731,7 +6740,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example Knapsack -o knapsack.json",
         "pred solve knapsack.json",
-        "pred evaluate knapsack.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate knapsack.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6758,7 +6767,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example IntegerKnapsack -o ik.json",
         "pred solve ik.json",
-        "pred evaluate ik.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate ik.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6796,7 +6805,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example RectilinearPictureCompression -o rectilinear-picture-compression.json",
       "pred solve rectilinear-picture-compression.json",
-      "pred evaluate rectilinear-picture-compression.json --config " + x.optimal_config.map(str).join(","),
+      "pred evaluate rectilinear-picture-compression.json --config " + cli-config(x.optimal_config),
     )
 
     #figure(
@@ -6853,7 +6862,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example FeasibleRegisterAssignment -o feasible-register-assignment.json",
         "pred solve feasible-register-assignment.json --solver brute-force",
-        "pred evaluate feasible-register-assignment.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate feasible-register-assignment.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6872,12 +6881,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Minimum Register Sufficiency for Loops is problem SS20 in Garey & Johnson @garey1979. It is equivalent to minimum coloring of circular arc graphs. NP-complete via reduction from Chromatic Number. No algorithm improving on brute-force $O(n^n)$ enumeration is known for arbitrary circular arc instances.
 
-      *Example.* Let $N = #N$ timesteps and $n = #nv$ variables with arcs: #vars.enumerate().map(((i, v)) => $x_#i: [#(v.at(0)), #(v.at(0)) + #(v.at(1)))$).join(", ") mod $#N$. All pairs of arcs overlap (each arc covers half the circle and any two arcs share at least one timestep), forming a complete conflict graph $K_#nv$. The assignment $(#config.map(str).join(", "))$ uses #num-regs distinct registers, which is optimal.
+      *Example.* Let $N = #N$ timesteps and $n = #nv$ variables with arcs: #vars.enumerate().map(((i, v)) => $x_#i: [#(v.at(0)), #(v.at(0)) + #(v.at(1)))$).join(", ") mod $#N$. All pairs of arcs overlap (each arc covers half the circle and any two arcs share at least one timestep), forming a complete conflict graph $K_#nv$. The assignment $(#fmt-values(config))$ uses #num-regs distinct registers, which is optimal.
 
       #pred-commands(
         "pred create --example MinimumRegisterSufficiencyForLoops -o mrsfl.json",
         "pred solve mrsfl.json --solver brute-force",
-        "pred evaluate mrsfl.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mrsfl.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6904,7 +6913,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example RegisterSufficiency -o register-sufficiency.json",
         "pred solve register-sufficiency.json --solver brute-force",
-        "pred evaluate register-sufficiency.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate register-sufficiency.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6936,7 +6945,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumCodeGenerationOneRegister -o mcgor.json",
         "pred solve mcgor.json --solver brute-force",
-        "pred evaluate mcgor.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mcgor.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -6969,7 +6978,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumCodeGenerationUnlimitedRegisters -o mcgur.json",
         "pred solve mcgur.json --solver brute-force",
-        "pred evaluate mcgur.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mcgur.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7002,7 +7011,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumCodeGenerationParallelAssignments -o mcgpa.json",
         "pred solve mcgpa.json --solver brute-force",
-        "pred evaluate mcgpa.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mcgpa.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7056,7 +7065,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     #pred-commands(
       "pred create --example MinimumDecisionTree -o mdt.json",
       "pred solve mdt.json",
-      "pred evaluate mdt.json --config " + sol.map(str).join(","),
+      "pred evaluate mdt.json --config " + cli-config(sol),
     )
     ]
   ]
@@ -7085,7 +7094,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     $paren.l #bits.join(",") paren.r$
   }
   // Selected prime implicants
-  let selected = cfg.enumerate().filter(((_, v)) => v == 1).map(((i, _)) => i)
+  let selected = cfg.enumerate().filter(((_, selected)) => selected).map(((i, _)) => i)
   [
     #problem-def("MinimumDisjunctiveNormalForm")[
       Given $n$ Boolean variables and a Boolean function $f: {0,1}^n -> {0,1}$ specified by its truth table, find a disjunctive normal form (DNF) formula with the minimum number of terms (disjuncts) that is equivalent to $f$.
@@ -7135,7 +7144,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example RuralPostman -o rural-postman.json",
         "pred solve rural-postman.json",
-        "pred evaluate rural-postman.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate rural-postman.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -7186,7 +7195,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let arc-weights = x.instance.arc_weights
   let edge-weights = x.instance.edge_weights
   let config = x.optimal_config
-  let oriented = edges.enumerate().map(((i, e)) => if config.at(i) == 0 { e } else { (e.at(1), e.at(0)) })
+  let oriented = edges.enumerate().map(((i, e)) => if not config.at(i) { e } else { (e.at(1), e.at(0)) })
   let base-cost = arc-weights.sum() + edge-weights.sum()
   let total-cost = x.optimal_value
   [
@@ -7195,12 +7204,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Mixed Chinese Postman is the mixed-graph arc-routing problem ND25 in Garey and Johnson @garey1979. Papadimitriou proved the mixed case NP-complete even when all lengths are 1, the graph is planar, and the maximum degree is 3 @papadimitriou1976edge. In contrast, the pure undirected and pure directed cases are polynomial-time solvable via matching / circulation machinery @edmondsjohnson1973. The implementation here uses one binary variable per undirected edge orientation, so the search space contributes the $2^|E|$ factor visible in the registered exact bound.
 
-      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#config.map(str).join(", "))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
+      *Example.* Consider the instance on #nv vertices with directed arcs $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_0)$ of lengths $2, 3, 1, 4$ and undirected edges $\{v_0, v_2\}$, $\{v_1, v_3\}$, $\{v_0, v_4\}$, $\{v_4, v_2\}$ of lengths $2, 3, 1, 2$. The config $(#fmt-values(config))$ orients those edges as $(v_2, v_0)$, $(v_3, v_1)$, $(v_0, v_4)$, and $(v_4, v_2)$, producing a strongly connected digraph. The base traversal cost is #base-cost, and the minimum balancing cost brings the total to #total-cost.
 
       #pred-commands(
         "pred create --example MixedChinesePostman/i64 -o mixed-chinese-postman.json",
         "pred solve mixed-chinese-postman.json --solver brute-force",
-        "pred evaluate mixed-chinese-postman.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mixed-chinese-postman.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -7324,12 +7333,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       A configuration is a permutation of the required arcs, interpreted as the order in which those arcs are forced into the tour. The verifier traverses each chosen arc, then inserts the shortest available connector path from that arc's head to the tail of the next arc, wrapping around at the end to close the walk.
 
-      *Example.* The canonical instance has 6 vertices, 5 required arcs, and 7 undirected edges. The optimal configuration $[#config.map(str).join(", ")]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has minimum total length $20$.
+      *Example.* The canonical instance has 6 vertices, 5 required arcs, and 7 undirected edges. The optimal configuration $[#fmt-values(config)]$ orders the required arcs as $a_0, a_2, a_1, a_4, a_3$. Traversing those arcs contributes 17 units of required-arc length, and the shortest connector paths contribute $1 + 1 + 1 + 0 + 0 = 3$, so the resulting closed walk has minimum total length $20$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o stacker-crane.json",
         "pred solve stacker-crane.json --solver brute-force",
-        "pred evaluate stacker-crane.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate stacker-crane.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -7388,7 +7397,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SubgraphIsomorphism -o subgraph-isomorphism.json",
         "pred solve subgraph-isomorphism.json",
-        "pred evaluate subgraph-isomorphism.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate subgraph-isomorphism.json --config " + cli-config(x.optimal_config),
       )
 
       #{
@@ -7487,12 +7496,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Grouping by Swapping is the storage-and-retrieval problem SR21 in Garey and Johnson @garey1979. It asks whether a string can be locally reorganized, using only adjacent transpositions, until equal symbols coalesce into blocks. The implementation in this crate uses a fixed-length swap program with one slot per allowed operation, so the direct brute-force search explores $O(|x|^K)$ configurations.#footnote[This is the exact search bound induced by the fixed-length witness encoding implemented in the codebase; no sharper exact worst-case bound is claimed here.]
 
-      *Example.* Let $Sigma = {#alpha-map.join(", ")}$, $x = #source-str$, and $K = #budget$. The configuration $p = (#config.map(str).join(", "))$ performs adjacent swaps at positions $(2, 3)$, $(1, 2)$, and $(3, 4)$, then uses two trailing no-op slots. The resulting string is $y = #step3-str$, so every symbol now appears in one contiguous block and the verifier returns YES.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$, $x = #source-str$, and $K = #budget$. The configuration $p = (#fmt-values(config))$ performs adjacent swaps at positions $(2, 3)$, $(1, 2)$, and $(3, 4)$, then uses two trailing no-op slots. The resulting string is $y = #step3-str$, so every symbol now appears in one contiguous block and the verifier returns YES.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o grouping-by-swapping.json",
         "pred solve grouping-by-swapping.json --solver brute-force",
-        "pred evaluate grouping-by-swapping.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate grouping-by-swapping.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -7521,7 +7530,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           ),
         ))
       },
-      caption: [Grouping by Swapping on $x = #source-str$: three effective adjacent swaps turn the alternating string into $y = #step3-str$. The remaining two slots in $p = (#config.map(str).join(", "))$ are no-ops at position 5.],
+      caption: [Grouping by Swapping on $x = #source-str$: three effective adjacent swaps turn the alternating string into $y = #step3-str$. The remaining two slots in $p = (#fmt-values(config))$ are no-ops at position 5.],
       ) <fig:grouping-by-swapping>
 
       The final row has exactly one block of $a$, one block of $b$, and one block of $c$, so it satisfies the grouping constraint within the allotted budget.
@@ -7533,8 +7542,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("LongestCommonSubsequence")
   let strings = x.instance.strings
   let alphabet-size = x.instance.alphabet_size
-  // optimal_config includes padding symbols; extract the non-padding prefix
-  let witness = x.optimal_config.filter(c => c < alphabet-size)
+  let witness = x.optimal_config.filter(c => c != none)
   let fmt-str(s) = "\"" + s.map(c => str(c)).join("") + "\""
   let string-list = strings.map(fmt-str).join(", ")
   let find-embed(target, candidate) = {
@@ -7560,7 +7568,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example LongestCommonSubsequence -o longest-common-subsequence.json",
         "pred solve longest-common-subsequence.json",
-        "pred evaluate longest-common-subsequence.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate longest-common-subsequence.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -7628,7 +7636,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ClosestString -o closest-string.json",
         "pred solve closest-string.json --solver brute-force",
-        "pred evaluate closest-string.json --config " + center.map(str).join(","),
+        "pred evaluate closest-string.json --config " + cli-config(center),
       )
     ]
   ]
@@ -7673,7 +7681,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ClosestSubstring -o closest-substring.json",
         "pred solve closest-substring.json --solver brute-force",
-        "pred evaluate closest-substring.json --config " + config.map(str).join(","),
+        "pred evaluate closest-substring.json --config " + cli-config(config),
       )
     ]
   ]
@@ -7685,7 +7693,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let target = x.instance.target
   let n = sizes.len()
   let config = x.optimal_config
-  let selected = range(n).filter(i => config.at(i) == 1)
+  let selected = range(n).filter(i => config.at(i))
   let sel-sizes = selected.map(i => sizes.at(i))
   [
     #problem-def("SubsetSum")[
@@ -7698,7 +7706,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SubsetSum -o subset-sum.json",
         "pred solve subset-sum.json",
-        "pred evaluate subset-sum.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate subset-sum.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7710,7 +7718,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let target = x.instance.target
   let n = sizes.len()
   let config = x.optimal_config
-  let selected = range(n).filter(i => config.at(i) == 1)
+  let selected = range(n).filter(i => config.at(i))
   let sel-sizes = selected.map(i => sizes.at(i))
   [
     #problem-def("SubsetProduct")[
@@ -7723,7 +7731,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SubsetProduct -o subset-product.json",
         "pred solve subset-product.json",
-        "pred evaluate subset-product.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate subset-product.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7751,7 +7759,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ResourceConstrainedScheduling -o rcs.json",
         "pred solve rcs.json",
-        "pred evaluate rcs.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate rcs.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7763,7 +7771,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let fds = x.instance.functional_deps
   let target = x.instance.target_subset
   let config = x.optimal_config
-  let X = range(num-attrs).filter(i => config.at(i) == 1)
+  let X = range(num-attrs).filter(i => config.at(i))
   // Compute closure of X under fds
   let closure = {
     let cur = X
@@ -7804,7 +7812,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example BoyceCoddNormalFormViolation -o bcnf.json",
         "pred solve bcnf.json",
-        "pred evaluate bcnf.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate bcnf.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7865,7 +7873,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConsistencyOfDatabaseFrequencyTables -o consistency-of-database-frequency-tables.json",
         "pred solve consistency-of-database-frequency-tables.json",
-        "pred evaluate consistency-of-database-frequency-tables.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate consistency-of-database-frequency-tables.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -7889,15 +7897,15 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Problem SP19 in Garey and Johnson @garey1979. NP-complete in the strong sense, so no pseudo-polynomial time algorithm exists unless $P = "NP"$. For fixed $K$, a dynamic-programming algorithm runs in $O(n S^(K-1))$ pseudo-polynomial time, where $S = sum s(a)$. The problem remains NP-complete when the exponent 2 is replaced by any fixed rational $alpha > 1$. #footnote[No algorithm improving on brute-force $O(K^n)$ enumeration is known for the general case.] The squared objective penalizes imbalanced partitions, connecting it to variance minimization, load balancing, and $k$-means clustering. Sum of Squares Partition generalizes Partition ($K = 2$, $J = S^2 slash 2$).
 
-      *Example.* Let $A = {#sizes.map(str).join(", ")}$ ($n = #n-elem$) and $K = #K$ groups. The optimal partition is #groups.enumerate().map(((g, idxs)) => {
+      *Example.* Let $A = {#fmt-values(sizes)}$ ($n = #n-elem$) and $K = #K$ groups. The optimal partition is #groups.enumerate().map(((g, idxs)) => {
         let elems = idxs.map(i => str(sizes.at(i)))
         [$A_#(g+1) = {#elems.join(", ")}$]
-      }).join(", ") with group sums #group-sums.map(str).join(", ") and sum of squares $#group-sq.map(str).join(" + ") = #opt-val$.
+      }).join(", ") with group sums #fmt-values(group-sums) and sum of squares $#group-sq.map(str).join(" + ") = #opt-val$.
 
       #pred-commands(
         "pred create --example SumOfSquaresPartition -o sosp.json",
         "pred solve sosp.json --solver brute-force",
-        "pred evaluate sosp.json --config " + config.map(str).join(","),
+        "pred evaluate sosp.json --config " + cli-config(config),
       )
     ]
   ]
@@ -7920,12 +7928,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       3-Partition is Garey and Johnson's strongly NP-complete benchmark SP15 @garey1979. Unlike ordinary Partition, the strict size window forces every feasible block to contain exactly three elements, making the problem the canonical source for strong NP-completeness reductions to scheduling, packing, and layout models. The implementation in this repository uses one group-assignment variable per element, so the exported exact-search baseline is $O^*(3^n)$#footnote[This is the direct worst-case bound induced by the implementation's configuration space and matches the registered catalog expression `3^num_elements`; no sharper general exact bound was independently verified while preparing this entry.].
 
-      *Example.* Let $B = #bound$ and consider the #(sizes.len())-element instance with sizes $(#sizes.map(str).join(", "))$. The witness triples #groups.enumerate().map(((i, g)) => [$A_#(i+1) = {#g.map(str).join(", ")}$]).join([ and ]) both sum to $#bound$, so this instance is satisfiable.
+      *Example.* Let $B = #bound$ and consider the #(sizes.len())-element instance with sizes $(#fmt-values(sizes))$. The witness triples #groups.enumerate().map(((i, g)) => [$A_#(i+1) = {#fmt-values(g)}$]).join([ and ]) both sum to $#bound$, so this instance is satisfiable.
 
       #pred-commands(
         "pred create --example ThreePartition -o three-partition.json",
         "pred solve three-partition.json",
-        "pred evaluate three-partition.json --config " + config.map(str).join(","),
+        "pred evaluate three-partition.json --config " + cli-config(config),
       )
 
       #align(center, table(
@@ -7933,7 +7941,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
         align: center,
         table.header([Triple], [Elements], [Sum]),
         ..groups.enumerate().map(((i, g)) => (
-          [$A_#(i+1)$], [$#(g.map(str).join(", "))$], [$#bound$],
+          [$A_#(i+1)$], [$#(fmt-values(g))$], [$#bound$],
         )).flatten(),
       ))
     ]
@@ -7956,12 +7964,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Numerical 3-Dimensional Matching is strongly NP-complete (SP16 in Garey and Johnson @garey1979). The strict size window $B\/4 < s(a) < B\/2$ forces every feasible triple to contain exactly one element from each set. The problem is a key intermediate in strong NP-completeness reductions to bin packing, scheduling, and layout problems. Brute-force enumeration runs in $O^*(m^(2m))$ time.
 
-      *Example.* Let $m = #m$ and $B = #bound$. The sizes are $W = (#sw.map(str).join(", "))$, $X = (#sx.map(str).join(", "))$, $Y = (#sy.map(str).join(", "))$. The matching pairs each $w_i$ with $x_(pi(i))$ and $y_(sigma(i))$: #range(m).map(i => [$w_#i + x_#(x-perm.at(i)) + y_#(y-perm.at(i)) = #(sw.at(i) + sx.at(x-perm.at(i)) + sy.at(y-perm.at(i)))$]).join(", "), all equal to $B$.
+      *Example.* Let $m = #m$ and $B = #bound$. The sizes are $W = (#fmt-values(sw))$, $X = (#fmt-values(sx))$, $Y = (#fmt-values(sy))$. The matching pairs each $w_i$ with $x_(pi(i))$ and $y_(sigma(i))$: #range(m).map(i => [$w_#i + x_#(x-perm.at(i)) + y_#(y-perm.at(i)) = #(sw.at(i) + sx.at(x-perm.at(i)) + sy.at(y-perm.at(i)))$]).join(", "), all equal to $B$.
 
       #pred-commands(
         "pred create --example Numerical3DimensionalMatching -o n3dm.json",
         "pred solve n3dm.json",
-        "pred evaluate n3dm.json --config " + config.map(str).join(","),
+        "pred evaluate n3dm.json --config " + cli-config(config),
       )
     ]
   ]
@@ -7979,12 +7987,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Numerical Matching with Target Sums is NP-complete in the strong sense (SP17 in Garey and Johnson @garey1979). It generalizes bipartite perfect matching by imposing sum constraints on each pair. Brute-force enumeration runs in $O^*(2^m)$ time by trying all $m!$ permutations.
 
-      *Example.* Let $m = #m$, $X = (#sx.map(str).join(", "))$, $Y = (#sy.map(str).join(", "))$, targets $= (#targets.map(str).join(", "))$. The matching $pi = (#config.map(str).join(", "))$ yields sums #range(m).map(i => [$#(sx.at(i)) + #(sy.at(config.at(i))) = #(sx.at(i) + sy.at(config.at(i)))$]).join(", "), which as a multiset equals the targets.
+      *Example.* Let $m = #m$, $X = (#fmt-values(sx))$, $Y = (#fmt-values(sy))$, targets $= (#fmt-values(targets))$. The matching $pi = (#fmt-values(config))$ yields sums #range(m).map(i => [$#(sx.at(i)) + #(sy.at(config.at(i))) = #(sx.at(i) + sy.at(config.at(i)))$]).join(", "), which as a multiset equals the targets.
 
       #pred-commands(
         "pred create --example NumericalMatchingWithTargetSums -o nmts.json",
         "pred solve nmts.json",
-        "pred evaluate nmts.json --config " + config.map(str).join(","),
+        "pred evaluate nmts.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8000,12 +8008,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Non-Liveness of free-choice Petri nets is NP-complete (Garey and Johnson @garey1979). A Petri net is _free-choice_ if every two transitions sharing an input place have identical presets. The implementation explores the bounded reachability graph (capped at the initial token sum per place) and checks whether any transition becomes permanently dead.
 
-      *Example.* A chain net with $#np$ places and $#nt$ transitions: $t_0$ moves a token from $s_0$ to $s_1$, $t_1$ from $s_1$ to $s_2$, $t_2$ from $s_2$ to $s_3$. Starting from $M_0 = (1, 0, 0, 0)$, after all transitions fire once the net reaches deadlock at $(0, 0, 0, 1)$ and all transitions are permanently dead. The witness configuration $(#config.map(str).join(", "))$ confirms all transitions are globally dead.
+      *Example.* A chain net with $#np$ places and $#nt$ transitions: $t_0$ moves a token from $s_0$ to $s_1$, $t_1$ from $s_1$ to $s_2$, $t_2$ from $s_2$ to $s_3$. Starting from $M_0 = (1, 0, 0, 0)$, after all transitions fire once the net reaches deadlock at $(0, 0, 0, 1)$ and all transitions are permanently dead. The witness configuration $(#fmt-values(config))$ confirms all transitions are globally dead.
 
       #pred-commands(
         "pred create --example NonLivenessFreePetriNet -o petri.json",
         "pred solve petri.json --solver brute-force",
-        "pred evaluate petri.json --config " + config.map(str).join(","),
+        "pred evaluate petri.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8018,7 +8026,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let nt = ts.len()
   let imps = x.instance.implications
   let config = x.optimal_config
-  let selected = range(nt).filter(i => config.at(i) == 1)
+  let selected = range(nt).filter(i => config.at(i))
   let sel-labels = selected.map(i => str(ts.at(i)))
   [
     #problem-def("MinimumAxiomSet")[
@@ -8036,7 +8044,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumAxiomSet -o axiom.json",
         "pred solve axiom.json --solver brute-force",
-        "pred evaluate axiom.json --config " + config.map(str).join(","),
+        "pred evaluate axiom.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8053,12 +8061,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Betweenness is problem MS1 in Garey and Johnson @garey1979. It arises in seriation, archaeological sequencing, and DNA physical mapping. The problem is NP-complete even when restricted to dense constraint sets. The implementation represents a solution as a permutation $f$ where $f(i)$ is the position assigned to element $i$.
 
-      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#config.map(str).join(", "))$ (the identity permutation) satisfies all constraints: each middle element of every triple lies between the other two in the ordering.
+      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#fmt-values(config))$ (the identity permutation) satisfies all constraints: each middle element of every triple lies between the other two in the ordering.
 
       #pred-commands(
         "pred create --example Betweenness -o betweenness.json",
         "pred solve betweenness.json",
-        "pred evaluate betweenness.json --config " + config.map(str).join(","),
+        "pred evaluate betweenness.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8075,12 +8083,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Cyclic Ordering is problem MS2 in Garey and Johnson @garey1979. It is closely related to Betweenness (MS1) but enforces a cyclic rather than linear ordering constraint. The problem is NP-complete. The implementation represents a solution as a permutation $f$ where $f(i)$ is the position assigned to element $i$.
 
-      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#config.map(str).join(", "))$ satisfies all constraints: each triple's elements appear in cyclic order under $f$.
+      *Example.* Consider $n = #n$ elements with triples #triples.map(t => [$(#t.at(0), #t.at(1), #t.at(2))$]).join(", "). The witness ordering $f = (#fmt-values(config))$ satisfies all constraints: each triple's elements appear in cyclic order under $f$.
 
       #pred-commands(
         "pred create --example CyclicOrdering -o cyclic_ordering.json",
         "pred solve cyclic_ordering.json",
-        "pred evaluate cyclic_ordering.json --config " + config.map(str).join(","),
+        "pred evaluate cyclic_ordering.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8098,12 +8106,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Clustering is a fundamental problem in unsupervised learning and data analysis. The variant considered here is the diameter-bounded formulation, which is NP-complete. No algorithm improving on brute-force ($K^n$ enumeration) is known for the general case.#footnote[No algorithm improving on brute-force is known for general diameter-bounded clustering.]
 
-      *Example.* Consider $n = #n$ elements with $K = #K$ clusters and diameter bound $B = #B$. The distance matrix has two tight groups ${0,1,2}$ and ${3,4,5}$ with intra-group distance 1 and inter-group distance 3. The witness assignment $(#config.map(str).join(", "))$ partitions elements into clusters ${0,1,2}$ and ${3,4,5}$; each cluster has maximum pairwise distance $1 <= #B$.
+      *Example.* Consider $n = #n$ elements with $K = #K$ clusters and diameter bound $B = #B$. The distance matrix has two tight groups ${0,1,2}$ and ${3,4,5}$ with intra-group distance 1 and inter-group distance 3. The witness assignment $(#fmt-values(config))$ partitions elements into clusters ${0,1,2}$ and ${3,4,5}$; each cluster has maximum pairwise distance $1 <= #B$.
 
       #pred-commands(
         "pred create --example Clustering -o clustering.json",
         "pred solve clustering.json",
-        "pred evaluate clustering.json --config " + config.map(str).join(","),
+        "pred evaluate clustering.json --config " + cli-config(config),
       )
     ]
   ]
@@ -8121,12 +8129,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Dynamic Storage Allocation is Garey and Johnson's SR2 @garey1979 and models memory allocation for processes with known lifetimes. It generalises strip-packing and bin-packing with time constraints. The implementation encodes each item's starting address as a single variable with domain $D - s(a) + 1$.
 
-      *Example.* Let $D = #D$ and consider #n items with $(r, d, s)$ tuples #items.map(t => $(#t.at(0), #t.at(1), #t.at(2))$).join(", "). The witness assignment $sigma = (#config.map(str).join(", "))$ places every item within $[0, #(D - 1)]$ and ensures no two time-overlapping items share memory cells.
+      *Example.* Let $D = #D$ and consider #n items with $(r, d, s)$ tuples #items.map(t => $(#t.at(0), #t.at(1), #t.at(2))$).join(", "). The witness assignment $sigma = (#fmt-values(config))$ places every item within $[0, #(D - 1)]$ and ensures no two time-overlapping items share memory cells.
 
       #pred-commands(
         "pred create --example DynamicStorageAllocation -o dynamic-storage-allocation.json",
         "pred solve dynamic-storage-allocation.json",
-        "pred evaluate dynamic-storage-allocation.json --config " + config.map(str).join(","),
+        "pred evaluate dynamic-storage-allocation.json --config " + cli-config(config),
       )
 
       #align(center, table(
@@ -8155,7 +8163,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       The $K$th Largest $m$-Tuple problem is MP10 in Garey and Johnson's appendix @garey1979. It is _not known to be in NP_, because a "yes" certificate may need to exhibit $K$ qualifying tuples and $K$ can be exponentially large. The problem is PP-complete under polynomial-time Turing reductions @haase2016, though the special case $m = 2$, $K = 1$ is NP-complete via reduction from Subset Sum. In the general case, the only known exact approach is brute-force enumeration of all $product_(i=1)^m |X_i|$ tuples, so the registered catalog complexity is `total_tuples * num_sets`#footnote[No algorithm improving on brute-force is known for the general $K$th Largest $m$-Tuple problem.].
 
-      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#s.map(str).join(", ")}$]).join([, ]). The Cartesian product has $#total$ tuples. Exactly #k tuples have sum at least #bound, so the answer is _yes_ (count $= K$). The evaluator enumerates the Cartesian product internally and stops once it has found $K$ qualifying tuples.
+      *Example.* Let $m = #m$, $B = #bound$, and $K = #k$ with sets #sets.enumerate().map(((i, s)) => [$X_#(i+1) = {#fmt-values(s)}$]).join([, ]). The Cartesian product has $#total$ tuples. Exactly #k tuples have sum at least #bound, so the answer is _yes_ (count $= K$). The evaluator enumerates the Cartesian product internally and stops once it has found $K$ qualifying tuples.
 
       #pred-commands(
         "pred create --example KthLargestMTuple -o kth-largest-m-tuple.json",
@@ -8172,13 +8180,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let release = x.instance.release_times
   let deadline = x.instance.deadlines
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  // Decode Lehmer code to permutation
-  let available = range(n)
-  let perm = ()
-  for c in sol.config {
-    perm = perm + (available.at(c),)
-    available = available.slice(0, c) + available.slice(c + 1)
-  }
+  let perm = sol.config
   // Compute start times by simulating the schedule (build (task_idx, start) pairs)
   let current = 0
   let schedule = ()
@@ -8207,7 +8209,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingWithReleaseTimesAndDeadlines -o sequencing-with-release-times-and-deadlines.json",
         "pred solve sequencing-with-release-times-and-deadlines.json",
-        "pred evaluate sequencing-with-release-times-and-deadlines.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-with-release-times-and-deadlines.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -8219,8 +8221,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = sizes.len()
   let total = sizes.sum()
   let config = x.optimal_config
-  let sel = range(n).filter(i => config.at(i) == 1)
-  let unsel = range(n).filter(i => config.at(i) == 0)
+  let sel = range(n).filter(i => config.at(i))
+  let unsel = range(n).filter(i => not config.at(i))
   let sel-sum = sel.map(i => sizes.at(i)).sum(default: 0)
   let unsel-sum = unsel.map(i => sizes.at(i)).sum(default: 0)
   [
@@ -8229,12 +8231,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       One of Karp's 21 NP-complete problems @karp1972, listed as SP12 in Garey & Johnson @garey1979. Partition is the special case of Subset Sum where the target equals half the total sum. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n dot B_"total")$ pseudo-polynomial time, where $B_"total" = sum_i s(a_i)$. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Schroeppel and Shamir (1981).
 
-      *Example.* Let $A = {#sizes.map(s => str(s)).join(", ")}$ ($n = #n$, total sum $= #total$). Setting $A' = {#sel.map(i => str(sizes.at(i))).join(", ")}$ (indices #sel.map(str).join(", ")) gives sum $#sel.map(i => str(sizes.at(i))).join(" + ") = #sel-sum = #total slash 2$, and $A without A' = {#unsel.map(i => str(sizes.at(i))).join(", ")}$ also sums to $#unsel-sum$. Hence a balanced partition exists.
+      *Example.* Let $A = {#sizes.map(s => str(s)).join(", ")}$ ($n = #n$, total sum $= #total$). Setting $A' = {#sel.map(i => str(sizes.at(i))).join(", ")}$ (indices #fmt-values(sel)) gives sum $#sel.map(i => str(sizes.at(i))).join(" + ") = #sel-sum = #total slash 2$, and $A without A' = {#unsel.map(i => str(sizes.at(i))).join(", ")}$ also sums to $#unsel-sum$. Hence a balanced partition exists.
 
       #pred-commands(
         "pred create --example Partition -o partition.json",
         "pred solve partition.json",
-        "pred evaluate partition.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partition.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -8257,9 +8259,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Alphabet mapping: 0->a, 1->b, 2->c, ...
   let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
-  // Optimal config includes padding; extract non-padding prefix
+  // The optional entries after the witness are padding.
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w-cfg = sol.config.filter(c => c != none)
   let w = w-cfg.map(c => alpha-map.at(c))
   let w-str = fmt-str(w-cfg)
   let w-len = w.len()
@@ -8292,7 +8294,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ShortestCommonSupersequence -o shortest-common-supersequence.json",
         "pred solve shortest-common-supersequence.json",
-        "pred evaluate shortest-common-supersequence.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate shortest-common-supersequence.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -8343,7 +8345,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
   // Optimal config includes padding; extract non-padding prefix
   let sol = (config: x.optimal_config, metric: x.optimal_value)
-  let w-cfg = sol.config.filter(c => c < alpha-size)
+  let w-cfg = sol.config.filter(c => c != none)
   let w = w-cfg.map(c => alpha-map.at(c))
   let w-str = fmt-str(w-cfg)
   let w-len = w.len()
@@ -8380,7 +8382,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ShortestCommonSuperstring -o shortest-common-superstring.json",
         "pred solve shortest-common-superstring.json",
-        "pred evaluate shortest-common-superstring.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate shortest-common-superstring.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -8452,7 +8454,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example StringToStringCorrection -o string-to-string-correction.json",
         "pred solve string-to-string-correction.json",
-        "pred evaluate string-to-string-correction.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate string-to-string-correction.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -8555,7 +8557,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           #pred-commands(
             "pred create --example MinimumExternalMacroDataCompression -o min-emdc.json",
             "pred solve min-emdc.json",
-            "pred evaluate min-emdc.json --config " + x.optimal_config.map(str).join(","),
+            "pred evaluate min-emdc.json --config " + cli-config(x.optimal_config),
           )
         ]
       }
@@ -8582,7 +8584,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumInternalMacroDataCompression -o min-imdc.json",
         "pred solve min-imdc.json",
-        "pred evaluate min-imdc.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate min-imdc.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -8629,7 +8631,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let gates = x.instance.gate_types
   let ws = x.instance.arc_weights
   let cfg = x.optimal_config
-  let sel-arcs = range(arcs.len()).filter(i => cfg.at(i) == 1)
+  let sel-arcs = range(arcs.len()).filter(i => cfg.at(i))
   let total = sel-arcs.map(i => ws.at(i)).sum()
   [
     #problem-def("MinimumWeightAndOrGraph")[
@@ -8645,7 +8647,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumWeightAndOrGraph -o mwaog.json",
         "pred solve mwaog.json --solver brute-force",
-        "pred evaluate mwaog.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mwaog.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -8660,7 +8662,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ni = inputs.len()
   let no = outputs.len()
   let cfg = x.optimal_config
-  let sel-pairs = range(cfg.len()).filter(i => cfg.at(i) == 1)
+  let sel-pairs = cfg.flatten().enumerate().filter(((i, selected)) => selected).map(((i, _)) => i)
   let count = sel-pairs.len()
   [
     #problem-def("MinimumFaultDetectionTestSet")[
@@ -8668,12 +8670,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Fault detection test sets arise in hardware testing: each input-output path through a circuit's DAG representation exercises the internal components it traverses, while the boundary pins themselves are fixed sources and sinks. The problem therefore asks for the fewest test pairs whose induced paths cover all internal vertices. It generalises Set Cover over a structured family of subsets induced by DAG reachability.#footnote[No algorithm improving on brute-force enumeration of all $2^(|I| dot |O|)$ input-output pair subsets is known for the general case.]
 
-      *Example.* Consider $n = #n$ vertices with inputs $I = {#inputs.map(str).join(", ")}$ and outputs $O = {#outputs.map(str).join(", ")}$. The internal vertices are ${2, 3, 4}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers internal vertices ${2, 3}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers internal vertices ${3, 4}$. Their union is all internal vertices, giving an optimal count of $#count$.
+      *Example.* Consider $n = #n$ vertices with inputs $I = {#fmt-values(inputs)}$ and outputs $O = {#fmt-values(outputs)}$. The internal vertices are ${2, 3, 4}$. Arcs: #{arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}. Selecting pair $(#(inputs.at(0)), #(outputs.at(0)))$ covers internal vertices ${2, 3}$, and pair $(#(inputs.at(1)), #(outputs.at(1)))$ covers internal vertices ${3, 4}$. Their union is all internal vertices, giving an optimal count of $#count$.
 
       #pred-commands(
         "pred create --example MinimumFaultDetectionTestSet -o mfdts.json",
         "pred solve mfdts.json --solver brute-force",
-        "pred evaluate mfdts.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mfdts.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -8687,7 +8689,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let weights = x.instance.weights
   let config = x.optimal_config
   let opt-val = metric-value(x.optimal_value)
-  let removed = range(na).filter(i => config.at(i) == 1)
+  let removed = range(na).filter(i => config.at(i))
   [
     #problem-def("MinimumFeedbackArcSet")[
       Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
@@ -8699,7 +8701,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumFeedbackArcSet -o minimum-feedback-arc-set.json",
         "pred solve minimum-feedback-arc-set.json",
-        "pred evaluate minimum-feedback-arc-set.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate minimum-feedback-arc-set.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -8713,7 +8715,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let K = x.instance.budget
   let L = x.instance.max_cycle_length
   let config = x.optimal_config
-  let removed-indices = config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let removed-indices = config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   let removed-edges = removed-indices.map(i => edges.at(i))
   let blue = graph-colors.at(0)
   let gray = luma(180)
@@ -8730,7 +8732,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PartialFeedbackEdgeSet -o partial-feedback-edge-set.json",
         "pred solve partial-feedback-edge-set.json",
-        "pred evaluate partial-feedback-edge-set.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate partial-feedback-edge-set.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -8768,7 +8770,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let x = load-model-example("MultipleChoiceBranching")
   let nv = graph-num-vertices(x.instance)
   let arcs = x.instance.graph.arcs
-  let chosen = x.optimal_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let chosen = x.optimal_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
   [
     #problem-def("MultipleChoiceBranching")[
       Given a directed graph $G = (V, A)$, arc weights $w: A -> ZZ^+$, a partition $A_1, A_2, dots, A_m$ of $A$, and a threshold $K in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ with $sum_(a in A') w(a) >= K$ such that every vertex has in-degree at most one in $(V, A')$, the selected subgraph $(V, A')$ is acyclic, and $|A' inter A_i| <= 1$ for every partition group.
@@ -8782,7 +8784,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MultipleChoiceBranching -o multiple-choice-branching.json",
         "pred solve multiple-choice-branching.json",
-        "pred evaluate multiple-choice-branching.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate multiple-choice-branching.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -8837,7 +8839,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example AcyclicPartition -o acyclic-partition.json",
         "pred solve acyclic-partition.json",
-        "pred evaluate acyclic-partition.json --config " + config.map(str).join(","),
+        "pred evaluate acyclic-partition.json --config " + cli-config(config),
       )
 
       #figure({
@@ -8876,17 +8878,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let task-lengths = x.instance.task_lengths
   let n = task-lengths.len()
   let D = x.instance.deadline
-  let lehmer = x.optimal_config
-  // Decode Lehmer code to job permutation
-  let job-order = {
-    let avail = range(n)
-    let result = ()
-    for c in lehmer {
-      result.push(avail.at(c))
-      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
-    }
-    result
-  }
+  let job-order = x.optimal_config
   // Compute Gantt schedule greedily
   let machine-end = range(m).map(_ => 0)
   let job-end = range(n).map(_ => 0)
@@ -8915,7 +8907,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example FlowShopScheduling -o flow-shop-scheduling.json",
         "pred solve flow-shop-scheduling.json",
-        "pred evaluate flow-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate flow-shop-scheduling.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9078,7 +9070,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o job-shop-scheduling.json",
         "pred solve job-shop-scheduling.json --solver brute-force",
-        "pred evaluate job-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate job-shop-scheduling.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9197,7 +9189,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o open-shop-scheduling.json",
         "pred solve open-shop-scheduling.json",
-        "pred evaluate open-shop-scheduling.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate open-shop-scheduling.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9269,12 +9261,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           ([$c_#(i+1)$],) + schedules.at(i).map(b => [#bit(b)]) + ([#config.at(i)],)
         }) + (([$overline(R)$],) + reqs.map(r => [*#r*]) + ([],),)).flatten(),
       ))
-      This uses $sum f = #total-workers <= #n-workers$ workers. The coverage $(#coverage.map(str).join(", "))$ meets $overline(R)$ component-wise, so the instance is feasible.
+      This uses $sum f = #total-workers <= #n-workers$ workers. The coverage $(#fmt-values(coverage))$ meets $overline(R)$ component-wise, so the instance is feasible.
 
       #pred-commands(
         "pred create --example StaffScheduling -o staff.json",
         "pred solve staff.json",
-        "pred evaluate staff.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate staff.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9298,7 +9290,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #{
   let x = load-model-example("TimetableDesign")
-  let assignments = x.optimal_config.enumerate().filter(((idx, value)) => value == 1).map(((idx, value)) => (
+  let assignments = x.optimal_config.flatten().enumerate().filter(((idx, selected)) => selected).map(((idx, _)) => (
     calc.floor(idx / (x.instance.num_tasks * x.instance.num_periods)),
     calc.floor(calc.rem(idx, x.instance.num_tasks * x.instance.num_periods) / x.instance.num_periods),
     calc.rem(idx, x.instance.num_periods),
@@ -9370,7 +9362,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MultiprocessorScheduling -o multiprocessor-scheduling.json",
         "pred solve multiprocessor-scheduling.json",
-        "pred evaluate multiprocessor-scheduling.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate multiprocessor-scheduling.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -9445,12 +9437,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Production Planning is the lot-sizing feasibility problem SS21 in Garey & Johnson @garey1979. Florian, Lenstra, and Rinnooy Kan show that the general problem is NP-complete even under strong restrictions, while also giving pseudo-polynomial dynamic-programming algorithms for capacitated variants @florianLenstraRinnooyKan1980. The implementation in this repository uses one bounded integer variable per period, so the registered exact baseline explores the direct witness space $product_i (c_i + 1)$; under the uniform-capacity bound $C = max_i c_i$, this becomes $O^*((C + 1)^n)$#footnote[This is the search bound induced by the configuration space exposed by the implementation, not a literature-best exact algorithm claim.].
 
-      *Example.* Consider the canonical instance with #n periods, demands $(#demands.map(str).join(", "))$, capacities $(#capacities.map(str).join(", "))$, setup costs $(#setup-costs.map(str).join(", "))$, production costs $(#production-costs.map(str).join(", "))$, inventory costs $(#inventory-costs.map(str).join(", "))$, and budget $B = #bound$. The satisfying production plan $x = (#plan.map(str).join(", "))$ yields prefix inventories $(#inventory.map(str).join(", "))$. The verifier therefore accepts, and its cost breakdown is $#production-total + #inventory-total + #setup-total = #(production-total + inventory-total + setup-total) <= #bound$.
+      *Example.* Consider the canonical instance with #n periods, demands $(#fmt-values(demands))$, capacities $(#fmt-values(capacities))$, setup costs $(#fmt-values(setup-costs))$, production costs $(#fmt-values(production-costs))$, inventory costs $(#fmt-values(inventory-costs))$, and budget $B = #bound$. The satisfying production plan $x = (#fmt-values(plan))$ yields prefix inventories $(#fmt-values(inventory))$. The verifier therefore accepts, and its cost breakdown is $#production-total + #inventory-total + #setup-total = #(production-total + inventory-total + setup-total) <= #bound$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o production-planning.json",
         "pred solve production-planning.json --solver brute-force",
-        "pred evaluate production-planning.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate production-planning.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -9487,7 +9479,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o capacity-assignment.json",
         "pred solve capacity-assignment.json --solver brute-force",
-        "pred evaluate capacity-assignment.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate capacity-assignment.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -9529,7 +9521,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example PrecedenceConstrainedScheduling -o precedence-constrained-scheduling.json",
         "pred solve precedence-constrained-scheduling.json",
-        "pred evaluate precedence-constrained-scheduling.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate precedence-constrained-scheduling.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -9562,7 +9554,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SchedulingWithIndividualDeadlines -o scheduling-with-individual-deadlines.json",
         "pred solve scheduling-with-individual-deadlines.json",
-        "pred evaluate scheduling-with-individual-deadlines.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate scheduling-with-individual-deadlines.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9624,9 +9616,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let precs = x.instance.precedences
   let d_max = lengths.fold(0, (acc, l) => acc + l)
   let cfg = x.optimal_config
-  // For each task t, collect active time slots from the flat binary config
+  // For each task, collect its active time slots.
   let active-slots = range(n).map(t =>
-    range(d_max).filter(u => cfg.at(t * d_max + u) == 1)
+    range(d_max).filter(u => cfg.at(t).at(u))
   )
   let makespan = x.optimal_value
   [
@@ -9637,14 +9629,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       The makespan is $max_{t in T} (max S(t) + 1)$.
     ][
-      Preemptive Scheduling is problem A5 SS6 in Garey & Johnson @garey1979. NP-complete in general; the special case without precedences ($m$ arbitrary) is solvable in polynomial time (McNaughton's wrap-around algorithm), and the preemptive open-shop variant is also polynomial. The configuration representation is a binary vector of length $n dot D_"max"$ encoding per-slot assignments.
+      Preemptive Scheduling is problem A5 SS6 in Garey & Johnson @garey1979. NP-complete in general; the special case without precedences ($m$ arbitrary) is solvable in polynomial time (McNaughton's wrap-around algorithm), and the preemptive open-shop variant is also polynomial. The configuration is an $n times D_"max"$ Boolean matrix encoding per-slot assignments.
 
-      *Example.* Let $n = #n$ tasks with lengths $(#lengths.map(str).join(", "))$, $m = #m$ processors, and precedences #{precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", ")}. Optimal makespan: $#makespan$. Schedule: #range(n).map(t => [$t_#t$ at slots $[#active-slots.at(t).map(str).join(", ")]$]).join("; ").
+      *Example.* Let $n = #n$ tasks with lengths $(#fmt-values(lengths))$, $m = #m$ processors, and precedences #{precs.map(p => $t_#(p.at(0)) prec t_#(p.at(1))$).join(", ")}. Optimal makespan: $#makespan$. Schedule: #range(n).map(t => [$t_#t$ at slots $[#active-slots.at(t).map(str).join(", ")]$]).join("; ").
 
       #pred-commands(
         "pred create --example PreemptiveScheduling -o preemptive-scheduling.json",
         "pred solve preemptive-scheduling.json",
-        "pred evaluate preemptive-scheduling.json --config " + cfg.map(str).join(","),
+        "pred evaluate preemptive-scheduling.json --config " + cli-config(cfg),
       )
     ]
   ]
@@ -9666,7 +9658,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Scheduling to Minimize Weighted Completion Time is problem A5 SS13 in Garey & Johnson @garey1979. NP-complete for $m = 2$ by reduction from Partition @lenstra1977, and NP-complete in the strong sense for arbitrary $m$. For a fixed assignment of tasks to processors, Smith's rule gives the optimal ordering on each processor, reducing the search space to $m^n$ processor assignments @smith1956. The problem is solvable in polynomial time when all lengths are equal or when all weights are equal @conway1967 @horn1973.
 
-      *Example.* Let $T = {t_1, dots, t_#ntasks}$ with lengths $(#lengths.map(str).join(", "))$, weights $(#weights.map(str).join(", "))$, and $m = #m$ processors. The optimal assignment $(#sigma.map(v => str(v + 1)).join(", "))$ achieves total weighted completion time #x.optimal_value:
+      *Example.* Let $T = {t_1, dots, t_#ntasks}$ with lengths $(#fmt-values(lengths))$, weights $(#fmt-values(weights))$, and $m = #m$ processors. The optimal assignment $(#sigma.map(v => str(v + 1)).join(", "))$ achieves total weighted completion time #x.optimal_value:
       #for p in range(m) [
         - Processor #(p + 1): ${#tasks-by-proc.at(p).map(i => $t_#(i + 1)$).join(", ")}$#if tasks-by-proc.at(p).len() > 0 {
           let proc-tasks = tasks-by-proc.at(p)
@@ -9683,7 +9675,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o scheduling-wct.json",
         "pred solve scheduling-wct.json --solver brute-force",
-        "pred evaluate scheduling-wct.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate scheduling-wct.json --config " + cli-config(x.optimal_config),
       )
 
       #figure({
@@ -9758,7 +9750,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingWithinIntervals -o sequencing-within-intervals.json",
         "pred solve sequencing-within-intervals.json",
-        "pred evaluate sequencing-within-intervals.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-within-intervals.json --config " + cli-config(x.optimal_config),
       )
 
       Each task can only start within its window $[r(t), d(t) - ell(t)]$, and the windows overlap, so finding a non-overlapping assignment is non-trivial. One feasible schedule places the tasks at #range(ntasks).map(i => $[#starts.at(i), #(starts.at(i) + lengths.at(i)))$).join($,$):
@@ -9818,17 +9810,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let precs = x.instance.precedences
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let tardy-count = metric-value(sol.metric)
-  // Decode Lehmer code to permutation (schedule order)
-  let lehmer = sol.config
-  let schedule = {
-    let avail = range(ntasks)
-    let result = ()
-    for c in lehmer {
-      result.push(avail.at(c))
-      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
-    }
-    result
-  }
+  let schedule = sol.config
   // Compute inverse: task-pos[task] = position
   let task-pos = range(ntasks).map(task => {
     schedule.enumerate().filter(((p, t)) => t == task).at(0).at(0)
@@ -9848,7 +9830,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example MinimumTardinessSequencing -o minimum-tardiness-sequencing.json",
         "pred solve minimum-tardiness-sequencing.json",
-        "pred evaluate minimum-tardiness-sequencing.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate minimum-tardiness-sequencing.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9901,16 +9883,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let ntasks = lengths.len()
   let sol = (config: x.optimal_config, metric: x.optimal_value)
   let opt = metric-value(sol.metric)
-  let lehmer = sol.config
-  let schedule = {
-    let avail = range(ntasks)
-    let result = ()
-    for c in lehmer {
-      result.push(avail.at(c))
-      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
-    }
-    result
-  }
+  let schedule = sol.config
   let starts = ()
   let finishes = ()
   let elapsed = 0
@@ -9931,7 +9904,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingToMinimizeWeightedCompletionTime -o sequencing-to-minimize-weighted-completion-time.json",
         "pred solve sequencing-to-minimize-weighted-completion-time.json",
-        "pred evaluate sequencing-to-minimize-weighted-completion-time.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-to-minimize-weighted-completion-time.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -9972,16 +9945,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let deadlines = x.instance.deadlines
   let bound = x.instance.bound
   let njobs = lengths.len()
-  let lehmer = x.optimal_config
-  let schedule = {
-    let avail = range(njobs)
-    let result = ()
-    for c in lehmer {
-      result.push(avail.at(c))
-      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
-    }
-    result
-  }
+  let schedule = x.optimal_config
   let completions = {
     let t = 0
     let result = ()
@@ -10010,7 +9974,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingToMinimizeWeightedTardiness -o sequencing-to-minimize-weighted-tardiness.json",
         "pred solve sequencing-to-minimize-weighted-tardiness.json",
-        "pred evaluate sequencing-to-minimize-weighted-tardiness.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-to-minimize-weighted-tardiness.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10056,16 +10020,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let costs = x.instance.costs
   let precs = x.instance.precedences
   let ntasks = costs.len()
-  let lehmer = x.optimal_config
-  let schedule = {
-    let avail = range(ntasks)
-    let result = ()
-    for c in lehmer {
-      result.push(avail.at(c))
-      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
-    }
-    result
-  }
+  let schedule = x.optimal_config
   let prefix-sums = {
     let running = 0
     let result = ()
@@ -10089,7 +10044,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingToMinimizeMaximumCumulativeCost -o sequencing-to-minimize-maximum-cumulative-cost.json",
         "pred solve sequencing-to-minimize-maximum-cumulative-cost.json",
-        "pred evaluate sequencing-to-minimize-maximum-cumulative-cost.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-to-minimize-maximum-cumulative-cost.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10163,7 +10118,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingToMinimizeTardyTaskWeight -o sequencing-to-minimize-tardy-task-weight.json",
         "pred solve sequencing-to-minimize-tardy-task-weight.json",
-        "pred evaluate sequencing-to-minimize-tardy-task-weight.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-to-minimize-tardy-task-weight.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -10204,7 +10159,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example SequencingWithDeadlinesAndSetUpTimes -o sequencing-with-deadlines-and-set-up-times.json",
         "pred solve sequencing-with-deadlines-and-set-up-times.json",
-        "pred evaluate sequencing-with-deadlines-and-set-up-times.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sequencing-with-deadlines-and-set-up-times.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -10230,7 +10185,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o integral-flow-homologous-arcs.json",
         "pred solve integral-flow-homologous-arcs.json --solver brute-force",
-        "pred evaluate integral-flow-homologous-arcs.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate integral-flow-homologous-arcs.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10342,12 +10297,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       NP-completeness was proved by Even, Itai, and Shamir via reduction from 3-SAT @even1976. The problem remains NP-complete even when all arc capacities are 1 and $R_1 = 1$. No sub-exponential exact algorithm is known; brute-force enumeration over $(C + 1)^(2|A|)$ flow assignments dominates, where $C = max_(a in A) c(a)$.#footnote[No algorithm improving on brute-force is known for Directed Two-Commodity Integral Flow.]
 
-      *Example.* Consider a directed graph with $n = #nv$ vertices and $|A| = #m$ arcs with capacities $(#caps.map(str).join(", "))$, sources $s_1 = v_#s1$, $s_2 = v_#s2$, sinks $t_1 = v_#t1$, $t_2 = v_#t2$, and requirements $R_1 = #R1$, $R_2 = #R2$. Commodity 1 routes along #c1-arcs.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", ") and commodity 2 along #c2-arcs.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", "), satisfying all capacity and conservation constraints.
+      *Example.* Consider a directed graph with $n = #nv$ vertices and $|A| = #m$ arcs with capacities $(#fmt-values(caps))$, sources $s_1 = v_#s1$, $s_2 = v_#s2$, sinks $t_1 = v_#t1$, $t_2 = v_#t2$, and requirements $R_1 = #R1$, $R_2 = #R2$. Commodity 1 routes along #c1-arcs.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", ") and commodity 2 along #c2-arcs.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", "), satisfying all capacity and conservation constraints.
 
       #pred-commands(
         "pred create --example DirectedTwoCommodityIntegralFlow -o d2cif.json",
         "pred solve d2cif.json",
-        "pred evaluate d2cif.json --config " + config.map(str).join(","),
+        "pred evaluate d2cif.json --config " + cli-config(config),
       )
 
       #figure(
@@ -10411,12 +10366,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       The brute-force bound $(C + 1)^(|A|)$ arises from enumerating all possible integral flow vectors, where $C = max_(a in A) c(a)$.#footnote[No sub-exponential exact algorithm is known for Minimum Edge-Cost Flow.]
 
-      *Example.* Consider a directed graph with $n = #nv$ vertices, source $s = v_#src$, sink $t = v_#snk$, requirement $R = #R$, and $|A| = #{arcs-j.len()}$ arcs with capacities $(#caps.map(str).join(", "))$ and prices $(#prices-j.map(str).join(", "))$. The optimal flow $f = (#flow.map(str).join(", "))$ activates the arcs #opt-arc-idx.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", ") for a total edge cost of $#opt-arc-idx.map(i => str(prices-j.at(i))).join(" + ") = #cost$.
+      *Example.* Consider a directed graph with $n = #nv$ vertices, source $s = v_#src$, sink $t = v_#snk$, requirement $R = #R$, and $|A| = #{arcs-j.len()}$ arcs with capacities $(#fmt-values(caps))$ and prices $(#fmt-values(prices-j))$. The optimal flow $f = (#fmt-values(flow))$ activates the arcs #opt-arc-idx.map(i => $(v_#(arcs-j.at(i).at(0)), v_#(arcs-j.at(i).at(1)))$).join(", ") for a total edge cost of $#opt-arc-idx.map(i => str(prices-j.at(i))).join(" + ") = #cost$.
 
       #pred-commands(
         "pred create --example MinimumEdgeCostFlow -o mecf.json",
         "pred solve mecf.json",
-        "pred evaluate mecf.json --config " + flow.map(str).join(","),
+        "pred evaluate mecf.json --config " + cli-config(flow),
       )
 
       #figure(
@@ -10498,12 +10453,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       The registered polynomial bound $(|V| + |A|)^6$ is a conservative placeholder honoring the polynomial-time solvability via the linear-programming formulation; sharper strongly-polynomial bounds are available for specific algorithms (e.g., Orlin's enhanced capacity-scaling minimum-cost flow algorithm).
 
-      *Example.* On the canonical instance ($n = 4$ vertices, source $s = v_#src$, sink $t = v_#snk$, $|A| = #{arcs-j.len()}$ arcs with capacities $(#caps.map(str).join(", "))$ and costs $(#costs-j.map(str).join(", "))$), the source out-capacity bounds the flow value at $|f| <= 2 + 1 = 3$, and this is achievable: routing 2 units along $v_0 -> v_1$ and 1 unit along $v_0 -> v_2$, balanced by 1 unit through the lateral $v_1 -> v_2$ and 1 unit on $v_1 -> v_3$, gives $f = (#flow.map(str).join(", "))$ with $|f| = 3$ and total cost $2 dot 1 + 1 dot 0 + 1 dot 0 + 1 dot 1 + 2 dot 2 = 7$. The scalar score is $M dot (B - 3) + 7 = 8 dot 4 + 7 = 39$ where $B = 7$ and $M = 8$.
+      *Example.* On the canonical instance ($n = 4$ vertices, source $s = v_#src$, sink $t = v_#snk$, $|A| = #{arcs-j.len()}$ arcs with capacities $(#fmt-values(caps))$ and costs $(#fmt-values(costs-j))$), the source out-capacity bounds the flow value at $|f| <= 2 + 1 = 3$, and this is achievable: routing 2 units along $v_0 -> v_1$ and 1 unit along $v_0 -> v_2$, balanced by 1 unit through the lateral $v_1 -> v_2$ and 1 unit on $v_1 -> v_3$, gives $f = (#fmt-values(flow))$ with $|f| = 3$ and total cost $2 dot 1 + 1 dot 0 + 1 dot 0 + 1 dot 1 + 2 dot 2 = 7$. The scalar score is $M dot (B - 3) + 7 = 8 dot 4 + 7 = 39$ where $B = 7$ and $M = 8$.
 
       #pred-commands(
         "pred create --example MinimumCostMaximumFlow -o mcmf.json",
         "pred solve mcmf.json",
-        "pred evaluate mcmf.json --config " + flow.map(str).join(","),
+        "pred evaluate mcmf.json --config " + cli-config(flow),
       )
     ]
   ]
@@ -10525,12 +10480,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       The registered polynomial bound $(|V| + |A|)^6$ is a conservative placeholder honoring polynomial-time solvability via the linear-programming formulation; sharper strongly-polynomial bounds are available for specific min-cost-flow algorithms.
 
-      *Example.* On the canonical instance ($n = #{arcs-j.fold(0, (acc, a) => calc.max(acc, a.at(0), a.at(1))) + 1}$ vertices, $|A| = #{arcs-j.len()}$ arcs with capacities $(#caps.map(str).join(", "))$ and signed costs $(#costs-j.map(str).join(", "))$) there are two competing cycles through vertex $v_0$: cycle $A = (v_0 -> v_1 -> v_0)$ has per-unit cost $2 + (-3) = -1$ and capacity $2$, while cycle $B = (v_0 -> v_2 -> v_0)$ has per-unit cost $1 + (-4) = -3$ and capacity $1$. Cycle $B$ is cheaper per unit but smaller; cycle $A$ is more expensive per unit but larger. Both reduce cost, so the optimum pushes each cycle to capacity, giving $g = (#circ.map(str).join(", "))$ with total cost $2 dot 2 + 2 dot (-3) + 1 dot 1 + 1 dot (-4) = -5$. By comparison, running only cycle $A$ gives cost $-2$, only cycle $B$ gives $-3$, and the zero circulation gives $0$, so the optimum $-5$ strictly beats every alternative.
+      *Example.* On the canonical instance ($n = #{arcs-j.fold(0, (acc, a) => calc.max(acc, a.at(0), a.at(1))) + 1}$ vertices, $|A| = #{arcs-j.len()}$ arcs with capacities $(#fmt-values(caps))$ and signed costs $(#fmt-values(costs-j))$) there are two competing cycles through vertex $v_0$: cycle $A = (v_0 -> v_1 -> v_0)$ has per-unit cost $2 + (-3) = -1$ and capacity $2$, while cycle $B = (v_0 -> v_2 -> v_0)$ has per-unit cost $1 + (-4) = -3$ and capacity $1$. Cycle $B$ is cheaper per unit but smaller; cycle $A$ is more expensive per unit but larger. Both reduce cost, so the optimum pushes each cycle to capacity, giving $g = (#fmt-values(circ))$ with total cost $2 dot 2 + 2 dot (-3) + 1 dot 1 + 1 dot (-4) = -5$. By comparison, running only cycle $A$ gives cost $-2$, only cycle $B$ gives $-3$, and the zero circulation gives $0$, so the optimum $-5$ strictly beats every alternative.
 
       #pred-commands(
         "pred create --example MinimumCostCirculation -o mcc.json",
         "pred solve mcc.json",
-        "pred evaluate mcc.json --config " + circ.map(str).join(","),
+        "pred evaluate mcc.json --config " + cli-config(circ),
       )
     ]
   ]
@@ -10553,7 +10508,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example IntegralFlowBundles -o integral-flow-bundles.json",
         "pred solve integral-flow-bundles.json",
-        "pred evaluate integral-flow-bundles.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate integral-flow-bundles.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10634,7 +10589,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example IntegralFlowWithMultipliers -o integral-flow-with-multipliers.json",
         "pred solve integral-flow-with-multipliers.json --solver brute-force",
-        "pred evaluate integral-flow-with-multipliers.json --config " + config.map(str).join(","),
+        "pred evaluate integral-flow-with-multipliers.json --config " + cli-config(config),
       )
 
       #figure(
@@ -10702,7 +10657,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let relation = x.instance.relation_attrs
   let known = x.instance.known_keys
   let config = x.optimal_config
-  let Rprime = range(num-attrs).filter(i => config.at(i) == 1)
+  let Rprime = range(num-attrs).filter(i => config.at(i))
   let fmt-set(s) = ${#s.map(i => $#i$).join($,$)}$
   let fmt-fd(fd) = {
     let lhs = fmt-set(fd.at(0))
@@ -10728,7 +10683,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example AdditionalKey -o additional-key.json",
         "pred solve additional-key.json",
-        "pred evaluate additional-key.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate additional-key.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -10796,7 +10751,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConjunctiveBooleanQuery -o conjunctive-boolean-query.json",
         "pred solve conjunctive-boolean-query.json",
-        "pred evaluate conjunctive-boolean-query.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate conjunctive-boolean-query.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -10840,7 +10795,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConsecutiveOnesMatrixAugmentation -o consecutive-ones-matrix-augmentation.json",
         "pred solve consecutive-ones-matrix-augmentation.json --solver brute-force",
-        "pred evaluate consecutive-ones-matrix-augmentation.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate consecutive-ones-matrix-augmentation.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10862,7 +10817,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Use the canonical witness {0, 1, 3}
   let cfg = x.optimal_config
   // Selected column indices
-  let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => i)
+  let selected = cfg.enumerate().filter(((i, v)) => v).map(((i, v)) => i)
   [
     #problem-def("ConsecutiveOnesSubmatrix")[
       Given an $m times n$ binary matrix $A$ and an integer $K$ with $0 <= K <= n$, determine whether there exists a subset of $K$ columns of $A$ whose columns can be permuted so that in each row all 1's occur consecutively (the _consecutive ones property_).
@@ -10874,7 +10829,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example ConsecutiveOnesSubmatrix -o consecutive-ones-submatrix.json",
         "pred solve consecutive-ones-submatrix.json",
-        "pred evaluate consecutive-ones-submatrix.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate consecutive-ones-submatrix.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -10886,7 +10841,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
           for i in range(m) {
             for j in range(n) {
               let val = A-int.at(i).at(j)
-              let is-selected = cfg.at(j) == 1
+              let is-selected = cfg.at(j)
               let f = if val == 1 {
                 if is-selected { graph-colors.at(0).transparentize(30%) } else { luma(200) }
               } else { white }
@@ -10945,12 +10900,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Sparse Matrix Compression appears as problem SR13 in Garey and Johnson @garey1979. It models row-overlay compression for sparse lookup tables: rows may share storage positions only when their shifted 1-entries never demand different row labels from the same slot. The implementation in this crate searches over row shifts only, then reconstructs the implied storage vector internally. This yields the direct exact bound $O(K^m dot m dot n)$ for $m$ rows and $n$ columns.#footnote[The storage vector is not enumerated as part of the configuration space. Once the shifts are fixed, every occupied slot is forced by the 1-entries of the shifted rows.]
 
-      *Example.* Let $A = #math.mat(..A-int.map(row => row.map(v => $#v$)))$ and $K = #K$. The stored config $(#cfg.map(str).join(", "))$ encodes the one-based shifts $s = (#shifts.map(str).join(", "))$. These shifts place the four row supports at positions $\{2, 5\}$, $\{3\}$, $\{4\}$, and $\{1\}$ respectively, so the supports are pairwise disjoint. The implied overlay vector is therefore $b = (#storage.map(str).join(", "))$, and this is the unique satisfying shift assignment among the $2^4 = 16$ configs in the canonical fixture.
+      *Example.* Let $A = #math.mat(..A-int.map(row => row.map(v => $#v$)))$ and $K = #K$. The stored config $(#fmt-values(cfg))$ encodes the one-based shifts $s = (#fmt-values(shifts))$. These shifts place the four row supports at positions $\{2, 5\}$, $\{3\}$, $\{4\}$, and $\{1\}$ respectively, so the supports are pairwise disjoint. The implied overlay vector is therefore $b = (#fmt-values(storage))$, and this is the unique satisfying shift assignment among the $2^4 = 16$ configs in the canonical fixture.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o sparse-matrix-compression.json",
         "pred solve sparse-matrix-compression.json",
-        "pred evaluate sparse-matrix-compression.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate sparse-matrix-compression.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -11029,19 +10984,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let A = x.instance.matrix
   let n = A.len()
   let cfg = x.optimal_config
-  let signs = cfg.map(v => if v == 0 { $-1$ } else { $+1$ })
+  let signs = cfg.map(v => if not v { $-1$ } else { $+1$ })
   [
     #problem-def("MinimumMatrixCover")[
       Given an $n times n$ nonnegative integer matrix $A$, find a function $f: \{1, dots, n\} -> \{-1, +1\}$ minimizing $sum_(i,j) a_(i j) dot f(i) dot f(j)$.
     ][
       Minimum Matrix Cover asks for a sign assignment to rows (equivalently columns) of a square matrix that minimizes the resulting quadratic form. Each binary variable $x_i in \{0, 1\}$ encodes a sign $f(i) = 2 x_i - 1$. Since $f(i)^2 = 1$, diagonal entries contribute a constant $sum_i a_(i i)$; the optimization depends only on off-diagonal structure. The brute-force complexity is $O(2^n)$ where $n$ is the matrix dimension.#footnote[No algorithm improving on brute-force enumeration of all $2^n$ sign assignments is known for the general case.]
 
-      *Example.* Let $A$ be the #(n)$times$#(n) symmetric matrix with zero diagonal shown below. The optimal config $(#cfg.map(str).join(", "))$ assigns signs $(#signs.join(", "))$, yielding value $= #x.optimal_value$.
+      *Example.* Let $A$ be the #(n)$times$#(n) symmetric matrix with zero diagonal shown below. The optimal config $(#fmt-values(cfg))$ assigns signs $(#signs.join(", "))$, yielding value $= #x.optimal_value$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o mmc.json",
         "pred solve mmc.json",
-        "pred evaluate mmc.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mmc.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -11054,19 +11009,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = if m > 0 { M.at(0).len() } else { 0 }
   let ones = x.instance.ones
   let cfg = x.optimal_config
-  let selected-ones = ones.enumerate().filter(((k, _)) => cfg.at(k) == 1).map(((_, pos)) => pos)
+  let selected-ones = ones.enumerate().filter(((k, _)) => cfg.at(k)).map(((_, pos)) => pos)
   [
     #problem-def("MinimumMatrixDomination")[
       Given an $m times n$ binary matrix $M$, find a minimum-cardinality subset $C$ of 1-entries such that every 1-entry not in $C$ shares a row or column with some entry in $C$.
     ][
       Minimum Matrix Domination is a matrix analogue of the dominating set problem. Each binary variable corresponds to a 1-entry in row-major order; the evaluator checks that every unselected 1-entry shares a row or column with at least one selected entry. The brute-force complexity is $O(2^k)$ where $k$ is the number of 1-entries.
 
-      *Example.* Let $M$ be the #(m)$times$#(n) adjacency matrix of $P_6$ (the path on 6 vertices), which has #(ones.len()) non-zero entries. The optimal config $(#cfg.map(str).join(", "))$ selects entries at positions #selected-ones.map(((r, c)) => [(#r, #c)]).join(", "), yielding value $= #x.optimal_value$.
+      *Example.* Let $M$ be the #(m)$times$#(n) adjacency matrix of $P_6$ (the path on 6 vertices), which has #(ones.len()) non-zero entries. The optimal config $(#fmt-values(cfg))$ selects entries at positions #selected-ones.map(((r, c)) => [(#r, #c)]).join(", "), yielding value $= #x.optimal_value$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o mmd.json",
         "pred solve mmd.json",
-        "pred evaluate mmd.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mmd.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -11088,12 +11043,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
       The best known algorithms for general instances use information set decoding techniques, achieving $O(2^(0.0494 n))$ where $n$ is the block length.
 
-      *Example.* Let $H$ be the #(n)$times$#(m) binary matrix and $s = (#s.map(v => if v { "1" } else { "0" }).join(", "))$. The optimal config $(#cfg.map(str).join(", "))$ has Hamming weight $#wt$.
+      *Example.* Let $H$ be the #(n)$times$#(m) binary matrix and $s = (#fmt-values(s))$. The optimal config $(#fmt-values(cfg))$ has Hamming weight $#wt$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o mwd.json",
         "pred solve mwd.json",
-        "pred evaluate mwd.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mwd.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -11105,19 +11060,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   let n = A.len()
   let m = if n > 0 { A.at(0).len() } else { 0 }
   let cfg = x.optimal_config
-  let selected-cols = cfg.enumerate().filter(((_, v)) => v == 1).map(((j, _)) => j)
+  let selected-cols = cfg.enumerate().filter(((_, v)) => v).map(((j, _)) => j)
   [
     #problem-def("MinimumWeightSolutionToLinearEquations")[
       Given an $n times m$ integer matrix $A$ and an integer vector $b in ZZ^n$, find a rational vector $y in QQ^m$ satisfying $A y = b$ that minimizes $||y||_0$ (the number of non-zero entries of $y$).
     ][
       Minimum Weight Solution to Linear Equations is a sparsity-seeking variant of solving linear systems. Each binary variable $x_j$ indicates whether the $j$-th component of $y$ may be non-zero; the evaluator forms the restricted submatrix $A'$ from the selected columns and checks whether $b$ lies in its column space via integer Gaussian elimination (using i128 arithmetic for exact rational consistency). If the restricted system $A' y' = b$ is consistent, the value is the number of selected columns; otherwise the configuration is infeasible.
 
-      *Example.* Let $A$ be the $#n times #m$ matrix $A = #math.mat(..A.map(row => row.map(v => $#v$)))$ with $b = (#b.map(str).join(", "))$. The optimal config $(#cfg.map(str).join(", "))$ selects columns #selected-cols.map(str).join(", "), yielding value $= #x.optimal_value$.
+      *Example.* Let $A$ be the $#n times #m$ matrix $A = #math.mat(..A.map(row => row.map(v => $#v$)))$ with $b = (#fmt-values(b))$. The optimal config $(#fmt-values(cfg))$ selects columns #fmt-values(selected-cols), yielding value $= #x.optimal_value$.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o mwsle.json",
         "pred solve mwsle.json",
-        "pred evaluate mwsle.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mwsle.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -11136,7 +11091,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o iem.json",
         "pred solve iem.json --solver brute-force",
-        "pred evaluate iem.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate iem.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -11197,7 +11152,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   // Free column indices (those not in S)
   let free-cols = range(n).filter(j => j not in S)
   // Selected free columns from config
-  let selected = cfg.enumerate().filter(((i, v)) => v == 1).map(((i, v)) => free-cols.at(i))
+  let selected = cfg.enumerate().filter(((i, v)) => v).map(((i, v)) => free-cols.at(i))
   // Full basis: required + selected
   let basis = S + selected
   [
@@ -11206,12 +11161,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       The Feasible Basis Extension problem arises in linear programming theory and the study of simplex method pivoting rules. It was shown NP-complete by Murty @Murty1972 via a reduction from Hamiltonian Circuit, establishing that determining whether a partial basis can be extended to a feasible one is computationally intractable in general. The problem is closely related to the question of whether a given linear program has a feasible basic solution containing specified variables. The best known exact algorithm is brute-force enumeration of all $binom(n - |S|, m - |S|)$ candidate extensions, testing each for nonsingularity and non-negativity of the solution in $O(m^3)$ time.#footnote[No algorithm improving on brute-force enumeration is known for the general Feasible Basis Extension problem.]
 
-      *Example.* Consider the $#m times #n$ matrix $A = #math.mat(..A.map(row => row.map(v => $#v$)))$ with $overline(a) = (#rhs.map(str).join(", "))^top$ and required columns $S = \{#S.map(str).join(", ")\}$. We need $#(m - S.len())$ additional column from the free set $\{#free-cols.map(str).join(", ")\}$. Selecting column #selected.at(0) gives basis $B = \{#basis.map(str).join(", ")\}$, which yields $A_B^(-1) overline(a) = (4, 5, 3)^top >= 0$. Column 4 makes $A_B$ singular, and column 5 produces a negative component.
+      *Example.* Consider the $#m times #n$ matrix $A = #math.mat(..A.map(row => row.map(v => $#v$)))$ with $overline(a) = (#fmt-values(rhs))^top$ and required columns $S = \{#fmt-values(S)\}$. We need $#(m - S.len())$ additional column from the free set $\{#fmt-values(free-cols)\}$. Selecting column #selected.at(0) gives basis $B = \{#fmt-values(basis)\}$, which yields $A_B^(-1) overline(a) = (4, 5, 3)^top >= 0$. Column 4 makes $A_B$ singular, and column 5 produces a negative component.
 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o feasible-basis-extension.json",
         "pred solve feasible-basis-extension.json --solver brute-force",
-        "pred evaluate feasible-basis-extension.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate feasible-basis-extension.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -11275,7 +11230,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
             )
           }
         }),
-        caption: [Feasible Basis Extension instance ($#m times #n$). Orange columns are required ($S = \{#S.map(str).join(", ")\}$), blue column is the selected extension. Together they form a nonsingular basis with non-negative solution.],
+        caption: [Feasible Basis Extension instance ($#m times #n$). Orange columns are required ($S = \{#fmt-values(S)\}$), blue column is the selected extension. Together they form a nonsingular basis with non-negative solution.],
       ) <fig:feasible-basis-extension>
     ]
   ]
@@ -11308,7 +11263,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o mlr.json",
         "pred solve mlr.json --solver brute-force",
-        "pred evaluate mlr.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate mlr.json --config " + cli-config(x.optimal_config),
       )
 
       #figure(
@@ -11382,7 +11337,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       #pred-commands(
         "pred create --example " + problem-spec(x) + " -o ocst.json",
         "pred solve ocst.json --solver brute-force",
-        "pred evaluate ocst.json --config " + x.optimal_config.map(str).join(","),
+        "pred evaluate ocst.json --config " + cli-config(x.optimal_config),
       )
     ]
   ]
@@ -11400,12 +11355,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     ][
       Square Tiling (also known as Bounded Wang Tiling) is problem GP13 in Garey and Johnson @garey1979. It was shown NP-complete via transformation from Directed Hamiltonian Path. The infinite variant (tiling the entire plane) is famously undecidable (Berger, 1966). The best known exact approach enumerates all $|T|^(N^2)$ assignments.
 
-      *Example.* Consider $|C| = #nc$ colors, $|T| = #tiles.len()$ tiles, and grid size $N = #n$. The tiles are #tiles.enumerate().map(((i, t)) => [$t_#i = chevron.l #t.at(0), #t.at(1), #t.at(2), #t.at(3) chevron.r$]).join(", "). The witness assignment $(#config.map(str).join(", "))$ places $t_#config.at(0), t_#config.at(1)$ in row 0 and $t_#config.at(2), t_#config.at(3)$ in row 1, satisfying all edge-color constraints.
+      *Example.* Consider $|C| = #nc$ colors, $|T| = #tiles.len()$ tiles, and grid size $N = #n$. The tiles are #tiles.enumerate().map(((i, t)) => [$t_#i = chevron.l #t.at(0), #t.at(1), #t.at(2), #t.at(3) chevron.r$]).join(", "). The witness assignment $(#fmt-values(config))$ places $t_#config.at(0), t_#config.at(1)$ in row 0 and $t_#config.at(2), t_#config.at(3)$ in row 1, satisfying all edge-color constraints.
 
       #pred-commands(
         "pred create --example SquareTiling -o square_tiling.json",
         "pred solve square_tiling.json",
-        "pred evaluate square_tiling.json --config " + config.map(str).join(","),
+        "pred evaluate square_tiling.json --config " + cli-config(config),
       )
     ]
   ]
@@ -11447,14 +11402,14 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example " + problem-spec(max2sat_mc.source) + " -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate max2sat.json --config " + max2sat_mc_sol.source_config.map(str).join(","),
+      "pred evaluate max2sat.json --config " + cli-config(max2sat_mc_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical source has $n = #max2sat_mc.source.instance.num_vars$ variables and #max2sat_mc.source.instance.clauses.len() two-literal clauses. The stored optimal assignment is $(#max2sat_mc_sol.source_config.map(str).join(", "))$, which satisfies all five clauses.
+    *Step 1 -- Source instance.* The canonical source has $n = #max2sat_mc.source.instance.num_vars$ variables and #max2sat_mc.source.instance.clauses.len() two-literal clauses. The stored optimal assignment is $(#fmt-values(max2sat_mc_sol.source_config))$, which satisfies all five clauses.
 
     *Step 2 -- Accumulate the cut weights.* Introduce the reference vertex $s = v_0$ and variable vertices $v_1, v_2, v_3$. After summing the per-clause contributions and deleting zero-weight edges, the target graph has the four signed edges $(s, v_2)$ with weight $-1$, $(s, v_3)$ with weight $-1$, $(v_1, v_2)$ with weight $2$, and $(v_2, v_3)$ with weight $-1$.
 
-    *Step 3 -- Verify the witness.* The target witness $(#max2sat_mc_sol.target_config.map(str).join(", "))$ puts $v_2$ and $v_3$ on the same side as $s$ and $v_1$ on the opposite side, so extraction recovers $(#max2sat_mc_sol.source_config.map(str).join(", "))$. Only edge $(v_1, v_2)$ crosses, so the cut value is $2$ and the affine objective identity certifies optimality #sym.checkmark.
+    *Step 3 -- Verify the witness.* The target witness $(#fmt-values(max2sat_mc_sol.target_config))$ puts $v_2$ and $v_3$ on the same side as $s$ and $v_1$ on the opposite side, so extraction recovers $(#fmt-values(max2sat_mc_sol.source_config))$. Only edge $(v_1, v_2)$ crosses, so the cut value is $2$ and the affine objective identity certifies optimality #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Flipping every target bit yields the complementary cut partition but extracts the same source assignment because extraction compares each variable vertex to $s$.
   ],
@@ -11498,13 +11453,13 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example Maximum2Satisfiability -o max2sat.json",
       "pred reduce max2sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate max2sat.json --config " + max2sat_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate max2sat.json --config " + cli-config(max2sat_ilp_sol.source_config),
     )
     *Step 1 -- Source instance.* The canonical MAX-2-SAT instance has $n = #max2sat_ilp.source.instance.num_vars$ Boolean variables and $m = #max2sat_ilp.source.instance.clauses.len()$ clauses.
 
     *Step 2 -- Build the binary ILP.* Introduce $n$ binary truth variables $y_0, dots, y_(n-1) in {0,1}$ and $m$ binary clause-indicator variables $z_0, dots, z_(m-1) in {0,1}$. The objective is $ max sum_(j=0)^(m-1) z_j $ subject to one constraint per clause $j$: $z_j <= l_1' + l_2'$ where $l_i' = y_i$ for a positive literal and $l_i' = 1 - y_i$ for a negated literal. The resulting ILP has $n + m = #(max2sat_ilp.source.instance.num_vars + max2sat_ilp.source.instance.clauses.len())$ variables and $m = #max2sat_ilp.source.instance.clauses.len()$ constraints.
 
-    *Step 3 -- Verify a solution.* The ILP optimum extracts the first $n$ variables as the truth assignment $bold(y)^* = (#max2sat_ilp_sol.source_config.map(str).join(", "))$, satisfying #max2sat_ilp_sol.source_config.len() source variables #sym.checkmark.
+    *Step 3 -- Verify a solution.* The ILP optimum extracts the first $n$ variables as the truth assignment $bold(y)^* = (#fmt-values(max2sat_ilp_sol.source_config))$, satisfying #max2sat_ilp_sol.source_config.len() source variables #sym.checkmark.
   ],
 )[
   A MAX-2-SAT instance maps directly to a binary ILP @garey1979: each Boolean variable becomes a binary decision variable, each clause gets a binary indicator variable, and a single linear inequality per clause links the indicator to its literals. The objective maximizes the sum of clause indicators, so the ILP optimum equals the maximum number of satisfiable clauses.
@@ -11660,10 +11615,10 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example MVC -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mvc.json --config " + mvc_mis_sol.source_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(mvc_mis_sol.source_config),
     )
-    Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
-    Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x == 1).len()) \
+    Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x).len()) #h(1em)
+    Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x).len()) \
     $|"VC"| + |"IS"| = #graph-num-vertices(mvc_mis.source.instance) = |V|$ #sym.checkmark
   ],
 )[
@@ -11693,13 +11648,13 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example " + problem-spec(dmds_mmmc.source) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate dmds.json --config " + dmds_mmmc_sol.source_config.map(str).join(","),
+      "pred evaluate dmds.json --config " + cli-config(dmds_mmmc_sol.source_config),
     )
-    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_mmmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and bound $K = #dmds_mmmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_mmmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
     *Step 2 -- Build the target instance.* Keep the graph unchanged, assign weight $1$ to every vertex, assign length $1$ to every edge, and set the number of centers to $k = #dmds_mmmc.target.instance.k$. The target therefore still has $#graph-num-vertices(dmds_mmmc.target.instance)$ vertices and $#graph-num-edges(dmds_mmmc.target.instance)$ edges.
 
-    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the maximum weighted distance is $1$. The extracted source witness is the same indicator vector, hence a dominating set of size $2$ #sym.checkmark
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_mmmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the maximum weighted distance is $1$. The extracted source witness is the same indicator vector, hence a dominating set of size $2$ #sym.checkmark
   ],
 )[
   This $O(n + m)$ parameter-setting reduction @garey1979[ND50] keeps the graph unchanged, replaces all vertex weights and edge lengths by $1$, and copies the decision budget $K$ into the target center count $k$. On such unit graphs, a $k$-center solution of radius at most $1$ exists exactly when every vertex is itself chosen or adjacent to a chosen vertex, which is the dominating-set condition.
@@ -11728,13 +11683,13 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example " + problem-spec(dmds_msmc.source) + " -o dmds.json",
       "pred reduce dmds.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate dmds.json --config " + dmds_msmc_sol.source_config.map(str).join(","),
+      "pred evaluate dmds.json --config " + cli-config(dmds_msmc_sol.source_config),
     )
-    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$.
+    *Step 1 -- Source instance.* The source graph has vertices ${0, 1, 2, 3, 4, 5}$, edges #{dmds_msmc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}, and decision bound $K = #dmds_msmc.source.instance.bound$. The stored dominating-set witness is $D = {#dmds_msmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$.
 
     *Step 2 -- Build the target instance.* Keep the graph unchanged, assign vertex weight $1$ everywhere, assign edge length $1$ everywhere, and set the target center count to $k = #dmds_msmc.target.instance.k$. The comparison threshold is $B = |V| - K = 6 - 2 = 4$.
 
-    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness is the same indicator vector, hence a valid YES witness for the original decision instance #sym.checkmark
+    *Step 3 -- Verify a witness.* Choosing centers $P = {#dmds_msmc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$ yields distances $(0, 1, 1, 0, 1, 1)$ to the nearest center, so the total weighted distance is $4 = B$. The extracted source witness is the same indicator vector, hence a valid YES witness for the original decision instance #sym.checkmark
   ],
 )[
   This $O(n + m)$ parameter-setting reduction @garey1979[ND51] keeps the graph unchanged, sets every vertex weight and edge length to $1$, copies the decision budget $K$ into the target center count $k$, and compares the target optimum against $B = |V| - K$. On such unit graphs, every exact-$K$ center placement has total distance at least $n - K$, with equality exactly when every non-center vertex is adjacent to a center.
@@ -11756,8 +11711,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   extra: [
     #{
       let target-edges = mvc_mmm.target.instance.graph.edges
-      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => target-edges.at(i))
+      let source-cover = mvc_mmm_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+      let matching = mvc_mmm_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => target-edges.at(i))
       let fmt-edge(e) = "(" + str(e.at(0)) + ", " + str(e.at(1)) + ")"
       [
         #pred-commands(
@@ -11769,7 +11724,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
         *Step 1 -- Shared instance.* Both problems use the same 5-cycle, so $n = #graph-num-vertices(mvc_mmm.source.instance)$ and $|E| = #graph-num-edges(mvc_mmm.source.instance)$.
 
-        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
+        *Step 2 -- Source optimum.* The canonical minimum vertex cover is $C = {#fmt-values(source-cover)}$, so $"mvc"(C_5) = #source-cover.len() = 3$.
 
         *Step 3 -- Target optimum.* The canonical minimum maximal matching is $M = {#matching.map(fmt-edge).join(", ")}$, so $"mmm"(C_5) = #matching.len() = 2$.
 
@@ -11798,25 +11753,25 @@ the displayed rule, extracted from the corresponding `pred path` entry.
   example-caption: [Path graph $P_4$: VC $arrow.r$ LCS via vertex symbols],
   extra: [
     #{
-      let source-cover = mvc_lcs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let source-cover = mvc_lcs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
       let target-config = mvc_lcs_sol.target_config
-      let witness = target-config.filter(x => x < mvc_lcs.target.instance.alphabet_size)
+      let witness = target-config.filter(x => x != none)
       let num-strings = mvc_lcs.target.instance.strings.len()
       let total-length = mvc_lcs.target.instance.strings.map(s => s.len()).fold(0, (acc, n) => acc + n)
-      let fmt-seq(xs) = "(" + xs.map(str).join(", ") + ")"
+      let fmt-seq(xs) = "(" + fmt-values(xs) + ")"
       [
         #pred-commands(
           "pred create --example " + problem-spec(mvc_lcs.source) + " -o mvc.json",
           "pred reduce mvc.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate mvc.json --config " + mvc_lcs_sol.source_config.map(str).join(","),
+          "pred evaluate mvc.json --config " + cli-config(mvc_lcs_sol.source_config),
         )
 
-        *Step 1 -- Source instance.* Path graph $P_4$ with $n = #graph-num-vertices(mvc_lcs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_lcs.source.instance)$ edges. The canonical minimum vertex cover is $C = {#source-cover.map(str).join(", ")}$.
+        *Step 1 -- Source instance.* Path graph $P_4$ with $n = #graph-num-vertices(mvc_lcs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_lcs.source.instance)$ edges. The canonical minimum vertex cover is $C = {#fmt-values(source-cover)}$.
 
         *Step 2 -- Construct the LCS instance.* Alphabet $Sigma = {0, dots, #((mvc_lcs.target.instance.alphabet_size) - 1)}$ and $#num-strings$ strings: $S_0 = #fmt-seq(mvc_lcs.target.instance.strings.at(0))$, $S_1 = #fmt-seq(mvc_lcs.target.instance.strings.at(1))$, $S_2 = #fmt-seq(mvc_lcs.target.instance.strings.at(2))$, $S_3 = #fmt-seq(mvc_lcs.target.instance.strings.at(3))$. The target has `max_length` $#mvc_lcs.target.instance.max_length$ and total input length $#total-length$.
 
-        *Step 3 -- Verify the witness.* The stored target config is #fmt-seq(target-config), so the non-padding common subsequence is $w = #fmt-seq(witness)$ and the corresponding independent set is ${#witness.map(str).join(", ")}$. Taking the complement gives $V backslash w = {#source-cover.map(str).join(", ")} = C$ #sym.checkmark.
+        *Step 3 -- Verify the witness.* The stored target config is #fmt-seq(target-config), so the non-padding common subsequence is $w = #fmt-seq(witness)$ and the corresponding independent set is ${#fmt-values(witness)}$. Taking the complement gives $V backslash w = {#fmt-values(source-cover)} = C$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness.
       ]
@@ -11840,8 +11795,8 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
 #let mvc_fvs = load-example("MinimumVertexCover", "MinimumFeedbackVertexSet")
 #let mvc_fvs_sol = mvc_fvs.solutions.at(0)
-#let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-#let mvc_fvs_fvs = mvc_fvs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_fvs_cover = mvc_fvs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let mvc_fvs_fvs = mvc_fvs_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumVertexCover", "MinimumFeedbackVertexSet",
   example: true,
   example-caption: [7-vertex graph: each source edge becomes a directed 2-cycle],
@@ -11850,10 +11805,10 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example MVC -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mvc.json --config " + mvc_fvs_sol.source_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(mvc_fvs_sol.source_config),
     )
-    Source VC: $C = {#mvc_fvs_cover.map(str).join(", ")}$ (size #mvc_fvs_cover.len()) on a graph with $n = #graph-num-vertices(mvc_fvs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_fvs.source.instance)$ edges \
-    Target FVS: $F = {#mvc_fvs_fvs.map(str).join(", ")}$ (size #mvc_fvs_fvs.len()) on a digraph with the same $n = #graph-num-vertices(mvc_fvs.target.instance)$ vertices and $|A| = #mvc_fvs.target.instance.graph.arcs.len() = 2 |E|$ arcs \
+    Source VC: $C = {#fmt-values(mvc_fvs_cover)}$ (size #mvc_fvs_cover.len()) on a graph with $n = #graph-num-vertices(mvc_fvs.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_fvs.source.instance)$ edges \
+    Target FVS: $F = {#fmt-values(mvc_fvs_fvs)}$ (size #mvc_fvs_fvs.len()) on a digraph with the same $n = #graph-num-vertices(mvc_fvs.target.instance)$ vertices and $|A| = #mvc_fvs.target.instance.graph.arcs.len() = 2 |E|$ arcs \
     Canonical witness is preserved exactly: $C = F$ #sym.checkmark
   ],
 )[
@@ -11894,10 +11849,10 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example MIS -o mis.json",
       "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mis.json --config " + mis_clique_sol.source_config.map(str).join(","),
+      "pred evaluate mis.json --config " + cli-config(mis_clique_sol.source_config),
     )
-    Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
-    Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
+    Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x).len()) #h(1em)
+    Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x).len()) \
     Source $|E| = #graph-num-edges(mis_clique.source.instance)$, complement $|overline(E)| = #graph-num-edges(mis_clique.target.instance)$ #sym.checkmark
   ],
 )[
@@ -11950,9 +11905,9 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example " + problem-spec(dmvc_cc.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + dmvc_cc_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(dmvc_cc_sol.source_config),
     )
-    Source VC witness $(#dmvc_cc_sol.source_config.map(str).join(", "))$, target containment indicator $(#dmvc_cc_sol.target_config.map(str).join(", "))$.
+    Source VC witness $(#fmt-values(dmvc_cc_sol.source_config))$, target containment indicator $(#fmt-values(dmvc_cc_sol.target_config))$.
   ],
 )[
   Plaisted's reduction @plaisted1976 encodes a unit-weight Decision Vertex Cover instance $(G = (V, E), K)$ as a Comparative Containment instance on universe $X = V$. Each vertex contributes a complement set with unit reward; each edge contributes a complement-of-edge penalty set with weight $|V| + 1$ that dominates the total reward whenever the edge is uncovered; and a single budget set with weight $|V| - K$ enforces the cardinality bound.
@@ -11982,7 +11937,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
 #let mvc_aog = load-example("MinimumVertexCover", "MinimumWeightAndOrGraph")
 #let mvc_aog_sol = mvc_aog.solutions.at(0)
-#let mvc_aog_cover = mvc_aog_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_aog_cover = mvc_aog_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumVertexCover", "MinimumWeightAndOrGraph",
   example: true,
   example-caption: [Path $P_3$: vertex cover ${1}$ maps to an AND/OR graph of weight 5],
@@ -11991,11 +11946,11 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example MVC -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mvc.json --config " + mvc_aog_sol.source_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(mvc_aog_sol.source_config),
     )
-    Source VC: $C = {#mvc_aog_cover.map(str).join(", ")}$ (size #mvc_aog_cover.len()) on graph with $n = #graph-num-vertices(mvc_aog.source.instance)$ vertices, $m = #graph-num-edges(mvc_aog.source.instance)$ edges \
+    Source VC: $C = {#fmt-values(mvc_aog_cover)}$ (size #mvc_aog_cover.len()) on graph with $n = #graph-num-vertices(mvc_aog.source.instance)$ vertices, $m = #graph-num-edges(mvc_aog.source.instance)$ edges \
     Target AND/OR graph: #mvc_aog.target.instance.num_vertices vertices, source $v_#mvc_aog.target.instance.source$ (AND), arcs: #{range(mvc_aog.target.instance.arcs.len()).map(i => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} \
-    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => mvc_aog.target.instance.arc_weights.at(i)).sum()}) #sym.checkmark
+    Selected arcs: #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => {let a = mvc_aog.target.instance.arcs.at(i); $v_#(a.at(0)) arrow.r v_#(a.at(1))$}).join(", ")} (weight #{mvc_aog_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, _)) => mvc_aog.target.instance.arc_weights.at(i)).sum()}) #sym.checkmark
   ],
 )[
   This reduction encodes vertex cover as a minimum-weight solution subgraph problem on a three-layer AND/OR DAG. The root AND gate requires all edges to be covered; each edge becomes an OR gate selecting which endpoint covers it; and each vertex becomes a sink whose arc weight equals the vertex weight. The minimum-weight solution subgraph selects exactly the arcs corresponding to a minimum vertex cover.
@@ -12045,11 +12000,11 @@ the displayed rule, extracted from the corresponding `pred path` entry.
       "pred create --example SpinGlass -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate spinglass.json --config " + sg_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate spinglass.json --config " + cli-config(sg_qubo_sol.source_config),
     )
     Source: $n = #spin-num-spins(sg_qubo.source.instance)$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
     Mapping: $s_i = 2x_i - 1$ converts spins ${-1, +1}$ to binary ${0, 1}$ \
-    Canonical ground-state witness: $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
+    Canonical ground-state witness: $bold(x) = (#fmt-values(sg_qubo_sol.target_config))$ #sym.checkmark
   ],
 )[
   The Ising model and QUBO are both quadratic functions over finite domains: spins ${-1,+1}$ and binary variables ${0,1}$, respectively. The affine map $s_i = 2x_i - 1$ establishes a bijection between the two domains and preserves the quadratic structure. Substituting into the Ising Hamiltonian yields a QUBO objective that differs from the original energy by a constant, so ground states correspond exactly.
@@ -12094,7 +12049,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
           "pred create --example CVP -o cvp.json",
           "pred reduce cvp.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate cvp.json --config " + cvp_qubo_sol.source_config.map(str).join(","),
+          "pred evaluate cvp.json --config " + cli-config(cvp_qubo_sol.source_config),
         )
         *Step 1 -- Source instance.* The canonical CVP example uses basis columns $bold(b)_1 = #fmt-vec(basis.at(0))$ and $bold(b)_2 = #fmt-vec(basis.at(1))$, target $bold(t) = #fmt-vec(target)$, and bounds $x_1, x_2 in [#bounds.at(0).lower, #bounds.at(0).upper]$.
 
@@ -12104,7 +12059,7 @@ the displayed rule, extracted from the corresponding `pred path` entry.
 
         *Step 3 -- Build the QUBO.* For this instance, $G = A^top A = ((4, 2), (2, 5))$ and $h = A^top bold(t) = (5.6, 5.8)^top$. Expanding the shifted quadratic form yields the exported upper-triangular matrix with representative entries $Q_(0,0) = #matrix.at(0).at(0)$, $Q_(0,1) = #matrix.at(0).at(1)$, $Q_(0,2) = #matrix.at(0).at(2)$, $Q_(2,5) = #matrix.at(2).at(5)$, and $Q_(5,5) = #matrix.at(5).at(5)$.
 
-        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#bits.map(str).join(", "))$, which extracts to source offsets $bold(c) = (#offsets.map(str).join(", "))$ and actual lattice coordinates $bold(x) = (#coords.map(str).join(", "))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
+        *Step 4 -- Verify a solution.* The fixture stores the canonical witness $bold(z) = (#fmt-values(bits))$, which extracts to source offsets $bold(c) = (#fmt-values(offsets))$ and actual lattice coordinates $bold(x) = (#fmt-values(coords))$. The QUBO value is $bold(z)^top Q bold(z) = #rounded-qubo$; adding back the dropped constant #rounded-constant yields the original squared distance #(rounded-distance-sq), so the extracted point is the closest lattice vector #sym.checkmark.
 
         *Multiplicity.* Offset $3$ has two bit encodings ($(0, 0, 1)$ and $(1, 1, 0)$), so the fixture stores one canonical witness even though the QUBO has multiple optimal binary assignments representing the same CVP solution.
       ],
@@ -12146,7 +12101,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(kc_qubo.source) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate kcoloring.json --config " + kc_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate kcoloring.json --config " + cli-config(kc_qubo_sol.source_config),
     )
     #{
       let hg = house-graph()
@@ -12166,7 +12121,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 3 -- Penalize same-color neighbors (edge conflict).* For each edge $(u,v) in E$ and each color $c$, the product $x_(u,c) x_(v,c) = 1$ iff both endpoints receive color $c$ — exactly the coloring conflict we want to forbid. The penalty $P_2 dot x_(u,c) x_(v,c)$ with $P_2 = P_1 slash 2 = 3$ makes such conflicts costly. The house has 6 edges, each contributing 3 color-conflict penalties $arrow.r$ 18 off-diagonal entries of value $3$ in $Q$.\
 
-    *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#kc_qubo_sol.source_config.map(str).join(", "))$, shown in the figure above. The one-hot encoding is $bold(x) = (#kc_qubo_sol.target_config.map(str).join(", "))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
+    *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#fmt-values(kc_qubo_sol.source_config))$, shown in the figure above. The one-hot encoding is $bold(x) = (#fmt-values(kc_qubo_sol.target_config))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
 
     *Multiplicity:* The fixture stores one canonical coloring witness. The house graph has $3! times 3 = 18$ valid colorings overall: the triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations), and for each, the base vertices $0, 1$ have exactly $3$ compatible ordered pairs.
   ],
@@ -12243,7 +12198,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     #pred-commands(
       "pred create --example " + problem-spec(ksat_qc.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
-      "pred evaluate ksat.json --config " + ksat_qc_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_qc_sol.source_config),
     )
 
     #{
@@ -12252,13 +12207,13 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       let c = ksat_qc.target.instance.c
       let witness-bits = ksat_qc_sol.target_config.len()
       [
-        *Step 1 -- Source instance.* The canonical formula is the single clause $(x_1 or x_2 or x_3)$, witnessed by the satisfying assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$.
+        *Step 1 -- Source instance.* The canonical formula is the single clause $(x_1 or x_2 or x_3)$, witnessed by the satisfying assignment $(#fmt-values(ksat_qc_sol.source_config))$.
 
         *Step 2 -- Enumerate standard clauses.* With $l = 3$ active variables, the construction lists all $M = 8$ signed 3-clauses on ${x_1, x_2, x_3}$. This yields $N = 2M + l = 19$ lifted coefficients in the doubled knapsack encoding.
 
         *Step 3 -- Lift by CRT.* Using $N+1 = 20$ odd primes starting at 13, the reduction builds the CRT gadgets $theta_0, dots, theta_N$ and outputs $(a, b, c)$. In the canonical fixture these numbers have $#a.len()$, $#b.len()$, and $#c.len()$ decimal digits respectively, so the paper reports their sizes rather than expanding them inline.
 
-        *Step 4 -- Verify the stored witness.* The example DB keeps the target witness in binary using $#witness-bits$ bits. Evaluating that witness satisfies $x^2 equiv a mod b$ with $1 <= x < c$, and extraction recovers the original source assignment $(#ksat_qc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Verify the stored witness.* The example DB keeps the target witness in binary using $#witness-bits$ bits. Evaluating that witness satisfies $x^2 equiv a mod b$ with $1 <= x < c$, and extraction recovers the original source assignment $(#fmt-values(ksat_qc_sol.source_config))$ #sym.checkmark.
       ]
     }
 
@@ -12307,7 +12262,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(ksat_ss.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_ss_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_ss_sol.source_config),
     )
     Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_ss.source.instance)$ clauses \
     Target: #subsetsum-num-elements(ksat_ss.target.instance) elements, target $= #ksat_ss.target.instance.target$ \
@@ -12348,16 +12303,16 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
           "pred create --example SubsetSum -o subsetsum.json",
           "pred reduce subsetsum.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate subsetsum.json --config " + ss-cvp-sol.source_config.map(str).join(","),
+          "pred evaluate subsetsum.json --config " + cli-config(ss-cvp-sol.source_config),
         )
-        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#ss-cvp-sizes.map(str).join(", "))$ and target $B = #ss-cvp-target$.
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#fmt-values(ss-cvp-sizes))$ and target $B = #ss-cvp-target$.
 
         *Step 2 -- Build the lattice.* The reduction creates the basis
         $ bold(B) = #to-mat(ss-cvp-basis) $
-        together with target $ bold(t) = (#ss-cvp-target-vec.map(str).join(", "))^top $
+        together with target $ bold(t) = (#fmt-values(ss-cvp-target-vec))^top $
         and binary bounds $x_i in {0,1}$ for all $#ss-cvp-n$ coordinates.
 
-        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#ss-cvp-x.map(str).join(", "))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (1, 0, 0, 1, #ss-cvp-target)^top$, the difference vector is $(0.5, -0.5, -0.5, 0.5, 0)^top$ and the Euclidean distance is $sqrt(#ss-cvp-n / 4) = 1$.
+        *Step 3 -- Verify the canonical witness.* The fixture stores $bold(x) = (#fmt-values(ss-cvp-x))$, which selects sizes $3$ and $8$ and therefore satisfies $3 + 8 = #ss-cvp-target$. Since $bold(B) bold(x) = (1, 0, 0, 1, #ss-cvp-target)^top$, the difference vector is $(0.5, -0.5, -0.5, 0.5, 0)^top$ and the Euclidean distance is $sqrt(#ss-cvp-n / 4) = 1$.
 
         *Witness semantics.* The example DB stores one canonical minimizer. This source instance also has another satisfying subset, $(1, 1, 1, 0)$, so the reduction has multiple optimal CVP witnesses even though only one is serialized.
       ],
@@ -12423,7 +12378,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let part_ks_n = part_ks_sizes.len()
 #let part_ks_total = part_ks_sizes.fold(0, (a, b) => a + b)
 #let part_ks_capacity = part_ks.target.instance.capacity
-#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ks_selected = part_ks_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_ks_selected_sizes = part_ks_selected.map(i => part_ks_sizes.at(i))
 #let part_ks_selected_sum = part_ks_selected_sizes.fold(0, (a, b) => a + b)
 #reduction-rule("Partition", "Knapsack",
@@ -12434,14 +12389,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(part_ks.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_ks_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_ks_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ks_sizes.map(str).join(", "))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#fmt-values(part_ks_sizes))$ with total sum $S = #part_ks_total$, so a balanced witness must hit exactly $S / 2 = #part_ks_capacity$.
 
-    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#part_ks.target.instance.weights.map(str).join(", "))$, values $(#part_ks.target.instance.values.map(str).join(", "))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
+    *Step 2 -- Build the knapsack instance.* The reduction copies each size into both the weight and the value list, producing weights $(#fmt-values(part_ks.target.instance.weights))$, values $(#fmt-values(part_ks.target.instance.values))$, and capacity $C = #part_ks_capacity$. No auxiliary variables are introduced, so the target has the same $#part_ks_n$ binary coordinates as the source.
 
-    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ks_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ks_selected.map(str).join(", ")\}$ with sizes $(#part_ks_selected_sizes.map(str).join(", "))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#fmt-values(part_ks_sol.source_config))$. It selects elements at indices $\{#fmt-values(part_ks_selected)\}$ with sizes $(#fmt-values(part_ks_selected_sizes))$, so the chosen subset has total weight and value $#part_ks_selected_sum = #part_ks_capacity$. Hence the knapsack solution saturates the capacity and certifies a balanced partition.
 
     *Witness semantics.* The example DB stores one canonical balanced subset. This instance has multiple balanced partitions because several different subsets sum to $#part_ks_capacity$, but one witness is enough to demonstrate the reduction.
   ],
@@ -12465,7 +12420,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let part_ss_n = part_ss_sizes.len()
 #let part_ss_total = part_ss_sizes.fold(0, (a, b) => a + b)
 #let part_ss_target = part_ss_total / 2
-#let part_ss_selected = part_ss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ss_selected = part_ss_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_ss_selected_sizes = part_ss_selected.map(i => part_ss_sizes.at(i))
 #let part_ss_selected_sum = part_ss_selected_sizes.fold(0, (a, b) => a + b)
 #reduction-rule("Partition", "SubsetSum",
@@ -12476,14 +12431,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(part_ss.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_ss_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_ss_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_ss_sizes.map(str).join(", "))$ with total sum $S = #part_ss_total$, so a balanced witness must hit exactly $S / 2 = #part_ss_target$.
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#fmt-values(part_ss_sizes))$ with total sum $S = #part_ss_total$, so a balanced witness must hit exactly $S / 2 = #part_ss_target$.
 
-    *Step 2 -- Build the Subset Sum instance.* The reduction copies the sizes directly: $(#part_ss_sizes.map(str).join(", "))$, and sets the target $B = S / 2 = #part_ss_target$. The number of binary variables is unchanged ($n = #part_ss_n$).
+    *Step 2 -- Build the Subset Sum instance.* The reduction copies the sizes directly: $(#fmt-values(part_ss_sizes))$, and sets the target $B = S / 2 = #part_ss_target$. The number of binary variables is unchanged ($n = #part_ss_n$).
 
-    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#part_ss_sol.source_config.map(str).join(", "))$. It selects elements at indices $\{#part_ss_selected.map(str).join(", ")\}$ with sizes $(#part_ss_selected_sizes.map(str).join(", "))$, so the chosen subset sums to $#part_ss_selected_sum = #part_ss_target = B$ #sym.checkmark.
+    *Step 3 -- Verify the canonical witness.* The serialized witness uses the same binary vector on both sides, $bold(x) = (#fmt-values(part_ss_sol.source_config))$. It selects elements at indices $\{#fmt-values(part_ss_selected)\}$ with sizes $(#fmt-values(part_ss_selected_sizes))$, so the chosen subset sums to $#part_ss_selected_sum = #part_ss_target = B$ #sym.checkmark.
 
     *Witness semantics.* The example DB stores one canonical balanced subset. Multiple subsets may sum to $B$, but one witness suffices to demonstrate the reduction.
   ],
@@ -12505,7 +12460,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let part_ifwm_n = part_ifwm_sizes.len()
 #let part_ifwm_total = part_ifwm_sizes.fold(0, (a, b) => a + b)
 #let part_ifwm_half = part_ifwm_total / 2
-#let part_ifwm_selected = part_ifwm_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_ifwm_selected = part_ifwm_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_ifwm_selected_sizes = part_ifwm_selected.map(i => part_ifwm_sizes.at(i))
 #let part_ifwm_source_arcs = part_ifwm_sol.target_config.slice(0, part_ifwm_n)
 #let part_ifwm_relay_arcs = part_ifwm_sol.target_config.slice(part_ifwm_n, 2 * part_ifwm_n)
@@ -12518,14 +12473,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(part_ifwm.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_ifwm_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_ifwm_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition multiset is $(#part_ifwm_sizes.map(str).join(", "))$, so the total is $S = #part_ifwm_total$ and any balanced witness must sum to $S / 2 = #part_ifwm_half$.
+    *Step 1 -- Source instance.* The canonical Partition multiset is $(#fmt-values(part_ifwm_sizes))$, so the total is $S = #part_ifwm_total$ and any balanced witness must sum to $S / 2 = #part_ifwm_half$.
 
-    *Step 2 -- Build the relay network.* The reduction creates vertices $s$, one item vertex $v_i$ per element, a relay vertex $w$, and sink $t$. It adds unit-capacity arcs $(s, v_i)$, item arcs $(v_i, w)$ with capacities $(#part_ifwm_sizes.map(str).join(", "))$, and one bottleneck arc $(w, t)$ with capacity $#part_ifwm_half$. The target witness therefore has $#part_ifwm_sol.target_config.len()$ arc-flow coordinates ordered as source arcs, relay arcs, then the bottleneck arc.
+    *Step 2 -- Build the relay network.* The reduction creates vertices $s$, one item vertex $v_i$ per element, a relay vertex $w$, and sink $t$. It adds unit-capacity arcs $(s, v_i)$, item arcs $(v_i, w)$ with capacities $(#fmt-values(part_ifwm_sizes))$, and one bottleneck arc $(w, t)$ with capacity $#part_ifwm_half$. The target witness therefore has $#part_ifwm_sol.target_config.len()$ arc-flow coordinates ordered as source arcs, relay arcs, then the bottleneck arc.
 
-    *Step 3 -- Verify the canonical witness.* The source witness $bold(x) = (#part_ifwm_sol.source_config.map(str).join(", "))$ selects item indices $\{#part_ifwm_selected.map(str).join(", ")\}$ with sizes $(#part_ifwm_selected_sizes.map(str).join(", "))$, summing to $#part_ifwm_half$. On the target side, the source arcs carry $(#part_ifwm_source_arcs.map(str).join(", "))$, the relay arcs carry $(#part_ifwm_relay_arcs.map(str).join(", "))$, and the bottleneck arc carries $#part_ifwm_bottleneck$. Thus the relay receives $#part_ifwm_selected_sizes.map(str).join(" + ") = #part_ifwm_half$ units and the sink inflow equals the requirement #sym.checkmark.
+    *Step 3 -- Verify the canonical witness.* The source witness $bold(x) = (#fmt-values(part_ifwm_sol.source_config))$ selects item indices $\{#fmt-values(part_ifwm_selected)\}$ with sizes $(#fmt-values(part_ifwm_selected_sizes))$, summing to $#part_ifwm_half$. On the target side, the source arcs carry $(#fmt-values(part_ifwm_source_arcs))$, the relay arcs carry $(#fmt-values(part_ifwm_relay_arcs))$, and the bottleneck arc carries $#part_ifwm_bottleneck$. Thus the relay receives $#part_ifwm_selected_sizes.map(str).join(" + ") = #part_ifwm_half$ units and the sink inflow equals the requirement #sym.checkmark.
 
     *Witness semantics.* The fixture stores one canonical balanced subset. Other balanced subsets may exist, but every feasible target witness still extracts by reading the first $n$ unit-capacity source arcs.
   ],
@@ -12550,7 +12505,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let ks_qubo_num_items = ks_qubo.source.instance.weights.len()
 #let ks_qubo_num_slack = ks_qubo.target.instance.num_vars - ks_qubo_num_items
 #let ks_qubo_penalty = 1 + ks_qubo.source.instance.values.fold(0, (a, b) => a + b)
-#let ks_qubo_selected = ks_qubo_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_qubo_selected = ks_qubo_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let ks_qubo_sel_weight = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.weights.at(i))
 #let ks_qubo_sel_value = ks_qubo_selected.fold(0, (a, i) => a + ks_qubo.source.instance.values.at(i))
 #reduction-rule("Knapsack", "QUBO",
@@ -12561,9 +12516,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example Knapsack -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate knapsack.json --config " + ks_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate knapsack.json --config " + cli-config(ks_qubo_sol.source_config),
     )
-    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_qubo.source.instance.weights.map(str).join(", "))$, values $(#ks_qubo.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_qubo.source.instance.capacity$.
+    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#fmt-values(ks_qubo.source.instance.weights))$, values $(#fmt-values(ks_qubo.source.instance.values))$, and capacity $C = #ks_qubo.source.instance.capacity$.
 
     *Step 2 -- Introduce slack variables.* The inequality $sum_i w_i x_i lt.eq C$ becomes an equality by adding $B = #ks_qubo_num_slack$ binary slack bits that encode unused capacity:
     $ #ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) = #ks_qubo.source.instance.capacity $
@@ -12573,9 +12528,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     $ H = -(#ks_qubo.source.instance.values.enumerate().map(((i, v)) => $#v x_#i$).join($+$)) + #ks_qubo_penalty (#ks_qubo.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) + #range(ks_qubo_num_slack).map(j => $#calc.pow(2, j) s_#j$).join($+$) - #ks_qubo.source.instance.capacity)^2 $
     so any violation of the equality is more expensive than the entire knapsack value range.
 
-    *Step 4 -- Verify a solution.* The QUBO ground state $bold(z) = (#ks_qubo_sol.target_config.map(str).join(", "))$ extracts to the knapsack choice $bold(x) = (#ks_qubo_sol.source_config.map(str).join(", "))$. This selects items $\{#ks_qubo_selected.map(str).join(", ")\}$ with total weight $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.weights.at(i))).join(" + ") = #ks_qubo_sel_weight$ and total value $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.values.at(i))).join(" + ") = #ks_qubo_sel_value$, so the slack bits are all zero and the penalty term vanishes #sym.checkmark.
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(z) = (#fmt-values(ks_qubo_sol.target_config))$ extracts to the knapsack choice $bold(x) = (#fmt-values(ks_qubo_sol.source_config))$. This selects items $\{#fmt-values(ks_qubo_selected)\}$ with total weight $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.weights.at(i))).join(" + ") = #ks_qubo_sel_weight$ and total value $#ks_qubo_selected.map(i => str(ks_qubo.source.instance.values.at(i))).join(" + ") = #ks_qubo_sel_value$, so the slack bits are all zero and the penalty term vanishes #sym.checkmark.
 
-    *Uniqueness:* The fixture stores one canonical optimal witness. The source optimum is unique because items $\{#ks_qubo_selected.map(str).join(", ")\}$ are the only feasible selection achieving value #ks_qubo_sel_value.
+    *Uniqueness:* The fixture stores one canonical optimal witness. The source optimum is unique because items $\{#fmt-values(ks_qubo_selected)\}$ are the only feasible selection achieving value #ks_qubo_sel_value.
   ],
 )[
   For a standard 0-1 Knapsack instance with nonnegative weights, nonnegative values, and nonnegative capacity, the inequality $sum_i w_i x_i lt.eq C$ is converted to equality using binary slack variables that encode the unused capacity. When $C > 0$, one can take $B = floor(log_2 C) + 1$ slack bits; when $C = 0$, a single slack bit also suffices. The penalty method (@sec:penalty-method) combines the negated value objective with a quadratic constraint penalty, producing a QUBO with $n + B$ binary variables.
@@ -12602,7 +12557,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example MinimumDiscretePlanarInverseKinematics -o ik.json",
       "pred reduce ik.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ik.json --config " + mdpik_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate ik.json --config " + cli-config(mdpik_qubo_sol.source_config),
     )
     *Step 1 -- Source instance.* The canonical instance has link lengths $(2, 1)$, target $g = (2, 1)$, sampled orientations $Phi_1 = Phi_2 = {0, pi / 2}$, and admissible pair set $A_2 = {(0,0), (0,1), (1,1)}$.
 
@@ -12614,7 +12569,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     $ (2 y_(1,0) + y_(2,0) - 2)^2 + (2 y_(1,1) + y_(2,1) - 1)^2. $
     The implementation adds the same safe penalty to every one-hot violation and every forbidden pair, here penalizing the single forbidden adjacency $(1, 0)$ between the two blocks.
 
-    *Step 4 -- Verify a solution.* The QUBO ground state $bold(y) = (#mdpik_qubo_sol.target_config.map(str).join(", "))$ decodes to source configuration $(#mdpik_qubo_sol.source_config.map(str).join(", "))$, i.e. link 1 uses angle $0$ and link 2 uses angle $pi / 2$. The end-effector reaches $(2, 1)$ exactly, so the squared distance is $0$ #sym.checkmark.
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(y) = (#fmt-values(mdpik_qubo_sol.target_config))$ decodes to source configuration $(#fmt-values(mdpik_qubo_sol.source_config))$, i.e. link 1 uses angle $0$ and link 2 uses angle $pi / 2$. The end-effector reaches $(2, 1)$ exactly, so the squared distance is $0$ #sym.checkmark.
   ],
 )[
   Discrete planar inverse kinematics is already close to QUBO form: once each sampled orientation is lifted to a binary selector, both end-effector coordinates become linear functions of those selectors, and the squared Euclidean error expands to a quadratic polynomial. Adding quadratic one-hot penalties and quadratic penalties for forbidden consecutive orientation pairs yields a QUBO with $sum_(j=1)^n m_j$ variables @salloum2025ikqubo.
@@ -12645,19 +12600,19 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let mwc_qubo_k = mwc_qubo_terminals.len()
 #let mwc_qubo_nq = mwc_qubo_n * mwc_qubo_k
 #let mwc_qubo_alpha = mwc_qubo_weights.fold(0, (a, w) => a + w) + 1
-#let mwc_qubo_cut_indices = mwc_qubo_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let mwc_qubo_cut_indices = mwc_qubo_sol.source_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
 #let mwc_qubo_cut_cost = mwc_qubo_cut_indices.fold(0, (a, i) => a + mwc_qubo_weights.at(i))
 #reduction-rule("MinimumMultiwayCut", "QUBO",
   example: true,
-  example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$, $|E| = #mwc_qubo_edges.len()$ edges],
+  example-caption: [$n = #mwc_qubo_n$ vertices, $k = #mwc_qubo_k$ terminals $T = {#fmt-values(mwc_qubo_terminals)}$, $|E| = #mwc_qubo_edges.len()$ edges],
   extra: [
     #pred-commands(
       "pred create --example MinimumMultiwayCut -o minimummultiwaycut.json",
       "pred reduce minimummultiwaycut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate minimummultiwaycut.json --config " + mwc_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate minimummultiwaycut.json --config " + cli-config(mwc_qubo_sol.source_config),
     )
-    *Step 1 -- Source instance.* The canonical graph has $n = #mwc_qubo_n$ vertices, $m = #mwc_qubo_edges.len()$ edges with weights $(#mwc_qubo_weights.map(str).join(", "))$, and $k = #mwc_qubo_k$ terminals $T = {#mwc_qubo_terminals.map(str).join(", ")}$.
+    *Step 1 -- Source instance.* The canonical graph has $n = #mwc_qubo_n$ vertices, $m = #mwc_qubo_edges.len()$ edges with weights $(#fmt-values(mwc_qubo_weights))$, and $k = #mwc_qubo_k$ terminals $T = {#fmt-values(mwc_qubo_terminals)}$.
 
     *Step 2 -- Introduce binary variables.* Assign $k = #mwc_qubo_k$ indicator variables per vertex: $x_(u,t) = 1$ means vertex $u$ belongs to terminal $t$'s component. This gives $n k = #mwc_qubo_n times #mwc_qubo_k = #mwc_qubo_nq$ QUBO variables:
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
@@ -12668,7 +12623,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 5 -- Build $H_B$ (cut cost).* For each edge $(u,v)$ with weight $w$ and each pair $s != t$, add $w$ to $Q_(u k+s, v k+t)$. For example, edge $(0,1)$ with weight $2$ contributes $2$ to positions $(x_(0,0), x_(1,1))$, $(x_(0,0), x_(1,2))$, $(x_(0,1), x_(1,0))$, $(x_(0,1), x_(1,2))$, $(x_(0,2), x_(1,0))$, and $(x_(0,2), x_(1,1))$.\
 
-    *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#mwc_qubo_sol.target_config.map(str).join(", "))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
+    *Step 6 -- Verify a solution.* The QUBO ground state $bold(x) = (#fmt-values(mwc_qubo_sol.target_config))$ decodes to the partition: vertex 0 in component 0, vertices 1--3 in component 1, vertex 4 in component 2. Cut edges: $\{#mwc_qubo_cut_indices.map(i => "(" + str(mwc_qubo_edges.at(i).at(0)) + "," + str(mwc_qubo_edges.at(i).at(1)) + ")").join(", ")\}$ with total weight #mwc_qubo_cut_indices.map(i => str(mwc_qubo_weights.at(i))).join(" + ") $= #mwc_qubo_cut_cost$ #sym.checkmark.
   ],
 )[
   The multiway cut problem requires a partition of vertices into $k$ components — one per terminal — minimizing the total weight of edges crossing components. The penalty method (@sec:penalty-method) encodes two constraints as QUBO penalties: (1) each vertex belongs to exactly one component (one-hot), and (2) each terminal is pinned to its own component. The cut-cost Hamiltonian counts edge weight across distinct components. Reference: @Heidari2022.
@@ -12714,11 +12669,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example QUBO -o qubo.json",
       "pred reduce qubo.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate qubo.json --config " + qubo_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate qubo.json --config " + cli-config(qubo_ilp_sol.source_config),
     )
     Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
-    Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
-    Canonical optimal witness: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ #sym.checkmark
+    Target: #qubo_ilp.target.instance.variables.len() ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.variables.len() - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
+    Canonical optimal witness: $bold(x) = (#fmt-values(qubo_ilp_sol.source_config))$ #sym.checkmark
   ],
 )[
   QUBO minimizes a quadratic form $bold(x)^top Q bold(x)$ over binary variables. Every quadratic term $Q_(i j) x_i x_j$ can be _linearized_ by introducing an auxiliary variable $y_(i j)$ constrained to equal the product $x_i x_j$ via three McCormick inequalities. Diagonal terms $Q_(i i) x_i^2 = Q_(i i) x_i$ are already linear for binary $x_i$. The result is a binary ILP with a linear objective and $3 m$ constraints (where $m$ is the number of non-zero off-diagonal entries), whose minimizer corresponds exactly to the QUBO minimizer.
@@ -12756,10 +12711,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example CircuitSAT -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate circuitsat.json --config " + cs_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate circuitsat.json --config " + cli-config(cs_ilp_sol.source_config),
     )
     Circuit: #circuit-num-gates(cs_ilp.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_ilp.source.instance) variables \
-    Target: #cs_ilp.target.instance.num_vars ILP variables (circuit vars $+$ auxiliary), trivial objective \
+    Target: #cs_ilp.target.instance.variables.len() ILP variables (circuit vars $+$ auxiliary), trivial objective \
     Canonical feasible witness shown ($2^3$ valid input combinations exist for the full adder) #sym.checkmark
   ],
 )[
@@ -12807,9 +12762,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SAT -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_mis_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_mis_sol.source_config),
     )
-    SAT assignment: $(x_1, ..., x_5) = (#sat_mis_sol.source_config.map(str).join(", "))$ \
+    SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_mis_sol.source_config))$ \
     IS graph: #graph-num-vertices(sat_mis.target.instance) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance) edges \
     IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
@@ -12837,9 +12792,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SAT -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_kc_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_kc_sol.source_config),
     )
-    SAT assignment: $(x_1, ..., x_5) = (#sat_kc_sol.source_config.map(str).join(", "))$ \
+    SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_kc_sol.source_config))$ \
     Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #graph-num-vertices(sat_kc.target.instance) vertices, #graph-num-edges(sat_kc.target.instance) edges \
     Canonical 3-coloring witness shown (the construction also has the expected color-symmetry multiplicity for satisfying assignments) #sym.checkmark
   ],
@@ -12865,9 +12820,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SAT -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_ds_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_ds_sol.source_config),
     )
-    SAT assignment: $(x_1, ..., x_5) = (#sat_ds_sol.source_config.map(str).join(", "))$ \
+    SAT assignment: $(x_1, ..., x_5) = (#fmt-values(sat_ds_sol.source_config))$ \
     Vertex structure: $#graph-num-vertices(sat_ds.target.instance) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
   ],
@@ -12891,9 +12846,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(sat_ifha.source) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_ifha_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_ifha_sol.source_config),
     )
-    SAT assignment: $(x_1, x_2, x_3) = (#sat_ifha_sol.source_config.map(str).join(", "))$ \
+    SAT assignment: $(x_1, x_2, x_3) = (#fmt-values(sat_ifha_sol.source_config))$ \
     Target network: $#sat_ifha.target.instance.graph.num_vertices$ vertices, $#sat_ifha.target.instance.graph.arcs.len()$ arcs, #sat_ifha.target.instance.homologous_pairs.len() homologous pairs, and $R = #sat_ifha.target.instance.requirement$ \
     The stored flow witness gives bottleneck loads $1, 1, 1, 0$ across the four clause stages, so every stage respects its unit capacity #sym.checkmark
 
@@ -12947,11 +12902,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SAT -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_ksat_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_ksat_sol.source_config),
     )
     Source: #sat_ksat.source.instance.num_vars variables, #sat-num-clauses(sat_ksat.source.instance) clauses (sizes 1, 2, 3, 3, 4, 5) \
     Target 3-SAT: $#sat_ksat.target.instance.num_vars = #sat_ksat.source.instance.num_vars + 7$ variables, #sat-num-clauses(sat_ksat.target.instance) clauses (small padded, large split) \
-    First solution: $(x_1, ..., x_5) = (#sat_ksat_sol.source_config.map(str).join(", "))$, auxiliary vars are don't-cares #sym.checkmark
+    First solution: $(x_1, ..., x_5) = (#fmt-values(sat_ksat_sol.source_config))$, auxiliary vars are don't-cares #sym.checkmark
   ],
 )[
   @cook1971 @garey1979 Clauses shorter than $k$ can be padded with a complementary pair $y, overline(y)$ that is always satisfiable; clauses longer than $k$ can be split into a chain of width-$k$ clauses linked by auxiliary variables that propagate truth values. Both transformations preserve satisfiability while enforcing uniform clause width.
@@ -12978,14 +12933,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(sat_max2sat.source) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_max2sat_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_max2sat_sol.source_config),
     )
     *Step 1 -- Source instance.* The canonical SAT formula has $n = #sat_max2sat.source.instance.num_vars$ variables and $m = #sat-num-clauses(sat_max2sat.source.instance)$ clauses:
     $
       C_1 = (x_1 or overline(x_2) or x_3), quad
       C_2 = (overline(x_1) or x_2).
     $
-    The stored satisfying assignment is $(x_1, x_2, x_3) = (#sat_max2sat_sol.source_config.map(str).join(", "))$.
+    The stored satisfying assignment is $(x_1, x_2, x_3) = (#fmt-values(sat_max2sat_sol.source_config))$.
 
     *Step 2 -- Normalize to 3-CNF.* Clause $C_1$ already has width $3$. Clause $C_2$ introduces one auxiliary variable $y_1$ and becomes
     $
@@ -12994,7 +12949,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     $
     The normalized formula therefore has $4$ variables and $3$ clauses.
 
-    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#sat_max2sat_sol.target_config.map(str).join(", "))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
+    *Step 3 -- Build the MAX-2-SAT gadgets.* Introduce one gadget variable per normalized clause, so the target has $#sat_max2sat.target.instance.num_vars$ variables and #sat_max2sat.target.instance.clauses.len() clauses. The stored witness is $(x_1, x_2, x_3, y_1, w_1, w_2, w_3) = (#fmt-values(sat_max2sat_sol.target_config))$. With $(y_1, w_1, w_2, w_3) = (0, 1, 0, 1)$, each of the three gadgets satisfies exactly $7$ clauses, so the target objective reaches $21 = 7 times 3$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical optimum. Auxiliary variables such as $y_1$ can vary across optimal witnesses, but truncating any optimal target assignment to the first $3$ coordinates still yields a satisfying assignment of the original SAT formula.
   ],
@@ -13043,7 +12998,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SAT -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_cs_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_cs_sol.source_config),
     )
   ],
 )[
@@ -13076,7 +13031,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example " + problem-spec(cs_sat.source) + " -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate circuitsat.json --config " + cs_sat_sol.source_config.map(str).join(","),
+      "pred evaluate circuitsat.json --config " + cli-config(cs_sat_sol.source_config),
     )
     Circuit: #circuit-num-gates(cs_sat.source.instance) assignment, #circuit-num-variables(cs_sat.source.instance) named variables \
     Target: #cs_sat.target.instance.num_vars SAT variables, #cs_sat.target.instance.clauses.len() clauses \
@@ -13085,7 +13040,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
     *Step 2 -- Emit clauses.* Add three clauses for $a = x_1 and x_2$, two for $b = not x_3$, three for $c = b and x_4$, three for $d = a or c$, and two clauses for the output identity $r equiv d$. The CNF therefore has #cs_sat.target.instance.clauses.len() clauses.
 
-    *Step 3 -- Verify a witness.* The fixture stores source config #cs_sat_sol.source_config.map(str).join(", "), meaning $(r, x_1, x_2, x_3, x_4) = (1, 1, 1, 0, 1)$. Extending with $(a, b, c, d) = (1, 1, 1, 1)$ gives the SAT witness #cs_sat_sol.target_config.map(str).join(", "), which satisfies every gate-definition clause and the two clauses enforcing $r equiv d$.
+    *Step 3 -- Verify a witness.* The fixture stores source config #fmt-values(cs_sat_sol.source_config), meaning $(r, x_1, x_2, x_3, x_4) = (1, 1, 1, 0, 1)$. Extending with $(a, b, c, d) = (1, 1, 1, 1)$ gives the SAT witness #fmt-values(cs_sat_sol.target_config), which satisfies every gate-definition clause and the two clauses enforcing $r equiv d$.
 
     *Multiplicity:* The fixture stores one canonical consistent assignment. Other satisfying assignments may exist whenever the circuit equations leave some named variables unconstrained.
   ],
@@ -13116,7 +13071,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example CircuitSAT -o circuitsat.json",
       "pred reduce circuitsat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate circuitsat.json --config " + cs_sg_sol.source_config.map(str).join(","),
+      "pred evaluate circuitsat.json --config " + cli-config(cs_sg_sol.source_config),
     )
     Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
     Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
@@ -13151,15 +13106,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ) <tab:gadgets>
 
 #let fact_cs = load-example("Factoring", "CircuitSAT")
-#let fact-decode(config, start, count) = {
-  let pow2 = (1, 2, 4, 8, 16, 32)
-  range(count).fold(0, (acc, i) => acc + config.at(start + i) * pow2.at(i))
-}
 #let fact_cs_sol = fact_cs.solutions.at(0)
 #let fact-nbf = fact_cs.source.instance.m
 #let fact-nbs = fact_cs.source.instance.n
-#let fact-p = fact-decode(fact_cs_sol.source_config, 0, fact-nbf)
-#let fact-q = fact-decode(fact_cs_sol.source_config, fact-nbf, fact-nbs)
+#let fact-p = fact_cs_sol.source_config.at(0).at(0)
+#let fact-q = fact_cs_sol.source_config.at(1).at(0)
 #reduction-rule("Factoring", "CircuitSAT",
   example: true,
   example-caption: [Factor $N = #fact_cs.source.instance.target$],
@@ -13168,7 +13119,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example Factoring -o factoring.json",
       "pred reduce factoring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate factoring.json --config " + fact_cs_sol.source_config.map(str).join(","),
+      "pred evaluate factoring.json --config " + cli-config(fact_cs_sol.source_config),
     )
     Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #circuit-num-gates(fact_cs.target.instance) gates, #circuit-num-variables(fact_cs.target.instance) variables \
     Canonical witness: $#fact-p times #fact-q = #fact_cs.source.instance.target$ #sym.checkmark
@@ -13200,10 +13151,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example MaxCut -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate maxcut.json --config " + mc_sg_sol.source_config.map(str).join(","),
+      "pred evaluate maxcut.json --config " + cli-config(mc_sg_sol.source_config),
     )
     Direct 1:1 mapping: vertices $arrow.r$ spins, $J_(i j) = w_(i j) = 1$, $h_i = 0$ \
-    Partition: $S = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ vs $overline(S) = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")}$ \
+    Partition: $S = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ vs $overline(S) = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => str(i)).join(", ")}$ \
     Cut value $= #mc_sg_cut$ (canonical witness shown) #sym.checkmark
   ],
 )[
@@ -13226,7 +13177,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       "pred create --example SpinGlass -o spinglass.json",
       "pred reduce spinglass.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate spinglass.json --config " + sg_mc_sol.source_config.map(str).join(","),
+      "pred evaluate spinglass.json --config " + cli-config(sg_mc_sol.source_config),
     )
     All $h_i = 0$: no ancilla needed, direct 1:1 vertex mapping \
     Edge weights $w_(i j) = J_(i j) in {plus.minus 1}$ (alternating couplings) \
@@ -13382,7 +13333,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mfdts_ilp.source) + " -o mfdts.json",
       "pred reduce mfdts.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mfdts.json --config " + mfdts_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate mfdts.json --config " + cli-config(mfdts_ilp_sol.source_config),
     )
 
     #{
@@ -13391,11 +13342,11 @@ The following reductions to Integer Linear Programming are straightforward formu
       let source-config = mfdts_ilp_sol.source_config
       let target-config = mfdts_ilp_sol.target_config
       [
-        *Step 1 -- Source instance.* The canonical DAG has $#source.num_vertices$ vertices and arcs #source.arcs.map(((u, v)) => [$(#u, #v)$]).join(", "). Inputs are ${#source.inputs.map(str).join(", ")}$, outputs are ${#source.outputs.map(str).join(", ")}$, so the internal vertices are ${2, 3, 4}$. The source configuration therefore has $#source.inputs.len() dot #source.outputs.len() = #target.num_vars$ input-output pair bits.
+        *Step 1 -- Source instance.* The canonical DAG has $#source.num_vertices$ vertices and arcs #source.arcs.map(((u, v)) => [$(#u, #v)$]).join(", "). Inputs are ${#fmt-values(source.inputs)}$, outputs are ${#fmt-values(source.outputs)}$, so the internal vertices are ${2, 3, 4}$. The source configuration therefore has $#source.inputs.len() dot #source.outputs.len() = #target.variables.len()$ input-output pair bits.
 
-        *Step 2 -- Build the covering ILP.* Order the pair variables as $(#source.inputs.at(0), #source.outputs.at(0))$, $(#source.inputs.at(0), #source.outputs.at(1))$, $(#source.inputs.at(1), #source.outputs.at(0))$, and $(#source.inputs.at(1), #source.outputs.at(1))$. Their internal coverage sets are ${2, 3}$, ${3}$, ${3}$, and ${3, 4}$, so the target has #target.num_vars binary variables, #target.constraints.len() covering constraints, and objective $min (x_0 + x_1 + x_2 + x_3)$. The exported constraints are exactly $x_0 >= 1$, $x_0 + x_1 + x_2 + x_3 >= 1$, and $x_3 >= 1$.
+        *Step 2 -- Build the covering ILP.* Order the pair variables as $(#source.inputs.at(0), #source.outputs.at(0))$, $(#source.inputs.at(0), #source.outputs.at(1))$, $(#source.inputs.at(1), #source.outputs.at(0))$, and $(#source.inputs.at(1), #source.outputs.at(1))$. Their internal coverage sets are ${2, 3}$, ${3}$, ${3}$, and ${3, 4}$, so the target has #target.variables.len() binary variables, #target.constraints.len() covering constraints, and objective $min (x_0 + x_1 + x_2 + x_3)$. The exported constraints are exactly $x_0 >= 1$, $x_0 + x_1 + x_2 + x_3 >= 1$, and $x_3 >= 1$.
 
-        *Step 3 -- Verify the canonical witness.* The stored ILP witness is $(#target-config.map(str).join(", "))$. Because extraction is identity, the source witness is the same vector $(#source-config.map(str).join(", "))$, which selects pairs $(#source.inputs.at(0), #source.outputs.at(0))$ and $(#source.inputs.at(1), #source.outputs.at(1))$. These two pairs cover internal vertices ${2, 3}$ and ${3, 4}$ respectively, so their union covers every internal vertex and the optimum value is $2$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The stored ILP witness is $(#fmt-values(target-config))$. Because extraction is identity, the source witness is the same vector $(#fmt-values(source-config))$, which selects pairs $(#source.inputs.at(0), #source.outputs.at(0))$ and $(#source.inputs.at(1), #source.outputs.at(1))$. These two pairs cover internal vertices ${2, 3}$ and ${3, 4}$ respectively, so their union covers every internal vertex and the optimum value is $2$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness. Any feasible solution must include $x_0 = 1$ to cover internal vertex 2 and $x_3 = 1$ to cover internal vertex 4, so the unique optimum is $(1, 0, 0, 1)$.
       ]
@@ -13448,7 +13399,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let fvs_cg = load-example("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters")
 #let fvs_cg_sol = fvs_cg.solutions.at(0)
-#let fvs_cg_fvs = fvs_cg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let fvs_cg_fvs = fvs_cg_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumFeedbackVertexSet", "MinimumCodeGenerationUnlimitedRegisters",
   example: true,
   example-caption: [3-cycle digraph: FVS of size 1 maps to an expression DAG needing 1 LOAD],
@@ -13457,11 +13408,11 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example MinimumFeedbackVertexSet -o fvs.json",
       "pred reduce fvs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate fvs.json --config " + fvs_cg_sol.source_config.map(str).join(","),
+      "pred evaluate fvs.json --config " + cli-config(fvs_cg_sol.source_config),
     )
-    Source FVS: $F = {#fvs_cg_fvs.map(str).join(", ")}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
+    Source FVS: $F = {#fmt-values(fvs_cg_fvs)}$ (size #fvs_cg_fvs.len()) on a digraph with $n = #fvs_cg.source.instance.graph.num_vertices$ vertices and $m = #fvs_cg.source.instance.graph.arcs.len()$ arcs \
     Target DAG: #fvs_cg.target.instance.num_vertices vertices, left arcs $L$: #{fvs_cg.target.instance.left_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")}, right arcs $R$: #{fvs_cg.target.instance.right_arcs.map(a => $#(a.at(0)) arrow.r #(a.at(1))$).join(", ")} \
-    Target evaluation order: $(#fvs_cg_sol.target_config.map(str).join(", "))$ with #fvs_cg_sol.target_config.len() instructions #sym.checkmark
+    Target evaluation order: $(#fmt-values(fvs_cg_sol.target_config))$ with #fvs_cg_sol.target_config.len() instructions #sym.checkmark
   ],
 )[
   The Aho--Johnson--Ullman chain gadget construction @ahoJohnsonUllman1977 encodes a feedback vertex set problem as a code generation problem on an expression DAG with unlimited registers and 2-address instructions. Each source vertex becomes a leaf (input register), and each outgoing arc becomes an internal chain node. The number of LOAD (copy) instructions needed in an optimal program equals the size of a minimum feedback vertex set.
@@ -13508,9 +13459,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mckp_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + mckp_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(mckp_ilp_sol.source_config),
     )
-    Source co-$k$-plex witness $(#mckp_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mckp_ilp_sol.target_config.map(str).join(", "))$.
+    Source co-$k$-plex witness $(#fmt-values(mckp_ilp_sol.source_config))$, target ILP witness $(#fmt-values(mckp_ilp_sol.target_config))$.
   ],
 )[
   This direct binary ILP formulation introduces one variable per source vertex and one induced-degree cap per source vertex @Hernandez2016MolecularSimilarity.
@@ -13542,9 +13493,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mces_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + mces_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(mces_ilp_sol.source_config),
     )
-    Source mapping witness $(#mces_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mces_ilp_sol.target_config.map(str).join(", "))$.
+    Source mapping witness $(#fmt-values(mces_ilp_sol.source_config))$, target ILP witness $(#fmt-values(mces_ilp_sol.target_config))$.
   ],
 )[
   Encode a partial injective vertex map with row and column inequalities and linearize each label-compatible source/target arc pair with a McCormick product variable @Bahiense2012MCES.
@@ -13580,9 +13531,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(cmo_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + cmo_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(cmo_ilp_sol.source_config),
     )
-    Source alignment witness $(#cmo_ilp_sol.source_config.map(str).join(", "))$ (each entry is the matched index in $V_2$ shifted by $1$, with $0$ meaning unmatched), target ILP witness $(#cmo_ilp_sol.target_config.map(str).join(", "))$.
+    Source alignment witness $(#fmt-values(cmo_ilp_sol.source_config))$ (each entry is the matched index in $V_2$ shifted by $1$, with $0$ meaning unmatched), target ILP witness $(#fmt-values(cmo_ilp_sol.target_config))$.
   ],
 )[
   Encode the order-preserving partial injective alignment $V_1 -> V_2$ by binary match variables $x_(i,j)$ with row, column, and crossing-forbidding inequalities, then linearize each pair of source/target contacts with a binary product variable $y_(i,k,j,l)$ to count preserved contacts @AndonovMalodDogninYanev2011CMO @XieSahinidis2007CMO.
@@ -13620,9 +13571,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mewkc_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + mewkc_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(mewkc_ilp_sol.source_config),
     )
-    Source $k$-clique witness $(#mewkc_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#mewkc_ilp_sol.target_config.map(str).join(", "))$.
+    Source $k$-clique witness $(#fmt-values(mewkc_ilp_sol.source_config))$, target ILP witness $(#fmt-values(mewkc_ilp_sol.target_config))$.
   ],
 )[
   Binary vertex selectors with an exact-cardinality constraint, non-edge clique constraints, and McCormick edge-product variables linearize the induced edge-weight sum @ParkLeePark1996EWClique @GouveiaMartins2015EWClique.
@@ -13645,7 +13596,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let ks_ilp = load-example("Knapsack", "ILP")
 #let ks_ilp_sol = ks_ilp.solutions.at(0)
-#let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let ks_ilp_selected = ks_ilp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let ks_ilp_sel_weight = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.weights.at(i))
 #let ks_ilp_sel_value = ks_ilp_selected.fold(0, (a, i) => a + ks_ilp.source.instance.values.at(i))
 #reduction-rule("Knapsack", "ILP",
@@ -13656,9 +13607,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example Knapsack -o knapsack.json",
       "pred reduce knapsack.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate knapsack.json --config " + ks_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate knapsack.json --config " + cli-config(ks_ilp_sol.source_config),
     )
-    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#ks_ilp.source.instance.weights.map(str).join(", "))$, values $(#ks_ilp.source.instance.values.map(str).join(", "))$, and capacity $C = #ks_ilp.source.instance.capacity$.
+    *Step 1 -- Source instance.* The canonical knapsack instance has weights $(#fmt-values(ks_ilp.source.instance.weights))$, values $(#fmt-values(ks_ilp.source.instance.values))$, and capacity $C = #ks_ilp.source.instance.capacity$.
 
     *Step 2 -- Build the binary ILP.* Introduce one binary variable per item:
     $#range(ks_ilp.source.instance.weights.len()).map(i => $x_#i$).join(", ") in {0,1}$.
@@ -13667,9 +13618,9 @@ The following reductions to Integer Linear Programming are straightforward formu
     subject to the single capacity inequality
     $ #ks_ilp.source.instance.weights.enumerate().map(((i, w)) => $#w x_#i$).join($+$) <= #ks_ilp.source.instance.capacity. $
 
-    *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#ks_ilp_sol.target_config.map(str).join(", "))$ extracts directly to the knapsack selection $bold(x)^* = (#ks_ilp_sol.source_config.map(str).join(", "))$, choosing items $\{#ks_ilp_selected.map(str).join(", ")\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* The ILP optimum $bold(x)^* = (#fmt-values(ks_ilp_sol.target_config))$ extracts directly to the knapsack selection $bold(x)^* = (#fmt-values(ks_ilp_sol.source_config))$, choosing items $\{#fmt-values(ks_ilp_selected)\}$. Their total weight is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.weights.at(i))).join(" + ") = #ks_ilp_sel_weight$ and their total value is $#ks_ilp_selected.map(i => str(ks_ilp.source.instance.values.at(i))).join(" + ") = #ks_ilp_sel_value$ #sym.checkmark.
 
-    *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#ks_ilp_selected.map(str).join(", ")\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
+    *Uniqueness:* The fixture stores one canonical optimal witness. For this instance the optimum is unique: items $\{#fmt-values(ks_ilp_selected)\}$ are the only feasible choice achieving value #ks_ilp_sel_value.
   ],
 )[
   A 0-1 Knapsack instance is already a binary Integer Linear Program @papadimitriou-steiglitz1982: each item-selection bit becomes a binary variable, the capacity condition is a single linear inequality, and the value objective is linear. The reduction preserves the number of decision variables exactly, producing an ILP with $n$ variables and one constraint.
@@ -13706,18 +13657,18 @@ The following reductions to Integer Linear Programming are straightforward formu
           "pred create --example " + problem-spec(ik_ilp.source) + " -o integer-knapsack.json",
           "pred reduce integer-knapsack.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate integer-knapsack.json --config " + ik_ilp_sol.source_config.map(str).join(","),
+          "pred evaluate integer-knapsack.json --config " + cli-config(ik_ilp_sol.source_config),
         )
 
-        *Step 1 -- Source instance.* The canonical Integer Knapsack instance has sizes $(#sizes.map(str).join(", "))$, values $(#values.map(str).join(", "))$, and capacity $B = #B$.
+        *Step 1 -- Source instance.* The canonical Integer Knapsack instance has sizes $(#fmt-values(sizes))$, values $(#fmt-values(values))$, and capacity $B = #B$.
 
         *Step 2 -- Build the ILP.* Introduce one integer variable per item multiplicity:
         $#range(sizes.len()).map(i => $c_#i$).join(", ") in NN$.
         The capacity constraint is
         $ #sizes.enumerate().map(((i, s)) => $#s c_#i$).join($+$) <= #B, $
-        and the explicit upper bounds are $(#upper.map(str).join(", "))$, i.e. $c_i <= floor.l B / s_i floor.r$ for every item.
+        and the explicit upper bounds are $(#fmt-values(upper))$, i.e. $c_i <= floor.l B / s_i floor.r$ for every item.
 
-        *Step 3 -- Verify the canonical witness.* The ILP optimum is $(#ik_ilp_sol.target_config.map(str).join(", "))$, which extracts identically to the source multiplicities $(#ik_ilp_sol.source_config.map(str).join(", "))$. The selected terms contribute total size $#total_size <= B$ and total value $#total_value$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The ILP optimum is $(#fmt-values(ik_ilp_sol.target_config))$, which extracts identically to the source multiplicities $(#fmt-values(ik_ilp_sol.source_config))$. The selected terms contribute total size $#total_size <= B$ and total value $#total_value$ #sym.checkmark.
 
         *Uniqueness:* The fixture stores one canonical optimum, here $(0, 0, 2)$.
       ]
@@ -13761,7 +13712,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example MaximumClique -o maximumclique.json",
       "pred reduce maximumclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate maximumclique.json --config " + clique_mis_sol.source_config.map(str).join(","),
+      "pred evaluate maximumclique.json --config " + cli-config(clique_mis_sol.source_config),
     )
   ],
 )[
@@ -13838,9 +13789,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(ola_seqmwct.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + ola_seqmwct_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(ola_seqmwct_sol.source_config),
     )
-    Source arrangement $pi = (#ola_seqmwct_sol.source_config.map(str).join(", "))$, target schedule $(#ola_seqmwct_sol.target_config.map(str).join(", "))$.
+    Source arrangement $pi = (#fmt-values(ola_seqmwct_sol.source_config))$, target schedule $(#fmt-values(ola_seqmwct_sol.target_config))$.
   ],
 )[
   @lawler1978 This $O(n + m)$ reduction turns each vertex into a unit-length job, each edge into a zero-length job, and uses precedences so that every edge job completes exactly when its later endpoint does. The weighted completion-time objective then equals the linear-arrangement objective plus the fixed shift $d_"max" n (n + 1) / 2$.
@@ -13874,9 +13825,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(dola_c1ma.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + dola_c1ma_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(dola_c1ma_sol.source_config),
     )
-    The source decision bound is $K = #dola_c1ma.source.instance.bound$, so the target augmentation bound is $K - m = #dola_c1ma.source.instance.bound - #dola_c1ma.target.instance.matrix.len() = #dola_c1ma.target.instance.bound$. Source arrangement $f = (#dola_c1ma_sol.source_config.map(str).join(", "))$ corresponds to target column permutation $(#dola_c1ma_sol.target_config.map(str).join(", "))$.
+    The source decision bound is $K = #dola_c1ma.source.instance.bound$, so the target augmentation bound is $K - m = #dola_c1ma.source.instance.bound - #dola_c1ma.target.instance.matrix.len() = #dola_c1ma.target.instance.bound$. Source arrangement $f = (#fmt-values(dola_c1ma_sol.source_config))$ corresponds to target column permutation $(#fmt-values(dola_c1ma_sol.target_config))$.
   ],
 )[
   @garey1979[SR16] @booth1987 This $O(n m)$ reduction maps a decision Optimal Linear Arrangement instance $(G, K)$ to the edge-vertex incidence matrix of $G$ with augmentation bound $K - |E|$. A column permutation is exactly a vertex ordering; making each edge row consecutive costs one flip per interior gap, so the cheapest augmentation under a fixed ordering equals (total edge length) $- |E|$.
@@ -13930,7 +13881,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let hc_tsp_target_weights = hc_tsp.target.instance.edge_weights
 #let hc_tsp_weight_one = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
 #let hc_tsp_weight_two = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_target_weights.at(i) == 2).map(((i, e)) => (e.at(0), e.at(1)))
-#let hc_tsp_selected_edges = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_tsp_selected_edges = hc_tsp_target_edges.enumerate().filter(((i, _)) => hc_tsp_sol.target_config.at(i)).map(((i, e)) => (e.at(0), e.at(1)))
 #reduction-rule("HamiltonianCircuit", "TravelingSalesman",
   example: true,
   example-caption: [Cycle graph on $#hc_tsp_n$ vertices to weighted $K_#hc_tsp_n$],
@@ -13939,14 +13890,14 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(hc_tsp.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_tsp_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_tsp_sol.source_config),
     )
 
-    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, 2, 3}$ with edges #hc_tsp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, 2, 3}$ with edges #hc_tsp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_tsp_sol.source_config)]$.\
 
     *Step 2 -- Complete the graph and encode adjacency by weights.* The target keeps the same $#hc_tsp_n$ vertices but adds the missing diagonals, so it becomes $K_#hc_tsp_n$ with $#graph-num-edges(hc_tsp.target.instance)$ undirected edges. The original cycle edges #hc_tsp_weight_one.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 1, while the diagonals #hc_tsp_weight_two.map(e => $(#e.at(0), #e.at(1))$).join(", ") receive weight 2.\ 
 
-    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_tsp_sol.target_config.map(str).join(", ")]$ selects the tour edges #hc_tsp_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its total cost is $1 + 1 + 1 + 1 = #hc_tsp_n$, so every chosen edge is a weight-1 source edge, and traversing the selected cycle recovers the Hamiltonian circuit $[#hc_tsp_sol.source_config.map(str).join(", ")]$.\ 
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#fmt-values(hc_tsp_sol.target_config)]$ selects the tour edges #hc_tsp_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). Its total cost is $1 + 1 + 1 + 1 = #hc_tsp_n$, so every chosen edge is a weight-1 source edge, and traversing the selected cycle recovers the Hamiltonian circuit $[#fmt-values(hc_tsp_sol.source_config)]$.\
 
     *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $4 times 2 = 8$ Hamiltonian-circuit permutations (choice of start vertex and direction), but they all induce the same undirected target edge set.
   ],
@@ -13970,7 +13921,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example TSP -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate tsp.json --config " + tsp_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate tsp.json --config " + cli-config(tsp_ilp_sol.source_config),
     )
   ],
 )[
@@ -14016,13 +13967,13 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example LongestPath -o longest-path.json",
       "pred reduce longest-path.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate longest-path.json --config " + lp_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate longest-path.json --config " + cli-config(lp_ilp_sol.source_config),
     )
     *Step 1 -- Orient each undirected edge.* The canonical witness has two source edges, so the reduction creates four directed-arc variables. The optimal witness sets $x_(0,1) = 1$ and $x_(1,2) = 1$, leaving the reverse directions at 0.\ 
 
-    *Step 2 -- Add order variables.* The target has #lp_ilp.target.instance.num_vars variables and #lp_ilp.target.instance.constraints.len() constraints in total. The order block $bold(o) = (#lp_ilp_sol.target_config.slice(4, 7).map(str).join(", "))$ certifies the increasing path positions $0 < 1 < 2$.\ 
+    *Step 2 -- Add order variables.* The target has #lp_ilp.target.instance.variables.len() variables and #lp_ilp.target.instance.constraints.len() constraints in total. The order block $bold(o) = (#lp_ilp_sol.target_config.slice(4, 7).map(str).join(", "))$ certifies the increasing path positions $0 < 1 < 2$.\
 
-    *Step 3 -- Check the objective.* The target witness $bold(z) = (#lp_ilp_sol.target_config.map(str).join(", "))$ selects lengths $2$ and $3$, so the ILP objective is $5$, matching the source optimum. #sym.checkmark
+    *Step 3 -- Check the objective.* The target witness $bold(z) = (#fmt-values(lp_ilp_sol.target_config))$ selects lengths $2$ and $3$, so the ILP objective is $5$, matching the source optimum. #sym.checkmark
   ],
 )[
   A simple $s$-$t$ path can be represented as one unit of directed flow from $s$ to $t$ on oriented copies of the undirected edges. Integer order variables then force the selected arcs to move strictly forward, which forbids detached directed cycles.
@@ -14061,7 +14012,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example TSP -o tsp.json",
       "pred reduce tsp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate tsp.json --config " + tsp_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate tsp.json --config " + cli-config(tsp_qubo_sol.source_config),
     )
     *Step 1 -- Encode each tour position as a binary variable.* A tour is a permutation of $n$ vertices. Introduce $n^2 = #tsp_qubo.target.instance.num_vars$ binary variables $x_(v,p)$: vertex $v$ is at position $p$.
     $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) underbrace(x_(2,0) x_(2,1) x_(2,2), "vertex 2") $
@@ -14070,7 +14021,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
     *Step 3 -- Encode edge costs.* For each edge $(u,v)$ and position $p$, the products $x_(u,p) x_(v,(p+1) mod 3)$ and $x_(v,p) x_(u,(p+1) mod 3)$ add the edge weight $w_(u v)$ when vertices $u,v$ are consecutive in the tour. Since $K_3$ is complete, all pairs are edges with their actual weights.\
 
-    *Step 4 -- Verify a solution.* The QUBO ground state $bold(x) = (#tsp_qubo_sol.target_config.map(str).join(", "))$ encodes a valid tour. Reading the permutation: each 3-bit group has exactly one 1 (valid permutation #sym.checkmark). The tour cost equals $w_(01) + w_(02) + w_(12) = 1 + 2 + 3 = 6$.\
+    *Step 4 -- Verify a solution.* The QUBO ground state $bold(x) = (#fmt-values(tsp_qubo_sol.target_config))$ encodes a valid tour. Reading the permutation: each 3-bit group has exactly one 1 (valid permutation #sym.checkmark). The tour cost equals $w_(01) + w_(02) + w_(12) = 1 + 2 + 3 = 6$.\
 
     *Multiplicity:* The fixture stores one canonical optimal witness. On $K_3$ with distinct edge weights $1, 2, 3$, every Hamiltonian cycle has cost $1 + 2 + 3 = 6$ (all edges used), and 3 cyclic tours $times$ 2 directions yield $6$ permutation matrices overall.
   ],
@@ -14098,11 +14049,11 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example LCS -o lcs.json",
       "pred reduce lcs.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate lcs.json --config " + lcs_mis_sol.source_config.map(str).join(","),
+      "pred evaluate lcs.json --config " + cli-config(lcs_mis_sol.source_config),
     )
-    Source LCS: config $(#lcs_mis_sol.source_config.map(str).join(", "))$ \
-    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x == 1).len()) \
-    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x == 1).len()$ #sym.checkmark
+    Source LCS: config $(#fmt-values(lcs_mis_sol.source_config))$ \
+    Target MIS: $S = {#lcs_mis_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$ (size #lcs_mis_sol.target_config.filter(x => x).len()) \
+    MIS size $=$ LCS length $= #lcs_mis_sol.target_config.filter(x => x).len()$ #sym.checkmark
   ],
 )[
   A match-node construction transforms a $k$-string LCS instance into a Maximum Independent Set problem on a conflict graph. Each vertex represents a $k$-tuple of positions (one per string) that all share the same character, and edges connect pairs that cannot coexist in any valid common subsequence. The MIS of this graph equals the LCS length.
@@ -14133,9 +14084,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(cs_ilp_str.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + cs_ilp_str_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(cs_ilp_str_sol.source_config),
     )
-    Source center witness $(#cs_ilp_str_sol.source_config.map(str).join(", "))$, target ILP witness $(#cs_ilp_str_sol.target_config.map(str).join(", "))$.
+    Source center witness $(#fmt-values(cs_ilp_str_sol.source_config))$, target ILP witness $(#fmt-values(cs_ilp_str_sol.target_config))$.
   ],
 )[
   Binary variables select one alphabet symbol at each center position. An auxiliary radius variable upper-bounds the Hamming distance from the chosen center to every input string and is minimized.
@@ -14176,9 +14127,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(css_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + css_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(css_ilp_sol.source_config),
     )
-    Source center+windows witness $(#css_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#css_ilp_sol.target_config.map(str).join(", "))$.
+    Source center+windows witness $(#fmt-values(css_ilp_sol.source_config))$, target ILP witness $(#fmt-values(css_ilp_sol.target_config))$.
   ],
 )[
   Integer variables select one alphabet symbol at each center position and one window start per input string. A conditional radius constraint is activated by the window-choice indicator and upper-bounds the Hamming distance between the center and the selected window of each string.
@@ -14266,7 +14217,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let st_terminals = st_ilp.source.instance.terminals
 #let st_root = st_terminals.at(0)
 #let st_non_root_terminals = range(1, st_terminals.len()).map(i => st_terminals.at(i))
-#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+#let st_selected_edge_indices = st_ilp_sol.source_config.enumerate().filter(((i, v)) => v).map(((i, _)) => i)
 #let st_selected_edges = st_selected_edge_indices.map(i => st_edges.at(i))
 #let st_cost = st_selected_edge_indices.map(i => st_weights.at(i)).sum()
 
@@ -14278,17 +14229,17 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example SteinerTree -o steinertree.json",
       "pred reduce steinertree.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate steinertree.json --config " + st_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate steinertree.json --config " + cli-config(st_ilp_sol.source_config),
     )
     *Step 1 -- Choose a root and one commodity per remaining terminal.* The canonical source instance has terminals $T = {#st_terminals.map(t => $v_#t$).join(", ")}$. The reduction fixes the first terminal as root $r = v_#st_root$ and creates one flow commodity for each remaining terminal: $v_#st_non_root_terminals.at(0)$ and $v_#st_non_root_terminals.at(1)$.
 
-    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.num_vars - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.num_vars - st_edges.len())$.
+    *Step 2 -- Count the variables from the source edge order.* The first #st_edges.len() target variables are the edge selectors $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, one per source edge in the order #st_edges.enumerate().map(((i, e)) => [$e_#i = (#(e.at(0)), #(e.at(1)))$]).join(", "). The remaining #(st_ilp.target.instance.variables.len() - st_edges.len()) variables are directed flow indicators: $2 m (|T| - 1) = 2 times #st_edges.len() times #st_non_root_terminals.len() = #(st_ilp.target.instance.variables.len() - st_edges.len())$.
 
     *Step 3 -- Count the constraints commodity-by-commodity.* Each non-root terminal contributes one flow-conservation equality per vertex and two capacity inequalities per source edge. For this fixture that is $#st_ilp.source.instance.graph.num_vertices times #st_non_root_terminals.len() = #(st_ilp.source.instance.graph.num_vertices * st_non_root_terminals.len())$ equalities plus $#(2 * st_edges.len()) times #st_non_root_terminals.len() = #(2 * st_edges.len() * st_non_root_terminals.len())$ inequalities, totaling #st_ilp.target.instance.constraints.len() constraints.
 
     *Step 4 -- Read the canonical witness pair.* The source witness selects edges ${#st_selected_edges.map(e => $(v_#(e.at(0)), v_#(e.at(1)))$).join(", ")}$, so $bold(y)$ already encodes the Steiner tree. In the target witness, the commodity for $v_2$ routes along $v_0 arrow v_1 arrow v_2$, while the commodity for $v_4$ routes along $v_0 arrow v_1 arrow v_3 arrow v_4$. Every flow 1-entry therefore sits under a selected edge variable #sym.checkmark
 
-    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#st_ilp_sol.source_config.map(str).join(", "))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
+    *Step 5 -- Verify the objective end-to-end.* The selected-edge prefix is $bold(y) = (#st_ilp_sol.target_config.slice(0, st_edges.len()).map(str).join(", "))$, matching the source witness $(#fmt-values(st_ilp_sol.source_config))$. The ILP objective is #st_selected_edge_indices.map(i => $#(st_weights.at(i))$).join($+$) $= #st_cost$, exactly the Steiner tree optimum stored in the fixture.
 
     *Multiplicity:* The fixture stores one canonical witness. Other optimal Steiner trees could yield different feasible ILP witnesses, but every valid witness still exposes the source solution in the first $m$ variables.
   ],
@@ -14323,8 +14274,8 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 #let mvc_hs = load-example("MinimumVertexCover", "MinimumHittingSet")
 #let mvc_hs_sol = mvc_hs.solutions.at(0)
-#let mvc_hs_cover = mvc_hs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-#let mvc_hs_hit = mvc_hs_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_hs_cover = mvc_hs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let mvc_hs_hit = mvc_hs_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumVertexCover", "MinimumHittingSet",
   example: true,
   example-caption: [Unit-weight VC to Hitting Set ($n = #graph-num-vertices(mvc_hs.source.instance)$, $|E| = #graph-num-edges(mvc_hs.source.instance)$)],
@@ -14333,10 +14284,10 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example 'MVC {weight: One}' -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mvc.json --config " + mvc_hs_sol.source_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(mvc_hs_sol.source_config),
     )
-    Source VC: $C = {#mvc_hs_cover.map(str).join(", ")}$ (size #mvc_hs_cover.len()) #h(1em)
-    Target HS: $H = {#mvc_hs_hit.map(str).join(", ")}$ (size #mvc_hs_hit.len()) \
+    Source VC: $C = {#fmt-values(mvc_hs_cover)}$ (size #mvc_hs_cover.len()) #h(1em)
+    Target HS: $H = {#fmt-values(mvc_hs_hit)}$ (size #mvc_hs_hit.len()) \
     The hitting set $H$ is identical to the vertex cover $C$ because the universe elements are the vertices and the subsets are the edges.
   ],
 )[
@@ -14428,14 +14379,14 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mono_ilp.source) + " -o monochromatic-triangle.json",
       "pred reduce monochromatic-triangle.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate monochromatic-triangle.json --config " + mono_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate monochromatic-triangle.json --config " + cli-config(mono_ilp_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The canonical Monochromatic Triangle fixture is $K_4$ on vertices $0, 1, 2, 3$ with edges #{mono_ilp.source.instance.graph.edges.map(((u, v)) => [${#u, #v}$]).join(", ")}. It has $#mono_ilp.source.instance.triangles.len()$ triangles, so the reduction creates one pair of inequalities for each of those four triangles.
 
-    *Step 2 -- Build the ILP.* Introduce one binary variable per edge, so the target has $m = #mono_ilp.target.instance.num_vars$ variables. For each triangle, add the lower bound $x_a + x_b + x_c >= 1$ and the upper bound $x_a + x_b + x_c <= 2$, giving $#mono_ilp.target.instance.constraints.len()$ total constraints.
+    *Step 2 -- Build the ILP.* Introduce one binary variable per edge, so the target has $m = #mono_ilp.target.instance.variables.len()$ variables. For each triangle, add the lower bound $x_a + x_b + x_c >= 1$ and the upper bound $x_a + x_b + x_c <= 2$, giving $#mono_ilp.target.instance.constraints.len()$ total constraints.
 
-    *Step 3 -- Verify a witness.* The stored ILP witness is $(#mono_ilp_sol.target_config.map(str).join(", "))$. Because extraction is identity, it immediately yields the edge coloring $(#mono_ilp_sol.source_config.map(str).join(", "))$, and evaluating that coloring on the source returns `true` #sym.checkmark. Every triangle therefore uses both colors.
+    *Step 3 -- Verify a witness.* The stored ILP witness is $(#fmt-values(mono_ilp_sol.target_config))$. Because extraction is identity, it immediately yields the edge coloring $(#fmt-values(mono_ilp_sol.source_config))$, and evaluating that coloring on the source returns `true` #sym.checkmark. Every triangle therefore uses both colors.
 
     *Multiplicity:* The fixture stores one canonical edge coloring. Any binary ILP solution satisfying all triangle pairs is a valid Monochromatic Triangle witness.
   ],
@@ -14465,7 +14416,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(ss_bt.source) + " -o set-splitting.json",
       "pred reduce set-splitting.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate set-splitting.json --config " + ss_bt_sol.source_config.map(str).join(","),
+      "pred evaluate set-splitting.json --config " + cli-config(ss_bt_sol.source_config),
     )
 
     #{
@@ -14475,13 +14426,13 @@ The following reductions to Integer Linear Programming are straightforward formu
       let target_config = ss_bt_sol.target_config
       let pole = source.universe_size
       [
-        *Step 1 -- Source instance.* The canonical Set Splitting fixture has universe $U = {0, 1, 2, 3, 4}$ and subsets $S_1 = {#source.subsets.at(0).map(str).join(", ")}$, $S_2 = {#source.subsets.at(1).map(str).join(", ")}$, $S_3 = {#source.subsets.at(2).map(str).join(", ")}$, and $S_4 = {#source.subsets.at(3).map(str).join(", ")}$. The stored splitting is $(#source_config.map(str).join(", "))$, so colors 0 and 1 both appear in every subset.
+        *Step 1 -- Source instance.* The canonical Set Splitting fixture has universe $U = {0, 1, 2, 3, 4}$ and subsets $S_1 = {#source.subsets.at(0).map(str).join(", ")}$, $S_2 = {#source.subsets.at(1).map(str).join(", ")}$, $S_3 = {#source.subsets.at(2).map(str).join(", ")}$, and $S_4 = {#source.subsets.at(3).map(str).join(", ")}$. The stored splitting is $(#fmt-values(source_config))$, so colors 0 and 1 both appear in every subset.
 
         *Step 2 -- Add the pole and clause auxiliaries.* Because every subset already has size 3, normalization adds no universe elements. The target therefore uses pole $p = a_#pole$ together with one auxiliary element for each subset, namely $d_1 = 6$, $d_2 = 7$, $d_3 = 8$, and $d_4 = 9$, for a total of $#target.num_elements$ elements.
 
         *Step 3 -- Form the betweenness triples.* The four subsets become the triple pairs $(#target.triples.at(0).map(str).join(", "))$, $(#target.triples.at(1).map(str).join(", "))$; $(#target.triples.at(2).map(str).join(", "))$, $(#target.triples.at(3).map(str).join(", "))$; $(#target.triples.at(4).map(str).join(", "))$, $(#target.triples.at(5).map(str).join(", "))$; and $(#target.triples.at(6).map(str).join(", "))$, $(#target.triples.at(7).map(str).join(", "))$. Each pair uses one auxiliary $d_j$ to force the corresponding 3-set to place at least one element on each side of the pole.
 
-        *Step 4 -- Verify the ordering and extraction.* The stored Betweenness witness is $f = (#target_config.map(str).join(", "))$, so the pole $p = 5$ sits at position $f(p) = #target_config.at(pole)$. Original elements $1, 3, 4$ lie to the left of the pole, while $0, 2$ lie to the right, so extraction returns $(#source_config.map(str).join(", "))$ exactly. For example, $(0, 6, 1)$ holds because $f(1) = #target_config.at(1) < f(6) = #target_config.at(6) < f(0) = #target_config.at(0)$, and $(6, 5, 2)$ holds because $f(6) = #target_config.at(6) < f(5) = #target_config.at(5) < f(2) = #target_config.at(2)$ #sym.checkmark.
+        *Step 4 -- Verify the ordering and extraction.* The stored Betweenness witness is $f = (#fmt-values(target_config))$, so the pole $p = 5$ sits at position $f(p) = #target_config.at(pole)$. Original elements $1, 3, 4$ lie to the left of the pole, while $0, 2$ lie to the right, so extraction returns $(#fmt-values(source_config))$ exactly. For example, $(0, 6, 1)$ holds because $f(1) = #target_config.at(1) < f(6) = #target_config.at(6) < f(0) = #target_config.at(0)$, and $(6, 5, 2)$ holds because $f(6) = #target_config.at(6) < f(5) = #target_config.at(5) < f(2) = #target_config.at(2)$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness.
       ]
@@ -14540,7 +14491,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(kc_bcbs.source) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate kclique.json --config " + kc_bcbs_sol.source_config.map(str).join(","),
+      "pred evaluate kclique.json --config " + cli-config(kc_bcbs_sol.source_config),
     )
 
     *Step 1 -- Pad the vertex set.* $C(#k, 2) = #ck2$ padding vertices are added, giving $n' = #n + #ck2 = #n_prime$ left vertices (Part $A$).
@@ -14551,7 +14502,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
     *Step 4 -- Set target parameter.* $K' = n' - k = #n_prime - #k = #target_k$.
 
-    *Step 5 -- Verify a solution.* The #k\-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
+    *Step 5 -- Verify a solution.* The #k\-clique is $S = {#kc_bcbs_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, _)) => str(i)).join(", ")}$. The #target_k left vertices NOT in $S$ plus the #ck2 padding vertices form the left side $A'$. The right side $B'$ contains the #ck2 intra-clique edge elements plus #{n - k} padding elements ($|B'| = #target_k$). All $#target_k times #target_k$ cross-edges are present because no $v in A'$ is an endpoint of any selected edge element.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -14598,14 +14549,14 @@ The following reductions to Integer Linear Programming are straightforward formu
       let m-target = mmm_ach.target.instance.graph.edges.len()
       let color-of = mmm_ach_sol.target_config
       let matched = mmm_ach_sol.source_config.enumerate()
-        .filter(((i, x)) => x == 1)
+        .filter(((i, x)) => x)
         .map(((i, _)) => i)
       [
         #pred-commands(
           "pred create --example " + problem-spec(mmm_ach.source) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate mmm.json --config " + mmm_ach_sol.source_config.map(str).join(","),
+          "pred evaluate mmm.json --config " + cli-config(mmm_ach_sol.source_config),
         )
 
         *Step 1 -- Source instance.* The T-tree on $5$ vertices is the spider graph with centre $v_1$ and legs to $v_0$, $v_2$, $v_4$, plus the pendant edge $v_2 - v_3$. It is bipartite with $A = {v_0, v_2, v_4}$ and $B = {v_1, v_3}$. In unified indices the vertex set is ${0, 1, 2, 3, 4}$ (left vertices first, mapping $v_0 mapsto 0$, $v_2 mapsto 1$, $v_4 mapsto 2$, $v_1 mapsto 3$, $v_3 mapsto 4$), so $n = #n-source$ and the $m = #m-source$ edges are #source-edges.map(e => $(#e.at(0), #e.at(1))$).join(", ").
@@ -14614,7 +14565,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
         *Step 3 -- Source optimum.* The minimum maximal matching uses the central edge $(v_1, v_2)$, so $"mm"(G) = #matched.len() = 1$ (source index $#matched.at(0)$). The T-tree also admits two strictly larger maximal matchings $\{(v_0, v_1), (v_2, v_3)\}$ and $\{(v_1, v_4), (v_2, v_3)\}$, both of size $2$ -- this richness is the reason for choosing the T-tree over the path $P_4$ as the canonical example.
 
-        *Step 4 -- Target optimum.* The achromatic coloring stored in the fixture is $#color-of.map(str).join(", ")$. The size-$2$ color class corresponds to the source edge selected in Step 3, and the singletons contribute the remaining $n - 2$ classes, so the achromatic number is $psi(H) = n - "mm"(G) = #n-source - 1 = #(n-source - 1) #sym.checkmark$.
+        *Step 4 -- Target optimum.* The achromatic coloring stored in the fixture is $#fmt-values(color-of)$. The size-$2$ color class corresponds to the source edge selected in Step 3, and the singletons contribute the remaining $n - 2$ classes, so the achromatic number is $psi(H) = n - "mm"(G) = #n-source - 1 = #(n-source - 1) #sym.checkmark$.
 
         *Multiplicity:* The fixture stores one canonical witness; other valid achromatic $4$-colorings exist and would extract to the same minimum maximal matching after relabelling colors.
       ]
@@ -14656,17 +14607,17 @@ The following reductions to Integer Linear Programming are straightforward formu
       let s-cfg = mmm_mmd_sol.source_config
       let t-cfg = mmm_mmd_sol.target_config
       let matched-source = s-cfg.enumerate()
-        .filter(((i, x)) => x == 1)
+        .filter(((i, x)) => x)
         .map(((i, _)) => i)
       let selected-target = t-cfg.enumerate()
-        .filter(((i, x)) => x == 1)
+        .filter(((i, x)) => x)
         .map(((i, _)) => i)
       [
         #pred-commands(
           "pred create --example " + problem-spec(mmm_mmd.source) + " -o mmm.json",
           "pred reduce mmm.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate mmm.json --config " + s-cfg.map(str).join(","),
+          "pred evaluate mmm.json --config " + cli-config(s-cfg),
         )
 
         *Step 1 -- Source instance.* Bipartite graph $B$ with $|L| = #m-left$, $|R| = #n-right$ and $#local-edges.len()$ bipartite-local edges #local-edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The decision threshold is $K = 2$.
@@ -14948,10 +14899,10 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example PartitionIntoPathsOfLength2 -o ppl2.json",
       "pred reduce ppl2.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ppl2.json --config " + ppl2_bcsf_sol.source_config.map(str).join(","),
+      "pred evaluate ppl2.json --config " + cli-config(ppl2_bcsf_sol.source_config),
     )
-    Source PPL2: groups $= {#ppl2_bcsf_sol.source_config.map(str).join(", ")}$ on a graph with $n = #graph-num-vertices(ppl2_bcsf.source.instance)$ vertices and $|E| = #graph-num-edges(ppl2_bcsf.source.instance)$ edges \
-    Target BCSF: components $= {#ppl2_bcsf_sol.target_config.map(str).join(", ")}$, $K = #ppl2_bcsf.target.instance.max_components$, $B = #ppl2_bcsf.target.instance.max_weight$ \
+    Source PPL2: groups $= {#fmt-values(ppl2_bcsf_sol.source_config)}$ on a graph with $n = #graph-num-vertices(ppl2_bcsf.source.instance)$ vertices and $|E| = #graph-num-edges(ppl2_bcsf.source.instance)$ edges \
+    Target BCSF: components $= {#fmt-values(ppl2_bcsf_sol.target_config)}$, $K = #ppl2_bcsf.target.instance.max_components$, $B = #ppl2_bcsf.target.instance.max_weight$ \
     Identity mapping: source and target configs coincide #sym.checkmark
   ],
 )[
@@ -15594,9 +15545,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(hcd_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + hcd_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(hcd_ilp_sol.source_config),
     )
-    Source deletion witness $(#hcd_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#hcd_ilp_sol.target_config.map(str).join(", "))$.
+    Source deletion witness $(#fmt-values(hcd_ilp_sol.source_config))$, target ILP witness $(#fmt-values(hcd_ilp_sol.target_config))$.
   ],
 )[
   Enumerate the family of feasible clusters of $G$ and pick a partition of $V$ into feasible clusters maximizing the kept internal edge count; since $|E|$ is fixed, this is equivalent to minimizing deleted edges @HueffnerKomusiewiczLiebtrauNiedermeier2014.
@@ -15628,9 +15579,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(ep_ilp.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + ep_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(ep_ilp_sol.source_config),
     )
-    Source trail witness $(#ep_ilp_sol.source_config.map(str).join(", "))$, target ILP witness $(#ep_ilp_sol.target_config.map(str).join(", "))$.
+    Source trail witness $(#fmt-values(ep_ilp_sol.source_config))$, target ILP witness $(#fmt-values(ep_ilp_sol.target_config))$.
   ],
 )[
   Encode the directed Eulerian-trail witness structure as an integer feasibility program: successor variables on compatible arc pairs, start / end indicators, and Miller--Tucker--Zemlin-style position variables eliminate spurious sub-cycles @Ebert1988ComputingEulerianTrails @BangJensenGutin2009Digraphs.
@@ -15681,7 +15632,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let hc_lc_source_edges = hc_lc.source.instance.graph.edges
 #let hc_lc_target_edges = hc_lc.target.instance.graph.edges
 #let hc_lc_target_weights = hc_lc.target.instance.edge_lengths
-#let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i) == 1).map(((i, e)) => (e.at(0), e.at(1)))
+#let hc_lc_selected_edges = hc_lc_target_edges.enumerate().filter(((i, _)) => hc_lc_sol.target_config.at(i)).map(((i, e)) => (e.at(0), e.at(1)))
 #reduction-rule("HamiltonianCircuit", "LongestCircuit",
   example: true,
   example-caption: [Cycle graph on $#hc_lc_n$ vertices with unit edge lengths],
@@ -15690,14 +15641,14 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(hc_lc.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_lc_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_lc_sol.source_config),
     )
 
-    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, dots, #(hc_lc_n - 1)}$ with $#hc_lc_source_edges.len()$ edges. The stored Hamiltonian-circuit witness is the permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+    *Step 1 -- Start from the source graph.* The canonical source fixture is the cycle on vertices ${0, 1, dots, #(hc_lc_n - 1)}$ with $#hc_lc_source_edges.len()$ edges. The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_lc_sol.source_config)]$.\
 
-    *Step 2 -- Assign unit edge lengths.* The target keeps the same $#hc_lc_n$ vertices and $#hc_lc_target_edges.len()$ edges. Every edge receives length $1$, so the edge-length vector is $[#hc_lc_target_weights.map(str).join(", ")]$.\
+    *Step 2 -- Assign unit edge lengths.* The target keeps the same $#hc_lc_n$ vertices and $#hc_lc_target_edges.len()$ edges. Every edge receives length $1$, so the edge-length vector is $[#fmt-values(hc_lc_target_weights)]$.\
 
-    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#hc_lc_sol.target_config.map(str).join(", ")]$ selects the edges #hc_lc_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The total circuit length is $#hc_lc_selected_edges.len() times 1 = #hc_lc_n = n$, confirming a Hamiltonian circuit. Traversing the selected edges recovers the vertex permutation $[#hc_lc_sol.source_config.map(str).join(", ")]$.\
+    *Step 3 -- Verify the canonical witness.* The stored target configuration $[#fmt-values(hc_lc_sol.target_config)]$ selects the edges #hc_lc_selected_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The total circuit length is $#hc_lc_selected_edges.len() times 1 = #hc_lc_n = n$, confirming a Hamiltonian circuit. Traversing the selected edges recovers the vertex permutation $[#fmt-values(hc_lc_sol.source_config)]$.\
 
     *Multiplicity:* The fixture stores one canonical witness. For the $#hc_lc_n$-cycle there are $#hc_lc_n times 2 = #(hc_lc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), but they all select the same undirected edge set.
   ],
@@ -16285,7 +16236,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(ps_qubo.source) + " -o paintshop.json",
       "pred reduce paintshop.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate paintshop.json --config " + ps_qubo_sol.source_config.map(str).join(","),
+      "pred evaluate paintshop.json --config " + cli-config(ps_qubo_sol.source_config),
     )
     #{
       let n = ps_qubo.source.instance.num_cars
@@ -16295,13 +16246,13 @@ The following reductions to Integer Linear Programming are straightforward formu
       let seq-labels = seq.map(i => labels.at(i))
       let coloring = seq.enumerate().map(((pos, car)) => {
         let first-color = ps_qubo_sol.source_config.at(car)
-        if is-first.at(pos) { first-color } else { 1 - first-color }
+        if is-first.at(pos) { first-color } else { not first-color }
       })
       [*Source:* $n = #n$ cars, sequence $(#seq-labels.join(", "))$. \
       *Parity:* #seq.enumerate().map(((pos, _)) => if is-first.at(pos) { "1st" } else { "2nd" }).join(", ") \
       *Step 1 -- One QUBO variable per car.* Binary variable $x_i in {0,1}$ for each car $i$: $x_i = 0$ means "first occurrence gets color 0, second gets color 1"; $x_i = 1$ reverses. \
       *Step 2 -- Build the $Q$ matrix from adjacent pairs.* For each adjacent pair $(j, j+1)$ in the sequence with distinct cars $a, b$: if both positions have the _same_ parity (both first or both second occurrence), a color switch occurs when $x_a != x_b$, contributing $+1$ to $Q_(a a)$, $+1$ to $Q_(b b)$, and $-2$ to $Q_(a b)$. If they have _different_ parity, a switch occurs when $x_a = x_b$, contributing $-1$ to $Q_(a a)$, $-1$ to $Q_(b b)$, and $+2$ to $Q_(a b)$. \
-      *Step 3 -- Verify.* The QUBO solution $bold(x) = (#ps_qubo_sol.target_config.map(str).join(", "))$ yields coloring $(#coloring.map(str).join(", "))$ with #{coloring.windows(2).filter(w => w.at(0) != w.at(1)).len()} color switches #sym.checkmark ]
+      *Step 3 -- Verify.* The QUBO solution $bold(x) = (#fmt-values(ps_qubo_sol.target_config))$ yields coloring $(#fmt-values(coloring))$ with #{coloring.windows(2).filter(w => w.at(0) != w.at(1)).len()} color switches #sym.checkmark ]
     }
   ],
 )[
@@ -16365,7 +16316,7 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(rta_rtsa.source) + " -o rta.json",
       "pred reduce rta.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate rta.json --config " + rta_rtsa_sol.source_config.map(str).join(","),
+      "pred evaluate rta.json --config " + cli-config(rta_rtsa_sol.source_config),
     )
     Source: path graph $P_4$ with vertices ${0, 1, 2, 3}$, edges $\{0,1\}, \{1,2\}, \{2,3\}$, and bound $K = 5$. \
     Target: universe $X = {0, 1, 2, 3}$, subsets $\{0,1\}, \{1,2\}, \{2,3\}$, bound $K' = 5 - 3 = 2$. \
@@ -16488,9 +16439,9 @@ The following reductions to Integer Linear Programming are straightforward formu
       "pred create --example " + problem-spec(mcmf_mcc.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + mcmf_mcc_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(mcmf_mcc_sol.source_config),
     )
-    Source flow $(#mcmf_mcc_sol.source_config.map(str).join(", "))$; target circulation $(#mcmf_mcc_sol.target_config.map(str).join(", "))$ appends the return arc.
+    Source flow $(#fmt-values(mcmf_mcc_sol.source_config))$; target circulation $(#fmt-values(mcmf_mcc_sol.target_config))$ appends the return arc.
   ],
 )[
   Augment the flow network with a single return arc from the sink to the source. Give it capacity equal to a feasible-flow upper bound and a sufficiently negative cost so that the resulting min-cost circulation lex-orders the original (max value, min cost) objective. Recover the source flow by deleting the return arc.
@@ -16535,7 +16486,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   let mlr_ilp = load-example("MaximumLikelihoodRanking", "ILP")
   let mlr_ilp_sol = mlr_ilp.solutions.at(0)
   let mlr_n = mlr_ilp.source.instance.matrix.len()
-  let mlr_nv = mlr_ilp.target.instance.num_vars
+  let mlr_nv = mlr_ilp.target.instance.variables.len()
   let mlr_nc = mlr_ilp.target.instance.constraints.len()
   [
     #reduction-rule("MaximumLikelihoodRanking", "ILP",
@@ -16546,13 +16497,13 @@ The following reductions to Integer Linear Programming are straightforward formu
           "pred create --example MaximumLikelihoodRanking -o mlr.json",
           "pred reduce mlr.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate mlr.json --config " + mlr_ilp_sol.source_config.map(str).join(","),
+          "pred evaluate mlr.json --config " + cli-config(mlr_ilp_sol.source_config),
         )
         *Step 1 -- Source instance.* A ranking instance with $n = #mlr_n$ items and comparison matrix $A$.
 
         *Step 2 -- Build the ILP.* Introduce $binom(#str(mlr_n), 2) = #mlr_nv$ binary variables $x_(i j)$ for each pair $i < j$. Add $#mlr_nc$ transitivity constraints from all $binom(#str(mlr_n), 3)$ triples. The ILP has #mlr_nv variables and #mlr_nc constraints.
 
-        *Step 3 -- Verify.* The ILP optimum extracts to ranking $(#mlr_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+        *Step 3 -- Verify.* The ILP optimum extracts to ranking $(#fmt-values(mlr_ilp_sol.source_config))$, which matches the source optimum #sym.checkmark.
       ],
     )[
       Each pair of items $(i, j)$ with $i < j$ gets a binary variable $x_(i j)$ indicating whether $i$ is ranked before $j$. Transitivity constraints enforce a valid linear order, and the objective minimizes the total disagreement cost.
@@ -16579,7 +16530,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   let ocst_ilp = load-example("OptimumCommunicationSpanningTree", "ILP")
   let ocst_ilp_sol = ocst_ilp.solutions.at(0)
   let ocst_n = ocst_ilp.source.instance.num_vertices
-  let ocst_nv = ocst_ilp.target.instance.num_vars
+  let ocst_nv = ocst_ilp.target.instance.variables.len()
   let ocst_nc = ocst_ilp.target.instance.constraints.len()
   [
     #reduction-rule("OptimumCommunicationSpanningTree", "ILP",
@@ -16590,13 +16541,13 @@ The following reductions to Integer Linear Programming are straightforward formu
           "pred create --example OptimumCommunicationSpanningTree -o ocst.json",
           "pred reduce ocst.json --via route.json -o bundle.json",
           "pred solve bundle.json",
-          "pred evaluate ocst.json --config " + ocst_ilp_sol.source_config.map(str).join(","),
+          "pred evaluate ocst.json --config " + cli-config(ocst_ilp_sol.source_config),
         )
         *Step 1 -- Source instance.* $K_#ocst_n$ with edge weight and requirement matrices.
 
         *Step 2 -- Build the ILP.* Introduce edge selectors and multi-commodity flow variables. The ILP has #ocst_nv variables and #ocst_nc constraints.
 
-        *Step 3 -- Verify.* The ILP optimum extracts to edge selection $(#ocst_ilp_sol.source_config.map(str).join(", "))$, which matches the source optimum #sym.checkmark.
+        *Step 3 -- Verify.* The ILP optimum extracts to edge selection $(#fmt-values(ocst_ilp_sol.source_config))$, which matches the source optimum #sym.checkmark.
       ],
     )[
       Binary edge selectors determine the spanning tree. Multi-commodity flow variables route one unit of flow for each vertex pair with positive requirement, and the objective minimizes the total weighted communication cost.
@@ -16869,7 +16820,7 @@ The following table shows concrete target-variable counts for example instances,
       #pred-commands(
         "pred create --example MaximumDomaticNumber -o mdn.json",
         "pred solve mdn.json",
-        "pred evaluate mdn.json --config " + config.map(str).join(","),
+        "pred evaluate mdn.json --config " + cli-config(config),
       )
     ]
   ]
@@ -16890,7 +16841,7 @@ The following table shows concrete target-variable counts for example instances,
   let nv = x.instance.graph.num_vertices
   let edges-j = x.instance.graph.edges.map(e => (e.at(0), e.at(1)))
   let config = x.optimal_config
-  let resolving = range(nv).filter(v => config.at(v) == 1)
+  let resolving = range(nv).filter(v => config.at(v))
   let size = metric-value(x.optimal_value)
   [
     #problem-def("MinimumMetricDimension")[
@@ -16905,7 +16856,7 @@ The following table shows concrete target-variable counts for example instances,
       #pred-commands(
         "pred create --example MinimumMetricDimension -o mmd.json",
         "pred solve mmd.json",
-        "pred evaluate mmd.json --config " + config.map(str).join(","),
+        "pred evaluate mmd.json --config " + cli-config(config),
       )
     ]
   ]
@@ -16939,7 +16890,7 @@ The following table shows concrete target-variable counts for example instances,
       #pred-commands(
         "pred create --example MinimumGraphBandwidth -o mgb.json",
         "pred solve mgb.json",
-        "pred evaluate mgb.json --config " + config.map(str).join(","),
+        "pred evaluate mgb.json --config " + cli-config(config),
       )
     ]
   ]
@@ -16964,7 +16915,7 @@ The following table shows concrete target-variable counts for example instances,
   let reqs = x.instance.requirements
   let root = x.instance.root
   let config = x.optimal_config
-  let sel-idx = range(edges-j.len()).filter(i => config.at(i) == 1)
+  let sel-idx = range(edges-j.len()).filter(i => config.at(i))
   let total-weight = metric-value(x.optimal_value)
   [
     #problem-def("MinimumCapacitatedSpanningTree")[
@@ -16972,12 +16923,12 @@ The following table shows concrete target-variable counts for example instances,
     ][
       Minimum Capacitated Spanning Tree (ND5) @garey1979. NP-hard in the strong sense, even with unit requirements and capacity 3.
 
-      *Example.* Consider $G$ with $n = #nv$ vertices, $|E| = #{edges-j.len()}$ edges, root $v_#root$, capacity $c = #cap$, vertex requirements $r = (#reqs.map(str).join(", "))$, and edge weights $w = (#ew.map(str).join(", "))$. The optimal tree selects edges #sel-idx.map(i => $(v_#(edges-j.at(i).at(0)), v_#(edges-j.at(i).at(1)))$).join(", ") with total weight $#sel-idx.map(i => str(ew.at(i))).join(" + ") = #total-weight$. Every subtree rooted away from $v_#root$ has total requirement at most $c = #cap$.
+      *Example.* Consider $G$ with $n = #nv$ vertices, $|E| = #{edges-j.len()}$ edges, root $v_#root$, capacity $c = #cap$, vertex requirements $r = (#fmt-values(reqs))$, and edge weights $w = (#fmt-values(ew))$. The optimal tree selects edges #sel-idx.map(i => $(v_#(edges-j.at(i).at(0)), v_#(edges-j.at(i).at(1)))$).join(", ") with total weight $#sel-idx.map(i => str(ew.at(i))).join(" + ") = #total-weight$. Every subtree rooted away from $v_#root$ has total requirement at most $c = #cap$.
 
       #pred-commands(
         "pred create --example MinimumCapacitatedSpanningTree -o mcst.json",
         "pred solve mcst.json",
-        "pred evaluate mcst.json --config " + config.map(str).join(","),
+        "pred evaluate mcst.json --config " + cli-config(config),
       )
     ]
   ]
@@ -17033,14 +16984,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_hp.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_hp_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_hp_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_hp_n$ on vertices ${0, dots, #(hc_hp_n - 1)}$ with #hc_hp_source_edges.len() edges: #hc_hp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_hp_n$ on vertices ${0, dots, #(hc_hp_n - 1)}$ with #hc_hp_source_edges.len() edges: #hc_hp_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_hp_sol.source_config)]$.\
 
     *Step 2 -- Construction.* Fix $v_0 = 0$. Its neighbors in the source are ${1, 3}$ ($deg = 2$). Introduce $v' = #hc_hp_n$, $s = #(hc_hp_n + 1)$, $t = #(hc_hp_n + 2)$. The target graph $G'$ has $#hc_hp_target_n = #hc_hp_n + 3$ vertices and #hc_hp_target_edges.len() edges: #hc_hp_target_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The $#(hc_hp_target_edges.len() - hc_hp_source_edges.len())$ new edges are the duplicated adjacencies of $v'$ plus the two pendant edges.\
 
-    *Step 3 -- Verify a solution.* The stored target Hamiltonian-path permutation is $[#hc_hp_sol.target_config.map(str).join(", ")]$, visiting every vertex of $G'$ exactly once. The path starts at pendant $s = #hc_hp_sol.target_config.at(0)$ and ends at pendant $t = #hc_hp_sol.target_config.at(hc_hp_target_n - 1)$. Dropping $s$ at the front and the last two vertices $v', t$ at the back gives $[#hc_hp_sol.target_config.slice(1, hc_hp_target_n - 2).map(str).join(", ")]$, which is the source Hamiltonian circuit $[#hc_hp_sol.source_config.map(str).join(", ")]$.\
+    *Step 3 -- Verify a solution.* The stored target Hamiltonian-path permutation is $[#fmt-values(hc_hp_sol.target_config)]$, visiting every vertex of $G'$ exactly once. The path starts at pendant $s = #hc_hp_sol.target_config.at(0)$ and ends at pendant $t = #hc_hp_sol.target_config.at(hc_hp_target_n - 1)$. Dropping $s$ at the front and the last two vertices $v', t$ at the back gives $[#hc_hp_sol.target_config.slice(1, hc_hp_target_n - 2).map(str).join(", ")]$, which is the source Hamiltonian circuit $[#fmt-values(hc_hp_sol.source_config)]$.\
 
     *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_hp_n$ there are $#hc_hp_n times 2 = #(hc_hp_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct target path.
   ],
@@ -17064,14 +17015,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(kc_si.source) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate kclique.json --config " + kc_si_sol.source_config.map(str).join(","),
+      "pred evaluate kclique.json --config " + cli-config(kc_si_sol.source_config),
     )
 
     #{
       let n = kc_si.source.instance.graph.num_vertices
       let k = kc_si.source.instance.k
-      let clique-verts = kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-      let fills = kc_si_sol.source_config.map(c => if c == 1 { graph-colors.at(0) } else { white })
+      let clique-verts = kc_si_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+      let fills = kc_si_sol.source_config.map(selected => if selected { graph-colors.at(0) } else { white })
       // Simple circular layout for the source graph
       let angle-step = 360deg / n
       let radius = 2.0
@@ -17095,7 +17046,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 3 -- Variable semantics.* The source uses $n = #kc_si.source.instance.graph.num_vertices$ binary indicator variables ($x_v = 1$ iff vertex $v$ is in the clique). The target uses $k = #kc_si.source.instance.k$ variables, each ranging over ${0, dots, n - 1}$, specifying which host vertex each pattern vertex maps to.
 
-    *Step 4 -- Verify a solution.* The canonical witness has source config $bold(x) = (#kc_si_sol.source_config.map(str).join(", "))$, selecting vertices ${#kc_si_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$. The target config is $(#kc_si_sol.target_config.map(str).join(", "))$, mapping pattern vertex $i$ to host vertex $c_i$. The image vertices ${#kc_si_sol.target_config.map(str).join(", ")}$ are pairwise adjacent in $G$ (they form a triangle), confirming the isomorphism #sym.checkmark
+    *Step 4 -- Verify a solution.* The canonical witness has source config $bold(x) = (#fmt-values(kc_si_sol.source_config))$, selecting vertices ${#kc_si_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$. The target config is $(#fmt-values(kc_si_sol.target_config))$, mapping pattern vertex $i$ to host vertex $c_i$. The image vertices ${#fmt-values(kc_si_sol.target_config)}$ are pairwise adjacent in $G$ (they form a triangle), confirming the isomorphism #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The $k!$ permutations of the clique vertices each give a valid subgraph isomorphism, so the target side has $#kc_si.source.instance.k ! = #calc.fact(kc_si.source.instance.k)$ witnesses for this single source clique.
   ],
@@ -17116,8 +17067,8 @@ The following table shows concrete target-variable counts for example instances,
 #let part_mps_total = part_mps_sizes.fold(0, (a, b) => a + b)
 #let part_mps_deadline = part_mps.target.instance.deadline
 #let part_mps_nproc = part_mps.target.instance.num_processors
-#let part_mps_proc0 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
-#let part_mps_proc1 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_mps_proc0 = part_mps_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => i)
+#let part_mps_proc1 = part_mps_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_mps_load0 = part_mps_proc0.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
 #let part_mps_load1 = part_mps_proc1.map(i => part_mps_sizes.at(i)).fold(0, (a, b) => a + b)
 #reduction-rule("Partition", "MultiprocessorScheduling",
@@ -17128,14 +17079,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_mps.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_mps_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_mps_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_mps_sizes.map(str).join(", "))$ with total sum $S = #part_mps_total$. A balanced partition requires each subset to sum to $S / 2 = #part_mps_deadline$.
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#fmt-values(part_mps_sizes))$ with total sum $S = #part_mps_total$. A balanced partition requires each subset to sum to $S / 2 = #part_mps_deadline$.
 
-    *Step 2 -- Construction.* The reduction creates #part_mps_n tasks with lengths $(#part_mps.target.instance.lengths.map(str).join(", "))$, sets the number of processors to $m = #part_mps_nproc$, and the deadline to $D = floor(S / 2) = #part_mps_deadline$. No auxiliary variables are introduced: the target has the same #part_mps_n binary coordinates as the source.
+    *Step 2 -- Construction.* The reduction creates #part_mps_n tasks with lengths $(#fmt-values(part_mps.target.instance.lengths))$, sets the number of processors to $m = #part_mps_nproc$, and the deadline to $D = floor(S / 2) = #part_mps_deadline$. No auxiliary variables are introduced: the target has the same #part_mps_n binary coordinates as the source.
 
-    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_mps_sol.source_config.map(str).join(", "))$, which is the same binary vector on both sides. Processor 0 receives tasks at indices $\{#part_mps_proc0.map(str).join(", ")\}$ with sizes $(#part_mps_proc0.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load0 <= #part_mps_deadline = D$. Processor 1 receives tasks at indices $\{#part_mps_proc1.map(str).join(", ")\}$ with sizes $(#part_mps_proc1.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load1 <= #part_mps_deadline = D$. Total: $#part_mps_load0 + #part_mps_load1 = #part_mps_total = S$ #sym.checkmark
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#fmt-values(part_mps_sol.source_config))$, which is the same binary vector on both sides. Processor 0 receives tasks at indices $\{#fmt-values(part_mps_proc0)\}$ with sizes $(#part_mps_proc0.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load0 <= #part_mps_deadline = D$. Processor 1 receives tasks at indices $\{#fmt-values(part_mps_proc1)\}$ with sizes $(#part_mps_proc1.map(i => str(part_mps_sizes.at(i))).join(", "))$, giving load $#part_mps_load1 <= #part_mps_deadline = D$. Total: $#part_mps_load0 + #part_mps_load1 = #part_mps_total = S$ #sym.checkmark
 
     *Multiplicity:* The example DB stores one canonical witness. This instance admits other balanced partitions (e.g., swapping the two subsets), but one witness suffices to demonstrate the reduction.
   ],
@@ -17156,8 +17107,8 @@ The following table shows concrete target-variable counts for example instances,
 #let part_sosp_total = part_sosp_sizes.fold(0, (a, b) => a + b)
 #let part_sosp_half = part_sosp_total / 2
 #let part_sosp_opt = part_sosp_half * part_sosp_half * 2
-#let part_sosp_group0 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
-#let part_sosp_group1 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_sosp_group0 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => i)
+#let part_sosp_group1 = part_sosp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_sosp_load0 = part_sosp_group0.map(i => part_sosp_sizes.at(i)).fold(0, (a, b) => a + b)
 #let part_sosp_load1 = part_sosp_group1.map(i => part_sosp_sizes.at(i)).fold(0, (a, b) => a + b)
 #reduction-rule("Partition", "SumOfSquaresPartition",
@@ -17168,14 +17119,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_sosp.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_sosp_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_sosp_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_sosp_sizes.map(str).join(", "))$ with total sum $S = #part_sosp_total$. A balanced 2-partition splits the elements into subsets summing to $S / 2 = #part_sosp_half$ each.
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#fmt-values(part_sosp_sizes))$ with total sum $S = #part_sosp_total$. A balanced 2-partition splits the elements into subsets summing to $S / 2 = #part_sosp_half$ each.
 
     *Step 2 -- Construction.* The reduction copies the element sizes verbatim (cast to signed integers) into a SumOfSquaresPartition instance with $K = 2$ groups; no auxiliary variables are introduced. The same #part_sosp_n binary coordinates serve as both source subset assignments and target group assignments.
 
-    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#part_sosp_sol.source_config.map(str).join(", "))$. Group 0 contains indices $\{#part_sosp_group0.map(str).join(", ")\}$ with sizes $(#part_sosp_group0.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load0$. Group 1 contains indices $\{#part_sosp_group1.map(str).join(", ")\}$ with sizes $(#part_sosp_group1.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load1$. The sum of squared group sums is $#part_sosp_load0^2 + #part_sosp_load1^2 = #part_sosp_opt = S^2 / 2$ #sym.checkmark
+    *Step 3 -- Verify a solution.* The canonical witness is $bold(x) = (#fmt-values(part_sosp_sol.source_config))$. Group 0 contains indices $\{#fmt-values(part_sosp_group0)\}$ with sizes $(#part_sosp_group0.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load0$. Group 1 contains indices $\{#fmt-values(part_sosp_group1)\}$ with sizes $(#part_sosp_group1.map(i => str(part_sosp_sizes.at(i))).join(", "))$, summing to $#part_sosp_load1$. The sum of squared group sums is $#part_sosp_load0^2 + #part_sosp_load1^2 = #part_sosp_opt = S^2 / 2$ #sym.checkmark
 
     *Multiplicity:* The example DB stores one canonical balanced witness; other balanced splits of this instance also attain the optimum.
   ],
@@ -17201,14 +17152,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_btsp.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_btsp_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_btsp_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The canonical HC instance is a graph with $n = #graph-num-vertices(hc_btsp.source.instance)$ vertices and $|E| = #graph-num-edges(hc_btsp.source.instance)$ edges.
 
-    *Step 2 -- Construction.* Build the complete graph $K_#graph-num-vertices(hc_btsp.target.instance)$ with #graph-num-edges(hc_btsp.target.instance) edges. Each original edge gets weight 1 and each non-edge gets weight 2. The target edge weights are $(#hc_btsp.target.instance.edge_weights.map(str).join(", "))$, where the #hc_btsp.target.instance.edge_weights.filter(w => w == 1).len() entries equal to 1 correspond to the $|E| = #graph-num-edges(hc_btsp.source.instance)$ source edges and the #hc_btsp.target.instance.edge_weights.filter(w => w == 2).len() entries equal to 2 correspond to the non-edges.
+    *Step 2 -- Construction.* Build the complete graph $K_#graph-num-vertices(hc_btsp.target.instance)$ with #graph-num-edges(hc_btsp.target.instance) edges. Each original edge gets weight 1 and each non-edge gets weight 2. The target edge weights are $(#fmt-values(hc_btsp.target.instance.edge_weights))$, where the #hc_btsp.target.instance.edge_weights.filter(w => w == 1).len() entries equal to 1 correspond to the $|E| = #graph-num-edges(hc_btsp.source.instance)$ source edges and the #hc_btsp.target.instance.edge_weights.filter(w => w == 2).len() entries equal to 2 correspond to the non-edges.
 
-    *Step 3 -- Verify a solution.* The source tour visits vertices in order $(#hc_btsp_sol.source_config.map(str).join(", "))$. In the target, the selected edges are those with indicator 1 in $(#hc_btsp_sol.target_config.map(str).join(", "))$, all of which have weight 1, giving bottleneck cost $= 1$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* The source tour visits vertices in order $(#fmt-values(hc_btsp_sol.source_config))$. In the target, the selected edges are those with indicator 1 in $(#fmt-values(hc_btsp_sol.target_config))$, all of which have weight 1, giving bottleneck cost $= 1$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The $#graph-num-vertices(hc_btsp.source.instance)$-cycle has $#graph-num-vertices(hc_btsp.source.instance)$ rotations $times$ 2 reflections $= #(2 * graph-num-vertices(hc_btsp.source.instance))$ Hamiltonian circuits in total.
   ],
@@ -17232,13 +17183,13 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(kc_cbq.source) + " -o kclique.json",
       "pred reduce kclique.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate kclique.json --config " + kc_cbq_sol.source_config.map(str).join(","),
+      "pred evaluate kclique.json --config " + cli-config(kc_cbq_sol.source_config),
     )
 
     #{
       let verts = ((0, 1.5), (1.5, 2.5), (3, 1.5), (1.5, 0), (4.5, 0))
       let edges = kc_cbq.source.instance.graph.edges
-      let clique-verts = kc_cbq_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let clique-verts = kc_cbq_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
       align(center, canvas(length: 0.8cm, {
         for (u, v) in edges {
           let in-clique = clique-verts.contains(u) and clique-verts.contains(v)
@@ -17257,7 +17208,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 3 -- Form the conjunctive query.* Introduce $k = #kc_cbq.target.instance.num_variables$ existential variables $y_0, y_1, y_2$ over $D$. The conjunction has $binom(k, 2) = #kc_cbq.target.instance.conjuncts.len()$ conjuncts: $R(y_0, y_1) and R(y_0, y_2) and R(y_1, y_2)$.
 
-    *Step 4 -- Verify a solution.* The satisfying assignment $(y_0, y_1, y_2) = (#kc_cbq_sol.target_config.map(str).join(", "))$ maps to vertices ${#kc_cbq_sol.target_config.map(str).join(", ")}$. Check each conjunct: $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(1)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(1), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark --- all pairs are adjacent, confirming the 3-clique. The source indicator is $(#kc_cbq_sol.source_config.map(str).join(", "))$, marking exactly vertices ${0, 1, 2}$.
+    *Step 4 -- Verify a solution.* The satisfying assignment $(y_0, y_1, y_2) = (#fmt-values(kc_cbq_sol.target_config))$ maps to vertices ${#fmt-values(kc_cbq_sol.target_config)}$. Check each conjunct: $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(1)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(0), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark, $(#kc_cbq_sol.target_config.at(1), #kc_cbq_sol.target_config.at(2)) in R$ #sym.checkmark --- all pairs are adjacent, confirming the 3-clique. The source indicator is $(#fmt-values(kc_cbq_sol.source_config))$, marking exactly vertices ${0, 1, 2}$.
 
     *Multiplicity:* The fixture stores one canonical witness. The triangle ${0, 1, 2}$ is the unique 3-clique in this graph, but the CBQ query has $3! = 6$ satisfying tuples (one per permutation of the three vertices); the canonical witness selects the sorted order $(0, 1, 2)$.
   ],
@@ -17281,21 +17232,21 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_ss.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_ss_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_ss_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_ss.source.instance.universe_size - 1)}$ ($|X| = #x3c_ss.source.instance.universe_size = 3q$, so $q = #(x3c_ss.source.instance.universe_size / 3)$) and $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets: #x3c_ss.source.instance.subsets.enumerate().map(((j, s)) => $S_#j = {#s.map(str).join(", ")}$).join(", ").
+    *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_ss.source.instance.universe_size - 1)}$ ($|X| = #x3c_ss.source.instance.universe_size = 3q$, so $q = #(x3c_ss.source.instance.universe_size / 3)$) and $|cal(C)| = #x3c_ss.source.instance.subsets.len()$ subsets: #x3c_ss.source.instance.subsets.enumerate().map(((j, s)) => $S_#j = {#fmt-values(s)}$).join(", ").
 
     *Step 2 -- Construct StaffScheduling instance.* The reduction creates $#x3c_ss.target.instance.requirements.len()$ periods (one per universe element), each with requirement $r[i] = 1$. Each subset $S_j$ becomes a schedule $sigma_j$ with $sigma_j [i] = 1$ iff $i in S_j$, giving shifts_per_schedule $= #x3c_ss.target.instance.shifts_per_schedule$. The worker budget is $W = q = #x3c_ss.target.instance.num_workers$.
 
-    *Step 3 -- Verify a solution.* The canonical cover selects subsets via $(#x3c_ss_sol.source_config.map(str).join(", "))$: #{
-      let selected = x3c_ss_sol.source_config.enumerate().filter(((j, x)) => x == 1).map(((j, x)) => {
+    *Step 3 -- Verify a solution.* The canonical cover selects subsets via $(#fmt-values(x3c_ss_sol.source_config))$: #{
+      let selected = x3c_ss_sol.source_config.enumerate().filter(((j, x)) => x).map(((j, x)) => {
         let s = x3c_ss.source.instance.subsets.at(j)
-        $S_#j = {#s.map(str).join(", ")}$
+        $S_#j = {#fmt-values(s)}$
       })
       selected.join(", ")
-    }. These $#x3c_ss_sol.source_config.filter(x => x == 1).len()$ subsets are pairwise disjoint and cover all $#x3c_ss.source.instance.universe_size$ elements #sym.checkmark \
-    The target config $(#x3c_ss_sol.target_config.map(str).join(", "))$ assigns $w[j]$ workers to schedule $j$: total workers $= #x3c_ss_sol.target_config.sum() = q$ #sym.checkmark. Each period is covered by exactly one worker #sym.checkmark
+    }. These $#x3c_ss_sol.source_config.filter(x => x).len()$ subsets are pairwise disjoint and cover all $#x3c_ss.source.instance.universe_size$ elements #sym.checkmark \
+    The target config $(#fmt-values(x3c_ss_sol.target_config))$ assigns $w[j]$ workers to schedule $j$: total workers $= #x3c_ss_sol.target_config.sum() = q$ #sym.checkmark. Each period is covered by exactly one worker #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The instance admits a second exact cover ${S_2, S_3}$, but the fixture records only the first found.
   ],
@@ -17320,19 +17271,19 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_dmvc.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_dmvc_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_dmvc_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_dmvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_dmvc.source.instance)$ clauses: #{ksat_dmvc.source.instance.clauses.enumerate().map(((j, c)) => {
       let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
       [$c_#j = (#lits.join($or$))$]
-    }).join(", ")}. A satisfying assignment is $(#ksat_dmvc_sol.source_config.map(str).join(", "))$.
+    }).join(", ")}. A satisfying assignment is $(#fmt-values(ksat_dmvc_sol.source_config))$.
 
     *Step 2 -- Build the vertex-cover graph.* Create one truth-setting edge $(u_i, overline(u)_i)$ per variable and one clause triangle per clause. Each triangle vertex is connected to the literal vertex of its clause position by a communication edge. The resulting graph has $|V| = 2n + 3m = #graph-num-vertices(ksat_dmvc.target.instance)$ vertices and $|E| = n + 6m = #graph-num-edges(ksat_dmvc.target.instance)$ edges.
 
     *Step 3 -- Add the decision threshold.* Wrap the constructed Minimum Vertex Cover instance in the decision predicate with bound $k = n + 2m = #ksat_dmvc.target.instance.bound$. For this example, $k = 3 + 2 dot 2 = 7$.
 
-    *Step 4 -- Verify a witness.* The target configuration $(#ksat_dmvc_sol.target_config.map(str).join(", "))$ selects #ksat_dmvc_sol.target_config.filter(x => x == 1).len() vertices, so it meets the bound exactly. Each truth-setting edge has one selected endpoint #sym.checkmark. Each clause triangle has two selected vertices #sym.checkmark. Each communication edge is covered either by its literal endpoint or by its triangle endpoint #sym.checkmark. Extracting the truth-setting choices returns $(#ksat_dmvc_sol.source_config.map(str).join(", "))$, which satisfies every clause #sym.checkmark
+    *Step 4 -- Verify a witness.* The target configuration $(#fmt-values(ksat_dmvc_sol.target_config))$ selects #ksat_dmvc_sol.target_config.filter(x => x).len() vertices, so it meets the bound exactly. Each truth-setting edge has one selected endpoint #sym.checkmark. Each clause triangle has two selected vertices #sym.checkmark. Each communication edge is covered either by its literal endpoint or by its triangle endpoint #sym.checkmark. Extracting the truth-setting choices returns $(#fmt-values(ksat_dmvc_sol.source_config))$, which satisfies every clause #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical decision witness. Different satisfying assignments may yield different size-$k$ covers of the same graph.
   ],
@@ -17356,14 +17307,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(dmvc_hc.source) + " -o dmvc.json",
       "pred reduce dmvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate dmvc.json --config " + dmvc_hc_sol.source_config.map(str).join(","),
+      "pred evaluate dmvc.json --config " + cli-config(dmvc_hc_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Decision Minimum Vertex Cover fixture has inner graph $G$ on vertices ${0, 1, 2}$ with edges #{dmvc_hc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")} and unit weights. The bound is $k = #dmvc_hc.source.instance.bound$, and the stored cover witness is $(#dmvc_hc_sol.source_config.map(str).join(", "))$, i.e.\ $C = {1}$.
+    *Step 1 -- Source instance.* The canonical Decision Minimum Vertex Cover fixture has inner graph $G$ on vertices ${0, 1, 2}$ with edges #{dmvc_hc.source.instance.inner.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")} and unit weights. The bound is $k = #dmvc_hc.source.instance.bound$, and the stored cover witness is $(#fmt-values(dmvc_hc_sol.source_config))$, i.e.\ $C = {1}$.
 
     *Step 2 -- Build the Hamiltonian graph.* There is one selector vertex $a_1$ and one 12-vertex gadget for each source edge, so the target graph has $1 + 2 dot 12 = #graph-num-vertices(dmvc_hc.target.instance)$ vertices. The path for source vertex $1$ chains the two gadgets through the connector from $(1, e_0, 6)$ to $(1, e_1, 1)$. The completed target has #graph-num-edges(dmvc_hc.target.instance) edges.
 
-    *Step 3 -- Verify a witness.* The stored Hamiltonian circuit is $(#dmvc_hc_sol.target_config.map(str).join(", "))$. Reading the cycle between selector contacts shows that the unique selector traverses first the gadget for edge $(0,1)$ in the "only vertex 1 chosen" mode and then the gadget for edge $(1,2)$ in the same mode, visiting every one of the 25 target vertices exactly once. Extracting the selector-adjacent path endpoints returns the source cover $(#dmvc_hc_sol.source_config.map(str).join(", ")) = {1}$, which indeed covers both source edges #sym.checkmark
+    *Step 3 -- Verify a witness.* The stored Hamiltonian circuit is $(#fmt-values(dmvc_hc_sol.target_config))$. Reading the cycle between selector contacts shows that the unique selector traverses first the gadget for edge $(0,1)$ in the "only vertex 1 chosen" mode and then the gadget for edge $(1,2)$ in the same mode, visiting every one of the 25 target vertices exactly once. Extracting the selector-adjacent path endpoints returns the source cover $(#fmt-values(dmvc_hc_sol.source_config)) = {1}$, which indeed covers both source edges #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical Hamiltonian circuit. Rotating or reversing that same cycle yields equivalent target witnesses with the same extracted cover.
   ],
@@ -17387,15 +17338,15 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_mvc.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_mvc_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_mvc_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The 3-SAT formula has $n = #ksat_mvc.source.instance.num_vars$ variables and $m = #sat-num-clauses(ksat_mvc.source.instance)$ clauses: #{ksat_mvc.source.instance.clauses.enumerate().map(((j, c)) => {
       let lits = c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ })
       [$c_#j = (#lits.join($or$))$]
-    }).join(", ")}. A satisfying assignment is $(#ksat_mvc_sol.source_config.map(str).join(", "))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
+    }).join(", ")}. A satisfying assignment is $(#fmt-values(ksat_mvc_sol.source_config))$, i.e.\ #{range(ksat_mvc.source.instance.num_vars).map(i => {
       let v = ksat_mvc_sol.source_config.at(i)
-      if v == 1 { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
+      if v { $x_#(i+1) = 1$ } else { $x_#(i+1) = 0$ }
     }).join(", ")}.
 
     *Step 2 -- Truth-setting edges.* For each variable $x_i$, create vertices $u_i$ (index $2(i-1)$) and $overline(u)_i$ (index $2(i-1)+1$) connected by a truth-setting edge. This gives $2n = #(2 * ksat_mvc.source.instance.num_vars)$ literal vertices and $n = #ksat_mvc.source.instance.num_vars$ edges.
@@ -17404,7 +17355,7 @@ The following table shows concrete target-variable counts for example instances,
 
     *Step 4 -- Target graph dimensions.* The resulting graph has $|V| = 2n + 3m = #ksat_mvc.target.instance.graph.num_vertices$ vertices and $|E| = n + 6m = #ksat_mvc.target.instance.graph.edges.len()$ edges, with unit weights.
 
-    *Step 5 -- Verify a solution.* The satisfying assignment $(#ksat_mvc_sol.source_config.map(str).join(", "))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#ksat_mvc_sol.target_config.map(str).join(", "))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x == 1).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
+    *Step 5 -- Verify a solution.* The satisfying assignment $(#fmt-values(ksat_mvc_sol.source_config))$ maps to a vertex cover of size $n + 2m = #(ksat_mvc.source.instance.num_vars + 2 * sat-num-clauses(ksat_mvc.source.instance))$. The target configuration is $(#fmt-values(ksat_mvc_sol.target_config))$: the cover selects #ksat_mvc_sol.target_config.filter(x => x).len() vertices. For each truth-setting edge, exactly one endpoint is in the cover #sym.checkmark. For each clause triangle, exactly two of three vertices are covered #sym.checkmark. Each communication edge has at least one endpoint in the cover #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Other valid covers correspond to different satisfying assignments of the formula.
   ],
@@ -17428,14 +17379,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_mono.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_mono_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_mono_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The fixture uses the single clause $c_1 = (x_1 or x_2 or x_3)$. The extracted satisfying assignment is $(#ksat_mono_sol.source_config.map(str).join(", "))$.
+    *Step 1 -- Source instance.* The fixture uses the single clause $c_1 = (x_1 or x_2 or x_3)$. The extracted satisfying assignment is $(#fmt-values(ksat_mono_sol.source_config))$.
 
     *Step 2 -- Build the clause gadget.* Create literal vertices $p_1, p_2, p_3, n_1, n_2, n_3$ together with negation edges $(p_1, n_1)$, $(p_2, n_2)$, and $(p_3, n_3)$. For the clause, add intermediates $m_12, m_13, m_23$ and the six fan edges $(p_1, m_12)$, $(p_2, m_12)$, $(p_1, m_13)$, $(p_3, m_13)$, $(p_2, m_23)$, $(p_3, m_23)$, plus the clause triangle on $(m_12, m_13, m_23)$. The target therefore has $|V| = #graph-num-vertices(ksat_mono.target.instance)$ vertices, $|E| = #graph-num-edges(ksat_mono.target.instance)$ edges, and $#ksat_mono.target.instance.triangles.len()$ triangles.
 
-    *Step 3 -- Verify a witness.* The stored target coloring is $(#ksat_mono_sol.target_config.map(str).join(", "))$. Its first $n = #ksat_mono.source.instance.num_vars$ entries color the negation edges; reading those colors and applying the global color-swap symmetry fix yields the source assignment $(#ksat_mono_sol.source_config.map(str).join(", "))$, which satisfies $c_1$ #sym.checkmark. The same target coloring makes all four target triangles non-monochromatic #sym.checkmark.
+    *Step 3 -- Verify a witness.* The stored target coloring is $(#fmt-values(ksat_mono_sol.target_config))$. Its first $n = #ksat_mono.source.instance.num_vars$ entries color the negation edges; reading those colors and applying the global color-swap symmetry fix yields the source assignment $(#fmt-values(ksat_mono_sol.source_config))$, which satisfies $c_1$ #sym.checkmark. The same target coloring makes all four target triangles non-monochromatic #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical target coloring. Swapping the two edge colors gives another valid witness and may flip the decoded assignment to its complement.
   ],
@@ -17459,10 +17410,10 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_1in3.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_1in3_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_1in3_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source formula has one clause $c_1 = (x_1 or x_2 or x_3)$. The canonical satisfying assignment is $(#ksat_1in3_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 0$, $x_2 = 0$, $x_3 = 1$.
+    *Step 1 -- Source instance.* The source formula has one clause $c_1 = (x_1 or x_2 or x_3)$. The canonical satisfying assignment is $(#fmt-values(ksat_1in3_sol.source_config))$, i.e.\ $x_1 = 0$, $x_2 = 0$, $x_3 = 1$.
 
     *Step 2 -- Add the global false literal.* Introduce $z_0$ (index 4) and $z_T$ (index 5), then add the forcing clause $R(z_0, z_0, z_T)$, where $R(u, v, w)$ means "exactly one of $u, v, w$ is true." In the stored witness, $(z_0, z_T) = (0, 1)$, which is the unique satisfying pattern of that clause.
 
@@ -17477,7 +17428,7 @@ The following table shows concrete target-variable counts for example instances,
     In the exported target instance these become exactly the six clauses
     $(4, 4, 5)$, $(1, 6, 9)$, $(2, 7, 9)$, $(6, 7, 10)$, $(8, 9, 11)$, $(3, 8, 4)$.
 
-    *Step 4 -- Verify a witness.* The canonical target witness is $(#ksat_1in3_sol.target_config.map(str).join(", "))$. Reading off the auxiliaries gives $(a_1, b_1, c_1, d_1, e_1, f_1) = (0, 0, 0, 1, 1, 0)$. Every target clause has exactly one true literal #sym.checkmark, and restricting to the first three coordinates recovers $(0, 0, 1)$, which satisfies the original clause #sym.checkmark.
+    *Step 4 -- Verify a witness.* The canonical target witness is $(#fmt-values(ksat_1in3_sol.target_config))$. Reading off the auxiliaries gives $(a_1, b_1, c_1, d_1, e_1, f_1) = (0, 0, 0, 1, 1, 0)$. Every target clause has exactly one true literal #sym.checkmark, and restricting to the first three coordinates recovers $(0, 0, 1)$, which satisfies the original clause #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. This single-clause source formula has 7 satisfying assignments, and each satisfying literal pattern extends to at least one target witness by the gadget construction.
   ],
@@ -17511,14 +17462,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_d2cif.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_d2cif_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_d2cif_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source formula has clauses $c_1 = (x_1 or overline(x)_2 or x_3)$ and $c_2 = (overline(x)_1 or x_2 or overline(x)_3)$. The canonical satisfying assignment is $(#ksat_d2cif_sol.source_config.map(str).join(", "))$, i.e.\ $x_1 = 1$, $x_2 = 1$, $x_3 = 0$.
+    *Step 1 -- Source instance.* The source formula has clauses $c_1 = (x_1 or overline(x)_2 or x_3)$ and $c_2 = (overline(x)_1 or x_2 or overline(x)_3)$. The canonical satisfying assignment is $(#fmt-values(ksat_d2cif_sol.source_config))$, i.e.\ $x_1 = 1$, $x_2 = 1$, $x_3 = 0$.
 
     *Step 2 -- Build the lobes and clause sinks.* Each variable appears once positively and once negatively, so each lobe contains an entry vertex, an exit vertex, one dummy segment on each branch, and one literal-occurrence segment on each branch. That is $10$ vertices and $14$ arcs per variable. Adding the $4$ terminals and $2$ clause vertices gives $|V| = #ksat_d2cif.target.instance.graph.num_vertices = 36$; adding the $4$ commodity-1 chain arcs and $2$ clause-to-sink arcs gives $|A| = #ksat_d2cif.target.instance.graph.arcs.len() = 48$.
 
-    *Step 3 -- Verify a witness.* Commodity 1 uses the lower branch in the lobes of $x_1$ and $x_2$ and the upper branch in the lobe of $x_3$, exactly matching the assignment $(1, 1, 0)$. Clause $c_1$ is satisfied by $x_1$, so commodity 2 routes one unit through the positive occurrence segment of $x_1$ into $d_1$. Clause $c_2$ is satisfied by $x_2$, so a second unit routes through the positive occurrence segment of $x_2$ into $d_2$. Both clause-to-sink arcs carry one unit, so the target meets $R_2 = #ksat_d2cif.target.instance.requirement_2 = 2$ #sym.checkmark. Reading back which lower-branch entry arcs commodity 1 used recovers $(#ksat_d2cif_sol.source_config.map(str).join(", "))$ #sym.checkmark
+    *Step 3 -- Verify a witness.* Commodity 1 uses the lower branch in the lobes of $x_1$ and $x_2$ and the upper branch in the lobe of $x_3$, exactly matching the assignment $(1, 1, 0)$. Clause $c_1$ is satisfied by $x_1$, so commodity 2 routes one unit through the positive occurrence segment of $x_1$ into $d_1$. Clause $c_2$ is satisfied by $x_2$, so a second unit routes through the positive occurrence segment of $x_2$ into $d_2$. Both clause-to-sink arcs carry one unit, so the target meets $R_2 = #ksat_d2cif.target.instance.requirement_2 = 2$ #sym.checkmark. Reading back which lower-branch entry arcs commodity 1 used recovers $(#fmt-values(ksat_d2cif_sol.source_config))$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. This source formula has multiple satisfying assignments, and each satisfying clause can choose any satisfied literal occurrence when routing commodity 2.
   ],
@@ -17556,14 +17507,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_rs.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_rs_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_rs_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical source formula is $phi = (x_1 or overline(x)_2 or x_3) and (overline(x)_1 or x_2 or overline(x)_3)$. The stored satisfying assignment is $(#ksat_rs_sol.source_config.map(str).join(", "))$.
+    *Step 1 -- Source instance.* The canonical source formula is $phi = (x_1 or overline(x)_2 or x_3) and (overline(x)_1 or x_2 or overline(x)_3)$. The stored satisfying assignment is $(#fmt-values(ksat_rs_sol.source_config))$.
 
     *Step 2 -- Build Sethi's DAG.* Here $n = #ksat_rs.source.instance.num_vars$, $m = #sat-num-clauses(ksat_rs.source.instance)$, and $b = max(0, 2n - m) = 4$. The construction creates $|A| = 2n + 1 = 7$, $|B| = b = 4$, $|C| = m = 2$, $|F| = 3m = 6$, $|M| = 3$, $|R| = n(n+1) = 12$, $|S| = |T| = n^2 = 9$, $|U| = 2n = 6$, $|W| = |Z| = n = 3$, and $|X| = 2n = 6$, for a total of $|V| = #ksat_rs.target.instance.num_vertices = 70$ vertices. The target bound is $K = #ksat_rs.target.instance.bound = 23$, and the construction emits $|A| = #ksat_rs.target.instance.arcs.len() = 152$ arcs. For clause $C_1$, the six literal-lock arcs are $(x_1^+, f_(1,1))$, $(x_2^-, f_(1,2))$, $(x_3^+, f_(1,3))$, $(x_1^-, f_(1,2))$, $(x_1^-, f_(1,3))$, and $(x_2^+, f_(1,3))$.
 
-    *Step 3 -- Verify extraction at $w_n$.* The target witness is a computation ordering on $70$ vertices. Reading the prefix ending at $w_3$ marks exactly those variables whose $x_k^+$ node has already been computed, which reconstructs $(#ksat_rs_sol.source_config.map(str).join(", "))$ #sym.checkmark. Evaluating the original 3-SAT formula under that assignment returns true #sym.checkmark
+    *Step 3 -- Verify extraction at $w_n$.* The target witness is a computation ordering on $70$ vertices. Reading the prefix ending at $w_3$ marks exactly those variables whose $x_k^+$ node has already been computed, which reconstructs $(#fmt-values(ksat_rs_sol.source_config))$ #sym.checkmark. Evaluating the original 3-SAT formula under that assignment returns true #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical satisfying assignment. Different satisfying assignments can induce different valid computation orders in the target DAG.
   ],
@@ -17607,8 +17558,8 @@ The following table shows concrete target-variable counts for example instances,
 
 #let mvc_mfas = load-example("MinimumVertexCover", "MinimumFeedbackArcSet")
 #let mvc_mfas_sol = mvc_mfas.solutions.at(0)
-#let mvc_mfas_cover = mvc_mfas_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
-#let mvc_mfas_fas = mvc_mfas_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let mvc_mfas_cover = mvc_mfas_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
+#let mvc_mfas_fas = mvc_mfas_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #reduction-rule("MinimumVertexCover", "MinimumFeedbackArcSet",
   example: true,
   example-caption: [Triangle graph ($n = #graph-num-vertices(mvc_mfas.source.instance)$, $|E| = #graph-num-edges(mvc_mfas.source.instance)$): VC $arrow.r$ FAS via vertex splitting],
@@ -17617,10 +17568,10 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(mvc_mfas.source) + " -o mvc.json",
       "pred reduce mvc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mvc.json --config " + mvc_mfas_sol.source_config.map(str).join(","),
+      "pred evaluate mvc.json --config " + cli-config(mvc_mfas_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(mvc_mfas.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_mfas.source.instance)$ edges: $E = {#mvc_mfas.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$ with weights $bold(w) = (#mvc_mfas.source.instance.weights.map(str).join(", "))$.
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(mvc_mfas.source.instance)$ vertices and $|E| = #graph-num-edges(mvc_mfas.source.instance)$ edges: $E = {#mvc_mfas.source.instance.graph.edges.map(e => "(" + fmt-values(e) + ")").join(", ")}$ with weights $bold(w) = (#fmt-values(mvc_mfas.source.instance.weights))$.
 
     *Step 2 -- Construction.* Each vertex $v$ splits into $v^"in"$ and $v^"out"$, yielding $2n = #mvc_mfas.target.instance.graph.num_vertices$ nodes in the target digraph $H$. Internal arcs $(v^"in", v^"out")$ carry weight $w(v)$: #{
       let arcs = mvc_mfas.target.instance.graph.arcs
@@ -17634,7 +17585,7 @@ The following table shows concrete target-variable counts for example instances,
       arcs.enumerate().filter(((i, a)) => i >= n).map(((i, a)) => "(" + str(a.at(0)) + ", " + str(a.at(1)) + ") w=" + str(ws.at(i))).join(", ")
     }. Total: #mvc_mfas.target.instance.graph.arcs.len() arcs ($#mvc_mfas.source.instance.graph.num_vertices$ internal + $#(mvc_mfas.target.instance.graph.arcs.len() - mvc_mfas.source.instance.graph.num_vertices)$ crossing).
 
-    *Step 3 -- Verify a solution.* The source cover is $C = {#mvc_mfas_cover.map(str).join(", ")}$ (size #mvc_mfas_cover.len()). The target FAS selects arcs at indices ${#mvc_mfas_fas.map(str).join(", ")}$, which are the internal arcs #{
+    *Step 3 -- Verify a solution.* The source cover is $C = {#fmt-values(mvc_mfas_cover)}$ (size #mvc_mfas_cover.len()). The target FAS selects arcs at indices ${#fmt-values(mvc_mfas_fas)}$, which are the internal arcs #{
       let arcs = mvc_mfas.target.instance.graph.arcs
       mvc_mfas_fas.map(i => "(" + str(arcs.at(i).at(0)) + ", " + str(arcs.at(i).at(1)) + ")").join(", ")
     } -- exactly the internal arcs of cover vertices $v^"in" arrow.r v^"out"$ for $v in C$. No crossing arc (weight $M = #mvc_mfas.target.instance.weights.slice(mvc_mfas.source.instance.graph.num_vertices).at(0)$) is selected, confirming the optimal FAS uses only internal arcs #sym.checkmark
@@ -17661,7 +17612,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_kc.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_kc_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_kc_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The 3-CNF formula $phi$ has $m = #ksat_kc.source.instance.clauses.len()$ clauses over $n = #ksat_kc.source.instance.num_vars$ variables:
@@ -17672,10 +17623,10 @@ The following table shows concrete target-variable counts for example instances,
       lits.join($or$)
     }).join($) and ($)) $
 
-    *Step 2 -- Construct the conflict graph.* Create one vertex per literal position: vertex $3j + p$ represents position $p$ ($0$-indexed) in clause $j$, giving $|V| = 3 dot #ksat_kc.source.instance.clauses.len() = #ksat_kc.target.instance.graph.num_vertices$ vertices. Connect $(j_1, p_1)$ and $(j_2, p_2)$ whenever $j_1 != j_2$ and the two literals are not contradictory. The resulting graph has $|E| = #ksat_kc.target.instance.graph.edges.len()$ edges: $E = {#ksat_kc.target.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. Set $k = m = #ksat_kc.target.instance.k$.
+    *Step 2 -- Construct the conflict graph.* Create one vertex per literal position: vertex $3j + p$ represents position $p$ ($0$-indexed) in clause $j$, giving $|V| = 3 dot #ksat_kc.source.instance.clauses.len() = #ksat_kc.target.instance.graph.num_vertices$ vertices. Connect $(j_1, p_1)$ and $(j_2, p_2)$ whenever $j_1 != j_2$ and the two literals are not contradictory. The resulting graph has $|E| = #ksat_kc.target.instance.graph.edges.len()$ edges: $E = {#ksat_kc.target.instance.graph.edges.map(e => "(" + fmt-values(e) + ")").join(", ")}$. Set $k = m = #ksat_kc.target.instance.k$.
 
-    *Step 3 -- Verify a solution.* The satisfying assignment $(x_1, x_2, x_3) = (#ksat_kc_sol.source_config.map(str).join(", "))$ makes literal $x_3$ true in clause 0 (position 2, vertex 2) and literal $overline(x_1)$ true in clause 1 (position 0, vertex 3). The target configuration $bold(x) = (#ksat_kc_sol.target_config.map(str).join(", "))$ selects vertices #{
-      ksat_kc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(" and ")
+    *Step 3 -- Verify a solution.* The satisfying assignment $(x_1, x_2, x_3) = (#fmt-values(ksat_kc_sol.source_config))$ makes literal $x_3$ true in clause 0 (position 2, vertex 2) and literal $overline(x_1)$ true in clause 1 (position 0, vertex 3). The target configuration $bold(x) = (#fmt-values(ksat_kc_sol.target_config))$ selects vertices #{
+      ksat_kc_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(" and ")
     }, which form a clique (edge $(2, 3) in E$ #sym.checkmark) of size $k = #ksat_kc.target.instance.k$ spanning both clause groups #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The formula has multiple satisfying assignments; each induces at least one $k$-clique by choosing one true literal per clause.
@@ -17700,16 +17651,16 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_co.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_co_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_co_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical formula is $phi = (x_1 or x_2 or x_3)$ with $n = #ksat_co.source.instance.num_vars$ variables and $m = #ksat_co.source.instance.clauses.len()$ clause. The stored satisfying assignment is $(#ksat_co_sol.source_config.map(str).join(", "))$, so every literal in the clause is true.
+    *Step 1 -- Source instance.* The canonical formula is $phi = (x_1 or x_2 or x_3)$ with $n = #ksat_co.source.instance.num_vars$ variables and $m = #ksat_co.source.instance.clauses.len()$ clause. The stored satisfying assignment is $(#fmt-values(ksat_co_sol.source_config))$, so every literal in the clause is true.
 
     *Step 2 -- Create variable and clause elements.* The reduction introduces three variable elements per Boolean variable, giving variable triples $(alpha_1, beta_1, gamma_1) = (0, 1, 2)$, $(alpha_2, beta_2, gamma_2) = (3, 4, 5)$, and $(alpha_3, beta_3, gamma_3) = (6, 7, 8)$. The single clause adds five auxiliary elements $(j, k, l, m, n) = (9, 10, 11, 12, 13)$, so the target has $3n + 5m = #ksat_co.target.instance.num_elements$ elements total.
 
-    *Step 3 -- Emit the ten cyclic-ordering triples.* Because the clause literals are $(x_1, x_2, x_3)$, the literal-orientation triples are the forward variable triples. The target constraints are exactly #{ksat_co.target.instance.triples.map(t => "(" + t.map(str).join(", ") + ")").join(", ")}, so $|Delta| = #ksat_co.target.instance.triples.len() = 10m$.
+    *Step 3 -- Emit the ten cyclic-ordering triples.* Because the clause literals are $(x_1, x_2, x_3)$, the literal-orientation triples are the forward variable triples. The target constraints are exactly #{ksat_co.target.instance.triples.map(t => "(" + fmt-values(t) + ")").join(", ")}, so $|Delta| = #ksat_co.target.instance.triples.len() = 10m$.
 
-    *Step 4 -- Verify a solution.* The target witness permutation is $(#ksat_co_sol.target_config.map(str).join(", "))$. It satisfies all ten cyclic-order constraints #sym.checkmark. For each variable triple, the forward orientation $(alpha_i, beta_i, gamma_i)$ is _not_ derived by this permutation, so extraction returns $(#ksat_co_sol.source_config.map(str).join(", "))$, which satisfies $phi$ #sym.checkmark
+    *Step 4 -- Verify a solution.* The target witness permutation is $(#fmt-values(ksat_co_sol.target_config))$. It satisfies all ten cyclic-order constraints #sym.checkmark. For each variable triple, the forward orientation $(alpha_i, beta_i, gamma_i)$ is _not_ derived by this permutation, so extraction returns $(#fmt-values(ksat_co_sol.source_config))$, which satisfies $phi$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. Any cyclic permutation of the target order is also valid, and other satisfying assignments of $phi$ induce additional valid cyclic orders.
   ],
@@ -17739,7 +17690,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_ps.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_ps_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_ps_sol.source_config),
     )
 
     #{
@@ -17751,18 +17702,18 @@ The following table shows concrete target-variable counts for example instances,
       let original-jobs = 2 * n * (n + 1) + 2 * n + 7 * m
       let filler-jobs = num-jobs - original-jobs
       let sigma = range(num-jobs).map(job =>
-        range(num-jobs).filter(slot => ksat_ps_sol.target_config.at(job * num-jobs + slot) == 1).at(0)
+        range(num-jobs).filter(slot => ksat_ps_sol.target_config.at(job).at(slot)).at(0)
       )
       let slot-counts = range(t).map(slot =>
         range(num-jobs).filter(job => sigma.at(job) == slot).len()
       )
       let clause-slots = range(7).map(i => sigma.at(30 + i))
       [
-        *Step 1 -- Source instance.* The formula is $phi = (x_1 or x_2 or x_3)$ with satisfying assignment $(x_1, x_2, x_3) = (#ksat_ps_sol.source_config.map(str).join(", "))$.
+        *Step 1 -- Source instance.* The formula is $phi = (x_1 or x_2 or x_3)$ with satisfying assignment $(x_1, x_2, x_3) = (#fmt-values(ksat_ps_sol.source_config))$.
 
         *Step 2 -- Build Ullman's unit-task gadgets.* For $n = #n$, the reduction creates $2 n (n + 1) = #(2 * n * (n + 1))$ chain jobs $x_(i,j), overline(x)_(i,j)$, $2n = #(2 * n)$ forcing jobs $y_i, overline(y)_i$, and $7m = #(7 * m)$ clause jobs $D_(r,s)$. The slot capacities are $(#(n), #(2 * n + 1), #(2 * n + 2), #(2 * n + 2), #(m + n + 1), #(6 * m)) = (3, 7, 8, 8, 5, 6)$. We realize these capacities with $p = max(2n + 2, 6m) = #p$ processors and $F = #filler-jobs$ filler jobs, giving $#num-jobs$ total unit jobs. In this example the filler counts are $(5, 1, 0, 0, 3, 2)$.
 
-        *Step 3 -- Verify a schedule.* The witness schedule has exactly $p = #p$ jobs in each of the $T = #t$ slots: $(#slot-counts.map(str).join(", "))$. The positive chain starters $x_(1,0), x_(2,0), x_(3,0)$ are jobs $0, 8, 16$, placed at slots $(#sigma.at(0), #sigma.at(8), #sigma.at(16)) = (1, 1, 0)$, so extraction reads $(0, 0, 1)$ back from slot 0. The clause-pattern jobs are indices $30, dots, 36$; their slots are $(#clause-slots.map(str).join(", "))$, so exactly one clause job is promoted to slot $n + 1 = 4$ and the remaining six sit at slot $n + 2 = 5$.
+        *Step 3 -- Verify a schedule.* The witness schedule has exactly $p = #p$ jobs in each of the $T = #t$ slots: $(#fmt-values(slot-counts))$. The positive chain starters $x_(1,0), x_(2,0), x_(3,0)$ are jobs $0, 8, 16$, placed at slots $(#sigma.at(0), #sigma.at(8), #sigma.at(16)) = (1, 1, 0)$, so extraction reads $(0, 0, 1)$ back from slot 0. The clause-pattern jobs are indices $30, dots, 36$; their slots are $(#fmt-values(clause-slots))$, so exactly one clause job is promoted to slot $n + 1 = 4$ and the remaining six sit at slot $n + 2 = 5$.
 
         *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments induce different slot-0 choices for the variable chains and therefore different valid schedules meeting the same threshold.
       ]
@@ -17792,20 +17743,20 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_td.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_td_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_td_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The canonical formula has $n = #ksat_td.source.instance.num_vars$ variables and $m = #ksat_td.source.instance.clauses.len()$ clauses:
     $ phi = (#ksat_td.source.instance.clauses.map(c => {
       c.literals.map(l => if l > 0 { $x_#l$ } else { $overline(x)_#calc.abs(l)$ }).join($or$)
     }).join($) and ($)) $
-    The stored satisfying assignment is $(x_1, x_2, x_3) = (#ksat_td_sol.source_config.map(str).join(", "))$.
+    The stored satisfying assignment is $(x_1, x_2, x_3) = (#fmt-values(ksat_td_sol.source_config))$.
 
     *Step 2 -- Normalize and assign periods.* The source has $L = #ksat_td.source.instance.clauses.map(c => c.literals.len()).sum()$ literal occurrences. Each variable appears at most three times, so no bounded-occurrence cloning is needed. The normalized instance uses $#(ksat_td.target.instance.num_periods / 4)$ transformed variables and therefore $4q = #ksat_td.target.instance.num_periods$ timetable periods/colors.
 
     *Step 3 -- Compile the gadget graph.* The list-edge-coloring gadget becomes a timetable with $#ksat_td.target.instance.num_craftsmen$ craftsmen, $#ksat_td.target.instance.num_tasks$ tasks, and #ksat_td_req binary requirements. Each blocked color on a core-graph vertex is encoded directly by removing that period from the corresponding craftsman/task availability row, so no dummy "blocker" craftsmen or tasks are needed.
 
-    *Step 4 -- Verify a solution.* The target witness has #ksat_td_sol.target_config.filter(x => x == 1).len() scheduled pairs, exactly matching the #ksat_td_req nonzero requirements. Each required craftsman-task pair is scheduled in a period allowed by both availability rows, and `pred evaluate` accepts the timetable. Reading back the distinguished variable-gadget periods recovers $(#ksat_td_sol.source_config.map(str).join(", "))$, which satisfies both clauses #sym.checkmark
+    *Step 4 -- Verify a solution.* The target witness has #ksat_td_sol.target_config.flatten().filter(x => x).len() scheduled pairs, exactly matching the #ksat_td_req nonzero requirements. Each required craftsman-task pair is scheduled in a period allowed by both availability rows, and `pred evaluate` accepts the timetable. Reading back the distinguished variable-gadget periods recovers $(#fmt-values(ksat_td_sol.source_config))$, which satisfies both clauses #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. Different satisfying assignments, or different satisfying choices for the clause-edge colors, can induce distinct feasible timetables for the same formula.
   ],
@@ -17835,7 +17786,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_ap.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_ap_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_ap_sol.source_config),
     )
 
     #{
@@ -17843,11 +17794,11 @@ The following table shows concrete target-variable counts for example instances,
       let m = ksat_ap.source.instance.clauses.len()
       let tgt = ksat_ap.target.instance
       [
-        *Step 1 -- Source instance.* The canonical formula has $n = #n$ variable and $m = #m$ clause. The stored satisfying assignment is $(#ksat_ap_sol.source_config.map(str).join(", "))$.
+        *Step 1 -- Source instance.* The canonical formula has $n = #n$ variable and $m = #m$ clause. The stored satisfying assignment is $(#fmt-values(ksat_ap_sol.source_config))$.
 
         *Step 2 -- Compose the three-stage chain.* The reduction composes 3-SAT $arrow.r$ Subset Sum $arrow.r$ Partition $arrow.r$ Acyclic Partition. First, the Sipser digit-encoding produces a Subset Sum instance with $2n + 2m$ elements. Second, the Subset Sum $arrow.r$ Partition padding appends at most one element. Third, the Partition $arrow.r$ Acyclic Partition gadget builds a bipartite digraph: for each of the Partition elements, create one item vertex; add a source vertex and a sink vertex, with arcs from source to every item vertex and from every item vertex to sink. The resulting digraph has #tgt.graph.num_vertices vertices and #tgt.graph.arcs.len() arcs. Vertex weights are doubled element sizes for items and $(Sigma + 1)$ for the two endpoints; the weight bound is $Sigma + 1 + Sigma - (Sigma mod 2)$ where $Sigma$ is the Partition total, and the arc-cost bound equals the number of items.
 
-        *Step 3 -- Verify a solution.* The target witness $(#ksat_ap_sol.target_config.map(str).join(", "))$ partitions the #tgt.graph.num_vertices vertices into two blocks. The source and sink land in different blocks, ensuring the quotient digraph is acyclic. The item vertices split so that the doubled sizes on each side, together with the endpoint weight, respect the weight cap. Extracting back through Partition and Subset Sum recovers $(#ksat_ap_sol.source_config.map(str).join(", "))$, which satisfies the formula #sym.checkmark
+        *Step 3 -- Verify a solution.* The target witness $(#fmt-values(ksat_ap_sol.target_config))$ partitions the #tgt.graph.num_vertices vertices into two blocks. The source and sink land in different blocks, ensuring the quotient digraph is acyclic. The item vertices split so that the doubled sizes on each side, together with the endpoint weight, respect the weight cap. Extracting back through Partition and Subset Sum recovers $(#fmt-values(ksat_ap_sol.source_config))$, which satisfies the formula #sym.checkmark
 
         *Multiplicity:* The fixture stores one canonical witness. Other satisfying assignments of the source formula induce different balanced partitions of the item vertices.
       ]
@@ -17879,20 +17830,20 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_bicon.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_bicon_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_bicon_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(hc_bicon.source.instance)$ vertices and $|E| = #graph-num-edges(hc_bicon.source.instance)$ edges: $E = {#hc_bicon.source.instance.graph.edges.map(e => "(" + e.map(str).join(", ") + ")").join(", ")}$. This is a 4-cycle, which admits a Hamiltonian circuit.
+    *Step 1 -- Source instance.* The source graph $G$ has $n = #graph-num-vertices(hc_bicon.source.instance)$ vertices and $|E| = #graph-num-edges(hc_bicon.source.instance)$ edges: $E = {#hc_bicon.source.instance.graph.edges.map(e => "(" + fmt-values(e) + ")").join(", ")}$. This is a 4-cycle, which admits a Hamiltonian circuit.
 
     *Step 2 -- Construction.* Start with the edgeless graph $H = (V, emptyset)$ on $n = #graph-num-vertices(hc_bicon.target.instance)$ vertices. For each pair ${u, v}$, create a potential edge with weight 1 if ${u,v} in E$ and weight 2 otherwise. This yields #hc_bicon.target.instance.potential_weights.len() potential edges: #hc_bicon.target.instance.potential_weights.map(pw => "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "} (w=" + str(pw.at(2)) + ")").join(", "). The budget is $B = #hc_bicon.target.instance.budget = n$.
 
-    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $(#hc_bicon_sol.source_config.map(str).join(", "))$. The target configuration $bold(x) = (#hc_bicon_sol.target_config.map(str).join(", "))$ selects potential edges #{
-      let selected = hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => {
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $(#fmt-values(hc_bicon_sol.source_config))$. The target configuration $bold(x) = (#fmt-values(hc_bicon_sol.target_config))$ selects potential edges #{
+      let selected = hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => {
         let pw = hc_bicon.target.instance.potential_weights.at(i)
         "{" + str(pw.at(0)) + ", " + str(pw.at(1)) + "}"
       })
       selected.join(", ")
-    } — exactly the $n = #graph-num-vertices(hc_bicon.source.instance)$ cycle edges, each of weight 1, for a total cost of #hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => hc_bicon.target.instance.potential_weights.at(i).at(2)).sum() $= n = B$ #sym.checkmark
+    } — exactly the $n = #graph-num-vertices(hc_bicon.source.instance)$ cycle edges, each of weight 1, for a total cost of #hc_bicon_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => hc_bicon.target.instance.potential_weights.at(i).at(2)).sum() $= n = B$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The 4-cycle has $#{
       let n = graph-num-vertices(hc_bicon.source.instance)
@@ -17914,7 +17865,7 @@ The following table shows concrete target-variable counts for example instances,
 #let hc_sca_sol = hc_sca.solutions.at(0)
 #let hc_sca_n = graph-num-vertices(hc_sca.source.instance)
 #let hc_sca_candidate_arcs = hc_sca.target.instance.candidate_arcs
-#let hc_sca_selected = hc_sca_candidate_arcs.enumerate().filter(((i, _)) => hc_sca_sol.target_config.at(i) == 1).map(((i, a)) => a)
+#let hc_sca_selected = hc_sca_candidate_arcs.enumerate().filter(((i, _)) => hc_sca_sol.target_config.at(i)).map(((i, a)) => a)
 #let hc_sca_w1 = hc_sca_candidate_arcs.filter(a => a.at(2) == 1)
 #let hc_sca_w2 = hc_sca_candidate_arcs.filter(a => a.at(2) == 2)
 #reduction-rule("HamiltonianCircuit", "StrongConnectivityAugmentation",
@@ -17925,14 +17876,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_sca.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_sca_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_sca_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source graph is the cycle on $#hc_sca_n$ vertices with edges #hc_sca.source.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The canonical Hamiltonian-circuit witness is the vertex permutation $[#hc_sca_sol.source_config.map(str).join(", ")]$.
+    *Step 1 -- Source instance.* The source graph is the cycle on $#hc_sca_n$ vertices with edges #hc_sca.source.instance.graph.edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The canonical Hamiltonian-circuit witness is the vertex permutation $[#fmt-values(hc_sca_sol.source_config)]$.
 
     *Step 2 -- Construction.* Start with the empty digraph $D = (V, emptyset)$ on $#hc_sca_n$ vertices. Generate all $#hc_sca_candidate_arcs.len()$ ordered pairs as candidate arcs: #hc_sca_w1.len() weight-1 arcs #hc_sca_w1.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") corresponding to source edges (both orientations), and #hc_sca_w2.len() weight-2 arcs #hc_sca_w2.map(a => $(#a.at(0) arrow #a.at(1))$).join(", ") for non-edges. Budget $B = #hc_sca.target.instance.bound$.
 
-    *Step 3 -- Verify a solution.* The target configuration $[#hc_sca_sol.target_config.map(str).join(", ")]$ selects arcs #hc_sca_selected.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), all weight 1. Total cost $= #hc_sca_selected.len() times 1 = #hc_sca_n = B$ #sym.checkmark. These $#hc_sca_n$ arcs form a single directed cycle visiting every vertex, so the augmented digraph is strongly connected. Extracting the circuit: follow successors from vertex 0 to recover $[#hc_sca_sol.source_config.map(str).join(", ")]$ #sym.checkmark
+    *Step 3 -- Verify a solution.* The target configuration $[#fmt-values(hc_sca_sol.target_config)]$ selects arcs #hc_sca_selected.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), all weight 1. Total cost $= #hc_sca_selected.len() times 1 = #hc_sca_n = B$ #sym.checkmark. These $#hc_sca_n$ arcs form a single directed cycle visiting every vertex, so the augmented digraph is strongly connected. Extracting the circuit: follow successors from vertex 0 to recover $[#fmt-values(hc_sca_sol.source_config)]$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. For the 4-cycle there are $#hc_sca_n times 2 = #{hc_sca_n * 2}$ Hamiltonian-circuit permutations (choice of start vertex and direction), each yielding a distinct set of directed arcs.
   ],
@@ -17960,14 +17911,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_sc.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_sc_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_sc_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$.\
+    *Step 1 -- Source instance.* The canonical source fixture is the cycle $C_#hc_sc_n$ on vertices ${0, dots, #(hc_sc_n - 1)}$ with #hc_sc_source_edges.len() edges: #hc_sc_source_edges.map(e => $(#e.at(0), #e.at(1))$).join(", "). The stored Hamiltonian-circuit witness is the permutation $[#fmt-values(hc_sc_sol.source_config)]$.\
 
     *Step 2 -- Construction.* Each vertex $v_i$ splits into $v_i^"in" = 2i$ and $v_i^"out" = 2i + 1$, giving $2 dot #hc_sc_n = #hc_sc.target.instance.num_vertices$ vertices. The reduction creates #hc_sc_target_arcs.len() mandatory arcs: #hc_sc_target_arcs.map(a => $(#a.at(0) arrow #a.at(1))$).join(", "), each of length 1. For each source edge, two undirected connector edges of length 1 are added, giving $2 dot #hc_sc_source_edges.len() = #hc_sc_target_edges.len()$ connector edges: #hc_sc_target_edges.map(e => ${#e.at(0), #e.at(1)}$).join(", ").\
 
-    *Step 3 -- Verify a solution.* The stored target configuration $[#hc_sc_sol.target_config.map(str).join(", ")]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#hc_sc_sol.source_config.map(str).join(", ")]$ is the Hamiltonian circuit #sym.checkmark\
+    *Step 3 -- Verify a solution.* The stored target configuration $[#fmt-values(hc_sc_sol.target_config)]$ is a permutation of arcs. Following this order: arc #hc_sc_sol.target_config.at(0) serves $(#hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(0) arrow #hc_sc_target_arcs.at(hc_sc_sol.target_config.at(0)).at(1))$, then a connector edge leads to the next arc, and so on. The tour traverses $#hc_sc_target_arcs.len()$ arcs (cost $#hc_sc_target_arcs.len()$) and $#hc_sc_target_arcs.len()$ connector edges (cost $#hc_sc_target_arcs.len()$), for total cost $2 dot #hc_sc_n = #(hc_sc_n * 2)$. Recovering the source witness: arc $i$ corresponds to vertex $i$, so the permutation $[#fmt-values(hc_sc_sol.source_config)]$ is the Hamiltonian circuit #sym.checkmark\
 
     *Multiplicity:* The fixture stores one canonical witness. For $C_#hc_sc_n$ there are $#hc_sc_n times 2 = #(hc_sc_n * 2)$ directed Hamiltonian circuits (choice of start vertex and direction), each yielding a distinct arc-service permutation.
   ],
@@ -17992,14 +17943,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_rp.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_rp_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_rp_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#hc_rp_sol.source_config.map(str).join(", "))$.
+    *Step 1 -- Source instance.* The canonical HC instance is a cycle $C_#hc_rp_n$ with $n = #hc_rp_n$ vertices and $|E| = #graph-num-edges(hc_rp.source.instance)$ edges. The stored witness is the permutation $(#fmt-values(hc_rp_sol.source_config))$.
 
     *Step 2 -- Construction.* Each vertex splits into $(v_i^a, v_i^b)$, producing $2n = #graph-num-vertices(hc_rp.target.instance)$ vertices. The target graph has #graph-num-edges(hc_rp.target.instance) edges: #hc_rp.target.instance.required_edges.len() required edges (one per source vertex) and #(graph-num-edges(hc_rp.target.instance) - hc_rp.target.instance.required_edges.len()) connector edges (two per source edge). All edge lengths are 1.
 
-    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#hc_rp_sol.target_config.map(str).join(", "))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* The target solution assigns edge multiplicities $(#fmt-values(hc_rp_sol.target_config))$. The tour traverses all #hc_rp.target.instance.required_edges.len() required edges plus #hc_rp_n connector edges, for total cost $= #(2 * hc_rp_n) = 2n$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The $#hc_rp_n$-cycle has $#hc_rp_n$ rotations $times$ 2 reflections $= #(2 * hc_rp_n)$ directed Hamiltonian circuits.
   ],
@@ -18023,14 +17974,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(mis_ifb.source) + " -o mis.json",
       "pred reduce mis.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate mis.json --config " + mis_ifb_sol.source_config.map(str).join(","),
+      "pred evaluate mis.json --config " + cli-config(mis_ifb_sol.source_config),
     )
 
     #{
       let graph = mis_ifb.source.instance.graph
       let n = graph.num_vertices
       let verts = range(n).map(k => (k * 1.5, 0))
-      let is-in-set = mis_ifb_sol.source_config.map(c => c > 0)
+      let is-in-set = mis_ifb_sol.source_config
       let blue = graph-colors.at(0)
       align(center, canvas(length: 0.8cm, {
         import draw: *
@@ -18045,13 +17996,13 @@ The following table shows concrete target-variable counts for example instances,
       }))
     }
 
-    *Step 1 -- Source instance.* The path graph $P_#mis_ifb.source.instance.graph.num_vertices$ has $n = #mis_ifb.source.instance.graph.num_vertices$ vertices and edges ${#mis_ifb.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, with unit weights $(#mis_ifb.source.instance.weights.map(str).join(", "))$.
+    *Step 1 -- Source instance.* The path graph $P_#mis_ifb.source.instance.graph.num_vertices$ has $n = #mis_ifb.source.instance.graph.num_vertices$ vertices and edges ${#mis_ifb.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, with unit weights $(#fmt-values(mis_ifb.source.instance.weights))$.
 
     *Step 2 -- Build the flow network.* The reduction creates a directed graph with $#mis_ifb.target.instance.graph.num_vertices$ nodes: source $s = #mis_ifb.target.instance.source$, intermediates $w_0, dots, w_(#(mis_ifb.source.instance.graph.num_vertices - 1))$, and sink $t = #mis_ifb.target.instance.sink$. There are $#mis_ifb.target.instance.graph.arcs.len()$ arcs ($2n = #(2 * mis_ifb.source.instance.graph.num_vertices)$): for each vertex $v_i$, arc $a_i^"in" = (s, w_i)$ at index $2i$ and $a_i^"out" = (w_i, t)$ at index $2i+1$.
 
-    *Step 3 -- Create bundles.* There are $#mis_ifb.target.instance.bundles.len()$ bundles total. For each original edge ${v_i, v_j} in E$, an edge bundle ${a_i^"out", a_j^"out"}$ with capacity 1 enforces that at most one endpoint is selected (#mis_ifb.source.instance.graph.edges.len() edge bundles). For each vertex $v_i$, a vertex bundle ${a_i^"in", a_i^"out"}$ with capacity 2 links the in/out arcs (#mis_ifb.source.instance.graph.num_vertices vertex bundles). Bundle capacities: $(#mis_ifb.target.instance.bundle_capacities.map(str).join(", "))$. Flow requirement $R = #mis_ifb.target.instance.requirement$.
+    *Step 3 -- Create bundles.* There are $#mis_ifb.target.instance.bundles.len()$ bundles total. For each original edge ${v_i, v_j} in E$, an edge bundle ${a_i^"out", a_j^"out"}$ with capacity 1 enforces that at most one endpoint is selected (#mis_ifb.source.instance.graph.edges.len() edge bundles). For each vertex $v_i$, a vertex bundle ${a_i^"in", a_i^"out"}$ with capacity 2 links the in/out arcs (#mis_ifb.source.instance.graph.num_vertices vertex bundles). Bundle capacities: $(#fmt-values(mis_ifb.target.instance.bundle_capacities))$. Flow requirement $R = #mis_ifb.target.instance.requirement$.
 
-    *Step 4 -- Verify a solution.* The canonical IS selects vertices ${#mis_ifb_sol.source_config.enumerate().filter(((i, x)) => x > 0).map(((i, x)) => $v_#i$).join(", ")}$ (config $(#mis_ifb_sol.source_config.map(str).join(", "))$). Each selected vertex $v_i$ contributes flow 1 on arcs $a_i^"in"$ and $a_i^"out"$, giving target config $(#mis_ifb_sol.target_config.map(str).join(", "))$. The total flow equals the IS size (#mis_ifb_sol.source_config.fold(0, (a, b) => a + b)). Every edge bundle is satisfied because no two adjacent vertices are both selected, and vertex bundles are satisfied with capacity 2 $>=$ individual flow of 1.
+    *Step 4 -- Verify a solution.* The canonical IS selects vertices ${#mis_ifb_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => $v_#i$).join(", ")}$ (config $(#fmt-values(mis_ifb_sol.source_config))$). Each selected vertex $v_i$ contributes flow 1 on arcs $a_i^"in"$ and $a_i^"out"$, giving target config $(#fmt-values(mis_ifb_sol.target_config))$. The total flow equals the IS size (#mis_ifb_sol.source_config.fold(0, (a, b) => a + bool-bit(b))). Every edge bundle is satisfied because no two adjacent vertices are both selected, and vertex bundles are satisfied with capacity 2 $>=$ individual flow of 1.
 
     *Multiplicity:* The fixture stores one canonical witness. The path $P_#mis_ifb.source.instance.graph.num_vertices$ admits larger independent sets (e.g., ${v_0, v_2}$ or ${v_0, v_3}$), but the canonical witness suffices to demonstrate the reduction.
   ],
@@ -18075,14 +18026,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hc_qa.source) + " -o hc.json",
       "pred reduce hc.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hc.json --config " + hc_qa_sol.source_config.map(str).join(","),
+      "pred evaluate hc.json --config " + cli-config(hc_qa_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The graph $G$ has $n = #hc_qa.source.instance.graph.num_vertices$ vertices and edges ${#hc_qa.source.instance.graph.edges.map(e => "(" + str(e.at(0)) + "," + str(e.at(1)) + ")").join(", ")}$, forming a cycle $C_#hc_qa.source.instance.graph.num_vertices$. The penalty weight is $omega = n + 1 = #(hc_qa.source.instance.graph.num_vertices + 1)$.
 
     *Step 2 -- Construction.* The cost matrix $C$ encodes a directed cycle on positions: $c[i][(i+1) mod #hc_qa.source.instance.graph.num_vertices] = 1$, all other entries 0. The distance matrix $D$ encodes graph adjacency: $d[k][l] = 1$ if ${k,l} in E$, $d[k][l] = #(hc_qa.source.instance.graph.num_vertices + 1)$ for non-edges, $d[k][k] = 0$. Both matrices are $#hc_qa.source.instance.graph.num_vertices times #hc_qa.source.instance.graph.num_vertices$, so the QAP has $n = #hc_qa.target.instance.cost_matrix.len()$ facilities and $n = #hc_qa.target.instance.distance_matrix.len()$ locations.
 
-    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#hc_qa_sol.source_config.map(str).join(", "))$. The QAP permutation is the same: $(#hc_qa_sol.target_config.map(str).join(", "))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 1 = 1$. Total cost $= #hc_qa.source.instance.graph.num_vertices = n$ #sym.checkmark
+    *Step 3 -- Verify a solution.* The canonical Hamiltonian circuit visits vertices in order $gamma = (#fmt-values(hc_qa_sol.source_config))$. The QAP permutation is the same: $(#fmt-values(hc_qa_sol.target_config))$. The QAP cost is $sum_(i=0)^(n-1) c[i][(i+1) mod n] dot d[gamma(i)][gamma((i+1) mod n)]$. Since $gamma$ maps each position $i$ to vertex $i$, each consecutive pair $(gamma(i), gamma(i+1 mod n))$ is an edge in $G$, contributing $1 dot 1 = 1$. Total cost $= #hc_qa.source.instance.graph.num_vertices = n$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. The cycle $C_#hc_qa.source.instance.graph.num_vertices$ has $#hc_qa.source.instance.graph.num_vertices$ rotations and 2 reflections, giving $2n = #(2 * hc_qa.source.instance.graph.num_vertices)$ distinct Hamiltonian circuits; the canonical one is the identity permutation.
   ],
@@ -18104,8 +18055,8 @@ The following table shows concrete target-variable counts for example instances,
 #let part_bp_n = part_bp_sizes.len()
 #let part_bp_total = part_bp_sizes.fold(0, (a, b) => a + b)
 #let part_bp_capacity = part_bp.target.instance.capacity
-#let part_bp_bin0 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
-#let part_bp_bin1 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+#let part_bp_bin0 = part_bp_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => i)
+#let part_bp_bin1 = part_bp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
 #let part_bp_bin0_sizes = part_bp_bin0.map(i => part_bp_sizes.at(i))
 #let part_bp_bin1_sizes = part_bp_bin1.map(i => part_bp_sizes.at(i))
 #let part_bp_bin0_sum = part_bp_bin0_sizes.fold(0, (a, b) => a + b)
@@ -18118,14 +18069,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_bp.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_bp_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_bp_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#part_bp_sizes.map(str).join(", "))$ with total sum $S = #part_bp_total$, so a balanced partition requires each half to sum to $S / 2 = #part_bp_capacity$.
+    *Step 1 -- Source instance.* The canonical Partition instance has sizes $(#fmt-values(part_bp_sizes))$ with total sum $S = #part_bp_total$, so a balanced partition requires each half to sum to $S / 2 = #part_bp_capacity$.
 
-    *Step 2 -- Build the bin-packing instance.* The reduction copies each size into the item-size list and sets the bin capacity to $C = floor(S / 2) = #part_bp_capacity$ with $k = 2$ bins. The target instance has sizes $(#part_bp.target.instance.sizes.map(str).join(", "))$ and capacity $#part_bp_capacity$. No auxiliary variables are introduced, so the target has the same $#part_bp_n$ assignment coordinates as the source.
+    *Step 2 -- Build the bin-packing instance.* The reduction copies each size into the item-size list and sets the bin capacity to $C = floor(S / 2) = #part_bp_capacity$ with $k = 2$ bins. The target instance has sizes $(#fmt-values(part_bp.target.instance.sizes))$ and capacity $#part_bp_capacity$. No auxiliary variables are introduced, so the target has the same $#part_bp_n$ assignment coordinates as the source.
 
-    *Step 3 -- Verify the canonical witness.* The witness assigns each element to bin 0 or bin 1 via the binary vector $bold(b) = (#part_bp_sol.source_config.map(str).join(", "))$, which equals the target config $(#part_bp_sol.target_config.map(str).join(", "))$. Bin 0 receives elements $\{#part_bp_bin0.map(str).join(", ")\}$ with sizes $(#part_bp_bin0_sizes.map(str).join(", "))$ summing to $#part_bp_bin0_sum <= #part_bp_capacity$ #sym.checkmark. Bin 1 receives elements $\{#part_bp_bin1.map(str).join(", ")\}$ with sizes $(#part_bp_bin1_sizes.map(str).join(", "))$ summing to $#part_bp_bin1_sum <= #part_bp_capacity$ #sym.checkmark. Both bins fit within the capacity, and the total $#part_bp_bin0_sum + #part_bp_bin1_sum = #part_bp_total$ accounts for all items.
+    *Step 3 -- Verify the canonical witness.* The witness assigns each element to bin 0 or bin 1 via the binary vector $bold(b) = (#fmt-values(part_bp_sol.source_config))$, which equals the target config $(#fmt-values(part_bp_sol.target_config))$. Bin 0 receives elements $\{#fmt-values(part_bp_bin0)\}$ with sizes $(#fmt-values(part_bp_bin0_sizes))$ summing to $#part_bp_bin0_sum <= #part_bp_capacity$ #sym.checkmark. Bin 1 receives elements $\{#fmt-values(part_bp_bin1)\}$ with sizes $(#fmt-values(part_bp_bin1_sizes))$ summing to $#part_bp_bin1_sum <= #part_bp_capacity$ #sym.checkmark. Both bins fit within the capacity, and the total $#part_bp_bin0_sum + #part_bp_bin1_sum = #part_bp_total$ accounts for all items.
 
     *Multiplicity:* The fixture stores one canonical witness. This instance may admit other balanced partitions, but one witness suffices to demonstrate the reduction.
   ],
@@ -18149,23 +18100,23 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_msp.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_msp_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_msp_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The X3C instance has universe $X = {0, dots, #(x3c_msp.source.instance.universe_size - 1)}$ with $q = #(x3c_msp.source.instance.universe_size / 3)$ and $#x3c_msp.source.instance.subsets.len()$ candidate triples:
     #for (i, s) in x3c_msp.source.instance.subsets.enumerate() [
-      $S_#i = {#s.map(str).join(", ")}$#if i < x3c_msp.source.instance.subsets.len() - 1 [, ] else [.]
+      $S_#i = {#fmt-values(s)}$#if i < x3c_msp.source.instance.subsets.len() - 1 [, ] else [.]
     ]
 
-    *Step 2 -- Construct the target.* The identity map copies each triple as a unit-weight set: $#x3c_msp.target.instance.sets.len()$ sets with weights $(#x3c_msp.target.instance.weights.map(str).join(", "))$. The target asks for a maximum packing of pairwise-disjoint sets.
+    *Step 2 -- Construct the target.* The identity map copies each triple as a unit-weight set: $#x3c_msp.target.instance.sets.len()$ sets with weights $(#fmt-values(x3c_msp.target.instance.weights))$. The target asks for a maximum packing of pairwise-disjoint sets.
 
-    *Step 3 -- Verify the canonical witness.* Source config $(#x3c_msp_sol.source_config.map(str).join(", "))$ selects subsets ${#x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$:
-    #let selected = x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+    *Step 3 -- Verify the canonical witness.* Source config $(#fmt-values(x3c_msp_sol.source_config))$ selects subsets ${#x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")}$:
+    #let selected = x3c_msp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
     #for idx in selected [
       - $S_#idx = {#x3c_msp.source.instance.subsets.at(idx).map(str).join(", ")}$
     ]
     These $#selected.len()$ triples are pairwise disjoint and cover all $#x3c_msp.source.instance.universe_size = 3 dot #(x3c_msp.source.instance.universe_size / 3)$ elements #sym.checkmark \\
-    Target config is identical: $(#x3c_msp_sol.target_config.map(str).join(", "))$ — packing value $= #selected.len() = q$ #sym.checkmark
+    Target config is identical: $(#fmt-values(x3c_msp_sol.target_config))$ — packing value $= #selected.len() = q$ #sym.checkmark
 
     *Multiplicity:* The fixture stores one canonical witness. For this instance there are no other exact covers since every pair of triples that covers all 6 elements is unique.
   ],
@@ -18189,18 +18140,18 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_mfdts.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_mfdts_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_mfdts_sol.source_config),
     )
 
     #let q = x3c_mfdts.source.instance.universe_size / 3
     *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mfdts.source.instance.universe_size - 1)}$ with $q = #q$ and triples
     #for (i, s) in x3c_mfdts.source.instance.subsets.enumerate() [
-      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mfdts.source.instance.subsets.len() - 1 [, ] else [.]
+      $C_#i = {#fmt-values(s)}$#if i < x3c_mfdts.source.instance.subsets.len() - 1 [, ] else [.]
     ]
 
-    *Step 2 -- Build the fault-detection DAG.* Create one input vertex for each triple, one internal vertex for each universe element, and one shared output. The target therefore has $#x3c_mfdts.target.instance.num_vertices$ vertices, $#x3c_mfdts.target.instance.arcs.len()$ arcs, inputs ${#x3c_mfdts.target.instance.inputs.map(str).join(", ")}$, and output ${#x3c_mfdts.target.instance.outputs.map(str).join(", ")}$. Input $i_j$ connects to exactly the three internal vertices for elements in $C_j$, and every internal vertex connects to the shared output.
+    *Step 2 -- Build the fault-detection DAG.* Create one input vertex for each triple, one internal vertex for each universe element, and one shared output. The target therefore has $#x3c_mfdts.target.instance.num_vertices$ vertices, $#x3c_mfdts.target.instance.arcs.len()$ arcs, inputs ${#fmt-values(x3c_mfdts.target.instance.inputs)}$, and output ${#fmt-values(x3c_mfdts.target.instance.outputs)}$. Input $i_j$ connects to exactly the three internal vertices for elements in $C_j$, and every internal vertex connects to the shared output.
 
-    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#x3c_mfdts_sol.source_config.map(str).join(", "))$ selects $C_0 = {#x3c_mfdts.source.instance.subsets.at(0).map(str).join(", ")}$ and $C_1 = {#x3c_mfdts.source.instance.subsets.at(1).map(str).join(", ")}$, which are disjoint and cover all six universe elements. The target configuration is identical: $(#x3c_mfdts_sol.target_config.map(str).join(", "))$. Pair $(0, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers internal vertices ${0, 1, 2}$, pair $(1, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers ${3, 4, 5}$, and together they cover every internal vertex with value $#q$ #sym.checkmark.
+    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#fmt-values(x3c_mfdts_sol.source_config))$ selects $C_0 = {#x3c_mfdts.source.instance.subsets.at(0).map(str).join(", ")}$ and $C_1 = {#x3c_mfdts.source.instance.subsets.at(1).map(str).join(", ")}$, which are disjoint and cover all six universe elements. The target configuration is identical: $(#fmt-values(x3c_mfdts_sol.target_config))$. Pair $(0, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers internal vertices ${0, 1, 2}$, pair $(1, #(x3c_mfdts.target.instance.outputs.at(0)))$ covers ${3, 4, 5}$, and together they cover every internal vertex with value $#q$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ selects exactly $q$ inputs, and since each selected pair covers only 3 internal vertices while there are $3q$ internal vertices overall, those $q$ neighborhoods must be pairwise disjoint and form an exact cover.
   ],
@@ -18224,18 +18175,18 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_mas.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_mas_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_mas_sol.source_config),
     )
 
     #let x3c_mas_q = x3c_mas.source.instance.universe_size / 3
     *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_mas.source.instance.universe_size - 1)}$ with $q = #x3c_mas_q$ and candidate triples
     #for (i, s) in x3c_mas.source.instance.subsets.enumerate() [
-      $C_#i = {#s.map(str).join(", ")}$#if i < x3c_mas.source.instance.subsets.len() - 1 [, ] else [.]
+      $C_#i = {#fmt-values(s)}$#if i < x3c_mas.source.instance.subsets.len() - 1 [, ] else [.]
     ]
 
     *Step 2 -- Build the axiom system.* Create one element-sentence for each universe element and one set-sentence for each triple, so the target has $#x3c_mas.target.instance.num_sentences$ sentences and $#x3c_mas.target.instance.true_sentences.len()$ true sentences. Each triple contributes three forward implications and one backward implication, giving $#x3c_mas.target.instance.implications.len()$ implications total. The optimization instance itself stores only the axiom-system data; the X3C bound $q = #x3c_mas_q$ is checked externally against the optimum target value.
 
-    *Step 3 -- Verify the canonical witness.* The stored source config $(#x3c_mas_sol.source_config.map(str).join(", "))$ selects $C_3 = {#x3c_mas.source.instance.subsets.at(3).map(str).join(", ")}$ and $C_4 = {#x3c_mas.source.instance.subsets.at(4).map(str).join(", ")}$. These two triples are disjoint and cover all six universe elements #sym.checkmark. The target axiom vector $(#x3c_mas_sol.target_config.map(str).join(", "))$ selects exactly the set-sentence coordinates $#(x3c_mas.source.instance.universe_size + 3)$ and $#(x3c_mas.source.instance.universe_size + 4)$, namely $z_3$ and $z_4$. One closure round derives every element-sentence $e_0, dots, e_5$; then the backward rules derive the remaining set-sentences $z_0, z_1, z_2$, so the closure equals all $#x3c_mas.target.instance.true_sentences.len()$ true sentences. This witness therefore attains value $#x3c_mas_q$ #sym.checkmark, and extracting the chosen set-sentence coordinates recovers the exact cover.
+    *Step 3 -- Verify the canonical witness.* The stored source config $(#fmt-values(x3c_mas_sol.source_config))$ selects $C_3 = {#x3c_mas.source.instance.subsets.at(3).map(str).join(", ")}$ and $C_4 = {#x3c_mas.source.instance.subsets.at(4).map(str).join(", ")}$. These two triples are disjoint and cover all six universe elements #sym.checkmark. The target axiom vector $(#fmt-values(x3c_mas_sol.target_config))$ selects exactly the set-sentence coordinates $#(x3c_mas.source.instance.universe_size + 3)$ and $#(x3c_mas.source.instance.universe_size + 4)$, namely $z_3$ and $z_4$. One closure round derives every element-sentence $e_0, dots, e_5$; then the backward rules derive the remaining set-sentences $z_0, z_1, z_2$, so the closure equals all $#x3c_mas.target.instance.true_sentences.len()$ true sentences. This witness therefore attains value $#x3c_mas_q$ #sym.checkmark, and extracting the chosen set-sentence coordinates recovers the exact cover.
 
     *Multiplicity:* The fixture stores one canonical witness. Any target witness of value $q$ must select exactly $q$ set-sentences and no element-sentences, because each direct element axiom lowers the maximum possible element coverage by two.
   ],
@@ -18273,7 +18224,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ss_part.source) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate subsetsum.json --config " + ss_part_sol.source_config.map(str).join(","),
+      "pred evaluate subsetsum.json --config " + cli-config(ss_part_sol.source_config),
     )
 
     #{
@@ -18282,11 +18233,11 @@ The following table shows concrete target-variable counts for example instances,
       let T = int(ss_part.source.instance.target)
       let d = calc.abs(sigma - 2 * T)
       [
-        *Step 1 -- Source instance.* Subset Sum with sizes $(#sizes.map(str).join(", "))$ and target $T = #T$. Total $Sigma = #sigma$.
+        *Step 1 -- Source instance.* Subset Sum with sizes $(#fmt-values(sizes))$ and target $T = #T$. Total $Sigma = #sigma$.
 
-        *Step 2 -- Compute padding.* $Sigma = #sigma$, $2T = #(2 * T)$. Since $Sigma < 2T$, we have $d = 2T - Sigma = #d$. The Partition instance is $S union {d} = (#ss_part.target.instance.sizes.map(str).join(", "))$ with #ss_part.target.instance.sizes.len() elements.
+        *Step 2 -- Compute padding.* $Sigma = #sigma$, $2T = #(2 * T)$. Since $Sigma < 2T$, we have $d = 2T - Sigma = #d$. The Partition instance is $S union {d} = (#fmt-values(ss_part.target.instance.sizes))$ with #ss_part.target.instance.sizes.len() elements.
 
-        *Step 3 -- Verify a solution.* Source config $(#ss_part_sol.source_config.map(str).join(", "))$: selected elements $= {#ss_part_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(sizes.at(i))).join(", ")}$ sum to $#T = T$ #sym.checkmark. Target config $(#ss_part_sol.target_config.map(str).join(", "))$: side-0 sum $= #ss_part_sol.target_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => ss_part.target.instance.sizes.at(i)).sum()$, side-1 sum $= #ss_part_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => ss_part.target.instance.sizes.at(i)).sum()$ -- balanced #sym.checkmark.
+        *Step 3 -- Verify a solution.* Source config $(#fmt-values(ss_part_sol.source_config))$: selected elements $= {#ss_part_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(sizes.at(i))).join(", ")}$ sum to $#T = T$ #sym.checkmark. Target config $(#fmt-values(ss_part_sol.target_config))$: side-0 sum $= #ss_part_sol.target_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => ss_part.target.instance.sizes.at(i)).sum()$, side-1 sum $= #ss_part_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => ss_part.target.instance.sizes.at(i)).sum()$ -- balanced #sym.checkmark.
       ]
     }
 
@@ -18319,7 +18270,7 @@ The following table shows concrete target-variable counts for example instances,
     #{
       let sizes = ss_ik.source.instance.sizes.map(s => int(s))
       let B = int(ss_ik.source.instance.target)
-      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let chosen = ss_ik_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
       let chosen_sum = chosen.map(i => sizes.at(i)).sum()
       [
         #pred-commands(
@@ -18329,11 +18280,11 @@ The following table shows concrete target-variable counts for example instances,
           "pred solve integer-knapsack.json",
         )
 
-        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#sizes.map(str).join(", "))$ and target $B = #B$. The stored witness $(#ss_ik_sol.source_config.map(str).join(", "))$ selects elements ${#chosen.map(str).join(", ")}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
+        *Step 1 -- Source instance.* The canonical Subset Sum instance has sizes $(#fmt-values(sizes))$ and target $B = #B$. The stored witness $(#fmt-values(ss_ik_sol.source_config))$ selects elements ${#fmt-values(chosen)}$, whose values sum to $#chosen_sum = B$ #sym.checkmark.
 
-        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#ss_ik.target.instance.sizes.map(str).join(", "))$, values $(#ss_ik.target.instance.values.map(str).join(", "))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
+        *Step 2 -- Build the target.* Copy each source size into both the size and value lists. The Integer Knapsack instance therefore has sizes $(#fmt-values(ss_ik.target.instance.sizes))$, values $(#fmt-values(ss_ik.target.instance.values))$, and the same capacity $B = #ss_ik.target.instance.capacity$.
 
-        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#ss_ik_sol.target_config.map(str).join(", "))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
+        *Step 3 -- Verify the forward witness.* Reuse the same 0-1 vector as multiplicities: $(#fmt-values(ss_ik_sol.target_config))$. Its total size is $#chosen_sum <= #ss_ik.target.instance.capacity$, and because size equals value coordinate-wise, its total value is also $#chosen_sum = B$ #sym.checkmark.
 
         *Step 4 -- Backward gap.* For the source instance $A = {3}$ with target $B = 6$, Subset Sum is NO, but Integer Knapsack can set multiplicity $c_0 = 2$ and achieve total size/value $6$. This is why the catalog records the edge for proof topology only and disables all runtime reduction modes.
       ]
@@ -18374,14 +18325,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(sat_nt.source) + " -o sat.json",
       "pred reduce sat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate sat.json --config " + sat_nt_sol.source_config.map(str).join(","),
+      "pred evaluate sat.json --config " + cli-config(sat_nt_sol.source_config),
     )
 
     *Step 1 -- Source instance.* CNF with $n = #sat_nt.source.instance.num_vars$ variables and $m = #sat-num-clauses(sat_nt.source.instance)$ clauses.
 
     *Step 2 -- Apply De Morgan.* Each clause $C_j = (l_1 or dots or l_k)$ becomes disjunct $D_j = (overline(l_1) and dots and overline(l_k))$. The Non-Tautology instance has #sat_nt.target.instance.disjuncts.len() disjuncts over #sat_nt.target.instance.num_vars variables.
 
-    *Step 3 -- Verify a solution.* Source config $(#sat_nt_sol.source_config.map(str).join(", "))$ satisfies the CNF. Target config $(#sat_nt_sol.target_config.map(str).join(", "))$ falsifies the DNF (same assignment). Variables are identical #sym.checkmark.
+    *Step 3 -- Verify a solution.* Source config $(#fmt-values(sat_nt_sol.source_config))$ satisfies the CNF. Target config $(#fmt-values(sat_nt_sol.target_config))$ falsifies the DNF (same assignment). Variables are identical #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -18406,14 +18357,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(kc_pic.source) + " -o kcoloring.json",
       "pred reduce kcoloring.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate kcoloring.json --config " + kc_pic_sol.source_config.map(str).join(","),
+      "pred evaluate kcoloring.json --config " + cli-config(kc_pic_sol.source_config),
     )
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(kc_pic.source.instance)$ vertices, $|E| = #graph-num-edges(kc_pic.source.instance)$ edges, $k = #kc_pic.source.instance.num_colors$ colors.
 
     *Step 2 -- Complement graph.* $overline(G)$ has the same $n = #graph-num-vertices(kc_pic.target.instance)$ vertices and $|overline(E)| = #graph-num-edges(kc_pic.target.instance)$ edges. Clique bound $K' = #kc_pic.target.instance.num_cliques$.
 
-    *Step 3 -- Verify a solution.* Source coloring $(#kc_pic_sol.source_config.map(str).join(", "))$. Target partition $(#kc_pic_sol.target_config.map(str).join(", "))$ -- each color class is a clique in $overline(G)$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* Source coloring $(#fmt-values(kc_pic_sol.source_config))$. Target partition $(#fmt-values(kc_pic_sol.target_config))$ -- each color class is a clique in $overline(G)$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -18490,13 +18441,13 @@ The following table shows concrete target-variable counts for example instances,
 #let clustering_ilp_sol = clustering_ilp.solutions.at(0)
 #reduction-rule("Clustering", "ILP",
   example: true,
-  example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints],
+  example-caption: [4 elements, $K = 2$, $B = 1$ $arrow.r$ ILP with #clustering_ilp.target.instance.variables.len() variables and #clustering_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(clustering_ilp.source) + " -o clustering.json",
       "pred reduce clustering.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate clustering.json --config " + clustering_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate clustering.json --config " + cli-config(clustering_ilp_sol.source_config),
     )
 
     #{
@@ -18506,11 +18457,11 @@ The following table shows concrete target-variable counts for example instances,
       let distances = clustering_ilp.source.instance.distances
       let source-config = clustering_ilp_sol.source_config
       [
-        *Step 1 -- Source instance.* The canonical source has $n = #n$ elements, cluster bound $K = #k$, and diameter bound $B = #b$. Its distance rows are #distances.map(row => "(" + row.map(str).join(", ") + ")").join("; "), so the only pairs above the bound are $(0, 2)$, $(0, 3)$, $(1, 2)$, and $(1, 3)$.
+        *Step 1 -- Source instance.* The canonical source has $n = #n$ elements, cluster bound $K = #k$, and diameter bound $B = #b$. Its distance rows are #distances.map(row => "(" + fmt-values(row) + ")").join("; "), so the only pairs above the bound are $(0, 2)$, $(0, 3)$, $(1, 2)$, and $(1, 3)$.
 
-        *Step 2 -- Build the ILP.* Introduce one binary variable $x_(i,c)$ for each element-cluster pair, giving $n K = #(n * k)$ variables. The $n = #n$ assignment equalities $sum_c x_(i,c) = 1$ force every element into exactly one cluster, and the four violating pairs contribute $4 dot K = #(4 * k)$ conflict inequalities. The stored target therefore has #clustering_ilp.target.instance.num_vars variables and #clustering_ilp.target.instance.constraints.len() constraints.
+        *Step 2 -- Build the ILP.* Introduce one binary variable $x_(i,c)$ for each element-cluster pair, giving $n K = #(n * k)$ variables. The $n = #n$ assignment equalities $sum_c x_(i,c) = 1$ force every element into exactly one cluster, and the four violating pairs contribute $4 dot K = #(4 * k)$ conflict inequalities. The stored target therefore has #clustering_ilp.target.instance.variables.len() variables and #clustering_ilp.target.instance.constraints.len() constraints.
 
-        *Step 3 -- Verify the canonical witness.* The stored ILP vector is $(#clustering_ilp_sol.target_config.map(str).join(", "))$. Reading each block of $K = #k$ variables yields the clustering $(#source-config.map(str).join(", "))$, so cluster 0 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 0).map(((i, c)) => str(i)).join(", ")}$ and cluster 1 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 1).map(((i, c)) => str(i)).join(", ")}$. The only within-cluster distances are $d(0,1) = #distances.at(0).at(1)$ and $d(2,3) = #distances.at(2).at(3)$, both at most $B$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The stored ILP vector is $(#fmt-values(clustering_ilp_sol.target_config))$. Reading each block of $K = #k$ variables yields the clustering $(#fmt-values(source-config))$, so cluster 0 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 0).map(((i, c)) => str(i)).join(", ")}$ and cluster 1 contains elements ${#source-config.enumerate().filter(((i, c)) => c == 1).map(((i, c)) => str(i)).join(", ")}$. The only within-cluster distances are $d(0,1) = #distances.at(0).at(1)$ and $d(2,3) = #distances.at(2).at(3)$, both at most $B$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness. Swapping the two cluster labels gives an equivalent second witness because the ILP distinguishes clusters only by index.
       ]
@@ -18541,14 +18492,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(pic_mcbc.source) + " -o partition-into-cliques.json",
       "pred reduce partition-into-cliques.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition-into-cliques.json --config " + pic_mcbc_sol.source_config.map(str).join(","),
+      "pred evaluate partition-into-cliques.json --config " + cli-config(pic_mcbc_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#pic_mcbc_sol.source_config.map(str).join(", "))$, namely the cliques ${0,1}$ and ${2}$.
+    *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(pic_mcbc.source.instance)$ vertices, $m = #graph-num-edges(pic_mcbc.source.instance)$ edge, and clique bound $K = #pic_mcbc.source.instance.num_cliques$. The stored partition witness is $(#fmt-values(pic_mcbc_sol.source_config))$, namely the cliques ${0,1}$ and ${2}$.
 
     *Step 2 -- Orlin construction.* The target graph has $#graph-num-vertices(pic_mcbc.target.instance)$ vertices and $#graph-num-edges(pic_mcbc.target.instance)$ edges. Because the source has two directed edge copies, the construction adds the gadgets $Q_(0,1)$ and $Q_(1,0)$, plus the side cliques $L^*$ and $R^*$. The threshold is $K' = K + 2m + 2 = #(pic_mcbc.source.instance.num_cliques + 2 * graph-num-edges(pic_mcbc.source.instance) + 2)$.
 
-    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#pic_mcbc_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+    *Step 3 -- Verify the witness.* The target witness labels $#pic_mcbc_sol.target_config.len()$ target edges with 6 clique IDs, corresponding to $D_1 = {x_0, x_1, y_0, y_1}$, $D_2 = {x_2, y_2}$, $Q_(0,1)$, $Q_(1,0)$, $L^*$, and $R^*$. Reading only the labels on the matching edges $x_i y_i$ recovers the source partition $(#fmt-values(pic_mcbc_sol.source_config))$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Any permutation of the six target clique labels is equivalent.
   ],
@@ -18580,9 +18531,9 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(mcbc_migb.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + mcbc_migb_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(mcbc_migb_sol.source_config),
     )
-    Source clique labels $(#mcbc_migb_sol.source_config.map(str).join(", "))$, target intersection witness $(#mcbc_migb_sol.target_config.map(str).join(", "))$.
+    Source clique labels $(#fmt-values(mcbc_migb_sol.source_config))$, target intersection witness $(#fmt-values(mcbc_migb_sol.target_config))$.
   ],
 )[
   This $O(n + m)$ identity reduction @garey1979[GT59] @erdosgoodmanposa1966 @kouStockmeyerWong1978 keeps the graph unchanged and reinterprets the objective. The minimum number of cliques covering all edges of $G$ equals the minimum universe size of an intersection representation of $G$, so the two optimization problems are equivalent reformulations.
@@ -18607,23 +18558,23 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_ker.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_ker_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_ker_sol.source_config),
     )
 
     #{
       let n = ksat_ker.source.instance.num_vars
       let m = sat-num-clauses(ksat_ker.source.instance)
-      let selected = ksat_ker_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let selected = ksat_ker_sol.target_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
       let literal-selected = selected.filter(v => v < 2 * n)
       let clause-selected = selected.filter(v => v >= 2 * n)
       let second-clause-base = 2 * n + 3
       let last-literal-vertex = literal-selected.at(literal-selected.len() - 1)
       [
-        *Step 1 -- Source instance.* 3-SAT with $n = #n$ variables and $m = #m$ clauses. The canonical satisfying assignment is $(#ksat_ker_sol.source_config.map(str).join(", "))$.
+        *Step 1 -- Source instance.* 3-SAT with $n = #n$ variables and $m = #m$ clauses. The canonical satisfying assignment is $(#fmt-values(ksat_ker_sol.source_config))$.
 
         *Step 2 -- Construct the digraph.* Variable gadgets contribute $2n = #(2 * n)$ literal vertices and $2n = #(2 * n)$ digon arcs. Clause gadgets contribute $3m = #(3 * m)$ clause vertices, $3m = #(3 * m)$ cycle arcs, and $3m = #(3 * m)$ literal arcs. Total: $#ksat_ker.target.instance.graph.num_vertices$ vertices and $#ksat_ker.target.instance.graph.arcs.len()$ arcs $= 2n + 6m$.
 
-        *Step 3 -- Verify the canonical witness.* The target kernel selects literal vertices ${#literal-selected.map(str).join(", ")}$ and clause vertices ${#clause-selected.map(str).join(", ")}$. Here ${#literal-selected.map(str).join(", ")}$ encode $(x_1, x_2, x_3) = (#ksat_ker_sol.source_config.map(str).join(", "))$, and the extra clause vertex $#(second-clause-base + 1)$ is needed in the second clause gadget: vertex $#second-clause-base$ is absorbed by arc $(#second-clause-base, #(second-clause-base + 1))$, while vertex $#(second-clause-base + 2)$ is absorbed by its literal arc to vertex $#last-literal-vertex$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The target kernel selects literal vertices ${#fmt-values(literal-selected)}$ and clause vertices ${#fmt-values(clause-selected)}$. Here ${#fmt-values(literal-selected)}$ encode $(x_1, x_2, x_3) = (#fmt-values(ksat_ker_sol.source_config))$, and the extra clause vertex $#(second-clause-base + 1)$ is needed in the second clause gadget: vertex $#second-clause-base$ is absorbed by arc $(#second-clause-base, #(second-clause-base + 1))$, while vertex $#(second-clause-base + 2)$ is absorbed by its literal arc to vertex $#last-literal-vertex$ #sym.checkmark.
       ]
     }
 
@@ -18652,14 +18603,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hp_dcst.source) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hampath.json --config " + hp_dcst_sol.source_config.map(str).join(","),
+      "pred evaluate hampath.json --config " + cli-config(hp_dcst_sol.source_config),
     )
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(hp_dcst.source.instance)$ vertices and $|E| = #graph-num-edges(hp_dcst.source.instance)$ edges.
 
     *Step 2 -- Identity reduction.* Target graph is identical: $n = #graph-num-vertices(hp_dcst.target.instance)$ vertices, $|E| = #graph-num-edges(hp_dcst.target.instance)$ edges, degree bound $K = #hp_dcst.target.instance.max_degree$.
 
-    *Step 3 -- Verify a solution.* Hamiltonian path visits vertices in order $(#hp_dcst_sol.source_config.map(str).join(", "))$. The corresponding spanning tree selects #hp_dcst_sol.target_config.filter(x => x == 1).len() edges (all with max degree $<= 2$) #sym.checkmark.
+    *Step 3 -- Verify a solution.* Hamiltonian path visits vertices in order $(#fmt-values(hp_dcst_sol.source_config))$. The corresponding spanning tree selects #hp_dcst_sol.target_config.filter(x => x).len() edges (all with max degree $<= 2$) #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -18684,19 +18635,19 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(nae_ss.source) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate naesat.json --config " + nae_ss_sol.source_config.map(str).join(","),
+      "pred evaluate naesat.json --config " + cli-config(nae_ss_sol.source_config),
     )
 
     #{
       let colors = nae_ss_sol.target_config
       [
-        *Step 1 -- Source instance.* The fixture has clauses $C_1 = (x_1 or overline(x_2) or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The canonical NAE assignment is $(#nae_ss_sol.source_config.map(str).join(", "))$, so the two clauses evaluate to $(1, 0, 1)$ and $(0, 1, 0)$ respectively.
+        *Step 1 -- Source instance.* The fixture has clauses $C_1 = (x_1 or overline(x_2) or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The canonical NAE assignment is $(#fmt-values(nae_ss_sol.source_config))$, so the two clauses evaluate to $(1, 0, 1)$ and $(0, 1, 0)$ respectively.
 
         *Step 2 -- Build the universe and complementarity subsets.* The reduction creates $U = {0, dots, #(nae_ss.target.instance.universe_size - 1)}$ with positive literals on $\{0, 1, 2\}$ and negative literals on $\{3, 4, 5\}$. The first three target subsets are $R_1 = {#nae_ss.target.instance.subsets.at(0).map(str).join(", ")}$, $R_2 = {#nae_ss.target.instance.subsets.at(1).map(str).join(", ")}$, and $R_3 = {#nae_ss.target.instance.subsets.at(2).map(str).join(", ")}$.
 
-        *Step 3 -- Encode the clauses as set-splitting constraints.* Clause $C_1$ becomes $T_1 = {#nae_ss.target.instance.subsets.at(3).map(str).join(", ")}$, and clause $C_2$ becomes $T_2 = {#nae_ss.target.instance.subsets.at(4).map(str).join(", ")}$. Under the target coloring $(#colors.map(str).join(", "))$, $T_1$ receives colors $(#colors.at(0), #colors.at(4), #colors.at(2))$ and $T_2$ receives $(#colors.at(3), #colors.at(1), #colors.at(5))$, so both subsets are non-monochromatic.
+        *Step 3 -- Encode the clauses as set-splitting constraints.* Clause $C_1$ becomes $T_1 = {#nae_ss.target.instance.subsets.at(3).map(str).join(", ")}$, and clause $C_2$ becomes $T_2 = {#nae_ss.target.instance.subsets.at(4).map(str).join(", ")}$. Under the target coloring $(#fmt-values(colors))$, $T_1$ receives colors $(#colors.at(0), #colors.at(4), #colors.at(2))$ and $T_2$ receives $(#colors.at(3), #colors.at(1), #colors.at(5))$, so both subsets are non-monochromatic.
 
-        *Step 4 -- Verify the witness pair.* Every complementarity pair has opposite colors: $(0, 3)$ gives $(#colors.at(0), #colors.at(3))$, $(1, 4)$ gives $(#colors.at(1), #colors.at(4))$, and $(2, 5)$ gives $(#colors.at(2), #colors.at(5))$. Reading the positive-literal colors $(#colors.at(0), #colors.at(1), #colors.at(2))$ recovers the source assignment $(#nae_ss_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Verify the witness pair.* Every complementarity pair has opposite colors: $(0, 3)$ gives $(#colors.at(0), #colors.at(3))$, $(1, 4)$ gives $(#colors.at(1), #colors.at(4))$, and $(2, 5)$ gives $(#colors.at(2), #colors.at(5))$. Reading the positive-literal colors $(#colors.at(0), #colors.at(1), #colors.at(2))$ recovers the source assignment $(#fmt-values(nae_ss_sol.source_config))$ #sym.checkmark.
       ]
     }
 
@@ -18723,20 +18674,20 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(nae_ppm.source) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate naesat.json --config " + nae_ppm_sol.source_config.map(str).join(","),
+      "pred evaluate naesat.json --config " + cli-config(nae_ppm_sol.source_config),
     )
 
     #{
       let target = nae_ppm.target.instance
       let config = nae_ppm_sol.target_config
       [
-        *Step 1 -- Source instance.* The canonical NAE-SAT fixture has clauses $C_1 = (x_1 or x_2 or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The stored source witness is $(#nae_ppm_sol.source_config.map(str).join(", "))$, so the clause truth patterns are $(1, 1, 0)$ and $(0, 1, 1)$, hence both clauses satisfy the NAE condition.
+        *Step 1 -- Source instance.* The canonical NAE-SAT fixture has clauses $C_1 = (x_1 or x_2 or x_3)$ and $C_2 = (overline(x_1) or x_2 or overline(x_3))$. The stored source witness is $(#fmt-values(nae_ppm_sol.source_config))$, so the clause truth patterns are $(1, 1, 0)$ and $(0, 1, 1)$, hence both clauses satisfy the NAE condition.
 
         *Step 2 -- Lay out the gadgets.* Each variable contributes 4 vertices, each clause contributes 6 signal vertices and 4 clause-gadget vertices, and each literal occurrence contributes one 2-vertex equality-chain pair. Concretely the target has $#target.graph.num_vertices$ vertices and $#target.graph.edges.len()$ edges: variable gadgets occupy vertices $0, dots, 11$, signal pairs occupy $12, dots, 23$, the two $K_4$ clause gadgets occupy $24, dots, 31$, and the equality-chain pairs occupy $32, dots, 43$.
 
         *Step 3 -- Propagate the literal values.* Because $x_1 = x_2 = 1$ and $x_3 = 0$, the three signal vertices for clause $C_1$ are in groups $(#config.at(12), #config.at(14), #config.at(16)) = (0, 0, 1)$, while the three signal vertices for clause $C_2$ are in groups $(#config.at(18), #config.at(20), #config.at(22)) = (1, 0, 0)$. The equality-chain pairs at $(32, 33), dots, (42, 43)$ carry the complementary groups needed to keep each copied signal synchronized with the appropriate $t_i$ or $f_i$.
 
-        *Step 4 -- Verify the clause gadgets and extraction.* The first $K_4$ gadget uses groups $(#config.at(24), #config.at(25), #config.at(26), #config.at(27)) = (1, 1, 0, 0)$, and the second uses $(#config.at(28), #config.at(29), #config.at(30), #config.at(31)) = (0, 1, 1, 0)$. Each gadget therefore splits $2 + 2$, so every clause gadget induces a perfect matching inside each group. Reading the truth assignment back from the variable vertices $(0, 4, 8)$ gives groups $(#config.at(0), #config.at(4), #config.at(8)) = (0, 0, 1)$, which extracts to $(#nae_ppm_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Verify the clause gadgets and extraction.* The first $K_4$ gadget uses groups $(#config.at(24), #config.at(25), #config.at(26), #config.at(27)) = (1, 1, 0, 0)$, and the second uses $(#config.at(28), #config.at(29), #config.at(30), #config.at(31)) = (0, 1, 1, 0)$. Each gadget therefore splits $2 + 2$, so every clause gadget induces a perfect matching inside each group. Reading the truth assignment back from the variable vertices $(0, 4, 8)$ gives groups $(#config.at(0), #config.at(4), #config.at(8)) = (0, 0, 1)$, which extracts to $(#fmt-values(nae_ppm_sol.source_config))$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness.
       ]
@@ -18767,19 +18718,19 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_sp.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_sp_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_sp_sol.source_config),
     )
 
     #{
       let sizes = x3c_sp.target.instance.sizes
       [
-        *Step 1 -- Source instance.* The fixture has $U = {0, dots, #(x3c_sp.source.instance.universe_size - 1)}$ and three 3-sets: $C_0 = {#x3c_sp.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_sp.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_sp.source.instance.subsets.at(2).map(str).join(", ")}$. The witness $(#x3c_sp_sol.source_config.map(str).join(", "))$ selects $C_0$ and $C_1$.
+        *Step 1 -- Source instance.* The fixture has $U = {0, dots, #(x3c_sp.source.instance.universe_size - 1)}$ and three 3-sets: $C_0 = {#x3c_sp.source.instance.subsets.at(0).map(str).join(", ")}$, $C_1 = {#x3c_sp.source.instance.subsets.at(1).map(str).join(", ")}$, and $C_2 = {#x3c_sp.source.instance.subsets.at(2).map(str).join(", ")}$. The witness $(#fmt-values(x3c_sp_sol.source_config))$ selects $C_0$ and $C_1$.
 
         *Step 2 -- Recover the prime assignment from the concrete products.* The target numbers are $s_0 = #sizes.at(0) = 2 dot 3 dot 5$, $s_1 = #sizes.at(1) = 7 dot 11 dot 13$, and $s_2 = #sizes.at(2) = 2 dot 7 dot 11$. Thus the six universe elements are concretely labeled by the primes $(2, 3, 5, 7, 11, 13)$.
 
         *Step 3 -- Form the Subset Product instance.* The target product is $B = #x3c_sp.target.instance.target = 2 dot 3 dot 5 dot 7 dot 11 dot 13$. Selecting the first two source subsets therefore means selecting target numbers $(#sizes.at(0), #sizes.at(1))$.
 
-        *Step 4 -- Verify the witness pair.* The selected sets $C_0$ and $C_1$ are disjoint and cover all six elements exactly once, and on the target side $#sizes.at(0) dot #sizes.at(1) = #x3c_sp.target.instance.target$ while $#sizes.at(2)$ is omitted. Because the configuration is unchanged, the target witness $(#x3c_sp_sol.target_config.map(str).join(", "))$ extracts back to the same exact cover #sym.checkmark.
+        *Step 4 -- Verify the witness pair.* The selected sets $C_0$ and $C_1$ are disjoint and cover all six elements exactly once, and on the target side $#sizes.at(0) dot #sizes.at(1) = #x3c_sp.target.instance.target$ while $#sizes.at(2)$ is omitted. Because the configuration is unchanged, the target witness $(#fmt-values(x3c_sp_sol.target_config))$ extracts back to the same exact cover #sym.checkmark.
       ]
     }
 
@@ -18808,19 +18759,19 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_bdst.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_bdst_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_bdst_sol.source_config),
     )
 
     #let q = x3c_bdst.source.instance.universe_size / 3
     #let m = x3c_bdst.source.instance.subsets.len()
     *Step 1 -- Source instance.* The X3C fixture has universe $U = {0, dots, #(x3c_bdst.source.instance.universe_size - 1)}$ with $q = #q$ and candidate triples
     #for (i, s) in x3c_bdst.source.instance.subsets.enumerate() [
-      $C_#i = {#s.map(str).join(", ")}$#if i < m - 1 [, ] else [.]
+      $C_#i = {#fmt-values(s)}$#if i < m - 1 [, ] else [.]
     ]
 
     *Step 2 -- Build the spanning-tree gadget.* Create a root $r$, two forced-path vertices $v_1, v_2$, one set vertex $s_i$ per triple, and one element vertex $e_j$ per universe element. The target therefore has $#x3c_bdst_nv = 3 + #m + #(x3c_bdst.source.instance.universe_size)$ vertices and $#x3c_bdst_ne$ weighted edges: the forced path $(r, v_1), (v_1, v_2)$ at weight $1$, the root-to-set edges $(r, s_i)$ at weight $2$, the set-to-element edges $(s_i, e_j)$ for $j in C_i$ at weight $1$, and the set clique $(s_i, s_(i'))$ at weight $1$. The bounds are $D = #x3c_bdst.target.instance.diameter_bound$ and $B = 4q + m + 2 = #x3c_bdst.target.instance.weight_bound$.
 
-    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#x3c_bdst_sol.source_config.map(str).join(", "))$ selects subsets ${#x3c_bdst_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => "C_" + str(i)).join(", ")}$. The corresponding tree keeps the forced path, every root-to-set edge for a selected $s_i$, every $(s_i, e_j)$ for $j in C_i$, and one clique edge to attach each remaining set vertex. With $q = #q$ selected sets it has total weight $2 + 2q + 3q + (m - q) = #(2 + 2 * q + 3 * q + m - q) = B$ and every vertex sits within distance $2$ of $r$, so the diameter is at most $4$ #sym.checkmark.
+    *Step 3 -- Verify the canonical witness.* The stored source configuration $(#fmt-values(x3c_bdst_sol.source_config))$ selects subsets ${#x3c_bdst_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => "C_" + str(i)).join(", ")}$. The corresponding tree keeps the forced path, every root-to-set edge for a selected $s_i$, every $(s_i, e_j)$ for $j in C_i$, and one clique edge to attach each remaining set vertex. With $q = #q$ selected sets it has total weight $2 + 2q + 3q + (m - q) = #(2 + 2 * q + 3 * q + m - q) = B$ and every vertex sits within distance $2$ of $r$, so the diameter is at most $4$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. Any feasible spanning tree of weight $B$ and diameter $D = 4$ corresponds to an exact cover via the same extractor, so additional witnesses, when they exist, just enumerate other exact covers.
   ],
@@ -18854,17 +18805,17 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ss_iem.source) + " -o subsetsum.json",
       "pred reduce subsetsum.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate subsetsum.json --config " + ss_iem_sol.source_config.map(str).join(","),
+      "pred evaluate subsetsum.json --config " + cli-config(ss_iem_sol.source_config),
     )
 
     #{
       let sizes = ss_iem.source.instance.sizes
       [
-        *Step 1 -- Source instance.* The Subset Sum fixture has sizes $(#sizes.join(", "))$ and target $B = #ss_iem.source.instance.target$. The canonical source configuration $(#ss_iem_sol.source_config.map(str).join(", "))$ selects the second and third items, so the source sum is $5 + 6 = #ss_iem.source.instance.target$.
+        *Step 1 -- Source instance.* The Subset Sum fixture has sizes $(#sizes.join(", "))$ and target $B = #ss_iem.source.instance.target$. The canonical source configuration $(#fmt-values(ss_iem_sol.source_config))$ selects the second and third items, so the source sum is $5 + 6 = #ss_iem.source.instance.target$.
 
         *Step 2 -- Build the choice sets inside the expression.* Each source item contributes one union node $(1 union (s_i + 1))$, so the concrete choices are $(1 union 2)$, $(1 union 6)$, $(1 union 7)$, and $(1 union 9)$. With $n = #ss_iem_sol.target_config.len()$ union nodes, the target is shifted to $K = B + n = #ss_iem.target.instance.target$.
 
-        *Step 3 -- Follow the canonical branch choices.* The target configuration $(#ss_iem_sol.target_config.map(str).join(", "))$ means left, right, right, left, so the chosen branch values are $1$, $6$, $7$, and $1$.
+        *Step 3 -- Follow the canonical branch choices.* The target configuration $(#fmt-values(ss_iem_sol.target_config))$ means left, right, right, left, so the chosen branch values are $1$, $6$, $7$, and $1$.
 
         *Step 4 -- Verify the equality.* The target-side sum is $1 + 6 + 7 + 1 = #ss_iem.target.instance.target$, exactly matching $K$. The right branches occur in the same two positions as the chosen source elements, so extracting the target witness returns the original Subset Sum solution #sym.checkmark.
       ]
@@ -18895,14 +18846,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(ksat_si.source) + " -o ksat.json",
       "pred reduce ksat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate ksat.json --config " + ksat_si_sol.source_config.map(str).join(","),
+      "pred evaluate ksat.json --config " + cli-config(ksat_si_sol.source_config),
     )
 
     #{
       let pairs = ksat_si.target.instance.pairs
-      let x = ksat_si_sol.target_config.at(0)
+      let x = ksat_si_sol.target_config
       [
-        *Step 1 -- Source instance.* The two clauses are $C_1 = (x_1 or x_2 or x_2)$ and $C_2 = (overline(x_1) or x_2 or x_2)$. The canonical satisfying assignment is $(#ksat_si_sol.source_config.map(str).join(", "))$.
+        *Step 1 -- Source instance.* The two clauses are $C_1 = (x_1 or x_2 or x_2)$ and $C_2 = (overline(x_1) or x_2 or x_2)$. The canonical satisfying assignment is $(#fmt-values(ksat_si_sol.source_config))$.
 
         *Step 2 -- Assign primes and variable residue constraints.* With two variables, the reduction uses primes $3$ and $5$. The variable-generated forbidden pairs are $(#pairs.at(0).at(0), #pairs.at(0).at(1))$, $(#pairs.at(1).at(0), #pairs.at(1).at(1))$, $(#pairs.at(2).at(0), #pairs.at(2).at(1))$, and $(#pairs.at(3).at(0), #pairs.at(3).at(1))$, leaving only residues $1$ and $2$ modulo $3$ and modulo $5$.
 
@@ -18934,9 +18885,9 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(n3dm_nmts.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + n3dm_nmts_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(n3dm_nmts_sol.source_config),
     )
-    Source N3DM witness $(#n3dm_nmts_sol.source_config.map(str).join(", "))$, target NMTS pairing $(#n3dm_nmts_sol.target_config.map(str).join(", "))$.
+    Source N3DM witness $(#fmt-values(n3dm_nmts_sol.source_config))$, target NMTS pairing $(#fmt-values(n3dm_nmts_sol.target_config))$.
   ],
 )[
   This linear-time reduction @garey1979 keeps the $X$ and $Y$ sets unchanged and replaces each $w_i in W$ by a target complement $B_i = B - s(w_i)$. For an instance with $m$ triples, the target has $m$ pairs.
@@ -18959,17 +18910,17 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_stw.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_stw_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_stw_sol.source_config),
     )
 
     #{
       let lengths = part_stw.target.instance.lengths
       let weights = part_stw.target.instance.weights
       let deadline = part_stw.target.instance.deadlines.at(0)
-      let on-time-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
-      let tardy-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
+      let on-time-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
+      let tardy-sum = part_stw_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_stw.source.instance.sizes.at(i)).sum()
       [
-        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_stw.source.instance.sizes.map(str).join(", "))$ with total $#part_stw.source.instance.sizes.sum()$, so the target deadline is $T = #deadline$. The canonical source vector $(#part_stw_sol.source_config.map(str).join(", "))$ splits the multiset into sums $#on-time-sum$ and $#tardy-sum$.
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#fmt-values(part_stw.source.instance.sizes))$ with total $#part_stw.source.instance.sizes.sum()$, so the target deadline is $T = #deadline$. The canonical source vector $(#fmt-values(part_stw_sol.source_config))$ splits the multiset into sums $#on-time-sum$ and $#tardy-sum$.
 
         *Step 2 -- Build the task table.* #table(
           columns: (auto, auto, auto, auto),
@@ -18984,9 +18935,9 @@ The following table shows concrete target-variable counts for example instances,
           [$t_5$], [#lengths.at(5)], [#weights.at(5)], [#deadline],
         )
 
-        *Step 3 -- Follow the canonical schedule.* The target permutation $(#part_stw_sol.target_config.map(str).join(", "))$ schedules tasks in the order $t_1, t_2, t_4, t_5, t_0, t_3$. The completion times are $1, 2, 4, 5, 8, 10$, so $t_1, t_2, t_4, t_5$ are on time and $t_0, t_3$ are tardy.
+        *Step 3 -- Follow the canonical schedule.* The target permutation $(#fmt-values(part_stw_sol.target_config))$ schedules tasks in the order $t_1, t_2, t_4, t_5, t_0, t_3$. The completion times are $1, 2, 4, 5, 8, 10$, so $t_1, t_2, t_4, t_5$ are on time and $t_0, t_3$ are tardy.
 
-        *Step 4 -- Compute tardy weight and recover the partition.* Because weights equal lengths here, the tardy weight is $w_0 + w_3 = 3 + 2 = #deadline$, and the on-time tasks have total size $#on-time-sum$ while the tardy tasks have total size #tardy-sum. Extracting the schedule therefore returns the balanced partition $(#part_stw_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Compute tardy weight and recover the partition.* Because weights equal lengths here, the tardy weight is $w_0 + w_3 = 3 + 2 = #deadline$, and the on-time tasks have total size $#on-time-sum$ while the tardy tasks have total size #tardy-sum. Extracting the schedule therefore returns the balanced partition $(#fmt-values(part_stw_sol.source_config))$ #sym.checkmark.
       ]
     }
 
@@ -19013,16 +18964,16 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_oss.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_oss_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_oss_sol.source_config),
     )
 
     #{
       let q = part_oss.source.instance.sizes.sum() / 2
       let p = part_oss.target.instance.processing_times
-      let left-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
-      let right-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
+      let left-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
+      let right-sum = part_oss_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_oss.source.instance.sizes.at(i)).sum()
       [
-        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_oss.source.instance.sizes.map(str).join(", "))$, total $#part_oss.source.instance.sizes.sum()$, and half-sum $Q = #q$. The canonical source vector $(#part_oss_sol.source_config.map(str).join(", "))$ gives subset sums $#left-sum$ and $#right-sum$.
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#fmt-values(part_oss.source.instance.sizes))$, total $#part_oss.source.instance.sizes.sum()$, and half-sum $Q = #q$. The canonical source vector $(#fmt-values(part_oss_sol.source_config))$ gives subset sums $#left-sum$ and $#right-sum$.
 
         *Step 2 -- Build the open-shop job table.* #table(
           columns: (auto, auto, auto, auto),
@@ -19035,9 +18986,9 @@ The following table shows concrete target-variable counts for example instances,
           [$J_3$], [#p.at(3).at(0)], [#p.at(3).at(1)], [#p.at(3).at(2)],
         ) The first three jobs come from the partition elements, and the special job $J_3$ has processing time $Q = #q$ on every machine.
 
-        *Step 3 -- Decode the canonical machine orders.* The target configuration $(#part_oss_sol.target_config.map(str).join(", "))$ splits into $M_1 = (0, 1, 2, 3)$, $M_2 = (0, 1, 2, 3)$, and $M_3 = (2, 3, 0, 1)$. On machine $M_3$, job $J_2$ occupies $[0, 3)$ and the special job $J_3$ starts exactly at time $Q = 3$, so the prefix before the special job contains precisely job $J_2$.
+        *Step 3 -- Decode the canonical machine orders.* The target configuration $(#fmt-values(part_oss_sol.target_config))$ splits into $M_1 = (0, 1, 2, 3)$, $M_2 = (0, 1, 2, 3)$, and $M_3 = (2, 3, 0, 1)$. On machine $M_3$, job $J_2$ occupies $[0, 3)$ and the special job $J_3$ starts exactly at time $Q = 3$, so the prefix before the special job contains precisely job $J_2$.
 
-        *Step 4 -- Verify extraction and makespan.* Because only $J_2$ finishes on $M_3$ by time $Q$, the extracted source vector is $(#part_oss_sol.source_config.map(str).join(", "))$, i.e.\ subset sum #right-sum versus #left-sum. Evaluating the stored machine orders gives a concrete makespan of $12$, so the `load-example()` fixture shows both the machine assignment and the middle-machine split used for extraction #sym.checkmark.
+        *Step 4 -- Verify extraction and makespan.* Because only $J_2$ finishes on $M_3$ by time $Q$, the extracted source vector is $(#fmt-values(part_oss_sol.source_config))$, i.e.\ subset sum #right-sum versus #left-sum. Evaluating the stored machine orders gives a concrete makespan of $12$, so the `load-example()` fixture shows both the machine assignment and the middle-machine split used for extraction #sym.checkmark.
       ]
     }
 
@@ -19064,7 +19015,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(nae_mc.source) + " -o naesat.json",
       "pred reduce naesat.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate naesat.json --config " + nae_mc_sol.source_config.map(str).join(","),
+      "pred evaluate naesat.json --config " + cli-config(nae_mc_sol.source_config),
     )
 
     #{
@@ -19078,7 +19029,7 @@ The following table shows concrete target-variable counts for example instances,
 
         *Step 2 -- Construct the weighted graph.* Variable gadgets contribute #n heavy edges of weight $M$. Because the canonical fixture has 3 literals per clause, each clause contributes one unit-weight triangle, so the target has #clause-edge-count unit-weight clause edges and $#graph-num-edges(nae_mc.target.instance)$ edges total on $#graph-num-vertices(nae_mc.target.instance)$ vertices.
 
-        *Step 3 -- Verify the canonical witness.* Source assignment $(#nae_mc_sol.source_config.map(str).join(", "))$ induces target cut $(#nae_mc_sol.target_config.map(str).join(", "))$. All #n heavy edges are cut, and each of the #m clause triangles has a 1-2 split contributing 2, so the total cut weight is $#cut-value$ #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* Source assignment $(#fmt-values(nae_mc_sol.source_config))$ induces target cut $(#fmt-values(nae_mc_sol.target_config))$. All #n heavy edges are cut, and each of the #m clause triangles has a 1-2 split contributing 2, so the total cut weight is $#cut-value$ #sym.checkmark.
       ]
     }
 
@@ -19110,9 +19061,9 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(tdm_tmi.source) + " -o source.json",
       "pred reduce source.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate source.json --config " + tdm_tmi_sol.source_config.map(str).join(","),
+      "pred evaluate source.json --config " + cli-config(tdm_tmi_sol.source_config),
     )
-    Source 3DM witness $(#tdm_tmi_sol.source_config.map(str).join(", "))$, target common-independent witness $(#tdm_tmi_sol.target_config.map(str).join(", "))$.
+    Source 3DM witness $(#fmt-values(tdm_tmi_sol.source_config))$, target common-independent witness $(#fmt-values(tdm_tmi_sol.target_config))$.
   ],
 )[
   This $O(t + q)$ direct embedding @garey1979[SP11] takes the triple set itself as the common ground set and builds three partition matroids, one per coordinate family. The target has $t = |T|$ ground-set elements, $3 q$ groups in total, and bound $K = q$.
@@ -19138,7 +19089,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(tdm_tp.source) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate three-dimensional-matching.json --config " + tdm_tp_sol.source_config.map(str).join(","),
+      "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_tp_sol.source_config),
     )
 
     #{
@@ -19156,13 +19107,13 @@ The following table shows concrete target-variable counts for example instances,
       let target = tdm_tp.target.instance
 
       [
-        *Step 1 -- Source instance.* The canonical source has $q = #q$ and a single triple $M = {(0, 0, 0)}$, so the witness $(#tdm_tp_sol.source_config.map(str).join(", "))$ selects the only available triple and is therefore a perfect 3-dimensional matching #sym.checkmark.
+        *Step 1 -- Source instance.* The canonical source has $q = #q$ and a single triple $M = {(0, 0, 0)}$, so the witness $(#fmt-values(tdm_tp_sol.source_config))$ selects the only available triple and is therefore a perfect 3-dimensional matching #sym.checkmark.
 
         *Step 2 -- Encode the ABCD and tagged 4-partition numbers.* Here $r = 32 q = #r$ and $T_1 = 40 r^4 = #T1$. Because every coordinate is 0 and occurs once, the ABCD numbers are all $10 r^4 = #(10 * r4)$. After the mod-16 tags, the 4-partition numbers become $(#a0, #b0, #c0, #d0)$ and sum to $T_2 = 16 T_1 + 15 = #T2$.
 
-        *Step 3 -- Build the 3-partition gadget.* From the 4 tagged numbers the construction creates #target.sizes.len() target numbers: 4 regular numbers, 12 pairing numbers, and 5 fillers. The target bound is $B = 64 T_2 + 4 = #B$, matching the exported instance's bound $#target.bound$. The canonical target witness is $(#tdm_tp_sol.target_config.map(str).join(", "))$: groups 0 and 1 are the non-filler triples, and the remaining 5 groups each contain one filler together with one unused pairing pair.
+        *Step 3 -- Build the 3-partition gadget.* From the 4 tagged numbers the construction creates #target.sizes.len() target numbers: 4 regular numbers, 12 pairing numbers, and 5 fillers. The target bound is $B = 64 T_2 + 4 = #B$, matching the exported instance's bound $#target.bound$. The canonical target witness is $(#fmt-values(tdm_tp_sol.target_config))$: groups 0 and 1 are the non-filler triples, and the remaining 5 groups each contain one filler together with one unused pairing pair.
 
-        *Step 4 -- Verify the witness.* The target configuration partitions all #target.sizes.len() numbers into $#(target.sizes.len() / 3)$ triples summing to $B = #B$ #sym.checkmark. Reversing the gadget recovers the unique tagged 4-set, whose $B$, $C$, and $D$ members are all first occurrences, so the extracted source witness is again $(#tdm_tp_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Verify the witness.* The target configuration partitions all #target.sizes.len() numbers into $#(target.sizes.len() / 3)$ triples summing to $B = #B$ #sym.checkmark. Reversing the gadget recovers the unique tagged 4-set, whose $B$, $C$, and $D$ members are all first occurrences, so the extracted source witness is again $(#fmt-values(tdm_tp_sol.source_config))$ #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness. In this $q = 1$ instance there is only one source matching, but the target still admits multiple equivalent 3-partition witnesses because any choice of one pairing gadget to split the unique 4-set yields a valid solution.
       ]
@@ -19202,13 +19153,13 @@ The following table shows concrete target-variable counts for example instances,
 #let tdm_ilp_sol = tdm_ilp.solutions.at(0)
 #reduction-rule("ThreeDimensionalMatching", "ILP",
   example: true,
-  example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.num_vars variables and #tdm_ilp.target.instance.constraints.len() constraints],
+  example-caption: [$q = #tdm_ilp.source.instance.universe_size$, $t = #tdm_ilp.source.instance.triples.len()$ triples $arrow.r$ ILP with #tdm_ilp.target.instance.variables.len() variables and #tdm_ilp.target.instance.constraints.len() constraints],
   extra: [
     #pred-commands(
       "pred create --example " + problem-spec(tdm_ilp.source) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate three-dimensional-matching.json --config " + tdm_ilp_sol.source_config.map(str).join(","),
+      "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_ilp_sol.source_config),
     )
 
     #{
@@ -19216,11 +19167,11 @@ The following table shows concrete target-variable counts for example instances,
       let t = tdm_ilp.source.instance.triples.len()
       let triples = tdm_ilp.source.instance.triples
       [
-        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $t = #t$ triples: #triples.map(tr => "(" + tr.map(str).join(", ") + ")").join(", "). The stored witness $(#tdm_ilp_sol.source_config.map(str).join(", "))$ selects triples #tdm_ilp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", "), which cover every element of $W$, $X$, and $Y$ exactly once #sym.checkmark.
+        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $t = #t$ triples: #triples.map(tr => "(" + fmt-values(tr) + ")").join(", "). The stored witness $(#fmt-values(tdm_ilp_sol.source_config))$ selects triples #tdm_ilp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", "), which cover every element of $W$, $X$, and $Y$ exactly once #sym.checkmark.
 
-        *Step 2 -- Build the ILP.* One binary variable $x_j$ per triple ($j = 0, dots, #(t - 1)$). For each of the $3q = #(3 * q)$ elements across the three sets $W$, $X$, $Y$, add an equality constraint requiring that the sum of $x_j$ over all triples containing that element equals 1. This yields #tdm_ilp.target.instance.constraints.len() constraints and #tdm_ilp.target.instance.num_vars variables.
+        *Step 2 -- Build the ILP.* One binary variable $x_j$ per triple ($j = 0, dots, #(t - 1)$). For each of the $3q = #(3 * q)$ elements across the three sets $W$, $X$, $Y$, add an equality constraint requiring that the sum of $x_j$ over all triples containing that element equals 1. This yields #tdm_ilp.target.instance.constraints.len() constraints and #tdm_ilp.target.instance.variables.len() variables.
 
-        *Step 3 -- Verify a solution.* The target configuration $(#tdm_ilp_sol.target_config.map(str).join(", "))$ is identical to the source configuration because the mapping is one variable per triple with identity extraction. Each element-coverage constraint sums to exactly 1 #sym.checkmark.
+        *Step 3 -- Verify a solution.* The target configuration $(#fmt-values(tdm_ilp_sol.target_config))$ is identical to the source configuration because the mapping is one variable per triple with identity extraction. Each element-coverage constraint sums to exactly 1 #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness.
       ]
@@ -19253,7 +19204,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(tdm_mwd.source) + " -o three-dimensional-matching.json",
       "pred reduce three-dimensional-matching.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate three-dimensional-matching.json --config " + tdm_mwd_sol.source_config.map(str).join(","),
+      "pred evaluate three-dimensional-matching.json --config " + cli-config(tdm_mwd_sol.source_config),
     )
 
     #{
@@ -19262,11 +19213,11 @@ The following table shows concrete target-variable counts for example instances,
       let triples = tdm_mwd.source.instance.triples
       let target = tdm_mwd.target.instance
       [
-        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $m = #m$ triples: #triples.map(tr => "(" + tr.map(str).join(", ") + ")").join(", "). The stored witness $(#tdm_mwd_sol.source_config.map(str).join(", "))$ selects triples #tdm_mwd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", "), covering every element of $W$, $X$, $Y$ exactly once #sym.checkmark.
+        *Step 1 -- Source instance.* The canonical source has universe size $q = #q$ and $m = #m$ triples: #triples.map(tr => "(" + fmt-values(tr) + ")").join(", "). The stored witness $(#fmt-values(tdm_mwd_sol.source_config))$ selects triples #tdm_mwd_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", "), covering every element of $W$, $X$, $Y$ exactly once #sym.checkmark.
 
         *Step 2 -- Build the parity-check matrix.* Allocate a #target.matrix.len() $times$ #target.matrix.at(0).len() binary matrix $H$ with row blocks $W$ (rows $0, dots, #(q - 1)$), $X$ (rows $#q, dots, #(2 * q - 1)$), and $Y$ (rows $#(2 * q), dots, #(3 * q - 1)$). For each triple $t_j = (a_j, b_j, c_j)$, set $H[a_j, j] = H[q + b_j, j] = H[2q + c_j, j] = 1$. Every column has exactly three 1s. Set the syndrome to the all-ones vector $bold(s) = 1^(3q)$ of length #target.target.len().
 
-        *Step 3 -- Verify a solution.* The target codeword $(#tdm_mwd_sol.target_config.map(str).join(", "))$ has Hamming weight #tdm_mwd_sol.target_config.filter(x => x == 1).len() $= q$. Multiplying $H$ by this vector over $bold(F)_2$ recovers the all-ones syndrome, so each element of $W union X union Y$ is covered an odd number of times -- exactly once #sym.checkmark.
+        *Step 3 -- Verify a solution.* The target codeword $(#fmt-values(tdm_mwd_sol.target_config))$ has Hamming weight #tdm_mwd_sol.target_config.filter(x => x).len() $= q$. Multiplying $H$ by this vector over $bold(F)_2$ recovers the all-ones syndrome, so each element of $W union X union Y$ is covered an odd number of times -- exactly once #sym.checkmark.
 
         *Multiplicity:* The fixture stores one canonical witness; the instance admits a second perfect matching $\{t_2, t_3\}$ with codeword $(0, 0, 1, 1)$ of the same weight.
       ]
@@ -19300,18 +19251,18 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(tp_rcs.source) + " -o threepartition.json",
       "pred reduce threepartition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate threepartition.json --config " + tp_rcs_sol.source_config.map(str).join(","),
+      "pred evaluate threepartition.json --config " + cli-config(tp_rcs_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical Three-Partition instance has $3m = #tp_rcs.source.instance.sizes.len()$ elements with sizes $(#tp_rcs.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_rcs.source.instance.bound$, so $m = #(tp_rcs.source.instance.sizes.len() / 3)$ groups are required.
+    *Step 1 -- Source instance.* The canonical Three-Partition instance has $3m = #tp_rcs.source.instance.sizes.len()$ elements with sizes $(#fmt-values(tp_rcs.source.instance.sizes))$ and bound $B = #tp_rcs.source.instance.bound$, so $m = #(tp_rcs.source.instance.sizes.len() / 3)$ groups are required.
 
     *Step 2 -- Build the Resource-Constrained Scheduling instance.* Each element $a_i$ becomes a unit-length task with resource requirement $r_i = a_i$. The reduction sets $p = #tp_rcs.target.instance.num_processors$ processors, a single resource with bound $#tp_rcs.target.instance.resource_bounds.at(0)$, and deadline $D = #tp_rcs.target.instance.deadline$. The target has #tp_rcs.target.instance.resource_requirements.len() tasks with resource requirements $(#tp_rcs.target.instance.resource_requirements.map(r => str(r.at(0))).join(", "))$.
 
-    *Step 3 -- Verify the canonical witness.* The source config $(#tp_rcs_sol.source_config.map(str).join(", "))$ assigns elements to groups:
+    *Step 3 -- Verify the canonical witness.* The source config $(#fmt-values(tp_rcs_sol.source_config))$ assigns elements to groups:
     #for g in range(tp_rcs.target.instance.deadline) [
       - Slot #g: elements ${#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(i)).join(", ")}$ with sizes $#tp_rcs_sol.source_config.enumerate().filter(((i, x)) => x == g).map(((i, x)) => str(tp_rcs.source.instance.sizes.at(i))).join(" + ") = #tp_rcs.source.instance.bound = B$ #sym.checkmark
     ]
-    Each slot has exactly 3 tasks and each slot's resource usage sums to $B$. The target config is $(#tp_rcs_sol.target_config.map(str).join(", "))$, matching the source config since task $t_i$ is assigned to the same slot as element $a_i$.
+    Each slot has exactly 3 tasks and each slot's resource usage sums to $B$. The target config is $(#fmt-values(tp_rcs_sol.target_config))$, matching the source config since task $t_i$ is assigned to the same slot as element $a_i$.
 
     *Multiplicity:* The fixture stores one canonical witness. Other valid 3-partitions (if any) would yield equally valid schedules.
   ],
@@ -19335,16 +19286,16 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(tp_srd.source) + " -o tp.json",
       "pred reduce tp.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate tp.json --config " + tp_srd_sol.source_config.map(str).join(","),
+      "pred evaluate tp.json --config " + cli-config(tp_srd_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_srd.source.instance.sizes.len()$ elements with sizes $(#tp_srd.source.instance.sizes.map(str).join(", "))$ and bound $B = #tp_srd.source.instance.bound$. Since $m = #(tp_srd.source.instance.sizes.len() / 3)$, we must partition the elements into $#(tp_srd.source.instance.sizes.len() / 3)$ groups, each summing to $B$.
+    *Step 1 -- Source instance.* The canonical 3-Partition instance has $3m = #tp_srd.source.instance.sizes.len()$ elements with sizes $(#fmt-values(tp_srd.source.instance.sizes))$ and bound $B = #tp_srd.source.instance.bound$. Since $m = #(tp_srd.source.instance.sizes.len() / 3)$, we must partition the elements into $#(tp_srd.source.instance.sizes.len() / 3)$ groups, each summing to $B$.
 
     *Step 2 -- Construct element tasks.* Each element $a_i$ becomes a task with processing time $p_i = a_i$, release time $r_i = 0$, and deadline $d_i = H$ where $H = m(B+1) - 1 = #(tp_srd.source.instance.sizes.len() / 3) dot (#tp_srd.source.instance.bound + 1) - 1 = #(tp_srd.source.instance.sizes.len() / 3 * (tp_srd.source.instance.bound + 1) - 1)$. This gives #tp_srd.source.instance.sizes.len() element tasks with lengths $(#tp_srd.target.instance.lengths.slice(0, tp_srd.source.instance.sizes.len()).map(str).join(", "))$.
 
     *Step 3 -- Construct filler tasks.* Add $m - 1 = #(tp_srd.source.instance.sizes.len() / 3 - 1)$ filler task(s). Filler $j$ has length $1$, release time $r_j = (j+1)B + j = #tp_srd.target.instance.release_times.at(tp_srd.source.instance.sizes.len())$, and deadline $d_j = r_j + 1 = #tp_srd.target.instance.deadlines.at(tp_srd.source.instance.sizes.len())$. This tight window pins each filler to a single time unit, splitting the timeline into $m$ slots of width $B = #tp_srd.source.instance.bound$.
 
-    *Step 4 -- Verify a solution.* The source witness assigns elements to groups: $[#tp_srd_sol.source_config.map(str).join(", ")]$. Group 0 contains elements with sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. Group 1 contains sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. The target Lehmer code is $[#tp_srd_sol.target_config.map(str).join(", ")]$: element tasks fill slot $[0, B)$, the filler occupies its tight window $[B, B+1)$, and remaining elements fill slot $[B+1, 2B+1)$.
+    *Step 4 -- Verify a solution.* The source witness assigns elements to groups: $[#fmt-values(tp_srd_sol.source_config)]$. Group 0 contains elements with sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. Group 1 contains sizes $(#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(s.at(i))).join(", ")})$, summing to $#{ let s = tp_srd.source.instance.sizes; tp_srd_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => s.at(i)).sum() } = B$ #sym.checkmark. The target task order is $[#fmt-values(tp_srd_sol.target_config)]$: element tasks fill slot $[0, B)$, the filler occupies its tight window $[B, B+1)$, and remaining elements fill slot $[B+1, 2B+1)$.
 
     *Multiplicity:* The fixture stores one canonical witness. A second valid partition (swapping groups) exists, but both map to distinct Lehmer codes.
   ],
@@ -19374,16 +19325,16 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(mc_mcbs.source) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate maxcut.json --config " + mc_mcbs_sol.source_config.map(str).join(","),
+      "pred evaluate maxcut.json --config " + cli-config(mc_mcbs_sol.source_config),
     )
 
-    *Step 1 -- Source instance.* The source MaxCut instance is a triangle $G = (V, E)$ with $n = #mc_mcbs.source.instance.graph.num_vertices$ vertices, $|E| = #mc_mcbs.source.instance.graph.edges.len()$ edges, and unit weights $w = (#mc_mcbs.source.instance.edge_weights.map(str).join(", "))$. A maximum cut partitions vertices into two sides to maximize crossing-edge weight; here the optimum is $2$ (any single vertex versus the other two).
+    *Step 1 -- Source instance.* The source MaxCut instance is a triangle $G = (V, E)$ with $n = #mc_mcbs.source.instance.graph.num_vertices$ vertices, $|E| = #mc_mcbs.source.instance.graph.edges.len()$ edges, and unit weights $w = (#fmt-values(mc_mcbs.source.instance.edge_weights))$. A maximum cut partitions vertices into two sides to maximize crossing-edge weight; here the optimum is $2$ (any single vertex versus the other two).
 
     *Step 2 -- Pad to even vertex count.* Since $n = 3$ is odd, set $n' = n + 1 = 4$. The target complete graph has $N = 2 n' = #mc_mcbs.target.instance.graph.num_vertices$ vertices, giving $#mc_mcbs.target.instance.graph.num_vertices dot (#mc_mcbs.target.instance.graph.num_vertices - 1) slash 2 = #mc_mcbs.target.instance.graph.edges.len()$ edges.
 
-    *Step 3 -- Invert weights on $K_#mc_mcbs.target.instance.graph.num_vertices$.* Compute $w_"max" = 1 + max w(e) = 2$. For each original edge $(i, j) in E$, the inverted weight is $tilde(w)(i,j) = w_"max" - w(i,j) = 2 - 1 = 1$. All other edges (including those to padding vertices) receive weight $w_"max" = 2$. Designate source $s = #mc_mcbs.target.instance.source$, sink $t = #mc_mcbs.target.instance.sink$, size bound $b = #mc_mcbs.target.instance.size_bound$. The target edge weights are $(#mc_mcbs.target.instance.edge_weights.map(str).join(", "))$.
+    *Step 3 -- Invert weights on $K_#mc_mcbs.target.instance.graph.num_vertices$.* Compute $w_"max" = 1 + max w(e) = 2$. For each original edge $(i, j) in E$, the inverted weight is $tilde(w)(i,j) = w_"max" - w(i,j) = 2 - 1 = 1$. All other edges (including those to padding vertices) receive weight $w_"max" = 2$. Designate source $s = #mc_mcbs.target.instance.source$, sink $t = #mc_mcbs.target.instance.sink$, size bound $b = #mc_mcbs.target.instance.size_bound$. The target edge weights are $(#fmt-values(mc_mcbs.target.instance.edge_weights))$.
 
-    *Step 4 -- Verify a solution.* The canonical source witness is $(#mc_mcbs_sol.source_config.map(str).join(", "))$: vertices $0, 1$ on side $0$ and vertex $2$ on side $1$, cutting $2$ of $3$ edges (max cut value $= 2$). The target witness is $(#mc_mcbs_sol.target_config.map(str).join(", "))$. Check: (1) the first $n = #mc_mcbs.source.instance.graph.num_vertices$ entries match the source partition #sym.checkmark; (2) source vertex $s = #mc_mcbs.target.instance.source$ and sink vertex $t = #mc_mcbs.target.instance.sink$ are on opposite sides #sym.checkmark; (3) each side has exactly $b = #mc_mcbs.target.instance.size_bound$ vertices (balanced bisection) #sym.checkmark.
+    *Step 4 -- Verify a solution.* The canonical source witness is $(#fmt-values(mc_mcbs_sol.source_config))$: vertices $0, 1$ on side $0$ and vertex $2$ on side $1$, cutting $2$ of $3$ edges (max cut value $= 2$). The target witness is $(#fmt-values(mc_mcbs_sol.target_config))$. Check: (1) the first $n = #mc_mcbs.source.instance.graph.num_vertices$ entries match the source partition #sym.checkmark; (2) source vertex $s = #mc_mcbs.target.instance.source$ and sink vertex $t = #mc_mcbs.target.instance.sink$ are on opposite sides #sym.checkmark; (3) each side has exactly $b = #mc_mcbs.target.instance.size_bound$ vertices (balanced bisection) #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The triangle has $3$ maximum cuts of value $2$ (isolate any one vertex); padding vertices can be assigned to balance both sides, yielding multiple valid target configurations.
   ],
@@ -19402,8 +19353,8 @@ The following table shows concrete target-variable counts for example instances,
 #let mc_mmc_sol = mc_mmc.solutions.at(0)
 #let mc_mmc_n = mc_mmc.source.instance.graph.num_vertices
 #let mc_mmc_W = mc_mmc.source.instance.edge_weights.fold(0, (a, b) => a + b)
-#let mc_mmc_S = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")
-#let mc_mmc_Sbar = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")
+#let mc_mmc_S = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => str(i)).join(", ")
+#let mc_mmc_Sbar = mc_mmc_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => str(i)).join(", ")
 #let mc_mmc_cut = mc_mmc.source.instance.graph.edges.filter(e => mc_mmc_sol.source_config.at(e.at(0)) != mc_mmc_sol.source_config.at(e.at(1))).len()
 #reduction-rule("MaxCut", "MinimumMatrixCover",
   example: true,
@@ -19413,7 +19364,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(mc_mmc.source) + " -o maxcut.json",
       "pred reduce maxcut.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate maxcut.json --config " + mc_mmc_sol.source_config.map(str).join(","),
+      "pred evaluate maxcut.json --config " + cli-config(mc_mmc_sol.source_config),
     )
 
     *Step 1 -- Source instance.* The source MaxCut instance is the 4-cycle $C_#mc_mmc_n$ with $n = #mc_mmc_n$ vertices, edges $E = {(0,1), (1,2), (2,3), (0,3)}$, and unit weights, so the total weight is $W = #mc_mmc_W$.
@@ -19424,7 +19375,7 @@ The following table shows concrete target-variable counts for example instances,
     $
     which is a valid MinimumMatrixCover instance (nonnegative integer entries).
 
-    *Step 3 -- Verify the witness.* The canonical witness is the sign assignment $f = (+1, -1, +1, -1)$, encoded as the binary config $(#mc_mmc_sol.source_config.map(str).join(", "))$. The partition is $S = {#mc_mmc_S}$ versus $overline(S) = {#mc_mmc_Sbar}$, cutting all #mc_mmc_cut edges. The quadratic form evaluates to $sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 dot #mc_mmc_cut = #(2 * mc_mmc_W) - #(4 * mc_mmc_cut) = #(2 * mc_mmc_W - 4 * mc_mmc_cut)$, which matches the MinimumMatrixCover optimum and is consistent with #raw("MaxCut") $= (2 W - "min" Q F) / 4 = #mc_mmc_cut$ #sym.checkmark.
+    *Step 3 -- Verify the witness.* The canonical witness is the sign assignment $f = (+1, -1, +1, -1)$, encoded as the binary config $(#fmt-values(mc_mmc_sol.source_config))$. The partition is $S = {#mc_mmc_S}$ versus $overline(S) = {#mc_mmc_Sbar}$, cutting all #mc_mmc_cut edges. The quadratic form evaluates to $sum_(i, j) a_(i j) f(i) f(j) = 2 W - 4 dot #mc_mmc_cut = #(2 * mc_mmc_W) - #(4 * mc_mmc_cut) = #(2 * mc_mmc_W - 4 * mc_mmc_cut)$, which matches the MinimumMatrixCover optimum and is consistent with #raw("MaxCut") $= (2 W - "min" Q F) / 4 = #mc_mmc_cut$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness. The form is invariant under $f arrow.r -f$, so the complementary assignment $(-1, +1, -1, +1)$ (config $(0, 1, 0, 1)$) is equally optimal.
   ],
@@ -19451,14 +19402,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hp_ist.source) + " -o hampath.json",
       "pred reduce hampath.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hampath.json --config " + hp_ist_sol.source_config.map(str).join(","),
+      "pred evaluate hampath.json --config " + cli-config(hp_ist_sol.source_config),
     )
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(hp_ist.source.instance)$ vertices and $|E| = #graph-num-edges(hp_ist.source.instance)$ edges.
 
     *Step 2 -- Identity reduction.* Target host graph is identical. Target tree $T = P_#graph-num-vertices(hp_ist.target.instance)$ with #hp_ist.target.instance.tree.edges.len() edges.
 
-    *Step 3 -- Verify a solution.* Hamiltonian path visits vertices in order $(#hp_ist_sol.source_config.map(str).join(", "))$. The isomorphism maps $P_n$ to this path in $G$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* Hamiltonian path visits vertices in order $(#fmt-values(hp_ist_sol.source_config))$. The isomorphism maps $P_n$ to this path in $G$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -19483,7 +19434,7 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(x3c_gf2.source) + " -o x3c.json",
       "pred reduce x3c.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate x3c.json --config " + x3c_gf2_sol.source_config.map(str).join(","),
+      "pred evaluate x3c.json --config " + cli-config(x3c_gf2_sol.source_config),
     )
 
     #{
@@ -19497,9 +19448,9 @@ The following table shows concrete target-variable counts for example instances,
         for elements 3 and 4, $x_1 + x_2 + 1 = 0$ and $x_1 x_2 = 0$;
         for element 5, $x_1 + 1 = 0$.
 
-        *Step 3 -- Evaluate the canonical target witness.* The target assignment is $x = (#x.map(str).join(", ")) = (1, 1, 0)$. Substituting gives $1 + 0 + 1 = 0$ mod 2, $1 dot 0 = 0$, and $1 + 1 = 0$ mod 2, which are exactly the three polynomial patterns appearing in the fixture.
+        *Step 3 -- Evaluate the canonical target witness.* The target assignment is $x = (#fmt-values(x)) = (1, 1, 0)$. Substituting gives $1 + 0 + 1 = 0$ mod 2, $1 dot 0 = 0$, and $1 + 1 = 0$ mod 2, which are exactly the three polynomial patterns appearing in the fixture.
 
-        *Step 4 -- Verify the witness pair.* The two 1-entries in $x$ select $C_0$ and $C_1$, while $x_2 = 0$ omits $C_2$. Thus the target witness encodes the same exact cover as the source configuration $(#x3c_gf2_sol.source_config.map(str).join(", "))$ #sym.checkmark.
+        *Step 4 -- Verify the witness pair.* The two 1-entries in $x$ select $C_0$ and $C_1$, while $x_2 = 0$ omits $C_2$. Thus the target witness encodes the same exact cover as the source configuration $(#fmt-values(x3c_gf2_sol.source_config))$ #sym.checkmark.
       ]
     }
 
@@ -19526,15 +19477,15 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(part_pp.source) + " -o partition.json",
       "pred reduce partition.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate partition.json --config " + part_pp_sol.source_config.map(str).join(","),
+      "pred evaluate partition.json --config " + cli-config(part_pp_sol.source_config),
     )
 
     #{
-      let left-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
-      let right-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
+      let left-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
+      let right-sum = part_pp_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => part_pp.source.instance.sizes.at(i)).sum()
       let prod = part_pp_sol.target_config
       [
-        *Step 1 -- Source instance.* The Partition fixture has sizes $(#part_pp.source.instance.sizes.map(str).join(", "))$ with total $#part_pp.source.instance.sizes.sum()$, so $Q = #(part_pp.source.instance.sizes.sum() / 2)$. The canonical source vector $(#part_pp_sol.source_config.map(str).join(", "))$ splits the instance into sums $#left-sum$ and $#right-sum$.
+        *Step 1 -- Source instance.* The Partition fixture has sizes $(#fmt-values(part_pp.source.instance.sizes))$ with total $#part_pp.source.instance.sizes.sum()$, so $Q = #(part_pp.source.instance.sizes.sum() / 2)$. The canonical source vector $(#fmt-values(part_pp_sol.source_config))$ splits the instance into sums $#left-sum$ and $#right-sum$.
 
         *Step 2 -- Build the period table.* #table(
           columns: (auto, auto, auto, auto, auto),
@@ -19549,9 +19500,9 @@ The following table shows concrete target-variable counts for example instances,
           [$P_5$], [#part_pp.target.instance.capacities.at(5)], [#part_pp.target.instance.setup_costs.at(5)], [#part_pp.target.instance.demands.at(5)], [#prod.at(5)],
         ) The first five periods encode the partition elements, and the last period carries the demand of $10$ units.
 
-        *Step 3 -- Track cumulative production and inventory.* The stored plan $(#prod.map(str).join(", "))$ gives cumulative production $0, 0, 0, 4, 10, 10$ against cumulative demand $0, 0, 0, 0, 0, 10$. Hence the inventory levels are $0, 0, 0, 4, 10, 0$, so every prefix remains feasible.
+        *Step 3 -- Track cumulative production and inventory.* The stored plan $(#fmt-values(prod))$ gives cumulative production $0, 0, 0, 4, 10, 10$ against cumulative demand $0, 0, 0, 0, 0, 10$. Hence the inventory levels are $0, 0, 0, 4, 10, 0$, so every prefix remains feasible.
 
-        *Step 4 -- Check the cost and recover the partition.* Only periods $P_3$ and $P_4$ are active, so the total cost is just the setup cost $4 + 6 = #part_pp.target.instance.cost_bound$; production and inventory costs are all zero in the fixture. The active periods therefore recover the source vector $(#part_pp_sol.source_config.map(str).join(", "))$, selecting the subset of size #right-sum #sym.checkmark.
+        *Step 4 -- Check the cost and recover the partition.* Only periods $P_3$ and $P_4$ are active, so the total cost is just the setup cost $4 + 6 = #part_pp.target.instance.cost_bound$; production and inventory costs are all zero in the fixture. The active periods therefore recover the source vector $(#fmt-values(part_pp_sol.source_config))$, selecting the subset of size #right-sum #sym.checkmark.
       ]
     }
 
@@ -19578,14 +19529,14 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(hpbtv_lp.source) + " -o hampath2v.json",
       "pred reduce hampath2v.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate hampath2v.json --config " + hpbtv_lp_sol.source_config.map(str).join(","),
+      "pred evaluate hampath2v.json --config " + cli-config(hpbtv_lp_sol.source_config),
     )
 
     *Step 1 -- Source instance.* Graph $G$ with $n = #graph-num-vertices(hpbtv_lp.source.instance)$ vertices, $|E| = #graph-num-edges(hpbtv_lp.source.instance)$ edges, $s = #hpbtv_lp.source.instance.source_vertex$, $t = #hpbtv_lp.source.instance.target_vertex$.
 
     *Step 2 -- Identity reduction.* Target graph is identical with unit edge lengths. $K = n - 1 = #(graph-num-vertices(hpbtv_lp.source.instance) - 1)$, same $s$ and $t$.
 
-    *Step 3 -- Verify a solution.* Source Hamiltonian path visits vertices $(#hpbtv_lp_sol.source_config.map(str).join(", "))$ from $s = #hpbtv_lp.source.instance.source_vertex$ to $t = #hpbtv_lp.source.instance.target_vertex$. Target selects #hpbtv_lp_sol.target_config.filter(x => x == 1).len() edges, total length $= n - 1 = K$ #sym.checkmark.
+    *Step 3 -- Verify a solution.* Source Hamiltonian path visits vertices $(#fmt-values(hpbtv_lp_sol.source_config))$ from $s = #hpbtv_lp.source.instance.source_vertex$ to $t = #hpbtv_lp.source.instance.target_vertex$. Target selects #hpbtv_lp_sol.target_config.filter(x => x).len() edges, total length $= n - 1 = K$ #sym.checkmark.
 
     *Multiplicity:* The fixture stores one canonical witness.
   ],
@@ -19610,15 +19561,15 @@ The following table shows concrete target-variable counts for example instances,
       "pred create --example " + problem-spec(gp_mc.source) + " -o graphpart.json",
       "pred reduce graphpart.json --via route.json -o bundle.json",
       "pred solve bundle.json",
-      "pred evaluate graphpart.json --config " + gp_mc_sol.source_config.map(str).join(","),
+      "pred evaluate graphpart.json --config " + cli-config(gp_mc_sol.source_config),
     )
 
     #{
       let n = graph-num-vertices(gp_mc.source.instance)
       let m = graph-num-edges(gp_mc.source.instance)
       let penalty = m + 1
-      let side-a = gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => i)
-      let side-b = gp_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => i)
+      let side-a = gp_mc_sol.source_config.enumerate().filter(((i, x)) => not x).map(((i, x)) => i)
+      let side-b = gp_mc_sol.source_config.enumerate().filter(((i, x)) => x).map(((i, x)) => i)
       let source-cut = gp_mc.source.instance.graph.edges.filter(e => gp_mc_sol.source_config.at(e.at(0)) != gp_mc_sol.source_config.at(e.at(1))).len()
       let target-weight = gp_mc.target.instance.graph.edges.enumerate().filter(((i, e)) => gp_mc_sol.target_config.at(e.at(0)) != gp_mc_sol.target_config.at(e.at(1))).map(((i, e)) => gp_mc.target.instance.edge_weights.at(i)).sum()
       let unbalanced-pairs = (n / 2 - 1) * (n / 2 + 1)
@@ -19628,7 +19579,7 @@ The following table shows concrete target-variable counts for example instances,
 
         *Step 2 -- Build the weighted complete graph.* The target has $#graph-num-vertices(gp_mc.target.instance)$ vertices and $#graph-num-edges(gp_mc.target.instance)$ edges. Original edges receive weight $P - 1 = #(penalty - 1)$, while non-edges receive weight $P = #penalty$.
 
-        *Step 3 -- Verify the canonical witness.* The balanced partition $(#gp_mc_sol.source_config.map(str).join(", "))$ gives sides $A = {#side-a.map(str).join(", ")}$ and $B = {#side-b.map(str).join(", ")}$ with $#(side-a.len() * side-b.len())$ crossing pairs. It cuts #source-cut source edges, so the identical Max-Cut partition has weight $#target-weight = #penalty dot #(side-a.len() * side-b.len()) - #source-cut$. Any unbalanced $2$-$4$ split has at most #unbalanced-pairs crossing pairs and therefore weight at most $#unbalanced-upper < #target-weight$, so the optimum is forced to be balanced #sym.checkmark.
+        *Step 3 -- Verify the canonical witness.* The balanced partition $(#fmt-values(gp_mc_sol.source_config))$ gives sides $A = {#fmt-values(side-a)}$ and $B = {#fmt-values(side-b)}$ with $#(side-a.len() * side-b.len())$ crossing pairs. It cuts #source-cut source edges, so the identical Max-Cut partition has weight $#target-weight = #penalty dot #(side-a.len() * side-b.len()) - #source-cut$. Any unbalanced $2$-$4$ split has at most #unbalanced-pairs crossing pairs and therefore weight at most $#unbalanced-upper < #target-weight$, so the optimum is forced to be balanced #sym.checkmark.
       ]
     }
 

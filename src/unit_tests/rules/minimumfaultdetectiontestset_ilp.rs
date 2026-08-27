@@ -31,25 +31,28 @@ fn test_reduction_creates_covering_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 4);
-    assert_eq!(ilp.constraints.len(), 3);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert_eq!(ilp.objective, vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]);
-
-    assert_eq!(ilp.constraints[0].cmp, Comparison::Ge);
-    assert_eq!(ilp.constraints[0].rhs, 1.0);
-    assert_eq!(ilp.constraints[0].terms, vec![(0, 1.0)]);
-
-    assert_eq!(ilp.constraints[1].cmp, Comparison::Ge);
-    assert_eq!(ilp.constraints[1].rhs, 1.0);
+    assert_eq!(ilp.num_vars(), 4);
+    assert_eq!(ilp.constraints().len(), 3);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert_eq!(
-        ilp.constraints[1].terms,
+        ilp.objective(),
         vec![(0, 1.0), (1, 1.0), (2, 1.0), (3, 1.0)]
     );
 
-    assert_eq!(ilp.constraints[2].cmp, Comparison::Ge);
-    assert_eq!(ilp.constraints[2].rhs, 1.0);
-    assert_eq!(ilp.constraints[2].terms, vec![(3, 1.0)]);
+    assert_eq!(ilp.constraints()[0].comparison(), Comparison::Ge);
+    assert_eq!(ilp.constraints()[0].rhs(), 1);
+    assert_eq!(ilp.constraints()[0].terms(), vec![(0, 1)]);
+
+    assert_eq!(ilp.constraints()[1].comparison(), Comparison::Ge);
+    assert_eq!(ilp.constraints()[1].rhs(), 1);
+    assert_eq!(
+        ilp.constraints()[1].terms(),
+        vec![(0, 1), (1, 1), (2, 1), (3, 1)]
+    );
+
+    assert_eq!(ilp.constraints()[2].comparison(), Comparison::Ge);
+    assert_eq!(ilp.constraints()[2].rhs(), 1);
+    assert_eq!(ilp.constraints()[2].terms(), vec![(3, 1)]);
 }
 
 #[test]
@@ -63,7 +66,7 @@ fn test_minimumfaultdetectiontestset_to_ilp_closed_loop() {
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 0, 0, 1]);
+    assert_eq!(extracted, vec![vec![true, false], vec![false, true]]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(2)));
     assert_bf_vs_ilp(&problem, &reduction);
 }
@@ -75,14 +78,14 @@ fn test_reduction_is_infeasible_when_an_internal_vertex_has_no_covering_pair() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 1);
-    assert_eq!(ilp.constraints.len(), 1);
-    assert!(ilp.constraints[0].terms.is_empty());
-    assert_eq!(ilp.constraints[0].cmp, Comparison::Ge);
-    assert_eq!(ilp.constraints[0].rhs, 1.0);
+    assert_eq!(ilp.num_vars(), 1);
+    assert_eq!(ilp.constraints().len(), 1);
+    assert!(ilp.constraints()[0].terms().is_empty());
+    assert_eq!(ilp.constraints()[0].comparison(), Comparison::Ge);
+    assert_eq!(ilp.constraints()[0].rhs(), 1);
 
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![vec![false]]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![vec![true]]).unwrap(), Min(None));
     assert!(ILPSolver::new().solve(ilp).is_err());
 }
 
@@ -93,14 +96,14 @@ fn test_reduction_handles_instances_without_internal_vertices() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 1);
-    assert!(ilp.constraints.is_empty());
+    assert_eq!(ilp.num_vars(), 1);
+    assert!(ilp.constraints().is_empty());
 
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("ILP should be feasible when there are no internal vertices");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![0]);
+    assert_eq!(extracted, vec![vec![false]]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

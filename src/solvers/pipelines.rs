@@ -22,6 +22,14 @@ macro_rules! register_ilp_pipeline {
 }
 
 register_ilp_pipeline! {
+    ("ILP", [("variable", "bool")]),
+}
+
+register_ilp_pipeline! {
+    ("ILP", [("variable", "i64")]),
+}
+
+register_ilp_pipeline! {
     ("AcyclicPartition", [("weight", "i64")]),
     ("ILP", [("variable", "i64")]),
 }
@@ -196,14 +204,6 @@ register_ilp_pipeline! {
 register_ilp_pipeline! {
     ("HighlyConnectedDeletion", [("graph", "SimpleGraph")]),
     ("ILP", [("variable", "bool")]),
-}
-
-register_ilp_pipeline! {
-    ("ILP", [("variable", "bool")]),
-}
-
-register_ilp_pipeline! {
-    ("ILP", [("variable", "i64")]),
 }
 
 // This exact variant also has a customized backend. Default dispatch selects the

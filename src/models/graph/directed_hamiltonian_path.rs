@@ -44,14 +44,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::DirectedHamiltonianPath;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple directed path: 0->1->2->3
 /// let graph = DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 /// let problem = DirectedHamiltonianPath::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,33 +80,48 @@ impl DirectedHamiltonianPath {
         self.graph.num_arcs()
     }
 
-    /// Check if a configuration is a valid directed Hamiltonian path.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        let perm = decode_lehmer(config);
-        is_valid_directed_hamiltonian_path(&self.graph, &perm)
+    /// Check if a permutation is a valid directed Hamiltonian path.
+    pub fn is_valid_solution(&self, solution: &[usize]) -> bool {
+        is_valid_directed_hamiltonian_path(&self.graph, solution)
     }
 }
 
 impl Problem for DirectedHamiltonianPath {
     const NAME: &'static str = "DirectedHamiltonianPath";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        lehmer_dims(self.graph.num_vertices())
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            let perm = decode_lehmer(config);
-            crate::types::Or(is_valid_directed_hamiltonian_path(&self.graph, &perm))
-        })
+        let n = self.graph.num_vertices();
+        if solution.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path ordering length does not match the graph vertices".into(),
+            ));
+        }
+        if solution.iter().any(|&vertex| vertex >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path ordering contains an out-of-range vertex".into(),
+            ));
+        }
+        Ok(crate::types::Or(is_valid_directed_hamiltonian_path(
+            &self.graph,
+            solution,
+        )))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for DirectedHamiltonianPath {
+    fn dimensions(&self) -> Vec<usize> {
+        lehmer_dims(self.graph.num_vertices())
     }
 }
 
@@ -161,8 +176,6 @@ pub(crate) fn is_valid_directed_hamiltonian_path(graph: &DirectedGraph, perm: &[
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
-    use crate::rules::ilp_helpers::permutation_to_lehmer;
-
     // 6 vertices, arcs from issue #813
     // Hamiltonian path: [0, 1, 3, 2, 4, 5]
     let graph = DirectedGraph::new(
@@ -181,17 +194,21 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         ],
     );
     let optimal_perm = vec![0usize, 1, 3, 2, 4, 5];
-    let optimal_config = permutation_to_lehmer(&optimal_perm);
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "directed_hamiltonian_path",
         instance: Box::new(DirectedHamiltonianPath::new(graph)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_perm)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default DirectedHamiltonianPath => "num_vertices^2 * 2^num_vertices",
+}
+
+crate::register_brute_force! {
+    DirectedHamiltonianPath decode |_problem: &DirectedHamiltonianPath, indices: Vec<usize>| decode_lehmer(&indices),
 }
 
 #[cfg(test)]

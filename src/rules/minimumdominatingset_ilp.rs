@@ -39,11 +39,11 @@ impl ReductionResult for ReductionDSToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -64,11 +64,11 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
         let constraints: Vec<LinearConstraint> = (0..num_vars)
             .map(|v| {
                 // Build terms: x_v with coefficient 1, plus each neighbor with coefficient 1
-                let mut terms: Vec<(usize, f64)> = vec![(v, 1.0)];
+                let mut terms: Vec<(usize, i64)> = vec![(v, 1)];
                 for neighbor in self.neighbors(v) {
-                    terms.push((neighbor, 1.0));
+                    terms.push((neighbor, 1));
                 }
-                LinearConstraint::ge(terms, 1.0)
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
 
@@ -86,7 +86,8 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionDSToILP { target })
     }

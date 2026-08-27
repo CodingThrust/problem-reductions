@@ -193,11 +193,11 @@ fn build_ullman_construction(source: &KSatisfiability<K3>) -> UllmanConstruction
     }
 }
 
-fn task_slot(config: &[usize], task: usize, d_max: usize) -> Option<usize> {
-    let start = task.checked_mul(d_max)?;
-    let end = start.checked_add(d_max)?;
-    let task_slice = config.get(start..end)?;
-    task_slice.iter().position(|&value| value == 1)
+fn task_slot(config: &[Vec<bool>], task: usize, d_max: usize) -> Option<usize> {
+    let task_slice = config.get(task)?;
+    (task_slice.len() == d_max)
+        .then(|| task_slice.iter().position(|&value| value))
+        .flatten()
 }
 
 #[cfg(any(test, feature = "example-db"))]
@@ -208,12 +208,12 @@ fn set_task_slot(task_slots: &mut [Option<usize>], job: usize, slot: usize) {
 #[cfg(any(test, feature = "example-db"))]
 fn clause_pattern_for_assignment(
     clause: &crate::models::formula::CNFClause,
-    assignment: &[usize],
+    assignment: &[bool],
 ) -> usize {
     let mut pattern = 0usize;
     for (position, &literal) in clause.literals.iter().enumerate() {
         let variable = literal.unsigned_abs() as usize - 1;
-        let value = assignment.get(variable).copied().unwrap_or(0) == 1;
+        let value = assignment.get(variable).copied().unwrap_or(false);
         let literal_true = if literal > 0 { value } else { !value };
         if literal_true {
             pattern |= 1 << (2 - position);
@@ -225,9 +225,9 @@ fn clause_pattern_for_assignment(
 #[cfg(any(test, feature = "example-db"))]
 fn construct_schedule_from_assignment(
     target: &PreemptiveScheduling,
-    assignment: &[usize],
+    assignment: &[bool],
     source: &KSatisfiability<K3>,
-) -> Option<Vec<usize>> {
+) -> Option<Vec<Vec<bool>>> {
     let construction = build_ullman_construction(source);
     if assignment.len() != source.num_vars() || target.num_tasks() != construction.num_jobs {
         return None;
@@ -236,7 +236,7 @@ fn construct_schedule_from_assignment(
     let mut task_slots = vec![None; construction.num_jobs];
 
     for variable in 0..source.num_vars() {
-        let value_is_true = assignment[variable] == 1;
+        let value_is_true = assignment[variable];
         for step in 0..=source.num_vars() {
             if value_is_true {
                 set_task_slot(
@@ -305,10 +305,10 @@ fn construct_schedule_from_assignment(
     }
 
     let d_max = target.d_max();
-    let mut config = vec![0usize; construction.num_jobs * d_max];
+    let mut config = vec![vec![false; d_max]; construction.num_jobs];
     for (job, slot) in task_slots.into_iter().enumerate() {
         let slot = slot?;
-        config[job * d_max + slot] = 1;
+        config[job][slot] = true;
     }
     Some(config)
 }
@@ -337,15 +337,15 @@ impl ReductionResult for Reduction3SATToPreemptiveScheduling {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let d_max = self.target.d_max();
             self.positive_start_jobs
                 .iter()
-                .map(|&job| usize::from(task_slot(target_solution, job, d_max) == Some(0)))
+                .map(|&job| task_slot(target_solution, job, d_max) == Some(0))
                 .collect()
         })
     }
@@ -395,7 +395,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
             let reduction = ReduceTo::<PreemptiveScheduling>::reduce_to(&source)
                 .expect("reduction should succeed");
-            let source_config = vec![0, 0, 1];
+            let source_config = vec![false, false, true];
             let target_config = construct_schedule_from_assignment(
                 reduction.target_problem(),
                 &source_config,
@@ -405,8 +405,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, PreemptiveScheduling>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

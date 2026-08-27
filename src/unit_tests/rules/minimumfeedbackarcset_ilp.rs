@@ -15,10 +15,14 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // m + n = 3 + 3 = 6 variables (3 binary y_a + 3 integer o_v)
-    assert_eq!(ilp.num_vars, 6, "Should have m + n variables");
+    assert_eq!(ilp.num_vars(), 6, "Should have m + n variables");
     // m (binary bounds) + n (order bounds) + m (arc constraints) = 3 + 3 + 3 = 9
-    assert_eq!(ilp.constraints.len(), 9, "Should have 2*m + n constraints");
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(
+        ilp.constraints().len(),
+        9,
+        "Should have 2*m + n constraints"
+    );
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 }
 
 #[test]
@@ -59,7 +63,7 @@ fn test_solution_extraction() {
     // Simulate ILP solution: y_0=0, y_1=0, y_2=1, o_0=0, o_1=1, o_2=2
     let ilp_solution = vec![0, 0, 1, 0, 1, 2];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![0, 0, 1]);
+    assert_eq!(extracted, vec![false, false, true]);
 
     // Verify this is a valid FAS (removing arc 2->0 breaks the 3-cycle)
     assert!(
@@ -78,8 +82,8 @@ fn test_minimumfeedbackarcset_to_ilp_trivial() {
     let ilp = reduction.target_problem();
 
     // m=2, n=3 → 5 variables; 2 + 3 + 2 = 7 constraints
-    assert_eq!(ilp.num_vars, 5);
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.num_vars(), 5);
+    assert_eq!(ilp.constraints().len(), 7);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -87,5 +91,5 @@ fn test_minimumfeedbackarcset_to_ilp_trivial() {
 
     let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Min(Some(0)), "DAG needs no arc removal");
-    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(extracted, vec![false, false]);
 }

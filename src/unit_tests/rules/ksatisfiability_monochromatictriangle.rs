@@ -51,7 +51,9 @@ fn test_ksatisfiability_to_monochromatic_triangle_complement_extraction() {
 
     // Negation edges all use color 1, so direct extraction gives (0,0,0),
     // which does not satisfy (x1 v x2 v x3). The complement (1,1,1) does.
-    let target_coloring = vec![1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0];
+    let target_coloring = vec![
+        true, true, true, false, false, false, false, false, true, true, true, false,
+    ];
 
     assert!(
         reduction
@@ -62,7 +64,7 @@ fn test_ksatisfiability_to_monochromatic_triangle_complement_extraction() {
     );
 
     let extracted = reduction.extract_solution(&target_coloring).unwrap();
-    assert_eq!(extracted, vec![1, 1, 1]);
+    assert_eq!(extracted, vec![true, true, true]);
     assert!(source.evaluate(&extracted).unwrap());
 }
 

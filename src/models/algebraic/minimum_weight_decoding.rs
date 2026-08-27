@@ -38,7 +38,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::MinimumWeightDecoding;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![true, false, true, true],
@@ -48,7 +48,7 @@ inventory::submit! {
 /// let target = vec![true, true, false];
 /// let problem = MinimumWeightDecoding::new(matrix, target);
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap();
+/// let witness = solver.solve(&problem).unwrap();
 /// assert!(witness.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -137,31 +137,31 @@ impl MinimumWeightDecoding {
 
 impl Problem for MinimumWeightDecoding {
     const NAME: &'static str = "MinimumWeightDecoding";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_cols", num_cols), ("num_rows", num_rows),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_cols()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_cols() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "decoded-word length does not match the matrix columns".into(),
+                ));
             }
-            if config.iter().any(|&v| v >= 2) {
-                return Ok(Min(None));
-            }
-
             // Check Hx ≡ s (mod 2) for each row
             for (i, row) in self.matrix.iter().enumerate() {
                 let dot: usize = row
                     .iter()
                     .zip(config.iter())
-                    .filter(|(&h, &x)| h && x == 1)
+                    .filter(|(&h, &x)| h && x)
                     .count();
                 let syndrome_bit = dot % 2 == 1;
                 if syndrome_bit != self.target[i] {
@@ -170,7 +170,7 @@ impl Problem for MinimumWeightDecoding {
             }
 
             // Feasible: return Hamming weight
-            let weight: usize = config.iter().filter(|&&v| v == 1).count();
+            let weight: usize = config.iter().filter(|&&v| v).count();
             Min(Some(i64::try_from(weight).map_err(|_| {
                 crate::traits::EvaluationError::IntegerOverflow(
                     "converting Hamming weight to i64".into(),
@@ -180,8 +180,18 @@ impl Problem for MinimumWeightDecoding {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumWeightDecoding {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_cols()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumWeightDecoding => "2^(0.0494 * num_cols)" create MinimumWeightDecodingCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumWeightDecoding decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -197,7 +207,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "minimum_weight_decoding",
         instance: Box::new(MinimumWeightDecoding::new(matrix, target)),
-        optimal_config: vec![0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![false, false, true, false]),
         optimal_value: serde_json::json!(1),
     }]
 }

@@ -48,15 +48,15 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::OpenShopScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 /// use problemreductions::types::Min;
 ///
 /// // 2 machines, 2 jobs
 /// let p = vec![vec![1, 2], vec![2, 1]];
 /// let problem = OpenShopScheduling::new(2, p);
 /// let solver = BruteForce::new();
-/// let value = Solver::solve(&solver, &problem).unwrap();
-/// assert_eq!(value, Min(Some(3)));
+/// let solution = solver.solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(3)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "OpenShopSchedulingSerde")]
@@ -272,19 +272,30 @@ impl OpenShopScheduling {
 
 impl Problem for OpenShopScheduling {
     const NAME: &'static str = "OpenShopScheduling";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_jobs", num_jobs), ("num_machines", num_machines),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         let n = self.num_jobs();
-        let m = self.num_machines;
-        vec![n; n * m]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != n * self.num_machines {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine-order representation length does not match the instance".into(),
+            ));
+        }
+        if config.iter().any(|&job| job >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "machine order contains an out-of-range job".into(),
+            ));
+        }
         match self.decode_orders(config) {
             Some(orders) => Ok(Min(Some(self.compute_makespan(&orders)?))),
             None => Ok(Min(None)),
@@ -292,8 +303,20 @@ impl Problem for OpenShopScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for OpenShopScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.num_jobs();
+        let m = self.num_machines;
+        vec![n; n * m]
+    }
+}
+
 crate::declare_variants! {
     default OpenShopScheduling => "factorial(num_jobs)^num_machines" create OpenShopSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    OpenShopScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -330,7 +353,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
             vec![vec![3, 1, 2], vec![2, 3, 1], vec![1, 2, 3], vec![2, 2, 1]],
         )),
-        optimal_config: vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 1, 0, 3, 2, 2, 3, 0, 1]),
         optimal_value: serde_json::json!(8),
     }]
 }

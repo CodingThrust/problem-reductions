@@ -71,25 +71,26 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_source_vertices;
             let m = self.num_source_edges;
-            let mut source_config = vec![0usize; n + m];
+            let mut selected_vertices = vec![false; n];
+            let mut selected_edges = vec![false; m];
 
             // Mark vertices included via their gadget include-edge `(v, t_v)`,
             // and edges via the matching original edge.
             for (target_idx, &selected) in target_solution.iter().enumerate() {
-                if selected != 1 {
+                if !selected {
                     continue;
                 }
                 if let Some(v) = self.target_to_include_vertex[target_idx] {
-                    source_config[v] = 1;
+                    selected_vertices[v] = true;
                 } else if let Some(src_edge) = self.target_to_source_edge[target_idx] {
-                    source_config[n + src_edge] = 1;
+                    selected_edges[src_edge] = true;
                 }
             }
 
@@ -99,17 +100,17 @@ impl ReductionResult for ReductionPCSFToSteinerTree {
             // (this also covers prize-zero endpoints, which have no gadget).
             let edges = self.target.graph().edges();
             for (target_idx, &(_, _)) in edges.iter().enumerate() {
-                if target_solution[target_idx] != 1 {
+                if !target_solution[target_idx] {
                     continue;
                 }
                 if let Some(src_edge) = self.target_to_source_edge[target_idx] {
                     let (u, v) = self.source_edge_pair(src_edge);
-                    source_config[u] = 1;
-                    source_config[v] = 1;
+                    selected_vertices[u] = true;
+                    selected_vertices[v] = true;
                 }
             }
 
-            source_config
+            (selected_vertices, selected_edges)
         })
     }
 }
@@ -238,7 +239,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             .expect("reduction should succeed");
             let target = reduction.target_problem();
             let target_config = BruteForce::new()
-                .find_witness(target)
+                .solve(target)
                 .expect("canonical target evaluation must succeed")
                 .expect("canonical PCSF -> SteinerTree example must have an optimal target tree");
             let source_config = reduction.extract_solution(&target_config).unwrap();
@@ -246,8 +247,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 target,
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

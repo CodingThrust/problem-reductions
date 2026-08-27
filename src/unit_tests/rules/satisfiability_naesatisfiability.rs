@@ -67,8 +67,10 @@ fn test_solution_extraction_sentinel_false() {
         ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
     // target_solution: [1, 0, 1, 0] means x1=true, x2=false, x3=true, sentinel=false
-    let extracted = reduction.extract_solution(&[1, 0, 1, 0]).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let extracted = reduction
+        .extract_solution(&vec![true, false, true, false])
+        .unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
 }
 
 #[test]
@@ -77,12 +79,26 @@ fn test_solution_extraction_distinguishes_zero_assignment_from_malformed_input()
     let reduction =
         ReduceTo::<NAESatisfiability>::reduce_to(&sat).expect("reduction should succeed");
 
-    assert_eq!(reduction.extract_solution(&[0, 0, 0]).unwrap(), vec![0, 0]);
+    assert_eq!(
+        reduction
+            .extract_solution(&vec![false, false, false])
+            .unwrap(),
+        vec![false, false]
+    );
 
-    let error = reduction.extract_solution(&[0, 0]).unwrap_err();
-    assert_eq!(error.to_string(), "expected 3 target values, got 2");
-    assert!(reduction.extract_solution(&[0, 0, 0, 0]).is_err());
-    assert!(reduction.extract_solution(&[0, 2, 0]).is_err());
+    let error = reduction.extract_solution(&vec![false, false]).unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        "target evaluation failed during extraction: invalid configuration: assignment length does not match the formula variables"
+    );
+    assert!(reduction
+        .extract_solution(&vec![false, false, false, false])
+        .is_err());
+    assert!(crate::rules::DynReductionResult::target_solution_from_json(
+        &reduction,
+        serde_json::json!([false, 2, false])
+    )
+    .is_err());
 }
 
 #[test]
@@ -95,8 +111,10 @@ fn test_solution_extraction_sentinel_true() {
 
     // target_solution: [0, 1, 0, 1] means x1=false, x2=true, x3=false, sentinel=true
     // Complement: x1=true, x2=false, x3=true
-    let extracted = reduction.extract_solution(&[0, 1, 0, 1]).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let extracted = reduction
+        .extract_solution(&vec![false, true, false, true])
+        .unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
 }
 
 #[test]
@@ -217,6 +235,6 @@ fn test_empty_clause_maps_to_unsatisfiable_nae_clause() {
     assert_eq!(naesat.clauses()[0].literals, vec![2, 2]);
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&sat).unwrap().is_none());
-    assert!(solver.find_witness(naesat).unwrap().is_none());
+    assert!(solver.solve(&sat).unwrap().is_none());
+    assert!(solver.solve(naesat).unwrap().is_none());
 }

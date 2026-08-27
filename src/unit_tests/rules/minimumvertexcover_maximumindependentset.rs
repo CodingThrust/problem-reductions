@@ -45,14 +45,14 @@ fn test_jl_parity_is_to_vertexcovering() {
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
         .collect();
     assert_optimization_round_trip_from_optimization_target(&source, &result, "JL parity MIS->VC");
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -71,7 +71,7 @@ fn test_jl_parity_rule_is_to_vertexcovering() {
     let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -82,6 +82,6 @@ fn test_jl_parity_rule_is_to_vertexcovering() {
         "JL parity rule MIS->VC",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

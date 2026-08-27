@@ -41,8 +41,8 @@ impl ReductionResult for ReductionMinimumCoveringByCliquesToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         (0..self.num_edges)
@@ -89,8 +89,8 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
         for slot in 0..num_slots {
             for u in 0..num_vertices {
                 constraints.push(LinearConstraint::le(
-                    vec![(x_idx(u, slot), 1.0), (z_idx(slot), -1.0)],
-                    0.0,
+                    vec![(x_idx(u, slot), 1), (z_idx(slot), -1)],
+                    0,
                 ));
             }
         }
@@ -100,8 +100,8 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
                 for v in (u + 1)..num_vertices {
                     if !graph.has_edge(u, v) {
                         constraints.push(LinearConstraint::le(
-                            vec![(x_idx(u, slot), 1.0), (x_idx(v, slot), 1.0)],
-                            1.0,
+                            vec![(x_idx(u, slot), 1), (x_idx(v, slot), 1)],
+                            1,
                         ));
                     }
                 }
@@ -119,10 +119,10 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
         }
 
         for edge_idx in 0..num_edges {
-            let terms: Vec<(usize, f64)> = (0..num_slots)
-                .map(|slot| (y_idx(edge_idx, slot), 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_slots)
+                .map(|slot| (y_idx(edge_idx, slot), 1))
                 .collect();
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         let objective: Vec<(usize, f64)> = (0..num_slots).map(|slot| (z_idx(slot), 1.0)).collect();
@@ -131,7 +131,8 @@ impl ReduceTo<ILP<bool>> for MinimumCoveringByCliques<SimpleGraph> {
             constraints,
             objective,
             ObjectiveSense::Minimize,
-        );
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMinimumCoveringByCliquesToILP {
             target,

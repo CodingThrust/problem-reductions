@@ -5,6 +5,7 @@
 
 use crate::registry::ConstructionError;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -42,11 +43,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::IntegerKnapsack;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -95,31 +96,34 @@ impl IntegerKnapsack {
 
 impl Problem for IntegerKnapsack {
     const NAME: &'static str = "IntegerKnapsack";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_size![("capacity", capacity), ("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        self.sizes
-            .iter()
-            .map(|&s| {
-                let dimension = i128::from(self.capacity) / i128::from(s) + 1;
-                usize::try_from(dimension)
-                    .expect("validated integer-knapsack dimension must fit usize")
-            })
-            .collect()
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.num_items() {
-                return Ok(Max(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "multiplicity-vector length does not match the items".into(),
+                ));
             }
-            let dims = self.dims();
-            if config.iter().zip(dims.iter()).any(|(&c, &d)| c >= d) {
-                return Ok(Max(None));
+            let dims = self.dimensions();
+            if config
+                .iter()
+                .zip(&dims)
+                .any(|(&count, &dimension)| count >= dimension)
+            {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "multiplicity vector contains an out-of-range count".into(),
+                ));
             }
             let total_size = config
                 .iter()
@@ -169,8 +173,25 @@ impl Problem for IntegerKnapsack {
     }
 }
 
+impl crate::solvers::BruteForceProblem for IntegerKnapsack {
+    fn dimensions(&self) -> Vec<usize> {
+        self.sizes
+            .iter()
+            .map(|&s| {
+                let dimension = i128::from(self.capacity) / i128::from(s) + 1;
+                usize::try_from(dimension)
+                    .expect("validated integer-knapsack dimension must fit usize")
+            })
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default IntegerKnapsack => "(capacity + 1)^num_items",
+}
+
+crate::register_brute_force! {
+    IntegerKnapsack,
 }
 
 /// Raw representation for serde deserialization with full validation.
@@ -254,7 +275,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(
             IntegerKnapsack::new(vec![3, 4, 5, 2, 7], vec![4, 5, 7, 3, 9], 15).unwrap(),
         ),
-        optimal_config: vec![0, 0, 1, 5, 0],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 5, 0]),
         optimal_value: serde_json::json!(22),
     }]
 }

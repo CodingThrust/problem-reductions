@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -33,7 +34,7 @@ fn test_bottleneck_traveling_salesman_creation_and_size_getters() {
     assert_eq!(problem.num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 10);
     assert_eq!(problem.num_edges(), 10);
-    assert_eq!(problem.dims(), vec![2; 10]);
+    assert_eq!(problem.dimensions(), vec![2; 10]);
     assert_eq!(problem.num_variables(), 10);
     assert_eq!(problem.weights(), vec![5, 4, 4, 5, 4, 1, 2, 1, 5, 4]);
     assert_eq!(
@@ -61,11 +62,15 @@ fn test_bottleneck_traveling_salesman_creation_and_size_getters() {
 fn test_bottleneck_traveling_salesman_evaluate_valid_and_invalid() {
     let problem = k5_btsp();
 
-    let valid_cycle = vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1];
+    let valid_cycle = vec![
+        false, true, true, false, true, false, true, false, false, true,
+    ];
     assert!(problem.is_valid_solution(&valid_cycle));
     assert_eq!(problem.evaluate(&valid_cycle).unwrap(), Min(Some(4)));
 
-    let degree_violation = vec![1, 1, 1, 0, 1, 0, 1, 0, 0, 1];
+    let degree_violation = vec![
+        true, true, true, false, true, false, true, false, false, true,
+    ];
     assert!(!problem.is_valid_solution(&degree_violation));
     assert_eq!(problem.evaluate(&degree_violation).unwrap(), Min(None));
 }
@@ -77,7 +82,7 @@ fn test_bottleneck_traveling_salesman_evaluate_disconnected_subtour_invalid() {
         vec![1, 1, 1, 2, 2, 2],
     );
 
-    let disconnected_subtour = vec![1, 1, 1, 1, 1, 1];
+    let disconnected_subtour = vec![true, true, true, true, true, true];
     assert!(!problem.is_valid_solution(&disconnected_subtour));
     assert_eq!(problem.evaluate(&disconnected_subtour).unwrap(), Min(None));
 }
@@ -88,7 +93,12 @@ fn test_bottleneck_traveling_salesman_bruteforce_unique_optimum() {
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(&problem).unwrap();
 
-    assert_eq!(best, vec![vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1]]);
+    assert_eq!(
+        best,
+        vec![vec![
+            false, true, true, false, true, false, true, false, false, true
+        ]]
+    );
     assert_eq!(problem.evaluate(&best[0]).unwrap(), Min(Some(4)));
 }
 
@@ -102,7 +112,11 @@ fn test_bottleneck_traveling_salesman_serialization() {
     assert_eq!(restored.graph(), problem.graph());
     assert_eq!(restored.weights(), problem.weights());
     assert_eq!(
-        restored.evaluate(&[0, 1, 1, 0, 1, 0, 1, 0, 0, 1]).unwrap(),
+        restored
+            .evaluate(&vec![
+                false, true, true, false, true, false, true, false, false, true
+            ])
+            .unwrap(),
         Min(Some(4))
     );
 }
@@ -110,7 +124,9 @@ fn test_bottleneck_traveling_salesman_serialization() {
 #[test]
 fn test_bottleneck_traveling_salesman_paper_example() {
     let problem = k5_btsp();
-    let config = vec![0, 1, 1, 0, 1, 0, 1, 0, 0, 1];
+    let config = vec![
+        false, true, true, false, true, false, true, false, false, true,
+    ];
 
     assert!(problem.is_valid_solution(&config));
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));

@@ -40,7 +40,7 @@ fn test_find_model_example_mis_simplegraph_i64() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include optima"
     );
 }
@@ -57,7 +57,7 @@ fn test_find_model_example_exact_cover_by_3_sets() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -75,7 +75,7 @@ fn test_find_model_example_staff_scheduling() {
     assert_eq!(example.instance["num_workers"], 4);
     assert!(example.instance["schedules"].is_array());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -90,7 +90,7 @@ fn test_find_model_example_stacker_crane() {
     let example = find_model_example(&problem).expect("StackerCrane example should exist");
     assert_eq!(example.problem, "StackerCrane");
     assert_eq!(example.variant, problem.variant);
-    assert_eq!(example.optimal_config, vec![0, 2, 1, 4, 3]);
+    assert_eq!(example.optimal_config, serde_json::json!([0, 2, 1, 4, 3]));
     assert_eq!(example.instance["num_vertices"], 6);
     assert_eq!(example.instance["arcs"].as_array().unwrap().len(), 5);
 }
@@ -107,7 +107,7 @@ fn test_find_model_example_multiprocessor_scheduling() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -126,7 +126,7 @@ fn test_find_model_example_job_shop_scheduling() {
     assert!(example.instance["jobs"].is_array());
     assert_eq!(
         example.optimal_config,
-        vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0]
+        serde_json::json!([0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0])
     );
 }
 
@@ -142,7 +142,10 @@ fn test_find_model_example_integral_flow_bundles() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.instance["graph"]["num_vertices"], 4);
     assert_eq!(example.instance["requirement"], 1);
-    assert_eq!(example.optimal_config, vec![1, 0, 1, 0, 0, 0]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([1, 0, 1, 0, 0, 0])
+    );
 }
 
 #[test]
@@ -157,7 +160,7 @@ fn test_find_model_example_strong_connectivity_augmentation() {
     assert_eq!(example.variant, problem.variant);
     assert!(example.instance.is_object());
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include satisfying assignments"
     );
 }
@@ -177,7 +180,10 @@ fn test_find_model_example_integral_flow_homologous_arcs() {
         example.instance["homologous_pairs"],
         serde_json::json!([[2, 5], [4, 3]])
     );
-    assert_eq!(example.optimal_config, vec![1, 1, 1, 0, 0, 1, 1, 1]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([1, 1, 1, 0, 0, 1, 1, 1])
+    );
 }
 
 #[test]
@@ -193,7 +199,7 @@ fn test_find_model_example_minimum_dummy_activities_pert() {
     assert!(example.instance.is_object());
     assert_eq!(example.optimal_value, serde_json::json!(2));
     assert!(
-        !example.optimal_config.is_empty(),
+        !example.optimal_config.as_array().unwrap().is_empty(),
         "canonical example should include an optimal merge selection"
     );
 }
@@ -214,7 +220,10 @@ fn test_find_model_example_decision_minimum_vertex_cover() {
     assert_eq!(example.variant, problem.variant);
     assert_eq!(example.instance["bound"], 2);
     assert_eq!(example.instance["inner"]["graph"]["num_vertices"], 4);
-    assert_eq!(example.optimal_config, vec![1, 0, 1, 0]);
+    assert_eq!(
+        example.optimal_config,
+        serde_json::json!([true, false, true, false])
+    );
     assert_eq!(example.optimal_value, serde_json::json!(true));
 }
 
@@ -280,8 +289,16 @@ fn test_find_rule_example_integral_flow_bundles_to_ilp_contains_full_instances()
     assert_eq!(example.source.problem, "IntegralFlowBundles");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("graph").is_some());
-    assert!(!example.solutions[0].source_config.is_empty());
-    assert!(!example.solutions[0].target_config.is_empty());
+    assert!(!example.solutions[0]
+        .source_config
+        .as_array()
+        .unwrap()
+        .is_empty());
+    assert!(!example.solutions[0]
+        .target_config
+        .as_array()
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -300,8 +317,14 @@ fn test_find_rule_example_threedimensionalmatching_to_ilp_contains_full_instance
     assert_eq!(example.source.problem, "ThreeDimensionalMatching");
     assert_eq!(example.target.problem, "ILP");
     assert!(example.source.instance.get("triples").is_some());
-    assert_eq!(example.solutions[0].source_config, vec![1, 1, 1, 0, 0]);
-    assert_eq!(example.solutions[0].target_config, vec![1, 1, 1, 0, 0]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, true, true, false, false])
+    );
+    assert_eq!(
+        example.solutions[0].target_config,
+        serde_json::json!([1, 1, 1, 0, 0])
+    );
 }
 
 #[test]
@@ -435,8 +458,11 @@ fn canonical_rule_examples_cover_exactly_authored_direct_reductions() {
         .collect();
 
     assert_eq!(
-        example_keys, direct_reduction_keys,
-        "rule example coverage should match authored direct reductions exactly"
+        example_keys,
+        direct_reduction_keys,
+        "rule example coverage should match authored direct reductions exactly; missing examples: {:?}; unexpected examples: {:?}",
+        direct_reduction_keys.difference(&example_keys).collect::<Vec<_>>(),
+        example_keys.difference(&direct_reduction_keys).collect::<Vec<_>>()
     );
 }
 
@@ -491,7 +517,12 @@ fn model_specs_are_self_consistent() {
         let actual = spec
             .instance
             .evaluate_json(&spec.optimal_config)
-            .expect("canonical configuration evaluation should succeed");
+            .unwrap_or_else(|error| {
+                panic!(
+                    "Model spec '{}': canonical configuration evaluation failed: {error}",
+                    spec.id
+                )
+            });
         assert_eq!(
             actual, spec.optimal_value,
             "Model spec '{}': evaluate(optimal_config) = {} but stored optimal_value = {}",
@@ -502,8 +533,8 @@ fn model_specs_are_self_consistent() {
 
 #[test]
 fn model_specs_are_optimal() {
-    use crate::registry::{find_variant_entry, load_dyn};
-    use crate::solvers::{solve_deterministically, SolveOutcome, SolverRequest};
+    use crate::registry::load_dyn;
+    use crate::solvers::{brute_force_dimensions, solve, SolveOutcome, SolverRequest};
 
     let specs = crate::models::graph::canonical_model_example_specs()
         .into_iter()
@@ -515,29 +546,28 @@ fn model_specs_are_optimal() {
     for spec in specs {
         let name = spec.instance.problem_name();
         let variant = spec.instance.variant_map();
-        // Try brute force first for small instances (fast, avoids expensive ILP chains)
-        let dims = spec.instance.dims_dyn();
-        let log_space: f64 = dims.iter().map(|&d| (d as f64).log2()).sum();
-        let solve_registered_ilp = || {
+        let solve_registered = |request| {
             let loaded = load_dyn(name, &variant, spec.instance.serialize_json()).ok()?;
-            match solve_deterministically(&loaded, SolverRequest::Ilp)
-                .ok()?
-                .outcome
-            {
-                SolveOutcome::Optimal { config, .. } => config,
+            match solve(&loaded, request).ok()?.outcome {
+                SolveOutcome::Optimal { solution, .. } => Some(solution),
                 SolveOutcome::Infeasible => None,
             }
         };
-        let best_config = if log_space <= 20.0 {
-            find_variant_entry(name, &variant)
-                .and_then(|entry| {
-                    (entry.solve_witness_fn)(spec.instance.as_any())
-                        .expect("canonical instance solving should succeed")
-                })
-                .map(|(config, _)| config)
-                .or_else(solve_registered_ilp)
+        let loaded = load_dyn(name, &variant, spec.instance.serialize_json())
+            .expect("canonical example variant must load");
+        let small_brute_force = brute_force_dimensions(&loaded)
+            .expect("solver capability registry must be valid")
+            .is_some_and(|dimensions| {
+                dimensions
+                    .iter()
+                    .map(|&dimension| (dimension as f64).log2())
+                    .sum::<f64>()
+                    <= 20.0
+            });
+        let best_config = if small_brute_force {
+            solve_registered(SolverRequest::BruteForce)
         } else {
-            solve_registered_ilp()
+            solve_registered(SolverRequest::Ilp)
         };
 
         if let Some(best_config) = best_config {
@@ -552,8 +582,7 @@ fn model_specs_are_optimal() {
                 spec.id, best_value, spec.optimal_value, best_config, spec.optimal_config
             );
         } else {
-            // Aggregate-only models (e.g., Sum) don't support witnesses.
-            // Verify the stored config evaluates to the stored value.
+            // This example has no registered solver suitable for the test budget.
             let stored_value = spec
                 .instance
                 .evaluate_json(&spec.optimal_config)
@@ -658,31 +687,22 @@ fn rule_specs_solution_pairs_are_consistent() {
         });
 
         for pair in &example.solutions {
-            // Verify config lengths match problem dimensions
-            assert_eq!(
-                pair.source_config.len(),
-                source.dims_dyn().len(),
-                "Rule {label}: source_config length {} != dims length {}",
-                pair.source_config.len(),
-                source.dims_dyn().len()
-            );
-            assert_eq!(
-                pair.target_config.len(),
-                target.dims_dyn().len(),
-                "Rule {label}: target_config length {} != dims length {}",
-                pair.target_config.len(),
-                target.dims_dyn().len()
-            );
             // Verify configs produce feasible evaluations.
             let source_eval = source
                 .evaluate_dyn(&pair.source_config)
-                .expect("source configuration evaluation should succeed");
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: source configuration evaluation failed: {error}")
+                });
             let target_eval = target
                 .evaluate_dyn(&pair.target_config)
-                .expect("target configuration evaluation should succeed");
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: target configuration evaluation failed: {error}")
+                });
             let source_val = source
                 .evaluate_json(&pair.source_config)
-                .expect("source configuration evaluation should succeed");
+                .unwrap_or_else(|error| {
+                    panic!("Rule {label}: source configuration evaluation failed: {error}")
+                });
             assert_ne!(
                 source_eval, "Max(None)",
                 "Rule {label}: source_config evaluates to Max(None)"
@@ -710,7 +730,9 @@ fn rule_specs_solution_pairs_are_consistent() {
             // Round-trip: extract_solution(target_config) must produce a valid
             // source config with the same evaluation value (witness paths only)
             if let Some(ref chain) = chain {
-                let extracted = chain.extract_solution(&pair.target_config).unwrap();
+                let extracted = chain
+                    .extract_solution_json(pair.target_config.clone())
+                    .unwrap();
                 let extracted_val = source
                     .evaluate_json(&extracted)
                     .expect("extracted configuration evaluation should succeed");
@@ -722,28 +744,11 @@ fn rule_specs_solution_pairs_are_consistent() {
                     extracted_val, source_val, extracted, pair.source_config
                 );
 
-                let mut wrong_length = pair.target_config.clone();
-                if wrong_length.is_empty() {
-                    wrong_length.push(0);
-                } else {
-                    wrong_length.pop();
-                }
+                let malformed = serde_json::json!({"invalid_solution": true});
                 assert!(
-                    chain.extract_solution(&wrong_length).is_err(),
-                    "Rule {label}: extraction accepted a target configuration with the wrong length"
+                    chain.extract_solution_json(malformed).is_err(),
+                    "Rule {label}: extraction accepted malformed target-solution JSON"
                 );
-
-                let target_dims = target.dims_dyn();
-                if let Some((&dimension, value)) =
-                    target_dims.first().zip(pair.target_config.first())
-                {
-                    let mut out_of_domain = pair.target_config.clone();
-                    out_of_domain[0] = dimension;
-                    assert!(
-                        chain.extract_solution(&out_of_domain).is_err(),
-                        "Rule {label}: extraction accepted out-of-domain value {dimension} in place of {value}"
-                    );
-                }
             }
         }
     }

@@ -41,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumWeightAndOrGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 7 vertices: AND at 0, OR at 1 and 2, leaves 3-6
 /// let problem = MinimumWeightAndOrGraph::new(
@@ -52,9 +52,8 @@ inventory::submit! {
 ///     vec![1, 2, 3, 1, 4, 2],
 /// );
 /// let solver = BruteForce::new();
-/// use problemreductions::solvers::Solver as _;
-/// let optimal = solver.solve(&problem).unwrap();
-/// assert_eq!(optimal, problemreductions::types::Min(Some(6)));
+/// let solution = solver.solve(&problem).unwrap().unwrap();
+/// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Min(Some(6)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct MinimumWeightAndOrGraph {
@@ -255,29 +254,29 @@ impl MinimumWeightAndOrGraph {
 
 impl Problem for MinimumWeightAndOrGraph {
     const NAME: &'static str = "MinimumWeightAndOrGraph";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.arcs.len()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.arcs.len() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "arc-selection length does not match the graph".into(),
+                ));
             }
 
             // Check all config values are 0 or 1
-            if config.iter().any(|&c| c > 1) {
-                return Ok(Min(None));
-            }
-
             // Determine which arcs are selected
-            let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
+            let selected = config;
 
             // Propagate "solved" status top-down from source
             let mut solved = vec![false; self.num_vertices];
@@ -350,8 +349,18 @@ impl Problem for MinimumWeightAndOrGraph {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumWeightAndOrGraph {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.arcs.len()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumWeightAndOrGraph => "2^num_arcs" create MinimumWeightAndOrGraphCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumWeightAndOrGraph decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -386,7 +395,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![Some(true), Some(false), Some(false), None, None, None, None],
             vec![1, 2, 3, 1, 4, 2],
         )),
-        optimal_config: vec![1, 1, 0, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }

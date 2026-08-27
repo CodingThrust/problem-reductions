@@ -192,7 +192,7 @@ impl<G: Graph, W: WeightElement> LongestPath<G, W> {
     }
 
     /// Check if a configuration encodes a valid simple source-target path.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_simple_st_path(&self.graph, self.source_vertex, self.target_vertex, config)
     }
 }
@@ -203,17 +203,24 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "LongestPath";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !self.is_valid_solution(config) {
                 return Ok(Max(None));
@@ -221,7 +228,7 @@ where
 
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.edge_lengths[idx].to_sum(),
@@ -234,18 +241,28 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for LongestPath<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
 fn is_simple_st_path<G: Graph>(
     graph: &G,
     source_vertex: usize,
     target_vertex: usize,
-    config: &[usize],
+    config: &[bool],
 ) -> bool {
-    if config.len() != graph.num_edges() || config.iter().any(|&value| value > 1) {
+    if config.len() != graph.num_edges() {
         return false;
     }
 
     if source_vertex == target_vertex {
-        return config.iter().all(|&value| value == 0);
+        return config.iter().all(|&selected| !selected);
     }
 
     let edges = graph.edges();
@@ -254,7 +271,7 @@ fn is_simple_st_path<G: Graph>(
     let mut selected_edge_count = 0usize;
 
     for (idx, &selected) in config.iter().enumerate() {
-        if selected == 0 {
+        if !selected {
             continue;
         }
         let (u, v) = edges[idx];
@@ -316,10 +333,15 @@ crate::declare_variants! {
     LongestPath<SimpleGraph, One> => "num_vertices * 2^num_vertices" create LongestPathOneCreateSpec,
 }
 
+crate::register_brute_force! {
+    LongestPath<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    LongestPath<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "longest_path_simplegraph_i64",
+        id: "longest_path_simplegraph",
         instance: Box::new(LongestPath::new(
             SimpleGraph::new(
                 7,
@@ -340,7 +362,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             0,
             6,
         )),
-        optimal_config: vec![1, 0, 1, 1, 1, 0, 1, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![
+            true, false, true, true, true, false, true, false, true, false
+        ]),
         optimal_value: serde_json::json!(20),
     }]
 }

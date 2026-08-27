@@ -15,6 +15,8 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone)]
 pub struct ReductionMFDTSToILP {
     target: ILP<bool>,
+    num_inputs: usize,
+    num_outputs: usize,
 }
 
 impl ReductionResult for ReductionMFDTSToILP {
@@ -27,11 +29,17 @@ impl ReductionResult for ReductionMFDTSToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok((0..self.num_inputs)
+            .map(|input| {
+                (0..self.num_outputs)
+                    .map(|output| target_solution[input * self.num_outputs + output] == 1)
+                    .collect()
+            })
+            .collect())
     }
 }
 
@@ -101,18 +109,21 @@ impl ReduceTo<ILP<bool>> for MinimumFaultDetectionTestSet {
                     for (output_idx, output_cov) in output_reachability.iter().enumerate() {
                         if input_cov[vertex] && output_cov[vertex] {
                             let pair_idx = input_idx * self.num_outputs() + output_idx;
-                            terms.push((pair_idx, 1.0));
+                            terms.push((pair_idx, 1));
                         }
                     }
                 }
-                LinearConstraint::ge(terms, 1.0)
+                LinearConstraint::ge(terms, 1)
             })
             .collect();
 
         let objective = (0..num_pairs).map(|pair_idx| (pair_idx, 1.0)).collect();
 
         Ok(ReductionMFDTSToILP {
-            target: ILP::new(num_pairs, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_pairs, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
+            num_inputs: self.num_inputs(),
+            num_outputs: self.num_outputs(),
         })
     }
 }

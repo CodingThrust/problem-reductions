@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -9,17 +9,13 @@ fn test_knapsack_to_ilp_closed_loop() {
     let knapsack = Knapsack::new(vec![1, 3, 4, 5], vec![1, 4, 5, 7], 7);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &knapsack,
-        &reduction,
-        "Knapsack->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&knapsack, &reduction);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
         .expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![0, 1, 1, 0]);
+    assert_eq!(extracted, vec![false, true, true, false]);
 }
 
 #[test]
@@ -48,16 +44,16 @@ fn test_knapsack_to_ilp_structure() {
 
     assert_eq!(ilp.num_vars(), 4);
     assert_eq!(ilp.num_constraints(), 1);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
-    assert_eq!(ilp.objective, vec![(0, 1.0), (1, 4.0), (2, 5.0), (3, 7.0)]);
-
-    let constraint = &ilp.constraints[0];
-    assert_eq!(constraint.cmp, Comparison::Le);
-    assert_eq!(constraint.rhs, 7.0);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     assert_eq!(
-        constraint.terms,
-        vec![(0, 1.0), (1, 3.0), (2, 4.0), (3, 5.0)]
+        ilp.objective(),
+        vec![(0, 1.0), (1, 4.0), (2, 5.0), (3, 7.0)]
     );
+
+    let constraint = &ilp.constraints()[0];
+    assert_eq!(constraint.comparison(), Comparison::Le);
+    assert_eq!(constraint.rhs(), 7);
+    assert_eq!(constraint.terms(), vec![(0, 1), (1, 3), (2, 4), (3, 5)]);
 }
 
 #[test]
@@ -69,7 +65,7 @@ fn test_knapsack_to_ilp_zero_capacity() {
         .solve(reduction.target_problem())
         .expect("zero-capacity ILP should still be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(extracted, vec![false, false]);
 }
 
 #[test]
@@ -80,31 +76,27 @@ fn test_knapsack_to_ilp_empty_instance() {
 
     assert_eq!(ilp.num_vars(), 0);
     assert_eq!(ilp.num_constraints(), 1);
-    assert_eq!(ilp.constraints[0].cmp, Comparison::Le);
-    assert_eq!(ilp.constraints[0].rhs, 0.0);
-    assert!(ilp.constraints[0].terms.is_empty());
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.constraints()[0].comparison(), Comparison::Le);
+    assert_eq!(ilp.constraints()[0].rhs(), 0);
+    assert!(ilp.constraints()[0].terms().is_empty());
+    assert!(ilp.objective().is_empty());
 
     let ilp_solution = ILPSolver::new()
         .solve(ilp)
         .expect("empty Knapsack ILP should still be solvable");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, Vec::<usize>::new());
+    assert_eq!(extracted, Vec::<bool>::new());
 }
 
 #[test]
-fn test_knapsack_to_ilp_rejects_inexact_weight() {
-    let knapsack = Knapsack::new(
-        vec![crate::types::MAX_EXACT_F64_INTEGER + 1],
-        vec![1],
-        crate::types::MAX_EXACT_F64_INTEGER + 1,
-    );
+fn test_knapsack_to_ilp_preserves_large_exact_weight() {
+    let weight = crate::types::MAX_EXACT_F64_INTEGER + 1;
+    let knapsack = Knapsack::new(vec![weight], vec![1], weight);
 
-    let error = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).unwrap_err();
-    assert!(matches!(
-        error,
-        crate::rules::ReductionError::InexactFloatConversion { .. }
-    ));
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&knapsack).unwrap();
+    let constraint = &reduction.target_problem().constraints()[0];
+    assert_eq!(constraint.terms(), vec![(0, weight)]);
+    assert_eq!(constraint.rhs(), weight);
 }
 
 #[cfg(feature = "example-db")]
@@ -119,7 +111,13 @@ fn test_knapsack_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.problem, "Knapsack");
     assert_eq!(example.target.problem, "ILP");
     assert_eq!(example.source.instance["capacity"], 7);
-    assert_eq!(example.target.instance["num_vars"], 4);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        4
+    );
     assert_eq!(
         example.target.instance["constraints"]
             .as_array()
@@ -130,8 +128,8 @@ fn test_knapsack_to_ilp_canonical_example_spec() {
     assert_eq!(
         example.solutions,
         vec![crate::export::SolutionPair {
-            source_config: vec![0, 1, 1, 0],
-            target_config: vec![0, 1, 1, 0],
+            source_config: serde_json::json!(vec![false, true, true, false]),
+            target_config: serde_json::json!(vec![0, 1, 1, 0]),
         }]
     );
 }

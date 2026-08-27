@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -12,7 +13,7 @@ fn test_feasible_register_assignment_basic() {
     assert_eq!(problem.num_same_register_pairs(), 3);
     assert_eq!(problem.arcs(), &[(0, 1), (0, 2), (1, 3)]);
     assert_eq!(problem.assignment(), &[0, 1, 0, 0]);
-    assert_eq!(problem.dims(), vec![4; 4]);
+    assert_eq!(problem.dimensions(), vec![4; 4]);
     assert_eq!(
         <FeasibleRegisterAssignment as Problem>::NAME,
         "FeasibleRegisterAssignment"
@@ -37,12 +38,21 @@ fn test_feasible_register_assignment_evaluate_invalid_permutation() {
     let problem =
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
     // Not a permutation: position 0 used twice
-    assert!(!problem.evaluate(&[0, 0, 1, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1, 2]).unwrap());
     // Wrong length
-    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 3, 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Position out of range
-    assert!(!problem.evaluate(&[0, 1, 2, 4]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -51,7 +61,7 @@ fn test_feasible_register_assignment_evaluate_invalid_dependency() {
     let problem =
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
     // v0 at position 0 but v1 at position 1 -> v0 evaluated before its dependency v1
-    assert!(!problem.evaluate(&[0, 1, 2, 3]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3]).unwrap());
 }
 
 #[test]
@@ -65,7 +75,7 @@ fn test_feasible_register_assignment_register_conflict() {
     // v1 at pos 0, v0 at pos 1, v2 at pos 2
     // After computing v1 (reg 0): v1 is live (v0, v2 still uncomputed)
     // Computing v0 (reg 0): conflict! v1 is still live in reg 0
-    assert!(!problem.evaluate(&[1, 0, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 0, 2]).unwrap());
 
     // With different assignment: v1->reg 1, v0->reg 0, v2->reg 0
     let problem2 = FeasibleRegisterAssignment::new(3, vec![(0, 1), (2, 1)], 2, vec![0, 1, 0]);
@@ -75,7 +85,7 @@ fn test_feasible_register_assignment_register_conflict() {
     // After v0 is computed, v1's only remaining dependent is v2
     // Computing v2 (reg 0): v1 is still live (v2 not computed yet)... but
     // v1 is in reg 1, v2 is in reg 0 => no conflict
-    assert!(problem2.evaluate(&[1, 0, 2]).unwrap());
+    assert!(problem2.evaluate(&vec![1, 0, 2]).unwrap());
 }
 
 #[test]
@@ -84,7 +94,7 @@ fn test_feasible_register_assignment_brute_force() {
         FeasibleRegisterAssignment::new(4, vec![(0, 1), (0, 2), (1, 3)], 2, vec![0, 1, 0, 0]);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find a solution");
     assert!(problem.evaluate(&solution).unwrap());
@@ -113,7 +123,7 @@ fn test_feasible_register_assignment_unsatisfiable() {
     let problem =
         FeasibleRegisterAssignment::new(3, vec![(0, 1), (0, 2), (1, 2)], 1, vec![0, 0, 0]);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -133,14 +143,14 @@ fn test_feasible_register_assignment_serialization() {
 fn test_feasible_register_assignment_empty() {
     let problem = FeasibleRegisterAssignment::new(0, vec![], 0, vec![]);
     assert_eq!(problem.num_vertices(), 0);
-    assert_eq!(problem.dims(), Vec::<usize>::new());
-    assert!(problem.evaluate(&[]).unwrap());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
 fn test_feasible_register_assignment_single_vertex() {
     let problem = FeasibleRegisterAssignment::new(1, vec![], 1, vec![0]);
-    assert!(problem.evaluate(&[0]).unwrap());
+    assert!(problem.evaluate(&vec![0]).unwrap());
 }
 
 #[test]
@@ -151,8 +161,8 @@ fn test_feasible_register_assignment_no_dependencies() {
     // ever "live" (no dependents), so no conflicts can arise.
     let problem = FeasibleRegisterAssignment::new(3, vec![], 2, vec![0, 1, 0]);
     // Any order works since no vertex has dependents => nothing is ever live
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
-    assert!(problem.evaluate(&[2, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![2, 1, 0]).unwrap());
 }
 
 #[test]

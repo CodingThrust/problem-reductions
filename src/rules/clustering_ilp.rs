@@ -28,8 +28,8 @@ impl ReductionResult for ReductionClusteringToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -60,10 +60,10 @@ impl ReduceTo<ILP<bool>> for Clustering {
             |element: usize, cluster: usize| -> usize { element * num_clusters + cluster };
 
         for element in 0..num_elements {
-            let terms: Vec<(usize, f64)> = (0..num_clusters)
-                .map(|cluster| (var_index(element, cluster), 1.0))
+            let terms: Vec<(usize, i64)> = (0..num_clusters)
+                .map(|cluster| (var_index(element, cluster), 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         let distances = self.distances();
@@ -73,8 +73,8 @@ impl ReduceTo<ILP<bool>> for Clustering {
                 if distance > diameter_bound {
                     for cluster in 0..num_clusters {
                         constraints.push(LinearConstraint::le(
-                            vec![(var_index(i, cluster), 1.0), (var_index(j, cluster), 1.0)],
-                            1.0,
+                            vec![(var_index(i, cluster), 1), (var_index(j, cluster), 1)],
+                            1,
                         ));
                     }
                 }
@@ -82,7 +82,8 @@ impl ReduceTo<ILP<bool>> for Clustering {
         }
 
         Ok(ReductionClusteringToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_elements,
             num_clusters,
         })
@@ -109,8 +110,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1, 1],
-                    target_config: vec![1, 0, 1, 0, 0, 1, 0, 1],
+                    source_config: serde_json::json!(vec![0, 0, 1, 1]),
+                    target_config: serde_json::json!(vec![1, 0, 1, 0, 0, 1, 0, 1]),
                 },
             )
         },

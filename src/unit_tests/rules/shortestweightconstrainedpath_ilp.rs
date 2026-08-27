@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -25,12 +25,12 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // 2 edges => 4 arc vars + 3 order vars = 7
-    assert_eq!(ilp.num_vars, 7);
+    assert_eq!(ilp.num_vars(), 7);
     // 5*2 + 4*3 + 2 = 10 + 12 + 2 = 24
-    assert_eq!(ilp.constraints.len(), 24);
+    assert_eq!(ilp.constraints().len(), 24);
     // Optimization: minimize total length
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(!ilp.objective.is_empty());
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(!ilp.objective().is_empty());
 }
 
 #[test]
@@ -46,7 +46,8 @@ fn test_shortestweightconstrainedpath_to_ilp_bf_vs_ilp() {
     );
 
     let bf = BruteForce::new();
-    let bf_value = bf.solve(&problem).unwrap();
+    let bf_value_solution = bf.solve(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     let reduction: ReductionSWCPToILP =
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
@@ -78,7 +79,7 @@ fn test_solution_extraction() {
     let target_solution = vec![1, 0, 1, 0, 0, 1, 2];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
 
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
     // length = 2 + 3 = 5
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(5)));
 }
@@ -102,6 +103,6 @@ fn test_shortestweightconstrainedpath_to_ilp_trivial() {
         .expect("ILP should solve the trivial s==t case");
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(extracted, vec![false, false]);
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(0)));
 }

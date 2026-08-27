@@ -41,11 +41,14 @@ impl ReductionResult for ReductionMFVSToILP {
     /// which directly correspond to the FVS configuration (1 = removed).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -68,29 +71,29 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
         // o_i = n + i     (integer: topological order of vertex i)
 
         let mut constraints = Vec::new();
+        let n_i64 = <Self as ReduceTo<ILP<i64>>>::exact_i64(n, "encoding the topological order")?;
 
         // Binary bounds: x_i <= 1 for i in 0..n
         for i in 0..n {
-            constraints.push(LinearConstraint::le(vec![(i, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(i, 1)], 1));
         }
 
         // Order bounds: o_i <= n - 1 for i in 0..n
         for i in 0..n {
-            constraints.push(LinearConstraint::le(vec![(n + i, 1.0)], (n - 1) as f64));
+            constraints.push(LinearConstraint::le(vec![(n + i, 1)], n_i64 - 1));
         }
 
         // Arc constraints: for each arc (u -> v):
         //   o_v - o_u >= 1 - n * (x_u + x_v)
         // Rearranged: o_v - o_u + n*x_u + n*x_v >= 1
-        let n_f64 = n as f64;
         for &(u, v) in &arcs {
             let terms = vec![
-                (n + v, 1.0),  // o_v
-                (n + u, -1.0), // -o_u
-                (u, n_f64),    // n * x_u
-                (v, n_f64),    // n * x_v
+                (n + v, 1),  // o_v
+                (n + u, -1), // -o_u
+                (u, n_i64),  // n * x_u
+                (v, n_i64),  // n * x_v
             ];
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // Objective: minimize sum w_i * x_i
@@ -107,7 +110,8 @@ impl ReduceTo<ILP<i64>> for MinimumFeedbackVertexSet<i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<i64>>>::target_construction)?;
 
         Ok(ReductionMFVSToILP {
             target,

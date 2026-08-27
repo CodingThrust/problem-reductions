@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_cycle() {
@@ -24,18 +25,15 @@ fn issue_problem() -> MinimumDummyActivitiesPert {
     MinimumDummyActivitiesPert::new(issue_graph())
 }
 
-fn config_for_merges(
-    problem: &MinimumDummyActivitiesPert,
-    merges: &[(usize, usize)],
-) -> Vec<usize> {
-    let mut config = vec![0; problem.num_arcs()];
+fn config_for_merges(problem: &MinimumDummyActivitiesPert, merges: &[(usize, usize)]) -> Vec<bool> {
+    let mut config = vec![false; problem.num_arcs()];
     let arcs = problem.graph().arcs();
     for &(u, v) in merges {
         let index = arcs
             .iter()
             .position(|&(a, b)| a == u && b == v)
             .expect("merge arc must exist in issue graph");
-        config[index] = 1;
+        config[index] = true;
     }
     config
 }
@@ -45,7 +43,7 @@ fn test_minimum_dummy_activities_pert_creation() {
     let problem = issue_problem();
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 5);
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
 }
 
 #[test]
@@ -75,7 +73,7 @@ fn test_minimum_dummy_activities_pert_rejects_spurious_reachability() {
 #[test]
 fn test_minimum_dummy_activities_pert_solver_finds_optimum_two() {
     let problem = issue_problem();
-    let solution = BruteForce::new().find_witness(&problem).unwrap().unwrap();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
 }
 
@@ -94,7 +92,7 @@ fn test_minimum_dummy_activities_pert_transitive_arc_zero_dummies() {
     // satisfied, so the optimal dummy count is 0.
     let dag = DirectedGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = MinimumDummyActivitiesPert::new(dag);
-    let solution = BruteForce::new().find_witness(&problem).unwrap().unwrap();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(0)));
 }
 
@@ -103,6 +101,6 @@ fn test_minimum_dummy_activities_pert_paper_example() {
     let problem = issue_problem();
     let config = config_for_merges(&problem, &[(0, 2), (1, 4), (2, 5)]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(2)));
-    let solution = BruteForce::new().find_witness(&problem).unwrap().unwrap();
+    let solution = BruteForce::new().solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&solution).unwrap(), Min(Some(2)));
 }

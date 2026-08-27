@@ -28,8 +28,8 @@ impl ReductionResult for ReductionSTMTTWToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -72,20 +72,10 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
                 >(error)
             })
         };
-        let big_m = exact_f64(total_length)?;
-        let lengths_f64 = self
-            .lengths()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
-        let deadlines_f64 = self
-            .deadlines()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
-        let weights_f64 = self
+        let big_m = total_length;
+        let lengths = self.lengths();
+        let deadlines = self.deadlines();
+        let weights = self
             .weights()
             .iter()
             .copied()
@@ -99,14 +89,14 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
 
         // 1. Each task assigned to exactly one position
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|p| (x_var(j, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_var(j, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Each position has exactly one task
         for p in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 3. Tardy indicator: for each (j, p), if x_{j,p}=1 then
@@ -115,26 +105,34 @@ impl ReduceTo<ILP<bool>> for SequencingToMinimizeTardyTaskWeight {
         //    Linearized as: big_m * x_{j,p} + sum_{p'<p} sum_{j'} l_{j'} * x_{j',p'} - big_m * u_j <= d_j - l_j + big_m
         for j in 0..n {
             for p in 0..n {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
                 terms.push((x_var(j, p), big_m));
                 for pp in 0..p {
-                    for (jj, &length) in lengths_f64.iter().enumerate() {
+                    for (jj, &length) in lengths.iter().enumerate() {
                         terms.push((x_var(jj, pp), length));
                     }
                 }
                 terms.push((u_var(j), -big_m));
-                let rhs = deadlines_f64[j] - lengths_f64[j] + big_m;
+                let rhs = deadlines[j]
+                    .checked_sub(lengths[j])
+                    .and_then(|value| value.checked_add(big_m))
+                    .ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<
+                            SequencingToMinimizeTardyTaskWeight,
+                            ILP<bool>,
+                        >("computing a tardiness constraint bound")
+                    })?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
 
         // Objective: minimize sum w_j * u_j
-        let objective: Vec<(usize, f64)> = (0..n)
-            .map(|task| (u_var(task), weights_f64[task]))
-            .collect();
+        let objective: Vec<(usize, f64)> =
+            (0..n).map(|task| (u_var(task), weights[task])).collect();
 
         Ok(ReductionSTMTTWToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
         })
     }

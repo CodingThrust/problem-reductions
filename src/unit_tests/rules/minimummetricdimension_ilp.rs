@@ -46,19 +46,19 @@ fn test_minimummetricdimension_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // Check ILP structure
-    assert_eq!(ilp.num_vars, 3, "Should have one variable per vertex");
+    assert_eq!(ilp.num_vars(), 3, "Should have one variable per vertex");
     // C(3,2) = 3 pairs
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         3,
         "Should have one constraint per vertex pair"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 
     // Each constraint should have rhs = 1
-    for constraint in &ilp.constraints {
-        assert!(!constraint.terms.is_empty());
-        assert!((constraint.rhs - 1.0).abs() < 1e-9);
+    for constraint in ilp.constraints() {
+        assert!(!constraint.terms().is_empty());
+        assert_eq!(constraint.rhs(), 1);
     }
 }
 
@@ -124,7 +124,7 @@ fn test_minimummetricdimension_to_ilp_solution_extraction() {
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
-    assert_eq!(extracted, vec![1, 0, 0]);
+    assert_eq!(extracted, vec![true, false, false]);
 
     // Verify this is a valid resolving set
     assert!(problem.evaluate(&extracted).unwrap().is_valid());

@@ -175,23 +175,29 @@ impl RootedTreeStorageAssignment {
 
 impl Problem for RootedTreeStorageAssignment {
     const NAME: &'static str = "RootedTreeStorageAssignment";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.universe_size; self.universe_size]
-    }
+    crate::problem_size![
+        ("num_subsets", num_subsets),
+        ("universe_size", universe_size),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.universe_size {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "parent assignment length does not match the universe".into(),
+                    ));
                 }
                 if config.iter().any(|&parent| parent >= self.universe_size) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "parent assignment contains an out-of-range element".into(),
+                    ));
                 }
                 if self.universe_size == 0 {
                     return Ok(crate::types::Or(self.subsets.is_empty()));
@@ -231,8 +237,18 @@ impl Problem for RootedTreeStorageAssignment {
     }
 }
 
+impl crate::solvers::BruteForceProblem for RootedTreeStorageAssignment {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.universe_size; self.universe_size]
+    }
+}
+
 crate::declare_variants! {
     default RootedTreeStorageAssignment => "universe_size^universe_size",
+}
+
+crate::register_brute_force! {
+    RootedTreeStorageAssignment,
 }
 
 #[cfg(feature = "example-db")]
@@ -244,7 +260,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 2], vec![1, 3], vec![0, 4], vec![2, 4]],
             1,
         )),
-        optimal_config: vec![0, 0, 0, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

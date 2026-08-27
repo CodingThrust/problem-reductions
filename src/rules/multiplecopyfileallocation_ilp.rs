@@ -39,11 +39,14 @@ impl ReductionResult for ReductionMCFAToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -93,8 +96,7 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
                 .checked_add(value)
                 .ok_or_else(|| overflow("summing usage values for big-M"))
         })?;
-        let vertex_count =
-            i64::try_from(n).map_err(|_| overflow("converting the vertex count for big-M"))?;
+        let vertex_count = Self::exact_i64(n, "converting the vertex count for big-M")?;
         let big_m = total_usage
             .checked_mul(vertex_count)
             .and_then(|usage| total_storage.checked_add(usage))
@@ -122,16 +124,16 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
 
         // Assignment constraints: ∀v: Σ_u y_{v,u} = 1
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|u| (y_var(v, u), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|u| (y_var(v, u), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Capacity link constraints: ∀v,u: y_{v,u} ≤ x_u  →  y_{v,u} - x_u ≤ 0
         for v in 0..n {
             for u in 0..n {
                 constraints.push(LinearConstraint::le(
-                    vec![(y_var(v, u), 1.0), (x_var(u), -1.0)],
-                    0.0,
+                    vec![(y_var(v, u), 1), (x_var(u), -1)],
+                    0,
                 ));
             }
         }
@@ -170,7 +172,8 @@ impl ReduceTo<ILP<bool>> for MultipleCopyFileAllocation {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionMCFAToILP {
             target,
             num_vertices: n,

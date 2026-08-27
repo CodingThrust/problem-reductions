@@ -38,11 +38,11 @@ impl ReductionResult for ReductionCliqueToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -65,7 +65,7 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
         for u in 0..num_vars {
             for v in (u + 1)..num_vars {
                 if !self.graph().has_edge(u, v) {
-                    constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
+                    constraints.push(LinearConstraint::le(vec![(u, 1), (v, 1)], 1));
                 }
             }
         }
@@ -87,7 +87,8 @@ impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i64> {
             })
             .collect::<Result<_, _>>()?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionCliqueToILP { target })
     }

@@ -8,7 +8,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowBundles;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing IntegralFlowBundles to ILP.
 #[derive(Debug, Clone)]
@@ -26,11 +25,11 @@ impl ReductionResult for ReductionIFBToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(target_solution)
     }
 }
 
@@ -45,19 +44,11 @@ impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let arcs = self.graph().arcs();
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    IntegralFlowBundles,
-                    ILP<i64>,
-                >(error)
-            })
-        };
         let mut constraints = Vec::with_capacity(self.num_bundles() + self.num_vertices() - 1);
 
         for (bundle, &capacity) in self.bundles().iter().zip(self.bundle_capacities()) {
-            let terms = bundle.iter().map(|&arc_index| (arc_index, 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, exact_f64(capacity)?));
+            let terms = bundle.iter().map(|&arc_index| (arc_index, 1)).collect();
+            constraints.push(LinearConstraint::le(terms, capacity));
         }
 
         for vertex in 0..self.num_vertices() {
@@ -68,28 +59,25 @@ impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
             let mut terms = Vec::new();
             for (arc_index, (u, v)) in arcs.iter().copied().enumerate() {
                 if vertex == u {
-                    terms.push((arc_index, -1.0));
+                    terms.push((arc_index, -1));
                 }
                 if vertex == v {
-                    terms.push((arc_index, 1.0));
+                    terms.push((arc_index, 1));
                 }
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         let mut sink_terms = Vec::new();
         for (arc_index, (u, v)) in arcs.iter().copied().enumerate() {
             if self.sink() == u {
-                sink_terms.push((arc_index, -1.0));
+                sink_terms.push((arc_index, -1));
             }
             if self.sink() == v {
-                sink_terms.push((arc_index, 1.0));
+                sink_terms.push((arc_index, 1));
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink_terms,
-            exact_f64(self.requirement())?,
-        ));
+        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
         Ok(ReductionIFBToILP {
             target: ILP::new(
@@ -97,7 +85,8 @@ impl ReduceTo<ILP<i64>> for IntegralFlowBundles {
                 constraints,
                 vec![],
                 ObjectiveSense::Minimize,
-            ),
+            )
+            .map_err(Self::target_construction)?,
         })
     }
 }

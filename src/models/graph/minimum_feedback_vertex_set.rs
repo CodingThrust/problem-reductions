@@ -37,7 +37,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumFeedbackVertexSet;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 3-cycle: 0 → 1 → 2 → 0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
@@ -139,30 +139,34 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumFeedbackVertexSet";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != self.graph.num_vertices() {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "vertex-selection length does not match the graph".into(),
+                ));
             }
             // keep[v] = true if vertex v is NOT selected for removal
-            let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
+            let keep: Vec<bool> = config.iter().map(|&removed| !removed).collect();
             let subgraph = self.graph.induced_subgraph(&keep);
             if !subgraph.is_dag() {
                 return Ok(Min(None));
             }
             let mut total = W::Sum::zero();
             for (i, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     total = W::checked_add_to_sum(
                         total,
                         self.weights[i].to_sum(),
@@ -175,15 +179,28 @@ where
     }
 }
 
+impl<W> crate::solvers::BruteForceProblem for MinimumFeedbackVertexSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumFeedbackVertexSet<i64> => "1.9977^num_vertices" create MinimumFeedbackVertexSetCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumFeedbackVertexSet<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     use crate::topology::DirectedGraph;
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_feedback_vertex_set_i64",
+        id: "minimum_feedback_vertex_set",
         instance: Box::new(MinimumFeedbackVertexSet::new(
             DirectedGraph::new(
                 5,
@@ -191,7 +208,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ),
             vec![1i64; 5],
         )),
-        optimal_config: vec![1, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, false, false]),
         optimal_value: serde_json::json!(1),
     }]
 }

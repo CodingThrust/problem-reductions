@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::misc::{ConsistencyOfDatabaseFrequencyTables, FrequencyTable, KnownValue};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -35,10 +35,10 @@ fn test_cdft_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 16);
-    assert_eq!(ilp.constraints.len(), 33);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 16);
+    assert_eq!(ilp.constraints().len(), 33);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
@@ -46,11 +46,7 @@ fn test_cdft_to_ilp_closed_loop() {
     let problem = small_yes_instance();
     let reduction: ReductionCDFTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "ConsistencyOfDatabaseFrequencyTables->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -89,7 +85,7 @@ fn test_consistency_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf_witness = BruteForce::new()
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should be satisfiable");
     assert!(problem.evaluate(&bf_witness).unwrap());

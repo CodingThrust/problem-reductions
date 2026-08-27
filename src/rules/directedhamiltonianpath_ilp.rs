@@ -9,9 +9,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::DirectedHamiltonianPath;
 use crate::reduction;
-use crate::rules::ilp_helpers::{
-    one_hot_assignment_constraints, one_hot_decode, permutation_to_lehmer,
-};
+use crate::rules::ilp_helpers::{one_hot_assignment_constraints, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing DirectedHamiltonianPath to ILP.
@@ -34,15 +32,15 @@ impl ReductionResult for ReductionDirectedHamiltonianPathToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_vertices;
             // Decode one-hot assignment: permutation[k] = v where x_{v,k} = 1
-            let perm = one_hot_decode(target_solution, n, n, 0)?;
-            permutation_to_lehmer(&perm)
+
+            one_hot_decode(target_solution, n, n, 0)?
         })
     }
 }
@@ -78,8 +76,8 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
         // one_hot_assignment_constraints gives: row eq + col le
         // We need col eq, so add col ge (col le + col ge = col eq)
         for k in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (x_idx(v, k), 1.0)).collect();
-            constraints.push(LinearConstraint::ge(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v, k), 1)).collect();
+            constraints.push(LinearConstraint::ge(terms, 1));
         }
 
         // (2) Arc existence: for each consecutive position pair (k, k+1),
@@ -90,8 +88,8 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
                     for w in 0..n {
                         if !arc_set.contains(&(v, w)) {
                             constraints.push(LinearConstraint::le(
-                                vec![(x_idx(v, k), 1.0), (x_idx(w, k + 1), 1.0)],
-                                1.0,
+                                vec![(x_idx(v, k), 1), (x_idx(w, k + 1), 1)],
+                                1,
                             ));
                         }
                     }
@@ -100,7 +98,8 @@ impl ReduceTo<ILP<bool>> for DirectedHamiltonianPath {
         }
 
         // Feasibility objective
-        let target = ILP::new(n * n, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(n * n, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionDirectedHamiltonianPathToILP {
             target,

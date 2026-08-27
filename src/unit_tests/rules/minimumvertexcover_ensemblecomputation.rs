@@ -8,9 +8,9 @@ use crate::traits::Problem;
 use crate::types::{Min, One};
 
 /// Verify that a configuration is a valid vertex cover.
-fn is_valid_cover(graph: &SimpleGraph, config: &[usize]) -> bool {
+fn is_valid_cover(graph: &SimpleGraph, config: &[bool]) -> bool {
     for (u, v) in graph.edges() {
-        if config[u] == 0 && config[v] == 0 {
+        if !config[u] && !config[v] {
             return false;
         }
     }
@@ -33,9 +33,9 @@ fn test_minimumvertexcover_to_ensemblecomputation_closed_loop() {
     assert_eq!(target.budget(), 3); // |V| + |E|
 
     // Solve target with brute force — optimal value should be 2 (K*=1 + |E|=1)
-    use crate::solvers::Solver;
     let solver = BruteForce::new();
-    let optimal = solver.solve(target).unwrap();
+    let optimal_solution = solver.solve(target).unwrap().unwrap();
+    let optimal = target.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(2)));
 
     // Every extracted solution must be a valid vertex cover
@@ -105,7 +105,7 @@ fn test_extract_solution_correctness() {
     assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
     let cover = reduction.extract_solution(&config).unwrap();
-    assert_eq!(cover, vec![1, 1]);
+    assert_eq!(cover, vec![true, true]);
     assert!(is_valid_cover(&graph, &cover));
 }
 
@@ -123,7 +123,7 @@ fn test_extract_from_non_normalized_witness() {
     assert_eq!(target.evaluate(&config).unwrap(), Min(Some(2)));
 
     let cover = reduction.extract_solution(&config).unwrap();
-    assert_eq!(cover, vec![1, 1]);
+    assert_eq!(cover, vec![true, true]);
     assert!(is_valid_cover(&graph, &cover));
 }
 
@@ -140,8 +140,8 @@ fn test_empty_graph() {
     assert_eq!(target.budget(), 3);
 
     // No subsets → optimal value is 0
-    use crate::solvers::Solver;
     let solver = BruteForce::new();
-    let optimal = solver.solve(target).unwrap();
+    let optimal_solution = solver.solve(target).unwrap().unwrap();
+    let optimal = target.evaluate(&optimal_solution).unwrap();
     assert_eq!(optimal, Min(Some(0)));
 }

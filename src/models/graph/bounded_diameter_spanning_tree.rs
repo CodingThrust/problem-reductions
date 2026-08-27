@@ -50,13 +50,13 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::BoundedDiameterSpanningTree;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let graph = SimpleGraph::new(5, vec![(0,1),(0,2),(0,3),(1,2),(1,4),(2,3),(3,4)]);
 /// let problem = BoundedDiameterSpanningTree::new(graph, vec![1,2,1,1,2,1,1], 5, 3);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,32 +275,33 @@ where
     W: WeightElement + VariantParam,
 {
     const NAME: &'static str = "BoundedDiameterSpanningTree";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.edge_list.len()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 let n = self.graph.num_vertices();
                 if config.len() != self.edge_list.len() {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edge-selection length does not match the graph".into(),
+                    ));
                 }
 
                 // Collect selected edges
                 let selected_indices: Vec<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v == 1)
+                    .filter(|(_, &v)| v)
                     .map(|(i, _)| i)
                     .collect();
 
@@ -359,8 +360,22 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for BoundedDiameterSpanningTree<G, W>
+where
+    G: Graph + VariantParam,
+    W: WeightElement + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.edge_list.len()]
+    }
+}
+
 crate::declare_variants! {
     default BoundedDiameterSpanningTree<SimpleGraph, i64> => "num_vertices ^ num_vertices" create BoundedDiameterSpanningTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    BoundedDiameterSpanningTree<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -370,7 +385,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Tree: edges (0,1),(0,3),(2,3),(3,4) → edge indices 0,2,5,6
     // Config: [1,0,1,0,0,1,1] → weight = 1+1+1+1 = 4 ≤ 5, diameter = 3 ≤ 3
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "bounded_diameter_spanning_tree_simplegraph_i64",
+        id: "bounded_diameter_spanning_tree_simplegraph",
         instance: Box::new(BoundedDiameterSpanningTree::new(
             SimpleGraph::new(
                 5,
@@ -380,7 +395,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             3,
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 1, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, false, false, true, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

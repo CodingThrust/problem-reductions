@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_specs_separate_runtime_and_fixed_color_counts() {
@@ -25,13 +26,11 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_kcoloring_creation() {
-    use crate::traits::Problem;
-
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
-    assert_eq!(problem.dims(), vec![3, 3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 3, 3]);
 }
 
 #[test]
@@ -41,8 +40,8 @@ fn test_evaluate_valid() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
     // Valid: different colors on adjacent vertices
-    assert!(problem.evaluate(&[0, 1, 0]).unwrap());
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 0]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -52,8 +51,8 @@ fn test_evaluate_invalid() {
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
 
     // Invalid: adjacent vertices have same color
-    assert!(!problem.evaluate(&[0, 0, 1]).unwrap());
-    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -164,11 +163,11 @@ fn test_kcoloring_problem() {
 
     // Triangle graph with 3 colors
     let p = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    assert_eq!(p.dims(), vec![3, 3, 3]);
+    assert_eq!(p.dimensions(), vec![3, 3, 3]);
     // Valid: each vertex different color
-    assert!(p.evaluate(&[0, 1, 2]).unwrap());
+    assert!(p.evaluate(&vec![0, 1, 2]).unwrap());
     // Invalid: vertices 0 and 1 same color
-    assert!(!p.evaluate(&[0, 0, 1]).unwrap());
+    assert!(!p.evaluate(&vec![0, 0, 1]).unwrap());
 }
 
 #[test]
@@ -228,5 +227,5 @@ fn test_kcoloring_paper_example() {
     let graph2 = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem2 = KColoring::<K2, _>::new(graph2);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem2).unwrap().is_none());
+    assert!(solver.solve(&problem2).unwrap().is_none());
 }

@@ -141,16 +141,29 @@ impl SparseMatrixCompression {
 
 impl Problem for SparseMatrixCompression {
     const NAME: &'static str = "SparseMatrixCompression";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.bound_k; self.num_rows()]
-    }
+    crate::problem_size![
+        ("bound_k", bound_k),
+        ("num_cols", num_cols),
+        ("num_rows", num_rows),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_rows() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "shift-vector length does not match the matrix rows".into(),
+            ));
+        }
+        if config.iter().any(|&shift| shift >= self.bound_k) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "shift vector contains an out-of-range shift".into(),
+            ));
+        }
         Ok(crate::types::Or(self.storage_vector(config).is_some()))
     }
 
@@ -159,8 +172,18 @@ impl Problem for SparseMatrixCompression {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SparseMatrixCompression {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.bound_k; self.num_rows()]
+    }
+}
+
 crate::declare_variants! {
     default SparseMatrixCompression => "(bound_k ^ num_rows) * num_rows * num_cols" create SparseMatrixCompressionCreateSpec,
+}
+
+crate::register_brute_force! {
+    SparseMatrixCompression,
 }
 
 #[cfg(feature = "example-db")]
@@ -176,7 +199,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

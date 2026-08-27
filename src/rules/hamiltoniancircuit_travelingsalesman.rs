@@ -25,8 +25,8 @@ impl ReductionResult for ReductionHamiltonianCircuitToTravelingSalesman {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::graph_helpers::edges_to_cycle_order(self.target.graph(), target_solution)
@@ -70,8 +70,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 2, 3],
-                    target_config: vec![1, 0, 1, 1, 0, 1],
+                    source_config: serde_json::json!(vec![0, 1, 2, 3]),
+                    target_config: serde_json::json!(vec![true, false, true, true, false, true]),
                 },
             )
         },

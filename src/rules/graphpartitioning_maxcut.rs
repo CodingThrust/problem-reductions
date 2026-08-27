@@ -12,7 +12,7 @@ pub struct ReductionGPToMaxCut {
 }
 
 #[cfg(any(test, feature = "example-db"))]
-const ISSUE_EXAMPLE_WITNESS: [usize; 6] = [0, 0, 0, 1, 1, 1];
+const ISSUE_EXAMPLE_WITNESS: [bool; 6] = [false, false, false, true, true, true];
 
 impl ReductionResult for ReductionGPToMaxCut {
     type Source = GraphPartitioning<SimpleGraph>;
@@ -24,8 +24,8 @@ impl ReductionResult for ReductionGPToMaxCut {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -100,8 +100,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MaxCut<SimpleGraph, i64>>(
                 issue_example(),
                 SolutionPair {
-                    source_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
-                    target_config: ISSUE_EXAMPLE_WITNESS.to_vec(),
+                    source_config: serde_json::json!(ISSUE_EXAMPLE_WITNESS.to_vec()),
+                    target_config: serde_json::json!(ISSUE_EXAMPLE_WITNESS.to_vec()),
                 },
             )
         },

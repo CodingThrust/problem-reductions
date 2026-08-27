@@ -65,11 +65,11 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_unsatisfiable() {
     // Both source and target should be unsatisfiable
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(&source).unwrap().is_none(),
+        solver.solve(&source).unwrap().is_none(),
         "K4 with K=7 should be unsatisfiable"
     );
     assert!(
-        solver.find_witness(target).unwrap().is_none(),
+        solver.solve(target).unwrap().is_none(),
         "target should also be unsatisfiable"
     );
 }
@@ -123,11 +123,11 @@ fn test_rootedtreearrangement_to_rootedtreestorageassignment_infeasible_underflo
     // Gadget should be infeasible
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(&source).unwrap().is_none(),
+        solver.solve(&source).unwrap().is_none(),
         "source with K=2 < |E|=3 should be infeasible"
     );
     assert!(
-        solver.find_witness(target).unwrap().is_none(),
+        solver.solve(target).unwrap().is_none(),
         "gadget target should also be infeasible"
     );
 }

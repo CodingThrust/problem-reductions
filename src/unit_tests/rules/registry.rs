@@ -12,8 +12,6 @@ fn entry_with(declarations: fn() -> ReductionSizeDeclarations) -> ReductionEntry
         reduce_fn: None,
         reduce_aggregate_fn: None,
         turing: false,
-        source_size_measure_fn: |_| crate::types::ProblemSize::new(vec![]),
-        target_size_measure_fn: |_| crate::types::ProblemSize::new(vec![]),
     }
 }
 
@@ -105,25 +103,8 @@ fn every_registered_contract_validates() {
 }
 
 #[test]
-fn every_registered_target_schema_field_is_classified() {
-    let mut mismatches = Vec::new();
-    for entry in reduction_entries() {
-        let declared: std::collections::HashSet<_> =
-            crate::registry::declared_size_fields(entry.target_name)
-                .into_iter()
-                .collect();
-        let contract = entry.size_contract().unwrap();
-        let mut classified = std::collections::HashSet::new();
-        if let Some(transform) = contract.transform() {
-            classified.extend(transform.expressions().map(|(field, _)| field));
-        }
-        classified.extend(contract.unavailable().iter().map(|field| field.field));
-        if !declared.is_empty() && classified != declared {
-            mismatches.push(format!(
-                "{} -> {}: classified={classified:?}, declared={declared:?}",
-                entry.source_name, entry.target_name
-            ));
-        }
+fn every_registered_size_declaration_uses_problem_owned_parameters() {
+    if let Err(errors) = validate_reduction_size_schemas() {
+        panic!("{}", errors.join("\n"));
     }
-    assert!(mismatches.is_empty(), "{}", mismatches.join("\n"));
 }

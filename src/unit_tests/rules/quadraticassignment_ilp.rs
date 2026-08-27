@@ -16,8 +16,8 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // n=3, m=3: num_x=9, z pairs: 3*2*3*3=54, total=63
-    assert_eq!(ilp.num_vars, 63);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 63);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -25,10 +25,7 @@ fn test_quadraticassignment_to_ilp_closed_loop() {
     let problem = small_qap();
     // BruteForce on source to get optimal value
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP
@@ -57,10 +54,7 @@ fn test_quadraticassignment_to_ilp_2x2() {
         QuadraticAssignment::new(vec![vec![0, 1], vec![1, 0]], vec![vec![0, 2], vec![2, 0]]);
     // BruteForce on source
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP
@@ -100,10 +94,7 @@ fn test_quadraticassignment_to_ilp_rectangular() {
     );
     // BruteForce on source
     let bf = BruteForce::new();
-    let bf_solution = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("brute-force optimum");
+    let bf_solution = bf.solve(&problem).unwrap().expect("brute-force optimum");
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // Solve via ILP

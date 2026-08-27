@@ -35,7 +35,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::PaintShop;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Sequence: a, b, a, c, c, b
 /// let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
@@ -149,24 +149,33 @@ impl PaintShop {
     ///
     /// Config assigns a color (0 or 1) to each car for its first occurrence.
     /// The second occurrence gets the opposite color.
-    pub fn get_coloring(&self, config: &[usize]) -> Vec<usize> {
-        self.sequence_indices
+    pub fn get_coloring(
+        &self,
+        config: &[bool],
+    ) -> Result<Vec<bool>, crate::traits::EvaluationError> {
+        if config.len() != self.num_cars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "paint assignment length does not match the cars".into(),
+            ));
+        }
+        Ok(self
+            .sequence_indices
             .iter()
             .enumerate()
             .map(|(i, &car_idx)| {
-                let first_color = config.get(car_idx).copied().unwrap_or(0);
+                let first_color = config[car_idx];
                 if self.is_first[i] {
                     first_color
                 } else {
-                    1 - first_color // Opposite color for second occurrence
+                    !first_color // Opposite color for second occurrence
                 }
             })
-            .collect()
+            .collect())
     }
 
     /// Count the number of color switches in the sequence.
-    pub fn count_switches(&self, config: &[usize]) -> Result<i64, crate::traits::EvaluationError> {
-        let coloring = self.get_coloring(config);
+    pub fn count_switches(&self, config: &[bool]) -> Result<i64, crate::traits::EvaluationError> {
+        let coloring = self.get_coloring(config)?;
         let count = coloring.windows(2).filter(|w| w[0] != w[1]).count();
         i64::try_from(count).map_err(|_| {
             crate::traits::EvaluationError::IntegerOverflow(
@@ -178,19 +187,21 @@ impl PaintShop {
 
 /// Count color switches in a painted sequence.
 #[cfg(test)]
-pub(crate) fn count_paint_switches(coloring: &[usize]) -> usize {
+pub(crate) fn count_paint_switches(coloring: &[bool]) -> usize {
     coloring.windows(2).filter(|w| w[0] != w[1]).count()
 }
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
+    type Solution = Vec<bool>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_cars]
-    }
+    crate::problem_size![("num_cars", num_cars), ("num_sequence", num_sequence),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             // All configurations are valid (no hard constraints).
             Min(Some(self.count_switches(config)?))
@@ -202,8 +213,18 @@ impl Problem for PaintShop {
     }
 }
 
+impl crate::solvers::BruteForceProblem for PaintShop {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_cars]
+    }
+}
+
 crate::declare_variants! {
     default PaintShop => "2^num_cars",
+}
+
+crate::register_brute_force! {
+    PaintShop decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -211,7 +232,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "paintshop",
         instance: Box::new(PaintShop::new(vec!["A", "B", "A", "C", "B", "C"])),
-        optimal_config: vec![0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(2),
     }]
 }

@@ -169,24 +169,16 @@ impl QuantifiedBooleanFormulas {
 
 impl Problem for QuantifiedBooleanFormulas {
     const NAME: &'static str = "QuantifiedBooleanFormulas";
+    type Solution = ();
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![]
-    }
+    crate::problem_size![("num_vars", num_vars), ("num_clauses", num_clauses),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        _solution: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                if !config.is_empty() {
-                    return Ok(crate::types::Or(false));
-                }
-                self.is_true()
-            })
-        })
+        Ok(crate::types::Or(self.is_true()))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -194,8 +186,18 @@ impl Problem for QuantifiedBooleanFormulas {
     }
 }
 
+impl crate::solvers::BruteForceProblem for QuantifiedBooleanFormulas {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
+    }
+}
+
 crate::declare_variants! {
     default QuantifiedBooleanFormulas => "2^num_vars",
+}
+
+crate::register_brute_force! {
+    QuantifiedBooleanFormulas decode |_, _| (),
 }
 
 #[derive(Deserialize)]
@@ -225,7 +227,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![1, -2]), // u_1 OR NOT u_2
             ],
         )),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,7 +1,7 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
 use crate::rules::{ReductionChain, ReductionGraph, ReductionPath};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Max;
@@ -44,9 +44,9 @@ fn test_maximumindependentset_to_ilp_via_path_structure() {
         "Expected 2-step path through MaxClique or MaxSetPacking, got {:?}",
         names
     );
-    assert_eq!(ilp.num_vars, 3);
-    assert_eq!(ilp.constraints.len(), 3);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 }
 
 #[test]
@@ -60,9 +60,9 @@ fn test_maximumindependentset_to_ilp_via_path_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution).unwrap();
+    let extracted: Vec<bool> = chain.extract_solution(&ilp_solution).unwrap();
 
-    let ilp_size: usize = extracted.iter().sum();
+    let ilp_size = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(ilp_size, 2);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
@@ -79,7 +79,7 @@ fn test_maximumindependentset_to_ilp_via_path_weighted() {
     let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), Max(Some(100)));
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
 }
 
 #[test]
@@ -90,7 +90,8 @@ fn test_maximumindependentset_to_ilp_bf_vs_ilp() {
     );
     let (_, chain) = reduce_mis_to_ilp(&problem);
     let ilp: &ILP<bool> = chain.target_problem();
-    let bf_value = BruteForce::new().solve(&problem).unwrap();
+    let bf_value_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
     let ilp_solution = ILPSolver::new().solve(ilp).expect("ILP should be solvable");
     let extracted = chain.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), bf_value);

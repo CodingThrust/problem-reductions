@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -8,7 +9,7 @@ fn test_non_tautology_creation() {
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_disjuncts(), 2);
     assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dims(), vec![2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2]);
 }
 
 #[test]
@@ -20,15 +21,15 @@ fn test_non_tautology_evaluate() {
     // D1: x1=T, x2=F -> D1 false (x2 is false)
     // D2: NOT x1=F -> D2 false (NOT x1 is false)
     // All disjuncts false -> formula is false -> falsifying assignment exists
-    assert!(problem.evaluate(&[1, 0, 0]).unwrap());
+    assert!(problem.evaluate(&vec![true, false, false]).unwrap());
 
     // config [1,1,1] -> x1=T, x2=T, x3=T
     // D1: all true -> D1 is true -> formula is true -> NOT a falsifying assignment
-    assert!(!problem.evaluate(&[1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![true, true, true]).unwrap());
 
     // config [0,0,0] -> x1=F, x2=F, x3=F
     // D2: NOT x1=T, NOT x2=T, NOT x3=T -> D2 is true -> formula is true
-    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![false, false, false]).unwrap());
 }
 
 #[test]
@@ -37,7 +38,7 @@ fn test_non_tautology_solver() {
     let problem = NonTautology::new(3, vec![vec![1, 2, 3], vec![-1, -2, -3]]).unwrap();
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
 
     // Verify the found solution actually falsifies the formula
@@ -58,7 +59,7 @@ fn test_non_tautology_tautological() {
     let problem = NonTautology::new(1, vec![vec![1], vec![-1]]).unwrap();
 
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

@@ -13,10 +13,10 @@ fn test_feasible_register_assignment_to_ilp_structure() {
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 14);
-    assert_eq!(ilp.constraints.len(), 42);
-    assert_eq!(ilp.objective, vec![]);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 14);
+    assert_eq!(ilp.constraints().len(), 42);
+    assert_eq!(ilp.objective(), vec![]);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]

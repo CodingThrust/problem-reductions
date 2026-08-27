@@ -3,7 +3,7 @@
 //! Given record access probabilities, find an assignment of records to circular
 //! storage sectors that minimizes the expected rotational latency.
 
-use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{ConstructionError, FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -23,13 +23,6 @@ inventory::submit! {
             FieldInfo { name: "probabilities", type_name: "Vec<f64>", description: "Access probabilities p(r) for each record" },
             FieldInfo { name: "num_sectors", type_name: "usize", description: "Number of sectors on the drum-like device" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "ExpectedRetrievalCost",
-        fields: &["num_records", "num_sectors"],
     }
 }
 
@@ -176,23 +169,41 @@ impl<'de> Deserialize<'de> for ExpectedRetrievalCost {
 
 impl Problem for ExpectedRetrievalCost {
     const NAME: &'static str = "ExpectedRetrievalCost";
+    type Solution = Vec<usize>;
     type Value = Min<f64>;
+
+    crate::problem_size![("num_records", num_records), ("num_sectors", num_sectors),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_sectors; self.num_records()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<f64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<f64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_records() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "sector assignment length does not match the records".into(),
+            ));
+        }
+        if config.iter().any(|&sector| sector >= self.num_sectors) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "sector assignment contains an out-of-range sector".into(),
+            ));
+        }
         Ok({
             match self.expected_cost(config)? {
                 Some(cost) => Min(Some(cost)),
                 None => Min(None),
             }
         })
+    }
+}
+
+impl crate::solvers::BruteForceProblem for ExpectedRetrievalCost {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_sectors; self.num_records()]
     }
 }
 
@@ -208,6 +219,10 @@ crate::declare_variants! {
     default ExpectedRetrievalCost => "num_sectors ^ num_records",
 }
 
+crate::register_brute_force! {
+    ExpectedRetrievalCost,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -215,7 +230,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         instance: Box::new(
             ExpectedRetrievalCost::new(vec![0.2, 0.15, 0.15, 0.2, 0.1, 0.2], 3).unwrap(),
         ),
-        optimal_config: vec![0, 1, 2, 1, 0, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 1, 0, 2]),
         optimal_value: serde_json::json!(1.0025),
     }]
 }

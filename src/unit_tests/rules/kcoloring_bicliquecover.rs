@@ -5,9 +5,9 @@ use crate::traits::Problem;
 use crate::types::Or;
 use crate::variant::KN;
 
-/// Helper: extract a vertex-major `BicliqueCover` cell.
-fn cell(config: &[usize], vertex: usize, biclique: usize, k: usize) -> usize {
-    config[vertex * k + biclique]
+/// Helper: extract a `BicliqueCover` membership cell.
+fn cell(config: &[Vec<bool>], vertex: usize, biclique: usize) -> bool {
+    config[biclique][vertex]
 }
 
 /// Build a closed-loop test on the smallest source that is non-trivial yet
@@ -24,7 +24,7 @@ fn test_kcoloring_to_bicliquecover_closed_loop_trivial() {
     // Solve the target via brute force and verify the extracted coloring
     // is a proper q-coloring of the source.
     let witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("trivial target must be feasible");
     let coloring = reduction.extract_solution(&witness).unwrap();
@@ -80,7 +80,7 @@ fn test_kcoloring_to_bicliquecover_structure_clique() {
     assert_eq!(target.num_edges(), 12);
 
     // K_4 with q = 3 has no proper coloring.
-    assert!(BruteForce::new().find_witness(&source).unwrap().is_none());
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
 }
 
 /// Build the explicit forward witness (guard bicliques + color bicliques)
@@ -145,11 +145,11 @@ fn test_kcoloring_to_bicliquecover_rejects_adjacent_grouping() {
     let k = n + q;
     let left_size = 2 * n;
     let num_vertices = 4 * n;
-    let mut bad = vec![0usize; num_vertices * k];
+    let mut bad = vec![vec![false; num_vertices]; k];
 
     // Helper: set vertex `v` (unified index) as a member of biclique `r`.
-    let set = |bad: &mut Vec<usize>, vertex: usize, biclique: usize| {
-        bad[vertex * k + biclique] = 1;
+    let set = |bad: &mut Vec<Vec<bool>>, vertex: usize, biclique: usize| {
+        bad[biclique][vertex] = true;
     };
     // Guard bicliques (biclique indices 0 and 1) cover the guard-anchor
     // edges correctly.
@@ -243,10 +243,9 @@ fn test_kcoloring_to_bicliquecover_extract_trivial_layout() {
 
     // The diagonal edge (a_0, b_0) should be in the color biclique r = 1
     // (since the guard biclique r = 0 holds (a_0, h_0) and (g_0, h_0)).
-    let k = target.k();
     // a_0 is unified vertex 0, b_0 is unified vertex left_size = 2.
-    assert_eq!(cell(&witness, 0, 1, k), 1);
-    assert_eq!(cell(&witness, 2, 1, k), 1);
+    assert!(cell(&witness, 0, 1));
+    assert!(cell(&witness, 2, 1));
 
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(extracted, vec![0]);

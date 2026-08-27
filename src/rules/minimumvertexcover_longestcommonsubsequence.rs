@@ -23,17 +23,15 @@ impl ReductionResult for ReductionVCToLCS {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let mut cover = vec![1; self.num_vertices];
+            let mut cover = vec![true; self.num_vertices];
             for &symbol in target_solution {
-                if symbol >= self.num_vertices {
-                    break;
-                }
-                cover[symbol] = 0;
+                let Some(symbol) = symbol else { break };
+                cover[symbol] = false;
             }
             cover
         })
@@ -97,8 +95,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, LongestCommonSubsequence>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 3, 4, 4],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![Some(0), Some(3), None, None]),
                 },
             )
         },

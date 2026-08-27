@@ -37,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MinimumCodeGenerationParallelAssignments;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 variables, 4 assignments:
 /// // A_0: a <- op(b, c)   -> (0, [1, 2])
@@ -52,7 +52,7 @@ inventory::submit! {
 /// ];
 /// let problem = MinimumCodeGenerationParallelAssignments::new(4, assignments);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,30 +103,42 @@ impl MinimumCodeGenerationParallelAssignments {
 
 impl Problem for MinimumCodeGenerationParallelAssignments {
     const NAME: &'static str = "MinimumCodeGenerationParallelAssignments";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_variables", num_variables),
+        ("num_assignments", num_assignments),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let m = self.num_assignments();
-        vec![m; m]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let m = self.num_assignments();
 
             // Validate config length
             if config.len() != m {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment length does not match the internal nodes".into(),
+                ));
+            }
+
+            if config.iter().any(|&position| position >= m) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "assignment contains an out-of-range execution position".into(),
+                ));
             }
 
             // Validate permutation: all values must be distinct and in 0..m
             let mut seen = vec![false; m];
             for &pos in config {
-                if pos >= m || seen[pos] {
+                if seen[pos] {
                     return Ok(Min(None));
                 }
                 seen[pos] = true;
@@ -162,8 +174,19 @@ impl Problem for MinimumCodeGenerationParallelAssignments {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumCodeGenerationParallelAssignments {
+    fn dimensions(&self) -> Vec<usize> {
+        let m = self.num_assignments();
+        vec![m; m]
+    }
+}
+
 crate::declare_variants! {
     default MinimumCodeGenerationParallelAssignments => "2^num_assignments",
+}
+
+crate::register_brute_force! {
+    MinimumCodeGenerationParallelAssignments,
 }
 
 #[cfg(feature = "example-db")]
@@ -187,7 +210,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             assignments,
         )),
-        optimal_config: vec![0, 3, 1, 2],
+        optimal_config: serde_json::json!(vec![0, 3, 1, 2]),
         optimal_value: serde_json::json!(2),
     }]
 }

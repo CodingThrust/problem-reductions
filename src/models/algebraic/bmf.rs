@@ -40,7 +40,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::algebraic::BMF;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 2x2 identity matrix — boolean rank 2
 /// let a = vec![
@@ -50,7 +50,7 @@ inventory::submit! {
 /// let problem = BMF::new(a, 2);
 ///
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// assert!(problem.is_exact(&witness).unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,31 +113,12 @@ impl BMF {
         &self.matrix
     }
 
-    /// Extract matrices B and C from a configuration.
-    ///
-    /// Config layout: first m*k bits are B (row-major), next k*n bits are C (row-major).
-    pub fn extract_factors(&self, config: &[usize]) -> (Vec<Vec<bool>>, Vec<Vec<bool>>) {
-        let b_size = self.m * self.k;
-
-        // Extract B (m x k)
-        let b: Vec<Vec<bool>> = (0..self.m)
-            .map(|i| {
-                (0..self.k)
-                    .map(|j| config.get(i * self.k + j).copied().unwrap_or(0) == 1)
-                    .collect()
-            })
-            .collect();
-
-        // Extract C (k x n)
-        let c: Vec<Vec<bool>> = (0..self.k)
-            .map(|i| {
-                (0..self.n)
-                    .map(|j| config.get(b_size + i * self.n + j).copied().unwrap_or(0) == 1)
-                    .collect()
-            })
-            .collect();
-
-        (b, c)
+    /// Return the two factor matrices represented by a solution.
+    pub fn extract_factors(
+        &self,
+        solution: &(Vec<Vec<bool>>, Vec<Vec<bool>>),
+    ) -> (Vec<Vec<bool>>, Vec<Vec<bool>>) {
+        solution.clone()
     }
 
     /// Compute the boolean product B * C.
@@ -160,9 +141,9 @@ impl BMF {
     /// Compute the Hamming distance between the target and the product.
     pub fn hamming_distance(
         &self,
-        config: &[usize],
+        solution: &(Vec<Vec<bool>>, Vec<Vec<bool>>),
     ) -> Result<i64, crate::traits::EvaluationError> {
-        let (b, c) = self.extract_factors(config);
+        let (b, c) = solution;
 
         let distance = (0..self.m)
             .map(|i| {
@@ -182,16 +163,25 @@ impl BMF {
     }
 
     /// Check if the factorization is exact (Hamming distance = 0).
-    pub fn is_exact(&self, config: &[usize]) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.hamming_distance(config)? == 0)
+    pub fn is_exact(
+        &self,
+        solution: &(Vec<Vec<bool>>, Vec<Vec<bool>>),
+    ) -> Result<bool, crate::traits::EvaluationError> {
+        Ok(self.hamming_distance(solution)? == 0)
     }
 
     /// Total number of 1s in B and C (the factor size to be minimized when exact).
     pub fn total_factor_size(
         &self,
-        config: &[usize],
+        solution: &(Vec<Vec<bool>>, Vec<Vec<bool>>),
     ) -> Result<i64, crate::traits::EvaluationError> {
-        let size = config.iter().filter(|&&x| x == 1).count();
+        let (left, right) = solution;
+        let size = left
+            .iter()
+            .chain(right)
+            .flatten()
+            .filter(|&&value| value)
+            .count();
         i64::try_from(size).map_err(|_| {
             crate::traits::EvaluationError::IntegerOverflow(
                 "converting Boolean factor size to i64".into(),
@@ -223,23 +213,31 @@ pub(crate) fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
+    type Solution = (Vec<Vec<bool>>, Vec<Vec<bool>>);
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        // B: m*k + C: k*n binary variables
-        vec![2; self.m * self.k + self.k * self.n]
-    }
+    crate::problem_size![("cols", cols), ("rank", rank), ("rows", rows),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let (left, right) = solution;
+        if left.len() != self.m
+            || left.iter().any(|row| row.len() != self.k)
+            || right.len() != self.k
+            || right.iter().any(|row| row.len() != self.n)
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "BMF factor dimensions do not match the instance".into(),
+            ));
+        }
         Ok({
-            if config.len() != self.dims().len() || config.iter().any(|&value| value > 1) {
-                return Ok(Min(None));
-            }
             // Feasible iff B*C = A exactly; objective is total factor size (|B| + |C| in 1s).
-            if self.hamming_distance(config)? != 0 {
+            if self.hamming_distance(solution)? != 0 {
                 return Ok(Min(None));
             }
-            Min(Some(self.total_factor_size(config)?))
+            Min(Some(self.total_factor_size(solution)?))
         })
     }
 
@@ -248,8 +246,25 @@ impl Problem for BMF {
     }
 }
 
+impl crate::solvers::BruteForceProblem for BMF {
+    fn dimensions(&self) -> Vec<usize> {
+        // B: m*k + C: k*n binary variables
+        vec![2; self.m * self.k + self.k * self.n]
+    }
+}
+
 crate::declare_variants! {
     default BMF => "2^(rows * rank + rank * cols)",
+}
+
+crate::register_brute_force! {
+    BMF decode |problem: &BMF, indices: Vec<usize>| {
+        let split = problem.rows() * problem.rank();
+        (
+            indices[..split].chunks(problem.rank()).map(crate::config::config_to_bits).collect(),
+            indices[split..].chunks(problem.cols()).map(crate::config::config_to_bits).collect(),
+        )
+    },
 }
 
 #[cfg(feature = "example-db")]
@@ -264,9 +279,12 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        // B = [[1,0],[1,1],[0,1]] (row-major: 1,0,1,1,0,1), C = [[1,1,0],[0,1,1]] (row-major: 1,1,0,0,1,1).
+        // B = [[1,0],[1,1],[0,1]], C = [[1,1,0],[0,1,1]].
         // Total 1s: 4 in B + 4 in C = 8, and B * C = A exactly.
-        optimal_config: vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1],
+        optimal_config: serde_json::json!((
+            vec![vec![true, false], vec![true, true], vec![false, true]],
+            vec![vec![true, true, false], vec![false, true, true]]
+        )),
         optimal_value: serde_json::json!(8),
     }]
 }

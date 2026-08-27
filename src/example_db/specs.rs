@@ -19,7 +19,7 @@ pub struct ModelExampleSpec {
     /// The concrete problem instance (type-erased).
     pub instance: Box<dyn DynProblem>,
     /// One known optimal configuration.
-    pub optimal_config: Vec<usize>,
+    pub optimal_config: serde_json::Value,
     /// The optimal value as a serializable JSON value.
     pub optimal_value: serde_json::Value,
 }
@@ -74,6 +74,7 @@ where
     V: crate::models::algebraic::VariableDomain,
     <S as ReduceTo<crate::models::algebraic::ILP<V>>>::Result:
         ReductionResult<Source = S, Target = crate::models::algebraic::ILP<V>>,
+    S::Solution: Serialize,
 {
     use crate::export::SolutionPair;
     let reduction = source.reduce_to().expect("reduction should succeed");
@@ -85,8 +86,10 @@ where
         &source,
         reduction.target_problem(),
         vec![SolutionPair {
-            source_config,
-            target_config: ilp_solution,
+            source_config: serde_json::to_value(source_config)
+                .expect("source solution serialization must succeed"),
+            target_config: serde_json::to_value(ilp_solution)
+                .expect("target solution serialization must succeed"),
         }],
     )
 }

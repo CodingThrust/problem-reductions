@@ -28,8 +28,8 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         Ok({
             let item_arc_count = self.item_arc_count.ok_or_else(|| {
                 crate::rules::ExtractionError::invalid(
@@ -38,7 +38,10 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
             })?;
             crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-            target_solution[..item_arc_count].to_vec()
+            target_solution[..item_arc_count]
+                .iter()
+                .map(|&flow| flow > 0)
+                .collect()
         })
     }
 }
@@ -47,9 +50,12 @@ impl ReductionResult for ReductionPartitionToIntegralFlowWithMultipliers {
     size = exact {
         num_vertices = "num_elements + 3",
         num_arcs = "2 * num_elements + 1",
-        max_capacity = "total_sum",
-        requirement = "total_sum",
-    })]
+    },
+    unavailable = {
+        max_capacity = "the target capacity depends on source numeric values not represented by Partition size parameters",
+        requirement = "the target requirement depends on source numeric values not represented by Partition size parameters",
+    }
+)]
 impl ReduceTo<IntegralFlowWithMultipliers> for Partition {
     type Result = ReductionPartitionToIntegralFlowWithMultipliers;
 
@@ -115,8 +121,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowWithMultipliers>(
                 Partition::new(vec![2, 3, 4, 5, 6, 4]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 1, 0],
-                    target_config: vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12],
+                    source_config: serde_json::json!(vec![true, false, true, false, true, false]),
+                    target_config: serde_json::json!(vec![1, 0, 1, 0, 1, 0, 2, 0, 4, 0, 6, 0, 12]),
                 },
             )
         },

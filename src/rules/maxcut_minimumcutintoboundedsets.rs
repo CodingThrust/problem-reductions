@@ -32,8 +32,8 @@ impl ReductionResult for ReductionMaxCutToMinCutBounded {
     /// Take only the first `original_n` vertex assignments.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution[..self.original_n].to_vec())
@@ -155,11 +155,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             // Find optimal source and target solutions
             let solver = BruteForce::new();
             let source_witness = solver
-                .find_witness(&source)
+                .solve(&source)
                 .expect("canonical source evaluation must succeed")
                 .expect("canonical source must have an optimum");
             let target_witness = solver
-                .find_witness(reduction.target_problem())
+                .solve(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .expect("canonical target must have an optimum");
 
@@ -167,8 +167,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config: source_witness,
-                    target_config: target_witness,
+                    source_config: serde_json::json!(source_witness),
+                    target_config: serde_json::json!(target_witness),
                 }],
             )
         },

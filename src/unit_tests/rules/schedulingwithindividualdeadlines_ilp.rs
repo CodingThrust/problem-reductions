@@ -21,12 +21,12 @@ fn test_schedulingwithindividualdeadlines_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=3, max_deadline=3 → 9 variables
-    assert_eq!(ilp.num_vars, 9);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 9);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     // 3 one-hot + 3 capacity + 1 precedence = 7 constraints
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_schedulingwithindividualdeadlines_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance has a witness");
     assert!(

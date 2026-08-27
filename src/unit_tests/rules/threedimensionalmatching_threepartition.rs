@@ -65,7 +65,7 @@ fn test_threedimensionalmatching_to_threepartition_extracts_manual_q1_witness() 
     );
 
     let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -82,7 +82,7 @@ fn test_threedimensionalmatching_to_threepartition_closed_loop_from_known_matchi
             .0
     );
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -100,7 +100,7 @@ fn test_threedimensionalmatching_to_threepartition_round_trip_q2_minimal_matchin
     );
 
     let extracted = reduction.extract_solution(&target_solution).unwrap();
-    assert_eq!(extracted, vec![1, 1]);
+    assert_eq!(extracted, vec![true, true]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 
@@ -110,14 +110,14 @@ fn test_threedimensionalmatching_to_threepartition_uncovered_coordinate_maps_to_
     let (source, reduction) = reduce(2, &[(0, 0, 0), (0, 1, 1)]);
 
     assert!(
-        BruteForce::new().find_witness(&source).unwrap().is_none(),
+        BruteForce::new().solve(&source).unwrap().is_none(),
         "source instance should be infeasible"
     );
     assert_eq!(reduction.target_problem().sizes(), &[6, 6, 6, 6, 7, 9]);
     assert_eq!(reduction.target_problem().bound(), 20);
     assert!(
         BruteForce::new()
-            .find_witness(reduction.target_problem())
+            .solve(reduction.target_problem())
             .unwrap()
             .is_none(),
         "target instance should be infeasible"

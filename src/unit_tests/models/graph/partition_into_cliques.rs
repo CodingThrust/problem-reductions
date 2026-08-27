@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 
@@ -30,7 +31,7 @@ fn test_partition_into_cliques_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 9);
     assert_eq!(problem.num_cliques(), 3);
-    assert_eq!(problem.dims(), vec![3; 6]);
+    assert_eq!(problem.dimensions(), vec![3; 6]);
     assert_eq!(problem.graph().num_vertices(), 6);
 }
 
@@ -39,10 +40,10 @@ fn test_partition_into_cliques_evaluate_positive() {
     let problem = two_triangle_instance();
 
     // Group 0 = {0,1,2} (triangle), Group 1 = {3,4,5} (triangle)
-    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]).unwrap());
+    assert!(problem.evaluate(&vec![0, 0, 0, 1, 1, 1]).unwrap());
 
     // Each vertex in its own group (trivially valid)
-    assert!(problem.evaluate(&[0, 1, 2, 0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2, 0, 1, 2]).unwrap());
 }
 
 #[test]
@@ -50,21 +51,30 @@ fn test_partition_into_cliques_evaluate_negative() {
     let problem = two_triangle_instance();
 
     // Group 0 = {0,1,2,3}: 0-1, 0-2, 1-2, 0-3 present, but 1-3 missing
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 1, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0, 1, 2]).unwrap());
 }
 
 #[test]
 fn test_partition_into_cliques_evaluate_wrong_config_length() {
     let problem = two_triangle_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
-    assert!(!problem.evaluate(&[0, 1, 0, 0, 1, 1, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0, 0, 1, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_partition_into_cliques_evaluate_out_of_range_group() {
     let problem = two_triangle_instance();
     // Group 3 doesn't exist (num_cliques=3, valid groups are 0,1,2)
-    assert!(!problem.evaluate(&[0, 1, 3, 0, 1, 2]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 3, 0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -75,7 +85,7 @@ fn test_partition_into_cliques_brute_force_finds_solution() {
         2,
     );
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
@@ -85,7 +95,7 @@ fn test_partition_into_cliques_brute_force_no_solution() {
     // Path 0-1-2, K=1: {0,1,2} not a clique (missing edge 0-2)
     let problem = PartitionIntoCliques::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 1);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

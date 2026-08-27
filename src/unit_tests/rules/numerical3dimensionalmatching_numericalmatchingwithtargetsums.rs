@@ -81,9 +81,9 @@ fn test_n3dm_to_nmts_unsatisfiable_maps_to_unsatisfiable() {
     let reduction = ReduceTo::<NumericalMatchingWithTargetSums>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    assert!(BruteForce::new().find_witness(&source).unwrap().is_none());
+    assert!(BruteForce::new().solve(&source).unwrap().is_none());
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }

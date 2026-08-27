@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
 use crate::topology::SimpleGraph;
 
@@ -14,11 +14,7 @@ fn test_disjointconnectingpaths_to_ilp_closed_loop() {
         vec![(0, 2), (3, 5)],
     );
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &source,
-        &reduction,
-        "DisjointConnectingPaths->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]

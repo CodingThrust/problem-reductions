@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_known_values() {
@@ -78,7 +79,7 @@ fn test_cdft_creation_and_getters() {
 fn test_cdft_dims_repeat_attribute_domains_for_each_object() {
     let problem = issue_yes_instance();
     assert_eq!(
-        problem.dims(),
+        problem.dimensions(),
         vec![2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2, 2, 3, 2]
     );
 }
@@ -92,10 +93,16 @@ fn test_cdft_evaluate_issue_witness() {
 #[test]
 fn test_cdft_evaluate_rejects_wrong_length() {
     let problem = issue_yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     let mut too_long = issue_yes_witness();
     too_long.push(0);
-    assert!(!problem.evaluate(&too_long).unwrap());
+    assert!(matches!(
+        problem.evaluate(&too_long),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -103,7 +110,10 @@ fn test_cdft_evaluate_rejects_out_of_range_value() {
     let problem = issue_yes_instance();
     let mut bad = issue_yes_witness();
     bad[1] = 3;
-    assert!(!problem.evaluate(&bad).unwrap());
+    assert!(matches!(
+        problem.evaluate(&bad),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -127,7 +137,7 @@ fn test_cdft_bruteforce_finds_small_satisfying_assignment() {
     let problem = small_yes_instance();
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("small instance should be satisfiable");
     assert!(problem.evaluate(&solution).unwrap());
@@ -137,7 +147,7 @@ fn test_cdft_bruteforce_finds_small_satisfying_assignment() {
 fn test_cdft_bruteforce_detects_small_unsat_instance() {
     let problem = small_no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

@@ -7,7 +7,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::RectilinearPictureCompression;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionRPCToILP {
@@ -24,11 +23,11 @@ impl ReductionResult for ReductionRPCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -50,28 +49,23 @@ impl ReduceTo<ILP<bool>> for RectilinearPictureCompression {
         for i in 0..self.num_rows() {
             for j in 0..self.num_cols() {
                 if self.matrix()[i][j] {
-                    let terms: Vec<(usize, f64)> = rects
+                    let terms: Vec<(usize, i64)> = rects
                         .iter()
                         .enumerate()
                         .filter(|(_, &(r1, c1, r2, c2))| i >= r1 && i <= r2 && j >= c1 && j <= c2)
-                        .map(|(idx, _)| (idx, 1.0))
+                        .map(|(idx, _)| (idx, 1))
                         .collect();
-                    constraints.push(LinearConstraint::ge(terms, 1.0));
+                    constraints.push(LinearConstraint::ge(terms, 1));
                 }
             }
         }
 
         // Bound constraint: Σ x_r ≤ bound
-        let bound_terms: Vec<(usize, f64)> = (0..num_vars).map(|i| (i, 1.0)).collect();
-        let bound = i64_to_exact_f64(self.bound()).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<
-                RectilinearPictureCompression,
-                ILP<bool>,
-            >(error)
-        })?;
-        constraints.push(LinearConstraint::le(bound_terms, bound));
+        let bound_terms: Vec<(usize, i64)> = (0..num_vars).map(|i| (i, 1)).collect();
+        constraints.push(LinearConstraint::le(bound_terms, self.bound()));
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionRPCToILP { target })
     }
 }

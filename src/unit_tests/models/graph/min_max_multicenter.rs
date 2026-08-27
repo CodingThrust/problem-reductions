@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -23,7 +24,7 @@ fn test_minmaxmulticenter_basic() {
     assert_eq!(problem.k(), 2);
     assert_eq!(problem.vertex_weights(), &[1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.edge_lengths(), &[1, 1, 1, 1, 1, 1, 1]);
-    assert_eq!(problem.dims(), vec![2; 6]);
+    assert_eq!(problem.dimensions(), vec![2; 6]);
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 7);
     assert_eq!(problem.num_centers(), 2);
@@ -35,14 +36,24 @@ fn test_minmaxmulticenter_evaluate_valid() {
     // Centers at vertices 1 and 4:
     // Distances: d(0)=1, d(1)=0, d(2)=1, d(3)=1, d(4)=0, d(5)=1
     // Max weighted distance = 1*1 = 1
-    assert_eq!(problem.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![false, true, false, false, true, false])
+            .unwrap(),
+        Min(Some(1))
+    );
 }
 
 #[test]
 fn test_minmaxmulticenter_evaluate_invalid_count() {
     let problem = example_instance();
     // 3 centers selected when K=2
-    assert_eq!(problem.evaluate(&[1, 1, 1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, true, true, false, false, false])
+            .unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -51,19 +62,32 @@ fn test_minmaxmulticenter_evaluate_suboptimal() {
     // Centers at 0 and 5 (adjacent via edge {0,5}):
     // Distances: d(0)=0, d(1)=1, d(2)=2, d(3)=2, d(4)=1, d(5)=0
     // Max weighted distance = 1*2 = 2
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0, 0, 1]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![true, false, false, false, false, true])
+            .unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
 fn test_minmaxmulticenter_evaluate_no_centers() {
     let problem = example_instance();
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![false, false, false, false, false, false])
+            .unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
 fn test_minmaxmulticenter_evaluate_wrong_config_length() {
     let problem = example_instance();
-    assert_eq!(problem.evaluate(&[0, 1, 0, 0, 0, 0, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![false, true, false, false, false, false, true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -80,7 +104,7 @@ fn test_minmaxmulticenter_serialization() {
     assert_eq!(deserialized.k(), 2);
 
     // Verify evaluation produces same results
-    let config = vec![0, 1, 0, 0, 1, 0];
+    let config = vec![false, true, false, false, true, false];
     assert_eq!(
         problem.evaluate(&config).unwrap(),
         deserialized.evaluate(&config).unwrap()
@@ -92,7 +116,7 @@ fn test_minmaxmulticenter_solver() {
     let problem = example_instance();
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap();
+    let witness = solver.solve(&problem).unwrap();
 
     // The optimal witness should give min-max distance of 1
     assert!(witness.is_some());
@@ -107,12 +131,18 @@ fn test_minmaxmulticenter_disconnected() {
     let problem = MinMaxMulticenter::new(graph, vec![1i64; 4], vec![1i64; 2], 1);
 
     // Center at 0: vertices 2 and 3 are unreachable -> None
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false, false]).unwrap(),
+        Min(None)
+    );
 
     // With K=2, centers at {0, 2}: all reachable, max distance = 1
     let graph2 = SimpleGraph::new(4, vec![(0, 1), (2, 3)]);
     let problem2 = MinMaxMulticenter::new(graph2, vec![1i64; 4], vec![1i64; 2], 2);
-    assert_eq!(problem2.evaluate(&[1, 0, 1, 0]).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem2.evaluate(&vec![true, false, true, false]).unwrap(),
+        Min(Some(1))
+    );
 }
 
 #[test]
@@ -124,12 +154,18 @@ fn test_minmaxmulticenter_weighted() {
     // Center at 1: d(0)=1, d(1)=0, d(2)=1
     // w(0)*d(0) = 3*1 = 3, w(1)*d(1) = 0, w(2)*d(2) = 2*1 = 2
     // max = 3
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&vec![false, true, false]).unwrap(),
+        Min(Some(3))
+    );
 
     // Center at 0: d(0)=0, d(1)=1, d(2)=2
     // w(0)*d(0) = 0, w(1)*d(1) = 1, w(2)*d(2) = 4
     // max = 4
-    assert_eq!(problem.evaluate(&[1, 0, 0]).unwrap(), Min(Some(4)));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false]).unwrap(),
+        Min(Some(4))
+    );
 }
 
 #[test]
@@ -137,7 +173,7 @@ fn test_minmaxmulticenter_single_vertex() {
     let graph = SimpleGraph::new(1, vec![]);
     let problem = MinMaxMulticenter::new(graph, vec![5i64], vec![], 1);
     // Only vertex is the center, max weighted distance = 0
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![true]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -145,7 +181,10 @@ fn test_minmaxmulticenter_all_centers() {
     // K = num_vertices: all vertices are centers, max distance = 0
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64; 2], 3);
-    assert_eq!(problem.evaluate(&[1, 1, 1]).unwrap(), Min(Some(0)));
+    assert_eq!(
+        problem.evaluate(&vec![true, true, true]).unwrap(),
+        Min(Some(0))
+    );
 }
 
 #[test]
@@ -155,13 +194,22 @@ fn test_minmaxmulticenter_nonunit_edge_lengths() {
     let problem = MinMaxMulticenter::new(graph, vec![1i64; 3], vec![1i64, 3], 1);
 
     // Center at 0: d(0)=0, d(1)=1, d(2)=1+3=4; max=4
-    assert_eq!(problem.evaluate(&[1, 0, 0]).unwrap(), Min(Some(4)));
+    assert_eq!(
+        problem.evaluate(&vec![true, false, false]).unwrap(),
+        Min(Some(4))
+    );
 
     // Center at 1: d(0)=1, d(1)=0, d(2)=3; max=3
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(Some(3)));
+    assert_eq!(
+        problem.evaluate(&vec![false, true, false]).unwrap(),
+        Min(Some(3))
+    );
 
     // Center at 2: d(0)=4, d(1)=3, d(2)=0; max=4
-    assert_eq!(problem.evaluate(&[0, 0, 1]).unwrap(), Min(Some(4)));
+    assert_eq!(
+        problem.evaluate(&vec![false, false, true]).unwrap(),
+        Min(Some(4))
+    );
 }
 
 #[test]

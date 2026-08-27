@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 /// Helper to build the issue example instance.
@@ -36,7 +37,7 @@ fn test_conjunctivebooleanquery_basic() {
     assert_eq!(problem.num_relations(), 2);
     assert_eq!(problem.num_variables(), 2);
     assert_eq!(problem.num_conjuncts(), 3);
-    assert_eq!(problem.dims(), vec![6, 6]);
+    assert_eq!(problem.dimensions(), vec![6, 6]);
     assert_eq!(
         <ConjunctiveBooleanQuery as Problem>::NAME,
         "ConjunctiveBooleanQuery"
@@ -53,7 +54,7 @@ fn test_conjunctivebooleanquery_evaluate_yes() {
     //   conjunct 0: R_0(0, 3) = (0,3) in R_0 -> true
     //   conjunct 1: R_0(1, 3) = (1,3) in R_0 -> true
     //   conjunct 2: R_1(0, 1, 5) = (0,1,5) in R_1 -> true
-    assert!(problem.evaluate(&[0, 1]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1]).unwrap());
 }
 
 #[test]
@@ -61,23 +62,32 @@ fn test_conjunctivebooleanquery_evaluate_no() {
     let problem = issue_example();
     // y_0=2, y_1=1:
     //   conjunct 0: R_0(2, 3) = (2,3) NOT in R_0 (R_0 has (2,4) not (2,3))
-    assert!(!problem.evaluate(&[2, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![2, 1]).unwrap());
 }
 
 #[test]
 fn test_conjunctivebooleanquery_out_of_range() {
     let problem = issue_example();
     // value 6 is out of range for domain_size=6
-    assert!(!problem.evaluate(&[6, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![6, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_conjunctivebooleanquery_wrong_length() {
     let problem = issue_example();
     // too short
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // too long
-    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -85,7 +95,7 @@ fn test_conjunctivebooleanquery_brute_force() {
     let problem = issue_example();
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find a solution");
     assert!(problem.evaluate(&solution).unwrap());
@@ -106,7 +116,7 @@ fn test_conjunctivebooleanquery_unsatisfiable() {
     ];
     let problem = ConjunctiveBooleanQuery::new(2, relations, 1, conjuncts);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]

@@ -6,7 +6,7 @@
 //! input string that together minimize the maximum Hamming distance from `c`
 //! to any selected window.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -36,19 +36,6 @@ inventory::submit! {
                 type_name: "usize",
                 description: "Common window length ell; every input string must have length at least substring_length",
             },
-        ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "ClosestSubstring",
-        fields: &[
-            "alphabet_size",
-            "num_strings",
-            "substring_length",
-            "total_length",
-            "total_num_windows",
         ],
     }
 }
@@ -184,25 +171,33 @@ impl ClosestSubstring {
 
 impl Problem for ClosestSubstring {
     const NAME: &'static str = "ClosestSubstring";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("alphabet_size", alphabet_size),
+        ("num_strings", num_strings),
+        ("substring_length", substring_length),
+        ("total_length", total_length),
+        ("total_num_windows", total_num_windows),
+        ("num_window_choice_product", num_window_choice_product),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let ell = self.substring_length;
-        let mut dims = vec![self.alphabet_size; ell];
-        dims.extend(self.strings.iter().map(|s| s.len() - ell + 1));
-        dims
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let ell = self.substring_length;
             let n = self.num_strings();
             if config.len() != ell + n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "substring witness length does not match the instance".into(),
+                ));
             }
             let (center, window_starts) = config.split_at(ell);
             if center.iter().any(|&symbol| symbol >= self.alphabet_size) {
@@ -211,7 +206,9 @@ impl Problem for ClosestSubstring {
             for (i, &start) in window_starts.iter().enumerate() {
                 let w_i = self.strings[i].len() - ell + 1;
                 if start >= w_i {
-                    return Ok(Min(None));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "substring witness contains an out-of-range window start".into(),
+                    ));
                 }
             }
             // Maximum Hamming distance from the center to the chosen window of each string.
@@ -237,8 +234,21 @@ impl Problem for ClosestSubstring {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ClosestSubstring {
+    fn dimensions(&self) -> Vec<usize> {
+        let ell = self.substring_length;
+        let mut dims = vec![self.alphabet_size; ell];
+        dims.extend(self.strings.iter().map(|s| s.len() - ell + 1));
+        dims
+    }
+}
+
 crate::declare_variants! {
     default ClosestSubstring => "alphabet_size ^ substring_length * num_window_choice_product",
+}
+
+crate::register_brute_force! {
+    ClosestSubstring,
 }
 
 #[cfg(feature = "example-db")]
@@ -259,7 +269,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         ),
         // Center c = [0, 1, 0]; windows (0, 1, 0) selecting s_1[0..3] = 000,
         // s_2[1..4] = 010, s_3[0..3] = 110 with distances 1, 0, 1 and radius 1.
-        optimal_config: vec![0, 1, 0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 0, 0, 1, 0]),
         optimal_value: serde_json::json!(1),
     }]
 }

@@ -45,14 +45,11 @@ fn test_kclique_to_bcbs_complete_graph() {
     assert_eq!(target.k(), 4);
 
     let bf = BruteForce::new();
-    let witness = bf
-        .find_witness(target)
-        .unwrap()
-        .expect("K4 should contain K3");
+    let witness = bf.solve(target).unwrap().expect("K4 should contain K3");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
     // Exactly 3 vertices should be selected
-    assert_eq!(extracted.iter().sum::<usize>(), 3);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 3);
 }
 
 #[test]
@@ -70,14 +67,14 @@ fn test_kclique_to_bcbs_no_clique() {
 
     // No balanced biclique should exist
     let bf = BruteForce::new();
-    let witness = bf.find_witness(target).unwrap();
+    let witness = bf.solve(target).unwrap();
     assert!(
         witness.is_none(),
         "path graph should not contain a 3-clique"
     );
 
     // Also verify brute force on source agrees
-    let source_witness = bf.find_witness(&source).unwrap();
+    let source_witness = bf.solve(&source).unwrap();
     assert!(source_witness.is_none());
 }
 
@@ -96,12 +93,12 @@ fn test_kclique_to_bcbs_k_equals_2() {
 
     let bf = BruteForce::new();
     let witness = bf
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("graph has edges, so 2-clique exists");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 2);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 2);
 }
 
 #[test]
@@ -118,13 +115,10 @@ fn test_kclique_to_bcbs_k_equals_1() {
     assert_eq!(target.k(), 2);
 
     let bf = BruteForce::new();
-    let witness = bf
-        .find_witness(target)
-        .unwrap()
-        .expect("should find a 1-clique");
+    let witness = bf.solve(target).unwrap().expect("should find a 1-clique");
     let extracted = reduction.extract_solution(&witness).unwrap();
     assert_eq!(source.evaluate(&extracted).unwrap(), Or(true));
-    assert_eq!(extracted.iter().sum::<usize>(), 1);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 1);
 }
 
 #[test]
@@ -154,7 +148,7 @@ fn test_kclique_to_bcbs_bipartite_counterexample() {
     let target = reduction.target_problem();
 
     let bf = BruteForce::new();
-    let witness = bf.find_witness(target).unwrap();
+    let witness = bf.solve(target).unwrap();
     assert!(
         witness.is_none(),
         "K_{{3,3}} has no 3-clique, so target should be unsatisfiable"

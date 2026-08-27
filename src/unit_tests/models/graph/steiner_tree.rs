@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_duplicate_terminals() {
@@ -30,7 +31,7 @@ fn test_steiner_tree_creation() {
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 7);
     assert_eq!(problem.terminals(), &[0, 2, 4]);
-    assert_eq!(problem.dims().len(), 7);
+    assert_eq!(problem.dimensions().len(), 7);
 }
 
 #[test]
@@ -53,7 +54,7 @@ fn test_steiner_tree_evaluate_optimal() {
     let problem = example_instance();
     // Optimal: edges (0,1)=2, (1,2)=2, (1,3)=1, (3,4)=1 => cost 6
     // Edge indices: 0=(0,1), 2=(1,2), 3=(1,3), 6=(3,4)
-    let config = vec![1, 0, 1, 1, 0, 0, 1];
+    let config = vec![true, false, true, true, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
 }
 
@@ -61,7 +62,7 @@ fn test_steiner_tree_evaluate_optimal() {
 fn test_steiner_tree_evaluate_invalid_disconnected() {
     let problem = example_instance();
     // Only edge (0,1) — terminals 2, 4 unreachable
-    let config = vec![1, 0, 0, 0, 0, 0, 0];
+    let config = vec![true, false, false, false, false, false, false];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -69,14 +70,14 @@ fn test_steiner_tree_evaluate_invalid_disconnected() {
 fn test_steiner_tree_evaluate_invalid_cycle() {
     let problem = example_instance();
     // Edges (0,1), (0,3), (1,2), (1,3), (3,4) — cycle 0-1-3-0
-    let config = vec![1, 1, 1, 1, 0, 0, 1];
+    let config = vec![true, true, true, true, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
 #[test]
 fn test_steiner_tree_evaluate_empty() {
     let problem = example_instance();
-    let config = vec![0; 7];
+    let config = vec![false; 7];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
 }
 
@@ -135,13 +136,13 @@ fn test_steiner_tree_serialization() {
 fn test_steiner_tree_is_valid_solution() {
     let problem = example_instance();
     // Valid: tree connecting all terminals
-    assert!(problem.is_valid_solution(&[1, 0, 1, 1, 0, 0, 1]));
+    assert!(problem.is_valid_solution(&[true, false, true, true, false, false, true]));
     // Invalid: disconnected
-    assert!(!problem.is_valid_solution(&[1, 0, 0, 0, 0, 0, 0]));
+    assert!(!problem.is_valid_solution(&[true, false, false, false, false, false, false]));
     // Invalid: empty
-    assert!(!problem.is_valid_solution(&[0; 7]));
+    assert!(!problem.is_valid_solution(&[false; 7]));
     // Invalid: wrong config length
-    assert!(!problem.is_valid_solution(&[1, 0, 1]));
+    assert!(!problem.is_valid_solution(&[true, false, true]));
 }
 
 #[test]
@@ -155,7 +156,7 @@ fn test_steiner_tree_disconnected_non_terminal_edges() {
     let problem = SteinerTree::new(graph, edge_weights, terminals);
     // Edges: 0=(0,1), 1=(1,2), 2=(2,3), 3=(3,4)
     // Select edges 0, 1, 3 — disconnected: {0,1,2} and {3,4}
-    let config = vec![1, 1, 0, 1];
+    let config = vec![true, true, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
@@ -170,7 +171,7 @@ fn test_steiner_tree_edge_weights_and_set_weights() {
     problem.set_weights(vec![1, 1, 1, 1, 1, 1, 1]);
     assert_eq!(problem.edge_weights(), &[1, 1, 1, 1, 1, 1, 1]);
     // The same tree (0,1),(1,2),(1,3),(3,4) now costs 4
-    let config = vec![1, 0, 1, 1, 0, 0, 1];
+    let config = vec![true, false, true, true, false, false, true];
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(4)));
 }
 

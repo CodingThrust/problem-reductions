@@ -28,7 +28,7 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_closed_loop() {
     );
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&best).unwrap(), Min(Some(2)));
@@ -76,7 +76,7 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_no_instance_gap() {
     let target = reduction.target_problem();
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&best).unwrap(), Min(Some(3)));
@@ -92,8 +92,10 @@ fn test_exactcoverby3sets_to_minimumfaultdetectiontestset_extract_solution_ident
         .expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 1, 0]).unwrap(),
-        vec![1, 1, 0]
+        reduction
+            .extract_solution(&vec![vec![true], vec![true], vec![false]])
+            .unwrap(),
+        vec![true, true, false]
     );
-    assert!(source.evaluate(&[1, 1, 0]).unwrap().0);
+    assert!(source.evaluate(&vec![true, true, false]).unwrap().0);
 }

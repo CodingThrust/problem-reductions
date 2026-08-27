@@ -45,8 +45,8 @@ impl ReductionResult for ReductionMCESToILP {
     /// mapping variable is selected.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let n2 = self.num_vertices_2;
@@ -103,14 +103,14 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
 
         // Row constraints: each source vertex maps to at most one target.
         for u in 0..n1 {
-            let terms: Vec<(usize, f64)> = (0..n2).map(|p| (x_idx(u, p), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n2).map(|p| (x_idx(u, p), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Column constraints: each target vertex receives at most one source.
         for p in 0..n2 {
-            let terms: Vec<(usize, f64)> = (0..n1).map(|u| (x_idx(u, p), 1.0)).collect();
-            constraints.push(LinearConstraint::le(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n1).map(|u| (x_idx(u, p), 1)).collect();
+            constraints.push(LinearConstraint::le(terms, 1));
         }
 
         // Linking constraints: y_(a,b) = x_(u,p) AND x_(v,q) via McCormick.
@@ -127,7 +127,8 @@ impl ReduceTo<ILP<bool>> for MaximumCommonEdgeSubgraph {
         // Objective: maximize the number of preserved labelled arcs.
         let objective: Vec<(usize, f64)> = (0..num_y).map(|seq| (y_idx(seq), 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMCESToILP {
             target,

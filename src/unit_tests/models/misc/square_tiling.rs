@@ -1,5 +1,6 @@
 use crate::models::misc::SquareTiling;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -20,7 +21,7 @@ fn test_square_tiling_basic() {
     assert_eq!(problem.num_tiles(), 4);
     assert_eq!(problem.grid_size(), 2);
     assert_eq!(problem.tiles().len(), 4);
-    assert_eq!(problem.dims(), vec![4; 4]);
+    assert_eq!(problem.dimensions(), vec![4; 4]);
     assert_eq!(problem.num_variables(), 4);
     assert_eq!(<SquareTiling as Problem>::NAME, "SquareTiling");
     assert_eq!(<SquareTiling as Problem>::variant(), vec![]);
@@ -34,7 +35,7 @@ fn test_square_tiling_evaluate_valid() {
     //   (1,0)=t2, (1,1)=t3
     // Horizontal: t0.right=1==t1.left=1, t2.right=1==t3.left=1
     // Vertical:   t0.bottom=2==t2.top=2, t1.bottom=2==t3.top=2
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Or(true));
+    assert_eq!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap(), Or(true));
 }
 
 #[test]
@@ -43,7 +44,7 @@ fn test_square_tiling_evaluate_invalid_horizontal() {
     // Config [0, 0, 2, 3]:
     //   (0,0)=t0, (0,1)=t0
     //   t0.right=1, t0.left=0 => mismatch
-    assert_eq!(problem.evaluate(&[0, 0, 2, 3]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&vec![0, 0, 2, 3]).unwrap(), Or(false));
 }
 
 #[test]
@@ -53,27 +54,36 @@ fn test_square_tiling_evaluate_invalid_vertical() {
     //   (0,0)=t0, (0,1)=t1
     //   (1,0)=t0, (1,1)=t3
     //   Vertical (0,0)-(1,0): t0.bottom=2, t0.top=0 => mismatch
-    assert_eq!(problem.evaluate(&[0, 1, 0, 3]).unwrap(), Or(false));
+    assert_eq!(problem.evaluate(&vec![0, 1, 0, 3]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_square_tiling_evaluate_wrong_length() {
     let problem = example_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Or(false));
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 0]).unwrap(), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 3, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_square_tiling_evaluate_tile_index_out_of_range() {
     let problem = example_problem();
-    assert_eq!(problem.evaluate(&[0, 1, 2, 4]).unwrap(), Or(false));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 4]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_square_tiling_solver_finds_witness() {
     let problem = example_problem();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Or(true));
 }
 
@@ -83,16 +93,16 @@ fn test_square_tiling_unsatisfiable_instance() {
     // Both have right=1, left=0, so no horizontal match possible.
     let problem = SquareTiling::new(3, vec![(0, 1, 2, 0), (2, 1, 0, 0)], 2);
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
 fn test_square_tiling_single_cell() {
     // 1x1 grid: any single tile is a valid tiling
     let problem = SquareTiling::new(2, vec![(0, 1, 0, 1)], 1);
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Or(true));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), Or(true));
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(witness, vec![0]);
 }
 

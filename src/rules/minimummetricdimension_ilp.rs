@@ -40,11 +40,11 @@ impl ReductionResult for ReductionMDToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        Ok(target_solution.iter().map(|&value| value == 1).collect())
     }
 }
 
@@ -68,18 +68,19 @@ impl ReduceTo<ILP<bool>> for MinimumMetricDimension<SimpleGraph> {
         let mut constraints = Vec::new();
         for u in 0..n {
             for v in (u + 1)..n {
-                let terms: Vec<(usize, f64)> = (0..n)
+                let terms: Vec<(usize, i64)> = (0..n)
                     .filter(|&w| all_dists[w][u] != all_dists[w][v])
-                    .map(|w| (w, 1.0))
+                    .map(|w| (w, 1))
                     .collect();
-                constraints.push(LinearConstraint::ge(terms, 1.0));
+                constraints.push(LinearConstraint::ge(terms, 1));
             }
         }
 
         // Objective: minimize Σ z_v (unit weights)
         let objective: Vec<(usize, f64)> = (0..n).map(|v| (v, 1.0)).collect();
 
-        let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(n, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMDToILP { target })
     }

@@ -52,9 +52,6 @@ fn test_kcoloring_to_partitionintocliques_unsat_preserved() {
         .expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    assert!(solver.find_witness(&source).unwrap().is_none());
-    assert!(solver
-        .find_witness(reduction.target_problem())
-        .unwrap()
-        .is_none());
+    assert!(solver.solve(&source).unwrap().is_none());
+    assert!(solver.solve(reduction.target_problem()).unwrap().is_none());
 }

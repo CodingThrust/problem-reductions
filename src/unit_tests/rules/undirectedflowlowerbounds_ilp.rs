@@ -38,9 +38,9 @@ fn test_undirectedflowlowerbounds_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 2 edges → 3*2 = 6 variables
-    assert_eq!(ilp.num_vars, 6);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 6);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn test_undirectedflowlowerbounds_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance has a witness");
     assert!(
@@ -93,7 +93,7 @@ fn test_undirectedflowlowerbounds_to_ilp_extract_solution() {
     let target_solution = vec![1, 0, 1, 0, 1, 1];
     let extracted = reduction.extract_solution(&target_solution).unwrap();
     // z_0=1, z_1=1 → extracted = [1-1, 1-1] = [0, 0] (both u→v = 0→1 and 1→2)
-    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(extracted, vec![false, false]);
     assert!(
         problem.evaluate(&extracted).unwrap().0,
         "manually extracted orientation should be valid"

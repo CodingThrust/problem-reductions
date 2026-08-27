@@ -216,24 +216,18 @@ fn test_extract_solution() {
     // Create a solution where p=2 (binary: 01) and q=3 (binary: 11)
     // We need to find the indices of p1, p2, q1, q2 in the variable list
     let var_names = circuit_sat.variable_names();
-    let mut sol = vec![0usize; var_names.len()];
+    let mut sol = vec![false; var_names.len()];
 
     // Now evaluate the circuit to set all internal variables correctly
     let assignments = evaluate_multiplier_circuit(&reduction, 2, 3);
     for (i, name) in var_names.iter().enumerate() {
         if let Some(&val) = assignments.get(name) {
-            sol[i] = if val { 1 } else { 0 };
+            sol[i] = val;
         }
     }
 
     let factoring_sol = reduction.extract_solution(&sol).unwrap();
-    assert_eq!(
-        factoring_sol.len(),
-        4,
-        "Should have 4 bits (2 for p, 2 for q)"
-    );
-
-    let (p, q) = factoring.read_factors(&factoring_sol);
+    let (p, q) = factoring_sol.clone();
     assert_eq!(p, BigUint::from(2u32), "p should be 2");
     assert_eq!(q, BigUint::from(3u32), "q should be 3");
     assert_eq!(p * q, BigUint::from(6u32), "Product should equal target");
@@ -321,7 +315,7 @@ fn test_oversized_target_is_explicitly_infeasible() {
     let source = Factoring::new(2, 2, target);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source).unwrap();
     let target = reduction.target_problem();
-    let config = vec![0; target.num_variables()];
+    let config = vec![false; target.num_variables()];
     assert!(!target.evaluate(&config).unwrap());
 }
 
@@ -339,8 +333,26 @@ fn test_jl_parity_factoring_to_circuitsat() {
     ))
     .unwrap();
     let solver = BruteForce::new();
-    let jl_best_source = jl_parse_configs_set(&data["cases"][0]["best_source"]);
-    let best_source: HashSet<Vec<usize>> = solver
+    let jl_best_source: HashSet<(BigUint, BigUint)> =
+        jl_parse_configs_set(&data["cases"][0]["best_source"])
+            .into_iter()
+            .map(|bits| {
+                let decode = |slice: &[usize]| {
+                    slice
+                        .iter()
+                        .enumerate()
+                        .fold(BigUint::from(0u32), |value, (bit, &set)| {
+                            if set == 1 {
+                                value + (BigUint::from(1u32) << bit)
+                            } else {
+                                value
+                            }
+                        })
+                };
+                (decode(&bits[..source.m()]), decode(&bits[source.m()..]))
+            })
+            .collect();
+    let best_source: HashSet<(BigUint, BigUint)> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()

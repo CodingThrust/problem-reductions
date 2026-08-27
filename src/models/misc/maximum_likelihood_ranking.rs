@@ -41,7 +41,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MaximumLikelihoodRanking;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let matrix = vec![
 ///     vec![0, 4, 3, 5],
@@ -51,7 +51,7 @@ inventory::submit! {
 /// ];
 /// let problem = MaximumLikelihoodRanking::new(matrix);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,24 +122,33 @@ impl MaximumLikelihoodRanking {
 
 impl Problem for MaximumLikelihoodRanking {
     const NAME: &'static str = "MaximumLikelihoodRanking";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.num_items();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             let n = self.num_items();
 
             // Validate config length
             if config.len() != n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ranking length does not match the number of alternatives".into(),
+                ));
+            }
+
+            if config.iter().any(|&rank| rank >= n) {
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ranking contains an out-of-range position".into(),
+                ));
             }
 
             // Validate permutation: all values must be distinct and in 0..n
@@ -172,8 +181,19 @@ impl Problem for MaximumLikelihoodRanking {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MaximumLikelihoodRanking {
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.num_items();
+        vec![n; n]
+    }
+}
+
 crate::declare_variants! {
     default MaximumLikelihoodRanking => "num_items * num_items * 2^num_items",
+}
+
+crate::register_brute_force! {
+    MaximumLikelihoodRanking,
 }
 
 #[cfg(feature = "example-db")]
@@ -193,7 +213,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "maximum_likelihood_ranking",
         instance: Box::new(MaximumLikelihoodRanking::new(matrix)),
-        optimal_config: vec![0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(7),
     }]
 }

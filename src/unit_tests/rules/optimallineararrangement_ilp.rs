@@ -11,8 +11,8 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<i64>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // num_x=16, p_v=4, z_e=3, total=23
-    assert_eq!(ilp.num_vars, 23);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 23);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -22,7 +22,7 @@ fn test_optimallineararrangement_to_ilp_closed_loop() {
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force should find a solution");
     assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
@@ -52,7 +52,7 @@ fn test_optimallineararrangement_to_ilp_with_chords() {
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force should find a solution");
     assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());

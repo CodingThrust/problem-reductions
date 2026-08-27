@@ -45,13 +45,13 @@ impl ReductionResult for ReductionMISToIFB {
     /// has nonzero flow.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             (0..self.num_source_vertices)
-                .map(|i| if target_solution[2 * i + 1] > 0 { 1 } else { 0 })
+                .map(|i| target_solution[2 * i + 1] > 0)
                 .collect()
         })
     }
@@ -141,7 +141,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let target = reduction.target_problem();
 
             let target_witness = BruteForce::new()
-                .find_witness(target)
+                .solve(target)
                 .expect("target evaluation should succeed")
                 .expect("target should have a feasible solution");
             let source_witness = reduction.extract_solution(&target_witness).unwrap();
@@ -149,8 +149,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, IntegralFlowBundles>(
                 source,
                 SolutionPair {
-                    source_config: source_witness,
-                    target_config: target_witness,
+                    source_config: serde_json::json!(source_witness),
+                    target_config: serde_json::json!(target_witness),
                 },
             )
         },

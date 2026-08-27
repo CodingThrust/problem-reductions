@@ -93,9 +93,16 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
+        if target_solution.len() != self.target.num_vertices() {
+            return Err(crate::rules::ExtractionError::invalid(format!(
+                "expected {} target block labels, got {}",
+                self.target.num_vertices(),
+                target_solution.len()
+            )));
+        }
 
         Ok({
             let source_label = target_solution[self.source_vertex];
@@ -107,7 +114,7 @@ impl ReductionResult for ReductionPartitionToAcyclicPartition {
             }
 
             (0..self.source_num_elements)
-                .map(|item| usize::from(target_solution[item] == sink_label))
+                .map(|item| target_solution[item] == sink_label)
                 .collect()
         })
     }
@@ -131,8 +138,8 @@ impl ReductionResult for Reduction3SATToAcyclicPartition {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -182,8 +189,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, AcyclicPartition<i64>>(
                 KSatisfiability::<K3>::new(1, vec![CNFClause::new(vec![1, 1, 1])]),
                 SolutionPair {
-                    source_config: vec![1],
-                    target_config: vec![1, 0, 1, 1, 0, 0, 1],
+                    source_config: serde_json::json!(vec![true]),
+                    target_config: serde_json::json!(vec![1, 0, 1, 1, 0, 0, 1]),
                 },
             )
         },

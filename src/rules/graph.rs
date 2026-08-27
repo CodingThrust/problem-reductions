@@ -369,6 +369,12 @@ pub struct ReductionGraph {
 impl ReductionGraph {
     /// Create a new reduction graph with all registered reductions from inventory.
     pub fn new() -> Self {
+        crate::registry::validate_variant_size_schemas().unwrap_or_else(|errors| {
+            panic!("invalid problem size schemas:\n{}", errors.join("\n"))
+        });
+        crate::rules::registry::validate_reduction_size_schemas().unwrap_or_else(|errors| {
+            panic!("invalid reduction size schemas:\n{}", errors.join("\n"))
+        });
         let mut graph = DiGraph::new();
         let mut nodes: Vec<VariantNode> = Vec::new();
         let mut node_index: HashMap<VariantRef, NodeIndex> = HashMap::new();
@@ -1108,104 +1114,27 @@ impl ReductionGraph {
     /// source, its size fields are the input variables referenced in size
     /// expressions. When it's a target, its size fields are the output field names.
     pub fn size_field_names(&self, name: &str) -> Vec<String> {
-        let mut fields: std::collections::HashSet<String> =
-            crate::registry::declared_size_fields(name)
-                .into_iter()
-                .map(str::to_string)
-                .collect();
-        for entry in inventory::iter::<ReductionEntry> {
-            let declarations = (entry.size_declarations_fn)();
-            if entry.source_name == name {
-                fields.extend(
-                    declarations
-                        .fields
-                        .iter()
-                        .flat_map(|(_, expression)| expression.variables())
-                        .map(str::to_string),
-                );
-            }
-            if entry.target_name == name {
-                fields.extend(
-                    declarations
-                        .fields
-                        .iter()
-                        .map(|(field, _)| (*field).to_string()),
-                );
-                fields.extend(
-                    declarations
-                        .unavailable
-                        .iter()
-                        .map(|field| field.field.to_string()),
-                );
-            }
-        }
-        let mut result: Vec<String> = fields.into_iter().collect();
+        let mut result = inventory::iter::<crate::registry::VariantEntry>
+            .into_iter()
+            .filter(|entry| entry.name == name)
+            .flat_map(|entry| entry.size_parameter_names().iter().copied())
+            .map(str::to_string)
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
         result.sort_unstable();
         result
     }
 
-    /// Evaluate every symbolic size transform along a reduction path.
-    pub fn evaluate_path_size(
-        &self,
-        path: &ReductionPath,
-        input_size: &ProblemSize,
-    ) -> Result<crate::size::EvaluatedSize, PathSizeError> {
-        let mut current = crate::size::EvaluatedSize::from_problem_size(input_size);
-        for (index, transform) in self.path_size_transforms(path)?.iter().enumerate() {
-            current = transform
-                .evaluate(&current)
-                .map_err(|error| PathSizeError::Step {
-                    step: index + 1,
-                    source_problem: path.steps[index].name.clone(),
-                    target_problem: path.steps[index + 1].name.clone(),
-                    error: Box::new(error),
-                })?;
-        }
-        Ok(current)
-    }
-
-    /// Measure every size field used by a rule at this exact problem variant.
-    ///
-    /// Both sides of each rule contribute getters. In particular, a sink variant is
-    /// measured from incoming rules instead of incorrectly producing an empty size.
+    /// Measure the complete problem-owned size at this exact variant.
     pub fn compute_problem_size(
         name: &str,
         variant: &BTreeMap<String, String>,
         instance: &dyn Any,
     ) -> ProblemSize {
-        let mut merged: Vec<(String, usize)> = Vec::new();
-        let mut seen: HashSet<String> = HashSet::new();
-
-        let variant_matches = |entry_variant: Vec<(&str, &str)>| {
-            let variant_matches = entry_variant.len() == variant.len()
-                && entry_variant.iter().all(|(key, value)| {
-                    let value = if *key == "graph" && value.is_empty() {
-                        "SimpleGraph"
-                    } else {
-                        value
-                    };
-                    variant.get(*key).is_some_and(|expected| expected == value)
-                });
-            variant_matches
-        };
-
-        for entry in inventory::iter::<ReductionEntry> {
-            let measured = if entry.source_name == name && variant_matches(entry.source_variant()) {
-                Some((entry.source_size_measure_fn)(instance))
-            } else if entry.target_name == name && variant_matches(entry.target_variant()) {
-                Some((entry.target_size_measure_fn)(instance))
-            } else {
-                None
-            };
-            if let Some(measured) = measured {
-                for (k, v) in measured.components {
-                    if seen.insert(k.clone()) {
-                        merged.push((k, v));
-                    }
-                }
-            }
-        }
-        ProblemSize { components: merged }
+        let entry = crate::registry::find_variant_entry(name, variant)
+            .unwrap_or_else(|| panic!("unregistered exact problem variant `{name}` {variant:?}"));
+        (entry.size_measure_fn)(instance)
     }
 
     /// Get all incoming reductions to a problem (across all its variants).
@@ -1532,6 +1461,11 @@ impl ReductionGraph {
         serde_json::to_string_pretty(&json)
     }
 
+    /// Export the reduction graph as a JSON value.
+    pub fn to_json_value(&self) -> Result<serde_json::Value, serde_json::Error> {
+        serde_json::to_value(self.to_json())
+    }
+
     /// Export the reduction graph to a JSON file.
     pub fn to_json_file(&self, path: &std::path::Path) -> std::io::Result<()> {
         let json_string = self
@@ -1638,15 +1572,33 @@ impl ReductionChain {
     }
 
     /// Extract a solution from target space back to source space.
-    pub fn extract_solution(
+    pub fn extract_solution<S: 'static, T: 'static>(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        let mut solution = target_solution.to_vec();
-        for step in self.steps.iter().rev() {
-            solution = step.extract_solution_dyn(&solution)?;
+        target_solution: &T,
+    ) -> crate::rules::ExtractionResult<S> {
+        let mut steps = self.steps.iter().rev();
+        let first = steps.next().expect("ReductionChain has no steps");
+        let mut solution = first.extract_solution_dyn(target_solution)?;
+        for step in steps {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
         }
-        Ok(solution)
+        solution
+            .downcast::<S>()
+            .map(|solution| *solution)
+            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
+    }
+
+    /// Extract a JSON target witness into a JSON source witness.
+    pub fn extract_solution_json(
+        &self,
+        target_solution: serde_json::Value,
+    ) -> crate::rules::ExtractionResult<serde_json::Value> {
+        let last = self.steps.last().expect("ReductionChain has no steps");
+        let mut solution = last.target_solution_from_json(target_solution)?;
+        for step in self.steps.iter().rev() {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
+        }
+        self.steps[0].source_solution_json(solution.as_ref())
     }
 }
 
@@ -1836,15 +1788,20 @@ impl ExecutedPath {
     }
 
     /// Extract a solution from target space back to source space.
-    pub fn extract_solution(
+    pub fn extract_solution<S: 'static, T: 'static>(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
-        let mut solution = target_solution.to_vec();
-        for step in self.steps.iter().rev() {
-            solution = step.extract_solution_dyn(&solution)?;
+        target_solution: &T,
+    ) -> crate::rules::ExtractionResult<S> {
+        let mut steps = self.steps.iter().rev();
+        let first = steps.next().expect("ExecutedPath has no steps");
+        let mut solution = first.extract_solution_dyn(target_solution)?;
+        for step in steps {
+            solution = step.extract_solution_dyn(solution.as_ref())?;
         }
-        Ok(solution)
+        solution
+            .downcast::<S>()
+            .map(|solution| *solution)
+            .map_err(|_| crate::rules::ExtractionError::invalid("source solution type mismatch"))
     }
 }
 

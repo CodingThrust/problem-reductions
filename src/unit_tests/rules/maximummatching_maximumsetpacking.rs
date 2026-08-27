@@ -42,7 +42,7 @@ fn test_matching_to_setpacking_weighted() {
     let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Edge 0-1 (weight 100) alone beats edges 0-2 + 1-3 (weight 2)
-    assert!(sp_solutions.contains(&vec![1, 0, 0]));
+    assert!(sp_solutions.contains(&vec![true, false, false]));
 
     // Verify through direct MaximumMatching solution
     let direct_solutions = solver.find_all_witnesses(&matching).unwrap();
@@ -61,9 +61,9 @@ fn test_matching_to_setpacking_solution_extraction() {
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&matching).expect("reduction should succeed");
 
     // Test solution extraction is 1:1
-    let sp_solution = vec![1, 0, 1];
+    let sp_solution = vec![true, false, true];
     let matching_solution = reduction.extract_solution(&sp_solution).unwrap();
-    assert_eq!(matching_solution, vec![1, 0, 1]);
+    assert_eq!(matching_solution, vec![true, false, true]);
 
     // Verify the extracted solution is valid for original MaximumMatching
     assert!(matching.evaluate(&matching_solution).unwrap().is_valid());
@@ -94,7 +94,7 @@ fn test_matching_to_setpacking_single_edge() {
     let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Should select the only set
-    assert_eq!(sp_solutions, vec![vec![1]]);
+    assert_eq!(sp_solutions, vec![vec![true]]);
 }
 
 #[test]
@@ -110,7 +110,7 @@ fn test_matching_to_setpacking_disjoint_edges() {
     let sp_solutions = solver.find_all_witnesses(sp).unwrap();
 
     // Both edges can be selected (they don't share vertices)
-    assert_eq!(sp_solutions, vec![vec![1, 1]]);
+    assert_eq!(sp_solutions, vec![vec![true, true]]);
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn test_matching_to_setpacking_star() {
 
     // All edges share vertex 0, so max matching = 1
     for sol in &sp_solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
+        assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
     }
     // Should have 3 optimal solutions
     assert_eq!(sp_solutions.len(), 3);
@@ -176,7 +176,7 @@ fn test_jl_parity_matching_to_setpacking() {
         let result = ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source)
             .expect("reduction should succeed");
         let solver = BruteForce::new();
-        let best_source: HashSet<Vec<usize>> = solver
+        let best_source: HashSet<Vec<bool>> = solver
             .find_all_witnesses(&source)
             .unwrap()
             .into_iter()
@@ -189,7 +189,7 @@ fn test_jl_parity_matching_to_setpacking() {
         for case in data["cases"].as_array().unwrap() {
             assert_eq!(
                 best_source,
-                jl_parse_configs_set(&case["best_source"]),
+                jl_parse_bool_configs_set(&case["best_source"]),
                 "Matching->SP [{label}]: best source mismatch"
             );
         }

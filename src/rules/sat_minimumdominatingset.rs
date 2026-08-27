@@ -56,26 +56,26 @@ impl ReductionResult for ReductionSATToDS {
     /// If more than num_literals vertices are selected, the target witness is invalid.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let assignment = target_solution[..3 * self.num_literals]
             .chunks_exact(3)
             .enumerate()
             .map(|(variable, gadget)| match gadget {
-                [1, 0, 0] => Ok(1),
-                [0, 1, 0] | [0, 0, 1] => Ok(0),
+                [true, false, false] => Ok(true),
+                [false, true, false] | [false, false, true] => Ok(false),
                 _ => Err(crate::rules::ExtractionError::invalid(format!(
                     "variable {variable} gadget must select exactly one vertex, got {}",
-                    gadget.iter().sum::<usize>()
+                    gadget.iter().filter(|&&selected| selected).count()
                 ))),
             })
             .collect::<crate::rules::ExtractionResult<Vec<_>>>()?;
 
         if let Some(clause) = target_solution[3 * self.num_literals..]
             .iter()
-            .position(|&selected| selected == 1)
+            .position(|&selected| selected)
         {
             return Err(crate::rules::ExtractionError::invalid(format!(
                 "clause vertex {clause} is selected"
@@ -188,10 +188,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 1, 1],
-                    target_config: vec![
-                        1, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    ],
+                    source_config: serde_json::json!(vec![true, false, true, true, true]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, false, true, false, true, false, false, true, false,
+                        false, true, false, false, false, false, false, false, false, false, false
+                    ]),
                 },
             )
         },

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -13,7 +14,7 @@ fn test_consecutive_sets_creation() {
     assert_eq!(problem.num_subsets(), 5);
     assert_eq!(problem.bound_k(), 6);
     assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dims(), vec![7; 6]); // alphabet_size + 1 = 7
+    assert_eq!(problem.dimensions(), vec![7; 6]); // alphabet_size + 1 = 7
 }
 
 #[test]
@@ -24,11 +25,15 @@ fn test_consecutive_sets_evaluation() {
         6,
     );
     // YES: w = [0, 4, 2, 5, 1, 3]
-    assert!(problem.evaluate(&[0, 4, 2, 5, 1, 3]).unwrap());
+    assert!(problem
+        .evaluate(&vec![Some(0), Some(4), Some(2), Some(5), Some(1), Some(3)])
+        .unwrap());
     // NO: identity string [0, 1, 2, 3, 4, 5] — {0,4} not adjacent
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4, 5]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![Some(0), Some(1), Some(2), Some(3), Some(4), Some(5)])
+        .unwrap());
     // NO: all unused (empty string can't satisfy non-empty subsets)
-    assert!(!problem.evaluate(&[6, 6, 6, 6, 6, 6]).unwrap());
+    assert!(!problem.evaluate(&vec![None; 6]).unwrap());
 }
 
 #[test]
@@ -55,14 +60,20 @@ fn test_consecutive_sets_solver() {
         assert!(problem.evaluate(sol).unwrap());
     }
     // Known solution: [0, 1, 2] — {0,1} at window 0-1, {1,2} at window 1-2
-    assert!(solutions.contains(&vec![0, 1, 2]));
+    assert!(solutions.contains(&vec![Some(0), Some(1), Some(2)]));
 }
 
 #[test]
 fn test_consecutive_sets_rejects_wrong_config_length() {
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 3);
-    assert!(!problem.evaluate(&[0, 1]).unwrap()); // too short
-    assert!(!problem.evaluate(&[0, 1, 2, 0]).unwrap()); // too long
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0), Some(1)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![Some(0), Some(1), Some(2), Some(0)]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -70,19 +81,23 @@ fn test_consecutive_sets_rejects_internal_unused() {
     // Internal "unused" symbol should be rejected
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
     // [0, 3, 1, 3] has "unused" (3) at position 1, which is internal
-    assert!(!problem.evaluate(&[0, 3, 1, 3]).unwrap());
+    assert!(!problem
+        .evaluate(&vec![Some(0), None, Some(1), None])
+        .unwrap());
 }
 
 #[test]
 fn test_consecutive_sets_accepts_shorter_string_with_trailing_unused() {
     let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
-    assert!(problem.evaluate(&[0, 1, 3, 3]).unwrap());
+    assert!(problem
+        .evaluate(&vec![Some(0), Some(1), None, None])
+        .unwrap());
 }
 
 #[test]
 fn test_consecutive_sets_rejects_duplicate_window_symbol() {
     let problem = ConsecutiveSets::new(2, vec![vec![0, 1]], 2);
-    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![Some(0), Some(0)]).unwrap());
 }
 
 #[test]
@@ -101,7 +116,7 @@ fn test_consecutive_sets_empty_subsets() {
     // Empty collection — trivially satisfiable by any string (even empty)
     let problem = ConsecutiveSets::new(3, vec![], 3);
     // All unused = empty string is fine
-    assert!(problem.evaluate(&[3, 3, 3]).unwrap());
+    assert!(problem.evaluate(&vec![None; 3]).unwrap());
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert!(!solutions.is_empty());

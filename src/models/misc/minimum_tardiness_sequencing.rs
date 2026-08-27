@@ -42,7 +42,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::misc::MinimumTardinessSequencing;
 /// use problemreductions::types::One;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Unit-length: 3 tasks, task 0 must precede task 2
 /// let problem = MinimumTardinessSequencing::<One>::new(
@@ -51,7 +51,7 @@ inventory::submit! {
 ///     vec![(0, 2)],
 /// );
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,11 +218,11 @@ impl<W: WeightElement> MinimumTardinessSequencing<W> {
         self.precedences.len()
     }
 
-    /// Decode and validate a schedule, returning the inverse permutation (sigma).
+    /// Validate a schedule and return the inverse permutation (sigma).
     /// Returns None if the config is invalid or violates precedences.
     fn decode_and_validate(&self, config: &[usize]) -> Option<Vec<usize>> {
         let n = self.num_tasks();
-        let schedule = super::decode_lehmer(config, n)?;
+        let schedule = super::decode_permutation(config, n)?;
 
         let mut sigma = vec![0usize; n];
         for (pos, &task) in schedule.iter().enumerate() {
@@ -241,17 +241,33 @@ impl<W: WeightElement> MinimumTardinessSequencing<W> {
 
 impl Problem for MinimumTardinessSequencing<One> {
     const NAME: &'static str = "MinimumTardinessSequencing";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![One]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
             let Some(sigma) = self.decode_and_validate(config) else {
                 return Ok(Min(None));
@@ -282,21 +298,42 @@ impl Problem for MinimumTardinessSequencing<One> {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumTardinessSequencing<One> {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 impl Problem for MinimumTardinessSequencing<i64> {
     const NAME: &'static str = "MinimumTardinessSequencing";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![i64]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
-            let n = self.num_tasks();
             let Some(sigma) = self.decode_and_validate(config) else {
                 return Ok(Min(None));
             };
@@ -335,9 +372,20 @@ impl Problem for MinimumTardinessSequencing<i64> {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumTardinessSequencing<i64> {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 crate::declare_variants! {
     default MinimumTardinessSequencing<One> => "2^num_tasks" create MinimumTardinessSequencingOneCreateSpec,
     MinimumTardinessSequencing<i64> => "2^num_tasks" create MinimumTardinessSequencingI64CreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumTardinessSequencing<One> decode |problem: &MinimumTardinessSequencing<One>, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
+    MinimumTardinessSequencing<i64> decode |problem: &MinimumTardinessSequencing<i64>, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -351,7 +399,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![2, 3, 1, 4],
                 vec![(0, 2)],
             )),
-            optimal_config: vec![0, 0, 0, 0],
+            optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
             optimal_value: serde_json::json!(1),
         },
         // Arbitrary-length variant
@@ -366,7 +414,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![4, 3, 8, 3, 6],
                 vec![(0, 2), (1, 3)],
             )),
-            optimal_config: vec![0, 3, 1, 0, 0],
+            optimal_config: serde_json::json!(vec![0, 4, 2, 1, 3]),
             optimal_value: serde_json::json!(2),
         },
     ]

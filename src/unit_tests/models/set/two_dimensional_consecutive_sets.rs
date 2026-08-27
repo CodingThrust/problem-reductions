@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -17,7 +18,7 @@ fn test_two_dimensional_consecutive_sets_creation() {
     assert_eq!(problem.alphabet_size(), 6);
     assert_eq!(problem.num_subsets(), 5);
     assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.dims(), vec![6, 6, 6, 6, 6, 6]);
+    assert_eq!(problem.dimensions(), vec![6, 6, 6, 6, 6, 6]);
 }
 
 #[test]
@@ -38,19 +39,25 @@ fn test_two_dimensional_consecutive_sets_evaluation() {
 
     // Valid partition: X0={0}, X1={1,5}, X2={2,3}, X3={4}
     // config[i] = group of symbol i
-    assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2, 2, 3, 1]).unwrap());
 
     // Invalid: all symbols in same group (intersection constraint violated)
-    assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0, 0, 0]).unwrap());
 
     // Invalid: wrong config length
-    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
     // Invalid: group index out of range
-    assert!(!problem.evaluate(&[0, 1, 2, 2, 3, 7]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 2, 3, 7]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 
     // Invalid: {0,1,2} not consecutive (0 in group 0, 1 in group 1, 2 in group 5)
-    assert!(!problem.evaluate(&[0, 1, 5, 2, 3, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 5, 2, 3, 1]).unwrap());
 }
 
 #[test]
@@ -58,7 +65,7 @@ fn test_two_dimensional_consecutive_sets_evaluation_ignores_empty_group_labels()
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![0, 1]]);
 
     // The empty label 1 should be ignored, so this encodes the ordered partition {0} | {1,2}.
-    assert!(problem.evaluate(&[0, 2, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 2, 2]).unwrap());
 }
 
 #[test]
@@ -110,16 +117,16 @@ fn test_two_dimensional_consecutive_sets_deserialization_rejects_out_of_range_el
 fn test_two_dimensional_consecutive_sets_empty_subsets() {
     // All empty subsets — trivially satisfiable
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![], vec![]]);
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
-    assert!(problem.evaluate(&[0, 0, 0]).unwrap());
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 0, 0]).unwrap());
 }
 
 #[test]
 fn test_two_dimensional_consecutive_sets_single_element_subsets() {
     // Single-element subsets: always satisfiable (no consecutiveness constraint to check)
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![0], vec![1], vec![2]]);
-    assert!(problem.evaluate(&[0, 1, 2]).unwrap());
-    assert!(problem.evaluate(&[0, 0, 0]).unwrap()); // single elements always consecutive
+    assert!(problem.evaluate(&vec![0, 1, 2]).unwrap());
+    assert!(problem.evaluate(&vec![0, 0, 0]).unwrap()); // single elements always consecutive
 }
 
 #[test]

@@ -78,20 +78,20 @@ impl ReductionResult for ReductionSATToIS {
     /// literal default to false.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let mut assignment = vec![0usize; self.num_source_variables];
+            let mut assignment = vec![false; self.num_source_variables];
             let mut covered = vec![false; self.num_source_variables];
 
             for (vertex_idx, &selected) in target_solution.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     let literal = &self.literals[vertex_idx];
                     // If the literal is positive (neg=false), variable should be true (1)
                     // If the literal is negated (neg=true), variable should be false (0)
-                    assignment[literal.name] = if literal.neg { 0 } else { 1 };
+                    assignment[literal.name] = !literal.neg;
                     covered[literal.name] = true;
                 }
             }
@@ -202,10 +202,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 sat_seven_clause_example(),
                 SolutionPair {
-                    source_config: vec![1, 1, 1, 1, 0],
-                    target_config: vec![
-                        1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0,
-                    ],
+                    source_config: serde_json::json!(vec![true, true, true, true, false]),
+                    target_config: serde_json::json!(vec![
+                        true, false, false, false, true, false, true, false, false, false, false,
+                        true, true, false, false, false, false, true, true, false, false
+                    ]),
                 },
             )
         },

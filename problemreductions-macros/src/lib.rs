@@ -2,8 +2,8 @@
 //!
 //! This crate provides the `#[reduction]` attribute macro that automatically
 //! generates `ReductionEntry` registrations from `ReduceTo` impl blocks,
-//! and the `declare_variants!` proc macro for compile-time validated variant
-//! registration.
+//! the `declare_variants!` proc macro for compile-time validated variant
+//! registration, and `register_brute_force!` for finite reference solvers.
 
 mod expr_codegen;
 
@@ -491,38 +491,6 @@ fn generate_expression_fields(fields: &[ParsedExpressionField]) -> TokenStream2 
     quote! { vec![#(#field_tokens),*] }
 }
 
-/// Generate a function that measures named size fields on one endpoint.
-fn generate_size_measure_fn<'a>(
-    names: impl IntoIterator<Item = &'a str>,
-    problem_type: &Type,
-) -> TokenStream2 {
-    let problem_ident = syn::Ident::new("__problem", proc_macro2::Span::call_site());
-    let getter_tokens = names
-        .into_iter()
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .map(|name| {
-            let getter = syn::Ident::new(name, proc_macro2::Span::call_site());
-            quote! {
-                (
-                    #name,
-                    #problem_ident.#getter().to_usize().expect(concat!(
-                        "size getter `", #name, "` returned a value outside usize"
-                    )),
-                )
-            }
-        })
-        .collect::<Vec<_>>();
-
-    quote! {
-        |__any_problem: &dyn std::any::Any| -> crate::types::ProblemSize {
-            use num_traits::ToPrimitive as _;
-            let #problem_ident = __any_problem.downcast_ref::<#problem_type>().unwrap();
-            crate::types::ProblemSize::new(vec![#(#getter_tokens),*])
-        }
-    }
-}
-
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -584,21 +552,6 @@ fn generate_reduction_entry(
         .unwrap_or_default()
         .iter()
         .map(|(field, reason)| quote! { crate::rules::registry::UnavailableSizeField { field: #field, reason: #reason } });
-    let source_size_measure_fn = generate_size_measure_fn(
-        fields.iter().flat_map(|field| field.expression.variables()),
-        source_type,
-    );
-    let target_size_measure_fn = generate_size_measure_fn(
-        fields.iter().map(|field| field.name.as_str()).chain(
-            attrs
-                .unavailable
-                .as_deref()
-                .unwrap_or_default()
-                .iter()
-                .map(|(field, _)| field.as_str()),
-        ),
-        &target_type,
-    );
 
     // Generate the combined output
     let output = quote! {
@@ -625,8 +578,6 @@ fn generate_reduction_entry(
                 }),
                 reduce_aggregate_fn: #reduce_aggregate_fn,
                 turing: false,
-                source_size_measure_fn: #source_size_measure_fn,
-                target_size_measure_fn: #target_size_measure_fn,
             }
         }
 
@@ -781,6 +732,99 @@ pub fn declare_variants(input: TokenStream) -> TokenStream {
     }
 }
 
+struct BruteForceRegistrationInput {
+    entries: Vec<BruteForceRegistrationEntry>,
+}
+
+struct BruteForceRegistrationEntry {
+    ty: Type,
+    decoder: Option<syn::ExprClosure>,
+}
+
+impl syn::parse::Parse for BruteForceRegistrationInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut entries = Vec::new();
+        while !input.is_empty() {
+            let ty = input.parse()?;
+            let decoder = if input.peek(syn::Ident) {
+                let ident: syn::Ident = input.parse()?;
+                if ident != "decode" {
+                    return Err(syn::Error::new(ident.span(), "expected `decode`"));
+                }
+                Some(input.parse()?)
+            } else {
+                None
+            };
+            entries.push(BruteForceRegistrationEntry { ty, decoder });
+            if input.peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        Ok(Self { entries })
+    }
+}
+
+/// Register finite Cartesian reference solvers for concrete problem variants.
+#[proc_macro]
+pub fn register_brute_force(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as BruteForceRegistrationInput);
+    let entries = input.entries.iter().map(|entry| {
+        let ty = &entry.ty;
+        let decode = if let Some(decoder) = &entry.decoder {
+            quote! { |indices| (#decoder)(problem, indices) }
+        } else {
+            quote! { |indices| indices }
+        };
+        quote! {
+            crate::inventory::submit! {
+                crate::solvers::BruteForceRegistration {
+                    source_name: <#ty as crate::traits::Problem>::NAME,
+                    source_variant_fn: || <#ty as crate::traits::Problem>::variant(),
+                    dimensions_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        <#ty as crate::solvers::BruteForceProblem>::dimensions(problem)
+                    },
+                    solve_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        let Some((solution, value)) = solver.find_cartesian(problem, #decode)? else {
+                            return Ok(None);
+                        };
+                        let evaluation = crate::registry::format_metric(&value);
+                        Ok(Some((
+                            serde_json::to_value(solution).expect("serialize solution failed"),
+                            evaluation,
+                        )))
+                    },
+                    solve_typed_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        Ok(solver
+                            .find_cartesian(problem, #decode)?
+                            .map(|(solution, _)| Box::new(solution) as Box<dyn std::any::Any>))
+                    },
+                    solve_typed_with_witnesses_fn: |any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("brute-force registration received the wrong problem type");
+                        let solver = crate::solvers::BruteForce::new();
+                        Ok(Box::new(
+                            solver.solve_with_witnesses_cartesian(problem, #decode)?,
+                        ))
+                    },
+                }
+            }
+        }
+    });
+    quote! { #(#entries)* }.into()
+}
+
 /// Generate code for all `declare_variants!` entries.
 fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
     // Validate default markers per problem name.
@@ -865,18 +909,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate compiled complexity eval fn
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
-        // Generate dispatch fields based on aggregate value solving plus optional witnesses.
-        let solve_value_body = quote! {
-            let total = <crate::solvers::BruteForce as crate::solvers::Solver>::solve(&solver, p)?;
-            Ok(crate::registry::format_metric(&total))
-        };
-
-        let solve_witness_body = quote! {
-            let Some(config) = crate::solvers::BruteForce::find_witness(&solver, p)? else {
-                return Ok(None);
-            };
-        };
-
         let construction_fields = if let Some(create_spec) = create_spec {
             quote! {
                 create_inputs: Some(<#create_spec as crate::registry::CreateSpec>::INPUTS),
@@ -929,22 +961,6 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                 let p = any.downcast_ref::<#ty>()?;
                 Some(serde_json::to_value(p).expect("serialize failed"))
             },
-            solve_value_fn: |any: &dyn std::any::Any| -> Result<String, crate::solvers::SolveError> {
-                let p = any
-                    .downcast_ref::<#ty>()
-                    .expect("type-erased solve_value downcast failed");
-                let solver = crate::solvers::BruteForce::new();
-                #solve_value_body
-            },
-            solve_witness_fn: |any: &dyn std::any::Any| -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError> {
-                let p = any
-                    .downcast_ref::<#ty>()
-                    .expect("type-erased solve_witness downcast failed");
-                let solver = crate::solvers::BruteForce::new();
-                #solve_witness_body
-                let evaluation = crate::registry::format_metric(&crate::traits::Problem::evaluate(p, &config)?);
-                Ok(Some((config, evaluation)))
-            },
         };
 
         output.extend(quote! {
@@ -956,6 +972,13 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     variant_fn: || <#ty as crate::traits::Problem>::variant(),
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
+                    size_parameter_names_fn: || <#ty as crate::traits::Problem>::size_parameter_names(),
+                    size_measure_fn: |any: &dyn std::any::Any| {
+                        let problem = any
+                            .downcast_ref::<#ty>()
+                            .expect("type-erased size measurement downcast failed");
+                        <#ty as crate::traits::Problem>::size(problem)
+                    },
                     is_default: #is_default,
                     aliases: &[#(#alias_lits),*],
                     #dispatch_fields
@@ -1228,7 +1251,7 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_generates_aggregate_value_and_witness_dispatch() {
+    fn declare_variants_generates_model_dispatch_without_solver_dispatch() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default Foo => "1",
         };
@@ -1238,14 +1261,8 @@ mod tests {
             tokens.contains("serialize_fn :"),
             "expected serialize_fn field"
         );
-        assert!(
-            tokens.contains("solve_value_fn :"),
-            "expected solve_value_fn field"
-        );
-        assert!(
-            tokens.contains("solve_witness_fn :"),
-            "expected solve_witness_fn field"
-        );
+        assert!(!tokens.contains("solve_typed_fn :"));
+        assert!(!tokens.contains("solve_fn :"));
         assert!(
             !tokens.contains("factory : None"),
             "factory should not be None"
@@ -1254,22 +1271,7 @@ mod tests {
             !tokens.contains("serialize_fn : None"),
             "serialize_fn should not be None"
         );
-        assert!(
-            !tokens.contains("solve_value_fn : None"),
-            "solve_value_fn should not be None"
-        );
-        assert!(
-            !tokens.contains("solve_witness_fn : None"),
-            "solve_witness_fn should not be None"
-        );
-        assert!(
-            tokens.contains("let total ="),
-            "expected aggregate value solve"
-        );
-        assert!(
-            tokens.contains("find_witness"),
-            "expected find_witness in tokens"
-        );
+        assert!(!tokens.contains("find_cartesian"));
         assert!(
             !tokens.contains("find_best"),
             "did not expect legacy find_best in tokens"
@@ -1349,18 +1351,16 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_codegen_uses_required_dispatch_fields() {
+    fn declare_variants_codegen_uses_required_model_dispatch_fields() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"));
         assert!(tokens.contains("serialize_fn :"));
-        assert!(tokens.contains("solve_value_fn :"));
-        assert!(tokens.contains("solve_witness_fn :"));
+        assert!(!tokens.contains("solve_fn :"));
+        assert!(!tokens.contains("solve_typed_fn :"));
         assert!(!tokens.contains("factory : None"));
         assert!(!tokens.contains("serialize_fn : None"));
-        assert!(!tokens.contains("solve_value_fn : None"));
-        assert!(!tokens.contains("solve_witness_fn : None"));
     }
 }

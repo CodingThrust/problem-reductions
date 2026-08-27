@@ -1,6 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -20,16 +20,9 @@ fn reduce_path(
 fn solve_target_cost(
     reduction: &ReductionOLAToSequencingToMinimizeWeightedCompletionTime,
 ) -> Min<i64> {
-    BruteForce::new().solve(reduction.target_problem()).unwrap()
-}
-
-fn permutation_to_lehmer(perm: &[usize]) -> Vec<usize> {
-    let mut lehmer = Vec::with_capacity(perm.len());
-    for i in 0..perm.len() {
-        let count = (i + 1..perm.len()).filter(|&j| perm[j] < perm[i]).count();
-        lehmer.push(count);
-    }
-    lehmer
+    let target = reduction.target_problem();
+    let solution = BruteForce::new().solve(target).unwrap().unwrap();
+    target.evaluate(&solution).unwrap()
 }
 
 #[test]
@@ -51,7 +44,12 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_c
         "OptimalLinearArrangement -> SequencingToMinimizeWeightedCompletionTime P4",
     );
 
-    assert_eq!(BruteForce::new().solve(&source).unwrap(), Min(Some(3)));
+    assert_eq!(
+        source
+            .evaluate(&BruteForce::new().solve(&source).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(3))
+    );
     assert_eq!(solve_target_cost(&reduction), Min(Some(23)));
 }
 
@@ -67,7 +65,12 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_c
         "OptimalLinearArrangement -> SequencingToMinimizeWeightedCompletionTime K3",
     );
 
-    assert_eq!(BruteForce::new().solve(&source).unwrap(), Min(Some(4)));
+    assert_eq!(
+        source
+            .evaluate(&BruteForce::new().solve(&source).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(4))
+    );
     assert_eq!(solve_target_cost(&reduction), Min(Some(16)));
 }
 
@@ -81,7 +84,12 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_t
         "OptimalLinearArrangement -> SequencingToMinimizeWeightedCompletionTime P2",
     );
 
-    assert_eq!(BruteForce::new().solve(&source).unwrap(), Min(Some(1)));
+    assert_eq!(
+        source
+            .evaluate(&BruteForce::new().solve(&source).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
     assert_eq!(solve_target_cost(&reduction), Min(Some(4)));
 }
 
@@ -90,8 +98,7 @@ fn test_optimallineararrangement_to_sequencingtominimizeweightedcompletiontime_e
 ) {
     let (source, reduction) = reduce_path(4);
     let schedule = vec![3, 2, 6, 1, 5, 0, 4];
-    let target_solution = permutation_to_lehmer(&schedule);
-    let extracted = reduction.extract_solution(&target_solution).unwrap();
+    let extracted = reduction.extract_solution(&schedule).unwrap();
 
     assert_eq!(extracted, vec![3, 2, 1, 0]);
     assert_eq!(source.evaluate(&extracted).unwrap(), Min(Some(3)));

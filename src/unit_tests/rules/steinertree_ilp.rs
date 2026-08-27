@@ -22,11 +22,11 @@ fn test_reduction_creates_expected_ilp_shape() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 35);
-    assert_eq!(ilp.constraints.len(), 38);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 35);
+    assert_eq!(ilp.constraints().len(), 38);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert_eq!(
-        ilp.objective,
+        ilp.objective(),
         vec![
             (0, 2.0),
             (1, 2.0),
@@ -70,7 +70,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
-        vec![1, 1, 1, 1, 0, 0, 0]
+        vec![true, true, true, true, false, false, false]
     );
 }
 

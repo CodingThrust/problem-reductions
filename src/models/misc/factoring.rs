@@ -36,7 +36,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Factoring;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Factor 6 with 2-bit factors (allowing factors 0-3)
 /// let problem = Factoring::new(2, 2, 6);
@@ -45,9 +45,8 @@ inventory::submit! {
 /// let solutions = solver.find_all_witnesses(&problem).unwrap();
 ///
 /// // Should find: 2*3=6 or 3*2=6
-/// for sol in &solutions {
-///     let (a, b) = problem.read_factors(sol);
-///     assert_eq!(a * b, 6u32.into());
+/// for (a, b) in &solutions {
+///     assert_eq!(a * b, num_bigint::BigUint::from(6u32));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,24 +108,23 @@ impl Factoring {
     ///
     /// The first `m` bits represent the first factor,
     /// the next `n` bits represent the second factor.
-    pub fn read_factors(&self, config: &[usize]) -> (BigUint, BigUint) {
+    fn decode_factors(&self, config: &[usize]) -> (BigUint, BigUint) {
         let a = bits_to_biguint(&config[..self.m]);
         let b = bits_to_biguint(&config[self.m..self.m + self.n]);
         (a, b)
     }
 
     /// Check if a configuration is a valid factorization.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        self.is_valid_factorization(config)
+    pub fn is_valid_solution(&self, solution: &(BigUint, BigUint)) -> bool {
+        self.is_valid_factorization(solution)
     }
 
     /// Check if the configuration is a valid factorization.
-    pub fn is_valid_factorization(&self, config: &[usize]) -> bool {
-        if config.len() != self.m + self.n || config.iter().any(|&bit| bit >= 2) {
-            return false;
-        }
-        let (a, b) = self.read_factors(config);
-        a * b == self.target
+    pub fn is_valid_factorization(&self, solution: &(BigUint, BigUint)) -> bool {
+        let (left, right) = solution;
+        left.bits() <= u64::try_from(self.m).expect("factor width fits u64")
+            && right.bits() <= u64::try_from(self.n).expect("factor width fits u64")
+            && left * right == self.target
     }
 }
 
@@ -156,14 +154,17 @@ pub(crate) fn is_factoring(target: &BigUint, a: &BigUint, b: &BigUint) -> bool {
 
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
+    type Solution = (BigUint, BigUint);
     type Value = Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.m + self.n]
-    }
+    crate::problem_size![
+        ("num_bits_first", num_bits_first),
+        ("num_bits_second", num_bits_second),
+        ("target_bits", target_bits),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
-        Ok(Or(self.is_valid_factorization(config)))
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(self.is_valid_factorization(solution)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -171,8 +172,18 @@ impl Problem for Factoring {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Factoring {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.m + self.n]
+    }
+}
+
 crate::declare_variants! {
-    default Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+    default Factoring => "exp((num_bits_first + num_bits_second)^(1/3) * log(num_bits_first + num_bits_second)^(2/3))",
+}
+
+crate::register_brute_force! {
+    Factoring decode |problem: &Factoring, indices: Vec<usize>| problem.decode_factors(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -180,7 +191,8 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "factoring",
         instance: Box::new(Factoring::new(2, 3, 15)),
-        optimal_config: vec![1, 1, 1, 0, 1],
+        optimal_config: serde_json::to_value((BigUint::from(3u32), BigUint::from(5u32)))
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -21,12 +21,12 @@ fn test_precedenceconstrainedscheduling_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // n=3 tasks, d=2 deadline → 6 variables
-    assert_eq!(ilp.num_vars, 6);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 6);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     // n one-hot constraints + d capacity constraints + 1 precedence = 3 + 2 + 1 = 6
-    assert_eq!(ilp.constraints.len(), 6);
+    assert_eq!(ilp.constraints().len(), 6);
 }
 
 #[test]
@@ -34,7 +34,7 @@ fn test_precedenceconstrainedscheduling_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance should have a witness");
     assert!(

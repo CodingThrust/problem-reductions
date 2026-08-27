@@ -110,9 +110,9 @@ fn test_naesatisfiability_to_maxcut_extract_solution() {
     // x1=T -> vertex 0 in set 1, vertex 1 in set 0
     // x2=F -> vertex 2 in set 0, vertex 3 in set 1
     // x3=T -> vertex 4 in set 1, vertex 5 in set 0
-    let target_config = vec![1, 0, 0, 1, 1, 0];
+    let target_config = vec![true, false, false, true, true, false];
     let extracted = reduction.extract_solution(&target_config).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1]); // x1=T, x2=F, x3=T
+    assert_eq!(extracted, vec![true, false, true]); // x1=T, x2=F, x3=T
 
     // Verify this is a valid NAE-SAT solution
     assert!(naesat.evaluate(&extracted).unwrap().0);
@@ -160,7 +160,7 @@ fn test_naesatisfiability_to_maxcut_optimal_cut_value() {
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
     assert!(witness.is_some());
 
     let config = witness.unwrap();

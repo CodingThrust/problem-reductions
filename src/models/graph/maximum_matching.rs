@@ -42,7 +42,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaximumMatching;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Path graph 0-1-2
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
@@ -53,7 +53,7 @@ inventory::submit! {
 ///
 /// // Maximum matching has 1 edge
 /// for sol in &solutions {
-///     assert_eq!(sol.iter().sum::<usize>(), 1);
+///     assert_eq!(sol.iter().filter(|&&selected| selected).count(), 1);
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -185,16 +185,16 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     }
 
     /// Check if a configuration is a valid matching.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         self.is_valid_matching(config)
     }
 
     /// Check if a configuration is a valid matching (internal).
-    fn is_valid_matching(&self, config: &[usize]) -> bool {
+    fn is_valid_matching(&self, config: &[bool]) -> bool {
         let mut vertex_used = vec![false; self.graph.num_vertices()];
 
         for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
+            if selected {
                 if let Some((u, v)) = self.edge_endpoints(idx) {
                     if vertex_used[u] || vertex_used[v] {
                         return false;
@@ -245,24 +245,31 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaximumMatching";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !self.is_valid_matching(config) {
                 return Ok(Max(None));
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     if let Some(w) = self.edge_weights.get(idx) {
                         total = W::checked_add_to_sum(
                             total,
@@ -277,6 +284,16 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MaximumMatching<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
 crate::impl_random_generate!(MaximumMatching<SimpleGraph, i64>, crate::random::SimpleGraphRandomSpec, |spec| {
     let graph = spec.graph()?;
     let weights = vec![1; graph.num_edges()];
@@ -287,15 +304,19 @@ crate::declare_variants! {
     default MaximumMatching<SimpleGraph, i64> => "num_vertices^3" create MaximumMatchingCreateSpec random,
 }
 
+crate::register_brute_force! {
+    MaximumMatching<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "maximum_matching_simplegraph_i64",
+        id: "maximum_matching_simplegraph",
         instance: Box::new(MaximumMatching::<_, i64>::unit_weights(SimpleGraph::new(
             5,
             vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
         ))),
-        optimal_config: vec![1, 0, 0, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, false, true, false]),
         optimal_value: serde_json::json!(2),
     }]
 }

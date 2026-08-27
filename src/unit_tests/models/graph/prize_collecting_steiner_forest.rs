@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -28,7 +29,7 @@ fn test_prize_collecting_steiner_forest_creation() {
     assert_eq!(*problem.beta(), 1);
     assert_eq!(*problem.omega(), 2);
     // n + m = 3 + 2 = 5 binary variables.
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
     assert_eq!(problem.num_variables(), 5);
     assert!(problem.graph().has_edge(0, 1));
 }
@@ -49,7 +50,7 @@ fn test_prize_collecting_steiner_forest_evaluate_optimum() {
     // V_F = {0,1,2}, E_F = {(0,1)}: components {0,1} and {2}.
     // Objective = 1*0 + 1 + 2*2 = 5.
     let problem = canonical_problem();
-    let config = vec![1, 1, 1, 1, 0];
+    let config = (vec![true, true, true], vec![true, false]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(5)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -59,7 +60,7 @@ fn test_prize_collecting_steiner_forest_evaluate_full_path() {
     // V_F = {0,1,2}, E_F = {(0,1),(1,2)}: single tree path.
     // Objective = 1*0 + (1+6) + 2*1 = 9.
     let problem = canonical_problem();
-    let config = vec![1, 1, 1, 1, 1];
+    let config = (vec![true, true, true], vec![true, true]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(9)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -69,7 +70,7 @@ fn test_prize_collecting_steiner_forest_evaluate_three_singletons() {
     // V_F = {0,1,2}, E_F = empty: three singleton trees.
     // Objective = 1*0 + 0 + 2*3 = 6.
     let problem = canonical_problem();
-    let config = vec![1, 1, 1, 0, 0];
+    let config = (vec![true, true, true], vec![false, false]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(6)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -79,7 +80,7 @@ fn test_prize_collecting_steiner_forest_evaluate_empty_forest() {
     // V_F = empty, E_F = empty: kappa = 0, every prize omitted.
     // Objective = 1*(5+2+5) + 0 + 2*0 = 12.
     let problem = canonical_problem();
-    let config = vec![0, 0, 0, 0, 0];
+    let config = (vec![false, false, false], vec![false, false]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(Some(12)));
     assert!(problem.is_valid_solution(&config));
 }
@@ -88,7 +89,7 @@ fn test_prize_collecting_steiner_forest_evaluate_empty_forest() {
 fn test_prize_collecting_steiner_forest_evaluate_edge_without_endpoint_infeasible() {
     // Select edge (0,1) but not vertex 1 -> infeasible.
     let problem = canonical_problem();
-    let config = vec![1, 0, 1, 1, 0];
+    let config = (vec![true, false, true], vec![true, false]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
@@ -105,7 +106,7 @@ fn test_prize_collecting_steiner_forest_evaluate_cycle_infeasible() {
         1,
     )
     .unwrap();
-    let config = vec![1, 1, 1, 1, 1, 1];
+    let config = (vec![true, true, true], vec![true, true, true]);
     assert_eq!(problem.evaluate(&config).unwrap(), Min(None));
     assert!(!problem.is_valid_solution(&config));
 }
@@ -115,11 +116,13 @@ fn test_prize_collecting_steiner_forest_brute_force_solver() {
     // Brute force over 2^(3+2) = 32 configurations finds the optimum 5.
     let problem = canonical_problem();
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(5)));
-    let witness = solver
-        .find_witness(&problem)
-        .unwrap()
-        .expect("witness exists");
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(5))
+    );
+    let witness = solver.solve(&problem).unwrap().expect("witness exists");
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(5)));
     assert!(problem.is_valid_solution(&witness));
 }
@@ -136,7 +139,12 @@ fn test_prize_collecting_steiner_forest_serialization_roundtrip() {
     assert_eq!(restored.edge_costs(), &[1, 6]);
     assert_eq!(*restored.beta(), 1);
     assert_eq!(*restored.omega(), 2);
-    assert_eq!(restored.evaluate(&[1, 1, 1, 1, 0]).unwrap(), Min(Some(5)));
+    assert_eq!(
+        restored
+            .evaluate(&(vec![true; 3], vec![true, false]))
+            .unwrap(),
+        Min(Some(5))
+    );
 }
 
 #[test]
@@ -150,8 +158,18 @@ fn test_prize_collecting_steiner_forest_f64_variant() {
         2.0,
     )
     .unwrap();
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1, 0]).unwrap(), Min(Some(5.0)));
-    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(Some(5.0)));
+    assert_eq!(
+        problem
+            .evaluate(&(vec![true; 3], vec![true, false]))
+            .unwrap(),
+        Min(Some(5.0))
+    );
+    assert_eq!(
+        problem
+            .evaluate(&BruteForce::new().solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(5.0))
+    );
 }
 
 #[test]

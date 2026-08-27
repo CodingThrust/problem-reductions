@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_validates_capacity_shape() {
@@ -70,7 +71,10 @@ fn test_undirected_two_commodity_integral_flow_creation() {
     assert_eq!(problem.requirement_2(), 1);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3]);
+    assert_eq!(
+        problem.dimensions(),
+        vec![2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3]
+    );
 }
 
 #[test]
@@ -85,7 +89,7 @@ fn test_undirected_two_commodity_integral_flow_evaluation_no_shared_bottleneck()
     let problem = shared_bottleneck_instance();
     assert!(!problem.evaluate(&example_config()).unwrap());
     assert!(!problem.is_valid_solution(&example_config()).unwrap());
-    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -94,7 +98,10 @@ fn test_undirected_two_commodity_integral_flow_rejects_wrong_config_length() {
     let mut config = example_config();
     config.pop();
 
-    assert!(!problem.evaluate(&config).unwrap());
+    assert!(matches!(
+        problem.evaluate(&config),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -158,7 +165,7 @@ fn test_undirected_two_commodity_integral_flow_large_capacity_sink_balance() {
         0,
     );
 
-    assert!(problem.evaluate(&[large_usize, 0, 0, 0]).unwrap());
+    assert!(problem.evaluate(&vec![large_usize, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -176,7 +183,7 @@ fn test_undirected_two_commodity_integral_flow_shared_capacity_exceeded() {
     );
 
     // f1(0->1)=2, f1(1->0)=0, f2(0->1)=2, f2(1->0)=0 => shared = 4 > 3
-    assert!(!problem.evaluate(&[2, 0, 2, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![2, 0, 2, 0]).unwrap());
 }
 
 #[test]
@@ -227,5 +234,5 @@ fn test_undirected_two_commodity_integral_flow_flow_conservation_violated() {
     // Edge (0,1): f1(0->1)=1, f1(1->0)=0, f2=0,0
     // Edge (1,2): f1(1->2)=0, f1(2->1)=0, f2=0,0
     // Vertex 1 gets +1 for commodity 1 from edge (0,1) but no outflow on edge (1,2)
-    assert!(!problem.evaluate(&[1, 0, 0, 0, 0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![1, 0, 0, 0, 0, 0, 0, 0]).unwrap());
 }

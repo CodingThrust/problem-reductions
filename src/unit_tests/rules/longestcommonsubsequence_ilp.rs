@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::ILP;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Max;
 
@@ -13,7 +13,7 @@ fn test_lcs_to_ilp_yes_instance() {
 
     // num_symbols = 4, max_length = 3
     // symbol_var_count = 12, match vars = 3 * 6 = 18, total = 30
-    assert_eq!(ilp.num_vars, 30);
+    assert_eq!(ilp.num_vars(), 30);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
@@ -41,7 +41,8 @@ fn test_lcs_to_ilp_closed_loop_three_strings() {
     assert!(matches!(ilp_value, Max(Some(_))));
 
     let brute_force = BruteForce::new();
-    let bf_value = brute_force.solve(&problem).unwrap();
+    let bf_value_solution = brute_force.solve(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     // The ILP should find the same optimal value as brute force.
     assert_eq!(ilp_value, bf_value);
@@ -77,7 +78,8 @@ fn test_lcs_to_ilp_matches_brute_force() {
     let ilp_value = problem.evaluate(&extracted).unwrap();
 
     let brute_force = BruteForce::new();
-    let bf_value = brute_force.solve(&problem).unwrap();
+    let bf_value_solution = brute_force.solve(&problem).unwrap().unwrap();
+    let bf_value = problem.evaluate(&bf_value_solution).unwrap();
 
     assert_eq!(ilp_value, bf_value);
 }

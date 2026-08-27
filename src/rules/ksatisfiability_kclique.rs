@@ -38,19 +38,19 @@ impl ReductionResult for Reduction3SATToKClique {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.source_num_vars;
             // Start with all variables unset (false = 0).
-            let mut assignment = vec![0usize; n];
+            let mut assignment = vec![false; n];
             // Track which variables have been explicitly set by a clique vertex.
             let mut set = vec![false; n];
 
             for (v, &val) in target_solution.iter().enumerate() {
-                if val != 1 {
+                if !val {
                     continue;
                 }
                 // Vertex v corresponds to clause j, position p.
@@ -59,7 +59,7 @@ impl ReductionResult for Reduction3SATToKClique {
                 let lit = self.source_clauses[j][p];
                 let var_idx = (lit.unsigned_abs() as usize) - 1; // 0-indexed
                 if !set[var_idx] {
-                    assignment[var_idx] = if lit > 0 { 1 } else { 0 };
+                    assignment[var_idx] = lit > 0;
                     set[var_idx] = true;
                 }
             }
@@ -144,8 +144,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, KClique<SimpleGraph>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![false, false, true]),
+                    target_config: serde_json::json!(vec![false, false, true, true, false, false]),
                 },
             )
         },

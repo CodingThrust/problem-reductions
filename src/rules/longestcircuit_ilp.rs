@@ -38,11 +38,14 @@ impl ReductionResult for ReductionLongestCircuitToILP {
     /// Extract: output the binary edge-selection vector (y_e).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_edges].to_vec())
+        Ok(target_solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -77,19 +80,19 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
 
         // Degree constraints: sum_{e : v in e} y_e = 2 s_v for all v
         for v in 0..n {
-            let mut terms: Vec<(usize, f64)> = Vec::new();
+            let mut terms: Vec<(usize, i64)> = Vec::new();
             for (e, &(u, w)) in edges.iter().enumerate() {
                 if u == v || w == v {
-                    terms.push((y_idx(e), 1.0));
+                    terms.push((y_idx(e), 1));
                 }
             }
-            terms.push((s_idx(v), -2.0));
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            terms.push((s_idx(v), -2));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // At least 3 edges selected
-        let all_edge_terms: Vec<(usize, f64)> = (0..m).map(|e| (y_idx(e), 1.0)).collect();
-        constraints.push(LinearConstraint::ge(all_edge_terms, 3.0));
+        let all_edge_terms: Vec<(usize, i64)> = (0..m).map(|e| (y_idx(e), 1)).collect();
+        constraints.push(LinearConstraint::ge(all_edge_terms, 3));
 
         // Multi-commodity flow for connectivity
         // Root = vertex 0. For each non-root vertex t (commodity index = t-1):
@@ -102,38 +105,38 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
                 for (e, &(u, w)) in edges.iter().enumerate() {
                     // Forward dir: u->w, reverse dir: w->u
                     if u == v {
-                        terms.push((flow_idx(commodity, e, 0), 1.0)); // outgoing
-                        terms.push((flow_idx(commodity, e, 1), -1.0)); // incoming
+                        terms.push((flow_idx(commodity, e, 0), 1)); // outgoing
+                        terms.push((flow_idx(commodity, e, 1), -1)); // incoming
                     }
                     if w == v {
-                        terms.push((flow_idx(commodity, e, 0), -1.0)); // incoming
-                        terms.push((flow_idx(commodity, e, 1), 1.0)); // outgoing
+                        terms.push((flow_idx(commodity, e, 0), -1)); // incoming
+                        terms.push((flow_idx(commodity, e, 1), 1)); // outgoing
                     }
                 }
 
                 if v == 0 {
                     // Root: outflow - inflow = s_t
-                    terms.push((s_idx(t), -1.0));
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    terms.push((s_idx(t), -1));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 } else if v == t {
                     // Target: outflow - inflow = -s_t
-                    terms.push((s_idx(t), 1.0));
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    terms.push((s_idx(t), 1));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 } else {
                     // Transit: outflow - inflow = 0
-                    constraints.push(LinearConstraint::eq(terms, 0.0));
+                    constraints.push(LinearConstraint::eq(terms, 0));
                 }
             }
 
             // Capacity: f^t_{e,dir} <= y_e
             for e in 0..m {
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_idx(commodity, e, 0), 1.0), (y_idx(e), -1.0)],
-                    0.0,
+                    vec![(flow_idx(commodity, e, 0), 1), (y_idx(e), -1)],
+                    0,
                 ));
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_idx(commodity, e, 1), 1.0), (y_idx(e), -1.0)],
-                    0.0,
+                    vec![(flow_idx(commodity, e, 1), 1), (y_idx(e), -1)],
+                    0,
                 ));
             }
         }
@@ -153,7 +156,8 @@ impl ReduceTo<ILP<bool>> for LongestCircuit<SimpleGraph, i64> {
                     })
             })
             .collect::<Result<_, _>>()?;
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionLongestCircuitToILP {
             target,

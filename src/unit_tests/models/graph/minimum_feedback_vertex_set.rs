@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_vertex_weights() {
@@ -51,16 +52,16 @@ fn test_minimum_feedback_vertex_set_basic() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
 
     // dims should be [2; 9]
-    assert_eq!(problem.dims(), vec![2usize; 9]);
+    assert_eq!(problem.dimensions(), vec![2usize; 9]);
 
     // Valid FVS: {0, 3, 8} → config = [1,0,0,1,0,0,0,0,1]
-    let config_valid = vec![1, 0, 0, 1, 0, 0, 0, 0, 1];
+    let config_valid = vec![true, false, false, true, false, false, false, false, true];
     let result = problem.evaluate(&config_valid).unwrap();
     assert!(result.is_valid(), "Expected {{0,3,8}} to be a valid FVS");
     assert_eq!(result.unwrap(), 3, "Expected FVS size 3");
 
     // Invalid subset {1, 4, 7}: leaves cycle 2→5→8→2
-    let config_invalid = vec![0, 1, 0, 0, 1, 0, 0, 1, 0];
+    let config_invalid = vec![false, true, false, false, true, false, false, true, false];
     let result2 = problem.evaluate(&config_invalid).unwrap();
     assert!(
         !result2.is_valid(),
@@ -88,7 +89,7 @@ fn test_minimum_feedback_vertex_set_solver() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap();
+    let best = solver.solve(&problem).unwrap();
     assert!(best.is_some(), "Expected a solution to exist");
     let best_config = best.unwrap();
     let best_result = problem.evaluate(&best_config).unwrap();
@@ -106,7 +107,7 @@ fn test_minimum_feedback_vertex_set_dag() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     // Empty set (all zeros) is a valid FVS — graph is already a DAG
-    let config_empty = vec![0, 0, 0];
+    let config_empty = vec![false, false, false];
     let result = problem.evaluate(&config_empty).unwrap();
     assert!(result.is_valid(), "Empty FVS should be valid for a DAG");
     assert_eq!(result.unwrap(), 0);
@@ -118,7 +119,7 @@ fn test_minimum_feedback_vertex_set_all_selected() {
     let graph = example_graph();
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 9]);
 
-    let config_all = vec![1usize; 9];
+    let config_all = vec![true; 9];
     let result = problem.evaluate(&config_all).unwrap();
     assert!(result.is_valid(), "Selecting all vertices should be valid");
     assert_eq!(result.unwrap(), 9);
@@ -157,7 +158,10 @@ fn test_minimum_feedback_vertex_set_evaluate_wrong_length() {
     let problem = MinimumFeedbackVertexSet::new(graph, vec![1i64; 3]);
 
     // Wrong length config returns Invalid
-    assert!(!problem.evaluate(&[1, 0]).unwrap().is_valid());
+    assert!(matches!(
+        problem.evaluate(&vec![true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -199,17 +203,17 @@ fn test_minimum_feedback_vertex_set_paper_example() {
     assert_eq!(problem.num_arcs(), 7);
 
     // {v_0} is a valid FVS with weight 1
-    let config = vec![1, 0, 0, 0, 0];
+    let config = vec![true, false, false, false, false];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 1);
 
     // Removing v_1 alone leaves cycle v_0→v_3→v_4→...→v_2→v_0 (through arc (2,0))
-    let config_v1 = vec![0, 1, 0, 0, 0];
+    let config_v1 = vec![false, true, false, false, false];
     assert!(!problem.evaluate(&config_v1).unwrap().is_valid());
 
     // Verify optimal FVS weight is 1
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 1);
 }

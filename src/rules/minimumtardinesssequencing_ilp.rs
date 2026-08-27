@@ -7,9 +7,8 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::MinimumTardinessSequencing;
 use crate::reduction;
-use crate::rules::ilp_helpers::{one_hot_decode, permutation_to_lehmer};
+use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 use crate::types::One;
 
 /// Result of reducing MinimumTardinessSequencing<One> to `ILP<bool>`.
@@ -29,14 +28,14 @@ impl ReductionResult for ReductionMTSToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_tasks;
-            let schedule = one_hot_decode(target_solution, n, n, 0)?;
-            permutation_to_lehmer(&schedule)
+
+            one_hot_decode(target_solution, n, n, 0)?
         })
     }
 }
@@ -58,14 +57,14 @@ impl ReductionResult for ReductionMTSWeightedToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             let n = self.num_tasks;
-            let schedule = one_hot_decode(target_solution, n, n, 0)?;
-            permutation_to_lehmer(&schedule)
+
+            one_hot_decode(target_solution, n, n, 0)?
         })
     }
 }
@@ -73,6 +72,7 @@ impl ReductionResult for ReductionMTSWeightedToILP {
 /// Build task assignment + position filling + precedence constraints (shared).
 fn build_common_constraints(
     n: usize,
+    positions: &[i64],
     precedences: &[(usize, usize)],
     x_var: impl Fn(usize, usize) -> usize,
 ) -> Vec<LinearConstraint> {
@@ -80,24 +80,24 @@ fn build_common_constraints(
 
     // 1. Each task assigned to exactly one position
     for j in 0..n {
-        let terms: Vec<(usize, f64)> = (0..n).map(|p| (x_var(j, p), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, 1.0));
+        let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_var(j, p), 1)).collect();
+        constraints.push(LinearConstraint::eq(terms, 1));
     }
 
     // 2. Each position has exactly one task
     for p in 0..n {
-        let terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j, p), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, 1.0));
+        let terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j, p), 1)).collect();
+        constraints.push(LinearConstraint::eq(terms, 1));
     }
 
     // 3. Precedence constraints
     for &(i, j) in precedences {
-        let mut terms: Vec<(usize, f64)> = Vec::new();
-        for p in 0..n {
-            terms.push((x_var(j, p), p as f64));
-            terms.push((x_var(i, p), -(p as f64)));
+        let mut terms: Vec<(usize, i64)> = Vec::new();
+        for (p, &position) in positions.iter().enumerate() {
+            terms.push((x_var(j, p), position));
+            terms.push((x_var(i, p), -position));
         }
-        constraints.push(LinearConstraint::ge(terms, 1.0));
+        constraints.push(LinearConstraint::ge(terms, 1));
     }
 
     constraints
@@ -116,31 +116,30 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<One> {
         let n = self.num_tasks();
         let num_x_vars = n * n;
         let num_vars = num_x_vars + n;
-        let big_m = n as f64;
+        let positions = (0..n)
+            .map(|position| Self::exact_i64(position, "representing a task position in ILP rows"))
+            .collect::<Result<Vec<_>, _>>()?;
+        let big_m = Self::exact_i64(n, "representing the number of tasks in ILP rows")?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
         let u_var = |j: usize| -> usize { num_x_vars + j };
 
-        let mut constraints = build_common_constraints(n, self.precedences(), x_var);
+        let mut constraints = build_common_constraints(n, &positions, self.precedences(), x_var);
 
         // Tardy indicator (unit length: completion = p+1)
         for j in 0..n {
-            let mut terms: Vec<(usize, f64)> =
-                (0..n).map(|p| (x_var(j, p), (p + 1) as f64)).collect();
+            let mut terms: Vec<(usize, i64)> =
+                (0..n).map(|p| (x_var(j, p), positions[p] + 1)).collect();
             terms.push((u_var(j), -big_m));
-            let deadline = i64_to_exact_f64(self.deadlines()[j]).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumTardinessSequencing<One>,
-                    ILP<bool>,
-                >(error)
-            })?;
+            let deadline = self.deadlines()[j];
             constraints.push(LinearConstraint::le(terms, deadline));
         }
 
         let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
 
         Ok(ReductionMTSToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
         })
     }
@@ -167,34 +166,29 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
                 >("summing task lengths")
             })
         })?;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    MinimumTardinessSequencing<i64>,
-                    ILP<bool>,
-                >(error)
-            })
-        };
-        let big_m = exact_f64(total_length)?;
+        let big_m = total_length;
+        let positions = (0..n)
+            .map(|position| Self::exact_i64(position, "representing a task position in ILP rows"))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let x_var = |j: usize, p: usize| -> usize { j * n + p };
         let u_var = |j: usize| -> usize { num_x_vars + j };
 
-        let mut constraints = build_common_constraints(n, self.precedences(), x_var);
+        let mut constraints = build_common_constraints(n, &positions, self.precedences(), x_var);
 
         // Tardy indicator for arbitrary lengths.
         let lengths = self.lengths();
         for j in 0..n {
             for p in 0..n {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
                 terms.push((x_var(j, p), big_m));
                 for pp in 0..p {
                     for (jj, &len) in lengths.iter().enumerate() {
-                        terms.push((x_var(jj, pp), exact_f64(len)?));
+                        terms.push((x_var(jj, pp), len));
                     }
                 }
                 terms.push((u_var(j), -big_m));
-                let rhs_i64 = self.deadlines()[j]
+                let rhs = self.deadlines()[j]
                     .checked_sub(lengths[j])
                     .and_then(|value| value.checked_add(total_length))
                     .ok_or_else(|| {
@@ -203,7 +197,6 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
                             ILP<bool>,
                         >("computing a tardiness constraint bound")
                     })?;
-                let rhs = exact_f64(rhs_i64)?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
@@ -211,7 +204,8 @@ impl ReduceTo<ILP<bool>> for MinimumTardinessSequencing<i64> {
         let objective: Vec<(usize, f64)> = (0..n).map(|j| (u_var(j), 1.0)).collect();
 
         Ok(ReductionMTSWeightedToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
         })
     }

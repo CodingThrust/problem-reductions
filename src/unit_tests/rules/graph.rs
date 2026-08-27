@@ -12,6 +12,7 @@ use crate::registry::ProblemCategory;
 use crate::rules::graph::{ReductionMode, ReductionStep};
 use crate::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use crate::rules::traits::{AggregateReductionResult, ReductionResult};
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, ProblemSize, Sum};
@@ -80,47 +81,65 @@ struct NaturalVariantProblem;
 
 impl Problem for AggregateChainSource {
     const NAME: &'static str = "AggregateChainSource";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for AggregateChainSource {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
 impl Problem for AggregateChainMiddle {
     const NAME: &'static str = "AggregateChainMiddle";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for AggregateChainMiddle {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
 impl Problem for AggregateChainTarget {
     const NAME: &'static str = "AggregateChainTarget";
+    type Solution = Vec<usize>;
     type Value = Sum<u64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![1]
-    }
+    crate::problem_size![("num_variables", num_variables)];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
@@ -129,20 +148,34 @@ impl Problem for AggregateChainTarget {
     }
 }
 
-impl Problem for NaturalVariantProblem {
-    const NAME: &'static str = "NaturalVariantProblem";
-    type Value = Sum<u64>;
-
-    fn dims(&self) -> Vec<usize> {
+impl crate::solvers::BruteForceProblem for AggregateChainTarget {
+    fn dimensions(&self) -> Vec<usize> {
         vec![1]
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, crate::traits::EvaluationError> {
+impl Problem for NaturalVariantProblem {
+    const NAME: &'static str = "NaturalVariantProblem";
+    type Solution = Vec<usize>;
+    type Value = Sum<u64>;
+
+    crate::problem_size![("num_variables", num_variables)];
+
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Self::Value, crate::traits::EvaluationError> {
         Ok(Sum(config.iter().sum::<usize>() as u64))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl crate::solvers::BruteForceProblem for NaturalVariantProblem {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![1]
     }
 }
 
@@ -226,8 +259,8 @@ impl ReductionResult for SourceToMiddleWitnessResult {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         Ok(target_solution.to_vec())
     }
 }
@@ -280,8 +313,8 @@ impl ReductionResult for MiddleToTargetWitnessResult {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         Ok(target_solution.to_vec())
     }
 }
@@ -481,7 +514,7 @@ fn path_size_contract_errors_are_typed_and_isolated() {
 }
 
 #[test]
-fn path_size_composition_and_evaluation_propagate_step_errors() {
+fn path_size_composition_and_contract_evaluation_report_errors() {
     let missing_input = build_two_node_graph(
         "A",
         BTreeMap::new(),
@@ -490,9 +523,13 @@ fn path_size_composition_and_evaluation_propagate_step_errors() {
         symbolic_size_edge(&[("x", "n")], false),
     );
     let direct = named_path(&["A", "B"]);
+    let direct_transform = missing_input
+        .compose_path_size_transform(&direct)
+        .unwrap()
+        .unwrap();
     assert!(matches!(
-        missing_input.evaluate_path_size(&direct, &ProblemSize::default()),
-        Err(PathSizeError::Step { .. })
+        direct_transform.evaluate(&ProblemSize::default()),
+        Err(crate::size::SizeTransformError::MissingInputField { .. })
     ));
 
     let invalid_composition = ReductionGraph::from_test_edges(
@@ -515,13 +552,16 @@ fn path_size_composition_and_evaluation_propagate_step_errors() {
             ("B", "C", symbolic_size_edge(&[("z", "2 * x")], false)),
         ],
     );
+    let transform = valid
+        .compose_path_size_transform(&chained)
+        .unwrap()
+        .unwrap();
     assert_eq!(
-        valid
-            .evaluate_path_size(&chained, &ProblemSize::new(vec![("n", 3)]))
+        transform
+            .evaluate(&ProblemSize::new(vec![("n", 3)]))
             .unwrap()
-            .values()
             .get("z"),
-        Some(&num_bigint::BigUint::from(8u8))
+        Some(8)
     );
 }
 
@@ -545,15 +585,16 @@ fn symbolic_path_enumeration_retains_every_path_without_ranking() {
         .iter()
         .map(|path| {
             graph
-                .evaluate_path_size(path, &ProblemSize::default())
+                .compose_path_size_transform(path)
                 .unwrap()
-                .values()
+                .unwrap()
+                .evaluate(&ProblemSize::default())
+                .unwrap()
                 .get("y")
                 .unwrap()
-                .clone()
         })
         .collect();
-    assert_eq!(values, BTreeSet::from([1u8.into(), 2u8.into(), 3u8.into()]));
+    assert_eq!(values, BTreeSet::from([1, 2, 3]));
 }
 
 #[test]
@@ -652,7 +693,7 @@ fn test_aggregate_reduction_chain_extracts_value_backwards() {
         .expect("expected aggregate reduction chain");
 
     assert_eq!(
-        chain.target_problem::<AggregateChainTarget>().dims(),
+        chain.target_problem::<AggregateChainTarget>().dimensions(),
         vec![1]
     );
     assert_eq!(chain.extract_value_dyn(json!(7)), json!(12));
@@ -1059,9 +1100,12 @@ fn test_to_json() {
 #[test]
 fn test_to_json_string() {
     let graph = ReductionGraph::new();
+    let json_value = graph.to_json_value().unwrap();
     let json_string = graph.to_json_string().unwrap();
 
     // Should be valid JSON
+    assert!(json_value["nodes"].is_array());
+    assert!(json_value["edges"].is_array());
     assert!(json_string.contains("\"nodes\""));
     assert!(json_string.contains("\"edges\""));
     assert!(json_string.contains("MaximumIndependentSet"));
@@ -1518,7 +1562,7 @@ fn test_reduction_chain_direct() {
     let target: &MinimumVertexCover<SimpleGraph, i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap().unwrap();
+    let target_solution = solver.solve(target).unwrap().unwrap();
     let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = problem.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
@@ -1549,7 +1593,7 @@ fn test_reduction_chain_multi_step() {
     let target: &MaximumSetPacking<i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap().unwrap();
+    let target_solution = solver.solve(target).unwrap().unwrap();
     let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = problem.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
@@ -1596,7 +1640,7 @@ fn test_reduction_chain_with_variant_casts() {
     let target: &MinimumVertexCover<SimpleGraph, i64> = chain.target_problem();
 
     let solver = BruteForce::new();
-    let target_solution = solver.find_witness(target).unwrap().unwrap();
+    let target_solution = solver.solve(target).unwrap().unwrap();
     let source_solution = chain.extract_solution(&target_solution).unwrap();
     let metric = mis.evaluate(&source_solution).unwrap();
     assert!(metric.is_valid());
@@ -1639,7 +1683,7 @@ fn test_reduction_chain_with_variant_casts() {
         .unwrap();
     let target: &MaximumIndependentSet<SimpleGraph, i64> = ksat_chain.target_problem();
 
-    let target_solution = solver.find_witness(target).unwrap().unwrap();
+    let target_solution = solver.solve(target).unwrap().unwrap();
     let original_solution = ksat_chain.extract_solution(&target_solution).unwrap();
 
     // Verify the extracted solution satisfies the original 3-SAT formula
@@ -1821,15 +1865,14 @@ fn test_outgoing_reductions_from_rejects_unknown_exact_variant() {
 }
 
 #[test]
+#[should_panic(expected = "unregistered exact problem variant")]
 fn test_compute_problem_size_unknown_problem() {
     let problem = 42u32;
-    let size =
-        ReductionGraph::compute_problem_size("NonExistentProblem", &BTreeMap::new(), &problem);
-    assert!(size.components.is_empty());
+    ReductionGraph::compute_problem_size("NonExistentProblem", &BTreeMap::new(), &problem);
 }
 
 #[test]
-fn test_evaluate_path_size() {
+fn test_composed_path_size_transform_evaluation() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i64>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i64>::variant());
@@ -1841,17 +1884,12 @@ fn test_evaluate_path_size() {
         .find(|path| path.len() == 1)
         .expect("direct route");
 
-    let final_size = graph
-        .evaluate_path_size(&path, &input_size)
-        .expect("should evaluate size transform");
+    let transform = graph.compose_path_size_transform(&path).unwrap().unwrap();
+    let final_size = transform
+        .evaluate(&input_size)
+        .expect("should evaluate composed size transform");
 
     // MIS → MVC preserves num_vertices and num_edges
-    assert_eq!(
-        final_size.values().get("num_vertices"),
-        Some(&num_bigint::BigUint::from(10u8))
-    );
-    assert_eq!(
-        final_size.values().get("num_edges"),
-        Some(&num_bigint::BigUint::from(20u8))
-    );
+    assert_eq!(final_size.get("num_vertices"), Some(10));
+    assert_eq!(final_size.get("num_edges"), Some(20));
 }

@@ -49,8 +49,8 @@ fn test_reduction_creates_expected_ilp_shape() {
     let ilp = reduction.target_problem();
 
     // m=5: num_vars = 3*5 = 15
-    assert_eq!(ilp.num_vars, 15);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 15);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn test_solution_extraction_reads_edge_selector_prefix() {
 
     assert_eq!(
         reduction.extract_solution(&target_solution).unwrap(),
-        vec![1, 1, 0, 1, 0]
+        vec![true, true, false, true, false]
     );
 }
 

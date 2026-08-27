@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -41,8 +42,8 @@ fn test_rural_postman_creation() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_required_edges(), 3);
-    assert_eq!(problem.dims().len(), 8);
-    assert!(problem.dims().iter().all(|&d| d == 3));
+    assert_eq!(problem.dimensions().len(), 8);
+    assert!(problem.dimensions().iter().all(|&d| d == 3));
 }
 
 #[test]
@@ -114,7 +115,7 @@ fn test_rural_postman_disconnected_selection() {
 fn test_rural_postman_brute_force_finds_solution() {
     let problem = chinese_postman_rpp();
     let solver = BruteForce::new();
-    let result = solver.find_witness(&problem).unwrap();
+    let result = solver.solve(&problem).unwrap();
     assert!(result.is_some());
     let sol = result.unwrap();
     assert!(problem.evaluate(&sol).unwrap().0.is_some());
@@ -124,7 +125,7 @@ fn test_rural_postman_brute_force_finds_solution() {
 fn test_rural_postman_brute_force_hexagon() {
     let problem = hexagon_rpp();
     let solver = BruteForce::new();
-    let result = solver.find_witness(&problem).unwrap();
+    let result = solver.solve(&problem).unwrap();
     assert!(result.is_some());
     let sol = result.unwrap();
     assert_eq!(problem.evaluate(&sol).unwrap(), Min(Some(6)));
@@ -184,7 +185,10 @@ fn test_rural_postman_size_getters() {
 #[test]
 fn test_rural_postman_wrong_config_length() {
     let problem = chinese_postman_rpp();
-    assert_eq!(problem.evaluate(&[1, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![1, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -196,9 +200,9 @@ fn test_rural_postman_is_weighted() {
 #[test]
 fn test_rural_postman_solver_aggregate() {
     let problem = chinese_postman_rpp();
-    use crate::Solver;
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(4)));
 }
 #[test]

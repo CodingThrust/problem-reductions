@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_rejects_nonpositive_lengths() {
     assert!(LongestPath::try_from(LongestPathI64CreateSpec {
@@ -38,12 +39,16 @@ fn issue_problem() -> LongestPath<SimpleGraph, i64> {
     )
 }
 
-fn optimal_config() -> Vec<usize> {
-    vec![1, 0, 1, 1, 1, 0, 1, 0, 1, 0]
+fn optimal_config() -> Vec<bool> {
+    vec![
+        true, false, true, true, true, false, true, false, true, false,
+    ]
 }
 
-fn suboptimal_config() -> Vec<usize> {
-    vec![0, 1, 1, 0, 1, 1, 1, 0, 0, 1]
+fn suboptimal_config() -> Vec<bool> {
+    vec![
+        false, true, true, false, true, true, true, false, false, true,
+    ]
 }
 
 #[test]
@@ -56,7 +61,7 @@ fn test_longest_path_creation() {
     assert_eq!(problem.num_edges(), 10);
     assert_eq!(problem.source_vertex(), 0);
     assert_eq!(problem.target_vertex(), 6);
-    assert_eq!(problem.dims(), vec![2; 10]);
+    assert_eq!(problem.dimensions(), vec![2; 10]);
     assert_eq!(problem.edge_lengths(), &[3, 2, 4, 1, 5, 2, 3, 2, 4, 1]);
     assert!(problem.is_weighted());
 
@@ -80,20 +85,36 @@ fn test_longest_path_evaluate_valid_and_invalid_configs() {
     assert!(problem.is_valid_solution(&suboptimal_config()));
 
     assert_eq!(
-        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![
+                true, true, true, false, false, false, false, false, false, false
+            ])
+            .unwrap(),
         Max(None)
     );
     assert_eq!(
-        problem.evaluate(&[1, 0, 1, 0, 1, 0, 0, 0, 0, 1]).unwrap(),
+        problem
+            .evaluate(&vec![
+                true, false, true, false, true, false, false, false, false, true
+            ])
+            .unwrap(),
         Max(None)
     );
     assert_eq!(
-        problem.evaluate(&[1, 0, 1, 1, 1, 1, 1, 1, 1, 1]).unwrap(),
+        problem
+            .evaluate(&vec![
+                true, false, true, true, true, true, true, true, true, true
+            ])
+            .unwrap(),
         Max(None)
     );
-    assert_eq!(problem.evaluate(&[0; 10]).unwrap(), Max(None));
-    assert!(!problem.is_valid_solution(&[1, 0, 1]));
-    assert!(!problem.is_valid_solution(&[1, 0, 1, 0, 1, 0, 1, 0, 1, 2]));
+    assert_eq!(problem.evaluate(&vec![false; 10]).unwrap(), Max(None));
+    assert!(!problem.is_valid_solution(&[true, false, true]));
+    assert!(crate::registry::DynProblem::evaluate_dyn(
+        &problem,
+        &serde_json::json!([1, 0, 1, 0, 1, 0, 1, 0, 1, 2]),
+    )
+    .is_err());
 }
 
 #[test]
@@ -101,7 +122,7 @@ fn test_longest_path_bruteforce_finds_issue_optimum() {
     let problem = issue_problem();
     let solver = BruteForce::new();
 
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(best, optimal_config());
     assert_eq!(problem.evaluate(&best).unwrap(), Max(Some(20)));
 
@@ -127,13 +148,13 @@ fn test_longest_path_serialization() {
 fn test_longest_path_source_equals_target_only_allows_empty_path() {
     let problem = LongestPath::new(SimpleGraph::path(3), vec![5, 7], 1, 1);
 
-    assert!(problem.is_valid_solution(&[0, 0]));
-    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Max(Some(0)));
-    assert!(!problem.is_valid_solution(&[1, 0]));
-    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Max(None));
+    assert!(problem.is_valid_solution(&[false, false]));
+    assert_eq!(problem.evaluate(&vec![false, false]).unwrap(), Max(Some(0)));
+    assert!(!problem.is_valid_solution(&[true, false]));
+    assert_eq!(problem.evaluate(&vec![true, false]).unwrap(), Max(None));
 
-    let best = BruteForce::new().find_witness(&problem).unwrap().unwrap();
-    assert_eq!(best, vec![0, 0]);
+    let best = BruteForce::new().solve(&problem).unwrap().unwrap();
+    assert_eq!(best, vec![false, false]);
 }
 
 #[test]
@@ -146,7 +167,11 @@ fn test_longestpath_paper_example() {
         Max(Some(17))
     );
     assert_eq!(
-        problem.evaluate(&[1, 1, 1, 0, 0, 0, 0, 0, 0, 0]).unwrap(),
+        problem
+            .evaluate(&vec![
+                true, true, true, false, false, false, false, false, false, false
+            ])
+            .unwrap(),
         Max(None)
     );
 }

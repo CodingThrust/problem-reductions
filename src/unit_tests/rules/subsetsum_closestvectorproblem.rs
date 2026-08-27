@@ -44,13 +44,13 @@ fn test_subsetsum_to_closestvectorproblem_issue_example_minimizers() {
     let reduction = ReduceTo::<ClosestVectorProblem<i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
-    let solutions: HashSet<Vec<usize>> = BruteForce::new()
+    let solutions: HashSet<Vec<i64>> = BruteForce::new()
         .find_all_witnesses(target)
         .unwrap()
         .into_iter()
         .collect();
 
-    let expected: HashSet<Vec<usize>> = [vec![1, 0, 0, 1], vec![1, 1, 1, 0]].into_iter().collect();
+    let expected: HashSet<Vec<i64>> = [vec![1, 0, 0, 1], vec![1, 1, 1, 0]].into_iter().collect();
     assert_eq!(solutions, expected);
 
     for solution in &solutions {
@@ -65,7 +65,7 @@ fn test_subsetsum_to_closestvectorproblem_unsatisfiable_instance() {
         .expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("unsatisfiable instance should still have a best CVP assignment");
 

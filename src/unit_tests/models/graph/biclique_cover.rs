@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -105,7 +106,7 @@ fn test_get_biclique_memberships() {
     let problem = BicliqueCover::new(graph, 1);
     // Config: vertex 0 in biclique 0, vertex 2 in biclique 0
     // Variables: [v0_b0, v1_b0, v2_b0, v3_b0]
-    let config = vec![1, 0, 1, 0];
+    let config = vec![vec![true, false, true, false]];
     let (left, right) = problem.get_biclique_memberships(&config);
     assert!(left[0].contains(&0));
     assert!(!left[0].contains(&1));
@@ -118,11 +119,11 @@ fn test_is_edge_covered() {
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
     let problem = BicliqueCover::new(graph, 1);
     // Put vertex 0 and 2 in biclique 0
-    let config = vec![1, 0, 1, 0];
+    let config = vec![vec![true, false, true, false]];
     assert!(problem.is_edge_covered(0, 2, &config));
 
     // Don't put vertex 2 in biclique
-    let config = vec![1, 0, 0, 0];
+    let config = vec![vec![true, false, false, false]];
     assert!(!problem.is_edge_covered(0, 2, &config));
 }
 
@@ -131,11 +132,11 @@ fn test_is_valid_cover() {
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
     let problem = BicliqueCover::new(graph, 1);
     // Put 0, 2, 3 in biclique 0 -> covers both edges
-    let config = vec![1, 0, 1, 1];
+    let config = vec![vec![true, false, true, true]];
     assert!(problem.is_valid_cover(&config));
 
     // Only put 0, 2 -> doesn't cover (0,3)
-    let config = vec![1, 0, 1, 0];
+    let config = vec![vec![true, false, true, false]];
     assert!(!problem.is_valid_cover(&config));
 }
 
@@ -145,10 +146,20 @@ fn test_evaluate() {
     let problem = BicliqueCover::new(graph, 1);
 
     // Valid cover with size 2
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false, true, false]])
+            .unwrap(),
+        Min(Some(2))
+    );
 
     // Invalid cover returns Invalid
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false, false, false]])
+            .unwrap(),
+        Min(None)
+    );
 }
 
 #[test]
@@ -185,11 +196,11 @@ fn test_count_covered_edges() {
     let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
     let problem = BicliqueCover::new(graph, 1);
     // Cover only (0,2): put 0 and 2 in biclique
-    let config = vec![1, 0, 1, 0];
+    let config = vec![vec![true, false, true, false]];
     assert_eq!(problem.count_covered_edges(&config).unwrap(), 1);
 
     // Cover (0,2) and (0,3): put 0, 2, 3 in biclique
-    let config = vec![1, 0, 1, 1];
+    let config = vec![vec![true, false, true, true]];
     assert_eq!(problem.count_covered_edges(&config).unwrap(), 2);
 }
 
@@ -217,7 +228,10 @@ fn test_empty_edges() {
     let graph = BipartiteGraph::new(2, 2, vec![]);
     let problem = BicliqueCover::new(graph, 1);
     // No edges to cover -> valid with size 0
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(
+        problem.evaluate(&vec![vec![false; 4]]).unwrap(),
+        Min(Some(0))
+    );
 }
 
 #[test]
@@ -229,28 +243,41 @@ fn test_biclique_problem() {
     let problem = BicliqueCover::new(graph, 1);
 
     // dims: 4 vertices * 1 biclique = 4 binary variables
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2]);
 
     // Valid cover: vertex 0 and vertex 2 in biclique 0
     // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false, true, false]])
+            .unwrap(),
+        Min(Some(2))
+    );
 
     // Invalid cover: only vertex 0, edge (0,2) not covered
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(
+        problem
+            .evaluate(&vec![vec![true, false, false, false]])
+            .unwrap(),
+        Min(None)
+    );
 
     // All vertices in biclique: biclique contains non-edges (0,3), (1,2), (1,3)
     // → not a sub-biclique of G → invalid cover.
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![vec![true; 4]]).unwrap(), Min(None));
 
     // Empty config: no vertices in biclique, edge not covered
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![vec![false; 4]]).unwrap(), Min(None));
 
     // ExtremumSense is minimize
 
     // Test with no edges: any config is valid
     let empty_graph = BipartiteGraph::new(2, 2, vec![]);
     let empty_problem = BicliqueCover::new(empty_graph, 1);
-    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(
+        empty_problem.evaluate(&vec![vec![false; 4]]).unwrap(),
+        Min(Some(0))
+    );
 }
 
 #[test]
@@ -261,9 +288,9 @@ fn test_is_valid_solution() {
     let problem = BicliqueCover::new(graph, 1);
     // 2 vertices (left_0, right_0), 1 biclique → config length = 2
     // Valid: both vertices in biclique 0 → covers edge (0,0)
-    assert!(problem.is_valid_solution(&[1, 1]));
+    assert!(problem.is_valid_solution(&[vec![true, true]]));
     // Invalid: only left vertex in biclique → doesn't form complete bipartite subgraph covering edge
-    assert!(!problem.is_valid_solution(&[1, 0]));
+    assert!(!problem.is_valid_solution(&[vec![true, false]]));
 }
 
 #[test]
@@ -284,7 +311,7 @@ fn test_complexity_includes_number_of_bicliques() {
         .find(|entry| entry.name == "BicliqueCover")
         .expect("BicliqueCover variant should be registered");
 
-    assert_eq!(problem.dims().len(), 8);
+    assert_eq!(problem.dimensions().len(), 8);
     assert_eq!(
         (entry.complexity_eval_fn)(&problem as &dyn std::any::Any),
         256.0
@@ -300,13 +327,16 @@ fn test_biclique_paper_example() {
     assert_eq!(problem.num_edges(), 4);
 
     // Biclique 0: {ℓ_1}, {r_1,r_2}; Biclique 1: {ℓ_2}, {r_2,r_3}
-    let config = vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1];
+    let config = vec![
+        vec![true, false, true, true, false],
+        vec![false, true, false, true, true],
+    ];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 6);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     let best_size = problem.evaluate(&best).unwrap().unwrap();
     assert!(best_size <= 6);
 }

@@ -9,9 +9,7 @@ use crate::types::Aggregate;
 
 /// Format a metric for CLI- and registry-facing dynamic dispatch.
 ///
-/// Dynamic formatting uses the aggregate display form directly, so optimization
-/// metrics appear as `Max(...)` / `Min(...)` alongside aggregate-only values
-/// such as `Or(true)` or `Sum(56)`.
+/// Dynamic formatting uses the problem value's display form directly.
 pub fn format_metric<T>(metric: &T) -> String
 where
     T: fmt::Display,
@@ -24,36 +22,41 @@ where
 /// Implemented via blanket impl for any `T: Problem + Serialize + 'static`.
 pub trait DynProblem: Any {
     /// Evaluate a configuration and return the CLI-facing metric string.
-    fn evaluate_dyn(&self, config: &[usize]) -> Result<String, EvaluationError>;
+    fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError>;
     /// Evaluate a configuration and return the result as a serializable JSON value.
-    fn evaluate_json(&self, config: &[usize]) -> Result<Value, EvaluationError>;
+    fn evaluate_json(&self, solution: &Value) -> Result<Value, EvaluationError>;
     /// Serialize the problem to a JSON value.
     fn serialize_json(&self) -> Value;
     /// Downcast to `&dyn Any` for type recovery.
     fn as_any(&self) -> &dyn Any;
-    /// Return the configuration space dimensions.
-    fn dims_dyn(&self) -> Vec<usize>;
     /// Return the problem name (`Problem::NAME`).
     fn problem_name(&self) -> &'static str;
     /// Return the variant key-value map.
     fn variant_map(&self) -> BTreeMap<String, String>;
-    /// Return the number of variables.
-    fn num_variables_dyn(&self) -> usize;
-    /// Whether the aggregate value admits representative witness configurations.
-    fn supports_witnesses_dyn(&self) -> bool;
+    /// Return this problem model's canonical size-parameter names.
+    fn size_parameter_names_dyn(&self) -> &'static [&'static str];
+    /// Measure the complete canonical size of this concrete instance.
+    fn size_dyn(&self) -> crate::types::ProblemSize;
 }
 
 impl<T> DynProblem for T
 where
     T: Problem + Serialize + 'static,
+    T::Solution: serde::de::DeserializeOwned,
     T::Value: Aggregate + fmt::Display + Serialize,
 {
-    fn evaluate_dyn(&self, config: &[usize]) -> Result<String, EvaluationError> {
-        Ok(format_metric(&self.evaluate(config)?))
+    fn evaluate_dyn(&self, solution: &Value) -> Result<String, EvaluationError> {
+        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
+            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
+        })?;
+        Ok(format_metric(&self.evaluate(&solution)?))
     }
 
-    fn evaluate_json(&self, config: &[usize]) -> Result<Value, EvaluationError> {
-        Ok(serde_json::to_value(self.evaluate(config)?).expect("serialize metric failed"))
+    fn evaluate_json(&self, solution: &Value) -> Result<Value, EvaluationError> {
+        let solution = serde::Deserialize::deserialize(solution).map_err(|error| {
+            EvaluationError::InvalidConfiguration(format!("invalid solution JSON: {error}"))
+        })?;
+        Ok(serde_json::to_value(self.evaluate(&solution)?).expect("serialize metric failed"))
     }
 
     fn serialize_json(&self) -> Value {
@@ -64,10 +67,6 @@ where
         self
     }
 
-    fn dims_dyn(&self) -> Vec<usize> {
-        self.dims()
-    }
-
     fn problem_name(&self) -> &'static str {
         T::NAME
     }
@@ -76,29 +75,18 @@ where
         crate::export::variant_to_map(T::variant())
     }
 
-    fn num_variables_dyn(&self) -> usize {
-        self.num_variables()
+    fn size_parameter_names_dyn(&self) -> &'static [&'static str] {
+        T::size_parameter_names()
     }
 
-    fn supports_witnesses_dyn(&self) -> bool {
-        T::Value::supports_witnesses()
+    fn size_dyn(&self) -> crate::types::ProblemSize {
+        self.size()
     }
 }
 
-/// Function pointer type for brute-force value solve dispatch.
-pub type SolveValueFn = fn(&dyn Any) -> Result<String, crate::solvers::SolveError>;
-
-/// Function pointer type for brute-force witness solve dispatch.
-pub type SolveWitnessFn =
-    fn(&dyn Any) -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError>;
-
-/// A loaded problem with type-erased solve capability.
-///
-/// Wraps a `Box<dyn DynProblem>` with brute-force value and witness function pointers.
+/// A loaded type-erased problem.
 pub struct LoadedDynProblem {
     inner: Box<dyn DynProblem>,
-    solve_value_fn: SolveValueFn,
-    solve_witness_fn: SolveWitnessFn,
 }
 
 impl std::fmt::Debug for LoadedDynProblem {
@@ -111,28 +99,8 @@ impl std::fmt::Debug for LoadedDynProblem {
 
 impl LoadedDynProblem {
     /// Create a new loaded dynamic problem.
-    pub fn new(
-        inner: Box<dyn DynProblem>,
-        solve_value_fn: SolveValueFn,
-        solve_witness_fn: SolveWitnessFn,
-    ) -> Self {
-        Self {
-            inner,
-            solve_value_fn,
-            solve_witness_fn,
-        }
-    }
-
-    /// Solve the problem using brute force and return its aggregate value string.
-    pub fn solve_brute_force_value(&self) -> Result<String, crate::solvers::SolveError> {
-        (self.solve_value_fn)(self.inner.as_any())
-    }
-
-    /// Solve the problem using brute force and return a witness when available.
-    pub fn solve_brute_force_witness(
-        &self,
-    ) -> Result<Option<(Vec<usize>, String)>, crate::solvers::SolveError> {
-        (self.solve_witness_fn)(self.inner.as_any())
+    pub(crate) fn new(inner: Box<dyn DynProblem>) -> Self {
+        Self { inner }
     }
 }
 

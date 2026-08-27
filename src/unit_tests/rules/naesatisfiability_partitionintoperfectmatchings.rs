@@ -58,7 +58,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_unsat_small_instance(
         .expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }
@@ -244,7 +244,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_no_example_structure(
 #[test]
 fn test_naesatisfiability_to_partitionintoperfectmatchings_constructed_witness_round_trips() {
     let source = yes_example_problem();
-    let source_solution = vec![1, 1, 0];
+    let source_solution = vec![true, true, false];
     let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target_solution = reduction.construct_target_solution(&source_solution);
@@ -266,7 +266,7 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_two_literal_clause_no
     let reduction = ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
     let target = reduction.target_problem();
-    let source_solution = vec![1, 1];
+    let source_solution = vec![true, true];
     let target_solution = reduction.construct_target_solution(&source_solution);
 
     assert_eq!(target.num_vertices(), 24);
@@ -302,5 +302,8 @@ fn test_naesatisfiability_to_partitionintoperfectmatchings_canonical_example_spe
     assert_eq!(example.source.problem, "NAESatisfiability");
     assert_eq!(example.target.problem, "PartitionIntoPerfectMatchings");
     assert_eq!(example.solutions.len(), 1);
-    assert_eq!(example.solutions[0].source_config, vec![1, 1, 0]);
+    assert_eq!(
+        example.solutions[0].source_config,
+        serde_json::json!([true, true, false])
+    );
 }

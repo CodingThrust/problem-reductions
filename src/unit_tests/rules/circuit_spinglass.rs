@@ -7,7 +7,7 @@ use num_traits::Num;
 include!("../jl_helpers.rs");
 
 /// Verify a gadget has the correct ground states.
-fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
+fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<bool>, Vec<bool>)])
 where
     W: WeightElement
         + crate::variant::VariantParam
@@ -31,12 +31,12 @@ where
                 .inputs
                 .iter()
                 .zip(inputs)
-                .all(|(&idx, &expected)| sol[idx] == expected);
+                .all(|(&idx, &expected)| (sol[idx] == 1) == expected);
             let output_match = gadget
                 .outputs
                 .iter()
                 .zip(outputs)
-                .all(|(&idx, &expected)| sol[idx] == expected);
+                .all(|(&idx, &expected)| (sol[idx] == 1) == expected);
             input_match && output_match
         });
         assert!(
@@ -56,10 +56,10 @@ fn test_circuit_to_spinglass_closed_loop() {
 
     // AND truth table: (a, b) -> a AND b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 AND 0 = 0
-        (vec![0, 1], vec![0]), // 0 AND 1 = 0
-        (vec![1, 0], vec![0]), // 1 AND 0 = 0
-        (vec![1, 1], vec![1]), // 1 AND 1 = 1
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![false]),
+        (vec![true, false], vec![false]),
+        (vec![true, true], vec![true]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
@@ -73,10 +73,10 @@ fn test_or_gadget() {
 
     // OR truth table: (a, b) -> a OR b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 OR 0 = 0
-        (vec![0, 1], vec![1]), // 0 OR 1 = 1
-        (vec![1, 0], vec![1]), // 1 OR 0 = 1
-        (vec![1, 1], vec![1]), // 1 OR 1 = 1
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![true]),
+        (vec![true, false], vec![true]),
+        (vec![true, true], vec![true]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
@@ -89,10 +89,7 @@ fn test_not_gadget() {
     assert_eq!(gadget.outputs, vec![1]);
 
     // NOT truth table: a -> NOT a
-    let truth_table = vec![
-        (vec![0], vec![1]), // NOT 0 = 1
-        (vec![1], vec![0]), // NOT 1 = 0
-    ];
+    let truth_table = vec![(vec![false], vec![true]), (vec![true], vec![false])];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
 
@@ -105,10 +102,10 @@ fn test_xor_gadget() {
 
     // XOR truth table: (a, b) -> a XOR b
     let truth_table = vec![
-        (vec![0, 0], vec![0]), // 0 XOR 0 = 0
-        (vec![0, 1], vec![1]), // 0 XOR 1 = 1
-        (vec![1, 0], vec![1]), // 1 XOR 0 = 1
-        (vec![1, 1], vec![0]), // 1 XOR 1 = 0
+        (vec![false, false], vec![false]),
+        (vec![false, true], vec![true]),
+        (vec![true, false], vec![true]),
+        (vec![true, true], vec![false]),
     ];
     verify_gadget_truth_table(&gadget, &truth_table);
 }
@@ -123,7 +120,7 @@ fn test_set0_gadget() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&gadget.problem).unwrap();
     // Ground state should be spin down (0)
-    assert!(solutions.contains(&vec![0]));
+    assert!(solutions.contains(&vec![-1]));
     assert!(!solutions.contains(&vec![1]));
 }
 
@@ -138,7 +135,7 @@ fn test_set1_gadget() {
     let solutions = solver.find_all_witnesses(&gadget.problem).unwrap();
     // Ground state should be spin up (1)
     assert!(solutions.contains(&vec![1]));
-    assert!(!solutions.contains(&vec![0]));
+    assert!(!solutions.contains(&vec![-1]));
 }
 
 #[test]
@@ -156,14 +153,14 @@ fn test_constant_true() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
         .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 1
     assert!(
-        extracted.contains(&vec![1]),
+        extracted.contains(&vec![true]),
         "Expected c=1 in {:?}",
         extracted
     );
@@ -184,14 +181,14 @@ fn test_constant_false() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
         .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
 
     // c should be 0
     assert!(
-        extracted.contains(&vec![0]),
+        extracted.contains(&vec![false]),
         "Expected c=0 in {:?}",
         extracted
     );
@@ -216,7 +213,7 @@ fn test_multi_input_and() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(sg).unwrap();
 
-    let extracted: Vec<Vec<usize>> = solutions
+    let extracted: Vec<Vec<bool>> = solutions
         .iter()
         .map(|s| reduction.extract_solution(s).unwrap())
         .collect();
@@ -224,13 +221,13 @@ fn test_multi_input_and() {
     // Variables sorted: c, x, y, z
     // Only c=1 when all inputs are 1
     assert!(
-        extracted.contains(&vec![1, 1, 1, 1]),
+        extracted.contains(&vec![true, true, true, true]),
         "Expected (1,1,1,1) in {:?}",
         extracted
     );
     // c=0 for all other combinations
     assert!(
-        extracted.contains(&vec![0, 0, 0, 0]),
+        extracted.contains(&vec![false, false, false, false]),
         "Expected (0,0,0,0) in {:?}",
         extracted
     );

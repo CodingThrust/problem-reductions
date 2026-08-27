@@ -48,12 +48,12 @@ fn test_maximumcommonedgesubgraph_to_ilp_structure() {
     // incompatible, so y_pairs = 2.
     let num_x = 9;
     let num_y = 2;
-    assert_eq!(ilp.num_vars, num_x + num_y);
+    assert_eq!(ilp.num_vars(), num_x + num_y);
     // 3 row + 3 column + 3 McCormick constraints per y pair.
-    assert_eq!(ilp.constraints.len(), 3 + 3 + 3 * num_y);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.constraints().len(), 3 + 3 + 3 * num_y);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
     // Objective is sum of y variables only.
-    assert_eq!(ilp.objective, vec![(num_x, 1.0), (num_x + 1, 1.0)]);
+    assert_eq!(ilp.objective(), vec![(num_x, 1.0), (num_x + 1, 1.0)]);
 }
 
 #[test]
@@ -88,9 +88,9 @@ fn test_maximumcommonedgesubgraph_to_ilp_truncated_target() {
     let ilp = reduction.target_problem();
 
     // n1=3, n2=2 → 6 x-vars; only the label-0 arc has a match, so 1 y-var.
-    assert_eq!(ilp.num_vars, 6 + 1);
+    assert_eq!(ilp.num_vars(), 6 + 1);
     // 3 row + 2 column + 3 McCormick.
-    assert_eq!(ilp.constraints.len(), 3 + 2 + 3);
+    assert_eq!(ilp.constraints().len(), 3 + 2 + 3);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -113,9 +113,9 @@ fn test_maximumcommonedgesubgraph_to_ilp_empty_graphs() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 2 * 2);
-    assert_eq!(ilp.constraints.len(), 2 + 2);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 2 * 2);
+    assert_eq!(ilp.constraints().len(), 2 + 2);
+    assert!(ilp.objective().is_empty());
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())

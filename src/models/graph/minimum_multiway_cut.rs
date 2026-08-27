@@ -161,15 +161,15 @@ impl<G: Graph, W: WeightElement> MinimumMultiwayCut<G, W> {
 }
 
 /// Check if all terminals are in distinct connected components
-/// when edges marked as cut (config[e] == 1) are removed.
-fn terminals_separated<G: Graph>(graph: &G, terminals: &[usize], config: &[usize]) -> bool {
+/// when edges marked as cut (config[e]) are removed.
+fn terminals_separated<G: Graph>(graph: &G, terminals: &[usize], config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
 
     // Build adjacency list from non-cut edges
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, (u, v)) in edges.iter().enumerate() {
-        if config.get(idx).copied().unwrap_or(0) == 0 {
+        if !config.get(idx).copied().unwrap_or(false) {
             adj[*u].push(*v);
             adj[*v].push(*u);
         }
@@ -203,24 +203,35 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumMultiwayCut";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_terminals", num_terminals),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !terminals_separated(&self.graph, &self.terminals, config) {
                 return Ok(Min(None));
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     if let Some(w) = self.edge_weights.get(idx) {
                         total = W::checked_add_to_sum(
                             total,
@@ -235,20 +246,34 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MinimumMultiwayCut<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumMultiwayCut<SimpleGraph, i64> => "1.84^num_terminals * num_vertices^3" create MinimumMultiwayCutCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumMultiwayCut<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_multiway_cut_simplegraph_i64",
+        id: "minimum_multiway_cut_simplegraph",
         instance: Box::new(MinimumMultiwayCut::new(
             SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]),
             vec![0, 2, 4],
             vec![2, 3, 1, 2, 4, 5],
         )),
-        optimal_config: vec![1, 0, 0, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, true, true, false]),
         optimal_value: serde_json::json!(8),
     }]
 }

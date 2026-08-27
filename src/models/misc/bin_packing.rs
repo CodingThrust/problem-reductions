@@ -45,12 +45,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::BinPacking;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 4 items with sizes [3, 3, 2, 2], capacity 5
 /// let problem = BinPacking::new(vec![3, 3, 2, 2], 5).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -112,18 +112,30 @@ where
     W::Sum: PartialOrd,
 {
     const NAME: &'static str = "BinPacking";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_items", num_items),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         let n = self.sizes.len();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "bin assignment length does not match the items".into(),
+            ));
+        }
+        if config.iter().any(|&bin| bin >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "bin assignment contains an out-of-range bin".into(),
+            ));
+        }
         Ok({
             if !is_valid_packing(&self.sizes, &self.capacity, config)? {
                 return Ok(Min(None));
@@ -135,6 +147,17 @@ where
                 )
             })?))
         })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for BinPacking<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+    W::Sum: PartialOrd,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.sizes.len();
+        vec![n; n]
     }
 }
 
@@ -185,13 +208,18 @@ crate::declare_variants! {
     BinPacking<f64> => "2^num_items",
 }
 
+crate::register_brute_force! {
+    BinPacking<i64>,
+    BinPacking<f64>,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "bin_packing",
         // 3 items of sizes [3,3,4], capacity 7 → optimal 2 bins
         instance: Box::new(BinPacking::<i64>::new(vec![3, 3, 4], 7).unwrap()),
-        optimal_config: vec![0, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 0]),
         optimal_value: serde_json::json!(2),
     }]
 }

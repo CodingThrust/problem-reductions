@@ -20,7 +20,6 @@ use crate::models::misc::SequencingWithDeadlinesAndSetUpTimes;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing SequencingWithDeadlinesAndSetUpTimes to `ILP<bool>`.
 #[derive(Debug, Clone)]
@@ -39,8 +38,8 @@ impl ReductionResult for ReductionSWDSTToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -64,7 +63,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
         // Handle empty case.
         if n == 0 {
             return Ok(ReductionSWDSTToILP {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .map_err(Self::target_construction)?,
                 num_tasks: 0,
             });
         }
@@ -98,13 +98,11 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
             })
         })?;
         let max_setup: i64 = setup_times.iter().copied().max().unwrap_or(0);
-        let transition_count = i64::try_from(n - 1).map_err(|_| {
-            crate::rules::ReductionError::integer_overflow::<
-                SequencingWithDeadlinesAndSetUpTimes,
-                ILP<bool>,
-            >("converting the number of compiler transitions to i64")
-        })?;
-        let big_m_i64 = max_setup
+        let transition_count = Self::exact_i64(
+            n - 1,
+            "converting the number of compiler transitions to i64",
+        )?;
+        let big_m = max_setup
             .checked_mul(transition_count)
             .and_then(|setup_total| total_length.checked_add(setup_total))
             .ok_or_else(|| {
@@ -113,36 +111,18 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
                     ILP<bool>,
                 >("computing the scheduling big-M bound")
             })?;
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SequencingWithDeadlinesAndSetUpTimes,
-                    ILP<bool>,
-                >(error)
-            })
-        };
-        let big_m = exact_f64(big_m_i64)?;
-        let lengths_f64 = lengths
-            .iter()
-            .map(|&length| exact_f64(length))
-            .collect::<Result<Vec<_>, _>>()?;
-        let setup_times_f64 = setup_times
-            .iter()
-            .map(|&setup| exact_f64(setup))
-            .collect::<Result<Vec<_>, _>>()?;
-
         let mut constraints = Vec::new();
 
         // 1. Each task assigned to exactly one position: sum_p x_{j,p} = 1 for all j.
         for j in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|p| (x_var(j, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|p| (x_var(j, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Each position has exactly one task: sum_j x_{j,p} = 1 for all p.
         for p in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // For each position p >= 1:
@@ -156,12 +136,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
                         // sw_p - x_{j,p} - x_{j',p-1} >= -1
                         // i.e., x_{j,p} + x_{j',p-1} - sw_p <= 1
                         constraints.push(LinearConstraint::le(
-                            vec![
-                                (x_var(j, p), 1.0),
-                                (x_var(j_prev, p - 1), 1.0),
-                                (sw_var(p), -1.0),
-                            ],
-                            1.0,
+                            vec![(x_var(j, p), 1), (x_var(j_prev, p - 1), 1), (sw_var(p), -1)],
+                            1,
                         ));
                     }
                 }
@@ -174,19 +150,19 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
             for j in 0..n {
                 // a_{j,p} <= x_{j,p}
                 constraints.push(LinearConstraint::le(
-                    vec![(a_var(j, p), 1.0), (x_var(j, p), -1.0)],
-                    0.0,
+                    vec![(a_var(j, p), 1), (x_var(j, p), -1)],
+                    0,
                 ));
                 // a_{j,p} <= sw_p
                 constraints.push(LinearConstraint::le(
-                    vec![(a_var(j, p), 1.0), (sw_var(p), -1.0)],
-                    0.0,
+                    vec![(a_var(j, p), 1), (sw_var(p), -1)],
+                    0,
                 ));
                 // a_{j,p} >= x_{j,p} + sw_p - 1
                 // i.e. x_{j,p} + sw_p - a_{j,p} <= 1
                 constraints.push(LinearConstraint::le(
-                    vec![(x_var(j, p), 1.0), (sw_var(p), 1.0), (a_var(j, p), -1.0)],
-                    1.0,
+                    vec![(x_var(j, p), 1), (sw_var(p), 1), (a_var(j, p), -1)],
+                    1,
                 ));
             }
         }
@@ -219,40 +195,40 @@ impl ReduceTo<ILP<bool>> for SequencingWithDeadlinesAndSetUpTimes {
         //      <= d[j] - l[j] + M
         for j in 0..n {
             for p in 0..n {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
                 // Big-M activation term
                 terms.push((x_var(j, p), big_m));
                 // Processing time for positions 0..p (not including p itself)
                 for pp in 0..p {
-                    for (jj, &length) in lengths_f64.iter().enumerate() {
+                    for (jj, &length) in lengths.iter().enumerate() {
                         terms.push((x_var(jj, pp), length));
                     }
                 }
                 // Setup time for positions 1..=p
                 for pp in 1..=p {
                     for jj in 0..n {
-                        let s = setup_times_f64[compilers[jj]];
-                        if s > 0.0 {
+                        let s = setup_times[compilers[jj]];
+                        if s > 0 {
                             terms.push((a_var(jj, pp), s));
                         }
                     }
                 }
-                let rhs_i64 = deadlines[j]
+                let rhs = deadlines[j]
                     .checked_sub(lengths[j])
-                    .and_then(|value| value.checked_add(big_m_i64))
+                    .and_then(|value| value.checked_add(big_m))
                     .ok_or_else(|| {
                         crate::rules::ReductionError::integer_overflow::<
                             SequencingWithDeadlinesAndSetUpTimes,
                             ILP<bool>,
                         >("computing a deadline constraint bound")
                     })?;
-                let rhs = exact_f64(rhs_i64)?;
                 constraints.push(LinearConstraint::le(terms, rhs));
             }
         }
 
         Ok(ReductionSWDSTToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
         })
     }

@@ -3,7 +3,7 @@
 //! Given 3m positive integers that each lie strictly between B/4 and B/2,
 //! determine whether they can be partitioned into m triples that all sum to B.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -19,13 +19,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Partition 3m bounded positive integers into m triples whose sums all equal B",
         fields: ThreePartitionCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "ThreePartition",
-        fields: &["num_elements", "num_groups"],
     }
 }
 
@@ -187,17 +180,26 @@ impl<'de> Deserialize<'de> for ThreePartition {
 
 impl Problem for ThreePartition {
     const NAME: &'static str = "ThreePartition";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_size![("num_elements", num_elements), ("num_groups", num_groups),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_groups(); self.num_elements()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        if config.len() != self.num_elements() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment length does not match the elements".into(),
+            ));
+        }
+        if config.iter().any(|&group| group >= self.num_groups()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "group assignment contains an out-of-range group".into(),
+            ));
+        }
         Ok({
             Or({
                 let Some((counts, sums)) = self.group_counts_and_sums(config)? else {
@@ -211,8 +213,18 @@ impl Problem for ThreePartition {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ThreePartition {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_groups(); self.num_elements()]
+    }
+}
+
 crate::declare_variants! {
     default ThreePartition => "3^num_elements" create ThreePartitionCreateSpec,
+}
+
+crate::register_brute_force! {
+    ThreePartition,
 }
 
 #[cfg(feature = "example-db")]
@@ -220,7 +232,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "three_partition",
         instance: Box::new(ThreePartition::new(vec![4, 5, 6, 4, 6, 5], 15)),
-        optimal_config: vec![0, 0, 0, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

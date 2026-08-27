@@ -60,10 +60,11 @@ If incompatible, STOP and comment on the issue explaining the type mismatch and 
 
 Read `docs/src/design.md#numeric-types-and-arithmetic`. Derive implementation
 types, supported ranges, and checked conversions from the mathematical source,
-target, and reduction algorithm. At source/result/target/I/O boundaries, use
-`usize` for structural integers, `i64` for mathematical integers, `bool` for
-Boolean data, and finite `f64` for real or rational data. Another format needs
-mathematical or target-schema justification; there is no `i32` boundary format.
+target, and reduction algorithm. Use `usize` for in-memory indices, collection
+lengths, and brute-force dimensions; `u64` for registered problem size
+parameters; `i64` for signed mathematical integers; `bool` for Boolean data;
+and finite `f64` for real or rational data. Another format needs mathematical
+or target-schema justification; there is no `i32` boundary format.
 Temporary reduction calculations are outside this format contract, but fields
 written into the target must use the target model's format.
 

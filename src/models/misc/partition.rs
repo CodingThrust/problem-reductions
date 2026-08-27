@@ -38,11 +38,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::Partition;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap();
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -104,32 +104,30 @@ impl<'de> Deserialize<'de> for Partition {
 
 impl Problem for Partition {
     const NAME: &'static str = "Partition";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_elements", num_elements),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_elements()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_elements() {
-                    return Ok(crate::types::Or(false));
-                }
-                if config.iter().any(|&v| v >= 2) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "partition selection length does not match the elements".into(),
+                    ));
                 }
                 let selected_sum: i64 = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &x)| x == 1)
+                    .filter(|(_, &x)| x)
                     .map(|(i, _)| self.sizes[i])
                     .sum();
                 selected_sum == self.total_sum() - selected_sum
@@ -138,8 +136,18 @@ impl Problem for Partition {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Partition {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_elements()]
+    }
+}
+
 crate::declare_variants! {
     default Partition => "2^(num_elements / 2)",
+}
+
+crate::register_brute_force! {
+    Partition decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -147,7 +155,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "partition",
         instance: Box::new(Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap()),
-        optimal_config: vec![1, 0, 0, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

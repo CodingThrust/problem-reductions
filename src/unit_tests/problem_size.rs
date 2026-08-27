@@ -1,4 +1,4 @@
-//! Tests for problem_size() free function and Problem size implementations.
+//! Tests for canonical size parameters measured by concrete problem instances.
 
 use crate::models::algebraic::*;
 use crate::models::formula::*;
@@ -6,13 +6,13 @@ use crate::models::graph::*;
 use crate::models::misc::*;
 use crate::models::set::*;
 use crate::topology::{BipartiteGraph, SimpleGraph};
-use crate::traits::{problem_size, Problem};
+use crate::traits::Problem;
 
 #[test]
 fn test_problem_size_mis() {
     let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let mis = MaximumIndependentSet::new(g, vec![1i64; 4]);
-    let size = problem_size(&mis);
+    let size = mis.size();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -21,7 +21,7 @@ fn test_problem_size_mis() {
 fn test_problem_size_max_clique() {
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let mc = MaximumClique::new(g, vec![1i64; 3]);
-    let size = problem_size(&mc);
+    let size = mc.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -30,7 +30,7 @@ fn test_problem_size_max_clique() {
 fn test_problem_size_min_vc() {
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let mvc = MinimumVertexCover::new(g, vec![1i64; 3]);
-    let size = problem_size(&mvc);
+    let size = mvc.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(2));
 }
@@ -39,7 +39,7 @@ fn test_problem_size_min_vc() {
 fn test_problem_size_min_ds() {
     let g = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
     let mds = MinimumDominatingSet::new(g, vec![1i64; 4]);
-    let size = problem_size(&mds);
+    let size = mds.size();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -48,7 +48,7 @@ fn test_problem_size_min_ds() {
 fn test_problem_size_max_cut() {
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let mc = MaxCut::new(g, vec![1i64; 3]);
-    let size = problem_size(&mc);
+    let size = mc.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -57,7 +57,7 @@ fn test_problem_size_max_cut() {
 fn test_problem_size_maximum_matching() {
     let g = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let mm = MaximumMatching::new(g, vec![1i64; 3]);
-    let size = problem_size(&mm);
+    let size = mm.size();
     assert_eq!(size.get("num_vertices"), Some(4));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -66,7 +66,7 @@ fn test_problem_size_maximum_matching() {
 fn test_problem_size_maximal_is() {
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let mis = MaximalIS::new(g, vec![1i64; 3]);
-    let size = problem_size(&mis);
+    let size = mis.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(2));
 }
@@ -76,7 +76,7 @@ fn test_problem_size_kcoloring() {
     use crate::variant::KN;
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let kc = KColoring::<KN, _>::with_k(g, 3);
-    let size = problem_size(&kc);
+    let size = kc.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
     // k is a problem parameter, not a size metric
@@ -87,7 +87,7 @@ fn test_problem_size_kcoloring() {
 fn test_problem_size_tsp() {
     let g = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let tsp = TravelingSalesman::new(g, vec![1i64; 3]);
-    let size = problem_size(&tsp);
+    let size = tsp.size();
     assert_eq!(size.get("num_vertices"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
 }
@@ -99,7 +99,7 @@ fn test_problem_size_sat() {
         3,
         vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![2, 3])],
     );
-    let size = problem_size(&sat);
+    let size = sat.size();
     assert_eq!(size.get("num_vars"), Some(3));
     assert_eq!(size.get("num_clauses"), Some(2));
     assert_eq!(size.get("num_literals"), Some(4));
@@ -116,7 +116,7 @@ fn test_problem_size_ksat() {
             CNFClause::new(vec![-1, 2, -3]),
         ],
     );
-    let size = problem_size(&ksat);
+    let size = ksat.size();
     assert_eq!(size.get("num_vars"), Some(3));
     assert_eq!(size.get("num_clauses"), Some(2));
     assert_eq!(size.get("num_literals"), Some(6));
@@ -125,7 +125,7 @@ fn test_problem_size_ksat() {
 #[test]
 fn test_problem_size_qubo() {
     let qubo = QUBO::<f64>::new(vec![1.0, 2.0, 3.0], vec![]).unwrap();
-    let size = problem_size(&qubo);
+    let size = qubo.size();
     assert_eq!(size.get("num_vars"), Some(3));
 }
 
@@ -137,7 +137,7 @@ fn test_problem_size_spinglass() {
         vec![0.0, 0.5, -0.5],
     )
     .unwrap();
-    let size = problem_size(&sg);
+    let size = sg.size();
     assert_eq!(size.get("num_spins"), Some(3));
     assert_eq!(size.get("num_interactions"), Some(2));
 }
@@ -147,11 +147,12 @@ fn test_problem_size_ilp() {
     use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
     let ilp = ILP::<bool>::new(
         2,
-        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 3.0)],
+        vec![LinearConstraint::le(vec![(0, 1), (1, 1)], 3)],
         vec![(0, 1.0), (1, 2.0)],
         ObjectiveSense::Maximize,
-    );
-    let size = problem_size(&ilp);
+    )
+    .unwrap();
+    let size = ilp.size();
     assert_eq!(size.get("num_vars"), Some(2));
     assert_eq!(size.get("num_constraints"), Some(1));
 }
@@ -159,7 +160,7 @@ fn test_problem_size_ilp() {
 #[test]
 fn test_problem_size_factoring() {
     let f = Factoring::new(2, 3, 6);
-    let size = problem_size(&f);
+    let size = f.size();
     assert_eq!(size.get("num_bits_first"), Some(2));
     assert_eq!(size.get("num_bits_second"), Some(3));
 }
@@ -172,15 +173,15 @@ fn test_problem_size_circuitsat() {
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let size = problem_size(&problem);
-    assert_eq!(size.get("num_variables"), Some(problem.num_variables()));
+    let size = problem.size();
+    assert_eq!(size.get("num_variables"), Some(3));
     assert_eq!(size.get("num_assignments"), Some(1));
 }
 
 #[test]
 fn test_problem_size_paintshop() {
     let ps = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
-    let size = problem_size(&ps);
+    let size = ps.size();
     assert_eq!(size.get("num_cars"), Some(3));
     assert_eq!(size.get("num_sequence"), Some(6));
 }
@@ -188,7 +189,7 @@ fn test_problem_size_paintshop() {
 #[test]
 fn test_problem_size_biclique_cover() {
     let bc = BicliqueCover::new(BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 2)]), 2);
-    let size = problem_size(&bc);
+    let size = bc.size();
     assert_eq!(size.get("left_size"), Some(2));
     assert_eq!(size.get("right_size"), Some(3));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -198,24 +199,24 @@ fn test_problem_size_biclique_cover() {
 #[test]
 fn test_problem_size_bmf() {
     let bmf = BMF::new(vec![vec![true, false], vec![false, true]], 2);
-    let size = problem_size(&bmf);
-    assert_eq!(size.get("m"), Some(2));
-    assert_eq!(size.get("n"), Some(2));
+    let size = bmf.size();
+    assert_eq!(size.get("rows"), Some(2));
+    assert_eq!(size.get("cols"), Some(2));
     assert_eq!(size.get("rank"), Some(2));
 }
 
 #[test]
 fn test_problem_size_set_packing() {
-    let sp = MaximumSetPacking::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let size = problem_size(&sp);
+    let sp = MaximumSetPacking::<i64>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let size = sp.size();
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));
 }
 
 #[test]
 fn test_problem_size_set_covering() {
-    let sc = MinimumSetCovering::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let size = problem_size(&sc);
+    let sc = MinimumSetCovering::<i64>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    let size = sc.size();
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));
 }

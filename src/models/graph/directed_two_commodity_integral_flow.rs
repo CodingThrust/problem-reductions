@@ -54,7 +54,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::DirectedTwoCommodityIntegralFlow;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6-vertex network: s1=0, s2=1, t1=4, t2=5
 /// let graph = DirectedGraph::new(6, vec![
@@ -65,7 +65,7 @@ inventory::submit! {
 ///     graph, vec![1; 8], 0, 4, 1, 5, 1, 1,
 /// );
 /// let solver = BruteForce::new();
-/// assert!(solver.find_witness(&problem).unwrap().is_some());
+/// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DirectedTwoCommodityIntegralFlow {
@@ -292,20 +292,24 @@ impl DirectedTwoCommodityIntegralFlow {
 
 impl Problem for DirectedTwoCommodityIntegralFlow {
     const NAME: &'static str = "DirectedTwoCommodityIntegralFlow";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        self.capacities
-            .iter()
-            .chain(self.capacities.iter())
-            .map(|&c| (c as usize) + 1)
-            .collect()
-    }
+    crate::problem_size![
+        ("max_capacity", max_capacity),
+        ("num_arcs", num_arcs),
+        ("num_vertices", num_vertices),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != 2 * self.graph.num_arcs() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "two-commodity flow vector length does not match the graph arcs".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_feasible(config)?))
     }
 
@@ -314,8 +318,22 @@ impl Problem for DirectedTwoCommodityIntegralFlow {
     }
 }
 
+impl crate::solvers::BruteForceProblem for DirectedTwoCommodityIntegralFlow {
+    fn dimensions(&self) -> Vec<usize> {
+        self.capacities
+            .iter()
+            .chain(self.capacities.iter())
+            .map(|&c| (c as usize) + 1)
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default DirectedTwoCommodityIntegralFlow => "(max_capacity + 1)^(2 * num_arcs)",
+}
+
+crate::register_brute_force! {
+    DirectedTwoCommodityIntegralFlow,
 }
 
 #[cfg(feature = "example-db")]
@@ -344,7 +362,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             1,
             1,
         )),
-        optimal_config: vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

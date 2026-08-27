@@ -42,19 +42,15 @@ impl ReductionResult for Reduction3SATToMVC {
     /// if not-u_i is in the cover, set x_i = 0.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             (0..self.source_num_vars)
                 .map(|i| {
                     // u_i is at index 2*i, not-u_i is at index 2*i+1
-                    if target_solution[2 * i] == 1 {
-                        1
-                    } else {
-                        0
-                    }
+                    target_solution[2 * i]
                 })
                 .collect()
         })
@@ -137,7 +133,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 source,
                 SolutionPair {
                     // x1=0, x2=0, x3=1 satisfies both clauses
-                    source_config: vec![0, 0, 1],
+                    source_config: serde_json::json!(vec![false, false, true]),
                     // Literal vertices: u1(0), ~u1(1), u2(2), ~u2(3), u3(4), ~u3(5)
                     // Clause 0 triangle: v6, v7, v8 (literals x1, x2, x3)
                     // Clause 1 triangle: v9, v10, v11 (literals ~x1, ~x2, x3)
@@ -145,7 +141,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     // Clause 0: u1,u2 not in cover -> pick v6,v7; u3 in cover -> v8 free
                     // Clause 1: ~u1,~u2,u3 all in cover -> pick any 2: v9,v10
                     // Total cover size = 3 + 2 + 2 = 7 = n + 2m
-                    target_config: vec![0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0],
+                    target_config: serde_json::json!(vec![
+                        false, true, false, true, true, false, true, true, false, true, true, false
+                    ]),
                 },
             )
         },

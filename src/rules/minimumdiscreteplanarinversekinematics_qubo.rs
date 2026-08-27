@@ -41,8 +41,8 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         self.block_offsets
@@ -53,7 +53,7 @@ impl ReductionResult for ReductionMinimumDiscretePlanarInverseKinematicsToQUBO {
                 let mut selected = target_solution[start..start + size]
                     .iter()
                     .enumerate()
-                    .filter_map(|(orientation, &bit)| (bit == 1).then_some(orientation));
+                    .filter_map(|(orientation, &bit)| bit.then_some(orientation));
                 match (selected.next(), selected.next()) {
                     (Some(orientation), None) => Ok(orientation),
                     (None, _) => Err(crate::rules::ExtractionError::invalid(format!(
@@ -185,8 +185,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 )
                 .unwrap(),
                 SolutionPair {
-                    source_config: vec![0, 1],
-                    target_config: vec![1, 0, 0, 1],
+                    source_config: serde_json::json!(vec![0, 1]),
+                    target_config: serde_json::json!(vec![true, false, false, true]),
                 },
             )
         },

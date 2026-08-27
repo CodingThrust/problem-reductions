@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -15,7 +16,7 @@ fn test_minimum_code_generation_unlimited_registers_creation() {
     assert_eq!(problem.num_internal(), 3);
     assert_eq!(problem.left_arcs(), &[(1, 3), (2, 3), (0, 1)]);
     assert_eq!(problem.right_arcs(), &[(1, 4), (2, 4), (0, 2)]);
-    assert_eq!(problem.dims(), vec![3; 3]);
+    assert_eq!(problem.dimensions(), vec![3; 3]);
     assert_eq!(
         <MinimumCodeGenerationUnlimitedRegisters as Problem>::NAME,
         "MinimumCodeGenerationUnlimitedRegisters"
@@ -101,11 +102,17 @@ fn test_minimum_code_generation_unlimited_registers_invalid_permutation() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     // Not a permutation: position 0 used twice
-    assert_eq!(problem.evaluate(&[0, 0, 1]).unwrap(), Min(None));
+    assert_eq!(problem.evaluate(&vec![0, 0, 1]).unwrap(), Min(None));
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Position out of range
-    assert_eq!(problem.evaluate(&[0, 1, 5]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -117,7 +124,8 @@ fn test_minimum_code_generation_unlimited_registers_solver() {
         vec![(1, 4), (2, 4), (0, 2)],
     );
     let solver = BruteForce::new();
-    let result = solver.solve(&problem).unwrap();
+    let result_solution = solver.solve(&problem).unwrap().unwrap();
+    let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(4)));
 }
 
@@ -130,7 +138,7 @@ fn test_minimum_code_generation_unlimited_registers_solver_witness() {
     );
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find witness");
     assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
@@ -192,10 +200,11 @@ fn test_minimum_code_generation_unlimited_registers_paper_example() {
 
     // Verify with brute force
     let solver = BruteForce::new();
-    let result = solver.solve(&problem).unwrap();
+    let result_solution = solver.solve(&problem).unwrap().unwrap();
+    let result = problem.evaluate(&result_solution).unwrap();
     assert_eq!(result, Min(Some(4)));
 
     // Verify witness
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.simulate(&witness).unwrap(), Some(4));
 }

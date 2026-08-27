@@ -17,7 +17,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::ExpectedRetrievalCost;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode_rows;
+use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode_rows};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Compute the latency distance between sectors on a circular device.
@@ -68,8 +68,8 @@ impl ReductionResult for ReductionERCToILP {
     /// Extract solution: for each record r, find the unique sector s where x_{r,s} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.num_records, self.num_sectors, 0)
@@ -101,10 +101,9 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
 
         // Assignment constraints: for each record r, Σ_s x_{r,s} = 1
         for r in 0..num_records {
-            let terms: Vec<(usize, f64)> = (0..num_sectors)
-                .map(|s| (result.x_var(r, s), 1.0))
-                .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> =
+                (0..num_sectors).map(|s| (result.x_var(r, s), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // McCormick linearization constraints for each product z_{r,s,r',s'}
@@ -119,15 +118,7 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
                         let x1 = result.x_var(r, s);
                         let x2 = result.x_var(r2, s2);
 
-                        // z ≤ x_{r,s}: z - x_{r,s} ≤ 0
-                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (x1, -1.0)], 0.0));
-                        // z ≤ x_{r',s'}: z - x_{r',s'} ≤ 0
-                        constraints.push(LinearConstraint::le(vec![(z, 1.0), (x2, -1.0)], 0.0));
-                        // z ≥ x_{r,s} + x_{r',s'} - 1: -z + x_{r,s} + x_{r',s'} ≤ 1
-                        constraints.push(LinearConstraint::le(
-                            vec![(z, -1.0), (x1, 1.0), (x2, 1.0)],
-                            1.0,
-                        ));
+                        constraints.extend(mccormick_product(z, x1, x2));
                     }
                 }
             }
@@ -153,7 +144,8 @@ impl ReduceTo<ILP<bool>> for ExpectedRetrievalCost {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionERCToILP {
             target,
@@ -183,8 +175,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 1],
-                    target_config,
+                    source_config: serde_json::json!(vec![0, 1]),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

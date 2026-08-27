@@ -1,6 +1,7 @@
 use crate::models::decision::Decision;
 use crate::models::graph::{MaximumIndependentSet, MinimumDominatingSet, MinimumVertexCover};
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{One, Or};
@@ -24,21 +25,44 @@ fn test_decision_min_creation() {
 }
 
 #[test]
+fn decision_size_is_the_inner_problem_size() {
+    let inner = triangle_mvc();
+    let expected_names = MinimumVertexCover::<SimpleGraph, i64>::size_parameter_names();
+    let expected_size = inner.size();
+    let decision = Decision::new(inner, -1);
+
+    assert_eq!(
+        Decision::<MinimumVertexCover<SimpleGraph, i64>>::size_parameter_names(),
+        expected_names
+    );
+    assert_eq!(decision.size(), expected_size);
+}
+
+#[test]
 fn test_decision_min_evaluate_feasible() {
     let decision = Decision::new(triangle_mvc(), 2);
-    assert_eq!(decision.evaluate(&[1, 1, 0]).unwrap(), Or(true));
+    assert_eq!(
+        decision.evaluate(&vec![true, true, false]).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
 fn test_decision_min_evaluate_infeasible_cost() {
     let decision = Decision::new(triangle_mvc(), 1);
-    assert_eq!(decision.evaluate(&[1, 1, 0]).unwrap(), Or(false));
+    assert_eq!(
+        decision.evaluate(&vec![true, true, false]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_decision_min_evaluate_infeasible_config() {
     let decision = Decision::new(triangle_mvc(), 3);
-    assert_eq!(decision.evaluate(&[1, 0, 0]).unwrap(), Or(false));
+    assert_eq!(
+        decision.evaluate(&vec![true, false, false]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
@@ -46,21 +70,27 @@ fn test_decision_max_evaluate() {
     let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let mis = MaximumIndependentSet::new(graph, vec![1; 4]);
     let decision = Decision::new(mis, 2);
-    assert_eq!(decision.evaluate(&[1, 0, 1, 0]).unwrap(), Or(true));
-    assert_eq!(decision.evaluate(&[1, 0, 0, 0]).unwrap(), Or(false));
+    assert_eq!(
+        decision.evaluate(&vec![true, false, true, false]).unwrap(),
+        Or(true)
+    );
+    assert_eq!(
+        decision.evaluate(&vec![true, false, false, false]).unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
 fn test_decision_dims() {
     let decision = Decision::new(triangle_mvc(), 2);
-    assert_eq!(decision.dims(), vec![2, 2, 2]);
+    assert_eq!(decision.dimensions(), vec![2, 2, 2]);
 }
 
 #[test]
 fn test_decision_solver() {
     let decision = Decision::new(triangle_mvc(), 2);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&decision).unwrap();
+    let witness = solver.solve(&decision).unwrap();
     assert!(witness.is_some());
     let config = witness.unwrap();
     assert_eq!(decision.evaluate(&config).unwrap(), Or(true));
@@ -73,7 +103,10 @@ fn test_decision_serialization() {
     let deserialized: Decision<MinimumVertexCover<SimpleGraph, i64>> =
         serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized.bound(), &2);
-    assert_eq!(deserialized.evaluate(&[1, 1, 0]).unwrap(), Or(true));
+    assert_eq!(
+        deserialized.evaluate(&vec![true, true, false]).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
@@ -131,11 +164,11 @@ fn test_decision_reduce_to_aggregate() {
     let target = result.target_problem();
     assert_eq!(target.num_vertices(), 3);
 
-    let target_val = target.evaluate(&[1, 1, 0]).unwrap();
+    let target_val = target.evaluate(&vec![true, true, false]).unwrap();
     let source_val = result.extract_value(target_val);
     assert_eq!(source_val, Or(true));
 
-    let target_val = target.evaluate(&[1, 1, 1]).unwrap();
+    let target_val = target.evaluate(&vec![true, true, true]).unwrap();
     let source_val = result.extract_value(target_val);
     assert_eq!(source_val, Or(false));
 }
@@ -151,11 +184,7 @@ fn test_decision_reduce_to_aggregate_infeasible_bound() {
     let target = result.target_problem();
 
     for mask in 0..8 {
-        let config = vec![
-            (mask & 0b001 != 0) as usize,
-            (mask & 0b010 != 0) as usize,
-            (mask & 0b100 != 0) as usize,
-        ];
+        let config = vec![mask & 0b001 != 0, mask & 0b010 != 0, mask & 0b100 != 0];
         let target_val = target.evaluate(&config).unwrap();
         let source_val = result.extract_value(target_val);
         assert_eq!(
@@ -177,13 +206,23 @@ fn test_decision_mds_creation() {
 #[test]
 fn test_decision_mds_evaluate_feasible() {
     let decision = Decision::new(star_mds(), 1);
-    assert_eq!(decision.evaluate(&[1, 0, 0, 0, 0]).unwrap(), Or(true));
+    assert_eq!(
+        decision
+            .evaluate(&vec![true, false, false, false, false])
+            .unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
 fn test_decision_mds_evaluate_infeasible_cost() {
     let decision = Decision::new(star_mds(), 0);
-    assert_eq!(decision.evaluate(&[1, 0, 0, 0, 0]).unwrap(), Or(false));
+    assert_eq!(
+        decision
+            .evaluate(&vec![true, false, false, false, false])
+            .unwrap(),
+        Or(false)
+    );
 }
 
 #[test]
@@ -197,11 +236,15 @@ fn test_decision_mds_reduce_to_aggregate() {
     let target = result.target_problem();
     assert_eq!(target.num_vertices(), 5);
 
-    let target_val = target.evaluate(&[1, 0, 0, 0, 0]).unwrap();
+    let target_val = target
+        .evaluate(&vec![true, false, false, false, false])
+        .unwrap();
     let source_val = result.extract_value(target_val);
     assert_eq!(source_val, Or(true));
 
-    let target_val = target.evaluate(&[1, 1, 0, 0, 0]).unwrap();
+    let target_val = target
+        .evaluate(&vec![true, true, false, false, false])
+        .unwrap();
     let source_val = result.extract_value(target_val);
     assert_eq!(source_val, Or(false));
 }
@@ -210,7 +253,7 @@ fn test_decision_mds_reduce_to_aggregate() {
 fn test_decision_mds_solver() {
     let decision = Decision::new(star_mds(), 1);
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&decision).unwrap();
+    let witness = solver.solve(&decision).unwrap();
     assert!(witness.is_some());
     let config = witness.unwrap();
     assert_eq!(decision.evaluate(&config).unwrap(), Or(true));

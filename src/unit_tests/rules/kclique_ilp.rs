@@ -12,10 +12,10 @@ fn test_reduction_creates_valid_ilp() {
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
     // 1 cardinality + 0 non-edges (complete graph)
-    assert_eq!(ilp.constraints.len(), 1);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.constraints().len(), 1);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -30,10 +30,7 @@ fn test_kclique_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -54,7 +51,7 @@ fn test_solution_extraction() {
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
     assert_eq!(problem.evaluate(&extracted).unwrap(), Or(true));
     // Should select at least k=3 vertices (ILP may return a larger valid clique)
-    assert!(extracted.iter().sum::<usize>() >= 3);
+    assert!(extracted.iter().filter(|&&selected| selected).count() >= 3);
 }
 
 #[test]
@@ -65,5 +62,5 @@ fn test_kclique_to_ilp_trivial() {
     let reduction: ReductionKCliqueToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
 }

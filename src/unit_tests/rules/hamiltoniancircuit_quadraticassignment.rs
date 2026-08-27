@@ -70,7 +70,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_optimal_cost_equals_n() {
     // The identity permutation [0,1,2,3] is a valid HC on a 4-cycle,
     // so the QAP optimum should be exactly n = 4.
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("QAP should have an optimal solution");
     let value = target.evaluate(&best).unwrap();
@@ -87,7 +87,7 @@ fn test_hamiltoniancircuit_to_quadraticassignment_nonhamiltonian_cost_gap() {
     let n = source.num_vertices();
 
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("QAP always has a solution");
     let value = target.evaluate(&best).unwrap();

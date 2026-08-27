@@ -36,11 +36,14 @@ impl ReductionResult for ReductionSteinerTreeToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_edges].to_vec())
+        Ok(target_solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -88,21 +91,21 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
                 let mut terms = Vec::new();
                 for (edge_idx, &(u, v)) in edges.iter().enumerate() {
                     if v == vertex {
-                        terms.push((flow_var(terminal_pos, edge_idx, 0), 1.0));
-                        terms.push((flow_var(terminal_pos, edge_idx, 1), -1.0));
+                        terms.push((flow_var(terminal_pos, edge_idx, 0), 1));
+                        terms.push((flow_var(terminal_pos, edge_idx, 1), -1));
                     }
                     if u == vertex {
-                        terms.push((flow_var(terminal_pos, edge_idx, 0), -1.0));
-                        terms.push((flow_var(terminal_pos, edge_idx, 1), 1.0));
+                        terms.push((flow_var(terminal_pos, edge_idx, 0), -1));
+                        terms.push((flow_var(terminal_pos, edge_idx, 1), 1));
                     }
                 }
 
                 let rhs = if vertex == root {
-                    -1.0
+                    -1
                 } else if vertex == terminal {
-                    1.0
+                    1
                 } else {
-                    0.0
+                    0
                 };
                 constraints.push(LinearConstraint::eq(terms, rhs));
             }
@@ -112,12 +115,12 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
             for edge_idx in 0..m {
                 let selector = edge_var(edge_idx);
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(terminal_pos, edge_idx, 0), 1.0), (selector, -1.0)],
-                    0.0,
+                    vec![(flow_var(terminal_pos, edge_idx, 0), 1), (selector, -1)],
+                    0,
                 ));
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(terminal_pos, edge_idx, 1), 1.0), (selector, -1.0)],
-                    0.0,
+                    vec![(flow_var(terminal_pos, edge_idx, 1), 1), (selector, -1)],
+                    0,
                 ));
             }
         }
@@ -135,7 +138,8 @@ impl ReduceTo<ILP<bool>> for SteinerTree<SimpleGraph, i64> {
                 >(error)
             })?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionSteinerTreeToILP {
             target,

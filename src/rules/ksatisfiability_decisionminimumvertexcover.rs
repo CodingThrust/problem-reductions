@@ -30,8 +30,8 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         self.base_reduction.extract_solution(target_solution)
     }
 }
@@ -40,7 +40,6 @@ impl ReductionResult for Reduction3SATToDecisionMVC {
     size = exact {
         num_vertices = "2 * num_vars + 3 * num_clauses",
         num_edges = "num_vars + 6 * num_clauses",
-        k = "num_vars + 2 * num_clauses",
     }
 )]
 impl ReduceTo<Decision<MinimumVertexCover<SimpleGraph, i64>>> for KSatisfiability<K3> {
@@ -91,8 +90,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, false, true]),
+                    target_config: serde_json::json!(vec![
+                        false, true, false, true, true, false, true, true, false, true, true, false
+                    ]),
                 },
             )
         },

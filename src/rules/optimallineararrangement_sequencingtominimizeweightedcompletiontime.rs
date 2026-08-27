@@ -34,22 +34,15 @@ impl ReductionResult for ReductionOLAToSequencingToMinimizeWeightedCompletionTim
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
-            let schedule =
-                crate::models::misc::decode_lehmer(target_solution, self.target.num_tasks())
-                    .ok_or_else(|| {
-                        crate::rules::ExtractionError::invalid(
-                            "target configuration is not a Lehmer code",
-                        )
-                    })?;
             let mut arrangement = vec![0usize; self.num_vertices];
             let mut next_position = 0usize;
 
-            for task in schedule {
+            for &task in target_solution {
                 if task < self.num_vertices {
                     arrangement[task] = next_position;
                     next_position += 1;
@@ -130,7 +123,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 ReduceTo::<SequencingToMinimizeWeightedCompletionTime>::reduce_to(&source)
                     .expect("reduction should succeed");
             let target_config = BruteForce::new()
-                .find_witness(reduction.target_problem())
+                .solve(reduction.target_problem())
                 .expect("canonical target evaluation must succeed")
                 .expect("canonical example must be solvable");
             let source_config = reduction.extract_solution(&target_config).unwrap();
@@ -138,8 +131,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

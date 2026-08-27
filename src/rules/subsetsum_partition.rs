@@ -32,8 +32,8 @@ impl ReductionResult for ReductionSubsetSumToPartition {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -42,17 +42,17 @@ impl ReductionResult for ReductionSubsetSumToPartition {
             match self.padding_relation {
                 PaddingRelation::None => source_bits.to_vec(),
                 PaddingRelation::SameSide => {
-                    let padding_is_selected = target_solution[self.source_len] == 1;
+                    let padding_is_selected = target_solution[self.source_len];
                     source_bits
                         .iter()
-                        .map(|&bit| if padding_is_selected { bit } else { 1 - bit })
+                        .map(|&bit| if padding_is_selected { bit } else { !bit })
                         .collect()
                 }
                 PaddingRelation::OppositeSide => {
-                    let padding_is_selected = target_solution[self.source_len] == 1;
+                    let padding_is_selected = target_solution[self.source_len];
                     source_bits
                         .iter()
-                        .map(|&bit| if padding_is_selected { 1 - bit } else { bit })
+                        .map(|&bit| if padding_is_selected { !bit } else { bit })
                         .collect()
                 }
             }
@@ -111,8 +111,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, Partition>(
                 SubsetSum::new(vec![1u32, 5, 6, 8], 11u32),
                 SolutionPair {
-                    source_config: vec![0, 1, 1, 0],
-                    target_config: vec![0, 1, 1, 0, 0],
+                    source_config: serde_json::json!(vec![false, true, true, false]),
+                    target_config: serde_json::json!(vec![false, true, true, false, false]),
                 },
             )
         },

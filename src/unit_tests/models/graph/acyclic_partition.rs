@@ -1,6 +1,6 @@
 use super::*;
-use crate::registry::declared_size_fields;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use serde_json;
@@ -81,7 +81,7 @@ fn test_acyclic_partition_creation_and_accessors() {
 
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_arcs(), 8);
-    assert_eq!(problem.dims(), vec![6; 6]);
+    assert_eq!(problem.dimensions(), vec![6; 6]);
     assert_eq!(problem.graph().arcs().len(), 8);
     assert_eq!(problem.vertex_weights(), &[2, 3, 2, 1, 3, 1]);
     assert_eq!(problem.arc_costs(), &[1, 1, 1, 1, 1, 1, 1, 1]);
@@ -128,31 +128,37 @@ fn test_acyclic_partition_evaluate_yes_instance() {
 #[test]
 fn test_acyclic_partition_rejects_too_small_cost_bound() {
     let problem = no_cost_instance();
-    assert!(!problem.evaluate(&[0, 1, 0, 2, 2, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 0, 2, 2, 2]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_quotient_cycle() {
     let problem = quotient_cycle_instance();
-    assert!(!problem.evaluate(&[0, 1, 2]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_weight_bound_violation() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 0, 0, 1, 1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 1, 1, 1]).unwrap());
 }
 
 #[test]
 fn test_acyclic_partition_rejects_wrong_config_length() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_acyclic_partition_rejects_out_of_range_label() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0, 1, 0, 2, 2, 6]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0, 2, 2, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -160,7 +166,7 @@ fn test_acyclic_partition_solver_finds_issue_example() {
     let problem = yes_instance();
     let solver = BruteForce::new();
 
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
@@ -187,7 +193,7 @@ fn test_acyclic_partition_solver_has_four_canonical_solutions() {
 #[test]
 fn test_acyclic_partition_no_solution_when_cost_bound_is_four() {
     let problem = no_cost_instance();
-    assert!(BruteForce::new().find_witness(&problem).unwrap().is_none());
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -210,8 +216,9 @@ fn test_acyclic_partition_num_variables() {
 
 #[test]
 fn test_acyclic_partition_declares_problem_size_fields() {
-    let fields: HashSet<&'static str> = declared_size_fields("AcyclicPartition")
-        .into_iter()
+    let fields: HashSet<&'static str> = AcyclicPartition::<i64>::size_parameter_names()
+        .iter()
+        .copied()
         .collect();
     assert_eq!(fields, HashSet::from(["num_vertices", "num_arcs"]));
 }

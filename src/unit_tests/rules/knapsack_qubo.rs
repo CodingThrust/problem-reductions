@@ -29,7 +29,7 @@ fn test_knapsack_to_qubo_single_item() {
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(qubo).unwrap();
     let extracted = reduction.extract_solution(&best_target[0]).unwrap();
-    assert_eq!(extracted, vec![1]);
+    assert_eq!(extracted, vec![true]);
 }
 
 #[test]
@@ -62,7 +62,7 @@ fn test_knapsack_to_qubo_empty() {
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(qubo).unwrap();
     let extracted = reduction.extract_solution(&best_target[0]).unwrap();
-    assert_eq!(extracted, vec![0, 0]);
+    assert_eq!(extracted, vec![false, false]);
 }
 
 #[cfg(feature = "example-db")]

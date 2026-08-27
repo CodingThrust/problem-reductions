@@ -71,17 +71,14 @@ impl ReductionResult for Reduction3SATToFeasibleRegisterAssignment {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             (0..self.num_vars)
                 .map(|var| {
-                    usize::from(
-                        target_solution[s_pos_idx(var)]
-                            < target_solution[s_neg_idx(self.num_vars, var)],
-                    )
+                    target_solution[s_pos_idx(var)] < target_solution[s_neg_idx(self.num_vars, var)]
                 })
                 .collect()
         })
@@ -196,8 +193,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 to_fra.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

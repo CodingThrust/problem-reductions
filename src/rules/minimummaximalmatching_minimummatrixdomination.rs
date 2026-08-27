@@ -95,8 +95,8 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
     /// maximal matching.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -126,7 +126,7 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
                 .iter()
                 .zip(target_ones.iter())
                 .filter_map(|(&sel, &cell)| {
-                    if sel == 1 {
+                    if sel {
                         Some(cell_to_source_edge.get(&cell).copied().ok_or_else(|| {
                             crate::rules::ExtractionError::invalid(format!(
                                 "selected matrix cell {cell:?} has no source edge"
@@ -208,9 +208,9 @@ impl ReductionResult for ReductionMMMToMatrixDomination {
             }
 
             // Step 3: encode the matching as a binary configuration over source edges.
-            let mut config = vec![0usize; num_source_edges];
+            let mut config = vec![false; num_source_edges];
             for &idx in &d {
-                config[idx] = 1;
+                config[idx] = true;
             }
             config
         })
@@ -369,8 +369,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MinimumMatrixDomination>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0],
-                    target_config: vec![1, 0, 0, 1, 0],
+                    source_config: serde_json::json!(vec![true, false, false, true, false]),
+                    target_config: serde_json::json!(vec![true, false, false, true, false]),
                 },
             )
         },

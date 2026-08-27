@@ -14,6 +14,7 @@ use crate::types::i64_to_exact_f64;
 struct EncodingSpan {
     start: usize,
     weights: Vec<usize>,
+    lower: i64,
 }
 
 /// Result of reducing a bounded ClosestVectorProblem instance to QUBO.
@@ -34,20 +35,24 @@ impl ReductionResult for ReductionCVPToQUBO {
     /// Reconstruct the source configuration offsets from the encoded QUBO bits.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.encodings
                 .iter()
                 .map(|encoding| {
-                    encoding
+                    let offset: i64 = encoding
                         .weights
                         .iter()
                         .enumerate()
-                        .map(|(offset, weight)| target_solution[encoding.start + offset] * weight)
-                        .sum()
+                        .filter(|(offset, _)| target_solution[encoding.start + offset])
+                        .map(|(_, &weight)| {
+                            i64::try_from(weight).expect("encoding weight fits i64")
+                        })
+                        .sum();
+                    encoding.lower + offset
                 })
                 .collect()
         })
@@ -93,7 +98,14 @@ fn encoding_spans(
                 "computing CVP encoding offsets",
             )
         })?;
-        spans.push(EncodingSpan { start, weights });
+        let lower = bounds
+            .lower
+            .expect("CVP QUBO encoding requires finite lower bounds");
+        spans.push(EncodingSpan {
+            start,
+            weights,
+            lower,
+        });
         start = next_start;
     }
     Ok(spans)
@@ -308,8 +320,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 canonical_cvp_instance(),
                 SolutionPair {
-                    source_config: vec![3, 3],
-                    target_config: vec![0, 0, 1, 0, 0, 1],
+                    source_config: serde_json::json!(vec![1, 1]),
+                    target_config: serde_json::json!(vec![false, false, true, false, false, true]),
                 },
             )
         },

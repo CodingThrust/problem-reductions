@@ -165,16 +165,24 @@ impl EnsembleComputation {
 
 impl Problem for EnsembleComputation {
     const NAME: &'static str = "EnsembleComputation";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.universe_size + self.budget; 2 * self.budget]
-    }
+    crate::problem_size![
+        ("budget", budget),
+        ("num_subsets", num_subsets),
+        ("universe_size", universe_size),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         Ok({
             if config.len() != 2 * self.budget {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "ensemble program length does not match the operation budget".into(),
+                ));
             }
 
             let Some(required_subsets) = self.required_subsets() else {
@@ -219,8 +227,18 @@ impl Problem for EnsembleComputation {
     }
 }
 
+impl crate::solvers::BruteForceProblem for EnsembleComputation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.universe_size + self.budget; 2 * self.budget]
+    }
+}
+
 crate::declare_variants! {
     default EnsembleComputation => "(universe_size + budget)^(2 * budget)",
+}
+
+crate::register_brute_force! {
+    EnsembleComputation,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -249,7 +267,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![vec![0, 1], vec![0, 1, 2]],
             2,
         )),
-        optimal_config: vec![0, 1, 3, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 3, 2]),
         optimal_value: serde_json::json!(2),
     }]
 }

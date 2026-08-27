@@ -12,7 +12,7 @@
 //! `u` is matched to, with the sentinel value `|V2|` denoting "unmatched"
 //! (`bottom`). Feasibility requires injectivity on the matched vertices.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Max;
 use serde::{Deserialize, Serialize};
@@ -38,13 +38,6 @@ inventory::submit! {
                 description: "Target directed edge-labelled graph G2 = (V2, E2) receiving the partial injective map",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MaximumCommonEdgeSubgraph",
-        fields: &["num_vertices_1", "num_vertices_2", "num_arcs_1", "num_arcs_2"],
     }
 }
 
@@ -262,17 +255,34 @@ impl MaximumCommonEdgeSubgraph {
 
 impl Problem for MaximumCommonEdgeSubgraph {
     const NAME: &'static str = "MaximumCommonEdgeSubgraph";
+    type Solution = Vec<usize>;
     type Value = Max<i64>;
+
+    crate::problem_size![
+        ("num_arcs_1", num_arcs_1),
+        ("num_arcs_2", num_arcs_2),
+        ("num_vertices_1", num_vertices_1),
+        ("num_vertices_2", num_vertices_2),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph_2.num_vertices() + 1; self.graph_1.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_vertices_1() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping length does not match the first graph".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex > self.num_vertices_2()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping contains an out-of-range target vertex".into(),
+            ));
+        }
         Ok({
             match self.preserved_arc_count(config)? {
                 Some(count) => Max(Some(count)),
@@ -282,8 +292,18 @@ impl Problem for MaximumCommonEdgeSubgraph {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MaximumCommonEdgeSubgraph {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph_2.num_vertices() + 1; self.graph_1.num_vertices()]
+    }
+}
+
 crate::declare_variants! {
     default MaximumCommonEdgeSubgraph => "(num_vertices_2 + 1)^num_vertices_1",
+}
+
+crate::register_brute_force! {
+    MaximumCommonEdgeSubgraph,
 }
 
 #[cfg(feature = "example-db")]
@@ -316,7 +336,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         )),
         // 4 encodes bottom because |V2| = 4. The map 0->0, 1->1, 2->2, 3->3,
         // 4->bottom preserves the first five source arcs.
-        optimal_config: vec![0, 1, 2, 3, 4],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3, 4]),
         optimal_value: serde_json::json!(5),
     }]
 }

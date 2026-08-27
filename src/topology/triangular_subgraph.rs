@@ -53,9 +53,9 @@ impl TriangularSubgraph {
     #[allow(unknown_lints, clippy::manual_is_multiple_of)]
     fn physical_position(row: i64, col: i64) -> Result<(f64, f64), ConstructionError> {
         let row = i64_to_exact_f64(row)?;
-        let col_f64 = i64_to_exact_f64(col)?;
-        let y = col_f64 * (3.0_f64.sqrt() / 2.0);
         let offset = if col % 2 == 0 { 0.5 } else { 0.0 };
+        let col = i64_to_exact_f64(col)?;
+        let y = col * (3.0_f64.sqrt() / 2.0);
         let x = row + offset;
         Ok((x, y))
     }

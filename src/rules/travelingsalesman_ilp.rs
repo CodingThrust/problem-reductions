@@ -8,7 +8,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::TravelingSalesman;
 use crate::reduction;
-use crate::rules::ilp_helpers::one_hot_decode;
+use crate::rules::ilp_helpers::{mccormick_product, one_hot_decode};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::i64_to_exact_f64;
@@ -35,8 +35,8 @@ impl ReductionResult for ReductionTSPToILP {
     /// then map to edge selection for the source problem.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -45,7 +45,7 @@ impl ReductionResult for ReductionTSPToILP {
             let tour = one_hot_decode(target_solution, n, n, 0)?;
 
             // Map tour to edge selection
-            let mut edge_selection = vec![0usize; self.source_edges.len()];
+            let mut edge_selection = vec![false; self.source_edges.len()];
             for k in 0..n {
                 let u = tour[k];
                 let v = tour[(k + 1) % n];
@@ -58,7 +58,7 @@ impl ReductionResult for ReductionTSPToILP {
                             "target tour uses absent source edge ({u}, {v})"
                         ))
                     })?;
-                edge_selection[edge] = 1;
+                edge_selection[edge] = true;
             }
 
             edge_selection
@@ -112,14 +112,14 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
 
         // Constraint 1: Each vertex has exactly one position
         for v in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|k| (x_idx(v, k), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|k| (x_idx(v, k), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Constraint 2: Each position has exactly one vertex
         for k in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|v| (x_idx(v, k), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v, k), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Constraint 3: Non-edge consecutive prohibition
@@ -135,8 +135,8 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
                 }
                 for k in 0..n {
                     constraints.push(LinearConstraint::le(
-                        vec![(x_idx(v, k), 1.0), (x_idx(w, (k + 1) % n), 1.0)],
-                        1.0,
+                        vec![(x_idx(v, k), 1), (x_idx(w, (k + 1) % n), 1)],
+                        1,
                     ));
                 }
             }
@@ -154,29 +154,13 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
                 let y_fwd = y_idx(e, k, 0);
                 let xu = x_idx(u, k);
                 let xv_next = x_idx(v, k_next);
-                constraints.push(LinearConstraint::le(vec![(y_fwd, 1.0), (xu, -1.0)], 0.0));
-                constraints.push(LinearConstraint::le(
-                    vec![(y_fwd, 1.0), (xv_next, -1.0)],
-                    0.0,
-                ));
-                constraints.push(LinearConstraint::ge(
-                    vec![(y_fwd, 1.0), (xu, -1.0), (xv_next, -1.0)],
-                    -1.0,
-                ));
+                constraints.extend(mccormick_product(y_fwd, xu, xv_next));
 
                 // Reverse: y_{e,k,1} = x_{v,k} * x_{u,k_next}
                 let y_rev = y_idx(e, k, 1);
                 let xv = x_idx(v, k);
                 let xu_next = x_idx(u, k_next);
-                constraints.push(LinearConstraint::le(vec![(y_rev, 1.0), (xv, -1.0)], 0.0));
-                constraints.push(LinearConstraint::le(
-                    vec![(y_rev, 1.0), (xu_next, -1.0)],
-                    0.0,
-                ));
-                constraints.push(LinearConstraint::ge(
-                    vec![(y_rev, 1.0), (xv, -1.0), (xu_next, -1.0)],
-                    -1.0,
-                ));
+                constraints.extend(mccormick_product(y_rev, xv, xu_next));
             }
         }
 
@@ -189,7 +173,8 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionTSPToILP {
             target,

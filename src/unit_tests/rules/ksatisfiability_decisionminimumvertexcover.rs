@@ -47,7 +47,7 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_unsatisfiable() {
     let target = reduction.target_problem();
 
     assert_eq!(target.bound(), &7);
-    assert!(BruteForce::new().find_witness(target).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }
 
 #[test]
@@ -73,11 +73,16 @@ fn test_ksatisfiability_to_decisionminimumvertexcover_extract_solution() {
     );
     let reduction = ReduceTo::<Decision<MinimumVertexCover<SimpleGraph, i64>>>::reduce_to(&source)
         .expect("reduction should succeed");
-    let cover = vec![0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0];
+    let cover = vec![
+        false, true, false, true, true, false, true, true, false, true, true, false,
+    ];
 
     assert_eq!(
         reduction.target_problem().evaluate(&cover).unwrap(),
         crate::types::Or(true)
     );
-    assert_eq!(reduction.extract_solution(&cover).unwrap(), vec![0, 0, 1]);
+    assert_eq!(
+        reduction.extract_solution(&cover).unwrap(),
+        vec![false, false, true]
+    );
 }

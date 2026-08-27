@@ -46,14 +46,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumCutIntoBoundedSets;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Simple 4-vertex path graph with unit weights, s=0, t=3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 /// let problem = MinimumCutIntoBoundedSets::new(graph, vec![1, 1, 1], 0, 3, 3);
 ///
 /// // Partition {0,1} vs {2,3}: cut edge (1,2) with weight 1
-/// let val = problem.evaluate(&[0, 0, 1, 1]).unwrap();
+/// let val = problem.evaluate(&vec![false, false, true, true]).unwrap();
 /// assert_eq!(val, problemreductions::types::Min(Some(1)));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -190,31 +190,35 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCutIntoBoundedSets";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
         Ok({
             let n = self.graph.num_vertices();
             if config.len() != n {
-                return Ok(Min(None));
+                return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                    "partition assignment length does not match the graph vertices".into(),
+                ));
             }
 
             // Check source is in V1 (config=0) and sink is in V2 (config=1)
-            if config[self.source] != 0 || config[self.sink] != 1 {
+            if config[self.source] || !config[self.sink] {
                 return Ok(Min(None));
             }
 
             // Check size bounds
-            let count_v1 = config.iter().filter(|&&x| x == 0).count();
-            let count_v2 = config.iter().filter(|&&x| x == 1).count();
+            let count_v1 = config.iter().filter(|&&x| !x).count();
+            let count_v2 = config.iter().filter(|&&x| x).count();
             if count_v1 > self.size_bound || count_v2 > self.size_bound {
                 return Ok(Min(None));
             }
@@ -236,10 +240,20 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MinimumCutIntoBoundedSets<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_cut_into_bounded_sets_i64",
+        id: "minimum_cut_into_bounded_sets",
         instance: Box::new(MinimumCutIntoBoundedSets::new(
             SimpleGraph::new(
                 8,
@@ -264,7 +278,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
         )),
         // V1={0,1,2,3}, V2={4,5,6,7}: cut edges (2,4)=2,(3,5)=1,(3,6)=3 => 6
-        optimal_config: vec![0, 0, 0, 0, 1, 1, 1, 1],
+        optimal_config: serde_json::json!(vec![false, false, false, false, true, true, true, true]),
         optimal_value: serde_json::json!(6),
     }]
 }
@@ -278,6 +292,10 @@ crate::impl_random_generate!(MinimumCutIntoBoundedSets<SimpleGraph, i64>, crate:
 
 crate::declare_variants! {
     default MinimumCutIntoBoundedSets<SimpleGraph, i64> => "2^num_vertices" create MinimumCutIntoBoundedSetsCreateSpec random,
+}
+
+crate::register_brute_force! {
+    MinimumCutIntoBoundedSets<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

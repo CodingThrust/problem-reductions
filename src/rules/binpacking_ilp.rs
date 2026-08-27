@@ -11,7 +11,6 @@ use crate::models::misc::BinPacking;
 use crate::reduction;
 use crate::rules::ilp_helpers::one_hot_decode_rows;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing BinPacking to ILP.
 ///
@@ -40,8 +39,8 @@ impl ReductionResult for ReductionBPToILP {
     /// For each item i, find the unique bin j where x_{ij} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.n, self.n, 0)
@@ -65,39 +64,30 @@ impl ReduceTo<ILP<bool>> for BinPacking<i64> {
 
         // Assignment constraints: for each item i, sum_j x_{ij} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (i * n + j, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (i * n + j, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Capacity + linking constraints: for each bin j,
         // sum_i w_i * x_{ij} - C * y_j <= 0
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-crate::rules::ReductionError::inexact_float_conversion::<BinPacking<i64>, ILP<bool>>(error)
-            })
-        };
-        let cap = exact_f64(*self.capacity())?;
-        let sizes = self
-            .sizes()
-            .iter()
-            .copied()
-            .map(exact_f64)
-            .collect::<Result<Vec<_>, _>>()?;
+        let cap = *self.capacity();
+        let sizes = self.sizes();
         for j in 0..n {
-            let mut terms: Vec<(usize, f64)> = sizes
+            let mut terms: Vec<(usize, i64)> = sizes
                 .iter()
                 .enumerate()
                 .map(|(i, &weight)| (i * n + j, weight))
                 .collect();
             // Subtract C * y_j
             terms.push((n * n + j, -cap));
-            constraints.push(LinearConstraint::le(terms, 0.0));
+            constraints.push(LinearConstraint::le(terms, 0));
         }
 
         // Objective: minimize sum_j y_j
         let objective: Vec<(usize, f64)> = (0..n).map(|j| (n * n + j, 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionBPToILP { target, n })
     }
@@ -113,11 +103,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 BinPacking::new(vec![6, 5, 5, 4, 3], 10).unwrap(),
                 SolutionPair {
-                    source_config: vec![2, 1, 0, 0, 2],
-                    target_config: vec![
+                    source_config: serde_json::json!(vec![2, 1, 0, 0, 2]),
+                    target_config: serde_json::json!(vec![
                         0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
                         1, 1, 1, 0, 0,
-                    ],
+                    ]),
                 },
             )
         },

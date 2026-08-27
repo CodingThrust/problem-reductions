@@ -54,10 +54,10 @@ fn test_ksatisfiability_to_minimumvertexcover_unsatisfiable() {
     // for graphs with edges, but any superset works). The key property is:
     // SAT is satisfiable iff MVC has size <= n + 2m.
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
     assert!(witness.is_some());
     let vc_config = witness.unwrap();
-    let vc_size: usize = vc_config.iter().sum();
+    let vc_size: usize = vc_config.iter().filter(|&&selected| selected).count();
     // Unsatisfiable -> minimum VC size > n + 2m = 1 + 6 = 7
     assert!(vc_size > 7);
 }
@@ -105,12 +105,14 @@ fn test_ksatisfiability_to_minimumvertexcover_extract_solution() {
     //     u3(4) in cover -> edge (8,4) covered. Triangle covered by v6 and v7.
     //   Clause 1 (-1,-2,3): communication edges (9,1), (10,3), (11,4).
     //     All three endpoints (~u1, ~u2, u3) in cover. Pick any 2 from triangle: v9, v10.
-    let vc_config = vec![0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0];
+    let vc_config = vec![
+        false, true, false, true, true, false, true, true, false, true, true, false,
+    ];
     // Verify this is a valid vertex cover
     assert!(reduction.target_problem().is_valid_solution(&vc_config));
 
     let extracted = reduction.extract_solution(&vc_config).unwrap();
-    assert_eq!(extracted, vec![0, 0, 1]); // x1=F, x2=F, x3=T
+    assert_eq!(extracted, vec![false, false, true]); // x1=F, x2=F, x3=T
     assert!(ksat.evaluate(&extracted).unwrap());
 }
 
@@ -143,8 +145,12 @@ fn test_ksatisfiability_to_minimumvertexcover_structure() {
 
     // Minimum cover size for satisfiable formula = n + 2m = 2 + 2 = 4
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
     assert!(witness.is_some());
-    let vc_size: usize = witness.unwrap().iter().sum();
+    let vc_size: usize = witness
+        .unwrap()
+        .iter()
+        .filter(|&&selected| selected)
+        .count();
     assert_eq!(vc_size, 4);
 }

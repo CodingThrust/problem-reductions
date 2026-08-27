@@ -36,11 +36,14 @@ impl ReductionResult for ReductionOptimumCommunicationSpanningTreeToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_edges].to_vec())
+        Ok(target_solution[..self.num_edges]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -83,8 +86,11 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
 
         // Constraint 1: Tree has exactly n-1 edges
         // sum x_e = n-1
-        let tree_terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(tree_terms, (n - 1) as f64));
+        let tree_terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(
+            tree_terms,
+            Self::exact_i64(n, "encoding the spanning-tree order")? - 1,
+        ));
 
         // Constraint 2: Flow conservation for each commodity
         for (k, &(src, dst)) in commodities.iter().enumerate() {
@@ -94,22 +100,22 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
                     // Flow into vertex minus flow out of vertex
                     if j == vertex {
                         // Edge (i, j): direction 0 = i->j (inflow), direction 1 = j->i (outflow)
-                        terms.push((flow_var(k, edge_idx, 0), 1.0));
-                        terms.push((flow_var(k, edge_idx, 1), -1.0));
+                        terms.push((flow_var(k, edge_idx, 0), 1));
+                        terms.push((flow_var(k, edge_idx, 1), -1));
                     }
                     if i == vertex {
                         // Edge (i, j): direction 1 = j->i (inflow), direction 0 = i->j (outflow)
-                        terms.push((flow_var(k, edge_idx, 1), 1.0));
-                        terms.push((flow_var(k, edge_idx, 0), -1.0));
+                        terms.push((flow_var(k, edge_idx, 1), 1));
+                        terms.push((flow_var(k, edge_idx, 0), -1));
                     }
                 }
 
                 let rhs = if vertex == src {
-                    -1.0 // source: net outflow of 1
+                    -1 // source: net outflow of 1
                 } else if vertex == dst {
-                    1.0 // sink: net inflow of 1
+                    1 // sink: net inflow of 1
                 } else {
-                    0.0 // transit: balanced
+                    0 // transit: balanced
                 };
                 constraints.push(LinearConstraint::eq(terms, rhs));
             }
@@ -121,13 +127,13 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
                 let sel = edge_var(edge_idx);
                 // f^k_(i->j) <= x_e
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, edge_idx, 0), 1.0), (sel, -1.0)],
-                    0.0,
+                    vec![(flow_var(k, edge_idx, 0), 1), (sel, -1)],
+                    0,
                 ));
                 // f^k_(j->i) <= x_e
                 constraints.push(LinearConstraint::le(
-                    vec![(flow_var(k, edge_idx, 1), 1.0), (sel, -1.0)],
-                    0.0,
+                    vec![(flow_var(k, edge_idx, 1), 1), (sel, -1)],
+                    0,
                 ));
             }
         }
@@ -158,7 +164,8 @@ impl ReduceTo<ILP<bool>> for OptimumCommunicationSpanningTree {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionOptimumCommunicationSpanningTreeToILP {
             target,

@@ -176,7 +176,7 @@ impl<G: Graph, W: Clone + Default> SteinerTree<G, W> {
     }
 
     /// Check if a configuration is a valid Steiner tree.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[bool]) -> bool {
         is_valid_steiner_tree(&self.graph, &self.terminals, config)
     }
 }
@@ -201,7 +201,7 @@ impl<G: Graph, W: WeightElement> SteinerTree<G, W> {
 /// Check if a configuration forms a valid Steiner tree:
 /// 1. Selected edges form a connected subgraph containing all terminals
 /// 2. Selected edges are acyclic (tree property)
-fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[usize]) -> bool {
+fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
     if config.len() != edges.len() {
@@ -213,7 +213,7 @@ fn is_valid_steiner_tree<G: Graph>(graph: &G, terminals: &[usize], config: &[usi
     let mut selected_count = 0usize;
     let mut involved = vec![false; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -263,24 +263,35 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "SteinerTree";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![
+        ("num_edges", num_edges),
+        ("num_terminals", num_terminals),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !is_valid_steiner_tree(&self.graph, &self.terminals, config) {
                 return Ok(Min(None));
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     if let Some(w) = self.edge_weights.get(idx) {
                         total = W::checked_add_to_sum(
                             total,
@@ -292,6 +303,16 @@ where
             }
             Min(Some(total))
         })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for SteinerTree<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -316,10 +337,15 @@ crate::declare_variants! {
     SteinerTree<SimpleGraph, One> => "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2" create SteinerTreeCreateSpec<One>,
 }
 
+crate::register_brute_force! {
+    SteinerTree<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    SteinerTree<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "steiner_tree_simplegraph_i64",
+        id: "steiner_tree_simplegraph",
         instance: Box::new(SteinerTree::new(
             SimpleGraph::new(
                 5,
@@ -328,7 +354,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 5, 2, 1, 5, 6, 1],
             vec![0, 2, 4],
         )),
-        optimal_config: vec![1, 0, 1, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, true, true, false, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }

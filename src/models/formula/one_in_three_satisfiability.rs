@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::{OneInThreeSatisfiability, CNFClause};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // (x1 OR x2 OR x3) AND (NOT x1 OR x3 OR x4) AND (x2 OR NOT x3 OR NOT x4)
 /// let problem = OneInThreeSatisfiability::new(
@@ -52,7 +52,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,22 +131,21 @@ impl OneInThreeSatisfiability {
 
 impl Problem for OneInThreeSatisfiability {
     const NAME: &'static str = "OneInThreeSatisfiability";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let assignment = super::config_to_assignment(config);
-                self.is_one_in_three_satisfying(&assignment)
-            })
-        })
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_one_in_three_satisfying(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -154,8 +153,18 @@ impl Problem for OneInThreeSatisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for OneInThreeSatisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default OneInThreeSatisfiability => "1.307^num_variables",
+    default OneInThreeSatisfiability => "1.307^num_vars",
+}
+
+crate::register_brute_force! {
+    OneInThreeSatisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Deserialize)]
@@ -184,7 +193,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![2, -3, -4]),
             ],
         )),
-        optimal_config: vec![1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

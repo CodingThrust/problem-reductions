@@ -8,7 +8,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::StrongConnectivityAugmentation;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 #[derive(Debug, Clone)]
 pub struct ReductionSCAToILP {
@@ -26,11 +25,14 @@ impl ReductionResult for ReductionSCAToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_candidates].to_vec())
+        Ok(target_solution[..self.num_candidates]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -64,128 +66,112 @@ impl ReduceTo<ILP<i64>> for StrongConnectivityAugmentation<i64> {
         let g_cand = |t: usize, j: usize| -> usize { p + n * (2 * m + p) + t * p + j };
 
         let mut constraints = Vec::new();
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    StrongConnectivityAugmentation<i64>,
-                    ILP<i64>,
-                >(error)
-            })
-        };
 
         // Binary bounds: y_j ≤ 1
         for j in 0..p {
-            constraints.push(LinearConstraint::le(vec![(j, 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(j, 1)], 1));
         }
 
         // Budget: Σ w_j * y_j ≤ B
-        let budget_terms: Vec<(usize, f64)> = self
+        let budget_terms: Vec<(usize, i64)> = self
             .candidate_arcs()
             .iter()
             .enumerate()
-            .map(|(candidate, &(_, _, weight))| Ok((candidate, exact_f64(weight)?)))
-            .collect::<Result<_, crate::rules::ReductionError>>()?;
-        constraints.push(LinearConstraint::le(
-            budget_terms,
-            exact_f64(*self.bound())?,
-        ));
+            .map(|(candidate, &(_, _, weight))| (candidate, weight))
+            .collect();
+        constraints.push(LinearConstraint::le(budget_terms, *self.bound()));
 
         for t in 0..n {
             if t == root {
                 // Pin all flow vars to 0 for dummy commodity t = root
                 for i in 0..m {
-                    constraints.push(LinearConstraint::eq(vec![(f_base(t, i), 1.0)], 0.0));
-                    constraints.push(LinearConstraint::eq(vec![(g_base(t, i), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(f_base(t, i), 1)], 0));
+                    constraints.push(LinearConstraint::eq(vec![(g_base(t, i), 1)], 0));
                 }
                 for j in 0..p {
-                    constraints.push(LinearConstraint::eq(vec![(f_cand(t, j), 1.0)], 0.0));
-                    constraints.push(LinearConstraint::eq(vec![(g_cand(t, j), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(f_cand(t, j), 1)], 0));
+                    constraints.push(LinearConstraint::eq(vec![(g_cand(t, j), 1)], 0));
                 }
                 continue;
             }
 
             // Activation: f_bar^t_j ≤ y_j and g_bar^t_j ≤ y_j
             for j in 0..p {
-                constraints.push(LinearConstraint::le(
-                    vec![(f_cand(t, j), 1.0), (j, -1.0)],
-                    0.0,
-                ));
-                constraints.push(LinearConstraint::le(
-                    vec![(g_cand(t, j), 1.0), (j, -1.0)],
-                    0.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(f_cand(t, j), 1), (j, -1)], 0));
+                constraints.push(LinearConstraint::le(vec![(g_cand(t, j), 1), (j, -1)], 0));
             }
 
             // Forward flow conservation (root → t): for each vertex v
             for v in 0..n {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
 
                 // Base arcs
                 for (i, &(u_a, v_a)) in base_arcs.iter().enumerate() {
                     if u_a == v {
-                        terms.push((f_base(t, i), 1.0)); // outgoing
+                        terms.push((f_base(t, i), 1)); // outgoing
                     }
                     if v_a == v {
-                        terms.push((f_base(t, i), -1.0)); // incoming
+                        terms.push((f_base(t, i), -1)); // incoming
                     }
                 }
 
                 // Candidate arcs
                 for (j, &(sj, tj, _)) in self.candidate_arcs().iter().enumerate() {
                     if sj == v {
-                        terms.push((f_cand(t, j), 1.0)); // outgoing
+                        terms.push((f_cand(t, j), 1)); // outgoing
                     }
                     if tj == v {
-                        terms.push((f_cand(t, j), -1.0)); // incoming
+                        terms.push((f_cand(t, j), -1)); // incoming
                     }
                 }
 
                 let rhs = if v == root {
-                    1.0
+                    1
                 } else if v == t {
-                    -1.0
+                    -1
                 } else {
-                    0.0
+                    0
                 };
                 constraints.push(LinearConstraint::eq(terms, rhs));
             }
 
             // Backward flow conservation (t → root): for each vertex v
             for v in 0..n {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
+                let mut terms: Vec<(usize, i64)> = Vec::new();
 
                 // Base arcs
                 for (i, &(u_a, v_a)) in base_arcs.iter().enumerate() {
                     if u_a == v {
-                        terms.push((g_base(t, i), 1.0));
+                        terms.push((g_base(t, i), 1));
                     }
                     if v_a == v {
-                        terms.push((g_base(t, i), -1.0));
+                        terms.push((g_base(t, i), -1));
                     }
                 }
 
                 // Candidate arcs
                 for (j, &(sj, tj, _)) in self.candidate_arcs().iter().enumerate() {
                     if sj == v {
-                        terms.push((g_cand(t, j), 1.0));
+                        terms.push((g_cand(t, j), 1));
                     }
                     if tj == v {
-                        terms.push((g_cand(t, j), -1.0));
+                        terms.push((g_cand(t, j), -1));
                     }
                 }
 
                 let rhs = if v == t {
-                    1.0 // source of backward flow
+                    1 // source of backward flow
                 } else if v == root {
-                    -1.0 // sink of backward flow
+                    -1 // sink of backward flow
                 } else {
-                    0.0
+                    0
                 };
                 constraints.push(LinearConstraint::eq(terms, rhs));
             }
         }
 
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionSCAToILP {
             target,
             num_candidates: p,
@@ -216,8 +202,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<i64>>(
                 source,
                 SolutionPair {
-                    source_config: extracted,
-                    target_config: ilp_sol,
+                    source_config: serde_json::json!(extracted),
+                    target_config: serde_json::json!(ilp_sol),
                 },
             )
         },

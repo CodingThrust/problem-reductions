@@ -5,7 +5,7 @@
 //! DAG, each group's total vertex weight is bounded, and the total
 //! inter-partition arc cost is bounded.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry, VariantDimension};
+use crate::registry::{CreateSpec, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::WeightElement;
@@ -25,13 +25,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Partition a directed graph into bounded-weight groups with an acyclic quotient graph and bounded inter-partition cost",
         fields: AcyclicPartitionCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "AcyclicPartition",
-        fields: &["num_vertices", "num_arcs"],
     }
 }
 
@@ -220,20 +213,30 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "AcyclicPartition";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph.num_vertices(); self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&part| part >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range part".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 is_valid_acyclic_partition(
@@ -246,6 +249,15 @@ where
                 )?
             })
         })
+    }
+}
+
+impl<W> crate::solvers::BruteForceProblem for AcyclicPartition<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 }
 
@@ -317,10 +329,14 @@ crate::declare_variants! {
     default AcyclicPartition<i64> => "num_vertices^num_vertices" create AcyclicPartitionCreateSpec,
 }
 
+crate::register_brute_force! {
+    AcyclicPartition<i64>,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "acyclic_partition_i64",
+        id: "acyclic_partition",
         instance: Box::new(AcyclicPartition::new(
             DirectedGraph::new(
                 6,
@@ -340,7 +356,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             5,
         )),
-        optimal_config: vec![0, 1, 0, 2, 2, 2],
+        optimal_config: serde_json::json!(vec![0, 1, 0, 2, 2, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

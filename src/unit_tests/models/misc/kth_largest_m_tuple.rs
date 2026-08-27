@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -31,7 +32,7 @@ fn test_kth_largest_m_tuple_creation() {
     assert_eq!(p.bound(), 12);
     assert_eq!(p.num_sets(), 3);
     assert_eq!(p.total_tuples(), 18);
-    assert_eq!(p.dims(), Vec::<usize>::new());
+    assert_eq!(p.dimensions(), Vec::<usize>::new());
     assert_eq!(p.num_variables(), 0);
     assert_eq!(<KthLargestMTuple as Problem>::NAME, "KthLargestMTuple");
     assert_eq!(<KthLargestMTuple as Problem>::variant(), vec![]);
@@ -40,20 +41,21 @@ fn test_kth_largest_m_tuple_creation() {
 #[test]
 fn test_kth_largest_m_tuple_threshold_decision() {
     let p = example_problem(14);
-    assert_eq!(BruteForce::new().solve(&p).unwrap(), Or(true));
+    assert_eq!(
+        p.evaluate(&BruteForce::new().solve(&p).unwrap().unwrap())
+            .unwrap(),
+        Or(true)
+    );
 
     let above_threshold = example_problem(15);
-    assert_eq!(
-        BruteForce::new().solve(&above_threshold).unwrap(),
-        Or(false)
-    );
+    assert!(BruteForce::new().solve(&above_threshold).unwrap().is_none());
 }
 
 #[test]
 fn test_kth_largest_m_tuple_evaluate_invalid_configs() {
     let p = example_problem(14);
-    assert_eq!(p.evaluate(&[0]).unwrap(), Or(false));
-    assert_eq!(p.evaluate(&[2, 1, 2]).unwrap(), Or(false));
+    assert!(crate::registry::DynProblem::evaluate_dyn(&p, &serde_json::json!([0])).is_err());
+    assert!(crate::registry::DynProblem::evaluate_dyn(&p, &serde_json::json!([2, 1, 2])).is_err());
 }
 
 #[test]
@@ -119,7 +121,10 @@ fn test_kth_largest_m_tuple_paper_example() {
     // 14 of 18 tuples have sum >= 12 -> YES (boundary case: count == K)
     let p = example_problem(14);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&p).unwrap(), Or(true));
+    assert_eq!(
+        p.evaluate(&solver.solve(&p).unwrap().unwrap()).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
@@ -127,7 +132,10 @@ fn test_kth_largest_m_tuple_all_qualify() {
     // Two sets each with one large element, B=1 -> all tuples qualify
     let p = KthLargestMTuple::new(vec![vec![5], vec![10]], 1, 1);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&p).unwrap(), Or(true));
+    assert_eq!(
+        p.evaluate(&solver.solve(&p).unwrap().unwrap()).unwrap(),
+        Or(true)
+    );
     assert_eq!(p.total_tuples(), 1);
 }
 
@@ -136,7 +144,7 @@ fn test_kth_largest_m_tuple_none_qualify() {
     // B is larger than any possible sum
     let p = KthLargestMTuple::new(vec![vec![1, 2], vec![1, 2]], 1, 100);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&p).unwrap(), Or(false));
+    assert!(solver.solve(&p).unwrap().is_none());
 }
 
 #[test]
@@ -153,7 +161,11 @@ fn test_kth_largest_m_tuple_reports_sum_beyond_i64_max() {
 #[test]
 fn test_kth_largest_m_tuple_many_singleton_sets_do_not_use_call_stack() {
     let p = KthLargestMTuple::new(vec![vec![1]; 10_000], 1, 10_000);
-    assert_eq!(BruteForce::new().solve(&p).unwrap(), Or(true));
+    assert_eq!(
+        p.evaluate(&BruteForce::new().solve(&p).unwrap().unwrap())
+            .unwrap(),
+        Or(true)
+    );
 }
 
 #[test]

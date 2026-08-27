@@ -35,7 +35,7 @@ fn test_partition_to_knapsack_odd_total_is_not_satisfying() {
     let reduction = ReduceTo::<Knapsack>::reduce_to(&source).expect("reduction should succeed");
     let target = reduction.target_problem();
     let best = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("Knapsack target should always have an optimal solution");
 

@@ -31,7 +31,7 @@ fn test_empty_graph() {
     let solutions = solver.find_all_witnesses(sp_problem).unwrap();
 
     // With no overlaps, we can select all sets
-    assert_eq!(solutions[0].iter().sum::<usize>(), 3);
+    assert_eq!(solutions[0].iter().filter(|&&selected| selected).count(), 3);
 }
 
 #[test]
@@ -87,7 +87,7 @@ fn test_jl_parity_is_to_setpacking() {
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -98,7 +98,7 @@ fn test_jl_parity_is_to_setpacking() {
         "JL parity MIS->SetPacking",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -115,7 +115,7 @@ fn test_jl_parity_setpacking_to_is() {
     let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i64>>::reduce_to(&source)
         .expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -126,7 +126,7 @@ fn test_jl_parity_setpacking_to_is() {
         "JL parity SetPacking->MIS",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -145,7 +145,7 @@ fn test_jl_parity_rule_is_to_setpacking() {
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -156,7 +156,7 @@ fn test_jl_parity_rule_is_to_setpacking() {
         "JL parity rule MIS->SetPacking",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -176,7 +176,7 @@ fn test_jl_parity_doc_is_to_setpacking() {
     let result =
         ReduceTo::<MaximumSetPacking<i64>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -187,7 +187,7 @@ fn test_jl_parity_doc_is_to_setpacking() {
         "JL parity doc MIS->SetPacking",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -208,7 +208,10 @@ fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
 
     let original_solution = reduction.extract_solution(&sp_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 3);
-    let size: usize = original_solution.iter().sum();
+    let size: usize = original_solution
+        .iter()
+        .filter(|&&selected| selected)
+        .count();
     assert_eq!(size, 2, "Max IS in path of 3 should be 2");
 }
 
@@ -229,7 +232,10 @@ fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
 
     let original_solution = reduction.extract_solution(&is_solutions[0]).unwrap();
     assert_eq!(original_solution.len(), 3);
-    let size: usize = original_solution.iter().sum();
+    let size: usize = original_solution
+        .iter()
+        .filter(|&&selected| selected)
+        .count();
     assert_eq!(
         size, 2,
         "Max set packing should select 2 non-overlapping sets"

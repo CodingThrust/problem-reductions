@@ -61,18 +61,21 @@ where
     /// They are exactly the binary `x_v` selection variables.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
 fn build_reduction<W>(
     src: &MaximumEdgeWeightedKClique<W>,
     objective_coefficients: Vec<f64>,
-) -> ReductionMaximumEdgeWeightedKCliqueToILP<W>
+) -> Result<ReductionMaximumEdgeWeightedKCliqueToILP<W>, crate::rules::ReductionError>
 where
     W: WeightElement + VariantParam,
 {
@@ -82,23 +85,25 @@ where
     debug_assert_eq!(objective_coefficients.len(), m);
 
     let num_vars = n + m;
+    let k = i64::try_from(src.k()).map_err(|_| {
+        crate::rules::ReductionError::integer_overflow::<MaximumEdgeWeightedKClique<W>, ILP<bool>>(
+            "encoding the clique cardinality",
+        )
+    })?;
     let x_idx = |v: usize| -> usize { v };
     let y_idx = |e: usize| -> usize { n + e };
 
     let mut constraints: Vec<LinearConstraint> = Vec::new();
 
     // Exact-cardinality constraint: sum_v x_v = k.
-    let cardinality_terms: Vec<(usize, f64)> = (0..n).map(|v| (x_idx(v), 1.0)).collect();
-    constraints.push(LinearConstraint::eq(cardinality_terms, src.k() as f64));
+    let cardinality_terms: Vec<(usize, i64)> = (0..n).map(|v| (x_idx(v), 1)).collect();
+    constraints.push(LinearConstraint::eq(cardinality_terms, k));
 
     // Non-edge clique constraints: x_u + x_v <= 1 for every non-edge.
     for u in 0..n {
         for v in (u + 1)..n {
             if !src.graph().has_edge(u, v) {
-                constraints.push(LinearConstraint::le(
-                    vec![(x_idx(u), 1.0), (x_idx(v), 1.0)],
-                    1.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(x_idx(u), 1), (x_idx(v), 1)], 1));
             }
         }
     }
@@ -115,13 +120,15 @@ where
         .map(|(e, w)| (y_idx(e), w))
         .collect();
 
-    let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+    let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize).map_err(
+        crate::rules::ReductionError::construction::<MaximumEdgeWeightedKClique<W>, ILP<bool>>,
+    )?;
 
-    ReductionMaximumEdgeWeightedKCliqueToILP {
+    Ok(ReductionMaximumEdgeWeightedKCliqueToILP {
         target,
         num_vertices: n,
         _marker: PhantomData,
-    }
+    })
 }
 
 #[reduction(
@@ -146,7 +153,7 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<i64> {
                     ILP<bool>,
                 >(error)
             })?;
-        Ok(build_reduction(self, coefficients))
+        build_reduction(self, coefficients)
     }
 }
 
@@ -161,7 +168,7 @@ impl ReduceTo<ILP<bool>> for MaximumEdgeWeightedKClique<f64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let coefficients: Vec<f64> = self.edge_weights().to_vec();
-        Ok(build_reduction(self, coefficients))
+        build_reduction(self, coefficients)
     }
 }
 
@@ -170,7 +177,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
     use crate::topology::SimpleGraph;
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumedgeweightedkclique_i64_to_ilp",
+            id: "exact_maximumedgeweightedkclique_to_ilp",
             build: || {
                 // Canonical issue #1020 instance: 4 vertices, 5 edges, k = 3.
                 // Optimum induced weight is 5 + 4 + (-1) = 8 on clique {0, 1, 2}.
@@ -184,7 +191,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumedgeweightedkclique_f64_to_ilp",
+            id: "approximate_maximumedgeweightedkclique_to_ilp",
             build: || {
                 let source = MaximumEdgeWeightedKClique::<f64>::new(
                     SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (0, 3), (1, 3)]),

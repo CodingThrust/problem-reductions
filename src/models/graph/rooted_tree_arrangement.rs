@@ -133,22 +133,36 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "RootedTreeArrangement";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let n = self.graph.num_vertices();
-        vec![n; 2 * n]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != 2 * n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "tree-arrangement representation length does not match the graph".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_solution(config)?))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for RootedTreeArrangement<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.graph.num_vertices();
+        vec![n; 2 * n]
     }
 }
 
@@ -278,6 +292,10 @@ crate::declare_variants! {
     default RootedTreeArrangement<SimpleGraph> => "2^num_vertices" random,
 }
 
+crate::register_brute_force! {
+    RootedTreeArrangement<SimpleGraph>,
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -286,7 +304,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]),
             5,
         )),
-        optimal_config: vec![0, 0, 1, 2, 0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 0, 1, 2, 0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -14,7 +14,7 @@ fn test_reduction_creates_valid_ilp() {
 
     // 2 car vars + 4 k vars + 4 c vars = 10
     assert_eq!(ilp.num_vars(), 10);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -23,11 +23,7 @@ fn test_paintshop_to_ilp_closed_loop() {
     let reduction: ReductionPaintShopToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "PaintShop->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]

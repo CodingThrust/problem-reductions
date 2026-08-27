@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
@@ -16,8 +16,8 @@ fn test_cbm_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 3*3=9, a: 2*3=6, b: 2*3=6 => 21
-    assert_eq!(ilp.num_vars, 21);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 21);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -28,11 +28,7 @@ fn test_cbm_to_ilp_closed_loop() {
     );
     let reduction: ReductionCBMToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "ConsecutiveBlockMinimization->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -45,10 +41,7 @@ fn test_cbm_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solver = ILPSolver::new();
@@ -67,5 +60,5 @@ fn test_cbm_to_ilp_trivial() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 1, a: 1, b: 1 => 3
-    assert_eq!(ilp.num_vars, 3);
+    assert_eq!(ilp.num_vars(), 3);
 }

@@ -44,13 +44,16 @@ impl ReductionResult for ReductionMinimumCapacitatedSpanningTreeToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             // First m variables are edge selectors
-            target_solution[..self.num_edges].to_vec()
+            target_solution[..self.num_edges]
+                .iter()
+                .map(|&value| value == 1)
+                .collect()
         })
     }
 }
@@ -78,7 +81,7 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 >(error)
             })
         };
-        let cap = exact_f64(*self.capacity())?;
+        let cap = *self.capacity();
 
         let num_vars = 3 * m;
 
@@ -87,7 +90,7 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         let flow_var = |e: usize, dir: usize| m + 2 * e + dir; // f: m..3m
 
         // Total requirement (flow from all non-root vertices to root)
-        let total_req_i64 = requirements.iter().try_fold(0_i64, |total, requirement| {
+        let total_req = requirements.iter().try_fold(0_i64, |total, requirement| {
             total.checked_add(requirement.to_sum()).ok_or_else(|| {
                 crate::rules::ReductionError::integer_overflow::<
                     MinimumCapacitatedSpanningTree<SimpleGraph, i64>,
@@ -95,17 +98,18 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 >("summing vertex requirements")
             })
         })?;
-        let total_req = exact_f64(total_req_i64)?;
-
         let mut constraints = Vec::new();
 
         // 1. Tree cardinality: sum(y_e) = n - 1
-        let terms: Vec<(usize, f64)> = (0..m).map(|e| (edge_var(e), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(terms, (n - 1) as f64));
+        let terms: Vec<(usize, i64)> = (0..m).map(|e| (edge_var(e), 1)).collect();
+        constraints.push(LinearConstraint::eq(
+            terms,
+            Self::exact_i64(n, "encoding the spanning-tree order")? - 1,
+        ));
 
         // 2. Binary edge bounds: y_e <= 1
         for e in 0..m {
-            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1.0)], 1.0));
+            constraints.push(LinearConstraint::le(vec![(edge_var(e), 1)], 1));
         }
 
         // 3. Flow conservation
@@ -118,15 +122,15 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
                 // flow_var(e, 1) = flow from v to u
                 if v == vertex {
                     // inflow from u->v direction
-                    terms.push((flow_var(edge_idx, 0), 1.0));
+                    terms.push((flow_var(edge_idx, 0), 1));
                     // outflow from v->u direction
-                    terms.push((flow_var(edge_idx, 1), -1.0));
+                    terms.push((flow_var(edge_idx, 1), -1));
                 }
                 if u == vertex {
                     // outflow from u->v direction
-                    terms.push((flow_var(edge_idx, 0), -1.0));
+                    terms.push((flow_var(edge_idx, 0), -1));
                     // inflow from v->u direction
-                    terms.push((flow_var(edge_idx, 1), 1.0));
+                    terms.push((flow_var(edge_idx, 1), 1));
                 }
             }
 
@@ -136,7 +140,7 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
             } else {
                 // Non-root vertex generates r(v) units toward root:
                 // net inflow = -r(v)
-                -exact_f64(req.to_sum())?
+                -req.to_sum()
             };
             constraints.push(LinearConstraint::eq(terms, rhs));
         }
@@ -145,24 +149,18 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
         for edge_idx in 0..m {
             constraints.push(LinearConstraint::le(
                 vec![
-                    (flow_var(edge_idx, 0), 1.0),
-                    (flow_var(edge_idx, 1), 1.0),
+                    (flow_var(edge_idx, 0), 1),
+                    (flow_var(edge_idx, 1), 1),
                     (edge_var(edge_idx), -total_req),
                 ],
-                0.0,
+                0,
             ));
         }
 
         // 5. Capacity bounds: f_{uv} <= c, f_{vu} <= c
         for edge_idx in 0..m {
-            constraints.push(LinearConstraint::le(
-                vec![(flow_var(edge_idx, 0), 1.0)],
-                cap,
-            ));
-            constraints.push(LinearConstraint::le(
-                vec![(flow_var(edge_idx, 1), 1.0)],
-                cap,
-            ));
+            constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 0), 1)], cap));
+            constraints.push(LinearConstraint::le(vec![(flow_var(edge_idx, 1), 1)], cap));
         }
 
         // Objective: minimize sum(w_e * y_e)
@@ -173,7 +171,8 @@ impl ReduceTo<ILP<i64>> for MinimumCapacitatedSpanningTree<SimpleGraph, i64> {
             .map(|(edge_idx, w)| exact_f64(w.to_sum()).map(|weight| (edge_var(edge_idx), weight)))
             .collect::<Result<_, _>>()?;
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionMinimumCapacitatedSpanningTreeToILP {
             target,

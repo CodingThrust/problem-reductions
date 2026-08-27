@@ -13,8 +13,8 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
     // n=3, m=2, n_pos=2
     // num_x = 9, num_z = 2*2*2 = 8, total = 17
-    assert_eq!(ilp.num_vars, 17);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 17);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -24,7 +24,7 @@ fn test_hamiltonianpath_to_ilp_closed_loop() {
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force should find a solution");
     assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));
@@ -51,7 +51,7 @@ fn test_hamiltonianpath_to_ilp_cycle_graph() {
     // BruteForce on source
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force should find a solution");
     assert_eq!(problem.evaluate(&bf_solution).unwrap(), Or(true));

@@ -4,7 +4,7 @@
 //! at least K distinct m-tuples (one element per set) have total size at least B.
 //! Garey & Johnson MP10.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -20,13 +20,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Count m-tuples whose total size meets a bound and compare against a threshold K",
         fields: KthLargestMTupleCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "KthLargestMTuple",
-        fields: &["num_sets", "total_tuples"],
     }
 }
 
@@ -46,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::KthLargestMTuple;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = KthLargestMTuple::new(
 ///     vec![vec![2, 5, 8], vec![3, 6], vec![1, 4, 7]],
@@ -54,9 +47,9 @@ inventory::submit! {
 ///     12,
 /// );
 /// let solver = BruteForce::new();
-/// let answer = solver.solve(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap().unwrap();
 /// // 14 of the 18 tuples have sum >= 12, so count >= K.
-/// assert_eq!(answer, problemreductions::types::Or(true));
+/// assert_eq!(problem.evaluate(&solution).unwrap(), problemreductions::types::Or(true));
 /// ```
 #[derive(Debug, Clone, Serialize)]
 pub struct KthLargestMTuple {
@@ -212,20 +205,23 @@ impl<'de> Deserialize<'de> for KthLargestMTuple {
 
 impl Problem for KthLargestMTuple {
     const NAME: &'static str = "KthLargestMTuple";
+    type Solution = ();
     type Value = Or;
+
+    crate::problem_size![("num_sets", num_sets), ("total_tuples", total_tuples),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![]
+    fn evaluate(&self, _solution: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        Ok(Or(self.has_at_least_k_qualifying_tuples()?))
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
-        Ok(Or(
-            config.is_empty() && self.has_at_least_k_qualifying_tuples()?
-        ))
+impl crate::solvers::BruteForceProblem for KthLargestMTuple {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![]
     }
 }
 
@@ -233,6 +229,10 @@ impl Problem for KthLargestMTuple {
 // No sub-exponential exact algorithm is known for the general case.
 crate::declare_variants! {
     default KthLargestMTuple => "total_tuples * num_sets" create KthLargestMTupleCreateSpec,
+}
+
+crate::register_brute_force! {
+    KthLargestMTuple decode |_, _| (),
 }
 
 #[cfg(feature = "example-db")]
@@ -246,7 +246,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             14,
             12,
         )),
-        optimal_config: vec![],
+        optimal_config: serde_json::json!(null),
         optimal_value: serde_json::json!(true),
     }]
 }

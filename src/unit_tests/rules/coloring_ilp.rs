@@ -13,7 +13,8 @@ fn test_reduction_creates_valid_ilp() {
     // Check ILP structure
     // num_vars = 3 vertices * 3 colors = 9
     assert_eq!(
-        ilp.num_vars, 9,
+        ilp.num_vars(),
+        9,
         "Should have 9 variables (3 vertices * 3 colors)"
     );
 
@@ -21,12 +22,12 @@ fn test_reduction_creates_valid_ilp() {
     //                 + 3 edges * 3 colors = 9 (edge constraints)
     //                 = 12 total
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         12,
         "Should have 12 constraints (3 vertex + 9 edge)"
     );
 
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 }
 
 #[test]
@@ -37,10 +38,10 @@ fn test_reduction_path_graph() {
     let ilp = reduction.target_problem();
 
     // num_vars = 3 * 2 = 6
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
 
     // constraints = 3 (vertex) + 2 edges * 2 colors = 7
-    assert_eq!(ilp.constraints.len(), 7);
+    assert_eq!(ilp.constraints().len(), 7);
 }
 
 #[test]
@@ -145,9 +146,9 @@ fn test_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 5 vertices * 3 colors = 15 variables
-    assert_eq!(ilp.num_vars, 15);
+    assert_eq!(ilp.num_vars(), 15);
     // constraints = 5 (vertex) + 4 * 3 (edge) = 17
-    assert_eq!(ilp.constraints.len(), 17);
+    assert_eq!(ilp.constraints().len(), 17);
 }
 
 #[test]
@@ -158,7 +159,7 @@ fn test_empty_graph() {
     let ilp = reduction.target_problem();
 
     // Should only have vertex constraints (each vertex = one color)
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -247,8 +248,8 @@ fn test_single_vertex() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 1);
-    assert_eq!(ilp.constraints.len(), 1); // Just the "exactly one color" constraint
+    assert_eq!(ilp.num_vars(), 1);
+    assert_eq!(ilp.constraints().len(), 1); // Just the "exactly one color" constraint
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

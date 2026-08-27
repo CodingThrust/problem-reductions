@@ -51,12 +51,12 @@ fn test_threedimensionalmatching_to_threematroidintersection_issue_no_instance()
         ReduceTo::<ThreeMatroidIntersection>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(
-        BruteForce::new().find_witness(&source).unwrap().is_none(),
+        BruteForce::new().solve(&source).unwrap().is_none(),
         "issue example should have no perfect matching"
     );
     assert!(
         BruteForce::new()
-            .find_witness(reduction.target_problem())
+            .solve(reduction.target_problem())
             .unwrap()
             .is_none(),
         "reduced 3-matroid intersection instance should be infeasible"
@@ -73,7 +73,7 @@ fn test_threedimensionalmatching_to_threematroidintersection_missing_coordinate_
 
     assert_eq!(target.partitions()[1], vec![vec![0, 1], vec![]]);
     assert!(
-        BruteForce::new().find_witness(target).unwrap().is_none(),
+        BruteForce::new().solve(target).unwrap().is_none(),
         "an empty coordinate group makes size-q independence impossible"
     );
 }

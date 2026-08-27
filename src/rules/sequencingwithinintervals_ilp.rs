@@ -45,8 +45,8 @@ impl ReductionResult for ReductionSWIToILP {
     /// Returns config[j] = k (start time offset from release time).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         self.task_layout
@@ -118,9 +118,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
 
         // 1. One-hot per task
         for j in 0..n {
-            let terms: Vec<(usize, f64)> =
-                (0..slot_counts[j]).map(|k| (bases[j] + k, 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..slot_counts[j]).map(|k| (bases[j] + k, 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Non-overlap for each pair (i, j) with i < j
@@ -129,8 +128,7 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
         for i in 0..n {
             for j in (i + 1)..n {
                 for k1 in 0..slot_counts[i] {
-                    let offset_i = i64::try_from(k1)
-                        .map_err(|_| overflow("converting a task start offset to i64"))?;
+                    let offset_i = Self::exact_i64(k1, "converting a task start offset to i64")?;
                     let start_i = release[i]
                         .checked_add(offset_i)
                         .ok_or_else(|| overflow("computing a task start time"))?;
@@ -138,8 +136,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
                         .checked_add(lengths[i])
                         .ok_or_else(|| overflow("computing a task end time"))?;
                     for k2 in 0..slot_counts[j] {
-                        let offset_j = i64::try_from(k2)
-                            .map_err(|_| overflow("converting a task start offset to i64"))?;
+                        let offset_j =
+                            Self::exact_i64(k2, "converting a task start offset to i64")?;
                         let start_j = release[j]
                             .checked_add(offset_j)
                             .ok_or_else(|| overflow("computing a task start time"))?;
@@ -149,8 +147,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
                         // Overlap if neither ends before the other starts
                         if !(end_i <= start_j || end_j <= start_i) {
                             constraints.push(LinearConstraint::le(
-                                vec![(bases[i] + k1, 1.0), (bases[j] + k2, 1.0)],
-                                1.0,
+                                vec![(bases[i] + k1, 1), (bases[j] + k2, 1)],
+                                1,
                             ));
                         }
                     }
@@ -159,7 +157,8 @@ impl ReduceTo<ILP<bool>> for SequencingWithinIntervals {
         }
 
         Ok(ReductionSWIToILP {
-            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             task_layout,
         })
     }
@@ -187,8 +186,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },

@@ -37,23 +37,16 @@ impl ReductionResult for Reduction3SATToSubsetSum {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             // Variable integers are the first 2n elements in 0-based indexing:
             // for variable i (0 <= i < n), y_i is stored at index 2*i and z_i at index 2*i + 1.
-            // If y_i is selected (target_solution[2*i] == 1), set x_i = 1; otherwise x_i = 0.
+            // If y_i is selected (target_solution[2*i]), set x_i = 1; otherwise x_i = 0.
             (0..self.source_num_vars)
-                .map(|i| {
-                    let y_selected = target_solution[2 * i] == 1;
-                    if y_selected {
-                        1
-                    } else {
-                        0
-                    }
-                })
+                .map(|i| target_solution[2 * i])
                 .collect()
         })
     }
@@ -162,8 +155,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, SubsetSum>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1],
-                    target_config: vec![0, 1, 0, 1, 1, 0, 1, 1, 1, 0],
+                    source_config: serde_json::json!(vec![false, false, true]),
+                    target_config: serde_json::json!(vec![
+                        false, true, false, true, true, false, true, true, true, false
+                    ]),
                 },
             )
         },

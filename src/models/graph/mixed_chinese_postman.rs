@@ -202,17 +202,17 @@ impl<W: WeightElement<Sum = i64>> MixedChinesePostman<W> {
         !W::IS_UNIT
     }
 
-    fn oriented_arc_pairs(&self, config: &[usize]) -> Option<Vec<(usize, usize)>> {
+    fn oriented_arc_pairs(&self, config: &[bool]) -> Option<Vec<(usize, usize)>> {
         if config.len() != self.graph.num_edges() {
             return None;
         }
 
         let mut arcs = self.graph.arcs();
-        for ((u, v), &direction) in self.graph.edges().iter().zip(config.iter()) {
-            match direction {
-                0 => arcs.push((*u, *v)),
-                1 => arcs.push((*v, *u)),
-                _ => return None,
+        for ((u, v), &reverse) in self.graph.edges().iter().zip(config.iter()) {
+            if reverse {
+                arcs.push((*v, *u));
+            } else {
+                arcs.push((*u, *v));
             }
         }
         Some(arcs)
@@ -266,9 +266,43 @@ where
     /// connected with proper coverage).
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0.is_some())
+        Ok(self.evaluate_solution(config)?.0.is_some())
+    }
+
+    fn evaluate_solution(
+        &self,
+        config: &[bool],
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-orientation length does not match the undirected edges".into(),
+            ));
+        }
+        let Some(oriented_pairs) = self.oriented_arc_pairs(config) else {
+            return Ok(Min(None));
+        };
+
+        if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
+            .is_strongly_connected()
+        {
+            return Ok(Min(None));
+        }
+
+        let distances =
+            all_pairs_shortest_paths(self.graph.num_vertices(), &self.weighted_available_arcs())?;
+        let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs)?;
+        let Some(extra_cost) = minimum_balancing_cost(&balance, &distances)? else {
+            return Ok(Min(None));
+        };
+
+        let total = self.base_cost()?.checked_add(extra_cost).ok_or_else(|| {
+            crate::traits::EvaluationError::IntegerOverflow(
+                "summing mixed Chinese postman objective".to_string(),
+            )
+        })?;
+        Ok(Min(Some(total)))
     }
 }
 
@@ -277,50 +311,33 @@ where
     W: WeightElement<Sum = i64> + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MixedChinesePostman";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![
+        ("num_arcs", num_arcs),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        self.evaluate_solution(config)
     }
+}
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
-        Ok({
-            let Some(oriented_pairs) = self.oriented_arc_pairs(config) else {
-                return Ok(Min(None));
-            };
-
-            // Connectivity uses the full available graph: original arcs plus both
-            // directions of every undirected edge.
-            if !DirectedGraph::new(self.graph.num_vertices(), self.available_arc_pairs())
-                .is_strongly_connected()
-            {
-                return Ok(Min(None));
-            }
-
-            // Shortest paths also use the full available graph so that balancing
-            // can route through undirected edges in either direction.
-            let distances = all_pairs_shortest_paths(
-                self.graph.num_vertices(),
-                &self.weighted_available_arcs(),
-            )?;
-            // Degree imbalance is computed from the required arcs only (original
-            // arcs plus the chosen orientation of each undirected edge).
-            let balance = degree_imbalances(self.graph.num_vertices(), &oriented_pairs)?;
-            let Some(extra_cost) = minimum_balancing_cost(&balance, &distances)? else {
-                return Ok(Min(None));
-            };
-
-            let total = self.base_cost()?.checked_add(extra_cost).ok_or_else(|| {
-                crate::traits::EvaluationError::IntegerOverflow(
-                    "summing mixed Chinese postman objective".to_string(),
-                )
-            })?;
-            Min(Some(total))
-        })
+impl<W> crate::solvers::BruteForceProblem for MixedChinesePostman<W>
+where
+    W: WeightElement<Sum = i64> + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 }
 
@@ -329,10 +346,15 @@ crate::declare_variants! {
     MixedChinesePostman<One> => "2^num_edges * num_vertices^3" create MixedChinesePostmanOneCreateSpec,
 }
 
+crate::register_brute_force! {
+    MixedChinesePostman<i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MixedChinesePostman<One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "mixed_chinese_postman_i64",
+        id: "mixed_chinese_postman",
         instance: Box::new(MixedChinesePostman::new(
             MixedGraph::new(
                 5,
@@ -342,7 +364,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, 3, 1, 4],
             vec![2, 3, 1, 2],
         )),
-        optimal_config: vec![1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, false, false]),
         optimal_value: serde_json::json!(21),
     }]
 }

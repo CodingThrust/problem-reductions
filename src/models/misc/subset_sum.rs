@@ -43,11 +43,11 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SubsetSum;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,31 +109,29 @@ impl SubsetSum {
 
 impl Problem for SubsetSum {
     const NAME: &'static str = "SubsetSum";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_elements", num_elements),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_elements()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_elements() {
-                    return Ok(crate::types::Or(false));
-                }
-                if config.iter().any(|&v| v >= 2) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "subset-selection length does not match the elements".into(),
+                    ));
                 }
                 let mut total = BigUint::zero();
                 for (i, &x) in config.iter().enumerate() {
-                    if x == 1 {
+                    if x {
                         total += &self.sizes[i];
                     }
                 }
@@ -143,8 +141,18 @@ impl Problem for SubsetSum {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SubsetSum {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_elements()]
+    }
+}
+
 crate::declare_variants! {
     default SubsetSum => "2^(num_elements / 2)",
+}
+
+crate::register_brute_force! {
+    SubsetSum decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -153,7 +161,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "subset_sum",
         instance: Box::new(SubsetSum::new(vec![3u32, 7, 1, 8, 2, 4], 11u32)),
-        optimal_config: vec![1, 0, 0, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, false, false, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

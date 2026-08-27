@@ -1,6 +1,6 @@
 use super::*;
 use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -35,8 +35,10 @@ fn test_prizecollectingsteinerforest_to_steinertree_canonical_closed_loop() {
 
     // Numeric sanity: both optima must agree, and equal 3 on this instance.
     let target = reduction.target_problem();
-    let source_opt = BruteForce::new().solve(&source).unwrap();
-    let target_opt = BruteForce::new().solve(target).unwrap();
+    let source_opt_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+    let source_opt = source.evaluate(&source_opt_solution).unwrap();
+    let target_opt_solution = BruteForce::new().solve(target).unwrap().unwrap();
+    let target_opt = target.evaluate(&target_opt_solution).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
     assert_eq!(target_opt, Min(Some(3)));
 }
@@ -67,13 +69,13 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
     let target = reduction.target_problem();
 
     let target_witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target SteinerTree must be feasible");
     let source_witness = reduction.extract_solution(&target_witness).unwrap();
 
-    // Source layout is `n` vertex-bits then `m` edge-bits.
-    assert_eq!(source_witness.len(), source.num_variables());
+    assert_eq!(source_witness.0.len(), source.num_vertices());
+    assert_eq!(source_witness.1.len(), source.num_edges());
 
     // Extracted witness must be a feasible PCSF forest with the optimal
     // objective value (3 on this instance).
@@ -81,15 +83,14 @@ fn test_prizecollectingsteinerforest_to_steinertree_extract_witness_canonical() 
     assert_eq!(source.evaluate(&source_witness).unwrap(), Min(Some(3)));
 
     // V_F = {0, 2}, E_F = {} on this instance.
-    assert_eq!(source_witness[0], 1, "vertex 0 should be in V_F");
-    assert_eq!(
-        source_witness[1], 0,
+    assert!(source_witness.0[0], "vertex 0 should be in V_F");
+    assert!(
+        !source_witness.0[1],
         "vertex 1 should be omitted at the optimum"
     );
-    assert_eq!(source_witness[2], 1, "vertex 2 should be in V_F");
-    // The edge-selector segment (indices 3..5) must be all zero.
-    assert_eq!(source_witness[3], 0);
-    assert_eq!(source_witness[4], 0);
+    assert!(source_witness.0[2], "vertex 2 should be in V_F");
+    assert!(!source_witness.1[0]);
+    assert!(!source_witness.1[1]);
 }
 
 /// All vertices carry a positive prize, so omitting any vertex pays a large
@@ -122,8 +123,10 @@ fn test_prizecollectingsteinerforest_to_steinertree_all_prizes() {
 
     // Direct sanity: optimum is "select everything"
     // V_F = {0,1,2}, E_F = {(0,1),(1,2)}, one component, cost = 0 + 2 + 1 = 3.
-    let source_opt = BruteForce::new().solve(&source).unwrap();
-    let target_opt = BruteForce::new().solve(target).unwrap();
+    let source_opt_solution = BruteForce::new().solve(&source).unwrap().unwrap();
+    let source_opt = source.evaluate(&source_opt_solution).unwrap();
+    let target_opt_solution = BruteForce::new().solve(target).unwrap().unwrap();
+    let target_opt = target.evaluate(&target_opt_solution).unwrap();
     assert_eq!(source_opt, Min(Some(3)));
     assert_eq!(target_opt, Min(Some(3)));
 }

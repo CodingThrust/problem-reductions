@@ -5,9 +5,8 @@ use problemreductions::registry::{
 };
 use problemreductions::rules::registry::{ReductionEntry, ReductionSizeDeclarations};
 use problemreductions::rules::{AggregateReductionResult, ReductionAutoCast};
-use problemreductions::solvers::{BruteForce, Solver};
 use problemreductions::traits::Problem;
-use problemreductions::types::{Extremum, ProblemSize, Sum};
+use problemreductions::types::{Aggregate, Extremum, Max, SolutionAggregate};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 use std::collections::BTreeMap;
@@ -34,33 +33,42 @@ impl AggregateValueSource {
             values: vec![2, 5, 7],
         }
     }
+
+    fn num_values(&self) -> usize {
+        self.values.len()
+    }
 }
 
 impl Problem for AggregateValueSource {
     const NAME: &'static str = AGGREGATE_SOURCE_NAME;
-    type Value = Sum<i64>;
+    type Solution = Vec<bool>;
+    type Value = Max<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.values.len()]
-    }
+    problemreductions::problem_size![("num_values", num_values)];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<Self::Value, problemreductions::traits::EvaluationError> {
         Ok({
             let total = self
                 .values
                 .iter()
-                .zip(config.iter().copied())
-                .filter_map(|(value, bit)| (bit == 1).then_some(*value))
+                .zip(solution.iter().copied())
+                .filter_map(|(value, selected)| selected.then_some(*value))
                 .sum();
-            Sum(total)
+            Max(Some(total))
         })
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl problemreductions::solvers::BruteForceProblem for AggregateValueSource {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.values.len()]
     }
 }
 
@@ -73,25 +81,36 @@ impl AggregateValueTarget {
     pub(crate) fn sample() -> Self {
         Self { base: 11 }
     }
+
+    fn num_values(&self) -> usize {
+        1
+    }
 }
 
 impl Problem for AggregateValueTarget {
     const NAME: &'static str = AGGREGATE_TARGET_NAME;
-    type Value = Sum<i64>;
+    type Solution = Vec<bool>;
+    type Value = Max<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2]
-    }
+    problemreductions::problem_size![("num_values", num_values)];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        solution: &Self::Solution,
     ) -> Result<Self::Value, problemreductions::traits::EvaluationError> {
-        Ok(Sum(self.base + config.iter().sum::<usize>() as i64))
+        Ok(Max(Some(
+            self.base + solution.iter().filter(|&&selected| selected).count() as i64,
+        )))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![]
+    }
+}
+
+impl problemreductions::solvers::BruteForceProblem for AggregateValueTarget {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2]
     }
 }
 
@@ -108,41 +127,133 @@ impl AggregateReductionResult for AggregateValueToIlpReduction {
         &self.target
     }
 
-    fn extract_value(&self, _target_value: Extremum<f64>) -> Sum<i64> {
-        Sum(0)
+    fn extract_value(&self, _target_value: Extremum<f64>) -> Max<i64> {
+        Max(Some(0))
     }
 }
 
-fn solve_value<P>(any: &dyn Any) -> Result<String, problemreductions::solvers::SolveError>
-where
-    P: Problem + Serialize + 'static,
-    P::Value: problemreductions::types::Aggregate + std::fmt::Display,
-{
-    let problem = any
-        .downcast_ref::<P>()
-        .expect("test solve_value downcast failed");
-    let solver = BruteForce::new();
-    Ok(problemreductions::registry::format_metric(
-        &solver.solve(problem)?,
-    ))
+fn decode_bits(indices: Vec<usize>) -> Vec<bool> {
+    indices.into_iter().map(|index| index != 0).collect()
 }
 
-fn solve_witness<P>(
-    any: &dyn Any,
-) -> Result<Option<(Vec<usize>, String)>, problemreductions::solvers::SolveError>
+fn cartesian_indices(
+    dimensions: Vec<usize>,
+) -> Result<impl Iterator<Item = Vec<usize>>, problemreductions::solvers::SolveError> {
+    let total = if dimensions.is_empty() {
+        1
+    } else if dimensions.contains(&0) {
+        0
+    } else {
+        dimensions.iter().try_fold(1usize, |total, &dimension| {
+            total.checked_mul(dimension).ok_or_else(|| {
+                problemreductions::solvers::SolveError::SearchSpaceOverflow(dimensions.clone())
+            })
+        })?
+    };
+    Ok((0..total).map(move |mut index| {
+        let mut coordinates = vec![0; dimensions.len()];
+        for position in (0..dimensions.len()).rev() {
+            coordinates[position] = index % dimensions[position];
+            index /= dimensions[position];
+        }
+        coordinates
+    }))
+}
+
+fn solve_cartesian<P>(problem: &P) -> Result<P::Value, problemreductions::solvers::SolveError>
 where
-    P: Problem + Serialize + 'static,
-    P::Value: problemreductions::types::Aggregate + std::fmt::Display,
+    P: Problem<Solution = Vec<bool>> + problemreductions::solvers::BruteForceProblem,
+    P::Value: Aggregate,
+{
+    let mut total = P::Value::identity();
+    for indices in cartesian_indices(problem.dimensions())? {
+        total = total.combine(problem.evaluate(&decode_bits(indices))?)?;
+    }
+    Ok(total)
+}
+
+fn solve_cartesian_solution<P>(
+    problem: &P,
+) -> Result<Option<P::Solution>, problemreductions::solvers::SolveError>
+where
+    P: Problem<Solution = Vec<bool>> + problemreductions::solvers::BruteForceProblem,
+    P::Value: SolutionAggregate,
+{
+    let total = solve_cartesian(problem)?;
+    for indices in cartesian_indices(problem.dimensions())? {
+        let solution = decode_bits(indices);
+        let value = problem.evaluate(&solution)?;
+        if P::Value::contributes_to_solution(&value, &total) {
+            return Ok(Some(solution));
+        }
+    }
+    Ok(None)
+}
+
+fn solve_with_witnesses_cartesian<P>(
+    problem: &P,
+) -> Result<(P::Value, Vec<P::Solution>), problemreductions::solvers::SolveError>
+where
+    P: Problem<Solution = Vec<bool>> + problemreductions::solvers::BruteForceProblem,
+    P::Value: SolutionAggregate,
+{
+    let total = solve_cartesian(problem)?;
+    let mut witnesses = Vec::new();
+    for indices in cartesian_indices(problem.dimensions())? {
+        let solution = decode_bits(indices);
+        let value = problem.evaluate(&solution)?;
+        if P::Value::contributes_to_solution(&value, &total) {
+            witnesses.push(solution);
+        }
+    }
+    Ok((total, witnesses))
+}
+
+fn solve_dynamic<P>(
+    any: &dyn Any,
+) -> Result<Option<(serde_json::Value, String)>, problemreductions::solvers::SolveError>
+where
+    P: Problem<Solution = Vec<bool>>
+        + problemreductions::solvers::BruteForceProblem
+        + Serialize
+        + 'static,
+    P::Value: SolutionAggregate + std::fmt::Display,
+{
+    let problem = any.downcast_ref::<P>().expect("test solve downcast failed");
+    let Some(solution) = solve_cartesian_solution(problem)? else {
+        return Ok(None);
+    };
+    let evaluation = problemreductions::registry::format_metric(&problem.evaluate(&solution)?);
+    Ok(Some((
+        serde_json::to_value(solution).expect("test witness serialization failed"),
+        evaluation,
+    )))
+}
+
+fn solve_typed<P>(
+    any: &dyn Any,
+) -> Result<Option<Box<dyn Any>>, problemreductions::solvers::SolveError>
+where
+    P: Problem<Solution = Vec<bool>> + problemreductions::solvers::BruteForceProblem + 'static,
+    P::Value: SolutionAggregate + 'static,
 {
     let problem = any
         .downcast_ref::<P>()
-        .expect("test solve_witness downcast failed");
-    let solver = BruteForce::new();
-    let Some(config) = solver.find_witness(problem)? else {
-        return Ok(None);
-    };
-    let evaluation = problemreductions::registry::format_metric(&problem.evaluate(&config)?);
-    Ok(Some((config, evaluation)))
+        .expect("test typed solve downcast failed");
+    Ok(solve_cartesian_solution(problem)?.map(|solution| Box::new(solution) as Box<dyn Any>))
+}
+
+fn solve_typed_with_witnesses<P>(
+    any: &dyn Any,
+) -> Result<Box<dyn Any>, problemreductions::solvers::SolveError>
+where
+    P: Problem<Solution = Vec<bool>> + problemreductions::solvers::BruteForceProblem + 'static,
+    P::Value: SolutionAggregate + 'static,
+{
+    let problem = any
+        .downcast_ref::<P>()
+        .expect("test typed solve with witnesses downcast failed");
+    Ok(Box::new(solve_with_witnesses_cartesian(problem)?))
 }
 
 problemreductions::inventory::submit! {
@@ -185,6 +296,12 @@ problemreductions::inventory::submit! {
         variant_fn: AggregateValueSource::variant,
         complexity: "2^num_values",
         complexity_eval_fn: |_| 1.0,
+        size_parameter_names_fn: AggregateValueSource::size_parameter_names,
+        size_measure_fn: |any| {
+            any.downcast_ref::<AggregateValueSource>()
+                .expect("AggregateValueSource size type mismatch")
+                .size()
+        },
         is_default: true,
         aliases: &[],
         create_inputs: Some(AGGREGATE_SOURCE_INPUTS),
@@ -203,8 +320,22 @@ problemreductions::inventory::submit! {
             let problem = any.downcast_ref::<AggregateValueSource>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueSource failed"))
         },
-        solve_value_fn: solve_value::<AggregateValueSource>,
-        solve_witness_fn: solve_witness::<AggregateValueSource>,
+    }
+}
+
+problemreductions::inventory::submit! {
+    problemreductions::solvers::BruteForceRegistration {
+        source_name: AggregateValueSource::NAME,
+        source_variant_fn: AggregateValueSource::variant,
+        dimensions_fn: |any| {
+            let problem = any
+                .downcast_ref::<AggregateValueSource>()
+                .expect("AggregateValueSource brute-force dimensions type mismatch");
+            problemreductions::solvers::BruteForceProblem::dimensions(problem)
+        },
+        solve_fn: solve_dynamic::<AggregateValueSource>,
+        solve_typed_fn: solve_typed::<AggregateValueSource>,
+        solve_typed_with_witnesses_fn: solve_typed_with_witnesses::<AggregateValueSource>,
     }
 }
 
@@ -214,6 +345,12 @@ problemreductions::inventory::submit! {
         variant_fn: AggregateValueTarget::variant,
         complexity: "2",
         complexity_eval_fn: |_| 1.0,
+        size_parameter_names_fn: AggregateValueTarget::size_parameter_names,
+        size_measure_fn: |any| {
+            any.downcast_ref::<AggregateValueTarget>()
+                .expect("AggregateValueTarget size type mismatch")
+                .size()
+        },
         is_default: true,
         aliases: &[],
         create_inputs: None,
@@ -231,8 +368,22 @@ problemreductions::inventory::submit! {
             let problem = any.downcast_ref::<AggregateValueTarget>()?;
             Some(serde_json::to_value(problem).expect("serialize AggregateValueTarget failed"))
         },
-        solve_value_fn: solve_value::<AggregateValueTarget>,
-        solve_witness_fn: solve_witness::<AggregateValueTarget>,
+    }
+}
+
+problemreductions::inventory::submit! {
+    problemreductions::solvers::BruteForceRegistration {
+        source_name: AggregateValueTarget::NAME,
+        source_variant_fn: AggregateValueTarget::variant,
+        dimensions_fn: |any| {
+            let problem = any
+                .downcast_ref::<AggregateValueTarget>()
+                .expect("AggregateValueTarget brute-force dimensions type mismatch");
+            problemreductions::solvers::BruteForceProblem::dimensions(problem)
+        },
+        solve_fn: solve_dynamic::<AggregateValueTarget>,
+        solve_typed_fn: solve_typed::<AggregateValueTarget>,
+        solve_typed_with_witnesses_fn: solve_typed_with_witnesses::<AggregateValueTarget>,
     }
 }
 
@@ -246,7 +397,7 @@ problemreductions::inventory::submit! {
             relation: None,
             fields: vec![],
             unavailable: vec![problemreductions::rules::registry::UnavailableSizeField {
-                field: "size",
+                field: "num_values",
                 reason: "the synthetic aggregate target has no size model",
             }],
         },
@@ -263,8 +414,6 @@ problemreductions::inventory::submit! {
             )))
         }),
         turing: false,
-        source_size_measure_fn: |_| ProblemSize::new(vec![]),
-        target_size_measure_fn: |_| ProblemSize::new(vec![]),
     }
 }
 
@@ -277,10 +426,16 @@ problemreductions::inventory::submit! {
         size_declarations_fn: || ReductionSizeDeclarations {
             relation: None,
             fields: vec![],
-            unavailable: vec![problemreductions::rules::registry::UnavailableSizeField {
-                field: "size",
-                reason: "the synthetic aggregate target has no size model",
-            }],
+            unavailable: vec![
+                problemreductions::rules::registry::UnavailableSizeField {
+                    field: "num_vars",
+                    reason: "the synthetic aggregate-to-ILP reduction has no size model",
+                },
+                problemreductions::rules::registry::UnavailableSizeField {
+                    field: "num_constraints",
+                    reason: "the synthetic aggregate-to-ILP reduction has no size model",
+                },
+            ],
         },
         module_path: module_path!(),
         reduce_fn: None,
@@ -289,12 +444,11 @@ problemreductions::inventory::submit! {
                 .downcast_ref::<AggregateValueSource>()
                 .expect("aggregate ILP reduction downcast failed");
             Ok(Box::new(AggregateValueToIlpReduction {
-                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+                target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                    .expect("empty ILP is valid"),
             }))
         }),
         turing: false,
-        source_size_measure_fn: |_| ProblemSize::new(vec![]),
-        target_size_measure_fn: |_| ProblemSize::new(vec![]),
     }
 }
 

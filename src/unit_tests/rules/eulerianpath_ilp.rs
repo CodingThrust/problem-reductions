@@ -24,10 +24,10 @@ fn test_eulerianpath_to_ilp_issue_structure() {
     //   a_2 = (1,2) -> head=2; arcs starting at 2: only a_3 -> (a_2, a_3)
     //   a_3 = (2,0) -> head=0; arcs starting at 0: a_0, a_1 -> (a_3, a_0), (a_3, a_1)
     // So p = 5. num_vars = 5 + 3*4 = 17.
-    assert_eq!(ilp.num_vars, 17);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 17);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
     assert!(
-        ilp.objective.is_empty(),
+        ilp.objective().is_empty(),
         "Pure feasibility ILP should have no objective"
     );
 
@@ -37,7 +37,7 @@ fn test_eulerianpath_to_ilp_issue_structure() {
     //   2*p = 10 (y_{a,b} <= 1, order consistency)
     //   2 (unique start + unique end)
     // Total = 8 + 12 + 10 + 2 = 32.
-    assert_eq!(ilp.constraints.len(), 32);
+    assert_eq!(ilp.constraints().len(), 32);
 }
 
 #[test]
@@ -46,8 +46,8 @@ fn test_eulerianpath_to_ilp_empty_instance() {
     let source = EulerianPath::new(DirectedGraph::empty(3));
     let reduction = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
-    assert_eq!(ilp.num_vars, 0);
-    assert_eq!(ilp.constraints.len(), 0);
+    assert_eq!(ilp.num_vars(), 0);
+    assert_eq!(ilp.constraints().len(), 0);
 
     let solution = ILPSolver::new()
         .solve(ilp)

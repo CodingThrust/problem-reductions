@@ -30,22 +30,22 @@ impl ReductionResult for ReductionSetSplittingToBetweenness {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         let pole_position = target_solution[self.pole];
         Ok(target_solution[..self.source_universe_size]
             .iter()
-            .map(|&position| usize::from(position > pole_position))
+            .map(|&position| position > pole_position)
             .collect())
     }
 }
 
 #[reduction(
-    size = exact {
-        num_elements = "normalized_universe_size + 1 + normalized_num_size3_subsets",
-        num_triples = "normalized_num_size2_subsets + 2 * normalized_num_size3_subsets",
+    size = unavailable {
+        num_elements = "the exact target size depends on normalization statistics specific to this reduction",
+        num_triples = "the exact target size depends on normalization statistics specific to this reduction",
     }
 )]
 impl ReduceTo<Betweenness> for SetSplitting {
@@ -102,8 +102,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 3, 4], vec![1, 2, 3]],
                 ),
                 SolutionPair {
-                    source_config: vec![1, 0, 1, 0, 0],
-                    target_config: vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5],
+                    source_config: serde_json::json!(vec![true, false, true, false, false]),
+                    target_config: serde_json::json!(vec![8, 2, 9, 0, 1, 4, 3, 6, 7, 5]),
                 },
             )
         },

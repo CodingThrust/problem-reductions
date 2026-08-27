@@ -1,5 +1,5 @@
 use super::*;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -11,11 +11,7 @@ fn test_qubo_to_ilp_closed_loop() {
     // Optimal: x = [0, 1] with obj = -3
     let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]).unwrap();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo).expect("reduction should succeed");
-    assert_optimization_round_trip_from_optimization_target(
-        &qubo,
-        &reduction,
-        "QUBO->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&qubo, &reduction);
 }
 
 #[test]
@@ -46,12 +42,11 @@ fn test_qubo_to_ilp_diagonal_only() {
 
     // No auxiliary variables when no off-diagonal terms
     assert_eq!(ilp.num_variables(), 2);
-    assert!(ilp.constraints.is_empty());
+    assert!(ilp.constraints().is_empty());
 
-    let solver = BruteForce::new();
-    let best = solver.find_all_witnesses(ilp).unwrap();
-    let extracted = reduction.extract_solution(&best[0]).unwrap();
-    assert_eq!(extracted, vec![0, 1]);
+    let best = ILPSolver::new().solve(ilp).unwrap();
+    let extracted = reduction.extract_solution(&best).unwrap();
+    assert_eq!(extracted, vec![false, true]);
 }
 
 #[test]
@@ -70,10 +65,9 @@ fn test_qubo_to_ilp_3var() {
     // 3 original + 2 auxiliary (for two off-diagonal terms)
     assert_eq!(ilp.num_variables(), 5);
     // 3 constraints per auxiliary = 6
-    assert_eq!(ilp.constraints.len(), 6);
+    assert_eq!(ilp.constraints().len(), 6);
 
-    let solver = BruteForce::new();
-    let best = solver.find_all_witnesses(ilp).unwrap();
-    let extracted = reduction.extract_solution(&best[0]).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1]);
+    let best = ILPSolver::new().solve(ilp).unwrap();
+    let extracted = reduction.extract_solution(&best).unwrap();
+    assert_eq!(extracted, vec![true, false, true]);
 }

@@ -7,7 +7,6 @@ use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::IntegralFlowWithMultipliers;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::types::i64_to_exact_f64;
 
 /// Result of reducing IntegralFlowWithMultipliers to ILP.
 #[derive(Debug, Clone)]
@@ -25,11 +24,11 @@ impl ReductionResult for ReductionIFWMToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.to_vec())
+        crate::rules::ilp_helpers::decode_usize_values(target_solution)
     }
 }
 
@@ -46,22 +45,11 @@ impl ReduceTo<ILP<i64>> for IntegralFlowWithMultipliers {
         let arcs = self.graph().arcs();
         let num_arcs = self.num_arcs();
         let num_vertices = self.num_vertices();
-        let exact_f64 = |value| {
-            i64_to_exact_f64(value).map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    IntegralFlowWithMultipliers,
-                    ILP<i64>,
-                >(error)
-            })
-        };
         let mut constraints = Vec::new();
 
         // Capacity: f_a <= c_a for each arc
         for (arc_idx, &capacity) in self.capacities().iter().enumerate() {
-            constraints.push(LinearConstraint::le(
-                vec![(arc_idx, 1.0)],
-                exact_f64(capacity)?,
-            ));
+            constraints.push(LinearConstraint::le(vec![(arc_idx, 1)], capacity));
         }
 
         // Multiplier-scaled conservation:
@@ -72,36 +60,34 @@ impl ReduceTo<ILP<i64>> for IntegralFlowWithMultipliers {
             if vertex == self.source() || vertex == self.sink() {
                 continue;
             }
-            let multiplier = exact_f64(self.multipliers()[vertex])?;
+            let multiplier = self.multipliers()[vertex];
             let mut terms = Vec::new();
             for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
                 if u == vertex {
-                    terms.push((arc_idx, 1.0)); // outgoing
+                    terms.push((arc_idx, 1)); // outgoing
                 }
                 if v == vertex {
                     terms.push((arc_idx, -multiplier)); // incoming scaled by -h(v)
                 }
             }
-            constraints.push(LinearConstraint::eq(terms, 0.0));
+            constraints.push(LinearConstraint::eq(terms, 0));
         }
 
         // Sink inflow requirement: sum_{a in delta^-(t)} f_a - sum_{a in delta^+(t)} f_a >= R
         let mut sink_terms = Vec::new();
         for (arc_idx, &(u, v)) in arcs.iter().enumerate() {
             if v == self.sink() {
-                sink_terms.push((arc_idx, 1.0)); // incoming
+                sink_terms.push((arc_idx, 1)); // incoming
             }
             if u == self.sink() {
-                sink_terms.push((arc_idx, -1.0)); // outgoing
+                sink_terms.push((arc_idx, -1)); // outgoing
             }
         }
-        constraints.push(LinearConstraint::ge(
-            sink_terms,
-            exact_f64(self.requirement())?,
-        ));
+        constraints.push(LinearConstraint::ge(sink_terms, self.requirement()));
 
         Ok(ReductionIFWMToILP {
-            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize),
+            target: ILP::new(num_arcs, constraints, vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
         })
     }
 }

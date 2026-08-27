@@ -48,14 +48,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::PartitionIntoPathsOfLength2;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6-vertex graph with two P3 paths: 0-1-2 and 3-4-5
 /// let graph = SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)]);
 /// let problem = PartitionIntoPathsOfLength2::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,27 +149,49 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "PartitionIntoPathsOfLength2";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let q = self.num_groups();
-        vec![q; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment length does not match the graph vertices".into(),
+            ));
+        }
+        if config.iter().any(|&group| group >= self.num_groups()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "partition assignment contains an out-of-range group".into(),
+            ));
+        }
         Ok(crate::types::Or(self.is_valid_partition(config)))
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for PartitionIntoPathsOfLength2<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let q = self.num_groups();
+        vec![q; self.graph.num_vertices()]
     }
 }
 
 crate::declare_variants! {
     default PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
+}
+
+crate::register_brute_force! {
+    PartitionIntoPathsOfLength2<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -193,7 +215,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 (4, 7),
             ],
         ))),
-        optimal_config: vec![0, 0, 0, 1, 1, 1, 2, 2, 2],
+        optimal_config: serde_json::json!(vec![0, 0, 0, 1, 1, 1, 2, 2, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

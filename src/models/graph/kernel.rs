@@ -45,14 +45,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::Kernel;
 /// use problemreductions::topology::DirectedGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let graph = DirectedGraph::new(5, vec![
 ///     (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1),
 /// ]);
 /// let problem = Kernel::new(graph);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -84,25 +84,29 @@ impl Kernel {
 
 impl Problem for Kernel {
     const NAME: &'static str = "Kernel";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_arcs", num_arcs), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             let n = self.graph.num_vertices();
 
             // Collect selected vertices
-            let selected: Vec<bool> = config.iter().map(|&c| c == 1).collect();
+            let selected = config;
 
             // Independence: no arc between any two selected vertices
             for u in 0..n {
@@ -133,25 +137,36 @@ impl Problem for Kernel {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Kernel {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     // 5 vertices, arcs: (0,1),(0,2),(1,3),(2,3),(3,4),(4,0),(4,1)
-    // Kernel: V' = {0, 3} → config [1,0,0,1,0]
+    // Kernel: V' = {0, 3}.
     let graph = DirectedGraph::new(
         5,
         vec![(0, 1), (0, 2), (1, 3), (2, 3), (3, 4), (4, 0), (4, 1)],
     );
-    let optimal_config = vec![1, 0, 0, 1, 0];
+    let optimal_config = vec![true, false, false, true, false];
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "kernel",
         instance: Box::new(Kernel::new(graph)),
-        optimal_config,
+        optimal_config: serde_json::to_value(optimal_config)
+            .expect("solution serialization must succeed"),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default Kernel => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    Kernel decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(test)]

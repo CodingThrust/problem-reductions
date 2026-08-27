@@ -8,7 +8,7 @@ use crate::models::graph::RootedTreeArrangement;
 use crate::topology::{Graph, SimpleGraph};
 
 /// Find a witness for RootedTreeArrangement, or None if no solution exists.
-pub(crate) fn find_witness(problem: &RootedTreeArrangement<SimpleGraph>) -> Option<Vec<usize>> {
+pub(crate) fn solve(problem: &RootedTreeArrangement<SimpleGraph>) -> Option<Vec<usize>> {
     let graph = problem.graph();
     let n = graph.num_vertices();
     let bound = problem.bound();

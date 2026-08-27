@@ -112,12 +112,12 @@ fn main() {
         }
         Commands::Eval { expr, vars } => {
             let parsed = parse_expr_or_exit(&expr);
-            let bindings: Vec<(String, usize)> = vars
+            let bindings: Vec<(String, u64)> = vars
                 .split(',')
                 .filter_map(|pair| {
                     let mut parts = pair.splitn(2, '=');
                     let name = parts.next()?.trim();
-                    let value: usize = parts.next()?.trim().parse().ok()?;
+                    let value: u64 = parts.next()?.trim().parse().ok()?;
                     Some((name.to_string(), value))
                 })
                 .collect();

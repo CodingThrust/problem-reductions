@@ -33,26 +33,38 @@ Every problem implements `Problem`. The associated `Value` type is the per-confi
 ```rust,ignore
 trait Problem: Clone {
     const NAME: &'static str;              // e.g., "MaximumIndependentSet"
+    type Solution;                         // e.g., Vec<bool>, permutation, tuple
     type Value: Clone;                     // e.g., Max<i64>, Or, Sum<i64>
-    fn dims(&self) -> Vec<usize>;          // config space per variable
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, EvaluationError>;
+    fn size_parameter_names() -> &'static [&'static str];
+    fn size(&self) -> ProblemSize;
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
     fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i64")]
-    fn num_variables(&self) -> usize;      // default: dims().len()
     fn problem_type() -> ProblemType;      // default: registry lookup by NAME
 }
 ```
 
-- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Each problem also provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) used by reduction size expressions.
-- **Witness-capable objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
-- **Witness-capable feasibility problems** — typically use `Or`.
-- **Aggregate-only problems** — use fold values such as `Sum<W>` or `And`; these solve to a value but do not admit representative witness configurations.
+- **`Problem`** — the base trait. Every problem declares a mathematical `Solution` type, evaluates that type directly, and measures its concrete instance size. For example, a 4-vertex MIS uses `Vec<bool>`; `evaluate(&[true, false, true, false])` returns `Ok(Max(Some(2)))` if vertices 0 and 2 form an independent set, or `Ok(Max(None))` if they share an edge. Inherent getters such as `num_vertices()` and `num_edges()` supply the named size parameters used by reduction expressions.
+- **`BruteForceProblem`** — the reference-solver capability for registered variants with a finite Cartesian coordinate space. Its `dimensions()` method and the Cartesian iterator belong to the brute-force solver, not to the mathematical `Problem` contract.
+- **Objective problems** — typically use `Max<V>`, `Min<V>`, or `Extremum<V>` as `Value`.
+- **Feasibility problems** — typically use `Or`.
+- **Solve contract** — a successful solve always returns the problem's `Solution`; a global count or statistic without a representative solution is not a `Problem` solve.
 - **Common aggregate wrappers** — `Max<V>`, `Min<V>`, `Sum<W>`, `Or`, `And`, `Extremum<V>`, `ExtremumSense`.
 
 ## Numeric types and arithmetic
 
-Default numeric formats are `usize` for indices and other structural integers,
-`i64` for mathematical integers, `bool` for Boolean variables, and finite
-`f64` for real or rational values.
+Numeric formats are selected by semantic role:
+
+- `usize` represents in-memory indices, collection lengths, and brute-force
+  dimensions;
+- `u64` represents public problem size parameters and the input/output values
+  of reduction size expressions;
+- `i64` represents signed mathematical integers;
+- `bool` represents Boolean variables; and
+- finite `f64` represents real or rational values when an approximate
+  representation is part of the model contract.
+
+`usize` is not a portable serialized size format, and `u64` is not an index or
+general-purpose replacement for a model's mathematical integer domain.
 
 Another numeric format requires sufficient justification from the mathematical
 problem or target schema. Required exceptions include `BigUint` in `Factoring`,
@@ -88,6 +100,12 @@ Weight variants are `One`, `i64`, and `f64`, with `One ⊂ i64 ⊂ f64`.
 
 - Use `From` only for value-preserving conversions and `TryFrom` when range,
   sign, or domain can change. Do not use `as` for model-derived values.
+- Converting a registered size getter from `usize` to `u64` is an internal
+  invariant of `Problem::size()`, not a recoverable construction error. A valid
+  instance's registered size parameters must already fit `u64`; the
+  implementation checks this conversion to prevent silent truncation.
+- Symbolic size evaluation may use arbitrary-precision integers for local
+  intermediate arithmetic, but a materialized `ProblemSize` must fit `u64`.
 - An `i64` to `f64` conversion is explicit and fallible: it succeeds only
   for `|value| ≤ 2^53-1`. Use one shared helper at weight casts, solver
   adapters, and other exact-to-float hubs.
@@ -409,21 +427,19 @@ terminal operation used for Big-O path comparison.
 
 ## Solvers
 
-Solvers implement the `Solver` trait:
+The reference solver exposes a direct typed operation:
 
 ```rust,ignore
-pub trait Solver {
-    fn solve<P>(&self, problem: &P) -> P::Value
-    where
-        P: Problem,
-        P::Value: Aggregate;
-}
+BruteForce::solve(&problem) -> Result<Option<P::Solution>, SolveError>
 ```
+
+`Some(solution)` is a successful exact solve, `None` means exhaustive search
+proved infeasibility, and `Err` reports an operational failure.
 
 | Solver | Description |
 |--------|-------------|
-| **BruteForce** | Enumerates all configurations. `solve()` works for any aggregate problem; `find_witness()`, `find_all_witnesses()`, and `solve_with_witnesses()` are available when `P::Value` supports witnesses. Used for testing and verification. |
-| **ILPSolver** | Solves `ILP<bool>` and `ILP<i64>` instances directly with HiGHS via `good_lp`. Also provides `solve_reduced::<V, _>()` for witness-capable problems that implement `ReduceTo<ILP<V>>`. |
+| **BruteForce** | Enumerates a registered finite search space and returns an optimal or satisfying solution. Used for testing and verification. |
+| **ILPSolver** | Solves `ILP<bool>` and `ILP<i64>` instances directly with HiGHS via `good_lp`. Also provides `solve_reduced::<V, _>()` for problems that implement `ReduceTo<ILP<V>>`. |
 
 ## JSON Serialization
 

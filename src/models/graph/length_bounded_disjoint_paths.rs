@@ -203,25 +203,48 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "LengthBoundedDisjointPaths";
+    type Solution = Vec<Vec<bool>>;
     type Value = Max<i64>;
+
+    crate::problem_size![
+        ("max_paths", max_paths),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.max_paths * self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if solution.len() != self.max_paths
+            || solution
+                .iter()
+                .any(|path| path.len() != self.graph.num_vertices())
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "path collection dimensions do not match the instance".into(),
+            ));
+        }
         validate_path_collection(
             &self.graph,
             self.source,
             self.sink,
-            self.max_paths,
             self.max_length,
-            config,
+            solution,
         )
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for LengthBoundedDisjointPaths<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.max_paths * self.graph.num_vertices()]
     }
 }
 
@@ -231,24 +254,16 @@ fn validate_path_collection<G: Graph>(
     graph: &G,
     source: usize,
     sink: usize,
-    max_paths: usize,
     max_length: usize,
-    config: &[usize],
+    solution: &[Vec<bool>],
 ) -> Result<Max<i64>, crate::traits::EvaluationError> {
     let num_vertices = graph.num_vertices();
-    if config.len() != max_paths * num_vertices {
-        return Ok(Max(None));
-    }
-    if config.iter().any(|&value| value > 1) {
-        return Ok(Max(None));
-    }
-
     let mut used_internal = vec![false; num_vertices];
     let mut used_direct_path = false;
     let mut count = 0_i64;
-    for slot in config.chunks(num_vertices) {
+    for slot in solution {
         // Check if slot is empty (all zeros)
-        if slot.iter().all(|&v| v == 0) {
+        if slot.iter().all(|&v| !v) {
             continue;
         }
         if !is_valid_path_slot(
@@ -274,13 +289,13 @@ fn is_valid_path_slot<G: Graph>(
     source: usize,
     sink: usize,
     max_length: usize,
-    slot: &[usize],
+    slot: &[bool],
     used_internal: &mut [bool],
     used_direct_path: &mut bool,
 ) -> bool {
     if slot.len() != graph.num_vertices()
-        || slot.get(source) != Some(&1)
-        || slot.get(sink) != Some(&1)
+        || slot.get(source) != Some(&true)
+        || slot.get(sink) != Some(&true)
     {
         return false;
     }
@@ -288,7 +303,7 @@ fn is_valid_path_slot<G: Graph>(
     let selected = slot
         .iter()
         .enumerate()
-        .filter_map(|(vertex, &chosen)| (chosen == 1).then_some(vertex))
+        .filter_map(|(vertex, &chosen)| chosen.then_some(vertex))
         .collect::<Vec<_>>();
     if selected.len() < 2 {
         return false;
@@ -357,28 +372,31 @@ fn is_valid_path_slot<G: Graph>(
     true
 }
 
-#[cfg(feature = "example-db")]
-fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<usize> {
-    let mut config = vec![0; num_vertices * max_paths];
+#[cfg(any(test, feature = "example-db"))]
+fn encode_paths(num_vertices: usize, max_paths: usize, slots: &[&[usize]]) -> Vec<Vec<bool>> {
+    let mut paths = vec![vec![false; num_vertices]; max_paths];
     for (slot_index, slot_vertices) in slots.iter().enumerate() {
-        let offset = slot_index * num_vertices;
         for &vertex in *slot_vertices {
-            config[offset + vertex] = 1;
+            paths[slot_index][vertex] = true;
         }
     }
-    config
+    paths
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 4), (0, 2), (2, 4), (0, 3), (3, 4)]);
     // max_paths = min(deg(0), deg(4)) = min(3, 3) = 3
-    // 3 * 5 = 15 binary variables → 2^15 = 32768 configs (brute-force feasible)
+    // Three path-incidence rows over five vertices.
     // Optimal: 3 disjoint paths [0,1,4], [0,2,4], [0,3,4]
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "length_bounded_disjoint_paths_simplegraph",
         instance: Box::new(LengthBoundedDisjointPaths::new(graph, 0, 4, 3)),
-        optimal_config: encode_paths(5, 3, &[&[0, 1, 4], &[0, 2, 4], &[0, 3, 4]]),
+        optimal_config: serde_json::json!(encode_paths(
+            5,
+            3,
+            &[&[0, 1, 4], &[0, 2, 4], &[0, 3, 4]]
+        )),
         optimal_value: serde_json::json!(3),
     }]
 }
@@ -410,6 +428,10 @@ crate::impl_random_generate!(
 
 crate::declare_variants! {
     default LengthBoundedDisjointPaths<SimpleGraph> => "2^(max_paths * num_vertices)" create LengthBoundedDisjointPathsCreateSpec random,
+}
+
+crate::register_brute_force! {
+    LengthBoundedDisjointPaths<SimpleGraph> decode |problem: &LengthBoundedDisjointPaths<SimpleGraph>, indices: Vec<usize>| indices.chunks(problem.num_vertices()).map(crate::config::config_to_bits).collect(),
 }
 
 #[cfg(test)]

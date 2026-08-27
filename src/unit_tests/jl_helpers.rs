@@ -55,6 +55,40 @@ fn jl_parse_configs_set(val: &serde_json::Value) -> HashSet<Vec<usize>> {
 }
 
 #[allow(dead_code)]
+fn jl_parse_bool_config(val: &serde_json::Value) -> Vec<bool> {
+    jl_parse_config(val)
+        .into_iter()
+        .map(|value| match value {
+            0 => false,
+            1 => true,
+            _ => panic!("Boolean configuration element must be 0 or 1"),
+        })
+        .collect()
+}
+
+#[allow(dead_code)]
+fn jl_parse_bool_configs_set(val: &serde_json::Value) -> HashSet<Vec<bool>> {
+    val.as_array()
+        .expect("configs set should be an array")
+        .iter()
+        .map(jl_parse_bool_config)
+        .collect()
+}
+
+#[allow(dead_code)]
+fn jl_parse_spin_configs_set(val: &serde_json::Value) -> HashSet<Vec<i8>> {
+    jl_parse_bool_configs_set(val)
+        .into_iter()
+        .map(|config| {
+            config
+                .into_iter()
+                .map(|selected| if selected { 1 } else { -1 })
+                .collect()
+        })
+        .collect()
+}
+
+#[allow(dead_code)]
 fn jl_parse_i64_vec(val: &serde_json::Value) -> Vec<i64> {
     val.as_array()
         .expect("should be an array of integers")
@@ -113,12 +147,12 @@ fn jl_parse_sat_clauses(
 
 /// Flip a binary config: 0<->1 for SpinGlass spin convention mapping.
 #[allow(dead_code)]
-fn jl_flip_config(config: &[usize]) -> Vec<usize> {
-    config.iter().map(|&x| 1 - x).collect()
+fn jl_flip_config(config: &[usize]) -> Vec<i8> {
+    config.iter().map(|&x| if x == 0 { 1 } else { -1 }).collect()
 }
 
 #[allow(dead_code)]
-fn jl_flip_configs_set(configs: &HashSet<Vec<usize>>) -> HashSet<Vec<usize>> {
+fn jl_flip_configs_set(configs: &HashSet<Vec<usize>>) -> HashSet<Vec<i8>> {
     configs.iter().map(|c| jl_flip_config(c)).collect()
 }
 

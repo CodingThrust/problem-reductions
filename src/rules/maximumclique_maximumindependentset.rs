@@ -30,8 +30,8 @@ where
     /// A clique in G is an independent set in the complement, so the configuration is the same.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -83,7 +83,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 
     vec![
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumclique_to_maximumindependentset",
+            id: "weighted_maximumclique_to_maximumindependentset",
             build: || {
                 let source = MaximumClique::new(
                     SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
@@ -95,14 +95,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![0, 1, 1, 0],
-                        target_config: vec![0, 1, 1, 0],
+                        source_config: serde_json::json!(vec![false, true, true, false]),
+                        target_config: serde_json::json!(vec![false, true, true, false]),
                     },
                 )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
-            id: "maximumclique_to_maximumindependentset_one",
+            id: "cardinality_maximumclique_to_maximumindependentset",
             build: || {
                 let source = MaximumClique::new(
                     SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
@@ -114,8 +114,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     source,
                     SolutionPair {
-                        source_config: vec![0, 1, 1, 0],
-                        target_config: vec![0, 1, 1, 0],
+                        source_config: serde_json::json!(vec![false, true, true, false]),
+                        target_config: serde_json::json!(vec![false, true, true, false]),
                     },
                 )
             },

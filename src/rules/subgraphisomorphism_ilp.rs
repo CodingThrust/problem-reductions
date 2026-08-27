@@ -36,8 +36,8 @@ impl ReductionResult for ReductionSubIsoToILP {
     /// Extract: for each pattern vertex v, output the unique host vertex u with x_{v,u} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(
@@ -84,15 +84,16 @@ impl ReduceTo<ILP<bool>> for SubgraphIsomorphism {
                     }
                     // x_{v,u} + x_{w,u'} <= 1
                     constraints.push(LinearConstraint::le(
-                        vec![(v * n_host + u, 1.0), (w * n_host + u_prime, 1.0)],
-                        1.0,
+                        vec![(v * n_host + u, 1), (w * n_host + u_prime, 1)],
+                        1,
                     ));
                 }
             }
         }
 
         // Feasibility: no objective
-        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, vec![], ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionSubIsoToILP {
             target,

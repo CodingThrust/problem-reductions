@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_defaults_task_weights() {
@@ -27,7 +28,7 @@ fn test_scheduling_min_wct_creation() {
     assert_eq!(problem.num_processors(), 2);
     assert_eq!(problem.lengths(), &[1, 2, 3, 4, 5]);
     assert_eq!(problem.weights(), &[6, 4, 3, 2, 1]);
-    assert_eq!(problem.dims(), vec![2; 5]);
+    assert_eq!(problem.dimensions(), vec![2; 5]);
     assert_eq!(
         <SchedulingToMinimizeWeightedCompletionTime as Problem>::NAME,
         "SchedulingToMinimizeWeightedCompletionTime"
@@ -48,7 +49,10 @@ fn test_scheduling_min_wct_evaluate_issue_example() {
         2,
     );
     // config: [0, 1, 0, 1, 0] means t0->P0, t1->P1, t2->P0, t3->P1, t4->P0
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1, 0]).unwrap(), Min(Some(47)));
+    assert_eq!(
+        problem.evaluate(&vec![0, 1, 0, 1, 0]).unwrap(),
+        Min(Some(47))
+    );
 }
 
 #[test]
@@ -62,17 +66,29 @@ fn test_scheduling_min_wct_evaluate_all_one_processor() {
     // All on processor 0: Smith's rule order t0,t1,t2,t3,t4
     // C(t0)=1, C(t1)=3, C(t2)=6, C(t3)=10, C(t4)=15
     // WCT = 1*6 + 3*4 + 6*3 + 10*2 + 15*1 = 6+12+18+20+15 = 71
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0]).unwrap(), Min(Some(71)));
+    assert_eq!(
+        problem.evaluate(&vec![0, 0, 0, 0, 0]).unwrap(),
+        Min(Some(71))
+    );
 }
 
 #[test]
 fn test_scheduling_min_wct_evaluate_invalid_config() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![1, 2], vec![3, 4], 2);
     // Wrong length
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 1, 0]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     // Out-of-range processor
-    assert_eq!(problem.evaluate(&[0, 2]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -83,7 +99,7 @@ fn test_scheduling_min_wct_solver() {
         2,
     );
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(47)));
 }
 
@@ -161,8 +177,8 @@ fn test_scheduling_min_wct_zero_weight() {
 fn test_scheduling_min_wct_single_task() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![5], vec![3], 2);
     // Task 0 on processor 0: C(0) = 5, WCT = 5*3 = 15
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(15)));
-    assert_eq!(problem.evaluate(&[1]).unwrap(), Min(Some(15)));
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(15)));
+    assert_eq!(problem.evaluate(&vec![1]).unwrap(), Min(Some(15)));
 }
 
 #[test]
@@ -173,17 +189,17 @@ fn test_scheduling_min_wct_single_processor() {
     // Order: t1, t0
     // C(t1) = 1, C(t0) = 3
     // WCT = 1*3 + 3*1 = 6
-    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(Some(6)));
+    assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Min(Some(6)));
 }
 
 #[test]
 fn test_scheduling_min_wct_three_processors() {
     let problem = SchedulingToMinimizeWeightedCompletionTime::new(vec![3, 3, 3], vec![1, 1, 1], 3);
-    assert_eq!(problem.dims(), vec![3; 3]);
+    assert_eq!(problem.dimensions(), vec![3; 3]);
     // One task per processor: each completes at 3, WCT = 3*1 + 3*1 + 3*1 = 9
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(Some(9)));
+    assert_eq!(problem.evaluate(&vec![0, 1, 2]).unwrap(), Min(Some(9)));
     // All on one processor: C(t0)=3, C(t1)=6, C(t2)=9, WCT = 3+6+9 = 18
-    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(Some(18)));
+    assert_eq!(problem.evaluate(&vec![0, 0, 0]).unwrap(), Min(Some(18)));
 }
 
 #[test]
@@ -199,9 +215,12 @@ fn test_scheduling_min_wct_paper_example() {
     // P1={t1,t3}: Smith order t1(0.5), t3(2.0)
     //   C(t1)=2 => 2*4=8, C(t3)=6 => 6*2=12, subtotal=20
     // Total = 47
-    assert_eq!(problem.evaluate(&[0, 1, 0, 1, 0]).unwrap(), Min(Some(47)));
+    assert_eq!(
+        problem.evaluate(&vec![0, 1, 0, 1, 0]).unwrap(),
+        Min(Some(47))
+    );
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(47)));
 }

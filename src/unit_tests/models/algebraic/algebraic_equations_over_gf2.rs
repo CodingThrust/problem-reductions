@@ -1,5 +1,6 @@
 use crate::models::algebraic::AlgebraicEquationsOverGF2;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Or;
 
@@ -38,7 +39,7 @@ fn test_algebraic_equations_over_gf2_creation_and_accessors() {
     assert_eq!(p.num_variables(), 3);
     assert_eq!(p.num_equations(), 3);
     assert_eq!(p.equations().len(), 3);
-    assert_eq!(p.dims(), vec![2, 2, 2]);
+    assert_eq!(p.dimensions(), vec![2, 2, 2]);
     assert_eq!(p.num_variables(), 3);
     assert_eq!(
         <AlgebraicEquationsOverGF2 as Problem>::NAME,
@@ -54,73 +55,70 @@ fn test_algebraic_equations_over_gf2_evaluate_satisfiable() {
     //   eq0: 1*0 + 0 = 0 ✓
     //   eq1: 0*0 + 1 + 1 = 0 ✓
     //   eq2: 1 + 0 + 0 + 1 = 0 ✓
-    assert_eq!(p.evaluate(&[1, 0, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![true, false, false]).unwrap(), Or(true));
 
     // config [0,0,0]:
     //   eq0: 0*0 + 0 = 0 ✓
     //   eq1: 0*0 + 0 + 1 = 1 ✗
-    assert_eq!(p.evaluate(&[0, 0, 0]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&vec![false, false, false]).unwrap(), Or(false));
 
     // config [1,1,1]:
     //   eq0: 1*1 + 1 = 0 ✓
     //   eq1: 1*1 + 1 + 1 = 1 ✗
-    assert_eq!(p.evaluate(&[1, 1, 1]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&vec![true, true, true]).unwrap(), Or(false));
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_evaluate_unsatisfiable() {
     let p = unsatisfiable_problem();
-    assert_eq!(p.dims(), vec![2, 2]);
+    assert_eq!(p.dimensions(), vec![2, 2]);
     // All 4 assignments should fail
-    assert_eq!(p.evaluate(&[0, 0]).unwrap(), Or(false)); // eq0: 0+0=0 ✓, eq1: 0+0+1=1 ✗
-    assert_eq!(p.evaluate(&[0, 1]).unwrap(), Or(false)); // eq0: 0+1=1 ✗
-    assert_eq!(p.evaluate(&[1, 0]).unwrap(), Or(false)); // eq0: 1+0=1 ✗
-    assert_eq!(p.evaluate(&[1, 1]).unwrap(), Or(false)); // eq0: 1+1=0 ✓, eq1: 1+1+1=1 ✗
+    assert_eq!(p.evaluate(&vec![false, false]).unwrap(), Or(false)); // eq0: 0+0=0 ✓, eq1: 0+0+1=1 ✗
+    assert_eq!(p.evaluate(&vec![false, true]).unwrap(), Or(false)); // eq0: 0+1=1 ✗
+    assert_eq!(p.evaluate(&vec![true, false]).unwrap(), Or(false)); // eq0: 1+0=1 ✗
+    assert_eq!(p.evaluate(&vec![true, true]).unwrap(), Or(false)); // eq0: 1+1=0 ✓, eq1: 1+1+1=1 ✗
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_constant_monomial() {
     // Single equation: 1 = 0 (always false)
     let p = AlgebraicEquationsOverGF2::new(1, vec![vec![vec![]]]).unwrap();
-    assert_eq!(p.evaluate(&[0]).unwrap(), Or(false));
-    assert_eq!(p.evaluate(&[1]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&vec![false]).unwrap(), Or(false));
+    assert_eq!(p.evaluate(&vec![true]).unwrap(), Or(false));
 
     // Single equation: 1 + 1 = 0 (always true — two constants XOR to 0)
     let p2 = AlgebraicEquationsOverGF2::new(1, vec![vec![vec![], vec![]]]).unwrap();
-    assert_eq!(p2.evaluate(&[0]).unwrap(), Or(true));
-    assert_eq!(p2.evaluate(&[1]).unwrap(), Or(true));
+    assert_eq!(p2.evaluate(&vec![false]).unwrap(), Or(true));
+    assert_eq!(p2.evaluate(&vec![true]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_empty_equations() {
     // No equations: trivially satisfied
     let p = AlgebraicEquationsOverGF2::new(2, vec![]).unwrap();
-    assert_eq!(p.evaluate(&[0, 0]).unwrap(), Or(true));
-    assert_eq!(p.evaluate(&[1, 1]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![false, false]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![true, true]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_empty_polynomial() {
     // One equation with no monomials: sum = 0, so satisfied
     let p = AlgebraicEquationsOverGF2::new(2, vec![vec![]]).unwrap();
-    assert_eq!(p.evaluate(&[0, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![false, false]).unwrap(), Or(true));
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_brute_force_finds_witness() {
     let solver = BruteForce::new();
     let p = satisfiable_problem();
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }
 
 #[test]
 fn test_algebraic_equations_over_gf2_brute_force_no_witness() {
     let solver = BruteForce::new();
-    assert!(solver
-        .find_witness(&unsatisfiable_problem())
-        .unwrap()
-        .is_none());
+    assert!(solver.solve(&unsatisfiable_problem()).unwrap().is_none());
 }
 
 #[test]
@@ -143,7 +141,10 @@ fn test_algebraic_equations_over_gf2_serialization() {
     assert_eq!(restored.num_variables(), p.num_variables());
     assert_eq!(restored.num_equations(), p.num_equations());
     // Check round-trip preserves evaluation
-    assert_eq!(restored.evaluate(&[1, 0, 0]).unwrap(), Or(true));
+    assert_eq!(
+        restored.evaluate(&vec![true, false, false]).unwrap(),
+        Or(true)
+    );
 }
 
 #[test]
@@ -186,9 +187,9 @@ fn test_algebraic_equations_over_gf2_validation_errors() {
 fn test_algebraic_equations_over_gf2_paper_example() {
     // Canonical example from the issue: n=3, 3 equations, config [1,0,0]
     let p = satisfiable_problem();
-    assert_eq!(p.evaluate(&[1, 0, 0]).unwrap(), Or(true));
+    assert_eq!(p.evaluate(&vec![true, false, false]).unwrap(), Or(true));
 
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&p).unwrap().unwrap();
+    let witness = solver.solve(&p).unwrap().unwrap();
     assert_eq!(p.evaluate(&witness).unwrap(), Or(true));
 }

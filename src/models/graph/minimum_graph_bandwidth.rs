@@ -48,14 +48,14 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MinimumGraphBandwidth;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Star graph S4: center 0 connected to 1, 2, 3
 /// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 /// let problem = MinimumGraphBandwidth::new(graph);
 ///
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,18 +133,30 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumGraphBandwidth";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
         let n = self.graph.num_vertices();
-        vec![n; n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex ordering length does not match the graph".into(),
+            ));
+        }
+        if config.iter().any(|&position| position >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex ordering contains an out-of-range position".into(),
+            ));
+        }
         Ok({
             match self.bandwidth(config)? {
                 Some(bw) => Min(Some(bw)),
@@ -154,8 +166,22 @@ where
     }
 }
 
+impl<G> crate::solvers::BruteForceProblem for MinimumGraphBandwidth<G>
+where
+    G: Graph + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        let n = self.graph.num_vertices();
+        vec![n; n]
+    }
+}
+
 crate::declare_variants! {
     default MinimumGraphBandwidth<SimpleGraph> => "factorial(num_vertices)",
+}
+
+crate::register_brute_force! {
+    MinimumGraphBandwidth<SimpleGraph>,
 }
 
 #[cfg(feature = "example-db")]
@@ -172,7 +198,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             4,
             vec![(0, 1), (0, 2), (0, 3)],
         ))),
-        optimal_config: vec![1, 0, 2, 3],
+        optimal_config: serde_json::json!(vec![1, 0, 2, 3]),
         optimal_value: serde_json::json!(2),
     }]
 }

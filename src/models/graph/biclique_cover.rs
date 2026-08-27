@@ -43,7 +43,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::BicliqueCover;
 /// use problemreductions::topology::BipartiteGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Bipartite graph: L = {0, 1}, R = {0, 1}
 /// // Edges: (0,0), (0,1), (1,0) in bipartite-local coordinates
@@ -172,12 +172,11 @@ impl BicliqueCover {
 
     /// Convert a configuration to biclique memberships.
     ///
-    /// Config is a flat array where each vertex has k binary variables
-    /// indicating membership in each of the k bicliques.
+    /// Each row gives one vertex's membership in the `k` bicliques.
     /// Returns: (left_memberships, right_memberships) where each is a Vec of k HashSets.
     fn get_biclique_memberships(
         &self,
-        config: &[usize],
+        config: &[Vec<bool>],
     ) -> (Vec<HashSet<usize>>, Vec<HashSet<usize>>) {
         let n = self.num_vertices();
         let left_size = self.graph.left_size();
@@ -186,8 +185,12 @@ impl BicliqueCover {
 
         for v in 0..n {
             for b in 0..self.k {
-                let idx = v * self.k + b;
-                if config.get(idx).copied().unwrap_or(0) == 1 {
+                if config
+                    .get(b)
+                    .and_then(|memberships| memberships.get(v))
+                    .copied()
+                    .unwrap_or(false)
+                {
                     if v < left_size {
                         left_bicliques[b].insert(v);
                     } else {
@@ -203,7 +206,7 @@ impl BicliqueCover {
     /// Check if an edge is covered by the bicliques.
     ///
     /// Takes edge endpoints in unified vertex space.
-    fn is_edge_covered(&self, left: usize, right: usize, config: &[usize]) -> bool {
+    fn is_edge_covered(&self, left: usize, right: usize, config: &[Vec<bool>]) -> bool {
         let (left_bicliques, right_bicliques) = self.get_biclique_memberships(config);
 
         // Edge is covered if both endpoints are in the same biclique
@@ -216,7 +219,7 @@ impl BicliqueCover {
     }
 
     /// Check if a configuration is a valid biclique cover.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+    pub fn is_valid_solution(&self, config: &[Vec<bool>]) -> bool {
         self.is_valid_cover(config)
     }
 
@@ -227,7 +230,7 @@ impl BicliqueCover {
     /// and `r ∈ R_b` must be an edge of `G`. A configuration is a valid
     /// biclique cover iff every biclique is a sub-biclique of `G` and
     /// every edge of `G` is covered by at least one biclique.
-    pub fn is_valid_cover(&self, config: &[usize]) -> bool {
+    pub fn is_valid_cover(&self, config: &[Vec<bool>]) -> bool {
         use crate::topology::Graph;
         let (left_bicliques, right_bicliques) = self.get_biclique_memberships(config);
         let left_size = self.graph.left_size();
@@ -254,7 +257,7 @@ impl BicliqueCover {
     /// Count covered edges.
     pub fn count_covered_edges(
         &self,
-        config: &[usize],
+        config: &[Vec<bool>],
     ) -> Result<i64, crate::traits::EvaluationError> {
         use crate::topology::Graph;
         let count = self
@@ -273,9 +276,13 @@ impl BicliqueCover {
     /// Count total biclique size (sum of vertices in all bicliques).
     pub fn total_biclique_size(
         &self,
-        config: &[usize],
+        config: &[Vec<bool>],
     ) -> Result<i64, crate::traits::EvaluationError> {
-        let size = config.iter().filter(|&&x| x == 1).count();
+        let size = config
+            .iter()
+            .flatten()
+            .filter(|&&selected| selected)
+            .count();
         i64::try_from(size).map_err(|_| {
             crate::traits::EvaluationError::IntegerOverflow(
                 "converting total biclique size to i64".into(),
@@ -320,19 +327,35 @@ pub(crate) fn is_biclique_cover(
 
 impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
+    type Solution = Vec<Vec<bool>>;
     type Value = Min<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        // Each vertex has k binary variables (one per biclique)
-        vec![2; self.num_vertices() * self.k]
-    }
+    crate::problem_size![
+        ("left_size", left_size),
+        ("num_edges", num_edges),
+        ("num_vertices", num_vertices),
+        ("rank", rank),
+        ("right_size", right_size),
+    ];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        solution: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if solution.len() != self.k
+            || solution
+                .iter()
+                .any(|biclique| biclique.len() != self.num_vertices())
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "biclique membership dimensions do not match the instance".into(),
+            ));
+        }
         Ok({
-            if !self.is_valid_cover(config) {
+            if !self.is_valid_cover(solution) {
                 return Ok(Min(None));
             }
-            Min(Some(self.total_biclique_size(config)?))
+            Min(Some(self.total_biclique_size(solution)?))
         })
     }
 
@@ -341,8 +364,19 @@ impl Problem for BicliqueCover {
     }
 }
 
+impl crate::solvers::BruteForceProblem for BicliqueCover {
+    fn dimensions(&self) -> Vec<usize> {
+        // Each vertex has k binary variables (one per biclique)
+        vec![2; self.num_vertices() * self.k]
+    }
+}
+
 crate::declare_variants! {
     default BicliqueCover => "2^(num_vertices * rank)" create BicliqueCoverCreateSpec,
+}
+
+crate::register_brute_force! {
+    BicliqueCover decode |problem: &BicliqueCover, indices: Vec<usize>| (0..problem.rank()).map(|biclique| (0..problem.num_vertices()).map(|vertex| indices[vertex * problem.rank() + biclique] != 0).collect()).collect(),
 }
 
 #[cfg(feature = "example-db")]
@@ -351,15 +385,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     // Biclique 0: L_0={ℓ_1}, R_0={r_1, r_2} — covers edges (0,0), (0,1).
     // Biclique 1: L_1={ℓ_2}, R_1={r_2, r_3} — covers edges (1,1), (1,2).
     // Both are sub-bicliques of G; every edge covered; total size = 6.
-    // Vertex-major layout with k=2: v=0 in b=0, v=1 in b=1, v=2 in b=0,
-    // v=3 in both, v=4 in b=1.
+    // One incidence row per biclique over the five vertices.
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "biclique_cover",
         instance: Box::new(BicliqueCover::new(
             BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
             2,
         )),
-        optimal_config: vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![
+            vec![true, false, true, true, false],
+            vec![false, true, false, true, true]
+        ]),
         optimal_value: serde_json::json!(6),
     }]
 }

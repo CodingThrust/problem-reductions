@@ -74,7 +74,7 @@ pub(crate) struct IlpPipelineRegistration {
 
 inventory::collect!(IlpPipelineRegistration);
 
-type CustomizedSolveFn = fn(&dyn Any) -> Option<Vec<usize>>;
+type CustomizedSolveFn = fn(&dyn Any) -> Option<serde_json::Value>;
 
 /// A dedicated solver registered for one exact problem variant.
 #[derive(Debug)]
@@ -118,9 +118,11 @@ impl CompiledIlpPipeline {
         &self,
         source: &dyn Any,
         solver: &super::ILPSolver,
-    ) -> Result<Vec<usize>, super::ILPSolveError> {
+    ) -> Result<serde_json::Value, super::ILPSolveError> {
         if self.reducers.is_empty() {
-            return solver.solve_dyn(source);
+            return solver.solve_dyn(source).map(|solution| {
+                serde_json::to_value(solution).expect("ILP solution serialization failed")
+            });
         }
 
         let mut reductions: Vec<Box<dyn DynReductionResult>> = Vec::new();
@@ -137,11 +139,13 @@ impl CompiledIlpPipeline {
             .expect("non-empty fixed pipeline must produce a target")
             .target_problem_any();
         let solution = solver.solve_dyn(target)?;
-        let mut source_solution = solution;
+        let mut source_solution: Box<dyn Any> = Box::new(solution);
         for step in reductions.iter().rev() {
-            source_solution = step.extract_solution_dyn(&source_solution)?;
+            source_solution = step.extract_solution_dyn(source_solution.as_ref())?;
         }
-        Ok(source_solution)
+        reductions[0]
+            .source_solution_json(source_solution.as_ref())
+            .map_err(super::ILPSolveError::from)
     }
 }
 
@@ -149,6 +153,7 @@ impl CompiledIlpPipeline {
 pub(crate) struct RegisteredSolverCapabilities<'a> {
     pub(crate) customized: Option<&'static CustomizedSolverRegistration>,
     pub(crate) ilp: Option<&'a CompiledIlpPipeline>,
+    pub(crate) brute_force: Option<&'static super::BruteForceRegistration>,
 }
 
 impl std::fmt::Debug for RegisteredSolverCapabilities<'_> {
@@ -159,6 +164,7 @@ impl std::fmt::Debug for RegisteredSolverCapabilities<'_> {
                 &self.customized.map(|entry| entry.implementation),
             )
             .field("ilp", &self.ilp.map(CompiledIlpPipeline::path))
+            .field("brute_force", &self.brute_force.is_some())
             .finish()
     }
 }
@@ -190,12 +196,14 @@ impl IlpSolverCapability {
 pub struct SolverCapabilities {
     pub customized: Option<CustomizedSolverCapability>,
     pub ilp: Option<IlpSolverCapability>,
+    pub brute_force: bool,
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct SolverCapabilityRegistry {
     customized: BTreeMap<ExactProblemKey, &'static CustomizedSolverRegistration>,
     ilp: BTreeMap<ExactProblemKey, CompiledIlpPipeline>,
+    brute_force: BTreeMap<ExactProblemKey, &'static super::BruteForceRegistration>,
 }
 
 impl SolverCapabilityRegistry {
@@ -203,21 +211,8 @@ impl SolverCapabilityRegistry {
         RegisteredSolverCapabilities {
             customized: self.customized.get(key).copied(),
             ilp: self.ilp.get(key),
+            brute_force: self.brute_force.get(key).copied(),
         }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn customized_entries(
-        &self,
-    ) -> impl Iterator<Item = (&ExactProblemKey, &'static CustomizedSolverRegistration)> + '_ {
-        self.customized.iter().map(|(key, entry)| (key, *entry))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn ilp_entries(
-        &self,
-    ) -> impl Iterator<Item = (&ExactProblemKey, &CompiledIlpPipeline)> {
-        self.ilp.iter()
     }
 }
 
@@ -229,6 +224,10 @@ pub enum RegistryBuildError {
     DuplicateCustomized(String),
     #[error("duplicate ILP pipeline registration for {0}")]
     DuplicateIlp(String),
+    #[error("duplicate brute-force registration for {0}")]
+    DuplicateBruteForce(String),
+    #[error("exact variant {0} has no registered solver capability")]
+    MissingSolverCapability(String),
     #[error("ILP pipeline must contain at least one node")]
     EmptyPipeline,
     #[error("ILP pipeline for {0} does not end at ILP<bool> or ILP<i64>")]
@@ -268,6 +267,7 @@ fn build_registry(
     variants: &BTreeSet<ExactProblemKey>,
     customized_entries: impl IntoIterator<Item = &'static CustomizedSolverRegistration>,
     pipeline_entries: impl IntoIterator<Item = &'static IlpPipelineRegistration>,
+    brute_force_entries: impl IntoIterator<Item = &'static super::BruteForceRegistration>,
     reductions: &[&'static ReductionEntry],
 ) -> Result<SolverCapabilityRegistry, RegistryBuildError> {
     let mut registry = SolverCapabilityRegistry::default();
@@ -295,6 +295,23 @@ fn build_registry(
             .is_some()
         {
             return Err(RegistryBuildError::DuplicateCustomized(source.label()));
+        }
+    }
+
+    for brute_force in brute_force_entries {
+        let source = ExactProblemKey::new(
+            brute_force.source_name,
+            crate::export::variant_to_map((brute_force.source_variant_fn)()),
+        );
+        if !variants.contains(&source) {
+            return Err(RegistryBuildError::UnknownVariant(source.label()));
+        }
+        if registry
+            .brute_force
+            .insert(source.clone(), brute_force)
+            .is_some()
+        {
+            return Err(RegistryBuildError::DuplicateBruteForce(source.label()));
         }
     }
 
@@ -353,6 +370,15 @@ fn build_registry(
         }
     }
 
+    for variant in variants {
+        if !registry.customized.contains_key(variant)
+            && !registry.ilp.contains_key(variant)
+            && !registry.brute_force.contains_key(variant)
+        {
+            return Err(RegistryBuildError::MissingSolverCapability(variant.label()));
+        }
+    }
+
     Ok(registry)
 }
 
@@ -366,6 +392,7 @@ pub(crate) fn solver_capability_registry(
                 &registered_variant_keys(),
                 inventory::iter::<CustomizedSolverRegistration>(),
                 inventory::iter::<IlpPipelineRegistration>(),
+                inventory::iter::<super::BruteForceRegistration>(),
                 &reduction_entries(),
             )
         })
@@ -386,7 +413,24 @@ pub fn solver_capabilities(
         ilp: registered.ilp.map(|pipeline| IlpSolverCapability {
             path: pipeline.path.clone(),
         }),
+        brute_force: registered.brute_force.is_some(),
     })
+}
+
+pub(crate) fn brute_force_registration(
+    key: &ExactProblemKey,
+) -> Result<Option<&'static super::BruteForceRegistration>, &'static RegistryBuildError> {
+    Ok(solver_capability_registry()?.lookup(key).brute_force)
+}
+
+/// Return the finite Cartesian dimensions registered for a loaded problem.
+#[doc(hidden)]
+pub fn brute_force_dimensions(
+    problem: &crate::registry::LoadedDynProblem,
+) -> Result<Option<Vec<usize>>, &'static RegistryBuildError> {
+    let key = ExactProblemKey::new(problem.problem_name(), problem.variant_map());
+    Ok(brute_force_registration(&key)?
+        .map(|registration| (registration.dimensions_fn)(problem.as_any())))
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::solvers::BruteForce;
+use crate::solvers::ILPSolver;
 use crate::traits::Problem;
 
 #[test]
@@ -9,33 +9,28 @@ fn test_ilp_bool_to_ilp_i64_closed_loop() {
     let source = ILP::<bool>::new(
         3,
         vec![
-            LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
-            LinearConstraint::le(vec![(1, 1.0), (2, 1.0)], 1.0),
+            LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2),
+            LinearConstraint::le(vec![(1, 1), (2, 1)], 1),
         ],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
 
-    // Find optimal on source via brute force
-    let solver = BruteForce::new();
-    let source_best = solver
-        .find_witness(&source)
-        .unwrap()
-        .expect("source should have optimal");
+    let source_best = ILPSolver::new().solve(&source).unwrap();
     let source_obj = source.evaluate(&source_best).unwrap();
 
     let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
     // Target should have same number of variables
-    assert_eq!(target.num_vars, 3);
-    // Target should have original 2 constraints + 3 binary bound constraints
-    assert_eq!(target.constraints.len(), 5);
-    // Dims should be (i64::MAX + 1) per variable
-    assert_eq!(target.dims(), vec![(i64::MAX as usize) + 1; 3]);
+    assert_eq!(target.num_vars(), 3);
+    assert_eq!(target.constraints(), source.constraints());
+    assert_eq!(target.variables(), source.variables());
 
     // Extract solution back to source and verify optimality
-    let source_solution = result.extract_solution(&source_best).unwrap();
+    let target_solution = ILPSolver::new().solve(target).unwrap();
+    let source_solution = result.extract_solution(&target_solution).unwrap();
     assert_eq!(source.evaluate(&source_solution).unwrap(), source_obj);
 }
 
@@ -44,8 +39,8 @@ fn test_ilp_bool_to_ilp_i64_empty() {
     let source = ILP::<bool>::empty();
     let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
-    assert_eq!(target.num_vars, 0);
-    assert!(target.constraints.is_empty());
+    assert_eq!(target.num_vars(), 0);
+    assert!(target.constraints().is_empty());
 }
 
 #[test]
@@ -54,25 +49,20 @@ fn test_ilp_bool_to_ilp_i64_preserves_constraints() {
     let source = ILP::<bool>::new(
         3,
         vec![
-            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
-            LinearConstraint::ge(vec![(0, 1.0)], 0.0),
-            LinearConstraint::eq(vec![(2, 1.0)], 1.0),
+            LinearConstraint::le(vec![(0, 1), (1, 1)], 1),
+            LinearConstraint::ge(vec![(0, 1)], 0),
+            LinearConstraint::eq(vec![(2, 1)], 1),
         ],
         vec![(0, 1.0)],
         ObjectiveSense::Maximize,
-    );
+    )
+    .unwrap();
 
     let result = ReduceTo::<ILP<i64>>::reduce_to(&source).expect("reduction should succeed");
     let target = result.target_problem();
 
-    // Original 3 constraints + 3 binary bound constraints (x_i <= 1)
-    assert_eq!(target.constraints.len(), 6);
-
-    // Verify bound constraints are the last 3
-    for i in 0..3 {
-        let c = &target.constraints[3 + i];
-        assert_eq!(c.terms, vec![(i, 1.0)]);
-        assert_eq!(c.cmp, crate::models::algebraic::Comparison::Le);
-        assert_eq!(c.rhs, 1.0);
-    }
+    assert_eq!(target.constraints(), source.constraints());
+    assert_eq!(target.objective(), source.objective());
+    assert_eq!(target.sense(), source.sense());
+    assert_eq!(target.variables(), source.variables());
 }

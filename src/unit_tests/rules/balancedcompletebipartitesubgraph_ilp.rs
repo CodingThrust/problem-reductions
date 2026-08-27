@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::BalancedCompleteBipartiteSubgraph;
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
 use crate::topology::BipartiteGraph;
 use crate::traits::Problem;
@@ -21,11 +21,7 @@ fn test_balancedcompletebipartitesubgraph_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionBCBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &source,
-        &reduction,
-        "BCBS -> ILP round trip",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -35,7 +31,7 @@ fn test_reduction_shape() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // 6 variables (3 left + 3 right)
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
 }
 
 #[test]
@@ -59,7 +55,7 @@ fn test_extract_solution_identity() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![1, 1, 0, 1, 1, 0];
     let extracted = reduction.extract_solution(&target_sol).unwrap();
-    assert_eq!(extracted, vec![1, 1, 0, 1, 1, 0]);
+    assert_eq!(extracted, vec![true, true, false, true, true, false]);
     assert!(source.evaluate(&extracted).unwrap().0);
 }
 

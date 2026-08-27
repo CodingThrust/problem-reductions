@@ -1,8 +1,6 @@
 use super::*;
 use crate::models::graph::{HamiltonianPath, IsomorphicSpanningTree};
-use crate::rules::test_helpers::{
-    assert_satisfaction_round_trip_from_satisfaction_target, solve_satisfaction_problem,
-};
+use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
@@ -85,7 +83,9 @@ fn test_hamiltonianpath_to_isomorphicspanningtree_complete_graph() {
     let result = ReduceTo::<IsomorphicSpanningTree<SimpleGraph>>::reduce_to(&source)
         .expect("reduction should succeed");
 
-    let target_solution = solve_satisfaction_problem(result.target_problem())
+    let target_solution = BruteForce::new()
+        .solve(result.target_problem())
+        .unwrap()
         .expect("K4 should have an IST solution");
     let extracted = result.extract_solution(&target_solution).unwrap();
     // Extracted solution should be a valid Hamiltonian path

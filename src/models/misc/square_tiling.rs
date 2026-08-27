@@ -5,7 +5,7 @@
 //! exists a tiling of an N x N grid using tiles from T such that adjacent tiles
 //! have matching edge colors. Tiles may be reused but not rotated or reflected.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Or;
 use serde::de::Error as _;
@@ -25,13 +25,6 @@ inventory::submit! {
             FieldInfo { name: "tiles", type_name: "Vec<(usize, usize, usize, usize)>", description: "Collection of tile types (top, right, bottom, left)" },
             FieldInfo { name: "grid_size", type_name: "usize", description: "Grid dimension N for N x N tiling" },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "SquareTiling",
-        fields: &["num_colors", "num_tiles", "grid_size"],
     }
 }
 
@@ -184,23 +177,47 @@ impl<'de> Deserialize<'de> for SquareTiling {
 
 impl Problem for SquareTiling {
     const NAME: &'static str = "SquareTiling";
+    type Solution = Vec<usize>;
     type Value = Or;
+
+    crate::problem_size![
+        ("grid_size", grid_size),
+        ("num_colors", num_colors),
+        ("num_tiles", num_tiles),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.tiles.len(); self.grid_size * self.grid_size]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Or, crate::traits::EvaluationError> {
+    fn evaluate(&self, config: &Self::Solution) -> Result<Or, crate::traits::EvaluationError> {
+        let n = self.grid_size;
+        if config.len() != n * n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "tiling representation length does not match the grid".into(),
+            ));
+        }
+        if config.iter().any(|&tile| tile >= self.tiles.len()) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "tiling contains an out-of-range tile".into(),
+            ));
+        }
         Ok(Or(self.is_valid_tiling(config)))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SquareTiling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.tiles.len(); self.grid_size * self.grid_size]
     }
 }
 
 crate::declare_variants! {
     default SquareTiling => "num_tiles^(grid_size^2)",
+}
+
+crate::register_brute_force! {
+    SquareTiling,
 }
 
 #[cfg(feature = "example-db")]
@@ -212,7 +229,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![(0, 1, 2, 0), (0, 0, 2, 1), (2, 1, 0, 0), (2, 0, 0, 1)],
             2,
         )),
-        optimal_config: vec![0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }

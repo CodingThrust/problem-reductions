@@ -27,69 +27,6 @@ impl SizeRelation {
     }
 }
 
-/// Arbitrary-precision non-negative values for problem-size fields.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
-pub struct SizeValues {
-    components: Vec<(Box<str>, BigUint)>,
-}
-
-impl SizeValues {
-    pub fn new<I, N, V>(components: I) -> Self
-    where
-        I: IntoIterator<Item = (N, V)>,
-        N: Into<Box<str>>,
-        V: Into<BigUint>,
-    {
-        Self {
-            components: components
-                .into_iter()
-                .map(|(name, value)| (name.into(), value.into()))
-                .collect(),
-        }
-    }
-
-    pub fn from_problem_size(size: &ProblemSize) -> Self {
-        Self::new(
-            size.components
-                .iter()
-                .map(|(name, value)| (name.as_str(), BigUint::from(*value))),
-        )
-    }
-
-    pub fn get(&self, name: &str) -> Option<&BigUint> {
-        self.components
-            .iter()
-            .find(|(field, _)| field.as_ref() == name)
-            .map(|(_, value)| value)
-    }
-
-    pub fn components(&self) -> impl Iterator<Item = (&str, &BigUint)> {
-        self.components
-            .iter()
-            .map(|(name, value)| (name.as_ref(), value))
-    }
-
-    pub fn try_to_problem_size(&self) -> Result<ProblemSize, SizeTransformError> {
-        let mut values = Vec::with_capacity(self.components.len());
-        for (name, value) in &self.components {
-            let value =
-                usize::try_from(value).map_err(|_| SizeTransformError::OutputOutOfRange {
-                    field: name.clone(),
-                    value: value.clone(),
-                })?;
-            values.push((name.as_ref(), value));
-        }
-        Ok(ProblemSize::new(values))
-    }
-}
-
-/// Concrete size information whose relation is never erased during propagation.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
-pub struct EvaluatedSize {
-    relation: SizeRelation,
-    values: SizeValues,
-}
-
 /// Big-O projection of the target size fields used by symbolic cost models.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SizeGrowth {
@@ -143,27 +80,6 @@ pub fn size_growth_dominates(left: &SizeGrowth, right: &SizeGrowth) -> bool {
         strictly_smaller |= !growth.dominates(other);
     }
     strictly_smaller
-}
-
-impl EvaluatedSize {
-    pub fn exact(values: SizeValues) -> Self {
-        Self {
-            relation: SizeRelation::Exact,
-            values,
-        }
-    }
-
-    pub fn from_problem_size(size: &ProblemSize) -> Self {
-        Self::exact(SizeValues::from_problem_size(size))
-    }
-
-    pub fn relation(&self) -> SizeRelation {
-        self.relation
-    }
-
-    pub fn values(&self) -> &SizeValues {
-        &self.values
-    }
 }
 
 /// One rule-level symbolic transformation. Its relation applies to every formula.
@@ -277,43 +193,11 @@ impl SizeTransform {
             .map(|field| &field.expression)
     }
 
-    pub fn evaluate(&self, input: &EvaluatedSize) -> Result<EvaluatedSize, SizeTransformError> {
-        let relation = input.relation.compose(self.relation);
-        let upper_plans = if input.relation == SizeRelation::UpperBound {
-            Some(
-                self.fields
-                    .iter()
-                    .map(|field| {
-                        let expression =
-                            positive_polynomial_hull(&field.expression).ok_or_else(|| {
-                                SizeTransformError::CannotPropagateUpperBound {
-                                    edge: self.edge.clone(),
-                                    field: field.name.clone(),
-                                    expression: field.expression.to_string().into(),
-                                }
-                            })?;
-                        let analysis = AlgebraicAnalysis::new(&[&expression]);
-                        compile(&expression, &analysis, &mut HashMap::new()).map_err(|failure| {
-                            validation_error(
-                                self.edge.clone(),
-                                field.name.clone(),
-                                expression.to_string(),
-                                failure,
-                            )
-                        })
-                    })
-                    .collect::<Result<Vec<_>, _>>()?,
-            )
-        } else {
-            None
-        };
+    pub fn evaluate(&self, input: &ProblemSize) -> Result<ProblemSize, SizeTransformError> {
         let mut memo = HashMap::new();
         let mut output = Vec::with_capacity(self.fields.len());
-        for (index, field) in self.fields.iter().enumerate() {
-            let plan = upper_plans
-                .as_ref()
-                .map_or(&field.plan, |plans| &plans[index]);
-            let value = evaluate_plan(plan, &input.values, &mut memo).map_err(|failure| {
+        for field in &self.fields {
+            let value = evaluate_plan(&field.plan, input, &mut memo).map_err(|failure| {
                 evaluation_error(self.edge.clone(), field.name.clone(), failure)
             })?;
             if value.is_negative() {
@@ -323,7 +207,7 @@ impl SizeTransform {
                     value,
                 });
             }
-            let value = if relation == SizeRelation::Exact {
+            let value = if self.relation == SizeRelation::Exact {
                 if !value.is_integer() {
                     return Err(SizeTransformError::NonIntegralResult {
                         edge: self.edge.clone(),
@@ -335,12 +219,14 @@ impl SizeTransform {
             } else {
                 ceil_nonnegative(&value)
             };
-            output.push((field.name.clone(), value));
+            let value =
+                u64::try_from(&value).map_err(|_| SizeTransformError::OutputOutOfRange {
+                    field: field.name.clone(),
+                    value: value.clone(),
+                })?;
+            output.push((field.name.to_string(), value));
         }
-        Ok(EvaluatedSize {
-            relation,
-            values: SizeValues { components: output },
-        })
+        Ok(ProblemSize { components: output })
     }
 
     pub fn compose(
@@ -541,7 +427,7 @@ fn compile(
 
 fn evaluate_plan(
     plan: &Plan,
-    input: &SizeValues,
+    input: &ProblemSize,
     memo: &mut HashMap<usize, BigRational>,
 ) -> Result<BigRational, EvaluationFailure> {
     if let Some(value) = memo.get(&plan.identity()) {
@@ -552,8 +438,7 @@ fn evaluate_plan(
         PlanNode::Var(symbol) => BigRational::from_integer(BigInt::from(
             input
                 .get(symbol.as_str())
-                .ok_or_else(|| EvaluationFailure::MissingInputField(symbol.to_string().into()))?
-                .clone(),
+                .ok_or_else(|| EvaluationFailure::MissingInputField(symbol.to_string().into()))?,
         )),
         PlanNode::Add(values) => values.iter().try_fold(BigRational::zero(), |sum, value| {
             Ok(sum + evaluate_plan(value, input, memo)?)
@@ -717,7 +602,7 @@ pub enum SizeTransformError {
         field: Box<str>,
         value: BigRational,
     },
-    #[error("size field `{field}` value `{value}` does not fit usize")]
+    #[error("size field `{field}` value `{value}` does not fit u64")]
     OutputOutOfRange { field: Box<str>, value: BigUint },
 }
 

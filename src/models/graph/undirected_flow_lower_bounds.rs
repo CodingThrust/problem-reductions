@@ -13,7 +13,7 @@
 //! lower bounds, so the registered exact complexity matches brute-force
 //! enumeration over the `2^|E|` edge orientations.
 
-use crate::registry::{CreateSpec, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{CreateSpec, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
@@ -29,13 +29,6 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Determine whether an undirected lower-bounded flow of value at least R exists",
         fields: UndirectedFlowLowerBoundsCreateSpec::FIELDS,
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "UndirectedFlowLowerBounds",
-        fields: &["num_vertices", "num_edges"],
     }
 }
 
@@ -197,9 +190,14 @@ impl UndirectedFlowLowerBounds {
 
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
-        Ok(self.evaluate(config)?.0)
+        if config.len() != self.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-orientation length does not match the graph".into(),
+            ));
+        }
+        self.has_feasible_orientation(config)
     }
 
     fn total_capacity(&self) -> Result<i64, crate::traits::EvaluationError> {
@@ -214,7 +212,7 @@ impl UndirectedFlowLowerBounds {
 
     fn has_feasible_orientation(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
         if config.len() != self.num_edges() {
             return Ok(false);
@@ -239,11 +237,7 @@ impl UndirectedFlowLowerBounds {
             .zip(config.iter())
             .enumerate()
         {
-            let (from, to) = match orientation {
-                0 => (u, v),
-                1 => (v, u),
-                _ => return Ok(false),
-            };
+            let (from, to) = if orientation { (v, u) } else { (u, v) };
             let lower = self.lower_bounds[edge_index];
             let upper = self.capacities[edge_index];
             if !add_lower_bounded_edge(&mut network, &mut balances, from, to, lower, upper)? {
@@ -293,26 +287,35 @@ impl UndirectedFlowLowerBounds {
 
 impl Problem for UndirectedFlowLowerBounds {
     const NAME: &'static str = "UndirectedFlowLowerBounds";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_edges()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok(crate::types::Or(self.has_feasible_orientation(config)?))
+        Ok(crate::types::Or(self.is_valid_solution(config)?))
+    }
+}
+
+impl crate::solvers::BruteForceProblem for UndirectedFlowLowerBounds {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_edges()]
     }
 }
 
 crate::declare_variants! {
     default UndirectedFlowLowerBounds => "2^num_edges" create UndirectedFlowLowerBoundsCreateSpec,
+}
+
+crate::register_brute_force! {
+    UndirectedFlowLowerBounds decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -330,7 +333,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             5,
             3,
         )),
-        optimal_config: vec![0, 0, 0, 0, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, false, false, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

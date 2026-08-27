@@ -266,6 +266,11 @@ impl ConsistencyOfDatabaseFrequencyTables {
         self.attribute_domains.iter().copied().product()
     }
 
+    /// Returns the sum of all attribute-domain sizes.
+    pub fn total_domain_size(&self) -> usize {
+        self.attribute_domains.iter().sum()
+    }
+
     /// Returns the number of object-attribute assignment variables in the direct encoding.
     pub fn num_assignment_variables(&self) -> usize {
         self.num_objects * self.num_attributes()
@@ -306,34 +311,41 @@ impl ConsistencyOfDatabaseFrequencyTables {
 
 impl Problem for ConsistencyOfDatabaseFrequencyTables {
     const NAME: &'static str = "ConsistencyOfDatabaseFrequencyTables";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("num_objects", num_objects),
+        ("num_attributes", num_attributes),
+        ("total_domain_size", total_domain_size),
+        ("domain_size_product", domain_size_product),
+        ("num_frequency_tables", num_frequency_tables),
+        ("num_frequency_cells", num_frequency_cells),
+        ("num_known_values", num_known_values),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        let mut dims = Vec::with_capacity(self.num_assignment_variables());
-        for _ in 0..self.num_objects {
-            dims.extend(self.attribute_domains.iter().copied());
-        }
-        dims
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_assignment_variables() {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "table-assignment length does not match the instance".into(),
+                    ));
                 }
 
                 for object in 0..self.num_objects {
                     for (attribute, &domain_size) in self.attribute_domains.iter().enumerate() {
                         if config[self.config_index(object, attribute)] >= domain_size {
-                            return Ok(crate::types::Or(false));
+                            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                                "table assignment contains an out-of-range domain value".into(),
+                            ));
                         }
                     }
                 }
@@ -373,8 +385,22 @@ impl Problem for ConsistencyOfDatabaseFrequencyTables {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ConsistencyOfDatabaseFrequencyTables {
+    fn dimensions(&self) -> Vec<usize> {
+        let mut dims = Vec::with_capacity(self.num_assignment_variables());
+        for _ in 0..self.num_objects {
+            dims.extend(self.attribute_domains.iter().copied());
+        }
+        dims
+    }
+}
+
 crate::declare_variants! {
     default ConsistencyOfDatabaseFrequencyTables => "domain_size_product^num_objects" create ConsistencyOfDatabaseFrequencyTablesCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConsistencyOfDatabaseFrequencyTables,
 }
 
 #[cfg(feature = "example-db")]
@@ -394,7 +420,9 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 KnownValue::new(1, 2, 1),
             ],
         )),
-        optimal_config: vec![0, 0, 0, 0, 1, 1, 0, 2, 1, 1, 0, 1, 1, 1, 1, 1, 2, 0],
+        optimal_config: serde_json::json!(vec![
+            0, 0, 0, 0, 1, 1, 0, 2, 1, 1, 0, 1, 1, 1, 1, 1, 2, 0
+        ]),
         optimal_value: serde_json::json!(true),
     }]
 }

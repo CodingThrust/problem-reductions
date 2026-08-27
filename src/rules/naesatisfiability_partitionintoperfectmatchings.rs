@@ -67,15 +67,15 @@ impl ReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
             self.layout
                 .variables
                 .iter()
-                .map(|variable| usize::from(target_solution[variable.t] == 0))
+                .map(|variable| target_solution[variable.t] == 0)
                 .collect()
         })
     }
@@ -83,7 +83,7 @@ impl ReductionResult for ReductionNAESATToPartitionIntoPerfectMatchings {
 
 impl ReductionNAESATToPartitionIntoPerfectMatchings {
     #[cfg(any(test, feature = "example-db"))]
-    fn construct_target_solution(&self, source_solution: &[usize]) -> Vec<usize> {
+    fn construct_target_solution(&self, source_solution: &[bool]) -> Vec<usize> {
         assert_eq!(
             source_solution.len(),
             self.layout.variables.len(),
@@ -97,7 +97,7 @@ impl ReductionNAESATToPartitionIntoPerfectMatchings {
         let mut false_groups = Vec::with_capacity(self.layout.variables.len());
 
         for (index, variable) in self.layout.variables.iter().enumerate() {
-            let true_group = if source_solution[index] == 1 { 0 } else { 1 };
+            let true_group = if source_solution[index] { 0 } else { 1 };
             let false_group = 1 - true_group;
             true_groups.push(true_group);
             false_groups.push(false_group);
@@ -352,7 +352,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     CNFClause::new(vec![-1, 2, -3]),
                 ],
             );
-            let source_config = vec![1, 1, 0];
+            let source_config = vec![true, true, false];
             let reduction =
                 ReduceTo::<PartitionIntoPerfectMatchings<SimpleGraph>>::reduce_to(&source)
                     .expect("reduction should succeed");
@@ -362,8 +362,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 &source,
                 reduction.target_problem(),
                 vec![SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 }],
             )
         },

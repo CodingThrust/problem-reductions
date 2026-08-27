@@ -100,7 +100,7 @@ impl SequencingToMinimizeMaximumCumulativeCost {
     }
 
     fn decode_schedule(&self, config: &[usize]) -> Option<Vec<usize>> {
-        super::decode_lehmer(config, self.num_tasks())
+        super::decode_permutation(config, self.num_tasks())
     }
 }
 
@@ -149,20 +149,33 @@ fn precedence_validation_error(precedences: &[(usize, usize)], num_tasks: usize)
 
 impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     const NAME: &'static str = "SequencingToMinimizeMaximumCumulativeCost";
+    type Solution = Vec<usize>;
     type Value = crate::types::Min<i64>;
+
+    crate::problem_size![
+        ("num_precedences", num_precedences),
+        ("num_tasks", num_tasks),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Min<i64>, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
             let Some(schedule) = self.decode_schedule(config) else {
                 return Ok(crate::types::Min(None));
@@ -195,8 +208,18 @@ impl Problem for SequencingToMinimizeMaximumCumulativeCost {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingToMinimizeMaximumCumulativeCost {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 crate::declare_variants! {
     default SequencingToMinimizeMaximumCumulativeCost => "factorial(num_tasks)" create SequencingCumulativeCostCreateSpec,
+}
+
+crate::register_brute_force! {
+    SequencingToMinimizeMaximumCumulativeCost decode |problem: &SequencingToMinimizeMaximumCumulativeCost, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -207,7 +230,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![2, -1, 3, -2, 1, -3],
             vec![(0, 2), (1, 2), (1, 3), (2, 4), (3, 5), (4, 5)],
         )),
-        optimal_config: vec![1, 0, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![1, 0, 3, 2, 4, 5]),
         optimal_value: serde_json::json!(3),
     }]
 }

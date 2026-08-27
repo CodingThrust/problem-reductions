@@ -13,18 +13,22 @@ fn test_reduction_creates_valid_ilp() {
 
     // num_records=2, num_sectors=2: n=4 x-vars, n^2=16 z-vars -> 20 total
     let n = 2 * 2; // 4
-    assert_eq!(ilp.num_vars, n + n * n, "Should have n + n^2 variables");
+    assert_eq!(ilp.num_vars(), n + n * n, "Should have n + n^2 variables");
 
     // num_constraints = 2 assignment + 3*n^2 McCormick = 2 + 48 = 50
     assert_eq!(
-        ilp.constraints.len(),
+        ilp.constraints().len(),
         2 + 3 * n * n,
         "Should have 2 + 3*n^2 constraints"
     );
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize cost");
+    assert_eq!(
+        ilp.sense(),
+        ObjectiveSense::Minimize,
+        "Should minimize cost"
+    );
     // Objective should have non-empty coefficients
     assert!(
-        !ilp.objective.is_empty(),
+        !ilp.objective().is_empty(),
         "Objective should have cost coefficients"
     );
 }
@@ -40,7 +44,7 @@ fn test_expectedretrievalcost_to_ilp_bf_vs_ilp() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_witness = bf.find_witness(&problem).unwrap().unwrap();
+    let bf_witness = bf.solve(&problem).unwrap().unwrap();
     let bf_cost = problem.expected_cost(&bf_witness).unwrap().unwrap();
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be feasible");
@@ -63,8 +67,8 @@ fn test_solution_extraction() {
 
     // record 0 -> sector 0, record 1 -> sector 1
     // x_{0,0}=1, x_{0,1}=0, x_{1,0}=0, x_{1,1}=1
-    let mut ilp_solution = vec![0usize; 4 + 16]; // n + n^2
-                                                 // x vars
+    let mut ilp_solution = vec![0_i64; 4 + 16]; // n + n^2
+                                                // x vars
     ilp_solution[0] = 1; // x_{0,0}
     ilp_solution[3] = 1; // x_{1,1}
                          // z vars: z_{r,s,r',s'} at offset 4 + (r*2+s)*4 + (r'*2+s')

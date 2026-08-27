@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::Min;
@@ -11,11 +11,7 @@ fn test_maximumlikelihoodranking_to_ilp_closed_loop() {
     let problem = MaximumLikelihoodRanking::new(matrix);
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "MaximumLikelihoodRanking->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -29,7 +25,7 @@ fn test_maximumlikelihoodranking_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 3);
     // C(3,3) = 1 triple -> 2 constraints
     assert_eq!(ilp.num_constraints(), 2);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -136,11 +132,7 @@ fn test_maximumlikelihoodranking_to_ilp_larger_instance() {
     // C(4,3) = 4 triples -> 8 constraints
     assert_eq!(ilp.num_constraints(), 8);
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "4-item MaximumLikelihoodRanking->ILP",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[cfg(feature = "example-db")]
@@ -154,6 +146,12 @@ fn test_maximumlikelihoodranking_to_ilp_canonical_example_spec() {
 
     assert_eq!(example.source.problem, "MaximumLikelihoodRanking");
     assert_eq!(example.target.problem, "ILP");
-    assert_eq!(example.target.instance["num_vars"], 3);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
     assert!(!example.solutions.is_empty());
 }

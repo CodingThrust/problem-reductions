@@ -41,9 +41,9 @@ fn test_minimumvertexcover_to_ilp_via_path_structure() {
         path.type_names(),
         vec!["MinimumVertexCover", "MinimumSetCovering", "ILP"]
     );
-    assert_eq!(ilp.num_vars, 3);
-    assert_eq!(ilp.constraints.len(), 3);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -57,9 +57,9 @@ fn test_minimumvertexcover_to_ilp_via_path_closed_loop() {
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
-    let extracted = chain.extract_solution(&ilp_solution).unwrap();
+    let extracted: Vec<bool> = chain.extract_solution(&ilp_solution).unwrap();
 
-    let ilp_size: usize = extracted.iter().sum();
+    let ilp_size = extracted.iter().filter(|&&selected| selected).count();
     assert_eq!(ilp_size, 2);
     assert!(problem.evaluate(&extracted).unwrap().is_valid());
 }
@@ -76,7 +76,7 @@ fn test_minimumvertexcover_to_ilp_via_path_weighted() {
     let extracted = chain.extract_solution(&ilp_solution).unwrap();
 
     assert_eq!(problem.evaluate(&extracted).unwrap(), Min(Some(1)));
-    assert_eq!(extracted, vec![0, 1, 0]);
+    assert_eq!(extracted, vec![false, true, false]);
 }
 
 #[test]

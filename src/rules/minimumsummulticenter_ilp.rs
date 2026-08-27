@@ -44,11 +44,14 @@ impl ReductionResult for ReductionMSMCToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vertices].to_vec())
+        Ok(target_solution[..self.num_vertices]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -126,7 +129,7 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
         let n = self.num_vertices();
-        let k = self.k();
+        let k = Self::exact_i64(self.k(), "encoding the number of centers")?;
         let vertex_weights = self.vertex_weights();
         let edge_lengths = self.edge_lengths();
 
@@ -144,13 +147,13 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
         let mut constraints = Vec::with_capacity(n * n + 2 * n + 1);
 
         // Cardinality constraint: Σ_j x_j = k
-        let center_terms: Vec<(usize, f64)> = (0..n).map(|j| (x_var(j), 1.0)).collect();
-        constraints.push(LinearConstraint::eq(center_terms, k as f64));
+        let center_terms: Vec<(usize, i64)> = (0..n).map(|j| (x_var(j), 1)).collect();
+        constraints.push(LinearConstraint::eq(center_terms, k));
 
         // Assignment constraints: ∀i: Σ_j y_{i,j} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..n).map(|j| (y_var(i, j), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..n).map(|j| (y_var(i, j), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // Assignment link constraints:
@@ -159,11 +162,11 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
             for (j, distance) in distances.iter().enumerate() {
                 if distance.is_some() {
                     constraints.push(LinearConstraint::le(
-                        vec![(y_var(i, j), 1.0), (x_var(j), -1.0)],
-                        0.0,
+                        vec![(y_var(i, j), 1), (x_var(j), -1)],
+                        0,
                     ));
                 } else {
-                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1.0)], 0.0));
+                    constraints.push(LinearConstraint::eq(vec![(y_var(i, j), 1)], 0));
                 }
             }
         }
@@ -194,7 +197,8 @@ impl ReduceTo<ILP<bool>> for MinimumSumMulticenter<SimpleGraph, i64> {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
         Ok(ReductionMSMCToILP {
             target,
             num_vertices: n,

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::DirectedGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -31,7 +32,7 @@ fn test_minimum_cost_circulation_creation() {
     assert_eq!(problem.num_arcs(), 4);
     assert_eq!(problem.capacities(), &[2, 2, 1, 1]);
     assert_eq!(problem.costs(), &[2, -3, 1, -4]);
-    assert_eq!(problem.dims(), vec![3, 3, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![3, 3, 2, 2]);
     assert_eq!(
         <MinimumCostCirculation as Problem>::NAME,
         "MinimumCostCirculation"
@@ -95,9 +96,18 @@ fn test_minimum_cost_circulation_evaluate_infeasible_conservation() {
 #[test]
 fn test_minimum_cost_circulation_evaluate_wrong_config_length() {
     let problem = canonical_instance();
-    assert_eq!(problem.evaluate(&[0; 3]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0; 5]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 3]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -105,7 +115,7 @@ fn test_minimum_cost_circulation_solver_canonical() {
     let problem = canonical_instance();
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("canonical instance must be feasible");
     assert_eq!(problem.total_cost(&witness).unwrap(), -5);
@@ -125,13 +135,13 @@ fn test_minimum_cost_circulation_negative_cycle_beats_zero() {
     );
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("instance must be feasible");
     assert_eq!(problem.total_cost(&witness).unwrap(), -2);
     assert_eq!(witness, vec![1, 1]);
     // And zero is feasible but strictly worse.
-    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -148,12 +158,12 @@ fn test_minimum_cost_circulation_issue_example_1030() {
     );
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("instance must be feasible");
     assert_eq!(witness, vec![1, 1]);
     assert_eq!(problem.total_cost(&witness).unwrap(), -2);
-    assert_eq!(problem.evaluate(&[0, 0]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.evaluate(&vec![0, 0]).unwrap(), Min(Some(0)));
 }
 
 #[test]
@@ -167,7 +177,7 @@ fn test_minimum_cost_circulation_serialization() {
     assert_eq!(deserialized.costs(), &[2, -3, 1, -4]);
     // Optimal config evaluates identically after roundtrip.
     assert_eq!(
-        deserialized.evaluate(&[2, 2, 1, 1]).unwrap(),
-        problem.evaluate(&[2, 2, 1, 1]).unwrap()
+        deserialized.evaluate(&vec![2, 2, 1, 1]).unwrap(),
+        problem.evaluate(&vec![2, 2, 1, 1]).unwrap()
     );
 }

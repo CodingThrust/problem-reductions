@@ -19,6 +19,7 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::SumOfSquaresPartition;
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::types::i64_to_exact_f64;
 
@@ -59,8 +60,8 @@ impl ReductionResult for ReductionSSPToILP {
     /// Extract solution: for each element i, find the unique group g where x_{i,g} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         crate::rules::ilp_helpers::one_hot_decode_rows(
@@ -96,8 +97,8 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
 
         // Assignment constraints: for each element i, Σ_g x_{i,g} = 1
         for i in 0..n {
-            let terms: Vec<(usize, f64)> = (0..k).map(|g| (result.x_var(i, g), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..k).map(|g| (result.x_var(i, g), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // McCormick linearization for z_{i,j,g} = x_{i,g} * x_{j,g}
@@ -108,15 +109,7 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
                     let xi = result.x_var(i, g);
                     let xj = result.x_var(j, g);
 
-                    // z ≤ x_{i,g}
-                    constraints.push(LinearConstraint::le(vec![(z, 1.0), (xi, -1.0)], 0.0));
-                    // z ≤ x_{j,g}
-                    constraints.push(LinearConstraint::le(vec![(z, 1.0), (xj, -1.0)], 0.0));
-                    // z ≥ x_{i,g} + x_{j,g} - 1  →  -z + x_{i,g} + x_{j,g} ≤ 1
-                    constraints.push(LinearConstraint::le(
-                        vec![(z, -1.0), (xi, 1.0), (xj, 1.0)],
-                        1.0,
-                    ));
+                    constraints.extend(mccormick_product(z, xi, xj));
                 }
             }
         }
@@ -146,7 +139,8 @@ impl ReduceTo<ILP<bool>> for SumOfSquaresPartition {
             }
         }
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(Self::target_construction)?;
 
         Ok(ReductionSSPToILP {
             target,

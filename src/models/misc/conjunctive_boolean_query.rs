@@ -62,7 +62,7 @@ pub enum QueryArg {
 ///
 /// ```
 /// use problemreductions::models::misc::{ConjunctiveBooleanQuery, CbqRelation, QueryArg};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let relations = vec![
 ///     CbqRelation { arity: 2, tuples: vec![vec![0, 3], vec![1, 3]] },
@@ -72,7 +72,7 @@ pub enum QueryArg {
 /// ];
 /// let problem = ConjunctiveBooleanQuery::new(6, relations, 1, conjuncts);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -271,27 +271,35 @@ impl ConjunctiveBooleanQuery {
 
 impl Problem for ConjunctiveBooleanQuery {
     const NAME: &'static str = "ConjunctiveBooleanQuery";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![
+        ("domain_size", domain_size),
+        ("num_conjuncts", num_conjuncts),
+        ("num_relations", num_relations),
+        ("num_variables", num_variables),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.domain_size; self.num_variables]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_variables {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "variable assignment length does not match the query".into(),
+                    ));
                 }
                 if config.iter().any(|&v| v >= self.domain_size) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "variable assignment contains an out-of-range domain value".into(),
+                    ));
                 }
                 self.conjuncts.iter().all(|(rel_idx, args)| {
                     let tuple: Vec<usize> = args
@@ -308,8 +316,18 @@ impl Problem for ConjunctiveBooleanQuery {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ConjunctiveBooleanQuery {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.domain_size; self.num_variables]
+    }
+}
+
 crate::declare_variants! {
     default ConjunctiveBooleanQuery => "domain_size ^ num_variables" create ConjunctiveBooleanQueryCreateSpec,
+}
+
+crate::register_brute_force! {
+    ConjunctiveBooleanQuery,
 }
 
 #[cfg(feature = "example-db")]
@@ -344,7 +362,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
             ],
         )),
-        optimal_config: vec![0, 1],
+        optimal_config: serde_json::json!(vec![0, 1]),
         optimal_value: serde_json::json!(true),
     }]
 }

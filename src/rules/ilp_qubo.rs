@@ -12,6 +12,7 @@
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::types::i64_to_exact_f64;
 
 /// Result of reducing binary ILP to QUBO.
 #[derive(Debug, Clone)]
@@ -31,11 +32,14 @@ impl ReductionResult for ReductionILPToQUBO {
     /// Extract only the original variables (discard slack).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_original_vars].to_vec())
+        Ok(target_solution[..self.num_original_vars]
+            .iter()
+            .map(|&value| i64::from(value))
+            .collect())
     }
 }
 
@@ -48,42 +52,68 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 
     fn reduce_to(&self) -> Result<Self::Result, crate::rules::ReductionError> {
-        let n = self.num_vars;
+        let n = self.num_vars();
 
         // All variables are binary by type — no runtime check needed.
 
         // Build dense constraint matrix A and rhs vector b
         // Also compute slack sizes for inequality constraints
-        let num_constraints = self.constraints.len();
-        let mut a_dense = vec![vec![0.0; n]; num_constraints];
-        let mut b_vec = vec![0.0; num_constraints];
+        let num_constraints = self.constraints().len();
+        let mut a_dense = vec![vec![0_i64; n]; num_constraints];
+        let mut b_vec = vec![0_i64; num_constraints];
         let mut slack_sizes = vec![0usize; num_constraints];
 
-        for (k, constraint) in self.constraints.iter().enumerate() {
-            for &(var, coef) in &constraint.terms {
-                a_dense[k][var] += coef;
+        for (k, constraint) in self.constraints().iter().enumerate() {
+            for &(var, coef) in constraint.terms() {
+                a_dense[k][var] = coef;
             }
-            b_vec[k] = constraint.rhs;
+            b_vec[k] = constraint.rhs();
 
             // Compute slack variable count: ceil(log2(slack_range + 1)) bits
             // to represent integer values 0..slack_range with binary encoding.
             // For binary variables, min_lhs = Σ min(0, a_i), max_lhs = Σ max(0, a_i).
-            match constraint.cmp {
+            match constraint.comparison() {
                 Comparison::Eq => {} // no slack needed
                 Comparison::Le => {
                     // Ax <= b → Ax + s = b, s ∈ {0, ..., b - min_lhs}
-                    let min_lhs: f64 = a_dense[k].iter().map(|&c| c.min(0.0)).sum();
-                    let slack_range = constraint.rhs - min_lhs;
-                    if slack_range > 0.0 {
-                        slack_sizes[k] = (slack_range + 1.0).log2().ceil() as usize;
+                    let min_lhs = a_dense[k]
+                        .iter()
+                        .try_fold(0_i64, |sum, &coefficient| {
+                            sum.checked_add(coefficient.min(0))
+                        })
+                        .ok_or_else(|| {
+                            crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<f64>>(
+                                "computing an inequality's minimum left-hand side",
+                            )
+                        })?;
+                    let slack_range = constraint.rhs().checked_sub(min_lhs).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<f64>>(
+                            "computing a less-than inequality's slack range",
+                        )
+                    })?;
+                    if slack_range > 0 {
+                        slack_sizes[k] = i64::BITS as usize - slack_range.leading_zeros() as usize;
                     }
                 }
                 Comparison::Ge => {
                     // Ax >= b → Ax - s = b, s ∈ {0, ..., max_lhs - b}
-                    let max_lhs: f64 = a_dense[k].iter().map(|&c| c.max(0.0)).sum();
-                    let slack_range = max_lhs - constraint.rhs;
-                    if slack_range > 0.0 {
-                        slack_sizes[k] = (slack_range + 1.0).log2().ceil() as usize;
+                    let max_lhs = a_dense[k]
+                        .iter()
+                        .try_fold(0_i64, |sum, &coefficient| {
+                            sum.checked_add(coefficient.max(0))
+                        })
+                        .ok_or_else(|| {
+                            crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<f64>>(
+                                "computing an inequality's maximum left-hand side",
+                            )
+                        })?;
+                    let slack_range = max_lhs.checked_sub(constraint.rhs()).ok_or_else(|| {
+                        crate::rules::ReductionError::integer_overflow::<ILP<bool>, QUBO<f64>>(
+                            "computing a greater-than inequality's slack range",
+                        )
+                    })?;
+                    if slack_range > 0 {
+                        slack_sizes[k] = i64::BITS as usize - slack_range.leading_zeros() as usize;
                     }
                 }
             }
@@ -93,7 +123,7 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
         let nq = n + total_slack;
 
         // Extend A with slack columns
-        let mut a_ext = vec![vec![0.0; nq]; num_constraints];
+        let mut a_ext = vec![vec![0_i64; nq]; num_constraints];
         for k in 0..num_constraints {
             for j in 0..n {
                 a_ext[k][j] = a_dense[k][j];
@@ -104,13 +134,13 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
         let mut slack_col = n;
         for (k, &ns) in slack_sizes.iter().enumerate() {
             if ns > 0 {
-                let sign = match self.constraints[k].cmp {
-                    Comparison::Le => 1.0,  // Ax + s = b
-                    Comparison::Ge => -1.0, // Ax - s = b
-                    Comparison::Eq => 0.0,
+                let sign = match self.constraints()[k].comparison() {
+                    Comparison::Le => 1,  // Ax + s = b
+                    Comparison::Ge => -1, // Ax - s = b
+                    Comparison::Eq => 0,
                 };
                 for s in 0..ns {
-                    a_ext[k][slack_col + s] = sign * 2.0_f64.powi(s as i32);
+                    a_ext[k][slack_col + s] = sign * (1_i64 << s);
                 }
                 slack_col += ns;
             }
@@ -118,18 +148,42 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
 
         // Build dense cost vector (nq elements)
         let mut c_vec = vec![0.0; nq];
-        for &(var, coef) in &self.objective {
+        for &(var, coef) in self.objective() {
             c_vec[var] = coef;
         }
 
         // For Minimize sense, negate the cost (formula assumes maximization)
-        if self.sense == ObjectiveSense::Minimize {
+        if self.sense() == ObjectiveSense::Minimize {
             for c in c_vec.iter_mut() {
                 *c = -*c;
             }
         }
 
         // Penalty: must be large enough to enforce constraints
+        let b_vec = b_vec
+            .iter()
+            .copied()
+            .map(i64_to_exact_f64)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<ILP<bool>, QUBO<f64>>(
+                    error,
+                )
+            })?;
+        let a_ext = a_ext
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .copied()
+                    .map(i64_to_exact_f64)
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| {
+                crate::rules::ReductionError::inexact_float_conversion::<ILP<bool>, QUBO<f64>>(
+                    error,
+                )
+            })?;
         let penalty = 1.0
             + c_vec.iter().map(|c| c.abs()).sum::<f64>()
             + b_vec.iter().map(|b| b.abs()).sum::<f64>();
@@ -168,9 +222,8 @@ impl ReduceTo<QUBO<f64>> for ILP<bool> {
         }
 
         Ok(ReductionILPToQUBO {
-            target: QUBO::from_matrix(matrix).map_err(|message| {
-                crate::rules::ReductionError::construction::<ILP<bool>, QUBO<f64>>(message)
-            })?,
+            target: QUBO::from_matrix(matrix)
+                .map_err(crate::rules::ReductionError::construction::<ILP<bool>, QUBO<f64>>)?,
             num_original_vars: n,
         })
     }
@@ -187,21 +240,22 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = ILP::new(
                 6,
                 vec![
-                    LinearConstraint::le(
-                        vec![(0, 3.0), (1, 2.0), (2, 5.0), (3, 4.0), (4, 2.0), (5, 3.0)],
-                        10.0,
-                    ),
-                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
-                    LinearConstraint::le(vec![(3, 1.0), (4, 1.0), (5, 1.0)], 2.0),
+                    LinearConstraint::le(vec![(0, 3), (1, 2), (2, 5), (3, 4), (4, 2), (5, 3)], 10),
+                    LinearConstraint::le(vec![(0, 1), (1, 1), (2, 1)], 2),
+                    LinearConstraint::le(vec![(3, 1), (4, 1), (5, 1)], 2),
                 ],
                 vec![(0, 10.0), (1, 7.0), (2, 12.0), (3, 8.0), (4, 6.0), (5, 9.0)],
                 ObjectiveSense::Maximize,
-            );
+            )
+            .expect("canonical ILP example must satisfy construction invariants");
             crate::example_db::specs::rule_example_with_witness::<_, QUBO<f64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 0, 1, 1],
-                    target_config: vec![1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                    source_config: serde_json::json!(vec![1, 1, 0, 0, 1, 1]),
+                    target_config: serde_json::json!(vec![
+                        true, true, false, false, true, true, false, false, false, false, false,
+                        false, false, false
+                    ]),
                 },
             )
         },

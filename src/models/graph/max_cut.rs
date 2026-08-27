@@ -51,7 +51,7 @@ inventory::submit! {
 /// use problemreductions::models::graph::MaxCut;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::types::Max;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Create a triangle with unit weights
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -206,12 +206,11 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     }
 
     /// Compute the cut size for a given partition configuration.
-    pub fn cut_size(&self, config: &[usize]) -> Result<W::Sum, crate::traits::EvaluationError>
+    pub fn cut_size(&self, config: &[bool]) -> Result<W::Sum, crate::traits::EvaluationError>
     where
         W: WeightElement,
     {
-        let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
-        cut_size(&self.graph, &self.edge_weights, &partition)
+        cut_size(&self.graph, &self.edge_weights, config)
     }
 }
 
@@ -233,22 +232,38 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MaxCut";
+    type Solution = Vec<bool>;
     type Value = Max<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_vertices() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "cut assignment length does not match the graph vertices".into(),
+            ));
+        }
         Ok({
             // All cuts are valid, so always return Valid
-            let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
-            Max(Some(cut_size(&self.graph, &self.edge_weights, &partition)?))
+            Max(Some(cut_size(&self.graph, &self.edge_weights, config)?))
         })
+    }
+}
+
+impl<G, W> crate::solvers::BruteForceProblem for MaxCut<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 }
 
@@ -287,20 +302,25 @@ crate::declare_variants! {
     MaxCut<SimpleGraph, One> => "2^(0.7907 * num_vertices)" create MaxCutOneCreateSpec,
 }
 
+crate::register_brute_force! {
+    MaxCut<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    MaxCut<SimpleGraph, One> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+}
+
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![
         crate::example_db::specs::ModelExampleSpec {
-            id: "max_cut_simplegraph_i64",
+            id: "max_cut_simplegraph",
             instance: Box::new(MaxCut::<_, i64>::unweighted(SimpleGraph::new(
                 5,
                 vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)],
             ))),
-            optimal_config: vec![1, 0, 0, 1, 0],
+            optimal_config: serde_json::json!(vec![true, false, false, true, false]),
             optimal_value: serde_json::json!(5),
         },
         crate::example_db::specs::ModelExampleSpec {
-            id: "max_cut_simplegraph_one",
+            id: "max_cut_seven_edge_graph",
             instance: Box::new(MaxCut::new(
                 SimpleGraph::new(
                     5,
@@ -308,7 +328,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ),
                 vec![One; 7],
             )),
-            optimal_config: vec![0, 1, 0, 1, 0],
+            optimal_config: serde_json::json!(vec![false, true, false, true, false]),
             optimal_value: serde_json::json!(6),
         },
     ]

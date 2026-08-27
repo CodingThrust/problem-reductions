@@ -62,12 +62,12 @@ fn test_hamiltonianpathbetweentwovertices_to_longestpath_no_hamiltonian_path() {
         .expect("reduction should succeed");
     let solver = BruteForce::new();
     let target_best = solver
-        .find_witness(result.target_problem())
+        .solve(result.target_problem())
         .unwrap()
         .expect("LongestPath should have some valid path");
 
     // The best path has fewer than n-1 = 4 edges (it's not Hamiltonian)
-    let selected_edges: usize = target_best.iter().sum();
+    let selected_edges: usize = target_best.iter().filter(|&&selected| selected).count();
     assert!(
         selected_edges < 4,
         "Best path should have fewer than n-1 edges since no Hamiltonian s-t path exists"

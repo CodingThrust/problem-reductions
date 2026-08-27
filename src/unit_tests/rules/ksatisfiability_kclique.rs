@@ -59,7 +59,7 @@ fn test_ksatisfiability_to_kclique_unsatisfiable() {
     assert_eq!(target.num_edges(), 0);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(target).unwrap();
+    let solution = solver.solve(target).unwrap();
     assert!(solution.is_none());
 }
 
@@ -173,13 +173,13 @@ fn test_ksatisfiability_to_kclique_extract_solution_example() {
     let target = reduction.target_problem();
 
     // Vertices 2 and 3 selected
-    let specific_config = vec![0, 0, 1, 1, 0, 0];
+    let specific_config = vec![false, false, true, true, false, false];
     assert!(target.evaluate(&specific_config).unwrap());
 
     let extracted = reduction.extract_solution(&specific_config).unwrap();
     // Vertex 2 = clause 0, pos 2 → literal 3 (x3) → x3=T → assignment[2]=1
     // Vertex 3 = clause 1, pos 0 → literal -1 (¬x1) → x1=F → assignment[0]=0
     // Unset variables default to 0.
-    assert_eq!(extracted, vec![0, 0, 1]);
+    assert_eq!(extracted, vec![false, false, true]);
     assert!(ksat.evaluate(&extracted).unwrap());
 }

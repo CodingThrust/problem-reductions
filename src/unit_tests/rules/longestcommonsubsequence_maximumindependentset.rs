@@ -60,10 +60,10 @@ fn test_lcs_to_mis_optimal_value() {
 
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("should have a solution");
-    let mis_size: usize = witness.iter().sum();
+    let mis_size: usize = witness.iter().filter(|&&selected| selected).count();
     assert_eq!(mis_size, 3);
 }
 
@@ -124,7 +124,7 @@ fn test_lcs_to_mis_extract_solution() {
     // Let's verify by solving
     let solver = BruteForce::new();
     let witness = solver
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .expect("should have a solution");
     let source_sol = reduction.extract_solution(&witness).unwrap();

@@ -49,7 +49,7 @@ pub fn run() -> std::result::Result<(), Box<dyn std::error::Error>> {
     // ANCHOR_END: step3
 
     // ANCHOR: step4
-    let (p, q) = factoring.read_factors(&solution); // decode bit assignments → integers
+    let (p, q) = solution;
     println!("{} = {} × {}", factoring.target(), p, q);
     assert_eq!(p * q, 6u32.into(), "Factors should multiply to 6");
     // ANCHOR_END: step4

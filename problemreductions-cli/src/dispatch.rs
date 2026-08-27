@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use problemreductions::registry::{DynProblem, LoadedDynProblem};
 use problemreductions::rules::ReductionGraph;
 use problemreductions::solvers::{
-    solve_deterministically, solver_capabilities, DeterministicSolveResult, ExactProblemKey,
-    SolveOutcome, SolverRequest,
+    brute_force_dimensions, solve, solver_capabilities, ExactProblemKey, SolveOutcome, SolveResult,
+    SolverRequest,
 };
 use serde_json::Value;
 use std::any::Any;
@@ -39,11 +39,14 @@ impl std::ops::Deref for LoadedProblem {
 }
 
 impl LoadedProblem {
-    pub fn solve_deterministically(
-        &self,
-        request: SolverRequest,
-    ) -> Result<DeterministicSolveResult> {
-        solve_deterministically(&self.inner, request).map_err(anyhow::Error::from)
+    pub fn brute_force_num_variables(&self) -> Result<Option<usize>> {
+        brute_force_dimensions(&self.inner)
+            .map(|dimensions| dimensions.map(|dimensions| dimensions.len()))
+            .map_err(|error| anyhow::anyhow!("solver capability registry is invalid: {error}"))
+    }
+
+    pub fn solve(&self, request: SolverRequest) -> Result<SolveResult> {
+        solve(&self.inner, request).map_err(anyhow::Error::from)
     }
 }
 
@@ -87,8 +90,10 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
         "customized"
     } else if ilp.is_some() {
         "ilp"
-    } else {
+    } else if registered.brute_force {
         "brute-force"
+    } else {
+        anyhow::bail!("no solver is registered for {}", key.label());
     };
     let mut solvers = Vec::with_capacity(3);
     if customized.is_some() {
@@ -97,7 +102,9 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
     if ilp.is_some() {
         solvers.push("ilp");
     }
-    solvers.push("brute-force");
+    if registered.brute_force {
+        solvers.push("brute-force");
+    }
 
     Ok(SolverCapabilitiesView {
         solvers,
@@ -105,7 +112,7 @@ pub fn solver_capabilities_view(problem: &LoadedProblem) -> Result<SolverCapabil
         capabilities: SolverCapabilityDetailsView {
             customized,
             ilp,
-            brute_force: true,
+            brute_force: registered.brute_force,
         },
     })
 }
@@ -124,7 +131,7 @@ pub fn solver_request(solver_name: Option<&str>) -> Result<SolverRequest> {
     }
 }
 
-pub fn solve_result_json(problem: &str, result: &DeterministicSolveResult) -> serde_json::Value {
+pub fn solve_result_json(problem: &str, result: &SolveResult) -> serde_json::Value {
     #[derive(serde::Serialize)]
     struct SolveOutput<'a> {
         problem: &'a str,
@@ -204,7 +211,7 @@ impl BundleReplay {
     ///   (tampered/stale bundles where `target.data` disagrees with what
     ///   `reduce_along_path` actually produced are rejected)
     ///
-    /// Returns an error (not a panic) for malformed bundles or aggregate-only paths.
+    /// Returns an error (not a panic) for malformed bundles or paths without witness extraction.
     pub fn prepare(bundle: &ReductionBundle) -> Result<Self> {
         if bundle.path.len() < 2 {
             anyhow::bail!(
@@ -286,8 +293,11 @@ impl BundleReplay {
     }
 
     /// Map a target-space configuration back to the source space and evaluate it.
-    pub fn extract(&self, target_config: &[usize]) -> Result<(Vec<usize>, String)> {
-        let source_config = self.chain.extract_solution(target_config)?;
+    pub fn extract(
+        &self,
+        target_config: &serde_json::Value,
+    ) -> Result<(serde_json::Value, String)> {
+        let source_config = self.chain.extract_solution_json(target_config.clone())?;
         let source_eval = self.source.evaluate_dyn(&source_config)?;
         Ok((source_config, source_eval))
     }
@@ -295,29 +305,25 @@ impl BundleReplay {
     /// Solve the target and map the result back to the source problem.
     ///
     pub(crate) fn solve(&self, request: SolverRequest) -> Result<BundleSolveResult> {
-        let target_result = self.target.solve_deterministically(request)?;
+        let target_result = self.target.solve(request)?;
         let solver = target_result.solver;
         let (source_outcome, target_outcome) = match target_result.outcome {
             SolveOutcome::Optimal {
-                config: Some(target_config),
+                solution: target_solution,
                 evaluation: target_evaluation,
             } => {
-                let (source_config, source_evaluation) = self.extract(&target_config)?;
+                let (source_solution, source_evaluation) = self.extract(&target_solution)?;
                 (
                     SolveOutcome::Optimal {
-                        config: Some(source_config),
+                        solution: source_solution,
                         evaluation: source_evaluation,
                     },
                     SolveOutcome::Optimal {
-                        config: Some(target_config),
+                        solution: target_solution,
                         evaluation: target_evaluation,
                     },
                 )
             }
-            SolveOutcome::Optimal { config: None, .. } => anyhow::bail!(
-                "Bundle solving requires a witness-capable target problem and witness-capable reduction path; {} only supports aggregate-value solving.",
-                self.target_name
-            ),
             SolveOutcome::Infeasible => (SolveOutcome::Infeasible, SolveOutcome::Infeasible),
         };
 
@@ -485,7 +491,7 @@ mod tests {
     }
 
     #[test]
-    fn test_solve_brute_force_value_only_problem_has_no_witness() {
+    fn test_solve_brute_force_problem_returns_solution() {
         let loaded = load_problem(
             AGGREGATE_SOURCE_NAME,
             &BTreeMap::new(),
@@ -493,14 +499,12 @@ mod tests {
         )
         .unwrap();
 
-        let result = loaded
-            .solve_deterministically(SolverRequest::BruteForce)
-            .unwrap();
+        let result = loaded.solve(SolverRequest::BruteForce).unwrap();
         assert_eq!(
             result.outcome,
             SolveOutcome::Optimal {
-                config: None,
-                evaluation: "Sum(56)".to_string(),
+                solution: serde_json::json!([true, true, true]),
+                evaluation: "Max(14)".to_string(),
             }
         );
     }
@@ -514,9 +518,7 @@ mod tests {
         )
         .unwrap();
 
-        let result = loaded
-            .solve_deterministically(SolverRequest::Default)
-            .unwrap();
+        let result = loaded.solve(SolverRequest::Default).unwrap();
         assert_eq!(
             result.solver,
             problemreductions::solvers::SolverExecution::BruteForce
@@ -532,9 +534,7 @@ mod tests {
         )
         .unwrap();
 
-        let err = loaded
-            .solve_deterministically(SolverRequest::Ilp)
-            .unwrap_err();
+        let err = loaded.solve(SolverRequest::Ilp).unwrap_err();
         assert!(
             err.to_string().contains("No ILP pipeline is registered"),
             "unexpected error: {err}"
@@ -561,12 +561,12 @@ mod tests {
 
     #[test]
     fn solve_result_json_preserves_structured_solver_contract() {
-        let result = DeterministicSolveResult {
+        let result = SolveResult {
             solver: problemreductions::solvers::SolverExecution::Ilp {
                 reduction_path: vec!["Source".to_string(), "ILP<bool>".to_string()],
             },
             outcome: SolveOutcome::Optimal {
-                config: Some(vec![1, 0]),
+                solution: serde_json::json!([true, false]),
                 evaluation: "Max(1)".to_string(),
             },
         };
@@ -579,7 +579,7 @@ mod tests {
             json["solver"]["reduction_path"],
             serde_json::json!(["Source", "ILP<bool>"])
         );
-        assert_eq!(json["solution"], serde_json::json!([1, 0]));
+        assert_eq!(json["solution"], serde_json::json!([true, false]));
         assert!(json.get("reduced_to").is_none());
     }
 

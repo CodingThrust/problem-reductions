@@ -442,6 +442,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::models::graph::minimum_vertex_cover::decision_canonical_rule_example_specs(),
     );
     specs.extend(
+        crate::models::graph::maximum_independent_set::decision_canonical_rule_example_specs(),
+    );
+    specs.extend(
         crate::models::graph::minimum_dominating_set::decision_canonical_rule_example_specs(),
     );
     specs.extend(

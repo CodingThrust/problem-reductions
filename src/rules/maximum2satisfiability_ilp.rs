@@ -29,11 +29,14 @@ impl ReductionResult for ReductionMaximum2SatisfiabilityToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_vars].to_vec())
+        Ok(target_solution[..self.num_vars]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -63,21 +66,21 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             .iter()
             .enumerate()
             .map(|(j, clause)| {
-                let mut terms: Vec<(usize, f64)> = Vec::new();
-                let mut neg_count = 0.0;
+                let mut terms: Vec<(usize, i64)> = Vec::new();
+                let mut neg_count = 0;
 
                 // z_{n+j} has coefficient +1
-                terms.push((n + j, 1.0));
+                terms.push((n + j, 1));
 
                 for &lit in &clause.literals {
                     let var_idx = lit.unsigned_abs() as usize - 1;
                     if lit > 0 {
                         // positive literal: subtract y_i
-                        terms.push((var_idx, -1.0));
+                        terms.push((var_idx, -1));
                     } else {
                         // negative literal: add y_i
-                        terms.push((var_idx, 1.0));
-                        neg_count += 1.0;
+                        terms.push((var_idx, 1));
+                        neg_count += 1;
                     }
                 }
 
@@ -93,7 +96,8 @@ impl ReduceTo<ILP<bool>> for Maximum2Satisfiability {
             constraints,
             objective,
             ObjectiveSense::Maximize,
-        );
+        )
+        .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionMaximum2SatisfiabilityToILP {
             target,
@@ -135,8 +139,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config: vec![1, 1, 0, 1],
-                    target_config: vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1],
+                    source_config: serde_json::json!(vec![true, true, false, true]),
+                    target_config: serde_json::json!(vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]),
                 },
             )
         },

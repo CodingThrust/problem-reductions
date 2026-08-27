@@ -60,7 +60,7 @@ fn test_ksatisfiability_to_kernel_unsatisfiable_instance_has_no_kernel() {
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
     assert!(BruteForce::new()
-        .find_witness(reduction.target_problem())
+        .solve(reduction.target_problem())
         .unwrap()
         .is_none());
 }
@@ -71,7 +71,9 @@ fn test_ksatisfiability_to_kernel_extract_solution_reads_variable_gadgets() {
     let reduction = ReduceTo::<Kernel>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 0, 1, 0, 0, 0]).unwrap(),
-        vec![1, 0]
+        reduction
+            .extract_solution(&vec![true, false, false, true, false, false, false])
+            .unwrap(),
+        vec![true, false]
     );
 }

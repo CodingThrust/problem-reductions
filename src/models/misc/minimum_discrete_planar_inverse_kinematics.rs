@@ -6,7 +6,7 @@
 //! consecutive-pair constraints are satisfied and the squared distance from
 //! the end-effector to the target point is minimized.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry, ProblemSizeFieldEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::Min;
 use serde::{Deserialize, Serialize};
@@ -42,13 +42,6 @@ inventory::submit! {
                 description: "Admissible (a_{j-1}, a_j) pair sets A_j for j = 2, ..., n",
             },
         ],
-    }
-}
-
-inventory::submit! {
-    ProblemSizeFieldEntry {
-        name: "MinimumDiscretePlanarInverseKinematics",
-        fields: &["num_links"],
     }
 }
 
@@ -279,20 +272,37 @@ impl MinimumDiscretePlanarInverseKinematics {
 
 impl Problem for MinimumDiscretePlanarInverseKinematics {
     const NAME: &'static str = "MinimumDiscretePlanarInverseKinematics";
+    type Solution = Vec<usize>;
     type Value = Min<f64>;
+
+    crate::problem_size![
+        ("total_configurations", total_configurations),
+        ("num_links", num_links),
+        ("num_orientation_samples", num_orientation_samples),
+    ];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        self.orientation_samples
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<f64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_links() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "orientation assignment length does not match the links".into(),
+            ));
+        }
+        if config
             .iter()
-            .map(|samples| samples.len())
-            .collect()
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<f64>, crate::traits::EvaluationError> {
+            .enumerate()
+            .any(|(link, &orientation)| orientation >= self.orientation_samples[link].len())
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "orientation assignment contains an out-of-range sample".into(),
+            ));
+        }
         Ok({
             match self.squared_distance(config)? {
                 Some(value) => Min(Some(value)),
@@ -302,8 +312,21 @@ impl Problem for MinimumDiscretePlanarInverseKinematics {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MinimumDiscretePlanarInverseKinematics {
+    fn dimensions(&self) -> Vec<usize> {
+        self.orientation_samples
+            .iter()
+            .map(|samples| samples.len())
+            .collect()
+    }
+}
+
 crate::declare_variants! {
     default MinimumDiscretePlanarInverseKinematics => "total_configurations",
+}
+
+crate::register_brute_force! {
+    MinimumDiscretePlanarInverseKinematics,
 }
 
 #[cfg(feature = "example-db")]
@@ -320,7 +343,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             )
             .unwrap(),
         ),
-        optimal_config: vec![0, 1],
+        optimal_config: serde_json::json!(vec![0, 1]),
         optimal_value: serde_json::json!(0.0),
     }]
 }

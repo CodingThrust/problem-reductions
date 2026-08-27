@@ -1,5 +1,5 @@
 use super::*;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -15,8 +15,8 @@ fn test_reduction_creates_valid_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // m=3, n=3, commodities=2, flow=2*3*2=12, total=3+3+12=18
-    assert_eq!(ilp.num_vars, 18);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.num_vars(), 18);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn test_longestcircuit_to_ilp_closed_loop() {
     // BruteForce on source to verify feasibility
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("brute-force should find a solution");
     assert!(problem.evaluate(&bf_solution).unwrap().0.is_some());
@@ -72,11 +72,7 @@ fn test_longestcircuit_to_ilp_triangle() {
     let reduction: ReductionLongestCircuitToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "LongestCircuit->ILP triangle",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]

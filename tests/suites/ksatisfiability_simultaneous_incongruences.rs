@@ -24,7 +24,7 @@ fn test_ksatisfiability_to_simultaneous_incongruences_closed_loop() {
 
     let solver = BruteForce::new();
     let target_solution = solver
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target should be satisfiable");
     let extracted = reduction.extract_solution(&target_solution).unwrap();

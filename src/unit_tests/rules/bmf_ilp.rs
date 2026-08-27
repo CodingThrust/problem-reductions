@@ -11,8 +11,8 @@ fn test_bmf_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // b: 2*1=2, c: 1*2=2, p: 2*1*2=4, w: 2*2=4 => 12 (no error variables)
-    assert_eq!(ilp.num_vars, 12);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 12);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -42,5 +42,5 @@ fn test_bmf_to_ilp_trivial() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // b: 1, c: 1, p: 1, w: 1 => 4 (no error variables)
-    assert_eq!(ilp.num_vars, 4);
+    assert_eq!(ilp.num_vars(), 4);
 }

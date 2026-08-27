@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::algebraic::{ObjectiveSense, ILP};
-use crate::rules::test_helpers::assert_satisfaction_round_trip_from_satisfaction_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -17,8 +17,8 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars(), 9); // 3x3
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 }
 
 #[test]
@@ -29,11 +29,7 @@ fn test_isomorphicspanningtree_to_ilp_closed_loop() {
     let reduction: ReductionISTToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_satisfaction_round_trip_from_satisfaction_target(
-        &problem,
-        &reduction,
-        "IsomorphicSpanningTree->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 }
 
 #[test]
@@ -43,7 +39,7 @@ fn test_isomorphicspanningtree_to_ilp_bf_vs_ilp() {
     let problem = IsomorphicSpanningTree::new(graph, tree);
 
     let bf = BruteForce::new();
-    let bf_witness = bf.find_witness(&problem).unwrap();
+    let bf_witness = bf.solve(&problem).unwrap();
     assert!(
         bf_witness.is_some(),
         "BF should find a satisfying assignment"

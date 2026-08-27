@@ -15,14 +15,20 @@ fn numeric_boundaries_weight_totals_use_i64() {
     let weight = i64::MAX / 2;
     let expected = i64::MAX - 1;
     let dominating = MinimumDominatingSet::new(SimpleGraph::new(2, vec![]), vec![weight, weight]);
-    assert_eq!(dominating.evaluate(&[1, 1]).unwrap().0, Some(expected));
+    assert_eq!(
+        dominating.evaluate(&vec![true, true]).unwrap().0,
+        Some(expected)
+    );
 
     let covering =
         MinimumSetCovering::with_weights(2, vec![vec![0], vec![1]], vec![weight, weight]);
-    assert_eq!(covering.evaluate(&[1, 1]).unwrap().0, Some(expected));
+    assert_eq!(
+        covering.evaluate(&vec![true, true]).unwrap().0,
+        Some(expected)
+    );
 
     let ordinary = MinimumSetCovering::with_weights(1, vec![vec![0]], vec![7i64]);
-    assert_eq!(ordinary.evaluate(&[1]).unwrap().0, Some(7));
+    assert_eq!(ordinary.evaluate(&vec![true]).unwrap().0, Some(7));
 }
 
 #[test]

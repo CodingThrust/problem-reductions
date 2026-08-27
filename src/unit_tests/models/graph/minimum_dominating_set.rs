@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 
 #[test]
 fn create_spec_rejects_weight_count_mismatch() {
@@ -26,7 +27,7 @@ fn test_dominating_set_creation() {
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.dims(), vec![2; 4]);
+    assert_eq!(problem.dimensions(), vec![2; 4]);
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn test_isolated_vertex() {
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     // Vertex 2 is isolated, must be selected
     for sol in &solutions {
-        assert_eq!(sol[2], 1);
+        assert!(sol[2]);
         // Verify it's a valid dominating set
         assert!(Problem::evaluate(&problem, sol).unwrap().is_valid());
     }
@@ -141,7 +142,7 @@ fn test_jl_parity_evaluation() {
         let edges = jl_parse_edges(&instance["instance"]);
         let problem = MinimumDominatingSet::new(SimpleGraph::new(nv, edges), vec![1i64; nv]);
         for eval in instance["evaluations"].as_array().unwrap() {
-            let config = jl_parse_config(&eval["config"]);
+            let config = jl_parse_bool_config(&eval["config"]);
             let result = problem.evaluate(&config).unwrap();
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             assert_eq!(
@@ -161,8 +162,8 @@ fn test_jl_parity_evaluation() {
             }
         }
         let best = BruteForce::new().find_all_witnesses(&problem).unwrap();
-        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
-        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        let jl_best = jl_parse_bool_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<bool>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "DS best solutions mismatch");
     }
 }
@@ -173,9 +174,9 @@ fn test_is_valid_solution() {
     let problem =
         MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i64; 3]);
     // Valid: {1} dominates all vertices (0 and 2 are neighbors of 1)
-    assert!(problem.is_valid_solution(&[0, 1, 0]));
+    assert!(problem.is_valid_solution(&[false, true, false]));
     // Invalid: {0} doesn't dominate vertex 2
-    assert!(!problem.is_valid_solution(&[1, 0, 0]));
+    assert!(!problem.is_valid_solution(&[true, false, false]));
 }
 
 #[test]
@@ -191,12 +192,12 @@ fn test_mds_paper_example() {
     // Paper: house graph, DS = {v_2, v_3}, weight = 2, gamma(G) = 2
     let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
     let problem = MinimumDominatingSet::new(graph, vec![1i64; 5]);
-    let config = vec![0, 0, 1, 1, 0]; // {v_2, v_3}
+    let config = vec![false, false, true, true, false]; // {v_2, v_3}
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 
     let solver = BruteForce::new();
-    let best = solver.find_witness(&problem).unwrap().unwrap();
+    let best = solver.solve(&problem).unwrap().unwrap();
     assert_eq!(problem.evaluate(&best).unwrap().unwrap(), 2);
 }

@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::ThreeDimensionalMatching;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // W = X = Y = {0, 1, 2} (q = 3)
 /// // Triples: (0,1,2), (1,0,1), (2,2,0), (0,0,0), (1,2,2)
@@ -122,24 +122,28 @@ impl ThreeDimensionalMatching {
 
 impl Problem for ThreeDimensionalMatching {
     const NAME: &'static str = "ThreeDimensionalMatching";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.triples.len()]
-    }
+    crate::problem_size![
+        ("num_triples", num_triples),
+        ("universe_size", universe_size),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                if config.len() != self.triples.len() || config.iter().any(|&value| value > 1) {
-                    return Ok(crate::types::Or(false));
+                if config.len() != self.triples.len() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "triple-selection length does not match the instance".into(),
+                    ));
                 }
 
                 // Count selected triples
-                let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
+                let selected_count = config.iter().filter(|&&v| v).count();
                 if selected_count != self.universe_size {
                     return Ok(crate::types::Or(false));
                 }
@@ -150,7 +154,7 @@ impl Problem for ThreeDimensionalMatching {
                 let mut used_y = HashSet::with_capacity(self.universe_size);
 
                 for (i, &selected) in config.iter().enumerate() {
-                    if selected == 1 {
+                    if selected {
                         let (w, x, y) = self.triples[i];
                         if !used_w.insert(w) {
                             return Ok(crate::types::Or(false));
@@ -174,8 +178,18 @@ impl Problem for ThreeDimensionalMatching {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ThreeDimensionalMatching {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.triples.len()]
+    }
+}
+
 crate::declare_variants! {
     default ThreeDimensionalMatching => "2^num_triples",
+}
+
+crate::register_brute_force! {
+    ThreeDimensionalMatching decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -186,7 +200,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             3,
             vec![(0, 1, 2), (1, 0, 1), (2, 2, 0), (0, 0, 0), (1, 2, 2)],
         )),
-        optimal_config: vec![1, 1, 1, 0, 0],
+        optimal_config: serde_json::json!(vec![true, true, true, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

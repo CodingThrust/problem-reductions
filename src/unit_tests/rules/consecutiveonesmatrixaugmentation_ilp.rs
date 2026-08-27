@@ -15,8 +15,8 @@ fn test_coma_to_ilp_structure() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 3*3=9, a+l+u+h+f: 5*2*3=30 => 39
-    assert_eq!(ilp.num_vars, 39);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 39);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -38,10 +38,7 @@ fn test_coma_to_ilp_closed_loop() {
 
     // Also verify that brute-force on the source agrees
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 }
 
@@ -55,10 +52,7 @@ fn test_coma_to_ilp_bf_vs_ilp() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
     let bf = BruteForce::new();
-    let bf_witness = bf
-        .find_witness(&problem)
-        .unwrap()
-        .expect("should be feasible");
+    let bf_witness = bf.solve(&problem).unwrap().expect("should be feasible");
     assert_eq!(problem.evaluate(&bf_witness).unwrap(), Or(true));
 
     let ilp_solver = ILPSolver::new();
@@ -77,5 +71,5 @@ fn test_coma_to_ilp_trivial() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // x: 1, a+l+u+h+f: 5*1=5 => 6
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
 }

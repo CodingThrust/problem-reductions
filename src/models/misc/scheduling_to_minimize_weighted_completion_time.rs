@@ -43,7 +43,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SchedulingToMinimizeWeightedCompletionTime;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 /// use problemreductions::types::Min;
 ///
 /// // 5 tasks, 2 processors
@@ -51,7 +51,7 @@ inventory::submit! {
 ///     vec![1, 2, 3, 4, 5], vec![6, 4, 3, 2, 1], 2,
 /// );
 /// let solver = BruteForce::new();
-/// let witness = solver.find_witness(&problem).unwrap().unwrap();
+/// let witness = solver.solve(&problem).unwrap().unwrap();
 /// assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(47)));
 /// ```
 #[derive(Debug, Clone, Serialize)]
@@ -272,23 +272,48 @@ impl<'de> Deserialize<'de> for SchedulingToMinimizeWeightedCompletionTime {
 
 impl Problem for SchedulingToMinimizeWeightedCompletionTime {
     const NAME: &'static str = "SchedulingToMinimizeWeightedCompletionTime";
+    type Solution = Vec<usize>;
     type Value = Min<i64>;
+
+    crate::problem_size![("num_processors", num_processors), ("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<i64>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_tasks() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "processor assignment length does not match the tasks".into(),
+            ));
+        }
+        if config
+            .iter()
+            .any(|&processor| processor >= self.num_processors)
+        {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment contains an out-of-range processor".into(),
+            ));
+        }
         self.compute_weighted_completion_time(config)
+    }
+}
+
+impl crate::solvers::BruteForceProblem for SchedulingToMinimizeWeightedCompletionTime {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_processors; self.num_tasks()]
     }
 }
 
 crate::declare_variants! {
     default SchedulingToMinimizeWeightedCompletionTime => "num_processors^num_tasks" create SchedulingToMinimizeWeightedCompletionTimeCreateSpec,
+}
+
+crate::register_brute_force! {
+    SchedulingToMinimizeWeightedCompletionTime,
 }
 
 #[cfg(feature = "example-db")]
@@ -301,7 +326,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             2,
         )),
         // P0={t0,t2,t4}, P1={t1,t3} => config [0, 1, 0, 1, 0]
-        optimal_config: vec![0, 1, 0, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 0, 1, 0]),
         optimal_value: serde_json::json!(47),
     }]
 }

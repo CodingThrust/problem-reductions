@@ -96,7 +96,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_no_circuit() {
 
     // The target should have no Hamiltonian path (since source has no HC)
     let solver = BruteForce::new();
-    let witness = solver.find_witness(target).unwrap();
+    let witness = solver.solve(target).unwrap();
     assert!(
         witness.is_none(),
         "target should have no HP when source has no HC"
@@ -129,7 +129,7 @@ fn test_hamiltoniancircuit_to_hamiltonianpath_two_vertex_special_case_is_unsatis
 
     let solver = BruteForce::new();
     assert!(
-        solver.find_witness(target).unwrap().is_none(),
+        solver.solve(target).unwrap().is_none(),
         "2-vertex source should reduce to an unsatisfiable HamiltonianPath instance"
     );
 }

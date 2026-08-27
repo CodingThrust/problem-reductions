@@ -33,16 +33,19 @@ impl ReductionResult for ReductionLCSToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        crate::rules::ilp_helpers::one_hot_decode_rows(
+        Ok(crate::rules::ilp_helpers::one_hot_decode_rows(
             target_solution,
             self.max_length,
             self.alphabet_size + 1,
             0,
-        )
+        )?
+        .into_iter()
+        .map(|symbol| (symbol < self.alphabet_size).then_some(symbol))
+        .collect())
     }
 }
 
@@ -80,9 +83,9 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         // (1) Exactly one symbol (including padding) per witness position.
         for position in 0..max_length {
             let terms = (0..num_symbols)
-                .map(|symbol| (position * num_symbols + symbol, 1.0))
+                .map(|symbol| (position * num_symbols + symbol, 1))
                 .collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // (2) Contiguity: once padding starts, it stays padding.
@@ -90,10 +93,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         for position in 0..max_length.saturating_sub(1) {
             constraints.push(LinearConstraint::ge(
                 vec![
-                    (position * num_symbols + padding, -1.0),
-                    ((position + 1) * num_symbols + padding, 1.0),
+                    (position * num_symbols + padding, -1),
+                    ((position + 1) * num_symbols + padding, 1),
                 ],
-                0.0,
+                0,
             ));
         }
 
@@ -102,11 +105,11 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         //   sum_j y_(r,p,j) + x_(p, padding) = 1
         for (string_index, string) in strings.iter().enumerate() {
             for position in 0..max_length {
-                let mut terms: Vec<(usize, f64)> = (0..string.len())
-                    .map(|char_index| (match_var(string_index, position, char_index), 1.0))
+                let mut terms: Vec<(usize, i64)> = (0..string.len())
+                    .map(|char_index| (match_var(string_index, position, char_index), 1))
                     .collect();
-                terms.push((position * num_symbols + padding, 1.0));
-                constraints.push(LinearConstraint::eq(terms, 1.0));
+                terms.push((position * num_symbols + padding, 1));
+                constraints.push(LinearConstraint::eq(terms, 1));
             }
         }
 
@@ -117,10 +120,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
                 for (char_index, &symbol) in string.iter().enumerate() {
                     constraints.push(LinearConstraint::le(
                         vec![
-                            (match_var(string_index, position, char_index), 1.0),
-                            (position * num_symbols + symbol, -1.0),
+                            (match_var(string_index, position, char_index), 1),
+                            (position * num_symbols + symbol, -1),
                         ],
-                        0.0,
+                        0,
                     ));
                 }
             }
@@ -134,10 +137,10 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
                     for next in 0..=previous {
                         constraints.push(LinearConstraint::le(
                             vec![
-                                (match_var(string_index, position, previous), 1.0),
-                                (match_var(string_index, position + 1, next), 1.0),
+                                (match_var(string_index, position, previous), 1),
+                                (match_var(string_index, position + 1, next), 1),
                             ],
-                            1.0,
+                            1,
                         ));
                     }
                 }
@@ -152,7 +155,8 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
             .flat_map(|p| (0..alphabet_size).map(move |a| (p * num_symbols + a, 1.0)))
             .collect();
 
-        let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
+        let target = ILP::<bool>::new(num_vars, constraints, objective, ObjectiveSense::Maximize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
 
         Ok(ReductionLCSToILP {
             target,

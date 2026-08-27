@@ -37,7 +37,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::formula::{Maximum2Satisfiability, CNFClause};
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// let problem = Maximum2Satisfiability::new(
 ///     3,
@@ -118,17 +118,21 @@ impl Maximum2Satisfiability {
 
 impl Problem for Maximum2Satisfiability {
     const NAME: &'static str = "Maximum2Satisfiability";
+    type Solution = Vec<bool>;
     type Value = Max<i64>;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![("num_clauses", num_clauses), ("num_vars", num_vars),];
 
-    fn evaluate(&self, config: &[usize]) -> Result<Max<i64>, crate::traits::EvaluationError> {
-        Ok({
-            let assignment = super::config_to_assignment(config);
-            Max(Some(self.count_satisfied(&assignment)?))
-        })
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Max<i64>, crate::traits::EvaluationError> {
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(Max(Some(self.count_satisfied(config)?)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -136,8 +140,18 @@ impl Problem for Maximum2Satisfiability {
     }
 }
 
+impl crate::solvers::BruteForceProblem for Maximum2Satisfiability {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default Maximum2Satisfiability => "2^(0.7905 * num_variables)",
+    default Maximum2Satisfiability => "2^(0.7905 * num_vars)",
+}
+
+crate::register_brute_force! {
+    Maximum2Satisfiability decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[derive(Deserialize)]
@@ -170,7 +184,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![3, 4]),
             ],
         )),
-        optimal_config: vec![1, 1, 0, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, true]),
         optimal_value: serde_json::json!(6),
     }]
 }

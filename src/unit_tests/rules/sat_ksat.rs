@@ -194,9 +194,9 @@ fn test_3sat_to_sat_solution_extraction() {
 
     let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat).expect("reduction should succeed");
 
-    let sol = vec![1, 0, 1];
+    let sol = vec![true, false, true];
     let extracted = reduction.extract_solution(&sol).unwrap();
-    assert_eq!(extracted, vec![1, 0, 1]);
+    assert_eq!(extracted, vec![true, false, true]);
 }
 
 #[test]
@@ -317,7 +317,7 @@ fn test_unsatisfiable_formula() {
 
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(ksat).unwrap();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&sat)
         .unwrap()
         .into_iter()
@@ -342,7 +342,7 @@ fn test_jl_parity_sat_to_ksat() {
     let result =
         ReduceTo::<KSatisfiability<K3>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -353,7 +353,7 @@ fn test_jl_parity_sat_to_ksat() {
         "JL parity SAT->KSat",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -370,7 +370,7 @@ fn test_jl_parity_ksat_to_sat() {
     let source = KSatisfiability::<K3>::new(num_vars, clauses);
     let result = ReduceTo::<Satisfiability>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -381,7 +381,7 @@ fn test_jl_parity_ksat_to_sat() {
         "JL parity KSat->SAT",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }
 
@@ -399,7 +399,7 @@ fn test_jl_parity_rule_sat_to_ksat() {
     let result =
         ReduceTo::<KSatisfiability<K3>>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
-    let best_source: HashSet<Vec<usize>> = solver
+    let best_source: HashSet<Vec<bool>> = solver
         .find_all_witnesses(&source)
         .unwrap()
         .into_iter()
@@ -410,6 +410,6 @@ fn test_jl_parity_rule_sat_to_ksat() {
         "JL parity rule SAT->KSat",
     );
     for case in data["cases"].as_array().unwrap() {
-        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+        assert_eq!(best_source, jl_parse_bool_configs_set(&case["best_source"]));
     }
 }

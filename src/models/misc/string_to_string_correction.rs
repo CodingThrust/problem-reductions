@@ -57,12 +57,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::StringToStringCorrection;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // source = [0,1,2,3,1,0], target = [0,1,3,2,1], bound = 2
 /// let problem = StringToStringCorrection::new(4, vec![0,1,2,3,1,0], vec![0,1,3,2,1], 2);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -186,24 +186,25 @@ impl StringToStringCorrection {
 
 impl Problem for StringToStringCorrection {
     const NAME: &'static str = "StringToStringCorrection";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("bound", bound), ("source_length", source_length),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2 * self.source.len() + 1; self.bound]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.bound {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edit-program length does not match the operation bound".into(),
+                    ));
                 }
                 if self.target.len() > self.source.len()
                     || self.target.len() < self.source.len().saturating_sub(self.bound)
@@ -213,7 +214,9 @@ impl Problem for StringToStringCorrection {
                 let n = self.source.len();
                 let domain = 2 * n + 1;
                 if config.iter().any(|&v| v >= domain) {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "edit program contains an out-of-range operation".into(),
+                    ));
                 }
                 let noop = 2 * n;
                 let mut working = self.source.clone();
@@ -242,8 +245,18 @@ impl Problem for StringToStringCorrection {
     }
 }
 
+impl crate::solvers::BruteForceProblem for StringToStringCorrection {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2 * self.source.len() + 1; self.bound]
+    }
+}
+
 crate::declare_variants! {
     default StringToStringCorrection => "(2 * source_length + 1) ^ bound" create StringToStringCorrectionCreateSpec,
+}
+
+crate::register_brute_force! {
+    StringToStringCorrection,
 }
 
 #[cfg(feature = "example-db")]
@@ -259,7 +272,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 3, 2, 1],
             2,
         )),
-        optimal_config: vec![8, 5],
+        optimal_config: serde_json::json!(vec![8, 5]),
         optimal_value: serde_json::json!(true),
     }]
 }

@@ -1,5 +1,6 @@
 use super::ClosestSubstring;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 use crate::types::Min;
 
@@ -28,7 +29,7 @@ fn test_closest_substring_creation() {
     assert_eq!(problem.num_window_choice_product(), 27);
     // dims: 3 center slots (each of size 2) + one window-position slot per
     // string (each of size W_i = 5 - 3 + 1 = 3).
-    assert_eq!(problem.dims(), vec![2, 2, 2, 3, 3, 3]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 3, 3, 3]);
     assert_eq!(problem.num_variables(), 6);
     assert_eq!(<ClosestSubstring as Problem>::NAME, "ClosestSubstring");
     assert_eq!(<ClosestSubstring as Problem>::variant(), vec![]);
@@ -42,7 +43,10 @@ fn test_closest_substring_evaluate_at_optimum() {
     //   s_2[1..4] = [0,1,0], d_H = 0
     //   s_3[0..3] = [1,1,0], d_H = 1
     // max = 1.
-    assert_eq!(problem.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem.evaluate(&vec![0, 1, 0, 0, 1, 0]).unwrap(),
+        Min(Some(1))
+    );
 }
 
 #[test]
@@ -53,7 +57,10 @@ fn test_closest_substring_evaluate_all_zero_windows() {
     //   s_2[0..3] = [1,0,1]  d = 2
     //   s_3[0..3] = [1,1,0]  d = 2
     // max = 2.
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0]).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem.evaluate(&vec![0, 0, 0, 0, 0, 0]).unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -62,7 +69,7 @@ fn test_closest_substring_evaluate_at_111_center() {
     // Any center [1,1,1] has Hamming distance >= 1 to every length-3 binary
     // string that contains at least one 0. All windows of s_1, s_2, s_3
     // contain at least one zero, so the radius is at least 1.
-    let value = problem.evaluate(&[1, 1, 1, 0, 0, 0]).unwrap();
+    let value = problem.evaluate(&vec![1, 1, 1, 0, 0, 0]).unwrap();
     if let Min(Some(d)) = value {
         assert!(d >= 1, "expected radius >= 1, got {d}");
     } else {
@@ -73,8 +80,14 @@ fn test_closest_substring_evaluate_at_111_center() {
 #[test]
 fn test_closest_substring_evaluate_invalid_length() {
     let problem = issue_instance();
-    assert_eq!(problem.evaluate(&[0, 0, 0]).unwrap(), Min(None));
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 0]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 0, 0, 0, 0, 0, 0]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
@@ -82,9 +95,14 @@ fn test_closest_substring_bruteforce_finds_optimum() {
     let problem = issue_instance();
     let solver = BruteForce::new();
     // 8 centers * 27 window combinations = 216 configurations; optimum is 1.
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(1)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(1))
+    );
     let witness = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("expected a witness for ClosestSubstring");
     assert_eq!(problem.evaluate(&witness).unwrap(), Min(Some(1)));
@@ -103,9 +121,14 @@ fn test_closest_substring_specializes_to_closest_string() {
     )
     .unwrap();
     assert_eq!(problem.num_window_choice_product(), 1);
-    assert_eq!(problem.dims(), vec![2, 2, 2, 1, 1, 1, 1]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 1, 1, 1, 1]);
     let solver = BruteForce::new();
-    assert_eq!(solver.solve(&problem).unwrap(), Min(Some(2)));
+    assert_eq!(
+        problem
+            .evaluate(&solver.solve(&problem).unwrap().unwrap())
+            .unwrap(),
+        Min(Some(2))
+    );
 }
 
 #[test]
@@ -144,9 +167,9 @@ fn test_closest_substring_serialization() {
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());
     assert_eq!(restored.strings(), problem.strings());
     assert_eq!(restored.substring_length(), problem.substring_length());
-    assert_eq!(restored.dims(), problem.dims());
+    assert_eq!(restored.dimensions(), problem.dimensions());
     assert_eq!(
-        restored.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap(),
-        problem.evaluate(&[0, 1, 0, 0, 1, 0]).unwrap()
+        restored.evaluate(&vec![0, 1, 0, 0, 1, 0]).unwrap(),
+        problem.evaluate(&vec![0, 1, 0, 0, 1, 0]).unwrap()
     );
 }

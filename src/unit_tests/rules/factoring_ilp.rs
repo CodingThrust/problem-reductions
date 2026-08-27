@@ -11,12 +11,12 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // Check variable count: m + n + m*n + (m+n) = 2 + 2 + 4 + 4 = 12
-    assert_eq!(ilp.num_vars, 12);
+    assert_eq!(ilp.num_vars(), 12);
 
     // Check constraint count: 3*m*n + 4*m + 4*n + 1 = 12 + 8 + 8 + 1 = 29
-    assert_eq!(ilp.constraints.len(), 29);
+    assert_eq!(ilp.constraints().len(), 29);
 
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn test_factor_6() {
     // Verify it's a valid factorization
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(6u32));
 }
 
@@ -84,7 +84,7 @@ fn test_factor_15() {
 
     // 5. Verify: solution is valid and p × q = 15
     assert!(problem.is_valid_factorization(&extracted));
-    let (p, q) = problem.read_factors(&extracted);
+    let (p, q) = extracted.clone();
     assert_eq!(p * q, BigUint::from(15u32)); // e.g., (3, 5) or (5, 3)
 }
 
@@ -102,7 +102,7 @@ fn test_factor_35() {
 
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(35u32));
 }
 
@@ -120,7 +120,7 @@ fn test_factor_one() {
 
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(1u32));
 }
 
@@ -138,7 +138,7 @@ fn test_factor_prime() {
 
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(7u32));
 }
 
@@ -156,7 +156,7 @@ fn test_factor_square() {
 
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(9u32));
 }
 
@@ -191,11 +191,8 @@ fn test_factoring_to_ilp_closed_loop() {
     let bf_solutions = bf.find_all_witnesses(&problem).unwrap();
 
     // ILP solution should be among brute force solutions
-    let (a, b) = problem.read_factors(&ilp_factors);
-    let bf_pairs: Vec<(BigUint, BigUint)> = bf_solutions
-        .iter()
-        .map(|s| problem.read_factors(s))
-        .collect();
+    let (a, b) = ilp_factors.clone();
+    let bf_pairs: Vec<(BigUint, BigUint)> = bf_solutions.to_vec();
 
     assert!(
         bf_pairs.contains(&(a.clone(), b.clone())),
@@ -221,10 +218,9 @@ fn test_solution_extraction() {
     let ilp_solution = vec![0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0];
     let extracted = reduction.extract_solution(&ilp_solution).unwrap();
 
-    // Should extract [p0, p1, q0, q1] = [0, 1, 1, 1]
-    assert_eq!(extracted, vec![0, 1, 1, 1]);
+    assert_eq!(extracted, (BigUint::from(2u32), BigUint::from(3u32)));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a, BigUint::from(2u32));
     assert_eq!(b, BigUint::from(3u32));
     assert_eq!(a * b, BigUint::from(6u32));
@@ -238,10 +234,10 @@ fn test_target_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // num_vars = 3 + 4 + 12 + 7 = 26
-    assert_eq!(ilp.num_vars, 26);
+    assert_eq!(ilp.num_vars(), 26);
 
     // num_constraints = 3*12 + 4*3 + 4*4 + 1 = 36 + 12 + 16 + 1 = 65
-    assert_eq!(ilp.constraints.len(), 65);
+    assert_eq!(ilp.constraints().len(), 65);
 }
 
 #[test]
@@ -272,7 +268,7 @@ fn test_asymmetric_bit_widths() {
 
     assert!(problem.is_valid_factorization(&extracted));
 
-    let (a, b) = problem.read_factors(&extracted);
+    let (a, b) = extracted.clone();
     assert_eq!(a * b, BigUint::from(12u32));
 }
 
@@ -296,7 +292,7 @@ fn test_constraint_count_formula() {
 
         let expected = 3 * m * n + 4 * m + 4 * n + 1;
         assert_eq!(
-            ilp.constraints.len(),
+            ilp.constraints().len(),
             expected,
             "Constraint count mismatch for m={}, n={}",
             m,
@@ -316,9 +312,11 @@ fn test_variable_count_formula() {
 
         let expected = m + n + m * n + (m + n);
         assert_eq!(
-            ilp.num_vars, expected,
+            ilp.num_vars(),
+            expected,
             "Variable count mismatch for m={}, n={}",
-            m, n
+            m,
+            n
         );
     }
 }

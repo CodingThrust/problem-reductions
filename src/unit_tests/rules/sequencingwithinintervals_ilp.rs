@@ -28,9 +28,9 @@ fn test_sequencingwithinintervals_to_ilp_structure() {
     // dim for task 0: d[0]-r[0]-l[0]+1 = 3-0-2+1 = 2 offsets
     // dim for task 1: d[1]-r[1]-l[1]+1 = 5-2-2+1 = 2 offsets
     // total vars = 2 + 2 = 4
-    assert_eq!(ilp.num_vars, 4);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-    assert!(ilp.objective.is_empty());
+    assert_eq!(ilp.num_vars(), 4);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
+    assert!(ilp.objective().is_empty());
 
     // 2 one-hot constraints + overlap constraints
     // task 0 k1=0: [0,2), task 1 k2=0: [2,4) → no overlap
@@ -38,7 +38,7 @@ fn test_sequencingwithinintervals_to_ilp_structure() {
     // task 0 k1=1: [1,3), task 1 k2=0: [2,4) → overlap at [2,3)
     // task 0 k1=1: [1,3), task 1 k2=1: [3,5) → no overlap
     // So 1 non-overlap constraint + 2 one-hot = 3 total
-    assert_eq!(ilp.constraints.len(), 3);
+    assert_eq!(ilp.constraints().len(), 3);
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn test_sequencingwithinintervals_to_ilp_closed_loop() {
     let problem = feasible_instance();
     let bf = BruteForce::new();
     let bf_solution = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("feasible instance has a witness");
     assert!(

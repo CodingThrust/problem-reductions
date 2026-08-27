@@ -41,12 +41,12 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MultiprocessorScheduling;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 5 tasks with lengths [4, 5, 3, 2, 6], 2 processors, deadline 10
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
-/// let solution = solver.find_witness(&problem).unwrap();
+/// let solution = solver.solve(&problem).unwrap();
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,28 +126,31 @@ impl MultiprocessorScheduling {
 
 impl Problem for MultiprocessorScheduling {
     const NAME: &'static str = "MultiprocessorScheduling";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_processors", num_processors), ("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.num_processors; self.num_tasks()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
                 if config.len() != self.num_tasks() {
-                    return Ok(crate::types::Or(false));
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "processor assignment length does not match the tasks".into(),
+                    ));
                 }
                 let m = self.num_processors;
-                if config.iter().any(|&p| p >= m) {
-                    return Ok(crate::types::Or(false));
+                if config.iter().any(|&processor| processor >= m) {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "assignment contains an out-of-range processor".into(),
+                    ));
                 }
                 let mut loads = vec![0i64; m];
                 for (i, &processor) in config.iter().enumerate() {
@@ -166,8 +169,18 @@ impl Problem for MultiprocessorScheduling {
     }
 }
 
+impl crate::solvers::BruteForceProblem for MultiprocessorScheduling {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.num_processors; self.num_tasks()]
+    }
+}
+
 crate::declare_variants! {
     default MultiprocessorScheduling => "2^num_tasks" create MultiprocessorSchedulingCreateSpec,
+}
+
+crate::register_brute_force! {
+    MultiprocessorScheduling,
 }
 
 #[cfg(feature = "example-db")]
@@ -175,7 +188,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     vec![crate::example_db::specs::ModelExampleSpec {
         id: "multiprocessor_scheduling",
         instance: Box::new(MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10)),
-        optimal_config: vec![0, 1, 1, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 1, 1, 0]),
         optimal_value: serde_json::json!(true),
     }]
 }

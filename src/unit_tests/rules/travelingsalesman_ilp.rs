@@ -23,8 +23,8 @@ fn test_reduction_creates_valid_ilp_c4() {
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 16 + 2*4*4 = 48
-    assert_eq!(ilp.num_vars, 48);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 48);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn test_solution_extraction_structure() {
     // Should have one value per edge
     assert_eq!(extracted.len(), 4);
     // All edges should be selected (C4 has unique cycle = all edges)
-    assert_eq!(extracted.iter().sum::<usize>(), 4);
+    assert_eq!(extracted.iter().filter(|&&selected| selected).count(), 4);
 }
 
 #[test]

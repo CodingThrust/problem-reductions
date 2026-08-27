@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::Min;
@@ -24,7 +25,7 @@ fn test_optimallineararrangement_basic() {
     let problem = issue_example();
 
     // Check dims: 6 variables, each with domain size 6
-    assert_eq!(problem.dims(), vec![6, 6, 6, 6, 6, 6]);
+    assert_eq!(problem.dimensions(), vec![6, 6, 6, 6, 6, 6]);
 
     // Identity arrangement: f(i) = i
     // Cost: |0-1| + |1-2| + |2-3| + |3-4| + |4-5| + |0-3| + |2-5| = 1+1+1+1+1+3+3 = 11
@@ -48,21 +49,30 @@ fn test_optimallineararrangement_invalid_config() {
     let problem = issue_example();
 
     // Not a permutation: repeated value
-    assert_eq!(problem.evaluate(&[0, 0, 1, 2, 3, 4]).unwrap(), Min(None));
+    assert_eq!(
+        problem.evaluate(&vec![0, 0, 1, 2, 3, 4]).unwrap(),
+        Min(None)
+    );
     assert_eq!(
         problem.total_edge_length(&[0, 0, 1, 2, 3, 4]).unwrap(),
         None
     );
 
     // Out of range
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3, 4, 6]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2, 3, 4, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert_eq!(
         problem.total_edge_length(&[0, 1, 2, 3, 4, 6]).unwrap(),
         None
     );
 
     // Wrong length
-    assert_eq!(problem.evaluate(&[0, 1, 2]).unwrap(), Min(None));
+    assert!(matches!(
+        problem.evaluate(&vec![0, 1, 2]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert_eq!(problem.total_edge_length(&[0, 1, 2]).unwrap(), None);
 }
 
@@ -90,7 +100,7 @@ fn test_optimallineararrangement_solver() {
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert_eq!(problem.evaluate(&sol).unwrap(), Min(Some(4)));
@@ -103,7 +113,8 @@ fn test_optimallineararrangement_solver_aggregate() {
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(4)));
 }
 
@@ -114,7 +125,8 @@ fn test_optimallineararrangement_empty_graph() {
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(0)));
 
     let all_witnesses = solver.find_all_witnesses(&problem).unwrap();
@@ -131,8 +143,8 @@ fn test_optimallineararrangement_single_vertex() {
     let graph = SimpleGraph::new(1, vec![]);
     let problem = OptimalLinearArrangement::new(graph);
 
-    assert_eq!(problem.dims(), vec![1]);
-    assert_eq!(problem.evaluate(&[0]).unwrap(), Min(Some(0)));
+    assert_eq!(problem.dimensions(), vec![1]);
+    assert_eq!(problem.evaluate(&vec![0]).unwrap(), Min(Some(0)));
     assert_eq!(problem.total_edge_length(&[0]).unwrap(), Some(0));
 }
 
@@ -166,8 +178,8 @@ fn test_optimallineararrangement_two_vertices() {
     let problem = OptimalLinearArrangement::new(graph);
 
     // Both permutations [0,1] and [1,0] have cost 1
-    assert_eq!(problem.evaluate(&[0, 1]).unwrap(), Min(Some(1)));
-    assert_eq!(problem.evaluate(&[1, 0]).unwrap(), Min(Some(1)));
+    assert_eq!(problem.evaluate(&vec![0, 1]).unwrap(), Min(Some(1)));
+    assert_eq!(problem.evaluate(&vec![1, 0]).unwrap(), Min(Some(1)));
     assert_eq!(problem.total_edge_length(&[0, 1]).unwrap(), Some(1));
     assert_eq!(problem.total_edge_length(&[1, 0]).unwrap(), Some(1));
 }
@@ -179,11 +191,11 @@ fn test_optimallineararrangement_permutation_matters() {
     let problem = OptimalLinearArrangement::new(graph);
 
     // Identity: cost = 1+1+1 = 3
-    assert_eq!(problem.evaluate(&[0, 1, 2, 3]).unwrap(), Min(Some(3)));
+    assert_eq!(problem.evaluate(&vec![0, 1, 2, 3]).unwrap(), Min(Some(3)));
     assert_eq!(problem.total_edge_length(&[0, 1, 2, 3]).unwrap(), Some(3));
 
     // Reversed: cost = 1+1+1 = 3
-    assert_eq!(problem.evaluate(&[3, 2, 1, 0]).unwrap(), Min(Some(3)));
+    assert_eq!(problem.evaluate(&vec![3, 2, 1, 0]).unwrap(), Min(Some(3)));
     assert_eq!(problem.total_edge_length(&[3, 2, 1, 0]).unwrap(), Some(3));
 
     // Scrambled: [2, 0, 3, 1] -> f(0)=2, f(1)=0, f(2)=3, f(3)=1
@@ -217,7 +229,8 @@ fn test_optimallineararrangement_complete_graph_k4() {
     let problem = OptimalLinearArrangement::new(graph);
 
     let solver = BruteForce::new();
-    let value = solver.solve(&problem).unwrap();
+    let value_solution = solver.solve(&problem).unwrap().unwrap();
+    let value = problem.evaluate(&value_solution).unwrap();
     assert_eq!(value, Min(Some(10)));
 
     let all_witnesses = solver.find_all_witnesses(&problem).unwrap();

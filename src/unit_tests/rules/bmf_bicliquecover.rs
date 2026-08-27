@@ -2,9 +2,8 @@ use super::*;
 use crate::models::algebraic::BMF;
 use crate::models::graph::BicliqueCover;
 use crate::rules::{ReduceTo, ReductionResult};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::types::Min;
 
 #[test]
 fn test_bmf_to_bicliquecover_structure() {
@@ -27,9 +26,11 @@ fn test_bmf_to_bicliquecover_closed_loop_all_ones() {
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let bf_source = BruteForce::new().solve(&problem).unwrap();
+    let bf_source_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+
+    let bf_source = problem.evaluate(&bf_source_solution).unwrap();
     let target_witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target has feasible biclique cover");
     let extracted = reduction.extract_solution(&target_witness).unwrap();
@@ -46,9 +47,11 @@ fn test_bmf_to_bicliquecover_closed_loop_identity() {
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    let bf_source = BruteForce::new().solve(&problem).unwrap();
+    let bf_source_solution = BruteForce::new().solve(&problem).unwrap().unwrap();
+
+    let bf_source = problem.evaluate(&bf_source_solution).unwrap();
     let target_witness = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("target has feasible biclique cover");
     let extracted = reduction.extract_solution(&target_witness).unwrap();
@@ -68,6 +71,6 @@ fn test_bmf_to_bicliquecover_insufficient_rank() {
         ReduceTo::<BicliqueCover>::reduce_to(&problem).expect("reduction should succeed");
     let target = reduction.target_problem();
 
-    assert_eq!(BruteForce::new().solve(&problem).unwrap(), Min(None));
-    assert_eq!(BruteForce::new().solve(target).unwrap(), Min(None));
+    assert!(BruteForce::new().solve(&problem).unwrap().is_none());
+    assert!(BruteForce::new().solve(target).unwrap().is_none());
 }

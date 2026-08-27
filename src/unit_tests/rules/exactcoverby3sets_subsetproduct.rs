@@ -40,8 +40,10 @@ fn test_exactcoverby3sets_to_subsetproduct_extract_solution_is_identity() {
         ReduceTo::<SubsetProduct>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1]).unwrap(),
-        vec![1, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, true])
+            .unwrap(),
+        vec![true, false, true]
     );
 }
 

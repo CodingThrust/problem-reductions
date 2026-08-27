@@ -51,8 +51,8 @@ pub struct ProblemRef {
 /// One source↔target solution pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
-    pub source_config: Vec<usize>,
-    pub target_config: Vec<usize>,
+    pub source_config: serde_json::Value,
+    pub target_config: serde_json::Value,
 }
 
 /// A complete rule example: reduction + solutions in one file.
@@ -69,7 +69,7 @@ pub struct ModelExample {
     pub problem: String,
     pub variant: BTreeMap<String, String>,
     pub instance: serde_json::Value,
-    pub optimal_config: Vec<usize>,
+    pub optimal_config: serde_json::Value,
     pub optimal_value: serde_json::Value,
 }
 
@@ -78,7 +78,7 @@ impl ModelExample {
         problem: &str,
         variant: BTreeMap<String, String>,
         instance: serde_json::Value,
-        optimal_config: Vec<usize>,
+        optimal_config: serde_json::Value,
         optimal_value: serde_json::Value,
     ) -> Self {
         Self {

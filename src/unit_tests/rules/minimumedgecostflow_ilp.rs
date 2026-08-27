@@ -51,15 +51,15 @@ fn test_minimumedgecostflow_to_ilp_structure() {
     let ilp = reduction.target_problem();
 
     // 6 arcs → 2*6 = 12 variables
-    assert_eq!(ilp.num_vars, 12);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 12);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
-    // Objective should have 6 terms (one per indicator variable)
-    assert_eq!(ilp.objective.len(), 6);
+    // Zero-priced arcs are omitted by sparse objective normalization.
+    assert_eq!(ilp.objective(), vec![(6, 3.0), (7, 1.0), (8, 2.0)]);
 
     // Constraints: 6 linking + 6 binary + (5-2)=3 conservation + 1 flow req = 16
     // That is 2*6 + 5 - 1 = 16
-    assert_eq!(ilp.constraints.len(), 16);
+    assert_eq!(ilp.constraints().len(), 16);
 }
 
 #[test]
@@ -67,7 +67,7 @@ fn test_minimumedgecostflow_to_ilp_closed_loop() {
     let problem = issue_instance();
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("issue instance has optimal");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -89,7 +89,7 @@ fn test_minimumedgecostflow_to_ilp_small_closed_loop() {
     let problem = small_instance();
     let bf = BruteForce::new();
     let bf_witness = bf
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("small instance has optimal");
     let bf_value = problem.evaluate(&bf_witness).unwrap();
@@ -131,7 +131,7 @@ fn test_minimumedgecostflow_to_ilp_extract_solution() {
 
     // Manually construct a target solution: route 1 via v2, 2 via v3
     // f = [0, 1, 2, 0, 1, 2], y = [0, 1, 1, 0, 1, 1]
-    let mut target_solution = vec![0usize; 12];
+    let mut target_solution = vec![0_i64; 12];
     target_solution[1] = 1; // f on arc (0,2)
     target_solution[2] = 2; // f on arc (0,3)
     target_solution[4] = 1; // f on arc (2,4)

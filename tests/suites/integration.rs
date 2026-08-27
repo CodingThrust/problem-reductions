@@ -132,7 +132,7 @@ mod all_problems_solvable {
             8,
         );
         let solver = BruteForce::new();
-        let solution = solver.find_witness(&problem).unwrap();
+        let solution = solver.solve(&problem).unwrap();
         assert!(solution.is_some());
         assert!(problem.evaluate(&solution.unwrap()).unwrap().0.is_some());
     }
@@ -146,7 +146,7 @@ mod all_problems_solvable {
         );
         let solver = BruteForce::new();
         let satisfying = solver.find_all_witnesses(&problem).unwrap();
-        assert_eq!(satisfying, vec![vec![0, 0, 1]]);
+        assert_eq!(satisfying, vec![vec![false, false, true]]);
         assert!(satisfying
             .iter()
             .all(|config| problem.evaluate(config).unwrap().0));
@@ -158,14 +158,7 @@ mod all_problems_solvable {
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
-        // Satisfiability uses `Or`, so any config with `evaluate(config).0` is a witness.
-        let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> =
-            problemreductions::config::DimsIterator::new(dims.clone()).collect();
-        let satisfying: Vec<Vec<usize>> = all_configs
-            .into_iter()
-            .filter(|config| problem.evaluate(config).unwrap().0)
-            .collect();
+        let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
         assert!(!satisfying.is_empty());
         for sol in &satisfying {
             assert!(problem.evaluate(sol).unwrap());
@@ -225,14 +218,7 @@ mod all_problems_solvable {
             BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
         )]);
         let problem = CircuitSAT::new(circuit);
-        // CircuitSAT also uses `Or`, so witness enumeration lines up with configs where `.0` is true.
-        let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> =
-            problemreductions::config::DimsIterator::new(dims.clone()).collect();
-        let satisfying: Vec<Vec<usize>> = all_configs
-            .into_iter()
-            .filter(|config| problem.evaluate(config).unwrap().0)
-            .collect();
+        let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
         assert!(!satisfying.is_empty());
         for sol in &satisfying {
             assert!(problem.evaluate(sol).unwrap());
@@ -259,7 +245,7 @@ mod all_problems_solvable {
         );
         let solver = BruteForce::new();
         let solutions = solver.find_all_witnesses(&problem).unwrap();
-        assert!(solutions.contains(&vec![1, 0, 0]));
+        assert!(solutions.contains(&vec![true, false, false]));
     }
 
     #[test]
@@ -318,8 +304,8 @@ mod problem_relationships {
         let is_solutions = solver.find_all_witnesses(&is_problem).unwrap();
         let vc_solutions = solver.find_all_witnesses(&vc_problem).unwrap();
 
-        let max_is_size = is_solutions[0].iter().sum::<usize>();
-        let min_vc_size = vc_solutions[0].iter().sum::<usize>();
+        let max_is_size = is_solutions[0].iter().filter(|&&selected| selected).count();
+        let min_vc_size = vc_solutions[0].iter().filter(|&&selected| selected).count();
 
         // IS complement is a valid VC and vice versa
         assert_eq!(max_is_size + min_vc_size, n);
@@ -356,7 +342,7 @@ mod problem_relationships {
         );
 
         // All true should satisfy
-        let all_true = vec![1, 1, 1];
+        let all_true = vec![true, true, true];
         assert!(problem.evaluate(&all_true).unwrap());
     }
 
@@ -397,11 +383,23 @@ mod problem_relationships {
 
         // All sets needed for cover
         let cover_solutions = solver.find_all_witnesses(&covering).unwrap();
-        assert_eq!(cover_solutions[0].iter().sum::<usize>(), 3);
+        assert_eq!(
+            cover_solutions[0]
+                .iter()
+                .filter(|&&selected| selected)
+                .count(),
+            3
+        );
 
         // All sets can be packed (no overlap)
         let pack_solutions = solver.find_all_witnesses(&packing).unwrap();
-        assert_eq!(pack_solutions[0].iter().sum::<usize>(), 3);
+        assert_eq!(
+            pack_solutions[0]
+                .iter()
+                .filter(|&&selected| selected)
+                .count(),
+            3
+        );
     }
 }
 
@@ -416,7 +414,7 @@ mod edge_cases {
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 
         // All vertices can be in IS when no edges
-        assert_eq!(solutions[0].iter().sum::<usize>(), 3);
+        assert_eq!(solutions[0].iter().filter(|&&selected| selected).count(), 3);
     }
 
     #[test]
@@ -428,20 +426,13 @@ mod edge_cases {
         let solutions = solver.find_all_witnesses(&problem).unwrap();
 
         // Maximum IS in complete graph is 1
-        assert_eq!(solutions[0].iter().sum::<usize>(), 1);
+        assert_eq!(solutions[0].iter().filter(|&&selected| selected).count(), 1);
     }
 
     #[test]
     fn test_single_clause_sat() {
         let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
-        // Find satisfying configs
-        let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> =
-            problemreductions::config::DimsIterator::new(dims.clone()).collect();
-        let satisfying: Vec<Vec<usize>> = all_configs
-            .into_iter()
-            .filter(|config| problem.evaluate(config).unwrap().0)
-            .collect();
+        let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
 
         // (x1 OR NOT x2) is satisfied by 3 of 4 assignments
         assert!(!satisfying.is_empty());
@@ -490,7 +481,7 @@ mod weighted_problems {
         let best_weight: i64 = solutions[0]
             .iter()
             .enumerate()
-            .map(|(i, &s)| if s == 1 { problem.weights()[i] } else { 0 })
+            .map(|(i, &s)| if s { problem.weights()[i] } else { 0 })
             .sum();
         assert_eq!(best_weight, 11);
     }
@@ -507,7 +498,7 @@ mod weighted_problems {
         let best_weight: i64 = solutions[0]
             .iter()
             .enumerate()
-            .map(|(i, &s)| if s == 1 { problem.weights()[i] } else { 0 })
+            .map(|(i, &s)| if s { problem.weights()[i] } else { 0 })
             .sum();
         assert_eq!(best_weight, 2);
     }
@@ -535,14 +526,7 @@ mod weighted_problems {
             ],
         );
 
-        // Find satisfying configs
-        let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> =
-            problemreductions::config::DimsIterator::new(dims.clone()).collect();
-        let satisfying: Vec<Vec<usize>> = all_configs
-            .into_iter()
-            .filter(|config| problem.evaluate(config).unwrap().0)
-            .collect();
+        let satisfying = BruteForce::new().find_all_witnesses(&problem).unwrap();
 
         // Can't satisfy both - no solution satisfies all clauses
         assert!(satisfying.is_empty());

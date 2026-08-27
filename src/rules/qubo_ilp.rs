@@ -14,8 +14,9 @@
 //! ## Objective
 //! minimize Σ_i Q_ii · x_i + Σ_{i<j} Q_ij · y_{ij}
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP, QUBO};
+use crate::models::algebraic::{ObjectiveSense, ILP, QUBO};
 use crate::reduction;
+use crate::rules::ilp_helpers::mccormick_product;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing QUBO to ILP.
@@ -35,11 +36,14 @@ impl ReductionResult for ReductionQUBOToILP {
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_original].to_vec())
+        Ok(target_solution[..self.num_original]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -85,18 +89,11 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
         let mut constraints = Vec::with_capacity(3 * m);
         for (k, &(i, j, _)) in off_diag.iter().enumerate() {
             let y_k = n + k;
-            // y_k ≤ x_i
-            constraints.push(LinearConstraint::le(vec![(y_k, 1.0), (i, -1.0)], 0.0));
-            // y_k ≤ x_j
-            constraints.push(LinearConstraint::le(vec![(y_k, 1.0), (j, -1.0)], 0.0));
-            // y_k ≥ x_i + x_j - 1
-            constraints.push(LinearConstraint::ge(
-                vec![(y_k, 1.0), (i, -1.0), (j, -1.0)],
-                -1.0,
-            ));
+            constraints.extend(mccormick_product(y_k, i, j));
         }
 
-        let target = ILP::new(total_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(total_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionQUBOToILP {
             target,
             num_original: n,

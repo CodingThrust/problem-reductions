@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::BoyceCoddNormalFormViolation;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 6 attributes, FDs: {0,1}→{2}, {2}→{3}, {3,4}→{5}
 /// let problem = BoyceCoddNormalFormViolation::new(
@@ -53,7 +53,9 @@ inventory::submit! {
 /// );
 /// let solver = BruteForce::new();
 /// // X = {2}: closure = {2, 3}, y=3 ∈ closure, z=0 ∉ closure → BCNF violation
-/// assert!(problem.evaluate(&[0, 0, 1, 0, 0, 0]).unwrap());
+/// assert!(problem
+///     .evaluate(&vec![false, false, true, false, false, false])
+///     .unwrap());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoyceCoddNormalFormViolation {
@@ -217,25 +219,30 @@ impl BoyceCoddNormalFormViolation {
 
 impl Problem for BoyceCoddNormalFormViolation {
     const NAME: &'static str = "BoyceCoddNormalFormViolation";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.target_subset.len()]
-    }
+    crate::problem_size![
+        ("num_attributes", num_attributes),
+        ("num_functional_deps", num_functional_deps),
+        ("num_target_attributes", num_target_attributes),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                if config.len() != self.target_subset.len() || config.iter().any(|&v| v > 1) {
-                    return Ok(crate::types::Or(false));
+                if config.len() != self.target_subset.len() {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "attribute-selection length does not match the target subset".into(),
+                    ));
                 }
                 let x: HashSet<usize> = config
                     .iter()
                     .enumerate()
-                    .filter(|(_, &v)| v == 1)
+                    .filter(|(_, &v)| v)
                     .map(|(i, _)| self.target_subset[i])
                     .collect();
                 let closure = Self::compute_closure(&x, &self.functional_deps);
@@ -261,8 +268,18 @@ impl Problem for BoyceCoddNormalFormViolation {
     }
 }
 
+impl crate::solvers::BruteForceProblem for BoyceCoddNormalFormViolation {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.target_subset.len()]
+    }
+}
+
 crate::declare_variants! {
     default BoyceCoddNormalFormViolation => "2^num_target_attributes * num_target_attributes^2 * num_functional_deps" create BoyceCoddNormalFormViolationCreateSpec,
+}
+
+crate::register_brute_force! {
+    BoyceCoddNormalFormViolation decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -279,7 +296,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![0, 1, 2, 3, 4, 5],
         )),
         // X={2}: closure={2,3}, y=3 in closure, z=0 not in closure -> violation
-        optimal_config: vec![0, 0, 1, 0, 0, 0],
+        optimal_config: serde_json::json!(vec![false, false, true, false, false, false]),
         optimal_value: serde_json::json!(true),
     }]
 }

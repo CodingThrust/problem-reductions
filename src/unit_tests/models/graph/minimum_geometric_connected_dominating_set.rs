@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 #[test]
@@ -10,7 +11,7 @@ fn test_creation_and_getters() {
     assert!((problem.radius() - 1.5).abs() < f64::EPSILON);
     assert_eq!(problem.points().len(), 3);
     assert_eq!(problem.num_variables(), 3);
-    assert_eq!(problem.dims(), vec![2; 3]);
+    assert_eq!(problem.dimensions(), vec![2; 3]);
 }
 
 #[test]
@@ -35,11 +36,11 @@ fn test_new_validates_numeric_fields() {
 fn test_single_point() {
     let problem = MinimumGeometricConnectedDominatingSet::new(vec![(0.0, 0.0)], 1.0).unwrap();
     // Selecting the single point is valid
-    let result = problem.evaluate(&[1]).unwrap();
+    let result = problem.evaluate(&vec![true]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 1);
     // Not selecting is invalid (empty set)
-    let result = problem.evaluate(&[0]).unwrap();
+    let result = problem.evaluate(&vec![false]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -49,7 +50,7 @@ fn test_evaluate_domination_failure() {
     let problem =
         MinimumGeometricConnectedDominatingSet::new(vec![(0.0, 0.0), (10.0, 0.0)], 1.0).unwrap();
     // Only select first point: second point not dominated
-    let result = problem.evaluate(&[1, 0]).unwrap();
+    let result = problem.evaluate(&vec![true, false]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -61,7 +62,7 @@ fn test_evaluate_connectivity_failure() {
         MinimumGeometricConnectedDominatingSet::new(vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 1.5)
             .unwrap();
     // Select points 0 and 2 (not connected to each other, distance = 2.0 > 1.5)
-    let result = problem.evaluate(&[1, 0, 1]).unwrap();
+    let result = problem.evaluate(&vec![true, false, true]).unwrap();
     assert!(!result.is_valid());
 }
 
@@ -72,7 +73,7 @@ fn test_evaluate_valid_connected_dominating_set() {
         MinimumGeometricConnectedDominatingSet::new(vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 1.5)
             .unwrap();
     // Select 0 and 1: they are connected (dist=1.0 <= 1.5), and point 2 is dominated by point 1 (dist=1.0 <= 1.5)
-    let result = problem.evaluate(&[1, 1, 0]).unwrap();
+    let result = problem.evaluate(&vec![true, true, false]).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
 }
@@ -84,7 +85,7 @@ fn test_brute_force_line_graph() {
         MinimumGeometricConnectedDominatingSet::new(vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 1.5)
             .unwrap();
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     let value = problem.evaluate(&witness).unwrap().unwrap();
     // Middle point alone dominates all and is trivially connected
     assert_eq!(value, 1);
@@ -108,14 +109,14 @@ fn test_ladder_example() {
     )
     .unwrap();
     // Bottom row selected: config [1,1,1,1,0,0,0,0]
-    let config = vec![1, 1, 1, 1, 0, 0, 0, 0];
+    let config = vec![true, true, true, true, false, false, false, false];
     let result = problem.evaluate(&config).unwrap();
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 4);
 
     // Verify with brute force
     let solver = BruteForce::new();
-    let witness = solver.find_witness(&problem).unwrap().unwrap();
+    let witness = solver.solve(&problem).unwrap().unwrap();
     let best_value = problem.evaluate(&witness).unwrap().unwrap();
     assert_eq!(best_value, 4);
 }
@@ -137,7 +138,7 @@ fn test_evaluation_reports_non_finite_distance() {
         MinimumGeometricConnectedDominatingSet::new(vec![(f64::MAX, 0.0), (-f64::MAX, 0.0)], 1.0)
             .unwrap();
     assert!(matches!(
-        problem.evaluate(&[1, 0]),
+        problem.evaluate(&vec![true, false]),
         Err(crate::traits::EvaluationError::NonFiniteResult(_))
     ));
 }

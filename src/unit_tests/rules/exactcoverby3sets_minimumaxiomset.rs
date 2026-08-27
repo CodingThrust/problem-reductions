@@ -29,7 +29,7 @@ fn test_exactcoverby3sets_to_minimumaxiomset_closed_loop() {
     );
 
     let optimal = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(2)));
@@ -65,7 +65,7 @@ fn test_exactcoverby3sets_to_minimumaxiomset_no_instance_gap() {
     let target = reduction.target_problem();
 
     let optimal = BruteForce::new()
-        .find_witness(target)
+        .solve(target)
         .unwrap()
         .expect("expected an optimal target witness");
     assert_eq!(target.evaluate(&optimal).unwrap(), Min(Some(3)));
@@ -81,7 +81,9 @@ fn test_extract_solution_reads_only_set_sentence_axioms() {
         ReduceTo::<MinimumAxiomSet>::reduce_to(&source).expect("reduction should succeed");
 
     let extracted = reduction
-        .extract_solution(&[1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1])
+        .extract_solution(&vec![
+            true, false, true, false, false, true, false, false, false, true, true,
+        ])
         .unwrap();
-    assert_eq!(extracted, vec![0, 0, 0, 1, 1]);
+    assert_eq!(extracted, vec![false, false, false, true, true]);
 }

@@ -29,11 +29,11 @@ where
     /// If v is in the independent set (1), it's NOT in the vertex cover (0).
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.iter().map(|&x| 1 - x).collect())
+        Ok(target_solution.iter().map(|&x| !x).collect())
     }
 }
 
@@ -75,11 +75,11 @@ where
     /// Solution extraction: complement the configuration.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution.iter().map(|&x| 1 - x).collect())
+        Ok(target_solution.iter().map(|&x| !x).collect())
     }
 }
 
@@ -125,8 +125,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     mis_petersen(),
                     SolutionPair {
-                        source_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-                        target_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
+                        source_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
+                        target_config: serde_json::json!(vec![
+                            false, true, true, false, true, true, false, false, true, true
+                        ]),
                     },
                 )
             },
@@ -140,8 +144,12 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 >(
                     vc_petersen(),
                     SolutionPair {
-                        source_config: vec![0, 1, 1, 0, 1, 1, 0, 0, 1, 1],
-                        target_config: vec![1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
+                        source_config: serde_json::json!(vec![
+                            false, true, true, false, true, true, false, false, true, true
+                        ]),
+                        target_config: serde_json::json!(vec![
+                            true, false, false, true, false, false, true, true, false, false
+                        ]),
                     },
                 )
             },

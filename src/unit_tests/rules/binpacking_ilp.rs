@@ -12,10 +12,10 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     // n=3: 9 assignment vars + 3 bin vars = 12
-    assert_eq!(ilp.num_vars, 12, "Should have n^2 + n variables");
+    assert_eq!(ilp.num_vars(), 12, "Should have n^2 + n variables");
     // 3 assignment + 3 capacity = 6
-    assert_eq!(ilp.constraints.len(), 6, "Should have 2n constraints");
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
+    assert_eq!(ilp.constraints().len(), 6, "Should have 2n constraints");
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize, "Should minimize");
 }
 
 #[test]
@@ -50,8 +50,8 @@ fn test_single_item() {
         ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 2); // 1 assignment + 1 bin var
-    assert_eq!(ilp.constraints.len(), 2); // 1 assignment + 1 capacity
+    assert_eq!(ilp.num_vars(), 2); // 1 assignment + 1 bin var
+    assert_eq!(ilp.constraints().len(), 2); // 1 assignment + 1 capacity
 
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -102,7 +102,7 @@ fn test_solution_extraction() {
     // Manually construct an ILP solution:
     // n=3, x_{00}=1 (item 0 in bin 0), x_{11}=1 (item 1 in bin 1), x_{20}=1 (item 2 in bin 0)
     // y_0=1, y_1=1, y_2=0
-    let mut ilp_solution = vec![0usize; 12];
+    let mut ilp_solution = vec![0_i64; 12];
     ilp_solution[0] = 1; // x_{0,0} = 1
     ilp_solution[4] = 1; // x_{1,1} = 1
     ilp_solution[6] = 1; // x_{2,0} = 1
@@ -123,15 +123,15 @@ fn test_ilp_structure_constraints() {
     let ilp = reduction.target_problem();
 
     // 4 assignment vars + 2 bin vars = 6
-    assert_eq!(ilp.num_vars, 6);
+    assert_eq!(ilp.num_vars(), 6);
     // 2 assignment + 2 capacity = 4
-    assert_eq!(ilp.constraints.len(), 4);
+    assert_eq!(ilp.constraints().len(), 4);
 
     // Check objective: minimize y_0 + y_1 (vars at indices 4 and 5)
-    let obj_vars: Vec<usize> = ilp.objective.iter().map(|&(v, _)| v).collect();
+    let obj_vars: Vec<usize> = ilp.objective().iter().map(|&(v, _)| v).collect();
     assert!(obj_vars.contains(&4));
     assert!(obj_vars.contains(&5));
-    for &(_, coef) in &ilp.objective {
+    for &(_, coef) in ilp.objective() {
         assert!((coef - 1.0).abs() < 1e-9);
     }
 }

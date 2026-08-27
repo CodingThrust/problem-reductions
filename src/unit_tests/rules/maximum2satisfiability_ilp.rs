@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::models::formula::CNFClause;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 
@@ -25,11 +25,7 @@ fn test_maximum2satisfiability_to_ilp_closed_loop() {
     let problem = make_canonical_instance();
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
 
-    assert_optimization_round_trip_from_optimization_target(
-        &problem,
-        &reduction,
-        "Maximum2Satisfiability->ILP closed loop",
-    );
+    assert_bf_vs_ilp(&problem, &reduction);
 
     let ilp_solution = ILPSolver::new()
         .solve(reduction.target_problem())
@@ -68,29 +64,29 @@ fn test_maximum2satisfiability_to_ilp_structure() {
     assert_eq!(ilp.num_vars(), 11);
     // One constraint per clause
     assert_eq!(ilp.num_constraints(), 7);
-    assert_eq!(ilp.sense, ObjectiveSense::Maximize);
+    assert_eq!(ilp.sense(), ObjectiveSense::Maximize);
 
     // Objective: maximize sum of z_4..z_10
     let expected_objective: Vec<(usize, f64)> = (4..11).map(|j| (j, 1.0)).collect();
-    assert_eq!(ilp.objective, expected_objective);
+    assert_eq!(ilp.objective(), expected_objective);
 
     // Check first constraint: clause (x1 OR x2) -> z_4 - y_0 - y_1 <= 0
-    let c0 = &ilp.constraints[0];
-    assert_eq!(c0.cmp, Comparison::Le);
-    assert_eq!(c0.rhs, 0.0); // 0 negated literals
-    assert_eq!(c0.terms, vec![(4, 1.0), (0, -1.0), (1, -1.0)]);
+    let c0 = &ilp.constraints()[0];
+    assert_eq!(c0.comparison(), Comparison::Le);
+    assert_eq!(c0.rhs(), 0); // 0 negated literals
+    assert_eq!(c0.terms(), vec![(0, -1), (1, -1), (4, 1)]);
 
     // Check constraint for clause (~x1 OR x3) -> z_6 + y_0 - y_2 <= 1
-    let c2 = &ilp.constraints[2];
-    assert_eq!(c2.cmp, Comparison::Le);
-    assert_eq!(c2.rhs, 1.0); // 1 negated literal
-    assert_eq!(c2.terms, vec![(6, 1.0), (0, 1.0), (2, -1.0)]);
+    let c2 = &ilp.constraints()[2];
+    assert_eq!(c2.comparison(), Comparison::Le);
+    assert_eq!(c2.rhs(), 1); // 1 negated literal
+    assert_eq!(c2.terms(), vec![(0, 1), (2, -1), (6, 1)]);
 
     // Check constraint for clause (~x1 OR ~x3) -> z_7 + y_0 + y_2 <= 2
-    let c3 = &ilp.constraints[3];
-    assert_eq!(c3.cmp, Comparison::Le);
-    assert_eq!(c3.rhs, 2.0); // 2 negated literals
-    assert_eq!(c3.terms, vec![(7, 1.0), (0, 1.0), (2, 1.0)]);
+    let c3 = &ilp.constraints()[3];
+    assert_eq!(c3.comparison(), Comparison::Le);
+    assert_eq!(c3.rhs(), 2); // 2 negated literals
+    assert_eq!(c3.terms(), vec![(0, 1), (2, 1), (7, 1)]);
 }
 
 #[test]
@@ -124,7 +120,13 @@ fn test_maximum2satisfiability_to_ilp_canonical_example_spec() {
     assert_eq!(example.source.problem, "Maximum2Satisfiability");
     assert_eq!(example.target.problem, "ILP");
     assert_eq!(example.source.instance["num_vars"], 4);
-    assert_eq!(example.target.instance["num_vars"], 11);
+    assert_eq!(
+        example.target.instance["variables"]
+            .as_array()
+            .unwrap()
+            .len(),
+        11
+    );
     assert_eq!(
         example.target.instance["constraints"]
             .as_array()
@@ -135,8 +137,8 @@ fn test_maximum2satisfiability_to_ilp_canonical_example_spec() {
     assert_eq!(
         example.solutions,
         vec![crate::export::SolutionPair {
-            source_config: vec![1, 1, 0, 1],
-            target_config: vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1],
+            source_config: serde_json::json!(vec![true, true, false, true]),
+            target_config: serde_json::json!(vec![1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1]),
         }]
     );
 }

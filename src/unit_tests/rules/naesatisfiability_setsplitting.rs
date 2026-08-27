@@ -53,8 +53,10 @@ fn test_naesatisfiability_to_setsplitting_extract_solution_uses_positive_literal
     let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
 
     assert_eq!(
-        reduction.extract_solution(&[1, 0, 1, 0, 1, 0]).unwrap(),
-        vec![1, 0, 1]
+        reduction
+            .extract_solution(&vec![true, false, true, false, true, false])
+            .unwrap(),
+        vec![true, false, true]
     );
 }
 
@@ -64,10 +66,7 @@ fn test_naesatisfiability_to_setsplitting_target_witness_extracts_to_satisfying_
     let reduction = ReduceTo::<SetSplitting>::reduce_to(&source).expect("reduction should succeed");
     let solver = BruteForce::new();
 
-    let target_solution = solver
-        .find_witness(reduction.target_problem())
-        .unwrap()
-        .unwrap();
+    let target_solution = solver.solve(reduction.target_problem()).unwrap().unwrap();
     let source_solution = reduction.extract_solution(&target_solution).unwrap();
 
     assert!(source.evaluate(&source_solution).unwrap());
@@ -85,6 +84,9 @@ fn test_naesatisfiability_to_setsplitting_canonical_example_spec() {
     assert_eq!(example.solutions.len(), 1);
 
     let pair = &example.solutions[0];
-    assert_eq!(pair.source_config, vec![1, 1, 1]);
-    assert_eq!(pair.target_config, vec![1, 1, 1, 0, 0, 0]);
+    assert_eq!(pair.source_config, serde_json::json!([true, true, true]));
+    assert_eq!(
+        pair.target_config,
+        serde_json::json!([true, true, true, false, false, false])
+    );
 }

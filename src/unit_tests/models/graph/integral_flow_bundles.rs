@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_requires_bundle_coverage() {
     assert!(
@@ -60,7 +61,7 @@ fn test_integral_flow_bundles_creation_and_getters() {
 #[test]
 fn test_integral_flow_bundles_dims_use_tight_arc_bounds() {
     let problem = yes_instance();
-    assert_eq!(problem.dims(), vec![2, 2, 2, 2, 2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2, 2, 2, 2, 2]);
 }
 
 #[test]

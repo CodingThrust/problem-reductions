@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn issue_yes_instance() -> GroupingBySwapping {
@@ -22,7 +23,7 @@ fn test_grouping_by_swapping_basic() {
     assert_eq!(problem.budget(), 5);
     assert_eq!(problem.string_len(), 6);
     assert_eq!(problem.num_variables(), 5);
-    assert_eq!(problem.dims(), vec![6; 5]);
+    assert_eq!(problem.dimensions(), vec![6; 5]);
     assert_eq!(<GroupingBySwapping as Problem>::NAME, "GroupingBySwapping");
     assert_eq!(<GroupingBySwapping as Problem>::variant(), vec![]);
 
@@ -34,12 +35,12 @@ fn test_grouping_by_swapping_basic() {
 #[test]
 fn test_grouping_by_swapping_evaluate_issue_yes() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]).unwrap());
+    assert!(problem.evaluate(&vec![2, 1, 3, 5, 5]).unwrap());
     assert_eq!(
         problem.apply_swap_program(&[2, 1, 3, 5, 5]),
         Some(vec![0, 0, 1, 1, 2, 2])
     );
-    assert!(!problem.evaluate(&[0, 1, 2, 3, 4]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 1, 2, 3, 4]).unwrap());
     assert!(!problem.is_grouped(&[0, 1, 0]));
     assert!(problem.is_grouped(&[0, 0, 1, 1, 2, 2]));
 }
@@ -47,8 +48,14 @@ fn test_grouping_by_swapping_evaluate_issue_yes() {
 #[test]
 fn test_grouping_by_swapping_rejects_wrong_length_and_out_of_range_swaps() {
     let problem = issue_yes_instance();
-    assert!(!problem.evaluate(&[2, 1, 3, 5]).unwrap());
-    assert!(!problem.evaluate(&[2, 1, 3, 5, 6]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![2, 1, 3, 5]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![2, 1, 3, 5, 6]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5]), None);
     assert_eq!(problem.apply_swap_program(&[2, 1, 3, 5, 6]), None);
 }
@@ -60,7 +67,7 @@ fn test_grouping_by_swapping_bruteforce_yes_and_no() {
     let solver = BruteForce::new();
 
     let satisfying = solver
-        .find_witness(&yes_problem)
+        .solve(&yes_problem)
         .unwrap()
         .expect("expected a satisfying 3-swap sequence");
     assert!(yes_problem.evaluate(&satisfying).unwrap());
@@ -70,14 +77,14 @@ fn test_grouping_by_swapping_bruteforce_yes_and_no() {
         .iter()
         .any(|config| config == &vec![2, 1, 3]));
 
-    assert!(solver.find_witness(&no_problem).unwrap().is_none());
+    assert!(solver.solve(&no_problem).unwrap().is_none());
     assert!(solver.find_all_witnesses(&no_problem).unwrap().is_empty());
 }
 
 #[test]
 fn test_grouping_by_swapping_paper_example() {
     let problem = issue_yes_instance();
-    assert!(problem.evaluate(&[2, 1, 3, 5, 5]).unwrap());
+    assert!(problem.evaluate(&vec![2, 1, 3, 5, 5]).unwrap());
 
     let solver = BruteForce::new();
     assert!(solver
@@ -85,10 +92,7 @@ fn test_grouping_by_swapping_paper_example() {
         .unwrap()
         .iter()
         .any(|config| config == &vec![2, 1, 3, 5, 5]));
-    assert!(solver
-        .find_witness(&issue_two_swap_instance())
-        .unwrap()
-        .is_none());
+    assert!(solver.solve(&issue_two_swap_instance()).unwrap().is_none());
 }
 
 #[test]

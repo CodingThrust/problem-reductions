@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::algebraic::ILP;
 use crate::models::graph::MinimumCutIntoBoundedSets;
-use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
+use crate::rules::test_helpers::assert_bf_vs_ilp;
 use crate::rules::ReduceTo;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -22,11 +22,7 @@ fn test_minimumcutintoboundedsets_to_ilp_closed_loop() {
     let source = small_instance();
     let reduction: ReductionMinCutBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_optimization_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "MinCutBS -> ILP round trip",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]
@@ -36,7 +32,7 @@ fn test_reduction_shape() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let ilp = reduction.target_problem();
     // 4 vertex vars + 3 edge vars = 7
-    assert_eq!(ilp.num_vars, 7);
+    assert_eq!(ilp.num_vars(), 7);
 }
 
 #[test]
@@ -46,7 +42,7 @@ fn test_extract_solution() {
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
     let target_sol = vec![0, 0, 1, 1, 0, 1, 0];
     let extracted = reduction.extract_solution(&target_sol).unwrap();
-    assert_eq!(extracted, vec![0, 0, 1, 1]);
+    assert_eq!(extracted, vec![false, false, true, true]);
     assert!(source.evaluate(&extracted).unwrap().0.is_some());
 }
 
@@ -64,11 +60,7 @@ fn test_larger_instance() {
     );
     let reduction: ReductionMinCutBSToILP =
         ReduceTo::<ILP<bool>>::reduce_to(&source).expect("reduction should succeed");
-    assert_optimization_round_trip_from_optimization_target(
-        &source,
-        &reduction,
-        "MinCutBS larger instance",
-    );
+    assert_bf_vs_ilp(&source, &reduction);
 }
 
 #[test]

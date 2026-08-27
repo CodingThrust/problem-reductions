@@ -67,7 +67,9 @@ fn test_maximumindependentset_to_maximumclique_empty_graph() {
     // All 4 vertices form a clique in complement = all 4 are independent set in source
     let solver = BruteForce::new();
     let best_target = solver.find_all_witnesses(target).unwrap();
-    assert!(best_target.iter().all(|s| s.iter().sum::<usize>() == 4));
+    assert!(best_target
+        .iter()
+        .all(|s| s.iter().filter(|&&selected| selected).count() == 4));
 }
 
 #[test]
@@ -107,5 +109,7 @@ fn test_maximumindependentset_to_maximumclique_complete_graph() {
     // Max clique in empty graph is single vertex, max IS in K4 is also single vertex
     let solver = BruteForce::new();
     let best = solver.find_all_witnesses(target).unwrap();
-    assert!(best.iter().all(|s| s.iter().sum::<usize>() == 1));
+    assert!(best
+        .iter()
+        .all(|s| s.iter().filter(|&&selected| selected).count() == 1));
 }

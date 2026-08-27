@@ -79,7 +79,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::formula::{KSatisfiability, CNFClause};
 /// use problemreductions::variant::K3;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // 3-SAT formula: (x1 OR x2 OR x3) AND (NOT x1 OR x2 OR NOT x3)
 /// let problem = KSatisfiability::<K3>::new(
@@ -215,28 +215,6 @@ impl<K: KValue> KSatisfiability<K> {
         self.clauses().iter().map(|c| c.len()).sum()
     }
 
-    /// Padding term used by Sethi's Register Sufficiency reduction.
-    pub fn register_sufficiency_padding(&self) -> usize {
-        (2 * self.num_vars).saturating_sub(self.num_clauses())
-    }
-
-    pub fn simultaneous_incongruences_num_incongruences(&self) -> usize {
-        first_n_odd_primes(self.num_vars)
-            .into_iter()
-            .map(|prime| usize::try_from(prime - 2).expect("prime fits in usize"))
-            .sum::<usize>()
-            + self.num_clauses()
-    }
-
-    pub fn simultaneous_incongruences_bound(&self) -> usize {
-        first_n_odd_primes(self.num_vars)
-            .into_iter()
-            .try_fold(1usize, |product, prime| {
-                product.checked_mul(usize::try_from(prime).expect("prime fits in usize"))
-            })
-            .expect("simultaneous incongruences bound must fit in usize")
-    }
-
     /// Count satisfied clauses for an assignment.
     pub fn count_satisfied(
         &self,
@@ -262,22 +240,25 @@ impl<K: KValue> KSatisfiability<K> {
 
 impl<K: KValue> Problem for KSatisfiability<K> {
     const NAME: &'static str = "KSatisfiability";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.num_vars]
-    }
+    crate::problem_size![
+        ("num_clauses", num_clauses),
+        ("num_literals", num_literals),
+        ("num_vars", num_vars),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
-        Ok({
-            crate::types::Or({
-                let assignment = super::config_to_assignment(config);
-                self.is_satisfying(&assignment)
-            })
-        })
+        if config.len() != self.num_vars {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "assignment length does not match the formula variables".into(),
+            ));
+        }
+        Ok(crate::types::Or(self.is_satisfying(config)))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -285,10 +266,22 @@ impl<K: KValue> Problem for KSatisfiability<K> {
     }
 }
 
+impl<K: KValue> crate::solvers::BruteForceProblem for KSatisfiability<K> {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+}
+
 crate::declare_variants! {
-    default KSatisfiability<KN> => "2^num_variables",
-    KSatisfiability<K2> => "num_variables + num_clauses" aliases ["2SAT"],
-    KSatisfiability<K3> => "1.307^num_variables" aliases ["3SAT"],
+    default KSatisfiability<KN> => "2^num_vars",
+    KSatisfiability<K2> => "num_vars + num_clauses" aliases ["2SAT"],
+    KSatisfiability<K3> => "1.307^num_vars" aliases ["3SAT"],
+}
+
+crate::register_brute_force! {
+    KSatisfiability<KN> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    KSatisfiability<K2> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
+    KSatisfiability<K3> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -304,7 +297,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 CNFClause::new(vec![1, -2, -3]),
             ],
         )),
-        optimal_config: vec![0, 0, 1],
+        optimal_config: serde_json::json!(vec![false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

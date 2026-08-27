@@ -201,7 +201,7 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
     /// Check if a configuration is a valid capacitated spanning tree.
     pub fn is_valid_solution(
         &self,
-        config: &[usize],
+        config: &[bool],
     ) -> Result<bool, crate::traits::EvaluationError> {
         is_valid_capacitated_spanning_tree(
             &self.graph,
@@ -216,14 +216,14 @@ impl<G: Graph, W: WeightElement> MinimumCapacitatedSpanningTree<G, W> {
 /// Check if a configuration forms a valid spanning tree:
 /// 1. Exactly n-1 edges selected
 /// 2. Selected edges form a connected subgraph
-fn is_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
+fn is_spanning_tree<G: Graph>(graph: &G, config: &[bool]) -> bool {
     let n = graph.num_vertices();
     let edges = graph.edges();
     if config.len() != edges.len() {
         return false;
     }
 
-    let selected_count: usize = config.iter().sum();
+    let selected_count = config.iter().filter(|&&selected| selected).count();
     if selected_count != n - 1 {
         return false;
     }
@@ -231,7 +231,7 @@ fn is_spanning_tree<G: Graph>(graph: &G, config: &[usize]) -> bool {
     // Build adjacency and BFS from vertex 0
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push(v);
             adj[v].push(u);
@@ -261,7 +261,7 @@ fn check_capacity<G: Graph, W: WeightElement>(
     requirements: &[W],
     root: usize,
     capacity: &W::Sum,
-    config: &[usize],
+    config: &[bool],
 ) -> Result<bool, crate::traits::EvaluationError> {
     let n = graph.num_vertices();
     let edges = graph.edges();
@@ -269,7 +269,7 @@ fn check_capacity<G: Graph, W: WeightElement>(
     // Build adjacency list with edge indices
     let mut adj: Vec<Vec<(usize, usize)>> = vec![vec![]; n]; // (neighbor, edge_idx)
     for (idx, &sel) in config.iter().enumerate() {
-        if sel == 1 {
+        if sel {
             let (u, v) = edges[idx];
             adj[u].push((v, idx));
             adj[v].push((u, idx));
@@ -325,7 +325,7 @@ fn is_valid_capacitated_spanning_tree<G: Graph, W: WeightElement>(
     requirements: &[W],
     root: usize,
     capacity: &W::Sum,
-    config: &[usize],
+    config: &[bool],
 ) -> Result<bool, crate::traits::EvaluationError> {
     if !is_spanning_tree(graph, config) {
         return Ok(false);
@@ -339,17 +339,24 @@ where
     W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumCapacitatedSpanningTree";
+    type Solution = Vec<bool>;
     type Value = Min<W::Sum>;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+    fn evaluate(
+        &self,
+        config: &Self::Solution,
+    ) -> Result<Min<W::Sum>, crate::traits::EvaluationError> {
+        if config.len() != self.graph.num_edges() {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "edge-selection length does not match the graph".into(),
+            ));
+        }
         Ok({
             if !is_valid_capacitated_spanning_tree(
                 &self.graph,
@@ -362,7 +369,7 @@ where
             }
             let mut total = W::Sum::zero();
             for (idx, &selected) in config.iter().enumerate() {
-                if selected == 1 {
+                if selected {
                     if let Some(w) = self.weights.get(idx) {
                         total = W::checked_add_to_sum(
                             total,
@@ -377,14 +384,28 @@ where
     }
 }
 
+impl<G, W> crate::solvers::BruteForceProblem for MinimumCapacitatedSpanningTree<G, W>
+where
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+}
+
 crate::declare_variants! {
     default MinimumCapacitatedSpanningTree<SimpleGraph, i64> => "2^num_edges" create MinimumCapacitatedSpanningTreeCreateSpec,
+}
+
+crate::register_brute_force! {
+    MinimumCapacitatedSpanningTree<SimpleGraph, i64> decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
-        id: "minimum_capacitated_spanning_tree_simplegraph_i64",
+        id: "minimum_capacitated_spanning_tree_simplegraph",
         instance: Box::new(MinimumCapacitatedSpanningTree::new(
             SimpleGraph::new(
                 5,
@@ -408,7 +429,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         // Weight = 2+1+1+1 = 5
         // Subtree sums: subtree(1)={1,4}->req=2<=3, subtree(2)={2}->req=1<=3,
         //   subtree(4)={4}->req=1<=3, subtree(3)={3}->req=1<=3
-        optimal_config: vec![1, 1, 0, 0, 1, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, true, false, false, true, false, false, true]),
         optimal_value: serde_json::json!(5),
     }]
 }

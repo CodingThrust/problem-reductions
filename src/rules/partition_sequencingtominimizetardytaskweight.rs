@@ -20,8 +20,8 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
 
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok({
@@ -34,7 +34,7 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
                 }
             }
 
-            let mut source_config = vec![1; self.target.num_tasks()];
+            let mut source_config = vec![true; self.target.num_tasks()];
             let mut completion_time = 0i64;
 
             for &task in target_solution {
@@ -46,7 +46,7 @@ impl ReductionResult for ReductionPartitionToSequencingToMinimizeTardyTaskWeight
                         )
                     })?;
                 if completion_time <= self.target.deadlines()[task] {
-                    source_config[task] = 0;
+                    source_config[task] = false;
                 }
             }
 
@@ -87,8 +87,8 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             >(
                 Partition::new(vec![3, 1, 1, 2, 2, 1]).unwrap(),
                 SolutionPair {
-                    source_config: vec![1, 0, 0, 1, 0, 0],
-                    target_config: vec![1, 2, 4, 5, 0, 3],
+                    source_config: serde_json::json!(vec![true, false, false, true, false, false]),
+                    target_config: serde_json::json!(vec![1, 2, 4, 5, 0, 3]),
                 },
             )
         },

@@ -1783,7 +1783,7 @@ fn test_create_expected_retrieval_cost_json() {
     assert_eq!(problem.num_sectors(), 3);
     use problemreductions::types::Min;
     assert!(matches!(
-        problem.evaluate(&[0, 1, 2, 1, 0, 2]).unwrap(),
+        problem.evaluate(&vec![0, 1, 2, 1, 0, 2]).unwrap(),
         Min(Some(_))
     ));
 
@@ -1825,7 +1825,7 @@ fn test_create_job_shop_scheduling_json() {
     assert_eq!(problem.num_jobs(), 5);
     assert_eq!(
         problem
-            .evaluate(&[0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0])
+            .evaluate(&vec![0, 0, 0, 0, 0, 0, 1, 3, 0, 1, 1, 0])
             .unwrap(),
         Min(Some(19))
     );
@@ -2130,7 +2130,9 @@ fn test_create_kclique() {
     let problem: KClique<SimpleGraph> = serde_json::from_value(created.data).unwrap();
     assert_eq!(problem.k(), 3);
     assert_eq!(problem.num_vertices(), 5);
-    assert!(problem.evaluate(&[0, 0, 1, 1, 1]).unwrap());
+    assert!(problem
+        .evaluate(&vec![false, false, true, true, true])
+        .unwrap());
 
     let _ = std::fs::remove_file(output_path);
 }

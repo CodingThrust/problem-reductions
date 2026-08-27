@@ -1,6 +1,6 @@
 use super::*;
 use crate::traits::EvaluationError;
-use crate::types::Aggregate;
+use crate::types::{Aggregate, SolutionAggregate};
 
 #[test]
 fn test_max_identity_and_combine() {
@@ -85,39 +85,36 @@ fn test_and_identity_and_combine() {
 }
 
 #[test]
-fn test_sum_witness_defaults() {
-    assert!(!Sum::<u64>::supports_witnesses());
-    assert!(!Sum::<u64>::contributes_to_witnesses(&Sum(3), &Sum(7)));
+fn test_sum_has_no_absorbing_value() {
+    assert!(!Sum(0_u64).is_absorbing());
+    assert!(!Sum(u64::MAX).is_absorbing());
 }
 
 #[test]
-fn test_and_witness_defaults() {
-    assert!(!And::supports_witnesses());
-    assert!(!And::contributes_to_witnesses(&And(true), &And(true)));
+fn test_and_absorbing_value_is_false() {
+    assert!(!And(true).is_absorbing());
+    assert!(And(false).is_absorbing());
 }
 
 #[test]
-fn test_max_witness_hooks() {
-    assert!(Max::<i64>::supports_witnesses());
-    assert!(Max::contributes_to_witnesses(&Max(Some(7)), &Max(Some(7))));
-    assert!(!Max::contributes_to_witnesses(&Max(Some(3)), &Max(Some(7))));
-    assert!(!Max::contributes_to_witnesses(&Max(None), &Max(Some(7))));
+fn test_max_solution_selection() {
+    assert!(Max::contributes_to_solution(&Max(Some(7)), &Max(Some(7))));
+    assert!(!Max::contributes_to_solution(&Max(Some(3)), &Max(Some(7))));
+    assert!(!Max::contributes_to_solution(&Max(None), &Max(Some(7))));
 }
 
 #[test]
-fn test_min_witness_hooks() {
-    assert!(Min::<i64>::supports_witnesses());
-    assert!(Min::contributes_to_witnesses(&Min(Some(3)), &Min(Some(3))));
-    assert!(!Min::contributes_to_witnesses(&Min(Some(7)), &Min(Some(3))));
-    assert!(!Min::contributes_to_witnesses(&Min(None), &Min(Some(3))));
+fn test_min_solution_selection() {
+    assert!(Min::contributes_to_solution(&Min(Some(3)), &Min(Some(3))));
+    assert!(!Min::contributes_to_solution(&Min(Some(7)), &Min(Some(3))));
+    assert!(!Min::contributes_to_solution(&Min(None), &Min(Some(3))));
 }
 
 #[test]
-fn test_or_witness_hooks() {
-    assert!(Or::supports_witnesses());
-    assert!(Or::contributes_to_witnesses(&Or(true), &Or(true)));
-    assert!(!Or::contributes_to_witnesses(&Or(false), &Or(true)));
-    assert!(!Or::contributes_to_witnesses(&Or(true), &Or(false)));
+fn test_or_solution_selection() {
+    assert!(Or::contributes_to_solution(&Or(true), &Or(true)));
+    assert!(!Or::contributes_to_solution(&Or(false), &Or(true)));
+    assert!(!Or::contributes_to_solution(&Or(true), &Or(false)));
 }
 
 #[test]
@@ -316,23 +313,21 @@ fn test_extremum_aggregate_identity_and_combine() {
 }
 
 #[test]
-fn test_extremum_witness_hooks() {
-    assert!(Extremum::<i64>::supports_witnesses());
-
+fn test_extremum_solution_selection() {
     // Matching value and sense -> contributes
-    assert!(Extremum::contributes_to_witnesses(
+    assert!(Extremum::contributes_to_solution(
         &Extremum::maximize(Some(10)),
         &Extremum::maximize(Some(10)),
     ));
 
     // Different value -> does not contribute
-    assert!(!Extremum::contributes_to_witnesses(
+    assert!(!Extremum::contributes_to_solution(
         &Extremum::maximize(Some(5)),
         &Extremum::maximize(Some(10)),
     ));
 
     // None config -> does not contribute
-    assert!(!Extremum::contributes_to_witnesses(
+    assert!(!Extremum::contributes_to_solution(
         &Extremum::<i64>::maximize(None),
         &Extremum::maximize(Some(10)),
     ));

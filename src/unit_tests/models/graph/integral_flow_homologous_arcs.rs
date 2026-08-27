@@ -1,4 +1,5 @@
 use super::*;
+use crate::solvers::BruteForceProblem as _;
 #[test]
 fn create_spec_defaults_capacities() {
     let problem = IntegralFlowHomologousArcs::try_from(IntegralFlowHomologousArcsCreateSpec {
@@ -49,7 +50,7 @@ fn test_integral_flow_homologous_arcs_creation() {
     assert_eq!(problem.requirement(), 2);
     assert_eq!(problem.max_capacity(), 1);
     assert_eq!(problem.homologous_pairs(), &[(2, 5), (4, 3)]);
-    assert_eq!(problem.dims(), vec![2; 8]);
+    assert_eq!(problem.dimensions(), vec![2; 8]);
 }
 
 #[test]
@@ -62,7 +63,7 @@ fn test_integral_flow_homologous_arcs_evaluate_yes_instance() {
 #[test]
 fn test_integral_flow_homologous_arcs_evaluate_no_instance() {
     let problem = no_instance();
-    assert!(!problem.evaluate(&[0, 0, 0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![0, 0, 0, 0]).unwrap());
 }
 
 #[test]
@@ -89,15 +90,21 @@ fn test_integral_flow_homologous_arcs_rejects_conservation_violation() {
 #[test]
 fn test_integral_flow_homologous_arcs_wrong_config_length_is_invalid() {
     let problem = yes_instance();
-    assert!(!problem.evaluate(&[0; 7]).unwrap());
-    assert!(!problem.evaluate(&[0; 9]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![0; 7]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![0; 9]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_integral_flow_homologous_arcs_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     assert!(problem.evaluate(&solution.unwrap()).unwrap());
 }
@@ -106,7 +113,7 @@ fn test_integral_flow_homologous_arcs_solver_yes() {
 fn test_integral_flow_homologous_arcs_solver_no() {
     let problem = no_instance();
     let solver = BruteForce::new();
-    assert!(solver.find_witness(&problem).unwrap().is_none());
+    assert!(solver.solve(&problem).unwrap().is_none());
 }
 
 #[test]
@@ -134,11 +141,11 @@ fn test_integral_flow_homologous_arcs_non_unit_capacity() {
     // equal flow. R=2 is satisfiable: f=[2,2].
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = IntegralFlowHomologousArcs::new(graph, vec![3, 3], 0, 2, 2, vec![(0, 1)]);
-    assert_eq!(problem.dims(), vec![4, 4]);
+    assert_eq!(problem.dimensions(), vec![4, 4]);
     assert_eq!(problem.max_capacity(), 3);
-    assert!(problem.evaluate(&[2, 2]).unwrap());
-    assert!(problem.evaluate(&[3, 3]).unwrap());
-    assert!(!problem.evaluate(&[2, 3]).unwrap()); // homologous violation
+    assert!(problem.evaluate(&vec![2, 2]).unwrap());
+    assert!(problem.evaluate(&vec![3, 3]).unwrap());
+    assert!(!problem.evaluate(&vec![2, 3]).unwrap()); // homologous violation
     let solver = BruteForce::new();
     let solutions = solver.find_all_witnesses(&problem).unwrap();
     assert_eq!(solutions.len(), 2); // [2,2] and [3,3]

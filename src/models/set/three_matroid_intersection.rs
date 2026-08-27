@@ -40,7 +40,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::set::ThreeMatroidIntersection;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Ground set E = {0, 1, 2, 3, 4, 5}, K = 2
 /// let problem = ThreeMatroidIntersection::new(
@@ -135,24 +135,29 @@ impl ThreeMatroidIntersection {
 
 impl Problem for ThreeMatroidIntersection {
     const NAME: &'static str = "ThreeMatroidIntersection";
+    type Solution = Vec<bool>;
     type Value = crate::types::Or;
 
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.ground_set_size]
-    }
+    crate::problem_size![
+        ("bound", bound),
+        ("ground_set_size", ground_set_size),
+        ("num_groups", num_groups),
+    ];
 
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
         Ok({
             crate::types::Or({
-                if config.len() != self.ground_set_size || config.iter().any(|&v| v > 1) {
-                    return Ok(crate::types::Or(false));
+                if config.len() != self.ground_set_size {
+                    return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                        "element-selection length does not match the ground set".into(),
+                    ));
                 }
 
                 // Check selected set has exactly K elements
-                let selected_count: usize = config.iter().filter(|&&v| v == 1).sum();
+                let selected_count = config.iter().filter(|&&v| v).count();
                 if selected_count != self.bound {
                     return Ok(crate::types::Or(false));
                 }
@@ -160,7 +165,7 @@ impl Problem for ThreeMatroidIntersection {
                 // Check independence in each of the three partition matroids
                 for matroid in &self.partitions {
                     for group in matroid {
-                        let count = group.iter().filter(|&&e| config[e] == 1).count();
+                        let count = group.iter().filter(|&&e| config[e]).count();
                         if count > 1 {
                             return Ok(crate::types::Or(false));
                         }
@@ -177,8 +182,18 @@ impl Problem for ThreeMatroidIntersection {
     }
 }
 
+impl crate::solvers::BruteForceProblem for ThreeMatroidIntersection {
+    fn dimensions(&self) -> Vec<usize> {
+        vec![2; self.ground_set_size]
+    }
+}
+
 crate::declare_variants! {
     default ThreeMatroidIntersection => "2^ground_set_size",
+}
+
+crate::register_brute_force! {
+    ThreeMatroidIntersection decode |_, indices: Vec<usize>| crate::config::config_to_bits(&indices),
 }
 
 #[cfg(feature = "example-db")]
@@ -194,7 +209,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             ],
             2,
         )),
-        optimal_config: vec![1, 0, 0, 0, 0, 1],
+        optimal_config: serde_json::json!(vec![true, false, false, false, false, true]),
         optimal_value: serde_json::json!(true),
     }]
 }

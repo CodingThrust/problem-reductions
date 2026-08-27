@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::SequencingToMinimizeWeightedTardiness;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Problem};
 ///
 /// let problem = SequencingToMinimizeWeightedTardiness::new(
 ///     vec![3, 4, 2, 5, 3],
@@ -49,7 +49,7 @@ inventory::submit! {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// assert!(solver.find_witness(&problem).unwrap().is_some());
+/// assert!(solver.solve(&problem).unwrap().is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SequencingToMinimizeWeightedTardiness {
@@ -160,7 +160,7 @@ impl SequencingToMinimizeWeightedTardiness {
     }
 
     fn decode_schedule(&self, config: &[usize]) -> Option<Vec<usize>> {
-        super::decode_lehmer(config, self.num_tasks())
+        super::decode_permutation(config, self.num_tasks())
     }
 
     fn schedule_weighted_tardiness(
@@ -215,20 +215,30 @@ impl SequencingToMinimizeWeightedTardiness {
 
 impl Problem for SequencingToMinimizeWeightedTardiness {
     const NAME: &'static str = "SequencingToMinimizeWeightedTardiness";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_tasks", num_tasks),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        super::lehmer_dims(self.num_tasks())
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.num_tasks();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule length does not match the tasks".into(),
+            ));
+        }
+        if config.iter().any(|&task| task >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "schedule contains an out-of-range task".into(),
+            ));
+        }
         Ok({
             crate::types::Or({
                 self.total_weighted_tardiness(config)?
@@ -238,8 +248,18 @@ impl Problem for SequencingToMinimizeWeightedTardiness {
     }
 }
 
+impl crate::solvers::BruteForceProblem for SequencingToMinimizeWeightedTardiness {
+    fn dimensions(&self) -> Vec<usize> {
+        super::lehmer_dims(self.num_tasks())
+    }
+}
+
 crate::declare_variants! {
     default SequencingToMinimizeWeightedTardiness => "factorial(num_tasks)" create SequencingToMinimizeWeightedTardinessCreateSpec,
+}
+
+crate::register_brute_force! {
+    SequencingToMinimizeWeightedTardiness decode |problem: &SequencingToMinimizeWeightedTardiness, indices: Vec<usize>| super::decode_lehmer(&indices, problem.num_tasks()).expect("enumerated Lehmer digits are valid"),
 }
 
 #[cfg(feature = "example-db")]
@@ -252,7 +272,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             vec![5, 8, 4, 15, 10],
             13,
         )),
-        optimal_config: vec![0, 0, 2, 1, 0],
+        optimal_config: serde_json::json!(vec![0, 1, 4, 3, 2]),
         optimal_value: serde_json::json!(true),
     }]
 }

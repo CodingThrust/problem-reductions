@@ -1,5 +1,7 @@
 //! Core traits for problem definitions.
 
+use crate::types::ProblemSize;
+
 /// Failure while evaluating one configuration of a valid problem instance.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum EvaluationError {
@@ -13,24 +15,24 @@ pub enum EvaluationError {
     NonFiniteResult(String),
 }
 
-/// Minimal problem trait — a problem maps a configuration to a value or an
+/// Minimal problem trait — a problem maps a solution to a value or an
 /// evaluation error.
 ///
 /// This trait defines the interface for computational problems that can be
-/// solved by enumeration or reduction to other problems.
+/// evaluated or reduced to other problems.
 pub trait Problem: Clone {
     /// Base name of this problem type (e.g., "MaximumIndependentSet").
     const NAME: &'static str;
+    /// Mathematical witness type for this problem.
+    type Solution;
     /// The evaluation value type.
     type Value: Clone;
-    /// Configuration space dimensions. Each entry is the cardinality of that variable.
-    fn dims(&self) -> Vec<usize>;
-    /// Evaluate the problem on a configuration.
-    fn evaluate(&self, config: &[usize]) -> Result<Self::Value, EvaluationError>;
-    /// Number of variables (derived from dims).
-    fn num_variables(&self) -> usize {
-        self.dims().len()
-    }
+    /// Canonical size-parameter names for this problem model.
+    fn size_parameter_names() -> &'static [&'static str];
+    /// Measure the complete canonical size of this concrete instance.
+    fn size(&self) -> ProblemSize;
+    /// Evaluate the problem on a solution.
+    fn evaluate(&self, solution: &Self::Solution) -> Result<Self::Value, EvaluationError>;
     /// Returns variant attributes derived from type parameters.
     ///
     /// Used for generating variant IDs in the reduction graph schema.
@@ -45,6 +47,24 @@ pub trait Problem: Clone {
         crate::registry::find_problem_type(Self::NAME)
             .unwrap_or_else(|| panic!("no catalog entry for Problem::NAME = {:?}", Self::NAME))
     }
+}
+
+/// Define a problem's canonical size parameters from inherent getter methods.
+#[macro_export]
+macro_rules! problem_size {
+    ($(($name:literal, $getter:ident)),+ $(,)?) => {
+        fn size_parameter_names() -> &'static [&'static str] {
+            &[$($name),+]
+        }
+
+        fn size(&self) -> $crate::types::ProblemSize {
+            $crate::types::ProblemSize::new(vec![
+                $(($name, u64::try_from(self.$getter()).expect(concat!(
+                    "size getter `", $name, "` violated its u64 invariant"
+                )))),+
+            ])
+        }
+    };
 }
 
 /// Marker trait for explicitly declared problem variants.

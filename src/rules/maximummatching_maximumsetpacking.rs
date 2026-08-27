@@ -32,8 +32,8 @@ where
     /// Solutions map directly: edge i in MaximumMatching = set i in MaximumSetPacking.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         Ok(target_solution.to_vec())
@@ -85,8 +85,14 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, MaximumSetPacking<i64>>(
                 source,
                 SolutionPair {
-                    source_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
-                    target_config: vec![0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1],
+                    source_config: serde_json::json!(vec![
+                        false, false, true, true, false, false, false, true, false, false, false,
+                        false, true, false, true
+                    ]),
+                    target_config: serde_json::json!(vec![
+                        false, false, true, true, false, false, false, true, false, false, false,
+                        false, true, false, true
+                    ]),
                 },
             )
         },

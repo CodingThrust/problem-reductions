@@ -42,7 +42,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::IsomorphicSpanningTree;
 /// use problemreductions::topology::SimpleGraph;
-/// use problemreductions::{Problem, Solver, BruteForce};
+/// use problemreductions::{Problem, BruteForce};
 ///
 /// // Host graph: triangle 0-1-2-0
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -51,7 +51,7 @@ inventory::submit! {
 /// let problem = IsomorphicSpanningTree::new(graph, tree);
 ///
 /// let solver = BruteForce::new();
-/// let sol = solver.find_witness(&problem).unwrap();
+/// let sol = solver.solve(&problem).unwrap();
 /// assert!(sol.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,20 +115,30 @@ where
     G: Graph + VariantParam,
 {
     const NAME: &'static str = "IsomorphicSpanningTree";
+    type Solution = Vec<usize>;
     type Value = crate::types::Or;
+
+    crate::problem_size![("num_edges", num_edges), ("num_vertices", num_vertices),];
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G]
     }
 
-    fn dims(&self) -> Vec<usize> {
-        vec![self.graph.num_vertices(); self.graph.num_vertices()]
-    }
-
     fn evaluate(
         &self,
-        config: &[usize],
+        config: &Self::Solution,
     ) -> Result<crate::types::Or, crate::traits::EvaluationError> {
+        let n = self.graph.num_vertices();
+        if config.len() != n {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping length does not match the graph".into(),
+            ));
+        }
+        if config.iter().any(|&vertex| vertex >= n) {
+            return Err(crate::traits::EvaluationError::InvalidConfiguration(
+                "vertex mapping contains an out-of-range vertex".into(),
+            ));
+        }
         Ok({
             crate::types::Or(is_valid_isomorphic_spanning_tree(
                 &self.graph,
@@ -136,6 +146,15 @@ where
                 config,
             ))
         })
+    }
+}
+
+impl<G> crate::solvers::BruteForceProblem for IsomorphicSpanningTree<G>
+where
+    G: Graph + VariantParam,
+{
+    fn dimensions(&self) -> Vec<usize> {
+        vec![self.graph.num_vertices(); self.graph.num_vertices()]
     }
 }
 
@@ -195,13 +214,17 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
             SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
         )),
-        optimal_config: vec![0, 1, 2, 3],
+        optimal_config: serde_json::json!(vec![0, 1, 2, 3]),
         optimal_value: serde_json::json!(true),
     }]
 }
 
 crate::declare_variants! {
     default IsomorphicSpanningTree<SimpleGraph> => "2^num_vertices",
+}
+
+crate::register_brute_force! {
+    IsomorphicSpanningTree<SimpleGraph>,
 }
 
 #[cfg(test)]

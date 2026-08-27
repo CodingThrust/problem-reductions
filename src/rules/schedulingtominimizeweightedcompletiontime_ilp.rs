@@ -55,8 +55,8 @@ impl ReductionResult for ReductionSMWCTToILP {
     /// Extract solution: for each task, find the processor with x_{t,p} = 1.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
         one_hot_decode_rows(target_solution, self.num_tasks, self.num_processors, 0)
@@ -113,18 +113,7 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
                 "weighted completion objective is not exactly representable by the ILP backend",
             ));
         }
-        let lengths = self
-            .lengths()
-            .iter()
-            .copied()
-            .map(i64_to_exact_f64)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| {
-                crate::rules::ReductionError::inexact_float_conversion::<
-                    SchedulingToMinimizeWeightedCompletionTime,
-                    ILP<i64>,
-                >(error)
-            })?;
+        let lengths = self.lengths();
         let weights = self
             .weights()
             .iter()
@@ -137,18 +126,26 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
                     ILP<i64>,
                 >(error)
             })?;
-        let big_m = i64_to_exact_f64(total_processing_time).map_err(|error| {
-            crate::rules::ReductionError::inexact_float_conversion::<
+        let big_m = total_processing_time;
+        let two_big_m = big_m.checked_mul(2).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
                 SchedulingToMinimizeWeightedCompletionTime,
                 ILP<i64>,
-            >(error)
+            >("doubling the disjunctive scheduling bound")
+        })?;
+        let three_big_m = big_m.checked_mul(3).ok_or_else(|| {
+            crate::rules::ReductionError::integer_overflow::<
+                SchedulingToMinimizeWeightedCompletionTime,
+                ILP<i64>,
+            >("tripling the disjunctive scheduling bound")
         })?;
 
         let num_pairs = n * n.saturating_sub(1) / 2;
         let num_vars = n * m + n + num_pairs;
 
         let result = ReductionSMWCTToILP {
-            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize),
+            target: ILP::new(0, vec![], vec![], ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             num_processors: m,
         };
@@ -158,21 +155,21 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
         // 1. Assignment constraints: each task assigned to exactly one processor
         // sum_p x_{t,p} = 1 for each t
         for t in 0..n {
-            let terms: Vec<(usize, f64)> = (0..m).map(|p| (result.x_var(t, p), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
+            let terms: Vec<(usize, i64)> = (0..m).map(|p| (result.x_var(t, p), 1)).collect();
+            constraints.push(LinearConstraint::eq(terms, 1));
         }
 
         // 2. Binary bounds on x_{t,p}: 0 <= x_{t,p} <= 1
         for t in 0..n {
             for p in 0..m {
-                constraints.push(LinearConstraint::le(vec![(result.x_var(t, p), 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(result.x_var(t, p), 1)], 1));
             }
         }
 
         // 3. Completion time bounds: l_t <= C_t <= M
         for (t, &length) in lengths.iter().enumerate() {
-            constraints.push(LinearConstraint::ge(vec![(result.c_var(t), 1.0)], length));
-            constraints.push(LinearConstraint::le(vec![(result.c_var(t), 1.0)], big_m));
+            constraints.push(LinearConstraint::ge(vec![(result.c_var(t), 1)], length));
+            constraints.push(LinearConstraint::le(vec![(result.c_var(t), 1)], big_m));
         }
 
         // 4. Disjunctive constraints: for each pair (i,j) with i < j, on each processor p:
@@ -203,33 +200,21 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
                     // C_j - C_i + M*(1-y) + M*(1-x_{i,p}) + M*(1-x_{j,p}) >= l_j
                     // C_j - C_i - M*y - M*x_{i,p} - M*x_{j,p} >= l_j - 3M
                     constraints.push(LinearConstraint::ge(
-                        vec![
-                            (cj, 1.0),
-                            (ci, -1.0),
-                            (y, -big_m),
-                            (xip, -big_m),
-                            (xjp, -big_m),
-                        ],
-                        lj - 3.0 * big_m,
+                        vec![(cj, 1), (ci, -1), (y, -big_m), (xip, -big_m), (xjp, -big_m)],
+                        lj - three_big_m,
                     ));
 
                     // If j before i on processor p: C_i >= C_j + l_i
                     // C_i - C_j + M*y + M*(1-x_{i,p}) + M*(1-x_{j,p}) >= l_i
                     // C_i - C_j + M*y - M*x_{i,p} - M*x_{j,p} >= l_i - 2M
                     constraints.push(LinearConstraint::ge(
-                        vec![
-                            (ci, 1.0),
-                            (cj, -1.0),
-                            (y, big_m),
-                            (xip, -big_m),
-                            (xjp, -big_m),
-                        ],
-                        li - 2.0 * big_m,
+                        vec![(ci, 1), (cj, -1), (y, big_m), (xip, -big_m), (xjp, -big_m)],
+                        li - two_big_m,
                     ));
                 }
 
                 // Binary bound on y_{i,j}: 0 <= y <= 1
-                constraints.push(LinearConstraint::le(vec![(y, 1.0)], 1.0));
+                constraints.push(LinearConstraint::le(vec![(y, 1)], 1));
             }
         }
 
@@ -241,7 +226,8 @@ impl ReduceTo<ILP<i64>> for SchedulingToMinimizeWeightedCompletionTime {
             .collect();
 
         Ok(ReductionSMWCTToILP {
-            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize),
+            target: ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+                .map_err(Self::target_construction)?,
             num_tasks: n,
             num_processors: m,
         })

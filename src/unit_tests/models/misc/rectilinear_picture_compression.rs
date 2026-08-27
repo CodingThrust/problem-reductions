@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::solvers::BruteForceProblem as _;
 use crate::traits::Problem;
 
 fn two_block_matrix() -> Vec<Vec<bool>> {
@@ -51,52 +52,61 @@ fn test_rectilinear_picture_compression_maximal_rectangles_two_blocks() {
 fn test_rectilinear_picture_compression_dims() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     // 2 maximal rectangles -> 2 binary variables
-    assert_eq!(problem.dims(), vec![2, 2]);
+    assert_eq!(problem.dimensions(), vec![2, 2]);
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_satisfying() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     // Select both maximal rectangles
-    assert!(problem.evaluate(&[1, 1]).unwrap());
+    assert!(problem.evaluate(&vec![true, true]).unwrap());
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_unsatisfying_not_all_covered() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     // Select only first rectangle - second block uncovered
-    assert!(!problem.evaluate(&[1, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![true, false]).unwrap());
     // Select only second rectangle - first block uncovered
-    assert!(!problem.evaluate(&[0, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![false, true]).unwrap());
     // Select none
-    assert!(!problem.evaluate(&[0, 0]).unwrap());
+    assert!(!problem.evaluate(&vec![false, false]).unwrap());
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_bound_exceeded() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 1);
     // Both selected but bound is 1
-    assert!(!problem.evaluate(&[1, 1]).unwrap());
+    assert!(!problem.evaluate(&vec![true, true]).unwrap());
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_wrong_config_length() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
-    assert!(!problem.evaluate(&[1]).unwrap());
-    assert!(!problem.evaluate(&[1, 1, 0]).unwrap());
+    assert!(matches!(
+        problem.evaluate(&vec![true]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
+    assert!(matches!(
+        problem.evaluate(&vec![true, true, false]),
+        Err(crate::traits::EvaluationError::InvalidConfiguration(_))
+    ));
 }
 
 #[test]
 fn test_rectilinear_picture_compression_evaluate_invalid_variable_value() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
-    assert!(!problem.evaluate(&[2, 0]).unwrap());
+    assert!(
+        crate::registry::DynProblem::evaluate_dyn(&problem, &serde_json::json!([2, false]))
+            .is_err()
+    );
 }
 
 #[test]
 fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
     let problem = RectilinearPictureCompression::new(issue_matrix(), 3);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_some());
     let sol = solution.unwrap();
     assert!(problem.evaluate(&sol).unwrap());
@@ -106,7 +116,7 @@ fn test_rectilinear_picture_compression_issue_matrix_satisfiable() {
 fn test_rectilinear_picture_compression_issue_matrix_unsatisfiable() {
     let problem = RectilinearPictureCompression::new(issue_matrix(), 2);
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap();
+    let solution = solver.solve(&problem).unwrap();
     assert!(solution.is_none());
 }
 
@@ -115,7 +125,7 @@ fn test_rectilinear_picture_compression_brute_force() {
     let problem = RectilinearPictureCompression::new(two_block_matrix(), 2);
     let solver = BruteForce::new();
     let solution = solver
-        .find_witness(&problem)
+        .solve(&problem)
         .unwrap()
         .expect("should find a solution");
     assert!(problem.evaluate(&solution).unwrap());
@@ -163,9 +173,9 @@ fn test_rectilinear_picture_compression_single_cell() {
     let problem = RectilinearPictureCompression::new(matrix, 1);
     let rects = problem.maximal_rectangles();
     assert_eq!(rects, vec![(0, 0, 0, 0)]);
-    assert_eq!(problem.dims(), vec![2]);
-    assert!(problem.evaluate(&[1]).unwrap());
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert_eq!(problem.dimensions(), vec![2]);
+    assert!(problem.evaluate(&vec![true]).unwrap());
+    assert!(!problem.evaluate(&vec![false]).unwrap());
 }
 
 #[test]
@@ -175,9 +185,9 @@ fn test_rectilinear_picture_compression_all_zeros() {
     let problem = RectilinearPictureCompression::new(matrix, 0);
     let rects = problem.maximal_rectangles();
     assert!(rects.is_empty());
-    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.dimensions(), Vec::<usize>::new());
     // Empty config satisfies (no 1-entries to cover)
-    assert!(problem.evaluate(&[]).unwrap());
+    assert!(problem.evaluate(&vec![]).unwrap());
 }
 
 #[test]
@@ -187,8 +197,8 @@ fn test_rectilinear_picture_compression_full_matrix() {
     let problem = RectilinearPictureCompression::new(matrix, 1);
     let rects = problem.maximal_rectangles();
     assert_eq!(rects, vec![(0, 0, 1, 1)]);
-    assert!(problem.evaluate(&[1]).unwrap());
-    assert!(!problem.evaluate(&[0]).unwrap());
+    assert!(problem.evaluate(&vec![true]).unwrap());
+    assert!(!problem.evaluate(&vec![false]).unwrap());
 }
 
 #[test]
@@ -201,7 +211,7 @@ fn test_rectilinear_picture_compression_overlapping_rectangles() {
     assert!(rects.contains(&(0, 0, 1, 0)));
     assert!(rects.contains(&(0, 0, 0, 1)));
     let solver = BruteForce::new();
-    let solution = solver.find_witness(&problem).unwrap().unwrap();
+    let solution = solver.solve(&problem).unwrap().unwrap();
     assert!(problem.evaluate(&solution).unwrap());
 }
 

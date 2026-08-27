@@ -53,8 +53,8 @@ fn test_emdc_to_ilp_structure() {
     // lit[i]: 2
     // ptr triples: (0,1,0),(0,1,1),(0,2,0),(1,1,0),(1,1,1) = 5
     // Total = 4 + 2 + 2 + 5 = 13
-    assert_eq!(ilp.num_vars, 13);
-    assert_eq!(ilp.sense, ObjectiveSense::Minimize);
+    assert_eq!(ilp.num_vars(), 13);
+    assert_eq!(ilp.sense(), ObjectiveSense::Minimize);
 
     // Constraints:
     // one-hot: n = 2
@@ -64,7 +64,7 @@ fn test_emdc_to_ilp_structure() {
     // ptr matching: each ptr triple's matching constraints
     //   (0,1,0): 1, (0,1,1): 1, (0,2,0): 2, (1,1,0): 1, (1,1,1): 1 = 6
     // Total = 2 + 4 + 1 + 3 + 6 = 16
-    assert_eq!(ilp.constraints.len(), 16);
+    assert_eq!(ilp.constraints().len(), 16);
 }
 
 #[test]
@@ -74,11 +74,11 @@ fn test_emdc_to_ilp_empty() {
     let reduction = ReduceTo::<ILP<bool>>::reduce_to(&problem).expect("reduction should succeed");
     let ilp = reduction.target_problem();
 
-    assert_eq!(ilp.num_vars, 0);
-    assert!(ilp.constraints.is_empty());
+    assert_eq!(ilp.num_vars(), 0);
+    assert!(ilp.constraints().is_empty());
 
     // For empty ILP, the solution is empty
-    let extracted = reduction.extract_solution(&[]).unwrap();
+    let extracted = reduction.extract_solution(&vec![]).unwrap();
     let value = problem.evaluate(&extracted).unwrap();
     assert_eq!(value, Min(Some(0)));
 }

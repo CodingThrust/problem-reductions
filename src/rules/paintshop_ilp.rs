@@ -26,11 +26,14 @@ impl ReductionResult for ReductionPaintShopToILP {
     /// Extract first-occurrence color bits (x_i) from ILP solution.
     fn extract_solution(
         &self,
-        target_solution: &[usize],
-    ) -> crate::rules::ExtractionResult<Vec<usize>> {
+        target_solution: &<Self::Target as crate::traits::Problem>::Solution,
+    ) -> crate::rules::ExtractionResult<<Self::Source as crate::traits::Problem>::Solution> {
         crate::rules::traits::validate_target_solution(self.target_problem(), target_solution)?;
 
-        Ok(target_solution[..self.num_cars].to_vec())
+        Ok(target_solution[..self.num_cars]
+            .iter()
+            .map(|&value| value == 1)
+            .collect())
     }
 }
 
@@ -57,33 +60,24 @@ impl ReduceTo<ILP<bool>> for PaintShop {
 
         let mut constraints = Vec::new();
 
-        // Determine car index and is_first for each position.
-        // With config all-zero: first occ gets color 0, second occ gets color 1.
-        let base = self.get_coloring(&vec![0; nc]);
-
-        // For each car i, find its positions by flipping x_i.
-        for i in 0..nc {
-            let mut config = vec![0; nc];
-            config[i] = 1;
-            let flipped = self.get_coloring(&config);
-
-            for p in 0..seq_len {
-                if flipped[p] != base[p] {
-                    // Position p belongs to car i
-                    if base[p] == 0 {
-                        // First occurrence: k_p = x_i
-                        constraints.push(LinearConstraint::eq(
-                            vec![(k_offset + p, 1.0), (i, -1.0)],
-                            0.0,
-                        ));
-                    } else {
-                        // Second occurrence: k_p = 1 - x_i  =>  k_p + x_i = 1
-                        constraints.push(LinearConstraint::eq(
-                            vec![(k_offset + p, 1.0), (i, 1.0)],
-                            1.0,
-                        ));
-                    }
-                }
+        for (position, (&car, &is_first)) in self
+            .sequence_indices()
+            .iter()
+            .zip(self.is_first())
+            .enumerate()
+        {
+            if is_first {
+                // First occurrence: k_p = x_i
+                constraints.push(LinearConstraint::eq(
+                    vec![(k_offset + position, 1), (car, -1)],
+                    0,
+                ));
+            } else {
+                // Second occurrence: k_p = 1 - x_i  =>  k_p + x_i = 1
+                constraints.push(LinearConstraint::eq(
+                    vec![(k_offset + position, 1), (car, 1)],
+                    1,
+                ));
             }
         }
 
@@ -91,28 +85,21 @@ impl ReduceTo<ILP<bool>> for PaintShop {
         for p in 1..seq_len {
             // c_p >= k_p - k_{p-1}
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (c_offset + p, 1.0),
-                    (k_offset + p, -1.0),
-                    (k_offset + p - 1, 1.0),
-                ],
-                0.0,
+                vec![(c_offset + p, 1), (k_offset + p, -1), (k_offset + p - 1, 1)],
+                0,
             ));
             // c_p >= k_{p-1} - k_p
             constraints.push(LinearConstraint::ge(
-                vec![
-                    (c_offset + p, 1.0),
-                    (k_offset + p - 1, -1.0),
-                    (k_offset + p, 1.0),
-                ],
-                0.0,
+                vec![(c_offset + p, 1), (k_offset + p - 1, -1), (k_offset + p, 1)],
+                0,
             ));
         }
 
         // Objective: minimize Σ c_p for p in 1..seq_len
         let objective: Vec<(usize, f64)> = (1..seq_len).map(|p| (c_offset + p, 1.0)).collect();
 
-        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize)
+            .map_err(<Self as ReduceTo<ILP<bool>>>::target_construction)?;
         Ok(ReductionPaintShopToILP {
             target,
             num_cars: nc,
@@ -140,8 +127,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             crate::example_db::specs::rule_example_with_witness::<_, ILP<bool>>(
                 source,
                 SolutionPair {
-                    source_config,
-                    target_config,
+                    source_config: serde_json::to_value(source_config)
+                        .expect("solution serialization must succeed"),
+                    target_config: serde_json::to_value(target_config)
+                        .expect("solution serialization must succeed"),
                 },
             )
         },
